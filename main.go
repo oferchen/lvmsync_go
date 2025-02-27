@@ -72,9 +72,9 @@ func runClientMode(snapshotDevice, dest string) error {
 		}
 		var streamErr error
 		if cfg.Parallel <= 1 {
-			streamErr = transfer.DumpChangesSequential(snapshotDevice, originDevice, remoteStdin, cfg.Verbose > 0, cfg.ZeroCopy, cfg.VerifyChecksum, cfg.Compress, cfg.Speed, cfg.ResumeState, cfg.Parallel)
+			streamErr = transfer.DumpChangesSequential(snapshotDevice, originDevice, remoteStdin, cfg.Verbose > 0, cfg.ZeroCopy, cfg.VerifyChecksum, cfg.Compress, cfg.SpeedLimit, cfg.ResumeState, cfg.Parallel)
 		} else {
-			streamErr = transfer.DumpChangesParallel(snapshotDevice, originDevice, remoteStdin, cfg.Verbose > 0, cfg.VerifyChecksum, cfg.Compress, cfg.Speed, cfg.ResumeState, cfg.Parallel)
+			streamErr = transfer.DumpChangesParallel(snapshotDevice, originDevice, remoteStdin, cfg.Verbose > 0, cfg.VerifyChecksum, cfg.Compress, cfg.SpeedLimit, cfg.ResumeState, cfg.Parallel)
 		}
 		remoteStdin.Close()
 		if streamErr != nil {
@@ -94,11 +94,11 @@ func runClientMode(snapshotDevice, dest string) error {
 			return fmt.Errorf("failed to open destination device %s: %v", dest, err)
 		}
 		defer destFile.Close()
-		limitedOut := transfer.WrapRateLimitedWriter(destFile, cfg.Speed)
+		limitedOut := transfer.WrapRateLimitedWriter(destFile, cfg.SpeedLimit)
 		if cfg.Parallel <= 1 {
-			return transfer.DumpChangesSequential(snapshotDevice, originDevice, limitedOut, cfg.Verbose > 0, cfg.ZeroCopy, cfg.VerifyChecksum, cfg.Compress, cfg.Speed, cfg.ResumeState, cfg.Parallel)
+			return transfer.DumpChangesSequential(snapshotDevice, originDevice, limitedOut, cfg.Verbose > 0, cfg.ZeroCopy, cfg.VerifyChecksum, cfg.Compress, cfg.SpeedLimit, cfg.ResumeState, cfg.Parallel)
 		}
-		return transfer.DumpChangesParallel(snapshotDevice, originDevice, limitedOut, cfg.Verbose > 0, cfg.VerifyChecksum, cfg.Compress, cfg.Speed, cfg.ResumeState, cfg.Parallel)
+		return transfer.DumpChangesParallel(snapshotDevice, originDevice, limitedOut, cfg.Verbose > 0, cfg.VerifyChecksum, cfg.Compress, cfg.SpeedLimit, cfg.ResumeState, cfg.Parallel)
 	}
 	return nil
 }
