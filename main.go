@@ -135,7 +135,8 @@ func main() {
 	}
 	if len(args) < 2 {
 		pflag.Usage()
-		logger.Fatal("Usage: lvmsync [options] <snapshot device> <desthost:destdevice OR destdevice>")
+		os.Exit(1)
+		//logger.Fatal("Usage: lvmsync [options] <snapshot device> <desthost:destdevice OR destdevice>")
 	}
 	snapshotDevice := args[0]
 	dest := args[1]
