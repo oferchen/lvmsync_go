@@ -36,8 +36,7 @@ type Config struct {
 	SpeedLimit int    `mapstructure:"-"`
 
 	VerifyChecksum bool `mapstructure:"verify_checksum"`
-
-	Verbose int `mapstructure:"verbose"`
+	Verbose        int  `mapstructure:"verbose"`
 }
 
 func DefaultConfig() *Config {
@@ -58,7 +57,7 @@ func DefaultConfig() *Config {
 		RemotePreScript:  "",
 		RemotePostScript: "",
 		Compress:         "lz4",
-		Speed:            humanize.Bytes(100 * 1024 * 1024), // default as "100MB"
+		Speed:            "100MB",
 		VerifyChecksum:   false,
 		Verbose:          0,
 	}
@@ -90,7 +89,7 @@ func LoadConfig() (*Config, error) {
 	pflag.String("remote_pre_script", defaultCfg.RemotePreScript, fmt.Sprintf("Remote script to run before starting transfer (default: %q)", defaultCfg.RemotePreScript))
 	pflag.String("remote_post_script", defaultCfg.RemotePostScript, fmt.Sprintf("Remote script to run after finishing transfer (default: %q)", defaultCfg.RemotePostScript))
 	pflag.String("compress", defaultCfg.Compress, fmt.Sprintf("Compression to use (default: %q)", defaultCfg.Compress))
-	pflag.String("speed", defaultCfg.Speed, fmt.Sprintf("Speed limit (e.g. \"100MB\") (default: %s)", defaultCfg.Speed))
+	pflag.String("speed", defaultCfg.Speed, fmt.Sprintf("Speed limit (default: %s)", defaultCfg.Speed))
 	pflag.CountP("verbose", "v", "Set verbosity level (e.g. -v, -vv, -vvv)")
 	pflag.Bool("verify_checksum", defaultCfg.VerifyChecksum, fmt.Sprintf("Enable checksum verification (default: %v)", defaultCfg.VerifyChecksum))
 
