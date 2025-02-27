@@ -133,6 +133,12 @@ verify_checksum: false                 # Enable checksum verification for data i
 verbose: 0                             # Verbosity level (0 = silent, higher numbers = more verbose)
 ```
 
+## Credits
+Go version written by Ofer Chen inspired by https://github.com/mpalmer/lvmsync
+
+## Contributing
+Contributions are welcome.
+
 ## License
 
 GPLv3 License. See `LICENSE` for details.
