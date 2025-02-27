@@ -26,7 +26,7 @@ LVMSync is a high-performance incremental data replication tool for LVM snapshot
 ### Build
 
 ```sh
-git clone https://github.com/your-repo/lvmsync.git
+git clone https://github.com/oferchen/lvmsync_go.git
 cd lvmsync
 go build -o lvmsync ./cmd/lvmsync
 ```
