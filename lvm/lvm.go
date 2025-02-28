@@ -18,6 +18,23 @@ import (
 	"go.uber.org/zap"
 )
 
+var (
+	lvmEscalationCommand string
+	lvmEscalationMutex   sync.Mutex
+)
+
+func SetEscalationCommand(command string) {
+	lvmEscalationMutex.Lock()
+	defer lvmEscalationMutex.Unlock()
+	lvmEscalationCommand = command
+}
+
+func GetEscalationCommand() string {
+	lvmEscalationMutex.Lock()
+	defer lvmEscalationMutex.Unlock()
+	return lvmEscalationCommand
+}
+
 const (
 	BLKGETSIZE64 = 0x80081272
 
