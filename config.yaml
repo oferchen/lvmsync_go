@@ -11,15 +11,22 @@ ssh_user: "root"                       # SSH username
 ssh_key: ""                            # Path to SSH private key or use SSH agent
 ssh_port: 22                           # SSH port
 known_hosts: "/root/.ssh/known_hosts"  # Path to known_hosts file
-ssh_verify: true                       # Enable SSH StrictHostKeyChecking
+strict_host_key_checking: true         # Enable SSH StrictHostKeyChecking
 
-lvmsync_path: "lvmsync"                # Remote command to run (e.g. "lvmsync", "sudo lvmsync", etc.)
+lvmsync_path: "lvmsync"                  # Remote command to run (e.g. "lvmsync", "sudo lvmsync", etc.)
 
 remote_pre_script: ""                  # Remote script to run before starting transfer
 remote_post_script: ""                 # Remote script to run after finishing transfer
 
-compress: "lz4"                        # Compression method (e.g. "lz4")
+compress: "lz4"                        # Compression method (options: "none", "lz4", "zstd", "auto")
+compress_level: 3                      # Compression level for zstd (ignored for lz4)
 speed: "100MB"                         # Speed limit (e.g. "100MB")
 verify_checksum: false                 # Enable checksum verification for data integrity
-
 verbose: 0                             # Verbosity level (0 = silent, higher numbers = more verbose)
+
+# LVM Options:
+skip_snapshot_creation: false          # Skip automatic snapshot creation
+skip_disk_check: false                 # Skip disk space check before snapshot creation
+snapshot_size: "20%"                   # Snapshot size as an absolute value (e.g. "20G") or as a percentage (e.g. "20%")
+volume_group: "vg0"                    # Volume group name of the source LVM volume
+lvm_escalation: "sudo -n"               # Command used to escalate privileges for LVM commands
