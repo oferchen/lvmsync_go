@@ -18,27 +18,15 @@ import (
 	"go.uber.org/zap"
 )
 
-var (
-	lvmEscalationCommand string
-	lvmEscalationMutex   sync.Mutex
-)
-
-func SetEscalationCommand(command string) {
-	lvmEscalationMutex.Lock()
-	defer lvmEscalationMutex.Unlock()
-	lvmEscalationCommand = command
-}
-
-func GetEscalationCommand() string {
-	lvmEscalationMutex.Lock()
-	defer lvmEscalationMutex.Unlock()
-	return lvmEscalationCommand
-}
-
 const (
 	BLKGETSIZE64 = 0x80081272
 
 	fdCacheSize = 16
+)
+
+var (
+	escalationCommand     string
+	escalationCommandLock sync.RWMutex
 )
 
 type fdCache struct {
@@ -50,8 +38,37 @@ var deviceFDCache = &fdCache{
 	fds: make(map[string]int),
 }
 
+func SetEscalationCommand(cmd string) {
+	escalationCommandLock.Lock()
+	defer escalationCommandLock.Unlock()
+	escalationCommand = cmd
+}
+
+func GetEscalationCommand() string {
+	escalationCommandLock.RLock()
+	defer escalationCommandLock.RUnlock()
+	return escalationCommand
+}
+
+func buildCommand(name string, args ...string) *exec.Cmd {
+	escalationCommandLock.RLock()
+	escCmd := escalationCommand
+	escalationCommandLock.RUnlock()
+
+	if escCmd != "" && os.Geteuid() != 0 {
+		cmdArgs := append([]string{name}, args...)
+		return exec.Command(escCmd, cmdArgs...)
+	}
+
+	return exec.Command(name, args...)
+}
+
 func checkRootPrivileges() error {
-	if os.Geteuid() != 0 {
+	escalationCommandLock.RLock()
+	escCmd := escalationCommand
+	escalationCommandLock.RUnlock()
+
+	if os.Geteuid() != 0 && escCmd == "" {
 		return fmt.Errorf("insufficient privileges: LVM operations require root privileges")
 	}
 	return nil
@@ -95,7 +112,7 @@ func (c *fdCache) Close() {
 }
 
 func executeCommand(name string, args ...string) ([]byte, error) {
-	cmd := exec.Command(name, args...)
+	cmd := buildCommand(name, args...)
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -301,7 +318,6 @@ func ParseSnapshotSize(sizeStr, volumePath string) (uint64, error) {
 	sizeStr = strings.TrimSpace(sizeStr)
 
 	if strings.HasSuffix(sizeStr, "%") {
-
 		percentStr := strings.TrimSuffix(sizeStr, "%")
 		percent, err := strconv.ParseFloat(percentStr, 64)
 		if err != nil {
