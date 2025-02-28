@@ -5,9 +5,13 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
+	"time"
 
 	"lvmsync_go/config"
+	"lvmsync_go/lvm"
 	"lvmsync_go/remote"
 	"lvmsync_go/transfer"
 
@@ -32,7 +36,7 @@ func runClientMode(snapshotDevice, dest string) error {
 		parts := strings.SplitN(dest, ":", 2)
 		destHost := parts[0]
 		destDevice := parts[1]
-		client, err := remote.NewSSHClient(destHost, cfg.SSHUser, cfg.SSHKeyPath, cfg.SSHPort, cfg.KnownHosts, cfg.SSHVerify)
+		client, err := remote.NewSSHClient(destHost, cfg.SSHUser, cfg.SSHKeyPath, cfg.SSHPort, cfg.KnownHosts, cfg.StrictHostKeyCheck)
 		if err != nil {
 			return fmt.Errorf("failed to create SSH client: %v", err)
 		}
@@ -72,9 +76,9 @@ func runClientMode(snapshotDevice, dest string) error {
 		}
 		var streamErr error
 		if cfg.Parallel <= 1 {
-			streamErr = transfer.DumpChangesSequential(snapshotDevice, originDevice, remoteStdin, cfg.Verbose > 0, cfg.ZeroCopy, cfg.VerifyChecksum, cfg.Compress, cfg.SpeedLimit, cfg.ResumeState, cfg.Parallel)
+			streamErr = transfer.DumpChangesSequential(snapshotDevice, originDevice, remoteStdin, cfg.Verbose > 0, cfg.ZeroCopy, cfg.VerifyChecksum, cfg.Compress, cfg.CompressLevel, cfg.SpeedLimit, cfg.ResumeState, cfg.Parallel)
 		} else {
-			streamErr = transfer.DumpChangesParallel(snapshotDevice, originDevice, remoteStdin, cfg.Verbose > 0, cfg.VerifyChecksum, cfg.Compress, cfg.SpeedLimit, cfg.ResumeState, cfg.Parallel)
+			streamErr = transfer.DumpChangesParallel(snapshotDevice, originDevice, remoteStdin, cfg.Verbose > 0, cfg.VerifyChecksum, cfg.Compress, cfg.CompressLevel, cfg.SpeedLimit, cfg.ResumeState, cfg.Parallel)
 		}
 		remoteStdin.Close()
 		if streamErr != nil {
@@ -96,9 +100,9 @@ func runClientMode(snapshotDevice, dest string) error {
 		defer destFile.Close()
 		limitedOut := transfer.WrapRateLimitedWriter(destFile, cfg.SpeedLimit)
 		if cfg.Parallel <= 1 {
-			return transfer.DumpChangesSequential(snapshotDevice, originDevice, limitedOut, cfg.Verbose > 0, cfg.ZeroCopy, cfg.VerifyChecksum, cfg.Compress, cfg.SpeedLimit, cfg.ResumeState, cfg.Parallel)
+			return transfer.DumpChangesSequential(snapshotDevice, originDevice, limitedOut, cfg.Verbose > 0, cfg.ZeroCopy, cfg.VerifyChecksum, cfg.Compress, cfg.CompressLevel, cfg.SpeedLimit, cfg.ResumeState, cfg.Parallel)
 		}
-		return transfer.DumpChangesParallel(snapshotDevice, originDevice, limitedOut, cfg.Verbose > 0, cfg.VerifyChecksum, cfg.Compress, cfg.SpeedLimit, cfg.ResumeState, cfg.Parallel)
+		return transfer.DumpChangesParallel(snapshotDevice, originDevice, limitedOut, cfg.Verbose > 0, cfg.VerifyChecksum, cfg.Compress, cfg.CompressLevel, cfg.SpeedLimit, cfg.ResumeState, cfg.Parallel)
 	}
 	return nil
 }
@@ -110,41 +114,95 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Configuration error: %v\n", err)
 		os.Exit(1)
 	}
-	verboseCount := pflag.Lookup("verbose").Value.String()
-	var logger *zap.Logger
-	if cfg.StdoutMode || cfg.Parallel <= 1 || verboseCount != "0" {
-		logger, err = zap.NewDevelopment()
-	} else {
-		logger, err = zap.NewProduction()
+
+	if err := cfg.Validate(); err != nil {
+		fmt.Fprintf(os.Stderr, "Configuration validation error: %v\n", err)
+		os.Exit(1)
 	}
+
+	lvm.SetEscalationCommand(cfg.LVMEscalation)
+
+	logger, err := zap.NewProduction()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Logger initialization error: %v\n", err)
 		os.Exit(1)
 	}
 	zap.ReplaceGlobals(logger)
 	defer logger.Sync()
+
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
+	var snapshotPath string
+
+	go func() {
+		sig := <-signals
+		zap.L().Info("Received signal, aborting", zap.String("signal", sig.String()))
+		if !cfg.SkipSnapshotCreation && snapshotPath != "" && snapshotPath != pflag.Arg(0) {
+			if err := lvm.RemoveSnapshot(snapshotPath); err != nil {
+				zap.L().Warn("Failed to remove snapshot on shutdown", zap.Error(err))
+			} else {
+				zap.L().Info("Snapshot removed on shutdown", zap.String("snapshot", snapshotPath))
+			}
+		}
+		os.Exit(1)
+	}()
+
 	args := pflag.Args()
-	if cfg.ApplyMode != "" {
-		if len(args) < 1 {
-			logger.Fatal("No destination device specified for apply mode")
-		}
-		if err := runApplyMode(); err != nil {
-			logger.Fatal("Apply mode error", zap.Error(err))
-		}
-		return
-	}
 	if len(args) < 2 {
 		pflag.Usage()
 		os.Exit(1)
-		//logger.Fatal("Usage: lvmsync [options] <snapshot device> <desthost:destdevice OR destdevice>")
 	}
-	snapshotDevice := args[0]
-	dest := args[1]
-	if cfg.ZeroCopy && cfg.Parallel > 1 {
-		logger.Warn("Zero-copy only works in sequential mode; disabling zerocopy")
-		cfg.ZeroCopy = false
+	originalVolume := args[0]
+
+	if !cfg.SkipDiskCheck {
+		freeSpace, err := lvm.CheckDiskSpace("/")
+		if err != nil {
+			logger.Fatal("Disk space check failed", zap.Error(err))
+		}
+		requiredBytes, err := lvm.ParseSnapshotSize(cfg.SnapshotSize, originalVolume)
+		if err != nil {
+			logger.Fatal("Failed to parse snapshot size", zap.Error(err))
+		}
+		if freeSpace < requiredBytes {
+			logger.Fatal("Insufficient disk space for snapshot",
+				zap.Uint64("free", freeSpace),
+				zap.Uint64("required", requiredBytes))
+		}
+		logger.Info("Disk space check passed", zap.Uint64("free", freeSpace))
 	}
-	if err := runClientMode(snapshotDevice, dest); err != nil {
-		logger.Fatal("Client mode error", zap.Error(err))
+
+	snapshotPath = originalVolume
+	if !cfg.SkipSnapshotCreation {
+		snapshotName := fmt.Sprintf("snap-%d", time.Now().Unix())
+		err = lvm.CreateSnapshot(originalVolume, snapshotName, cfg.SnapshotSize)
+		if err != nil {
+			logger.Fatal("Snapshot creation failed", zap.Error(err))
+		}
+		snapshotPath = lvm.GetSnapshotDevicePath(snapshotName, cfg.VolumeGroup)
+		logger.Info("Snapshot created", zap.String("snapshot", snapshotPath))
+
+		stopMonitor := make(chan struct{})
+		go func() {
+			if err := lvm.MonitorSnapshot(snapshotPath, 80.0, 10*time.Second, stopMonitor); err != nil {
+				zap.L().Error("Snapshot monitor error", zap.Error(err))
+				os.Exit(1)
+			}
+		}()
+		defer close(stopMonitor)
+	}
+
+	err = transfer.DumpChangesSequential(snapshotPath, originalVolume, os.Stdout, cfg.Verbose > 0,
+		cfg.ZeroCopy, cfg.VerifyChecksum, cfg.Compress, cfg.CompressLevel, cfg.SpeedLimit, cfg.ResumeState, cfg.Parallel)
+	if err != nil {
+		logger.Fatal("Copy operation failed", zap.Error(err))
+	}
+
+	if !cfg.SkipSnapshotCreation {
+		err = lvm.RemoveSnapshot(snapshotPath)
+		if err != nil {
+			logger.Warn("Failed to remove snapshot", zap.Error(err))
+		} else {
+			logger.Info("Snapshot removed", zap.String("snapshot", snapshotPath))
+		}
 	}
 }
