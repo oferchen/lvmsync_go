@@ -21,7 +21,6 @@ LVMSync is a high-performance incremental data replication tool for LVM snapshot
 - Go 1.18+
 - LVM2 (for snapshot support)
 - SSH client & server (for remote transfers)
-- `lz4` (if using compression)
 
 ### Build
 
