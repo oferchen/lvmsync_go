@@ -86,37 +86,37 @@ func LoadConfig() (*Config, error) {
 	// General Options.
 	generalFlags.String("config", "", "Path to config YAML file")
 	generalFlags.String("apply", defaultCfg.ApplyMode, "Apply mode: read change dump from file ('-' for STDIN) and apply to destination device")
-	generalFlags.Bool("stdout", defaultCfg.StdoutMode, fmt.Sprintf("Write change dump to STDOUT (default: %v)", defaultCfg.StdoutMode))
-	generalFlags.Int("parallel", defaultCfg.Parallel, fmt.Sprintf("Number of concurrent workers (default: %d)", defaultCfg.Parallel))
-	generalFlags.Bool("zerocopy", defaultCfg.ZeroCopy, fmt.Sprintf("Enable zero-copy transfers (default: %v)", defaultCfg.ZeroCopy))
-	generalFlags.Int("max_retries", defaultCfg.MaxRetries, fmt.Sprintf("Maximum number of retries per block (default: %d)", defaultCfg.MaxRetries))
-	generalFlags.String("resume", defaultCfg.ResumeState, fmt.Sprintf("Path to resume state file (default: %q)", defaultCfg.ResumeState))
-	generalFlags.String("speed", defaultCfg.Speed, fmt.Sprintf("Speed limit (default: %s)", defaultCfg.Speed))
-	generalFlags.CountP("verbose", "v", "Set verbosity level (e.g. -v, -vv, -vvv)")
-	generalFlags.Bool("verify_checksum", defaultCfg.VerifyChecksum, fmt.Sprintf("Enable checksum verification (default: %v)", defaultCfg.VerifyChecksum))
+	generalFlags.Bool("stdout", defaultCfg.StdoutMode, "Write change dump to STDOUT")
+	generalFlags.Int("parallel", defaultCfg.Parallel, "Number of concurrent workers")
+	generalFlags.Bool("zerocopy", defaultCfg.ZeroCopy, "Enable zero-copy transfers")
+	generalFlags.Int("max_retries", defaultCfg.MaxRetries, "Maximum number of retries per block")
+	generalFlags.String("resume", defaultCfg.ResumeState, "Path to resume state file")
+	generalFlags.String("speed", defaultCfg.Speed, "Transfer speed limit")
+	generalFlags.CountP("verbose", "v", "Verbosity level")
+	generalFlags.Bool("verify_checksum", defaultCfg.VerifyChecksum, "Enable checksum verification")
 
 	// SSH Options.
-	sshFlags.String("ssh_user", defaultCfg.SSHUser, fmt.Sprintf("SSH username (default: %q)", defaultCfg.SSHUser))
-	sshFlags.String("ssh_key", defaultCfg.SSHKeyPath, fmt.Sprintf("Path to SSH private key or use agent (default: %q)", defaultCfg.SSHKeyPath))
-	sshFlags.Int("ssh_port", defaultCfg.SSHPort, fmt.Sprintf("SSH port (default: %d)", defaultCfg.SSHPort))
-	sshFlags.String("known_hosts", defaultCfg.KnownHosts, fmt.Sprintf("Path to known_hosts file (default: %q)", defaultCfg.KnownHosts))
-	sshFlags.Bool("stricthostkeychecking", defaultCfg.StrictHostKeyCheck, fmt.Sprintf("Enable SSH StrictHostKeyChecking (default: %v)", defaultCfg.StrictHostKeyCheck))
+	sshFlags.String("ssh_user", defaultCfg.SSHUser, "SSH username")
+	sshFlags.String("ssh_key", defaultCfg.SSHKeyPath, "Path to SSH private key or use agent")
+	sshFlags.Int("ssh_port", defaultCfg.SSHPort, "SSH port")
+	sshFlags.String("known_hosts", defaultCfg.KnownHosts, "Path to known_hosts file")
+	sshFlags.Bool("stricthostkeychecking", defaultCfg.StrictHostKeyCheck, "Enable SSH StrictHostKeyChecking")
 
 	// Remote Options.
-	remoteFlags.String("lvmsync_path", defaultCfg.LVMSyncPath, fmt.Sprintf("Remote command to run (default: %q)", defaultCfg.LVMSyncPath))
-	remoteFlags.String("remote_pre_script", defaultCfg.RemotePreScript, fmt.Sprintf("Remote script to run before starting transfer (default: %q)", defaultCfg.RemotePreScript))
-	remoteFlags.String("remote_post_script", defaultCfg.RemotePostScript, fmt.Sprintf("Remote script to run after finishing transfer (default: %q)", defaultCfg.RemotePostScript))
+	remoteFlags.String("lvmsync_path", defaultCfg.LVMSyncPath, "Remote command to run")
+	remoteFlags.String("remote_pre_script", defaultCfg.RemotePreScript, "Remote script to run before transfer")
+	remoteFlags.String("remote_post_script", defaultCfg.RemotePostScript, "Remote script to run after transfer")
 
 	// Compression Options.
 	compressionFlags.String("compress", defaultCfg.Compress, fmt.Sprintf("Compression type, options: %v", SupportedCompression))
-	compressionFlags.Int("compress_level", defaultCfg.CompressLevel, fmt.Sprintf("Compression level for zstd (default: %d, balanced for CPU usage); ignored for lz4", defaultCfg.CompressLevel))
+	compressionFlags.Int("compress_level", defaultCfg.CompressLevel, "Compression level for zstd (ignored for lz4)")
 
 	// LVM Options.
 	lvmFlags.Bool("skip_snapshot_creation", defaultCfg.SkipSnapshotCreation, "Skip automatic snapshot creation")
 	lvmFlags.Bool("skip_disk_check", defaultCfg.SkipDiskCheck, "Skip disk space check before snapshot creation")
-	lvmFlags.String("snapshot_size", defaultCfg.SnapshotSize, "Snapshot size as an absolute value (e.g. \"20G\") or as a percentage of the original volume (e.g. \"20%\")")
-	lvmFlags.String("lvm_escalation", defaultCfg.LVMEscalation, "Command used to escalate privileges for LVM commands (default: \"sudo -n\")")
-	lvmFlags.String("volume_group", defaultCfg.VolumeGroup, "Volume group name of the source LVM volume (default: \"vg0\")")
+	lvmFlags.String("snapshot_size", defaultCfg.SnapshotSize, "Snapshot size (e.g., '20G' or '20%')")
+	lvmFlags.String("lvm_escalation", defaultCfg.LVMEscalation, "Command used to escalate privileges for LVM commands")
+	lvmFlags.String("volume_group", defaultCfg.VolumeGroup, "Volume group name of the source LVM volume")
 
 	pflag.CommandLine.AddFlagSet(generalFlags)
 	pflag.CommandLine.AddFlagSet(sshFlags)
