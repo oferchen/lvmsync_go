@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/dustin/go-humanize"
 	"github.com/spf13/pflag"
@@ -16,33 +17,34 @@ import (
 var SupportedCompression = []string{"none", "lz4", "zstd", "auto"}
 
 type Config struct {
-	ConfigFile           string `mapstructure:"config"`
-	ApplyMode            string `mapstructure:"apply"`
-	StdoutMode           bool   `mapstructure:"stdout"`
-	Parallel             int    `mapstructure:"parallel"`
-	ZeroCopy             bool   `mapstructure:"zerocopy"`
-	MaxRetries           int    `mapstructure:"max_retries"`
-	ResumeState          string `mapstructure:"resume"`
-	SSHUser              string `mapstructure:"ssh_user"`
-	SSHKeyPath           string `mapstructure:"ssh_key"`
-	SSHPort              int    `mapstructure:"ssh_port"`
-	KnownHosts           string `mapstructure:"known_hosts"`
-	StrictHostKeyCheck   bool   `mapstructure:"strict_host_key_checking"`
-	LVMSyncPath          string `mapstructure:"lvmsync_path"`
-	RemotePreScript      string `mapstructure:"remote_pre_script"`
-	RemotePostScript     string `mapstructure:"remote_post_script"`
-	Compress             string `mapstructure:"compress"`
-	CompressLevel        int    `mapstructure:"compress_level"`
-	Speed                string `mapstructure:"speed"`
-	SpeedLimit           int    `mapstructure:"-"`
-	VerifyChecksum       bool   `mapstructure:"verify_checksum"`
-	Verbose              int    `mapstructure:"verbose"`
-	SkipSnapshotCreation bool   `mapstructure:"skip_snapshot_creation"`
-	SkipDiskCheck        bool   `mapstructure:"skip_disk_check"`
-	SnapshotSize         string `mapstructure:"snapshot_size"`
-	VolumeGroup          string `mapstructure:"volume_group"`
-	LVMEscalation        string `mapstructure:"lvm_escalation"`
-	Progress             bool   `mapstructure:"progress"`
+	ConfigFile           string        `mapstructure:"config"`
+	ApplyMode            string        `mapstructure:"apply"`
+	StdoutMode           bool          `mapstructure:"stdout"`
+	Parallel             int           `mapstructure:"parallel"`
+	ZeroCopy             bool          `mapstructure:"zerocopy"`
+	MaxRetries           int           `mapstructure:"max_retries"`
+	ResumeState          string        `mapstructure:"resume"`
+	SSHUser              string        `mapstructure:"ssh_user"`
+	SSHKeyPath           string        `mapstructure:"ssh_key"`
+	SSHPort              int           `mapstructure:"ssh_port"`
+	SSHTimeout           time.Duration `mapstructure:"ssh_timeout"`
+	KnownHosts           string        `mapstructure:"known_hosts"`
+	StrictHostKeyCheck   bool          `mapstructure:"strict_host_key_checking"`
+	LVMSyncPath          string        `mapstructure:"lvmsync_path"`
+	RemotePreScript      string        `mapstructure:"remote_pre_script"`
+	RemotePostScript     string        `mapstructure:"remote_post_script"`
+	Compress             string        `mapstructure:"compress"`
+	CompressLevel        int           `mapstructure:"compress_level"`
+	Speed                string        `mapstructure:"speed"`
+	SpeedLimit           int           `mapstructure:"-"`
+	VerifyChecksum       bool          `mapstructure:"verify_checksum"`
+	Verbose              int           `mapstructure:"verbose"`
+	SkipSnapshotCreation bool          `mapstructure:"skip_snapshot_creation"`
+	SkipDiskCheck        bool          `mapstructure:"skip_disk_check"`
+	SnapshotSize         string        `mapstructure:"snapshot_size"`
+	VolumeGroup          string        `mapstructure:"volume_group"`
+	LVMEscalation        string        `mapstructure:"lvm_escalation"`
+	Progress             bool          `mapstructure:"progress"`
 }
 
 func DefaultConfig() *Config {
@@ -57,6 +59,7 @@ func DefaultConfig() *Config {
 		SSHUser:              "root",
 		SSHKeyPath:           "",
 		SSHPort:              22,
+		SSHTimeout:           10 * time.Second,
 		KnownHosts:           filepath.Join(homeDir, ".ssh", "known_hosts"),
 		StrictHostKeyCheck:   true,
 		LVMSyncPath:          "lvmsync",
@@ -102,6 +105,7 @@ func LoadConfig() (*Config, error) {
 	sshFlags.String("ssh_user", defaultCfg.SSHUser, "SSH username")
 	sshFlags.String("ssh_key", defaultCfg.SSHKeyPath, "Path to SSH private key or use agent")
 	sshFlags.Int("ssh_port", defaultCfg.SSHPort, "SSH port")
+	sshFlags.Duration("ssh_timeout", defaultCfg.SSHTimeout, "SSH connection timeout (e.g., 5s, 10s, 30s)")
 	sshFlags.String("known_hosts", defaultCfg.KnownHosts, "Path to known_hosts file")
 	sshFlags.Bool("stricthostkeychecking", defaultCfg.StrictHostKeyCheck, "Enable SSH StrictHostKeyChecking")
 
