@@ -29,4 +29,5 @@ skip_snapshot_creation: false          # Skip automatic snapshot creation
 skip_disk_check: false                 # Skip disk space check before snapshot creation
 snapshot_size: "20%"                   # Snapshot size as an absolute value (e.g. "20G") or as a percentage (e.g. "20%")
 volume_group: "vg0"                    # Volume group name of the source LVM volume
-lvm_escalation: "sudo -n"               # Command used to escalate privileges for LVM commands
+lvm_escalation: "sudo -n"              # Command used to escalate privileges for LVM commands
+progress: true                         # Enable progress display during transfer
