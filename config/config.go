@@ -42,6 +42,7 @@ type Config struct {
 	SnapshotSize         string `mapstructure:"snapshot_size"`
 	VolumeGroup          string `mapstructure:"volume_group"`
 	LVMEscalation        string `mapstructure:"lvm_escalation"`
+	Progress             bool   `mapstructure:"progress"`
 }
 
 func DefaultConfig() *Config {
@@ -71,6 +72,7 @@ func DefaultConfig() *Config {
 		SnapshotSize:         "20%",
 		VolumeGroup:          "vg0",
 		LVMEscalation:        "sudo -n",
+		Progress:             true,
 	}
 }
 
@@ -94,6 +96,7 @@ func LoadConfig() (*Config, error) {
 	generalFlags.String("speed", defaultCfg.Speed, "Transfer speed limit")
 	generalFlags.CountP("verbose", "v", "Verbosity level")
 	generalFlags.Bool("verify_checksum", defaultCfg.VerifyChecksum, "Enable checksum verification")
+	generalFlags.Bool("progress", defaultCfg.Progress, "Show progress percentage during copy operation")
 
 	// SSH Options.
 	sshFlags.String("ssh_user", defaultCfg.SSHUser, "SSH username")

@@ -76,9 +76,9 @@ func runClientMode(snapshotDevice, dest string) error {
 		}
 		var streamErr error
 		if cfg.Parallel <= 1 {
-			streamErr = transfer.DumpChangesSequential(snapshotDevice, originDevice, remoteStdin, cfg.Verbose > 0, cfg.ZeroCopy, cfg.VerifyChecksum, cfg.Compress, cfg.CompressLevel, cfg.SpeedLimit, cfg.ResumeState, cfg.Parallel)
+			streamErr = transfer.DumpChangesSequential(snapshotDevice, originDevice, remoteStdin, cfg.Verbose > 0, cfg.ZeroCopy, cfg.VerifyChecksum, cfg.Compress, cfg.CompressLevel, cfg.SpeedLimit, cfg.ResumeState, cfg.Parallel, cfg.Progress)
 		} else {
-			streamErr = transfer.DumpChangesParallel(snapshotDevice, originDevice, remoteStdin, cfg.Verbose > 0, cfg.VerifyChecksum, cfg.Compress, cfg.CompressLevel, cfg.SpeedLimit, cfg.ResumeState, cfg.Parallel)
+			streamErr = transfer.DumpChangesParallel(snapshotDevice, originDevice, remoteStdin, cfg.Verbose > 0, cfg.VerifyChecksum, cfg.Compress, cfg.CompressLevel, cfg.SpeedLimit, cfg.ResumeState, cfg.Parallel, cfg.Progress)
 		}
 		remoteStdin.Close()
 		if streamErr != nil {
@@ -100,9 +100,9 @@ func runClientMode(snapshotDevice, dest string) error {
 		defer destFile.Close()
 		limitedOut := transfer.WrapRateLimitedWriter(destFile, cfg.SpeedLimit)
 		if cfg.Parallel <= 1 {
-			return transfer.DumpChangesSequential(snapshotDevice, originDevice, limitedOut, cfg.Verbose > 0, cfg.ZeroCopy, cfg.VerifyChecksum, cfg.Compress, cfg.CompressLevel, cfg.SpeedLimit, cfg.ResumeState, cfg.Parallel)
+			return transfer.DumpChangesSequential(snapshotDevice, originDevice, limitedOut, cfg.Verbose > 0, cfg.ZeroCopy, cfg.VerifyChecksum, cfg.Compress, cfg.CompressLevel, cfg.SpeedLimit, cfg.ResumeState, cfg.Parallel, cfg.Progress)
 		}
-		return transfer.DumpChangesParallel(snapshotDevice, originDevice, limitedOut, cfg.Verbose > 0, cfg.VerifyChecksum, cfg.Compress, cfg.CompressLevel, cfg.SpeedLimit, cfg.ResumeState, cfg.Parallel)
+		return transfer.DumpChangesParallel(snapshotDevice, originDevice, limitedOut, cfg.Verbose > 0, cfg.VerifyChecksum, cfg.Compress, cfg.CompressLevel, cfg.SpeedLimit, cfg.ResumeState, cfg.Parallel, cfg.Progress)
 	}
 	return nil
 }
@@ -192,7 +192,7 @@ func main() {
 	}
 
 	err = transfer.DumpChangesSequential(snapshotPath, originalVolume, os.Stdout, cfg.Verbose > 0,
-		cfg.ZeroCopy, cfg.VerifyChecksum, cfg.Compress, cfg.CompressLevel, cfg.SpeedLimit, cfg.ResumeState, cfg.Parallel)
+		cfg.ZeroCopy, cfg.VerifyChecksum, cfg.Compress, cfg.CompressLevel, cfg.SpeedLimit, cfg.ResumeState, cfg.Parallel, cfg.Progress)
 	if err != nil {
 		logger.Fatal("Copy operation failed", zap.Error(err))
 	}

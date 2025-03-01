@@ -24,7 +24,7 @@ func SetLogger(logger *zap.Logger) {
 	Logger = logger
 }
 
-func DumpChangesSequential(snapshot, source string, out io.Writer, verbose bool, useZeroCopy bool, verifyChecksum bool, compress string, compressLevel int, speedLimit int, resumeState string, parallel int) error {
+func DumpChangesSequential(snapshot, source string, out io.Writer, verbose bool, useZeroCopy bool, verifyChecksum bool, compress string, compressLevel int, speedLimit int, resumeState string, parallel int, progress bool) error {
 	metadataDevice := GetMetadataDevice(snapshot)
 	if metadataDevice == "" {
 		return fmt.Errorf("failed to determine metadata device from snapshot %s", snapshot)
@@ -84,11 +84,18 @@ func DumpChangesSequential(snapshot, source string, out io.Writer, verbose bool,
 				Logger.Warn("Failed to update resume state", zap.Error(err))
 			}
 		}
+		if progress {
+			progressPercent := float64(i+1) / float64(len(ranges)) * 100.0
+			fmt.Fprintf(os.Stderr, "\rProgress: %.2f%%", progressPercent)
+		}
 		if verbose && i > 0 && i%100 == 0 {
 			elapsed := time.Since(startTime).Seconds()
 			speed := float64(totalBytes) / elapsed / 1048576.0
 			Logger.Info("Sequential dump progress", zap.Int("chunk", i+1), zap.Float64("MB/s", speed))
 		}
+	}
+	if progress {
+		fmt.Fprintln(os.Stderr, "")
 	}
 	if err := bufOut.Flush(); err != nil {
 		return fmt.Errorf("failed to flush output: %v", err)
@@ -102,7 +109,7 @@ func DumpChangesSequential(snapshot, source string, out io.Writer, verbose bool,
 	return nil
 }
 
-func DumpChangesParallel(snapshot, source string, out io.Writer, verbose bool, verifyChecksum bool, compress string, compressLevel int, speedLimit int, resumeState string, parallel int) error {
+func DumpChangesParallel(snapshot, source string, out io.Writer, verbose bool, verifyChecksum bool, compress string, compressLevel int, speedLimit int, resumeState string, parallel int, progress bool) error {
 	metadataDevice := GetMetadataDevice(snapshot)
 	if metadataDevice == "" {
 		return fmt.Errorf("failed to determine metadata device from snapshot %s", snapshot)
@@ -208,11 +215,18 @@ func DumpChangesParallel(snapshot, source string, out io.Writer, verbose bool, v
 				Logger.Warn("Failed to update resume state", zap.Error(err))
 			}
 		}
+		if progress {
+			progressPercent := float64(i+resumeStart+1) / float64(numBlocks) * 100.0
+			fmt.Fprintf(os.Stderr, "\rProgress: %.2f%%", progressPercent)
+		}
 		if verbose && i > 0 && i%100 == 0 {
 			elapsed := time.Since(startTime).Seconds()
 			speed := float64(totalBytes) / elapsed / 1048576.0
 			Logger.Info("Parallel dump progress", zap.Int("block", i+resumeStart+1), zap.Float64("MB/s", speed))
 		}
+	}
+	if progress {
+		fmt.Fprintln(os.Stderr, "")
 	}
 	if err := bufOut.Flush(); err != nil {
 		return fmt.Errorf("failed to flush output: %v", err)
