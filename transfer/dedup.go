@@ -47,26 +47,31 @@ func NewDeduplicationStrategy(cfg *config.Config) DeduplicationStrategy {
 
 func (c *ChecksumDedup) ShouldTransfer(offset int64, data []byte) bool {
 	c.mu.RLock()
-	defer c.mu.RUnlock()
-	sum := sha256.Sum256(data)
 	prev, exists := c.hashes[offset]
+	c.mu.RUnlock()
+
+	sum := sha256.Sum256(data)
 	return !exists || prev != sum
 }
 
 func (c *ChecksumDedup) RecordTransfer(offset int64, data []byte) {
+	sum := sha256.Sum256(data)
+
 	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.hashes[offset] = sha256.Sum256(data)
+	c.hashes[offset] = sum
+	c.mu.Unlock()
 }
 
 func (c *ChecksumDedup) SaveState() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
 	file, err := os.Create(c.stateFile)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
+
 	for offset, hash := range c.hashes {
 		binary.Write(file, binary.LittleEndian, offset)
 		file.Write(hash[:])
@@ -77,6 +82,7 @@ func (c *ChecksumDedup) SaveState() error {
 func (b *BloomFilterDedup) ShouldTransfer(offset int64, data []byte) bool {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
+
 	h := sha256.Sum256(data)
 	return !b.filter.Test(h[:])
 }
@@ -84,6 +90,7 @@ func (b *BloomFilterDedup) ShouldTransfer(offset int64, data []byte) bool {
 func (b *BloomFilterDedup) RecordTransfer(offset int64, data []byte) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+
 	h := sha256.Sum256(data)
 	b.filter.Add(h[:])
 }
