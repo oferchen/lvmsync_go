@@ -27,7 +27,8 @@ func runApplyMode() error {
 		return fmt.Errorf("no destination device specified for apply mode")
 	}
 	destDevice := args[0]
-	return transfer.RunApply(cfg.ApplyMode, destDevice, true, cfg.VerifyChecksum, cfg.Compress)
+	applyFile := "-"
+	return transfer.RunApply(cfg, applyFile, destDevice)
 }
 
 func runClientMode(snapshotDevice, dest string) error {
@@ -42,6 +43,7 @@ func runClientMode(snapshotDevice, dest string) error {
 		}
 		defer client.Close()
 		remote.SetLogger(zap.L())
+
 		if cfg.RemotePreScript != "" {
 			if err := remote.RunRemoteScript(client, cfg.RemotePreScript); err != nil {
 				return fmt.Errorf("remote pre-script failed: %v", err)
@@ -50,11 +52,13 @@ func runClientMode(snapshotDevice, dest string) error {
 		if err := remote.ValidateRemoteCommand(client, cfg.LVMSyncPath); err != nil {
 			return fmt.Errorf("remote command validation failed: %v", err)
 		}
+
 		session, err := client.NewSession()
 		if err != nil {
 			return fmt.Errorf("failed to create SSH session: %v", err)
 		}
 		defer session.Close()
+
 		stdoutPipe, err := session.StdoutPipe()
 		if err != nil {
 			return fmt.Errorf("failed to get stdout pipe: %v", err)
@@ -65,8 +69,10 @@ func runClientMode(snapshotDevice, dest string) error {
 		}
 		go io.Copy(os.Stdout, stdoutPipe)
 		go io.Copy(os.Stderr, stderrPipe)
+
 		remoteCmd := fmt.Sprintf("%s --apply - %s", cfg.LVMSyncPath, destDevice)
 		zap.L().Info("Starting remote apply command", zap.String("command", remoteCmd))
+
 		remoteStdin, err := session.StdinPipe()
 		if err != nil {
 			return fmt.Errorf("failed to get remote stdin: %v", err)
@@ -74,19 +80,22 @@ func runClientMode(snapshotDevice, dest string) error {
 		if err := session.Start(remoteCmd); err != nil {
 			return fmt.Errorf("failed to start remote command: %v", err)
 		}
+
 		var streamErr error
 		if cfg.Parallel <= 1 {
-			streamErr = transfer.DumpChangesSequential(snapshotDevice, originDevice, remoteStdin, cfg.Verbose > 0, cfg.ZeroCopy, cfg.VerifyChecksum, cfg.Compress, cfg.CompressLevel, cfg.SpeedLimit, cfg.ResumeState, cfg.Parallel, cfg.Progress)
+			streamErr = transfer.DumpChangesSequential(cfg, snapshotDevice, originDevice, remoteStdin)
 		} else {
-			streamErr = transfer.DumpChangesParallel(snapshotDevice, originDevice, remoteStdin, cfg.Verbose > 0, cfg.VerifyChecksum, cfg.Compress, cfg.CompressLevel, cfg.SpeedLimit, cfg.ResumeState, cfg.Parallel, cfg.Progress)
+			streamErr = transfer.DumpChangesParallel(cfg, snapshotDevice, originDevice, remoteStdin)
 		}
 		remoteStdin.Close()
 		if streamErr != nil {
 			return fmt.Errorf("error during dumpChanges: %v", streamErr)
 		}
+
 		if err := session.Wait(); err != nil {
 			return fmt.Errorf("remote command error: %v", err)
 		}
+
 		if cfg.RemotePostScript != "" {
 			if err := remote.RunRemoteScript(client, cfg.RemotePostScript); err != nil {
 				return fmt.Errorf("remote post-script failed: %v", err)
@@ -99,10 +108,11 @@ func runClientMode(snapshotDevice, dest string) error {
 		}
 		defer destFile.Close()
 		limitedOut := transfer.WrapRateLimitedWriter(destFile, cfg.SpeedLimit)
+
 		if cfg.Parallel <= 1 {
-			return transfer.DumpChangesSequential(snapshotDevice, originDevice, limitedOut, cfg.Verbose > 0, cfg.ZeroCopy, cfg.VerifyChecksum, cfg.Compress, cfg.CompressLevel, cfg.SpeedLimit, cfg.ResumeState, cfg.Parallel, cfg.Progress)
+			return transfer.DumpChangesSequential(cfg, snapshotDevice, originDevice, limitedOut)
 		}
-		return transfer.DumpChangesParallel(snapshotDevice, originDevice, limitedOut, cfg.Verbose > 0, cfg.VerifyChecksum, cfg.Compress, cfg.CompressLevel, cfg.SpeedLimit, cfg.ResumeState, cfg.Parallel, cfg.Progress)
+		return transfer.DumpChangesParallel(cfg, snapshotDevice, originDevice, limitedOut)
 	}
 	return nil
 }
@@ -191,8 +201,7 @@ func main() {
 		defer close(stopMonitor)
 	}
 
-	err = transfer.DumpChangesSequential(snapshotPath, originalVolume, os.Stdout, cfg.Verbose > 0,
-		cfg.ZeroCopy, cfg.VerifyChecksum, cfg.Compress, cfg.CompressLevel, cfg.SpeedLimit, cfg.ResumeState, cfg.Parallel, cfg.Progress)
+	err = transfer.DumpChangesSequential(cfg, snapshotPath, originalVolume, os.Stdout)
 	if err != nil {
 		logger.Fatal("Copy operation failed", zap.Error(err))
 	}

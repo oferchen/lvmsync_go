@@ -45,6 +45,8 @@ type Config struct {
 	VolumeGroup          string        `mapstructure:"volume_group"`
 	LVMEscalation        string        `mapstructure:"lvm_escalation"`
 	Progress             bool          `mapstructure:"progress"`
+	BlockSize            int           `mapstructure:"block_size"`
+	BlockSizeRaw         string        `mapstructure:"-"`
 }
 
 func DefaultConfig() *Config {
@@ -76,6 +78,8 @@ func DefaultConfig() *Config {
 		VolumeGroup:          "vg0",
 		LVMEscalation:        "sudo -n",
 		Progress:             true,
+		BlockSize:            4096,
+		BlockSizeRaw:         "4K",
 	}
 }
 
@@ -97,6 +101,7 @@ func LoadConfig() (*Config, error) {
 	generalFlags.Int("max_retries", defaultCfg.MaxRetries, "Maximum number of retries per block")
 	generalFlags.String("resume", defaultCfg.ResumeState, "Path to resume state file")
 	generalFlags.String("speed", defaultCfg.Speed, "Transfer speed limit")
+	generalFlags.String("block_size", defaultCfg.BlockSizeRaw, "Block size for data transfer")
 	generalFlags.CountP("verbose", "v", "Verbosity level")
 	generalFlags.Bool("verify_checksum", defaultCfg.VerifyChecksum, "Enable checksum verification")
 	generalFlags.Bool("progress", defaultCfg.Progress, "Show progress percentage during copy operation")
@@ -105,7 +110,7 @@ func LoadConfig() (*Config, error) {
 	sshFlags.String("ssh_user", defaultCfg.SSHUser, "SSH username")
 	sshFlags.String("ssh_key", defaultCfg.SSHKeyPath, "Path to SSH private key or use agent")
 	sshFlags.Int("ssh_port", defaultCfg.SSHPort, "SSH port")
-	sshFlags.Duration("ssh_timeout", defaultCfg.SSHTimeout, "SSH connection timeout (e.g., 5s, 10s, 30s)")
+	sshFlags.Duration("ssh_timeout", defaultCfg.SSHTimeout, "SSH connection timeout")
 	sshFlags.String("known_hosts", defaultCfg.KnownHosts, "Path to known_hosts file")
 	sshFlags.Bool("stricthostkeychecking", defaultCfg.StrictHostKeyCheck, "Enable SSH StrictHostKeyChecking")
 
@@ -168,6 +173,13 @@ func LoadConfig() (*Config, error) {
 	if err := v.Unmarshal(&conf); err != nil {
 		return nil, fmt.Errorf("error unmarshaling config: %v", err)
 	}
+	blockSizeStr := v.GetString("block_size")
+	blockSizeStr = strings.ReplaceAll(blockSizeStr, " ", "")
+	blockSize, err := humanize.ParseBytes(blockSizeStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid block size value %q: %v", blockSizeStr, err)
+	}
+	conf.BlockSize = int(blockSize)
 	speedStr := v.GetString("speed")
 	speedStr = strings.ReplaceAll(speedStr, " ", "")
 	if speedVal, err := humanize.ParseBytes(speedStr); err == nil {
