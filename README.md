@@ -1,3 +1,5 @@
+##**ATTENTION: This is actively WIP, please be patient.**
+
 # LVMSync
 
 LVMSync is a high-performance incremental data replication tool for LVM snapshots. It efficiently transfers only changed blocks using metadata from snapshot COW (Copy-On-Write) devices.
