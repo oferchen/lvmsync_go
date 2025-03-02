@@ -14,7 +14,7 @@ import (
 	"golang.org/x/crypto/ssh/knownhosts"
 )
 
-func NewSSHClient(host, user, keyPath string, port int, knownHostsPath string, verify bool) (*ssh.Client, error) {
+func NewSSHClient(host, user, keyPath string, port int, knownHostsPath string, verify bool, timeout, keepAliveInterval time.Duration) (*ssh.Client, error) {
 	var authMethods []ssh.AuthMethod
 	if keyPath != "" {
 		key, err := os.ReadFile(keyPath)
@@ -50,10 +50,17 @@ func NewSSHClient(host, user, keyPath string, port int, knownHostsPath string, v
 		User:            user,
 		Auth:            authMethods,
 		HostKeyCallback: hostKeyCallback,
-		Timeout:         10 * time.Second,
+		Timeout:         timeout,
 	}
 	addr := fmt.Sprintf("%s:%d", host, port)
-	return ssh.Dial("tcp", addr, config)
+	client, err := ssh.Dial("tcp", addr, config)
+	if err != nil {
+		return nil, err
+	}
+
+	go startKeepAlive(client, host, keepAliveInterval)
+
+	return client, nil
 }
 
 func ValidateRemoteCommand(client *ssh.Client, remoteCmd string) error {

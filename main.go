@@ -38,7 +38,7 @@ func runClientMode(snapshotDevice, dest string) error {
 		parts := strings.SplitN(dest, ":", 2)
 		destHost := parts[0]
 		destDevice := parts[1]
-		client, err := remote.NewSSHClient(destHost, cfg.SSHUser, cfg.SSHKeyPath, cfg.SSHPort, cfg.KnownHosts, cfg.StrictHostKeyCheck)
+		client, err := remote.NewSSHClient(destHost, cfg.SSHUser, cfg.SSHKeyPath, cfg.SSHPort, cfg.KnownHosts, cfg.StrictHostKeyCheck, cfg.SSHTimeout, cfg.SSHKeepAliveInterval)
 		if err != nil {
 			return fmt.Errorf("failed to create SSH client: %v", err)
 		}

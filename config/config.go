@@ -29,6 +29,7 @@ type Config struct {
 	SSHKeyPath           string        `mapstructure:"ssh_key"`
 	SSHPort              int           `mapstructure:"ssh_port"`
 	SSHTimeout           time.Duration `mapstructure:"ssh_timeout"`
+	SSHKeepAliveInterval time.Duration `mapstructure:"ssh_keepalive"`
 	KnownHosts           string        `mapstructure:"known_hosts"`
 	StrictHostKeyCheck   bool          `mapstructure:"strict_host_key_checking"`
 	LVMSyncPath          string        `mapstructure:"lvmsync_path"`
@@ -67,6 +68,7 @@ func DefaultConfig() *Config {
 		SSHKeyPath:           "",
 		SSHPort:              22,
 		SSHTimeout:           10 * time.Second,
+		SSHKeepAliveInterval: 30 * time.Second,
 		KnownHosts:           filepath.Join(homeDir, ".ssh", "known_hosts"),
 		StrictHostKeyCheck:   true,
 		LVMSyncPath:          "lvmsync",
@@ -121,6 +123,7 @@ func LoadConfig() (*Config, error) {
 	sshFlags.String("ssh_key", defaultCfg.SSHKeyPath, "Path to SSH private key or use agent")
 	sshFlags.Int("ssh_port", defaultCfg.SSHPort, "SSH port")
 	sshFlags.Duration("ssh_timeout", defaultCfg.SSHTimeout, "SSH connection timeout")
+	sshFlags.Duration("ssh_keepalive", defaultCfg.SSHKeepAliveInterval, "SSH keepalive interval")
 	sshFlags.String("known_hosts", defaultCfg.KnownHosts, "Path to known_hosts file")
 	sshFlags.Bool("stricthostkeychecking", defaultCfg.StrictHostKeyCheck, "Enable SSH StrictHostKeyChecking")
 
