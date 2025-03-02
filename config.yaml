@@ -31,3 +31,4 @@ snapshot_size: "20%"                   # Snapshot size as an absolute value (e.g
 volume_group: "vg0"                    # Volume group name of the source LVM volume
 lvm_escalation: "sudo -n"              # Command used to escalate privileges for LVM commands
 progress: true                         # Enable progress display during transfer
+block_size: "4K"                       # Block size for LVM operations
