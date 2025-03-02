@@ -4,15 +4,14 @@ package transfer
 import (
 	"fmt"
 	"io"
-	"lvmsync_go/config"
 	"os"
 	"syscall"
 	"time"
 
+	"lvmsync_go/config"
+
 	"go.uber.org/zap"
 )
-
-const maxRetries = 3
 
 func ZeroCopyTransfer(src *os.File, dst *os.File, offset int64, length int64) error {
 	pipeFds := make([]int, 2)
@@ -21,6 +20,7 @@ func ZeroCopyTransfer(src *os.File, dst *os.File, offset int64, length int64) er
 	}
 	defer syscall.Close(pipeFds[0])
 	defer syscall.Close(pipeFds[1])
+
 	remaining := length
 	off := offset
 	for remaining > 0 {
@@ -54,6 +54,7 @@ func ReadBlock(src *os.File, offset int64, size int) ([]byte, error) {
 
 func ReadBlockWithRetries(cfg *config.Config, src *os.File, offset int64, useZeroCopy bool) ([]byte, error) {
 	blockSize := cfg.BlockSize
+	maxRetries := cfg.MaxRetries
 	var data []byte
 	var err error
 
@@ -108,5 +109,6 @@ func ReadBlockWithRetries(cfg *config.Config, src *os.File, offset int64, useZer
 
 		time.Sleep(100 * time.Millisecond)
 	}
+
 	return nil, fmt.Errorf("failed to read block at offset %d after %d attempts", offset, maxRetries)
 }
