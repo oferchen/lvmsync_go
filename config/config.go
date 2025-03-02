@@ -185,27 +185,28 @@ func LoadConfig() (*Config, error) {
 	if configFile != "" {
 		v.SetConfigFile(configFile)
 		if err := v.ReadInConfig(); err != nil {
-			return nil, fmt.Errorf("error reading config file: %v", err)
+			return nil, fmt.Errorf("error reading config file %q: %v", configFile, err)
 		}
 	}
 	var conf Config
 	if err := v.Unmarshal(&conf); err != nil {
 		return nil, fmt.Errorf("error unmarshaling config: %v", err)
 	}
-	blockSizeStr := v.GetString("block_size")
-	blockSizeStr = strings.ReplaceAll(blockSizeStr, " ", "")
+
+	blockSizeStr := strings.ReplaceAll(v.GetString("block_size"), " ", "")
 	blockSize, err := humanize.ParseBytes(blockSizeStr)
 	if err != nil {
 		return nil, fmt.Errorf("invalid block size value %q: %v", blockSizeStr, err)
 	}
 	conf.BlockSize = int(blockSize)
-	speedStr := v.GetString("speed")
-	speedStr = strings.ReplaceAll(speedStr, " ", "")
-	if speedVal, err := humanize.ParseBytes(speedStr); err == nil {
-		conf.SpeedLimit = int(speedVal)
-	} else {
+
+	speedStr := strings.ReplaceAll(v.GetString("speed"), " ", "")
+	speedVal, err := humanize.ParseBytes(speedStr)
+	if err != nil {
 		return nil, fmt.Errorf("invalid speed value %q: %v", speedStr, err)
 	}
+	conf.SpeedLimit = int(speedVal)
+
 	return &conf, nil
 }
 
