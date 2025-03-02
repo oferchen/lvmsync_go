@@ -66,6 +66,7 @@ The tool supports both local and remote transfers, as well as an "apply mode" fo
 | `-v, --verbose` | Verbosity level (e.g., `-v`, `-vv`, `-vvv`)                                                         | `0`       |
 | `--verify_checksum` | Enable checksum verification for data integrity                                               | `false`   |
 | `--progress`  | Show progress percentage during the transfer                                                       | `true`    |
+| `--block_size` | Block size for data transfer (e.g., "4K", "64K", "512K", "1M")                                     | `"4K"`    |
 
 #### SSH Options
 
