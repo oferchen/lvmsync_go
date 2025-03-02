@@ -4,20 +4,30 @@ package transfer
 import (
 	"fmt"
 	"io"
+	"sync"
 
 	zstd "github.com/klauspost/compress/zstd"
 	"github.com/pierrec/lz4/v4"
 	"golang.org/x/sys/cpu"
 )
 
+var (
+	zstdDecoderInstance *zstd.Decoder
+	zstdDecoderOnce     sync.Once
+)
+
+func detectOptimalCompression() string {
+	if cpu.X86.HasAVX2 {
+		return "zstd"
+	}
+	return "lz4"
+}
+
 func NewCompressionWriter(w io.Writer, compress string, level int) (io.WriteCloser, error) {
 	if compress == "auto" {
-		if cpu.X86.HasAVX2 {
-			compress = "zstd"
-		} else {
-			compress = "lz4"
-		}
+		compress = detectOptimalCompression()
 	}
+
 	switch compress {
 	case "none":
 		return nopWriteCloser{w}, nil
@@ -37,11 +47,16 @@ func NewDecompressionReader(r io.Reader, compress string) (io.ReadCloser, error)
 	case "lz4":
 		return nopReadCloser{lz4.NewReader(r)}, nil
 	case "zstd":
-		dec, err := zstd.NewReader(r)
-		if err != nil {
-			return nil, err
+		zstdDecoderOnce.Do(func() {
+			decoder, err := zstd.NewReader(r)
+			if err == nil {
+				zstdDecoderInstance = decoder
+			}
+		})
+		if zstdDecoderInstance == nil {
+			return nil, fmt.Errorf("failed to initialize zstd decoder")
 		}
-		return &zstdReadCloser{Decoder: dec}, nil
+		return &zstdReadCloser{Decoder: zstdDecoderInstance}, nil
 	default:
 		return nil, fmt.Errorf("unsupported compression type: %s", compress)
 	}
