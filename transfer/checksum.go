@@ -4,6 +4,7 @@ package transfer
 import (
 	"crypto/md5"
 	"crypto/sha256"
+	"sync"
 )
 
 type ChecksumStrategy interface {
@@ -24,11 +25,22 @@ func (m *MD5Checksum) Compute(data []byte) []byte {
 	return sum[:]
 }
 
+var (
+	sha256Instance ChecksumStrategy = &SHA256Checksum{}
+	md5Instance    ChecksumStrategy = &MD5Checksum{}
+	initOnce       sync.Once
+)
+
 func GetChecksumStrategy(algo string) ChecksumStrategy {
+	initOnce.Do(func() {
+		sha256Instance = &SHA256Checksum{}
+		md5Instance = &MD5Checksum{}
+	})
+
 	switch algo {
 	case "md5":
-		return &MD5Checksum{}
+		return md5Instance
 	default:
-		return &SHA256Checksum{}
+		return sha256Instance
 	}
 }
