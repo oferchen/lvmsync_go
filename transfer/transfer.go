@@ -292,7 +292,7 @@ func DumpChangesParallel(cfg *config.Config, snapshot, source string, out io.Wri
 		if cfg.Verbose > 0 && res.Index > 0 && res.Index%100 == 0 {
 			elapsed := time.Since(startTime).Seconds()
 			speed := float64(totalBytesTransferred) / elapsed / 1048576.0
-			Logger.Info("Parallel dump progress", zap.Int("block", res.Index+1), zap.Float64("MB/s", speed))
+			Logger.Debug("Parallel dump progress", zap.Int("block", res.Index+1), zap.Float64("MB/s", speed))
 		}
 	}
 
