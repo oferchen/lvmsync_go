@@ -15,6 +15,7 @@ import (
 )
 
 var SupportedCompression = []string{"none", "lz4", "zstd", "auto"}
+var SupportedDedupStrategies = []string{"checksum", "rolling_hash", "bloom"}
 
 type Config struct {
 	ConfigFile           string        `mapstructure:"config"`
@@ -47,6 +48,10 @@ type Config struct {
 	Progress             bool          `mapstructure:"progress"`
 	BlockSize            int           `mapstructure:"block_size"`
 	BlockSizeRaw         string        `mapstructure:"-"`
+	Deduplication        bool          `mapstructure:"deduplication"`
+	DedupStrategy        string        `mapstructure:"dedup_strategy"`
+	DedupStateFile       string        `mapstructure:"dedup_state_file"`
+	UseBloomFilter       bool          `mapstructure:"use_bloom_filter"`
 }
 
 func DefaultConfig() *Config {
@@ -80,6 +85,10 @@ func DefaultConfig() *Config {
 		Progress:             true,
 		BlockSize:            4096,
 		BlockSizeRaw:         "4K",
+		Deduplication:        false,
+		DedupStrategy:        "checksum",
+		DedupStateFile:       filepath.Join(homeDir, ".lvmsync_dedup"),
+		UseBloomFilter:       false,
 	}
 }
 
@@ -89,6 +98,7 @@ func LoadConfig() (*Config, error) {
 	generalFlags := pflag.NewFlagSet("General Options", pflag.ExitOnError)
 	sshFlags := pflag.NewFlagSet("SSH Options", pflag.ExitOnError)
 	remoteFlags := pflag.NewFlagSet("Remote Options", pflag.ExitOnError)
+	dedupFlags := pflag.NewFlagSet("Deduplication Options", pflag.ExitOnError)
 	compressionFlags := pflag.NewFlagSet("Compression Options", pflag.ExitOnError)
 	lvmFlags := pflag.NewFlagSet("LVM Options", pflag.ExitOnError)
 
@@ -119,6 +129,12 @@ func LoadConfig() (*Config, error) {
 	remoteFlags.String("remote_pre_script", defaultCfg.RemotePreScript, "Remote script to run before transfer")
 	remoteFlags.String("remote_post_script", defaultCfg.RemotePostScript, "Remote script to run after transfer")
 
+	// Deduplication Options.
+	dedupFlags.Bool("deduplication", defaultCfg.Deduplication, "Enable deduplication to avoid re-transferring unchanged blocks")
+	dedupFlags.String("dedup_strategy", defaultCfg.DedupStrategy, fmt.Sprintf("Deduplication strategy: %v", SupportedDedupStrategies))
+	dedupFlags.String("dedup_state_file", defaultCfg.DedupStateFile, "Path to deduplication state file")
+	dedupFlags.Bool("use_bloom_filter", defaultCfg.UseBloomFilter, "Use bloom filter for quick duplicate detection")
+
 	// Compression Options.
 	compressionFlags.String("compress", defaultCfg.Compress, fmt.Sprintf("Compression type, options: %v", SupportedCompression))
 	compressionFlags.Int("compress_level", defaultCfg.CompressLevel, "Compression level for zstd (ignored for lz4)")
@@ -133,6 +149,7 @@ func LoadConfig() (*Config, error) {
 	pflag.CommandLine.AddFlagSet(generalFlags)
 	pflag.CommandLine.AddFlagSet(sshFlags)
 	pflag.CommandLine.AddFlagSet(remoteFlags)
+	pflag.CommandLine.AddFlagSet(dedupFlags)
 	pflag.CommandLine.AddFlagSet(compressionFlags)
 	pflag.CommandLine.AddFlagSet(lvmFlags)
 
@@ -144,6 +161,8 @@ func LoadConfig() (*Config, error) {
 		sshFlags.PrintDefaults()
 		fmt.Fprintf(os.Stderr, "\nRemote Options:\n")
 		remoteFlags.PrintDefaults()
+		fmt.Fprintf(os.Stderr, "\nDeduplication Options:\n")
+		dedupFlags.PrintDefaults()
 		fmt.Fprintf(os.Stderr, "\nCompression Options:\n")
 		compressionFlags.PrintDefaults()
 		fmt.Fprintf(os.Stderr, "\nLVM Options:\n")

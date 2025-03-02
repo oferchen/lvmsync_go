@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"crypto/sha256"
 	"encoding/binary"
+	"encoding/gob"
 	"fmt"
 	"io"
 	"os"
@@ -25,38 +26,73 @@ func SetLogger(logger *zap.Logger) {
 	Logger = logger
 }
 
-func DumpChangesSequential(cfg *config.Config, snapshot, source string, out io.Writer) error {
+type ChecksumState struct {
+	Checksums map[uint64][32]byte
+}
+
+func LoadChecksumState(filename string) (*ChecksumState, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return &ChecksumState{Checksums: make(map[uint64][32]byte)}, nil
+		}
+		return nil, err
+	}
+	defer file.Close()
+
+	state := &ChecksumState{}
+	decoder := gob.NewDecoder(file)
+	if err := decoder.Decode(state); err != nil {
+		return nil, err
+	}
+
+	return state, nil
+}
+
+func SaveChecksumState(filename string, state *ChecksumState) error {
+	file, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	encoder := gob.NewEncoder(file)
+	return encoder.Encode(state)
+}
+
+func prepareOutputWriter(out io.Writer, cfg *config.Config) (io.WriteCloser, *bufio.Writer, error) {
+	limitedOut := WrapRateLimitedWriter(out, cfg.SpeedLimit)
+	compWriter, err := NewCompressionWriter(limitedOut, cfg.Compress, cfg.CompressLevel)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create compression writer: %v", err)
+	}
+	bufOut := bufio.NewWriter(compWriter)
+	return compWriter, bufOut, nil
+}
+
+func dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer, dedup DeduplicationStrategy, handshake string) error {
 	metadataDevice := GetMetadataDevice(snapshot)
 	if metadataDevice == "" {
 		return fmt.Errorf("failed to determine metadata device from snapshot %s", snapshot)
 	}
 	blockSize := int64(cfg.BlockSize)
-
-	Logger.Info("Using configured block size", zap.Int("blockSize", cfg.BlockSize))
-
 	ranges, err := GetDifferences(metadataDevice, blockSize)
 	if err != nil {
 		return fmt.Errorf("error getting differences: %v", err)
 	}
 	Logger.Info("Changed blocks determined", zap.Int("blockCount", len(ranges)))
-
-	var totalDataSize int64
-	for _, r := range ranges {
-		totalDataSize += (r.End - r.Start + 1)
+	if handshake != "" {
+		fmt.Fprintln(out, handshake)
 	}
 
-	handshake := common.ProtocolVersion
-	if cfg.VerifyChecksum {
-		handshake += " checksum"
-	}
-	fmt.Fprintln(out, handshake)
-
-	limitedOut := WrapRateLimitedWriter(out, cfg.SpeedLimit)
-	compWriter, err := NewCompressionWriter(limitedOut, cfg.Compress, cfg.CompressLevel)
+	compWriter, bufOut, err := prepareOutputWriter(out, cfg)
 	if err != nil {
-		return fmt.Errorf("failed to create compression writer: %v", err)
+		return err
 	}
-	bufOut := bufio.NewWriter(compWriter)
+	defer func() {
+		bufOut.Flush()
+		compWriter.Close()
+	}()
 
 	srcFile, err := os.Open(source)
 	if err != nil {
@@ -66,20 +102,24 @@ func DumpChangesSequential(cfg *config.Config, snapshot, source string, out io.W
 
 	startTime := time.Now()
 	var totalBytesTransferred int64
-	for i, r := range ranges {
+	skippedBlocks := 0
+
+	for _, r := range ranges {
 		data, err := ReadBlockWithRetries(cfg, srcFile, r.Start, cfg.ZeroCopy)
 		if err != nil {
 			return fmt.Errorf("error reading block at offset %d: %v", r.Start, err)
+		}
+		if cfg.Deduplication && dedup != nil {
+			if !dedup.ShouldTransfer(r.Start, data) {
+				skippedBlocks++
+				continue
+			}
+			dedup.RecordTransfer(r.Start, data)
 		}
 
 		header := make([]byte, 12)
 		binary.BigEndian.PutUint64(header[0:8], uint64(r.Start))
 		binary.BigEndian.PutUint32(header[8:12], uint32(cfg.BlockSize))
-		if cfg.VerifyChecksum {
-			sum := sha256.Sum256(data)
-			header = append(header, sum[:]...)
-		}
-
 		if _, err := bufOut.Write(header); err != nil {
 			return fmt.Errorf("failed to write header: %v", err)
 		}
@@ -88,40 +128,41 @@ func DumpChangesSequential(cfg *config.Config, snapshot, source string, out io.W
 		}
 
 		totalBytesTransferred += int64(cfg.BlockSize)
-
-		if cfg.ResumeState != "" {
-			err := os.WriteFile(cfg.ResumeState, []byte(fmt.Sprintf("%d", i+1)), 0644)
-			if err != nil {
-				Logger.Warn("Failed to update resume state", zap.Error(err))
-			}
-		}
-
-		if cfg.Progress {
-			progressPercent := float64(totalBytesTransferred) / float64(totalDataSize) * 100.0
-			fmt.Fprintf(os.Stderr, "\rProgress: %.2f%%", progressPercent)
-		}
-
-		if cfg.Verbose > 0 && i > 0 && i%100 == 0 {
-			elapsed := time.Since(startTime).Seconds()
-			speed := float64(totalBytesTransferred) / elapsed / 1048576.0
-			Logger.Info("Sequential dump progress", zap.Int("chunk", i+1), zap.Float64("MB/s", speed))
-		}
 	}
+
 	if cfg.Progress {
 		fmt.Fprintln(os.Stderr, "")
 	}
 
-	if err := bufOut.Flush(); err != nil {
-		return fmt.Errorf("failed to flush output: %v", err)
-	}
-	if err := compWriter.Close(); err != nil {
-		return fmt.Errorf("failed to close compression writer: %v", err)
-	}
-
 	elapsed := time.Since(startTime).Seconds()
-	Logger.Info("Sequential transfer complete", zap.Int64("bytes", totalBytesTransferred), zap.Float64("seconds", elapsed),
+	Logger.Info("Sequential transfer complete",
+		zap.Int64("bytes", totalBytesTransferred),
+		zap.Int("skippedBlocks", skippedBlocks),
+		zap.Float64("seconds", elapsed),
 		zap.Float64("MB/s", float64(totalBytesTransferred)/elapsed/1048576.0))
 	return nil
+}
+
+func DumpChangesSequential(cfg *config.Config, snapshot, source string, out io.Writer) error {
+	dedup := NewDeduplicationStrategy(cfg)
+	defer dedup.SaveState()
+	return dumpChangesCore(cfg, snapshot, source, out, dedup, "")
+}
+
+func DumpChangesWithDeduplication(cfg *config.Config, snapshot, source string, out io.Writer, dedup DeduplicationStrategy) error {
+	handshake := common.ProtocolVersion + " checksum-dedup"
+	return dumpChangesCore(cfg, snapshot, source, out, dedup, handshake)
+}
+
+func DumpChanges(cfg *config.Config, snapshot, source string, out io.Writer) error {
+	dedup := NewDeduplicationStrategy(cfg)
+	defer dedup.SaveState()
+	if cfg.Deduplication {
+		Logger.Info("Deduplication enabled", zap.String("strategy", cfg.DedupStrategy))
+		return DumpChangesWithDeduplication(cfg, snapshot, source, out, dedup)
+	}
+	Logger.Info("Deduplication disabled, performing full block transfer")
+	return DumpChangesSequential(cfg, snapshot, source, out)
 }
 
 func DumpChangesParallel(cfg *config.Config, snapshot, source string, out io.Writer) error {
@@ -263,12 +304,14 @@ func DumpChangesParallel(cfg *config.Config, snapshot, source string, out io.Wri
 	compWriter.Close()
 
 	elapsed := time.Since(startTime).Seconds()
-	Logger.Info("Parallel transfer complete", zap.Int64("bytes", totalBytesTransferred), zap.Float64("seconds", elapsed),
+	Logger.Info("Parallel transfer complete",
+		zap.Int64("bytes", totalBytesTransferred),
+		zap.Float64("seconds", elapsed),
 		zap.Float64("MB/s", float64(totalBytesTransferred)/elapsed/1048576.0))
 	return nil
 }
 
-func ProcessDumpData(cfg *config.Config, in io.Reader, destPath string) error {
+func processDumpDataCore(cfg *config.Config, in io.Reader, destPath string, dedup DeduplicationStrategy, verify bool) error {
 	decReader, err := NewDecompressionReader(in, cfg.Compress)
 	if err != nil {
 		return fmt.Errorf("failed to create decompression reader: %v", err)
@@ -276,18 +319,11 @@ func ProcessDumpData(cfg *config.Config, in io.Reader, destPath string) error {
 	defer decReader.Close()
 
 	reader := bufio.NewReader(decReader)
-
 	handshake, err := reader.ReadString('\n')
 	if err != nil {
 		return fmt.Errorf("failed to read protocol handshake: %v", err)
 	}
 	handshake = strings.TrimSpace(handshake)
-	verifyFlag := strings.Contains(handshake, "checksum")
-
-	if handshake != common.ProtocolVersion && handshake != (common.ProtocolVersion+" checksum") {
-		return fmt.Errorf("protocol mismatch: got %q, expected %q or %q",
-			handshake, common.ProtocolVersion, common.ProtocolVersion+" checksum")
-	}
 
 	destFile, err := os.OpenFile(destPath, os.O_RDWR, 0)
 	if err != nil {
@@ -298,7 +334,7 @@ func ProcessDumpData(cfg *config.Config, in io.Reader, destPath string) error {
 	startTime := time.Now()
 	var totalBytes int64
 	headerLen := 12
-	if verifyFlag {
+	if verify {
 		headerLen += 32
 	}
 	headerBuf := make([]byte, headerLen)
@@ -316,7 +352,7 @@ func ProcessDumpData(cfg *config.Config, in io.Reader, destPath string) error {
 		chunkSize := binary.BigEndian.Uint32(headerBuf[8:12])
 
 		var transmittedSum [32]byte
-		if verifyFlag {
+		if verify {
 			copy(transmittedSum[:], headerBuf[12:44])
 		}
 
@@ -325,15 +361,22 @@ func ProcessDumpData(cfg *config.Config, in io.Reader, destPath string) error {
 			return fmt.Errorf("failed to read chunk data: %v", err)
 		}
 
-		if verifyFlag {
+		if verify {
 			computed := sha256.Sum256(data)
 			if transmittedSum != computed {
 				return fmt.Errorf("checksum mismatch at offset %d", offset)
 			}
 		}
 
-		if _, err := destFile.Seek(int64(offset), os.SEEK_SET); err != nil {
-			zap.L().Warn("Seek error", zap.Uint64("offset", offset), zap.Error(err))
+		if dedup != nil && cfg.Deduplication {
+			if !dedup.ShouldTransfer(int64(offset), data) {
+				continue
+			}
+			dedup.RecordTransfer(int64(offset), data)
+		}
+
+		if _, err := destFile.Seek(int64(offset), io.SeekStart); err != nil {
+			Logger.Warn("Seek error", zap.Uint64("offset", offset), zap.Error(err))
 			continue
 		}
 		if _, err := destFile.Write(data); err != nil {
@@ -344,13 +387,19 @@ func ProcessDumpData(cfg *config.Config, in io.Reader, destPath string) error {
 	}
 
 	elapsed := time.Since(startTime).Seconds()
-	zap.L().Info("Applied changes",
+	Logger.Info("Applied changes",
 		zap.Int64("bytes", totalBytes),
 		zap.Float64("seconds", elapsed),
-		zap.Float64("MB/s", float64(totalBytes)/elapsed/1048576.0),
-	)
-
+		zap.Float64("MB/s", float64(totalBytes)/elapsed/1048576.0))
 	return nil
+}
+
+func ProcessDumpDataWithDeduplication(cfg *config.Config, in io.Reader, destPath string, dedup DeduplicationStrategy) error {
+	return processDumpDataCore(cfg, in, destPath, dedup, false)
+}
+
+func ProcessDumpData(cfg *config.Config, in io.Reader, destPath string) error {
+	return processDumpDataCore(cfg, in, destPath, nil, true)
 }
 
 func RunApply(cfg *config.Config, applyFile, destDevice string) error {
@@ -364,6 +413,13 @@ func RunApply(cfg *config.Config, applyFile, destDevice string) error {
 		}
 		defer f.Close()
 		in = f
+	}
+
+	if cfg.Deduplication {
+		Logger.Info("Applying deduplication during restore", zap.String("strategy", cfg.DedupStrategy))
+		dedup := NewDeduplicationStrategy(cfg)
+		defer dedup.SaveState()
+		return ProcessDumpDataWithDeduplication(cfg, in, destDevice, dedup)
 	}
 
 	return ProcessDumpData(cfg, in, destDevice)

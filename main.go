@@ -28,6 +28,7 @@ func runApplyMode() error {
 	}
 	destDevice := args[0]
 	applyFile := "-"
+
 	return transfer.RunApply(cfg, applyFile, destDevice)
 }
 
@@ -82,11 +83,18 @@ func runClientMode(snapshotDevice, dest string) error {
 		}
 
 		var streamErr error
-		if cfg.Parallel <= 1 {
-			streamErr = transfer.DumpChangesSequential(cfg, snapshotDevice, originDevice, remoteStdin)
+		if cfg.Deduplication {
+			dedup := transfer.NewDeduplicationStrategy(cfg)
+			defer dedup.SaveState()
+			streamErr = transfer.DumpChangesWithDeduplication(cfg, snapshotDevice, originDevice, remoteStdin, dedup)
 		} else {
-			streamErr = transfer.DumpChangesParallel(cfg, snapshotDevice, originDevice, remoteStdin)
+			if cfg.Parallel <= 1 {
+				streamErr = transfer.DumpChangesSequential(cfg, snapshotDevice, originDevice, remoteStdin)
+			} else {
+				streamErr = transfer.DumpChangesParallel(cfg, snapshotDevice, originDevice, remoteStdin)
+			}
 		}
+
 		remoteStdin.Close()
 		if streamErr != nil {
 			return fmt.Errorf("error during dumpChanges: %v", streamErr)
@@ -107,12 +115,19 @@ func runClientMode(snapshotDevice, dest string) error {
 			return fmt.Errorf("failed to open destination device %s: %v", dest, err)
 		}
 		defer destFile.Close()
+
 		limitedOut := transfer.WrapRateLimitedWriter(destFile, cfg.SpeedLimit)
 
-		if cfg.Parallel <= 1 {
-			return transfer.DumpChangesSequential(cfg, snapshotDevice, originDevice, limitedOut)
+		if cfg.Deduplication {
+			dedup := transfer.NewDeduplicationStrategy(cfg)
+			defer dedup.SaveState()
+			return transfer.DumpChangesWithDeduplication(cfg, snapshotDevice, originDevice, limitedOut, dedup)
+		} else {
+			if cfg.Parallel <= 1 {
+				return transfer.DumpChangesSequential(cfg, snapshotDevice, originDevice, limitedOut)
+			}
+			return transfer.DumpChangesParallel(cfg, snapshotDevice, originDevice, limitedOut)
 		}
-		return transfer.DumpChangesParallel(cfg, snapshotDevice, originDevice, limitedOut)
 	}
 	return nil
 }
@@ -163,6 +178,7 @@ func main() {
 		os.Exit(1)
 	}
 	originalVolume := args[0]
+	destPath := args[1]
 
 	if !cfg.SkipDiskCheck {
 		freeSpace, err := lvm.CheckDiskSpace("/")
@@ -201,8 +217,7 @@ func main() {
 		defer close(stopMonitor)
 	}
 
-	err = transfer.DumpChangesSequential(cfg, snapshotPath, originalVolume, os.Stdout)
-	if err != nil {
+	if err := runClientMode(snapshotPath, destPath); err != nil {
 		logger.Fatal("Copy operation failed", zap.Error(err))
 	}
 
