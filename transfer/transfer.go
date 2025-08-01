@@ -70,6 +70,19 @@ func prepareOutputWriter(out io.Writer, cfg *config.Config) (io.WriteCloser, *bu
 	return compWriter, bufOut, nil
 }
 
+func cleanupOutput(buf *bufio.Writer, w io.WriteCloser) {
+	if err := buf.Flush(); err != nil {
+		if Logger != nil {
+			Logger.Warn("Failed to flush output", zap.Error(err))
+		}
+	}
+	if err := w.Close(); err != nil {
+		if Logger != nil {
+			Logger.Warn("Failed to close writer", zap.Error(err))
+		}
+	}
+}
+
 func dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer, dedup DeduplicationStrategy, handshake string) error {
 	metadataDevice := GetMetadataDevice(snapshot)
 	if metadataDevice == "" {
@@ -89,10 +102,7 @@ func dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer,
 	if err != nil {
 		return err
 	}
-	defer func() {
-		bufOut.Flush()
-		compWriter.Close()
-	}()
+	defer cleanupOutput(bufOut, compWriter)
 
 	srcFile, err := os.Open(source)
 	if err != nil {
