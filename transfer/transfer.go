@@ -362,6 +362,21 @@ func processDumpDataCore(cfg *config.Config, in io.Reader, destPath string, dedu
 		return fmt.Errorf("failed to read protocol handshake: %v", err)
 	}
 	handshake = strings.TrimSpace(handshake)
+	allowedHandshakes := []string{
+		common.ProtocolVersion,
+		common.ProtocolVersion + " checksum",
+		common.ProtocolVersion + " checksum-dedup",
+	}
+	valid := false
+	for _, h := range allowedHandshakes {
+		if handshake == h {
+			valid = true
+			break
+		}
+	}
+	if !valid {
+		return fmt.Errorf("unexpected protocol handshake: %s", handshake)
+	}
 
 	destFile, err := os.OpenFile(destPath, os.O_RDWR, 0)
 	if err != nil {
