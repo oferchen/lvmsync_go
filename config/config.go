@@ -94,6 +94,28 @@ func DefaultConfig() *Config {
 	}
 }
 
+func printUsage(generalFlags, sshFlags, remoteFlags, dedupFlags, compressionFlags, lvmFlags *pflag.FlagSet) {
+	fmt.Fprintf(os.Stderr, "Usage: %s [options] <snapshot|lvm device> <destination>\n\n", os.Args[0])
+	fmt.Fprintf(os.Stderr, "General Options:\n")
+	generalFlags.PrintDefaults()
+	fmt.Fprintf(os.Stderr, "\nSSH Options:\n")
+	sshFlags.PrintDefaults()
+	fmt.Fprintf(os.Stderr, "\nRemote Options:\n")
+	remoteFlags.PrintDefaults()
+	fmt.Fprintf(os.Stderr, "\nDeduplication Options:\n")
+	dedupFlags.PrintDefaults()
+	fmt.Fprintf(os.Stderr, "\nCompression Options:\n")
+	compressionFlags.PrintDefaults()
+	fmt.Fprintf(os.Stderr, "\nLVM Options:\n")
+	lvmFlags.PrintDefaults()
+}
+
+func usageFunc(generalFlags, sshFlags, remoteFlags, dedupFlags, compressionFlags, lvmFlags *pflag.FlagSet) func() {
+	return func() {
+		printUsage(generalFlags, sshFlags, remoteFlags, dedupFlags, compressionFlags, lvmFlags)
+	}
+}
+
 func LoadConfig() (*Config, error) {
 	defaultCfg := DefaultConfig()
 
@@ -156,21 +178,7 @@ func LoadConfig() (*Config, error) {
 	pflag.CommandLine.AddFlagSet(compressionFlags)
 	pflag.CommandLine.AddFlagSet(lvmFlags)
 
-	pflag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: %s [options] <snapshot|lvm device> <destination>\n\n", os.Args[0])
-		fmt.Fprintf(os.Stderr, "General Options:\n")
-		generalFlags.PrintDefaults()
-		fmt.Fprintf(os.Stderr, "\nSSH Options:\n")
-		sshFlags.PrintDefaults()
-		fmt.Fprintf(os.Stderr, "\nRemote Options:\n")
-		remoteFlags.PrintDefaults()
-		fmt.Fprintf(os.Stderr, "\nDeduplication Options:\n")
-		dedupFlags.PrintDefaults()
-		fmt.Fprintf(os.Stderr, "\nCompression Options:\n")
-		compressionFlags.PrintDefaults()
-		fmt.Fprintf(os.Stderr, "\nLVM Options:\n")
-		lvmFlags.PrintDefaults()
-	}
+	pflag.Usage = usageFunc(generalFlags, sshFlags, remoteFlags, dedupFlags, compressionFlags, lvmFlags)
 
 	v := viper.New()
 	v.SetConfigName("config")

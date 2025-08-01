@@ -70,6 +70,37 @@ func prepareOutputWriter(out io.Writer, cfg *config.Config) (io.WriteCloser, *bu
 	return compWriter, bufOut, nil
 }
 
+func flushAndClose(bufOut *bufio.Writer, w io.WriteCloser) {
+	bufOut.Flush()
+	w.Close()
+}
+
+func dumpWorker(cfg *config.Config, srcFile *os.File, tasks <-chan BlockTask, results chan<- *BlockResult, wg *sync.WaitGroup) {
+	defer wg.Done()
+	for task := range tasks {
+		data, err := ReadBlockWithRetries(cfg, srcFile, task.R.Start, false, [2]int{-1, -1})
+		results <- &BlockResult{
+			Index:  task.Index,
+			Offset: uint64(task.R.Start),
+			Size:   uint32(cfg.BlockSize),
+			Data:   data,
+			Err:    err,
+		}
+	}
+}
+
+func enqueueTasks(resumeStart, numBlocks int, ranges []BlockRange, tasks chan<- BlockTask) {
+	for i := resumeStart; i < numBlocks; i++ {
+		tasks <- BlockTask{Index: i, R: ranges[i]}
+	}
+	close(tasks)
+}
+
+func closeResultsWhenDone(wg *sync.WaitGroup, results chan<- *BlockResult) {
+	wg.Wait()
+	close(results)
+}
+
 func dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer, dedup DeduplicationStrategy, handshake string) error {
 	metadataDevice := GetMetadataDevice(snapshot)
 	if metadataDevice == "" {
@@ -89,10 +120,7 @@ func dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer,
 	if err != nil {
 		return err
 	}
-	defer func() {
-		bufOut.Flush()
-		compWriter.Close()
-	}()
+	defer flushAndClose(bufOut, compWriter)
 
 	srcFile, err := os.Open(source)
 	if err != nil {
@@ -245,32 +273,12 @@ func DumpChangesParallel(cfg *config.Config, snapshot, source string, out io.Wri
 	var wg sync.WaitGroup
 	for i := 0; i < cfg.Parallel; i++ {
 		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for task := range tasks {
-				data, err := ReadBlockWithRetries(cfg, srcFile, task.R.Start, false, [2]int{-1, -1})
-				results <- &BlockResult{
-					Index:  task.Index,
-					Offset: uint64(task.R.Start),
-					Size:   uint32(cfg.BlockSize),
-					Data:   data,
-					Err:    err,
-				}
-			}
-		}()
+		go dumpWorker(cfg, srcFile, tasks, results, &wg)
 	}
 
-	go func() {
-		for i := resumeStart; i < numBlocks; i++ {
-			tasks <- BlockTask{Index: i, R: ranges[i]}
-		}
-		close(tasks)
-	}()
+	go enqueueTasks(resumeStart, numBlocks, ranges, tasks)
 
-	go func() {
-		wg.Wait()
-		close(results)
-	}()
+	go closeResultsWhenDone(&wg, results)
 
 	startTime := time.Now()
 	var totalBytesTransferred int64

@@ -9,6 +9,10 @@ import (
 	"syscall"
 )
 
+func makeCleanupFunc(f *os.File) func() {
+	return func() { os.Remove(f.Name()); f.Close() }
+}
+
 func prepareTestFile(size int) (*os.File, func(), error) {
 	f, err := os.CreateTemp("", "benchfile")
 	if err != nil {
@@ -25,8 +29,7 @@ func prepareTestFile(size int) (*os.File, func(), error) {
 		os.Remove(f.Name())
 		return nil, nil, err
 	}
-	cleanup := func() { os.Remove(f.Name()); f.Close() }
-	return f, cleanup, nil
+	return f, makeCleanupFunc(f), nil
 }
 
 func BenchmarkReadBlockWithRetriesEphemeral(b *testing.B) {

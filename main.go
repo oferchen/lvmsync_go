@@ -132,6 +132,26 @@ func runClientMode(snapshotDevice, dest string) error {
 	return nil
 }
 
+func handleSignal(signals chan os.Signal, snapshotPath *string) {
+	sig := <-signals
+	zap.L().Info("Received signal, aborting", zap.String("signal", sig.String()))
+	if !cfg.SkipSnapshotCreation && *snapshotPath != "" && *snapshotPath != pflag.Arg(0) {
+		if err := lvm.RemoveSnapshot(*snapshotPath); err != nil {
+			zap.L().Warn("Failed to remove snapshot on shutdown", zap.Error(err))
+		} else {
+			zap.L().Info("Snapshot removed on shutdown", zap.String("snapshot", *snapshotPath))
+		}
+	}
+	os.Exit(1)
+}
+
+func monitorSnapshotRoutine(snapshotPath string, stopMonitor chan struct{}) {
+	if err := lvm.MonitorSnapshot(snapshotPath, 80.0, 10*time.Second, stopMonitor); err != nil {
+		zap.L().Error("Snapshot monitor error", zap.Error(err))
+		os.Exit(1)
+	}
+}
+
 func main() {
 	var err error
 	cfg, err = config.LoadConfig()
@@ -159,18 +179,7 @@ func main() {
 	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
 	var snapshotPath string
 
-	go func() {
-		sig := <-signals
-		zap.L().Info("Received signal, aborting", zap.String("signal", sig.String()))
-		if !cfg.SkipSnapshotCreation && snapshotPath != "" && snapshotPath != pflag.Arg(0) {
-			if err := lvm.RemoveSnapshot(snapshotPath); err != nil {
-				zap.L().Warn("Failed to remove snapshot on shutdown", zap.Error(err))
-			} else {
-				zap.L().Info("Snapshot removed on shutdown", zap.String("snapshot", snapshotPath))
-			}
-		}
-		os.Exit(1)
-	}()
+	go handleSignal(signals, &snapshotPath)
 
 	args := pflag.Args()
 	if len(args) < 2 {
@@ -208,12 +217,7 @@ func main() {
 		logger.Info("Snapshot created", zap.String("snapshot", snapshotPath))
 
 		stopMonitor := make(chan struct{})
-		go func() {
-			if err := lvm.MonitorSnapshot(snapshotPath, 80.0, 10*time.Second, stopMonitor); err != nil {
-				zap.L().Error("Snapshot monitor error", zap.Error(err))
-				os.Exit(1)
-			}
-		}()
+		go monitorSnapshotRoutine(snapshotPath, stopMonitor)
 		defer close(stopMonitor)
 	}
 
