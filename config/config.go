@@ -50,7 +50,7 @@ type Config struct {
 	BlockSize            int           `mapstructure:"block_size"`
 	BlockSizeRaw         string        `mapstructure:"-"`
 	Deduplication        bool          `mapstructure:"deduplication"`
-	DedupStrategy        string        `mapstructure:"dedup_strategy"`
+	DedupStrategy        string        `mapstructure:"dedup_strategy"` // checksum, rolling_hash or bloom
 	DedupStateFile       string        `mapstructure:"dedup_state_file"`
 	UseBloomFilter       bool          `mapstructure:"use_bloom_filter"`
 }

@@ -30,13 +30,37 @@ type BloomFilterDedup struct {
 	mu        sync.RWMutex
 }
 
+type RollingHashDedup struct {
+	stateFile string
+	hashes    map[int64]uint64
+	mu        sync.RWMutex
+}
+
+const rollingBase uint64 = 257
+const rollingMod uint64 = 2305843009213693951 // 2^61 - 1 prime
+
+func rollingHash(data []byte) uint64 {
+	var h uint64
+	for _, b := range data {
+		h = (h*rollingBase + uint64(b)) % rollingMod
+	}
+	return h
+}
+
 func NewDeduplicationStrategy(cfg *config.Config) DeduplicationStrategy {
 	switch cfg.DedupStrategy {
+	case "rolling_hash":
+		return &RollingHashDedup{
+			stateFile: cfg.DedupStateFile,
+			hashes:    make(map[int64]uint64),
+		}
 	case "bloom":
 		return &BloomFilterDedup{
 			filter:    bloom.NewWithEstimates(1000000, 0.01),
 			stateFile: cfg.DedupStateFile,
 		}
+	case "checksum":
+		fallthrough
 	default:
 		return &ChecksumDedup{
 			stateFile: cfg.DedupStateFile,
@@ -98,5 +122,42 @@ func (b *BloomFilterDedup) RecordTransfer(offset int64, data []byte) {
 func (b *BloomFilterDedup) SaveState() error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	return nil
+}
+
+func (r *RollingHashDedup) ShouldTransfer(offset int64, data []byte) bool {
+	r.mu.RLock()
+	prev, exists := r.hashes[offset]
+	r.mu.RUnlock()
+
+	h := rollingHash(data)
+	return !exists || prev != h
+}
+
+func (r *RollingHashDedup) RecordTransfer(offset int64, data []byte) {
+	h := rollingHash(data)
+	r.mu.Lock()
+	r.hashes[offset] = h
+	r.mu.Unlock()
+}
+
+func (r *RollingHashDedup) SaveState() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	file, err := os.Create(r.stateFile)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	for offset, hash := range r.hashes {
+		if err := binary.Write(file, binary.LittleEndian, offset); err != nil {
+			return err
+		}
+		if err := binary.Write(file, binary.LittleEndian, hash); err != nil {
+			return err
+		}
+	}
 	return nil
 }

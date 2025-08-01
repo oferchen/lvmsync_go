@@ -14,6 +14,7 @@ LVMSync is a high-performance incremental data replication tool for LVM snapshot
 - **Checksum Verification**: Ensures data integrity.
 - **Remote Execution via SSH**: Replicates data over SSH with support for pre/post-scripts.
 - **Resume Support**: Ability to resume interrupted transfers.
+- **Deduplication Strategies**: Skip unchanged blocks using checksum, rolling hash or bloom filter methods.
 - **LVM Snapshot Management**:
   - Automatic snapshot creation and removal.
   - Configurable snapshot size (absolute or percentage-based).
@@ -88,6 +89,14 @@ The tool supports both local and remote transfers, as well as an "apply mode" fo
 | `--lvmsync_path`      | Remote command to run (e.g., `"lvmsync"`)               | `"lvmsync"`|
 | `--remote_pre_script` | Remote script to run before starting the transfer       | `""`      |
 | `--remote_post_script`| Remote script to run after finishing the transfer        | `""`      |
+
+#### Deduplication Options
+
+| Option              | Description                                                          | Default            |
+|---------------------|----------------------------------------------------------------------|--------------------|
+| `--deduplication`   | Enable deduplication to avoid re-transferring unchanged blocks       | `false`            |
+| `--dedup_strategy`  | Deduplication strategy (`checksum`, `rolling_hash`, `bloom`)         | `"checksum"`      |
+| `--dedup_state_file`| Path to deduplication state file                                      | `~/.lvmsync_dedup` |
 
 #### Compression Options
 
@@ -202,6 +211,11 @@ stricthostkeychecking: true             # Enable SSH StrictHostKeyChecking
 lvmsync_path: "lvmsync"                 # Remote command to run
 remote_pre_script: ""                   # Remote script to run before starting transfer
 remote_post_script: ""                  # Remote script to run after finishing transfer
+
+# Deduplication Options:
+deduplication: false                    # Enable deduplication to skip unchanged blocks
+dedup_strategy: "checksum"               # Strategy: checksum, rolling_hash, or bloom
+dedup_state_file: "~/.lvmsync_dedup"     # Path to deduplication state file
 
 # Compression Options:
 compress: "lz4"                         # Compression type (options: "none", "lz4", "zstd", "auto")
