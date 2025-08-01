@@ -267,10 +267,7 @@ func DumpChangesParallel(cfg *config.Config, snapshot, source string, out io.Wri
 		close(tasks)
 	}()
 
-	go func() {
-		wg.Wait()
-		close(results)
-	}()
+	go finalizeResults(&wg, results)
 
 	startTime := time.Now()
 	var totalBytesTransferred int64
@@ -331,6 +328,11 @@ func DumpChangesParallel(cfg *config.Config, snapshot, source string, out io.Wri
 		zap.Float64("seconds", elapsed),
 		zap.Float64("MB/s", float64(totalBytesTransferred)/elapsed/1048576.0))
 	return nil
+}
+
+func finalizeResults(wg *sync.WaitGroup, results chan<- *BlockResult) {
+	wg.Wait()
+	close(results)
 }
 
 func processDumpDataCore(cfg *config.Config, in io.Reader, destPath string, dedup DeduplicationStrategy, verify bool) error {
