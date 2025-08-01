@@ -4,12 +4,14 @@ package transfer
 import (
 	"crypto/sha256"
 	"encoding/binary"
+	"io"
 	"os"
 	"sync"
 
 	"lvmsync_go/config"
 
 	"github.com/bits-and-blooms/bloom/v3"
+	"go.uber.org/zap"
 )
 
 type DeduplicationStrategy interface {
@@ -33,15 +35,23 @@ type BloomFilterDedup struct {
 func NewDeduplicationStrategy(cfg *config.Config) DeduplicationStrategy {
 	switch cfg.DedupStrategy {
 	case "bloom":
-		return &BloomFilterDedup{
+		d := &BloomFilterDedup{
 			filter:    bloom.NewWithEstimates(1000000, 0.01),
 			stateFile: cfg.DedupStateFile,
 		}
+		if err := d.loadState(); err != nil {
+			zap.L().Warn("failed to load dedup state", zap.Error(err))
+		}
+		return d
 	default:
-		return &ChecksumDedup{
+		d := &ChecksumDedup{
 			stateFile: cfg.DedupStateFile,
 			hashes:    make(map[int64][32]byte),
 		}
+		if err := d.loadState(); err != nil {
+			zap.L().Warn("failed to load dedup state", zap.Error(err))
+		}
+		return d
 	}
 }
 
@@ -79,6 +89,33 @@ func (c *ChecksumDedup) SaveState() error {
 	return nil
 }
 
+func (c *ChecksumDedup) loadState() error {
+	file, err := os.Open(c.stateFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	defer file.Close()
+
+	for {
+		var offset int64
+		if err := binary.Read(file, binary.LittleEndian, &offset); err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+		var hash [32]byte
+		if _, err := io.ReadFull(file, hash[:]); err != nil {
+			return err
+		}
+		c.hashes[offset] = hash
+	}
+	return nil
+}
+
 func (b *BloomFilterDedup) ShouldTransfer(offset int64, data []byte) bool {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
@@ -98,5 +135,16 @@ func (b *BloomFilterDedup) RecordTransfer(offset int64, data []byte) {
 func (b *BloomFilterDedup) SaveState() error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	return nil
+}
+
+func (b *BloomFilterDedup) loadState() error {
+	if _, err := os.Stat(b.stateFile); err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	// Persistence for bloom filter is currently not implemented.
 	return nil
 }
