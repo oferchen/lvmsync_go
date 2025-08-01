@@ -19,11 +19,11 @@ func NewSSHClient(host, user, keyPath string, port int, knownHostsPath string, v
 	if keyPath != "" {
 		key, err := os.ReadFile(keyPath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read SSH key file: %v", err)
+			return nil, fmt.Errorf("failed to read SSH key file: %w", err)
 		}
 		signer, err := ssh.ParsePrivateKey(key)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse SSH key: %v", err)
+			return nil, fmt.Errorf("failed to parse SSH key: %w", err)
 		}
 		authMethods = append(authMethods, ssh.PublicKeys(signer))
 	} else {
@@ -41,7 +41,7 @@ func NewSSHClient(host, user, keyPath string, port int, knownHostsPath string, v
 		var err error
 		hostKeyCallback, err = knownhosts.New(knownHostsPath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create knownhosts callback: %v", err)
+			return nil, fmt.Errorf("failed to create knownhosts callback: %w", err)
 		}
 	} else {
 		hostKeyCallback = ssh.InsecureIgnoreHostKey()
@@ -71,11 +71,11 @@ func ValidateRemoteCommand(client *ssh.Client, remoteCmd string) error {
 	cmd := tokens[0]
 	session, err := client.NewSession()
 	if err != nil {
-		return fmt.Errorf("failed to create SSH session for validation: %v", err)
+		return fmt.Errorf("failed to create SSH session for validation: %w", err)
 	}
 	defer session.Close()
 	if err := session.Run(fmt.Sprintf("command -v %s >/dev/null 2>&1", cmd)); err != nil {
-		return fmt.Errorf("remote command %s not found or not executable: %v", cmd, err)
+		return fmt.Errorf("remote command %s not found or not executable: %w", cmd, err)
 	}
 	return nil
 }
@@ -83,7 +83,7 @@ func ValidateRemoteCommand(client *ssh.Client, remoteCmd string) error {
 func RunRemoteScript(client *ssh.Client, script string) error {
 	session, err := client.NewSession()
 	if err != nil {
-		return fmt.Errorf("failed to create SSH session for script: %v", err)
+		return fmt.Errorf("failed to create SSH session for script: %w", err)
 	}
 	defer session.Close()
 	Logger.Info("Running remote script", zap.String("script", script))

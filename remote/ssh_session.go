@@ -46,7 +46,7 @@ func GetMultiplexedSession(client *ssh.Client, host string) (*SSHSession, error)
 func NewSSHSession(client *ssh.Client) (*SSHSession, error) {
 	session, err := client.NewSession()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create SSH session: %v", err)
+		return nil, fmt.Errorf("failed to create SSH session: %w", err)
 	}
 	return &SSHSession{Client: client, Session: session}, nil
 }
@@ -75,25 +75,25 @@ func RunSSHCommand(host, user, keyPath string, port int, command string, timeout
 	}, timeout)
 
 	if err != nil {
-		return fmt.Errorf("failed to establish SSH connection: %v", err)
+		return fmt.Errorf("failed to establish SSH connection: %w", err)
 	}
 	defer client.Close()
 
 	session, err := NewSSHSession(client)
 	if err != nil {
-		return fmt.Errorf("failed to create SSH session: %v", err)
+		return fmt.Errorf("failed to create SSH session: %w", err)
 	}
 	defer session.Close()
 
 	var stdoutBuf, stderrBuf io.Writer
 	cmdErr := session.Start(command, nil, stdoutBuf, stderrBuf)
 	if cmdErr != nil {
-		return fmt.Errorf("failed to start command: %v", cmdErr)
+		return fmt.Errorf("failed to start command: %w", cmdErr)
 	}
 
 	err = session.Wait()
 	if err != nil {
-		return fmt.Errorf("SSH command failed: %v", err)
+		return fmt.Errorf("SSH command failed: %w", err)
 	}
 
 	zap.L().Info("SSH command completed", zap.String("host", host), zap.String("command", command))
