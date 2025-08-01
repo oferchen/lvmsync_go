@@ -14,7 +14,12 @@ import (
 	"golang.org/x/crypto/ssh/knownhosts"
 )
 
-func NewSSHClient(host, user, keyPath string, port int, knownHostsPath string, verify bool, timeout, keepAliveInterval time.Duration) (*ssh.Client, error) {
+func NewSSHClient(host, user, keyPath string, port int, knownHostsPath string, verify bool, timeout, keepAliveInterval time.Duration, retries int) (*ssh.Client, error) {
+	logger := Logger
+	if logger == nil {
+		logger = zap.L()
+	}
+
 	var authMethods []ssh.AuthMethod
 	if keyPath != "" {
 		key, err := os.ReadFile(keyPath)
@@ -53,9 +58,26 @@ func NewSSHClient(host, user, keyPath string, port int, knownHostsPath string, v
 		Timeout:         timeout,
 	}
 	addr := fmt.Sprintf("%s:%d", host, port)
-	client, err := ssh.Dial("tcp", addr, config)
+	var client *ssh.Client
+	var err error
+	for attempt := 0; attempt <= retries; attempt++ {
+		client, err = ssh.Dial("tcp", addr, config)
+		if err == nil {
+			break
+		}
+		logger.Warn("SSH dial failed",
+			zap.String("host", host),
+			zap.Int("port", port),
+			zap.Int("attempt", attempt+1),
+			zap.Error(err))
+		if attempt < retries {
+			backoff := time.Duration(1<<attempt) * time.Second
+			time.Sleep(backoff)
+		}
+	}
 	if err != nil {
-		return nil, err
+		logger.Error("Unable to establish SSH connection", zap.String("host", host), zap.Int("port", port), zap.Error(err))
+		return nil, fmt.Errorf("failed to dial SSH after %d attempts: %w", retries+1, err)
 	}
 
 	go startKeepAlive(client, host, keepAliveInterval)
