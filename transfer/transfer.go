@@ -210,8 +210,12 @@ func DumpChangesParallel(cfg *config.Config, snapshot, source string, out io.Wri
 	defer srcFile.Close()
 
 	numBlocks := len(ranges)
-	tasks := make(chan BlockTask, numBlocks)
-	results := make(chan *BlockResult, numBlocks)
+	taskBuf := cfg.Parallel
+	if taskBuf < 1 {
+		taskBuf = 1
+	}
+	tasks := make(chan BlockTask, taskBuf)
+	results := make(chan *BlockResult, taskBuf)
 	resumeStart := 0
 
 	if cfg.ResumeState != "" {
@@ -242,10 +246,12 @@ func DumpChangesParallel(cfg *config.Config, snapshot, source string, out io.Wri
 		}()
 	}
 
-	for i := resumeStart; i < numBlocks; i++ {
-		tasks <- BlockTask{Index: i, R: ranges[i]}
-	}
-	close(tasks)
+	go func() {
+		for i := resumeStart; i < numBlocks; i++ {
+			tasks <- BlockTask{Index: i, R: ranges[i]}
+		}
+		close(tasks)
+	}()
 
 	go func() {
 		wg.Wait()
