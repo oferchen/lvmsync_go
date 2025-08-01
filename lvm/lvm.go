@@ -4,6 +4,7 @@ package lvm
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -111,6 +112,11 @@ func (c *fdCache) Close() {
 	}
 }
 
+func captureOutput(r io.Reader, ch chan<- error, buf *bytes.Buffer) {
+	_, err := buf.ReadFrom(r)
+	ch <- err
+}
+
 func executeCommand(name string, args ...string) ([]byte, error) {
 	cmd := buildCommand(name, args...)
 
@@ -131,15 +137,8 @@ func executeCommand(name string, args ...string) ([]byte, error) {
 	outCh := make(chan error, 1)
 	errCh := make(chan error, 1)
 
-	go func() {
-		_, err := outBuf.ReadFrom(stdout)
-		outCh <- err
-	}()
-
-	go func() {
-		_, err := errBuf.ReadFrom(stderr)
-		errCh <- err
-	}()
+	go captureOutput(stdout, outCh, &outBuf)
+	go captureOutput(stderr, errCh, &errBuf)
 
 	<-outCh
 	<-errCh
