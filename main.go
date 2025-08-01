@@ -132,6 +132,19 @@ func runClientMode(snapshotDevice, dest string) error {
 	return nil
 }
 
+func handleSignals(signals <-chan os.Signal, snapshotPath string) {
+	sig := <-signals
+	zap.L().Info("Received signal, aborting", zap.String("signal", sig.String()))
+	if !cfg.SkipSnapshotCreation && snapshotPath != "" && snapshotPath != pflag.Arg(0) {
+		if err := lvm.RemoveSnapshot(snapshotPath); err != nil {
+			zap.L().Warn("Failed to remove snapshot on shutdown", zap.Error(err))
+		} else {
+			zap.L().Info("Snapshot removed on shutdown", zap.String("snapshot", snapshotPath))
+		}
+	}
+	os.Exit(1)
+}
+
 func main() {
 	var err error
 	cfg, err = config.LoadConfig()
@@ -159,18 +172,7 @@ func main() {
 	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
 	var snapshotPath string
 
-	go func() {
-		sig := <-signals
-		zap.L().Info("Received signal, aborting", zap.String("signal", sig.String()))
-		if !cfg.SkipSnapshotCreation && snapshotPath != "" && snapshotPath != pflag.Arg(0) {
-			if err := lvm.RemoveSnapshot(snapshotPath); err != nil {
-				zap.L().Warn("Failed to remove snapshot on shutdown", zap.Error(err))
-			} else {
-				zap.L().Info("Snapshot removed on shutdown", zap.String("snapshot", snapshotPath))
-			}
-		}
-		os.Exit(1)
-	}()
+	go handleSignals(signals, snapshotPath)
 
 	args := pflag.Args()
 	if len(args) < 2 {
