@@ -21,6 +21,7 @@ import (
 )
 
 var Logger *zap.Logger
+var workerWG *sync.WaitGroup
 
 func SetLogger(logger *zap.Logger) {
 	Logger = logger
@@ -189,6 +190,20 @@ func DumpChanges(cfg *config.Config, snapshot, source string, out io.Writer) err
 	return DumpChangesSequential(cfg, snapshot, source, out)
 }
 
+func worker(cfg *config.Config, srcFile *os.File, tasks <-chan BlockTask, results chan<- *BlockResult) {
+	defer workerWG.Done()
+	for task := range tasks {
+		data, err := ReadBlockWithRetries(cfg, srcFile, task.R.Start, false, [2]int{-1, -1})
+		results <- &BlockResult{
+			Index:  task.Index,
+			Offset: uint64(task.R.Start),
+			Size:   uint32(cfg.BlockSize),
+			Data:   data,
+			Err:    err,
+		}
+	}
+}
+
 func DumpChangesParallel(cfg *config.Config, snapshot, source string, out io.Writer) error {
 	if cfg.ZeroCopy {
 		Logger.Warn("ZeroCopy mode enabled, falling back to sequential execution")
@@ -253,21 +268,10 @@ func DumpChangesParallel(cfg *config.Config, snapshot, source string, out io.Wri
 	}
 
 	var wg sync.WaitGroup
+	workerWG = &wg
 	for i := 0; i < cfg.Parallel; i++ {
 		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for task := range tasks {
-				data, err := ReadBlockWithRetries(cfg, srcFile, task.R.Start, false, [2]int{-1, -1})
-				results <- &BlockResult{
-					Index:  task.Index,
-					Offset: uint64(task.R.Start),
-					Size:   uint32(cfg.BlockSize),
-					Data:   data,
-					Err:    err,
-				}
-			}
-		}()
+		go worker(cfg, srcFile, tasks, results)
 	}
 
 	go func() {
