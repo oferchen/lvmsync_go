@@ -31,11 +31,13 @@ var (
 	initOnce       sync.Once
 )
 
+func initChecksumStrategies() {
+	sha256Instance = &SHA256Checksum{}
+	md5Instance = &MD5Checksum{}
+}
+
 func GetChecksumStrategy(algo string) ChecksumStrategy {
-	initOnce.Do(func() {
-		sha256Instance = &SHA256Checksum{}
-		md5Instance = &MD5Checksum{}
-	})
+	initOnce.Do(initChecksumStrategies)
 
 	switch algo {
 	case "md5":
