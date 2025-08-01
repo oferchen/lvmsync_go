@@ -4,17 +4,13 @@ package transfer
 import (
 	"fmt"
 	"io"
-	"sync"
 
 	zstd "github.com/klauspost/compress/zstd"
 	"github.com/pierrec/lz4/v4"
 	"golang.org/x/sys/cpu"
 )
 
-var (
-	zstdDecoderInstance *zstd.Decoder
-	zstdDecoderOnce     sync.Once
-)
+// No shared state is kept between decompression readers.
 
 func detectOptimalCompression() string {
 	if cpu.X86.HasAVX2 {
@@ -47,16 +43,11 @@ func NewDecompressionReader(r io.Reader, compress string) (io.ReadCloser, error)
 	case "lz4":
 		return nopReadCloser{lz4.NewReader(r)}, nil
 	case "zstd":
-		zstdDecoderOnce.Do(func() {
-			decoder, err := zstd.NewReader(r)
-			if err == nil {
-				zstdDecoderInstance = decoder
-			}
-		})
-		if zstdDecoderInstance == nil {
-			return nil, fmt.Errorf("failed to initialize zstd decoder")
+		decoder, err := zstd.NewReader(r)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize zstd decoder: %v", err)
 		}
-		return &zstdReadCloser{Decoder: zstdDecoderInstance}, nil
+		return &zstdReadCloser{Decoder: decoder}, nil
 	default:
 		return nil, fmt.Errorf("unsupported compression type: %s", compress)
 	}
