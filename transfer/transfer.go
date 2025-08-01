@@ -112,6 +112,7 @@ func dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer,
 		if cfg.Deduplication && dedup != nil {
 			if !dedup.ShouldTransfer(r.Start, data) {
 				skippedBlocks++
+				putBlockBuffer(data)
 				continue
 			}
 			dedup.RecordTransfer(r.Start, data)
@@ -124,8 +125,10 @@ func dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer,
 			return fmt.Errorf("failed to write header: %v", err)
 		}
 		if _, err := bufOut.Write(data); err != nil {
+			putBlockBuffer(data)
 			return fmt.Errorf("failed to write block data: %v", err)
 		}
+		putBlockBuffer(data)
 
 		totalBytesTransferred += int64(cfg.BlockSize)
 	}
@@ -272,8 +275,10 @@ func DumpChangesParallel(cfg *config.Config, snapshot, source string, out io.Wri
 			return fmt.Errorf("failed to write header: %v", err)
 		}
 		if _, err := bufOut.Write(res.Data); err != nil {
+			putBlockBuffer(res.Data)
 			return fmt.Errorf("failed to write data: %v", err)
 		}
+		putBlockBuffer(res.Data)
 
 		totalBytesTransferred += int64(res.Size)
 
@@ -356,8 +361,9 @@ func processDumpDataCore(cfg *config.Config, in io.Reader, destPath string, dedu
 			copy(transmittedSum[:], headerBuf[12:44])
 		}
 
-		data := make([]byte, chunkSize)
+		data := getBlockBuffer(int(chunkSize))
 		if _, err := io.ReadFull(reader, data); err != nil {
+			putBlockBuffer(data)
 			return fmt.Errorf("failed to read chunk data: %v", err)
 		}
 
@@ -370,6 +376,7 @@ func processDumpDataCore(cfg *config.Config, in io.Reader, destPath string, dedu
 
 		if dedup != nil && cfg.Deduplication {
 			if !dedup.ShouldTransfer(int64(offset), data) {
+				putBlockBuffer(data)
 				continue
 			}
 			dedup.RecordTransfer(int64(offset), data)
@@ -380,8 +387,10 @@ func processDumpDataCore(cfg *config.Config, in io.Reader, destPath string, dedu
 			continue
 		}
 		if _, err := destFile.Write(data); err != nil {
+			putBlockBuffer(data)
 			return fmt.Errorf("failed to write data at offset %d: %v", offset, err)
 		}
+		putBlockBuffer(data)
 
 		totalBytes += int64(chunkSize)
 	}

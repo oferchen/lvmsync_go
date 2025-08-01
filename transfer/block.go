@@ -85,20 +85,20 @@ func ReadBlockWithRetries(cfg *config.Config, src *os.File, offset int64, useZer
 			return nil, err
 		}
 
-		data, err = io.ReadAll(r)
+		data = getBlockBuffer(blockSize)
+		_, err = io.ReadFull(r, data)
 		if err != nil {
+			putBlockBuffer(data)
 			return nil, err
-		}
-		if len(data) != blockSize {
-			return nil, fmt.Errorf("zero-copy short read: expected %d, got %d", blockSize, len(data))
 		}
 		return data, nil
 	}
 
+	buf := getBlockBuffer(blockSize)
 	for attempt := 0; attempt < maxRetries; attempt++ {
-		data, err = ReadBlock(src, offset, blockSize)
-		if err == nil {
-			return data, nil
+		n, err := src.ReadAt(buf, offset)
+		if err == nil && n == blockSize {
+			return buf, nil
 		}
 
 		Logger.Warn("Failed to read block",
@@ -110,5 +110,6 @@ func ReadBlockWithRetries(cfg *config.Config, src *os.File, offset int64, useZer
 		time.Sleep(100 * time.Millisecond)
 	}
 
+	putBlockBuffer(buf)
 	return nil, fmt.Errorf("failed to read block at offset %d after %d attempts", offset, maxRetries)
 }
