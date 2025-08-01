@@ -38,7 +38,7 @@ Clone the repository and build the binary using Go modules:
 ```sh
 git clone https://github.com/oferchen/lvmsync_go.git
 cd lvmsync_go
-go mod download
+go mod tidy
 go build -o lvmsync .
 ```
 
