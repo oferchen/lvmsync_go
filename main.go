@@ -132,6 +132,13 @@ func runClientMode(snapshotDevice, dest string) error {
 	return nil
 }
 
+func monitorSnapshot(path string, stop <-chan struct{}) {
+	if err := lvm.MonitorSnapshot(path, 80.0, 10*time.Second, stop); err != nil {
+		zap.L().Error("Snapshot monitor error", zap.Error(err))
+		os.Exit(1)
+	}
+}
+
 func main() {
 	var err error
 	cfg, err = config.LoadConfig()
@@ -208,12 +215,7 @@ func main() {
 		logger.Info("Snapshot created", zap.String("snapshot", snapshotPath))
 
 		stopMonitor := make(chan struct{})
-		go func() {
-			if err := lvm.MonitorSnapshot(snapshotPath, 80.0, 10*time.Second, stopMonitor); err != nil {
-				zap.L().Error("Snapshot monitor error", zap.Error(err))
-				os.Exit(1)
-			}
-		}()
+		go monitorSnapshot(snapshotPath, stopMonitor)
 		defer close(stopMonitor)
 	}
 
