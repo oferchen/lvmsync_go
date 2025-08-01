@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -13,14 +14,11 @@ import (
 	"go.uber.org/zap"
 )
 
-func ZeroCopyTransfer(src *os.File, dst *os.File, offset int64, length int64) error {
-	pipeFds := make([]int, 2)
-	if err := syscall.Pipe(pipeFds); err != nil {
-		return fmt.Errorf("pipe creation failed: %v", err)
-	}
-	defer syscall.Close(pipeFds[0])
-	defer syscall.Close(pipeFds[1])
+// PipeCreationCount tracks the number of pipes created by ReadBlockWithRetries
+// when no persistent pipe is supplied. It is mainly used for benchmarking.
+var PipeCreationCount int64
 
+func ZeroCopyTransfer(src *os.File, dst *os.File, offset int64, length int64, pipeFds [2]int) error {
 	remaining := length
 	off := offset
 	for remaining > 0 {
@@ -52,13 +50,22 @@ func ReadBlock(src *os.File, offset int64, size int) ([]byte, error) {
 	return buf, nil
 }
 
-func ReadBlockWithRetries(cfg *config.Config, src *os.File, offset int64, useZeroCopy bool) ([]byte, error) {
+func ReadBlockWithRetries(cfg *config.Config, src *os.File, offset int64, useZeroCopy bool, pipeFds [2]int) ([]byte, error) {
 	blockSize := cfg.BlockSize
 	maxRetries := cfg.MaxRetries
 	var data []byte
 	var err error
 
 	if useZeroCopy {
+		if pipeFds[0] == -1 && pipeFds[1] == -1 {
+			if err := syscall.Pipe(pipeFds[:]); err != nil {
+				return nil, err
+			}
+			atomic.AddInt64(&PipeCreationCount, 1)
+			defer syscall.Close(pipeFds[0])
+			defer syscall.Close(pipeFds[1])
+		}
+
 		r, w, err := os.Pipe()
 		if err != nil {
 			return nil, err
@@ -66,7 +73,7 @@ func ReadBlockWithRetries(cfg *config.Config, src *os.File, offset int64, useZer
 		defer r.Close()
 
 		for attempt := 0; attempt < maxRetries; attempt++ {
-			err = ZeroCopyTransfer(src, w, offset, int64(blockSize))
+			err = ZeroCopyTransfer(src, w, offset, int64(blockSize), pipeFds)
 			if err == nil {
 				break
 			}
