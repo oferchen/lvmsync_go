@@ -1,0 +1,23 @@
+name: Go CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-go@v4
+      with:
+        go-version: 'stable'
+    - name: Install dependencies
+      run: go mod download
+    - name: Format
+      run: go fmt ./...
+    - name: Vet
+      run: go vet ./...
+    - name: Test
+      run: go test ./...

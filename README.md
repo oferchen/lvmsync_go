@@ -235,6 +235,19 @@ LVMSync is written in Go by Ofer Chen, inspired by [mpalmer/lvmsync](https://git
 
 Contributions are welcome. Please follow the project's coding guidelines, include appropriate logging and error handling, and update documentation as needed.
 
+
+## Development
+
+To run the tests and static checks locally:
+
+```sh
+go fmt ./...
+go vet ./...
+go test ./...
+```
+
+The same steps run in GitHub Actions under `.github/workflows/go.yml`.
+
 ## License
 
 GPLv3 License. See the `LICENSE` file for details.
