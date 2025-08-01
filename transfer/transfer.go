@@ -100,12 +100,23 @@ func dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer,
 	}
 	defer srcFile.Close()
 
+	var pipeFds [2]int
+	if cfg.ZeroCopy {
+		if err := syscall.Pipe(pipeFds[:]); err != nil {
+			return fmt.Errorf("failed to create pipe: %v", err)
+		}
+		defer syscall.Close(pipeFds[0])
+		defer syscall.Close(pipeFds[1])
+	} else {
+		pipeFds[0], pipeFds[1] = -1, -1
+	}
+
 	startTime := time.Now()
 	var totalBytesTransferred int64
 	skippedBlocks := 0
 
 	for _, r := range ranges {
-		data, err := ReadBlockWithRetries(cfg, srcFile, r.Start, cfg.ZeroCopy)
+		data, err := ReadBlockWithRetries(cfg, srcFile, r.Start, cfg.ZeroCopy, pipeFds)
 		if err != nil {
 			return fmt.Errorf("error reading block at offset %d: %v", r.Start, err)
 		}
@@ -230,7 +241,7 @@ func DumpChangesParallel(cfg *config.Config, snapshot, source string, out io.Wri
 		go func() {
 			defer wg.Done()
 			for task := range tasks {
-				data, err := ReadBlockWithRetries(cfg, srcFile, task.R.Start, false)
+				data, err := ReadBlockWithRetries(cfg, srcFile, task.R.Start, false, [2]int{-1, -1})
 				results <- &BlockResult{
 					Index:  task.Index,
 					Offset: uint64(task.R.Start),
