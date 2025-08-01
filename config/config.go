@@ -17,6 +17,15 @@ import (
 var SupportedCompression = []string{"none", "lz4", "zstd", "auto"}
 var SupportedDedupStrategies = []string{"checksum", "rolling_hash", "bloom"}
 
+var (
+	generalFlags     *pflag.FlagSet
+	sshFlags         *pflag.FlagSet
+	remoteFlags      *pflag.FlagSet
+	dedupFlags       *pflag.FlagSet
+	compressionFlags *pflag.FlagSet
+	lvmFlags         *pflag.FlagSet
+)
+
 type Config struct {
 	ConfigFile           string        `mapstructure:"config"`
 	ApplyMode            string        `mapstructure:"apply"`
@@ -97,12 +106,12 @@ func DefaultConfig() *Config {
 func LoadConfig() (*Config, error) {
 	defaultCfg := DefaultConfig()
 
-	generalFlags := pflag.NewFlagSet("General Options", pflag.ExitOnError)
-	sshFlags := pflag.NewFlagSet("SSH Options", pflag.ExitOnError)
-	remoteFlags := pflag.NewFlagSet("Remote Options", pflag.ExitOnError)
-	dedupFlags := pflag.NewFlagSet("Deduplication Options", pflag.ExitOnError)
-	compressionFlags := pflag.NewFlagSet("Compression Options", pflag.ExitOnError)
-	lvmFlags := pflag.NewFlagSet("LVM Options", pflag.ExitOnError)
+	generalFlags = pflag.NewFlagSet("General Options", pflag.ExitOnError)
+	sshFlags = pflag.NewFlagSet("SSH Options", pflag.ExitOnError)
+	remoteFlags = pflag.NewFlagSet("Remote Options", pflag.ExitOnError)
+	dedupFlags = pflag.NewFlagSet("Deduplication Options", pflag.ExitOnError)
+	compressionFlags = pflag.NewFlagSet("Compression Options", pflag.ExitOnError)
+	lvmFlags = pflag.NewFlagSet("LVM Options", pflag.ExitOnError)
 
 	// General Options.
 	generalFlags.String("config", "", "Path to config YAML file")
@@ -156,21 +165,7 @@ func LoadConfig() (*Config, error) {
 	pflag.CommandLine.AddFlagSet(compressionFlags)
 	pflag.CommandLine.AddFlagSet(lvmFlags)
 
-	pflag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: %s [options] <snapshot|lvm device> <destination>\n\n", os.Args[0])
-		fmt.Fprintf(os.Stderr, "General Options:\n")
-		generalFlags.PrintDefaults()
-		fmt.Fprintf(os.Stderr, "\nSSH Options:\n")
-		sshFlags.PrintDefaults()
-		fmt.Fprintf(os.Stderr, "\nRemote Options:\n")
-		remoteFlags.PrintDefaults()
-		fmt.Fprintf(os.Stderr, "\nDeduplication Options:\n")
-		dedupFlags.PrintDefaults()
-		fmt.Fprintf(os.Stderr, "\nCompression Options:\n")
-		compressionFlags.PrintDefaults()
-		fmt.Fprintf(os.Stderr, "\nLVM Options:\n")
-		lvmFlags.PrintDefaults()
-	}
+	pflag.Usage = printUsage
 
 	v := viper.New()
 	v.SetConfigName("config")
@@ -228,4 +223,20 @@ func (c *Config) Validate() error {
 		}
 	}
 	return nil
+}
+
+func printUsage() {
+	fmt.Fprintf(os.Stderr, "Usage: %s [options] <snapshot|lvm device> <destination>\n\n", os.Args[0])
+	fmt.Fprintf(os.Stderr, "General Options:\n")
+	generalFlags.PrintDefaults()
+	fmt.Fprintf(os.Stderr, "\nSSH Options:\n")
+	sshFlags.PrintDefaults()
+	fmt.Fprintf(os.Stderr, "\nRemote Options:\n")
+	remoteFlags.PrintDefaults()
+	fmt.Fprintf(os.Stderr, "\nDeduplication Options:\n")
+	dedupFlags.PrintDefaults()
+	fmt.Fprintf(os.Stderr, "\nCompression Options:\n")
+	compressionFlags.PrintDefaults()
+	fmt.Fprintf(os.Stderr, "\nLVM Options:\n")
+	lvmFlags.PrintDefaults()
 }
