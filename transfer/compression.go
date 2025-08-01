@@ -45,7 +45,7 @@ func NewDecompressionReader(r io.Reader, compress string) (io.ReadCloser, error)
 	case "zstd":
 		decoder, err := zstd.NewReader(r)
 		if err != nil {
-			return nil, fmt.Errorf("failed to initialize zstd decoder: %v", err)
+			return nil, fmt.Errorf("failed to initialize zstd decoder: %w", err)
 		}
 		return &zstdReadCloser{Decoder: decoder}, nil
 	default:

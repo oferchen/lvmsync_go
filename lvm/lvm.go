@@ -84,7 +84,7 @@ func (c *fdCache) getFD(devicePath string) (int, error) {
 
 	fd, err := syscall.Open(devicePath, syscall.O_RDONLY|syscall.O_NONBLOCK, 0)
 	if err != nil {
-		return -1, fmt.Errorf("failed to open device %s: %v", devicePath, err)
+		return -1, fmt.Errorf("failed to open device %s: %w", devicePath, err)
 	}
 
 	if len(c.fds) >= fdCacheSize {
@@ -146,7 +146,7 @@ func executeCommand(name string, args ...string) ([]byte, error) {
 
 	err = cmd.Wait()
 	if err != nil {
-		return outBuf.Bytes(), fmt.Errorf("%v: %s", err, errBuf.String())
+		return outBuf.Bytes(), fmt.Errorf("%w: %s", err, errBuf.String())
 	}
 
 	return outBuf.Bytes(), nil
@@ -163,7 +163,7 @@ func CreateSnapshot(lvPath, snapshotName, size string) error {
 
 	output, err := executeCommand("lvcreate", "-s", "-n", snapshotName, "-L", size, lvPath)
 	if err != nil {
-		return fmt.Errorf("failed to create snapshot [%s] for LV %s with size %s: %v",
+		return fmt.Errorf("failed to create snapshot [%s] for LV %s with size %s: %w",
 			snapshotName, lvPath, size, err)
 	}
 
@@ -187,7 +187,7 @@ func RemoveSnapshot(snapshotPath string) error {
 
 	output, err := executeCommand("lvremove", "-f", snapshotPath)
 	if err != nil {
-		return fmt.Errorf("failed to remove snapshot [%s]: %v", snapshotPath, err)
+		return fmt.Errorf("failed to remove snapshot [%s]: %w", snapshotPath, err)
 	}
 
 	zap.L().Info("Snapshot removed successfully",
@@ -209,13 +209,13 @@ func GetSnapshotUsage(snapshotPath string) (float64, error) {
 	output, err := executeCommand("lvs", "--noheadings", "--units", "b",
 		"--options", "data_percent", snapshotPath)
 	if err != nil {
-		return 0, fmt.Errorf("failed to get snapshot usage for %s: %v", snapshotPath, err)
+		return 0, fmt.Errorf("failed to get snapshot usage for %s: %w", snapshotPath, err)
 	}
 
 	usageStr := strings.TrimSpace(string(output))
 	usage, err := strconv.ParseFloat(usageStr, 64)
 	if err != nil {
-		return 0, fmt.Errorf("failed to parse snapshot usage %q: %v", usageStr, err)
+		return 0, fmt.Errorf("failed to parse snapshot usage %q: %w", usageStr, err)
 	}
 
 	zap.L().Info("Snapshot usage retrieved",
@@ -258,7 +258,7 @@ func MonitorSnapshot(snapshotPath string, threshold float64, interval time.Durat
 func CheckDiskSpace(mountPoint string) (uint64, error) {
 	var stat syscall.Statfs_t
 	if err := syscall.Statfs(mountPoint, &stat); err != nil {
-		return 0, fmt.Errorf("failed to get disk stats for %q: %v", mountPoint, err)
+		return 0, fmt.Errorf("failed to get disk stats for %q: %w", mountPoint, err)
 	}
 
 	available := stat.Bavail * uint64(stat.Bsize)
@@ -278,7 +278,7 @@ func GetVolumeSize(volumePath string) (uint64, error) {
 	var size uint64
 	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(fd), uintptr(BLKGETSIZE64), uintptr(unsafe.Pointer(&size)))
 	if errno != 0 {
-		return 0, fmt.Errorf("ioctl BLKGETSIZE64 failed on %q: %v", volumePath, errno)
+		return 0, fmt.Errorf("ioctl BLKGETSIZE64 failed on %q: %w", volumePath, errno)
 	}
 
 	zap.L().Debug("Volume size retrieved",
@@ -293,7 +293,7 @@ func GetVolumeAttributes(volumePath string) (map[string]string, error) {
 	sysfsPath := filepath.Join("/sys/block", devName)
 
 	if _, err := os.Stat(sysfsPath); err != nil {
-		return nil, fmt.Errorf("device %s not found in sysfs: %v", devName, err)
+		return nil, fmt.Errorf("device %s not found in sysfs: %w", devName, err)
 	}
 
 	attributes := make(map[string]string)
@@ -321,7 +321,7 @@ func ParseSnapshotSize(sizeStr, volumePath string) (uint64, error) {
 		percentStr := strings.TrimSuffix(sizeStr, "%")
 		percent, err := strconv.ParseFloat(percentStr, 64)
 		if err != nil {
-			return 0, fmt.Errorf("invalid percentage value %q: %v", sizeStr, err)
+			return 0, fmt.Errorf("invalid percentage value %q: %w", sizeStr, err)
 		}
 
 		if percent <= 0 || percent > 100 {
@@ -330,7 +330,7 @@ func ParseSnapshotSize(sizeStr, volumePath string) (uint64, error) {
 
 		volSize, err := GetVolumeSize(volumePath)
 		if err != nil {
-			return 0, fmt.Errorf("failed to get volume size for %q: %v", volumePath, err)
+			return 0, fmt.Errorf("failed to get volume size for %q: %w", volumePath, err)
 		}
 
 		parsedSize := uint64(float64(volSize) * (percent / 100.0))
@@ -344,7 +344,7 @@ func ParseSnapshotSize(sizeStr, volumePath string) (uint64, error) {
 
 	parsedSize, err := humanize.ParseBytes(sizeStr)
 	if err != nil {
-		return 0, fmt.Errorf("failed to parse snapshot size %q: %v", sizeStr, err)
+		return 0, fmt.Errorf("failed to parse snapshot size %q: %w", sizeStr, err)
 	}
 
 	zap.L().Debug("Parsed snapshot size",
@@ -368,7 +368,7 @@ func GetVolumeGroupFreeSpace(vgName string) (uint64, error) {
 	output, err := executeCommand("vgs", "--noheadings", "--units", "b",
 		"--options", "vg_free", vgName)
 	if err != nil {
-		return 0, fmt.Errorf("failed to get free space for VG %s: %v", vgName, err)
+		return 0, fmt.Errorf("failed to get free space for VG %s: %w", vgName, err)
 	}
 
 	sizeStr := strings.TrimSpace(string(output))
@@ -377,7 +377,7 @@ func GetVolumeGroupFreeSpace(vgName string) (uint64, error) {
 
 	size, err := strconv.ParseUint(sizeStr, 10, 64)
 	if err != nil {
-		return 0, fmt.Errorf("failed to parse VG free space %q: %v", sizeStr, err)
+		return 0, fmt.Errorf("failed to parse VG free space %q: %w", sizeStr, err)
 	}
 
 	return size, nil

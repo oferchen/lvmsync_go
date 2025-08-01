@@ -23,12 +23,12 @@ type SSHManager struct {
 func NewSSHManager(user, keyPath string, timeout time.Duration, knownHostsPath string, verify bool) (*SSHManager, error) {
 	authMethods, err := getSSHAuthMethods(keyPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to initialize authentication: %v", err)
+		return nil, fmt.Errorf("failed to initialize authentication: %w", err)
 	}
 
 	hostKeyCallback, err := getHostKeyCallback(knownHostsPath, verify)
 	if err != nil {
-		return nil, fmt.Errorf("failed to set up host key verification: %v", err)
+		return nil, fmt.Errorf("failed to set up host key verification: %w", err)
 	}
 
 	sshConfig := &ssh.ClientConfig{
@@ -56,7 +56,7 @@ func (s *SSHManager) GetClient(host string, port int) (*ssh.Client, error) {
 
 	client, err := dialSSH(addr, s.sshConfig, s.timeout)
 	if err != nil {
-		return nil, fmt.Errorf("failed to establish SSH connection: %v", err)
+		return nil, fmt.Errorf("failed to establish SSH connection: %w", err)
 	}
 
 	s.clients[addr] = client
@@ -103,12 +103,12 @@ func getHostKeyCallback(knownHostsPath string, verify bool) (ssh.HostKeyCallback
 func dialSSH(addr string, sshConfig *ssh.ClientConfig, timeout time.Duration) (*ssh.Client, error) {
 	conn, err := net.DialTimeout("tcp", addr, timeout)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to %s: %v", addr, err)
+		return nil, fmt.Errorf("failed to connect to %s: %w", addr, err)
 	}
 
 	clientConn, chans, reqs, err := ssh.NewClientConn(conn, addr, sshConfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed to establish SSH connection: %v", err)
+		return nil, fmt.Errorf("failed to establish SSH connection: %w", err)
 	}
 
 	return ssh.NewClient(clientConn, chans, reqs), nil
@@ -117,7 +117,7 @@ func dialSSH(addr string, sshConfig *ssh.ClientConfig, timeout time.Duration) (*
 func loadPrivateKey(keyPath string) (ssh.Signer, error) {
 	keyData, err := os.ReadFile(keyPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read private key: %v", err)
+		return nil, fmt.Errorf("failed to read private key: %w", err)
 	}
 	return ssh.ParsePrivateKey(keyData)
 }
@@ -130,7 +130,7 @@ func sshAgentAuth() (ssh.AuthMethod, error) {
 
 	conn, err := net.Dial("unix", agentSock)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to SSH agent: %v", err)
+		return nil, fmt.Errorf("failed to connect to SSH agent: %w", err)
 	}
 
 	return ssh.PublicKeysCallback(agent.NewClient(conn).Signers), nil

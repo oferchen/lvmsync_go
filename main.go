@@ -40,33 +40,33 @@ func runClientMode(snapshotDevice, dest string) error {
 		destDevice := parts[1]
 		client, err := remote.NewSSHClient(destHost, cfg.SSHUser, cfg.SSHKeyPath, cfg.SSHPort, cfg.KnownHosts, cfg.StrictHostKeyCheck, cfg.SSHTimeout, cfg.SSHKeepAliveInterval)
 		if err != nil {
-			return fmt.Errorf("failed to create SSH client: %v", err)
+			return fmt.Errorf("failed to create SSH client: %w", err)
 		}
 		defer client.Close()
 		remote.SetLogger(zap.L())
 
 		if cfg.RemotePreScript != "" {
 			if err := remote.RunRemoteScript(client, cfg.RemotePreScript); err != nil {
-				return fmt.Errorf("remote pre-script failed: %v", err)
+				return fmt.Errorf("remote pre-script failed: %w", err)
 			}
 		}
 		if err := remote.ValidateRemoteCommand(client, cfg.LVMSyncPath); err != nil {
-			return fmt.Errorf("remote command validation failed: %v", err)
+			return fmt.Errorf("remote command validation failed: %w", err)
 		}
 
 		session, err := client.NewSession()
 		if err != nil {
-			return fmt.Errorf("failed to create SSH session: %v", err)
+			return fmt.Errorf("failed to create SSH session: %w", err)
 		}
 		defer session.Close()
 
 		stdoutPipe, err := session.StdoutPipe()
 		if err != nil {
-			return fmt.Errorf("failed to get stdout pipe: %v", err)
+			return fmt.Errorf("failed to get stdout pipe: %w", err)
 		}
 		stderrPipe, err := session.StderrPipe()
 		if err != nil {
-			return fmt.Errorf("failed to get stderr pipe: %v", err)
+			return fmt.Errorf("failed to get stderr pipe: %w", err)
 		}
 		go io.Copy(os.Stdout, stdoutPipe)
 		go io.Copy(os.Stderr, stderrPipe)
@@ -76,10 +76,10 @@ func runClientMode(snapshotDevice, dest string) error {
 
 		remoteStdin, err := session.StdinPipe()
 		if err != nil {
-			return fmt.Errorf("failed to get remote stdin: %v", err)
+			return fmt.Errorf("failed to get remote stdin: %w", err)
 		}
 		if err := session.Start(remoteCmd); err != nil {
-			return fmt.Errorf("failed to start remote command: %v", err)
+			return fmt.Errorf("failed to start remote command: %w", err)
 		}
 
 		var streamErr error
@@ -97,22 +97,22 @@ func runClientMode(snapshotDevice, dest string) error {
 
 		remoteStdin.Close()
 		if streamErr != nil {
-			return fmt.Errorf("error during dumpChanges: %v", streamErr)
+			return fmt.Errorf("error during dumpChanges: %w", streamErr)
 		}
 
 		if err := session.Wait(); err != nil {
-			return fmt.Errorf("remote command error: %v", err)
+			return fmt.Errorf("remote command error: %w", err)
 		}
 
 		if cfg.RemotePostScript != "" {
 			if err := remote.RunRemoteScript(client, cfg.RemotePostScript); err != nil {
-				return fmt.Errorf("remote post-script failed: %v", err)
+				return fmt.Errorf("remote post-script failed: %w", err)
 			}
 		}
 	} else {
 		destFile, err := os.OpenFile(dest, os.O_RDWR, 0)
 		if err != nil {
-			return fmt.Errorf("failed to open destination device %s: %v", dest, err)
+			return fmt.Errorf("failed to open destination device %s: %w", dest, err)
 		}
 		defer destFile.Close()
 

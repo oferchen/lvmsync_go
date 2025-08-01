@@ -64,7 +64,7 @@ func prepareOutputWriter(out io.Writer, cfg *config.Config) (io.WriteCloser, *bu
 	limitedOut := WrapRateLimitedWriter(out, cfg.SpeedLimit)
 	compWriter, err := NewCompressionWriter(limitedOut, cfg.Compress, cfg.CompressLevel)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create compression writer: %v", err)
+		return nil, nil, fmt.Errorf("failed to create compression writer: %w", err)
 	}
 	bufOut := bufio.NewWriter(compWriter)
 	return compWriter, bufOut, nil
@@ -78,7 +78,7 @@ func dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer,
 	blockSize := int64(cfg.BlockSize)
 	ranges, err := GetDifferences(metadataDevice, blockSize)
 	if err != nil {
-		return fmt.Errorf("error getting differences: %v", err)
+		return fmt.Errorf("error getting differences: %w", err)
 	}
 	Logger.Info("Changed blocks determined", zap.Int("blockCount", len(ranges)))
 	if handshake != "" {
@@ -96,14 +96,14 @@ func dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer,
 
 	srcFile, err := os.Open(source)
 	if err != nil {
-		return fmt.Errorf("failed to open source device %s: %v", source, err)
+		return fmt.Errorf("failed to open source device %s: %w", source, err)
 	}
 	defer srcFile.Close()
 
 	var pipeFds [2]int
 	if cfg.ZeroCopy {
 		if err := syscall.Pipe(pipeFds[:]); err != nil {
-			return fmt.Errorf("failed to create pipe: %v", err)
+			return fmt.Errorf("failed to create pipe: %w", err)
 		}
 		defer syscall.Close(pipeFds[0])
 		defer syscall.Close(pipeFds[1])
@@ -118,7 +118,7 @@ func dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer,
 	for _, r := range ranges {
 		data, err := ReadBlockWithRetries(cfg, srcFile, r.Start, cfg.ZeroCopy, pipeFds)
 		if err != nil {
-			return fmt.Errorf("error reading block at offset %d: %v", r.Start, err)
+			return fmt.Errorf("error reading block at offset %d: %w", r.Start, err)
 		}
 		if cfg.Deduplication && dedup != nil {
 			if !dedup.ShouldTransfer(r.Start, data) {
@@ -133,11 +133,11 @@ func dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer,
 		binary.BigEndian.PutUint64(header[0:8], uint64(r.Start))
 		binary.BigEndian.PutUint32(header[8:12], uint32(cfg.BlockSize))
 		if _, err := bufOut.Write(header); err != nil {
-			return fmt.Errorf("failed to write header: %v", err)
+			return fmt.Errorf("failed to write header: %w", err)
 		}
 		if _, err := bufOut.Write(data); err != nil {
 			putBlockBuffer(data)
-			return fmt.Errorf("failed to write block data: %v", err)
+			return fmt.Errorf("failed to write block data: %w", err)
 		}
 		putBlockBuffer(data)
 
@@ -195,7 +195,7 @@ func DumpChangesParallel(cfg *config.Config, snapshot, source string, out io.Wri
 
 	ranges, err := GetDifferences(metadataDevice, blockSize)
 	if err != nil {
-		return fmt.Errorf("error getting differences: %v", err)
+		return fmt.Errorf("error getting differences: %w", err)
 	}
 	Logger.Info("Changed blocks determined", zap.Int("blockCount", len(ranges)))
 
@@ -213,13 +213,13 @@ func DumpChangesParallel(cfg *config.Config, snapshot, source string, out io.Wri
 	limitedOut := WrapRateLimitedWriter(out, cfg.SpeedLimit)
 	compWriter, err := NewCompressionWriter(limitedOut, cfg.Compress, cfg.CompressLevel)
 	if err != nil {
-		return fmt.Errorf("failed to create compression writer: %v", err)
+		return fmt.Errorf("failed to create compression writer: %w", err)
 	}
 	bufOut := bufio.NewWriter(compWriter)
 
 	srcFile, err := os.Open(source)
 	if err != nil {
-		return fmt.Errorf("failed to open source device %s: %v", source, err)
+		return fmt.Errorf("failed to open source device %s: %w", source, err)
 	}
 	defer srcFile.Close()
 
@@ -277,7 +277,7 @@ func DumpChangesParallel(cfg *config.Config, snapshot, source string, out io.Wri
 
 	for res := range results {
 		if res.Err != nil {
-			return fmt.Errorf("error in block %d: %v", res.Index, res.Err)
+			return fmt.Errorf("error in block %d: %w", res.Index, res.Err)
 		}
 
 		header := make([]byte, 12)
@@ -289,11 +289,11 @@ func DumpChangesParallel(cfg *config.Config, snapshot, source string, out io.Wri
 		}
 
 		if _, err := bufOut.Write(header); err != nil {
-			return fmt.Errorf("failed to write header: %v", err)
+			return fmt.Errorf("failed to write header: %w", err)
 		}
 		if _, err := bufOut.Write(res.Data); err != nil {
 			putBlockBuffer(res.Data)
-			return fmt.Errorf("failed to write data: %v", err)
+			return fmt.Errorf("failed to write data: %w", err)
 		}
 		putBlockBuffer(res.Data)
 
@@ -336,20 +336,20 @@ func DumpChangesParallel(cfg *config.Config, snapshot, source string, out io.Wri
 func processDumpDataCore(cfg *config.Config, in io.Reader, destPath string, dedup DeduplicationStrategy, verify bool) error {
 	decReader, err := NewDecompressionReader(in, cfg.Compress)
 	if err != nil {
-		return fmt.Errorf("failed to create decompression reader: %v", err)
+		return fmt.Errorf("failed to create decompression reader: %w", err)
 	}
 	defer decReader.Close()
 
 	reader := bufio.NewReader(decReader)
 	handshake, err := reader.ReadString('\n')
 	if err != nil {
-		return fmt.Errorf("failed to read protocol handshake: %v", err)
+		return fmt.Errorf("failed to read protocol handshake: %w", err)
 	}
 	handshake = strings.TrimSpace(handshake)
 
 	destFile, err := os.OpenFile(destPath, os.O_RDWR, 0)
 	if err != nil {
-		return fmt.Errorf("failed to open destination device %s: %v", destPath, err)
+		return fmt.Errorf("failed to open destination device %s: %w", destPath, err)
 	}
 	defer destFile.Close()
 
@@ -367,7 +367,7 @@ func processDumpDataCore(cfg *config.Config, in io.Reader, destPath string, dedu
 			break
 		}
 		if err != nil {
-			return fmt.Errorf("failed to read chunk header: %v", err)
+			return fmt.Errorf("failed to read chunk header: %w", err)
 		}
 
 		offset := binary.BigEndian.Uint64(headerBuf[0:8])
@@ -381,7 +381,7 @@ func processDumpDataCore(cfg *config.Config, in io.Reader, destPath string, dedu
 		data := getBlockBuffer(int(chunkSize))
 		if _, err := io.ReadFull(reader, data); err != nil {
 			putBlockBuffer(data)
-			return fmt.Errorf("failed to read chunk data: %v", err)
+			return fmt.Errorf("failed to read chunk data: %w", err)
 		}
 
 		if verify {
@@ -405,7 +405,7 @@ func processDumpDataCore(cfg *config.Config, in io.Reader, destPath string, dedu
 		}
 		if _, err := destFile.Write(data); err != nil {
 			putBlockBuffer(data)
-			return fmt.Errorf("failed to write data at offset %d: %v", offset, err)
+			return fmt.Errorf("failed to write data at offset %d: %w", offset, err)
 		}
 		putBlockBuffer(data)
 
@@ -435,7 +435,7 @@ func RunApply(cfg *config.Config, applyFile, destDevice string) error {
 	} else {
 		f, err := os.Open(applyFile)
 		if err != nil {
-			return fmt.Errorf("failed to open apply file %s: %v", applyFile, err)
+			return fmt.Errorf("failed to open apply file %s: %w", applyFile, err)
 		}
 		defer f.Close()
 		in = f

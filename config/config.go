@@ -188,25 +188,25 @@ func LoadConfig() (*Config, error) {
 	if configFile != "" {
 		v.SetConfigFile(configFile)
 		if err := v.ReadInConfig(); err != nil {
-			return nil, fmt.Errorf("error reading config file %q: %v", configFile, err)
+			return nil, fmt.Errorf("error reading config file %q: %w", configFile, err)
 		}
 	}
 	var conf Config
 	if err := v.Unmarshal(&conf); err != nil {
-		return nil, fmt.Errorf("error unmarshaling config: %v", err)
+		return nil, fmt.Errorf("error unmarshaling config: %w", err)
 	}
 
 	blockSizeStr := strings.ReplaceAll(v.GetString("block_size"), " ", "")
 	blockSize, err := humanize.ParseBytes(blockSizeStr)
 	if err != nil {
-		return nil, fmt.Errorf("invalid block size value %q: %v", blockSizeStr, err)
+		return nil, fmt.Errorf("invalid block size value %q: %w", blockSizeStr, err)
 	}
 	conf.BlockSize = int(blockSize)
 
 	speedStr := strings.ReplaceAll(v.GetString("speed"), " ", "")
 	speedVal, err := humanize.ParseBytes(speedStr)
 	if err != nil {
-		return nil, fmt.Errorf("invalid speed value %q: %v", speedStr, err)
+		return nil, fmt.Errorf("invalid speed value %q: %w", speedStr, err)
 	}
 	conf.SpeedLimit = int(speedVal)
 
@@ -216,7 +216,7 @@ func LoadConfig() (*Config, error) {
 func (c *Config) Validate() error {
 	out, err := exec.Command("vgdisplay", c.VolumeGroup).CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("volume group %q does not exist or is inaccessible: %v, output: %s", c.VolumeGroup, err, string(out))
+		return fmt.Errorf("volume group %q does not exist or is inaccessible: %w, output: %s", c.VolumeGroup, err, string(out))
 	}
 	if os.Geteuid() != 0 {
 		parts := strings.Fields(c.LVMEscalation)
@@ -224,7 +224,7 @@ func (c *Config) Validate() error {
 			return fmt.Errorf("lvm escalation command is empty")
 		}
 		if _, err := exec.LookPath(parts[0]); err != nil {
-			return fmt.Errorf("lvm escalation command %q not found: %v", parts[0], err)
+			return fmt.Errorf("lvm escalation command %q not found: %w", parts[0], err)
 		}
 	}
 	return nil
