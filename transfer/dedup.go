@@ -4,6 +4,7 @@ package transfer
 import (
 	"crypto/sha256"
 	"encoding/binary"
+	"io"
 	"os"
 	"sync"
 
@@ -16,6 +17,7 @@ type DeduplicationStrategy interface {
 	ShouldTransfer(offset int64, data []byte) bool
 	RecordTransfer(offset int64, data []byte)
 	SaveState() error
+	LoadState() error
 }
 
 type ChecksumDedup struct {
@@ -33,15 +35,23 @@ type BloomFilterDedup struct {
 func NewDeduplicationStrategy(cfg *config.Config) DeduplicationStrategy {
 	switch cfg.DedupStrategy {
 	case "bloom":
-		return &BloomFilterDedup{
+		b := &BloomFilterDedup{
 			filter:    bloom.NewWithEstimates(1000000, 0.01),
 			stateFile: cfg.DedupStateFile,
 		}
+		if _, err := os.Stat(cfg.DedupStateFile); err == nil {
+			b.LoadState()
+		}
+		return b
 	default:
-		return &ChecksumDedup{
+		c := &ChecksumDedup{
 			stateFile: cfg.DedupStateFile,
 			hashes:    make(map[int64][32]byte),
 		}
+		if _, err := os.Stat(cfg.DedupStateFile); err == nil {
+			c.LoadState()
+		}
+		return c
 	}
 }
 
@@ -79,6 +89,40 @@ func (c *ChecksumDedup) SaveState() error {
 	return nil
 }
 
+func (c *ChecksumDedup) LoadState() error {
+	file, err := os.Open(c.stateFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	defer file.Close()
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.hashes == nil {
+		c.hashes = make(map[int64][32]byte)
+	}
+
+	for {
+		var offset int64
+		if err := binary.Read(file, binary.LittleEndian, &offset); err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+		var hash [32]byte
+		if _, err := io.ReadFull(file, hash[:]); err != nil {
+			return err
+		}
+		c.hashes[offset] = hash
+	}
+	return nil
+}
+
 func (b *BloomFilterDedup) ShouldTransfer(offset int64, data []byte) bool {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
@@ -96,7 +140,32 @@ func (b *BloomFilterDedup) RecordTransfer(offset int64, data []byte) {
 }
 
 func (b *BloomFilterDedup) SaveState() error {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+
+	file, err := os.Create(b.stateFile)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	_, err = b.filter.WriteTo(file)
+	return err
+}
+
+func (b *BloomFilterDedup) LoadState() error {
+	file, err := os.Open(b.stateFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	defer file.Close()
+
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	return nil
+
+	_, err = b.filter.ReadFrom(file)
+	return err
 }
