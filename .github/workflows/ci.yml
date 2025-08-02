@@ -67,3 +67,7 @@ jobs:
         with:
           name: coverage
           path: coverage.out
+
+      - uses: codecov/codecov-action@v4
+        with:
+          files: coverage.out
