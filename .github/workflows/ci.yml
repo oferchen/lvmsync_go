@@ -7,7 +7,48 @@ on:
     branches: [main]
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    container:
+      image: almalinux:8
+
+    steps:
+      - name: Install system dependencies
+        run: |
+          dnf -y install git golang tar gzip
+          go version
+
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup Go module cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Ensure go.mod initialized (lvmsync_go)
+        run: |
+          if [ ! -f go.mod ]; then
+            echo "Initializing go.mod with module 'lvmsync_go'"
+            go mod init lvmsync_go
+          fi
+
+      - name: Resolve and verify module dependencies
+        run: |
+          go mod tidy
+          go mod download
+          go list -e -json -compiled ./... > /dev/null
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v3
+
   build-test:
+    needs: lint
     runs-on: ubuntu-latest
     container:
       image: almalinux:8
