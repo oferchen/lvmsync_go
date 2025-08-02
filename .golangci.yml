@@ -1,0 +1,70 @@
+run:
+  timeout: 3m
+  tests: true
+
+linters-settings:
+  govet:
+    enable-all: true
+
+  gocritic:
+    enabled-checks:
+      - rangeValCopy
+      - ifElseChain
+      - boolExprSimplify
+      - unlambda
+
+  revive:
+    severity: warning
+    ignore-generated-header: true
+    rules:
+      - name: indent-error-flow
+      - name: empty-block
+      - name: blank-imports
+      - name: var-naming
+      - name: error-naming
+
+  errcheck:
+    check-type-assertions: true
+
+  unused:
+    check-exported: true
+
+  goimports:
+    local-prefixes: github.com/oferchen/lvmsync_go
+
+linters:
+  enable:
+    - govet
+    - staticcheck
+    - revive
+    - errcheck
+    - gofmt
+    - goimports
+    - ineffassign
+    - unused
+    - typecheck
+    - gocritic
+    - depguard
+  disable:
+    - lll
+    - gocyclo
+    - dupl
+    - nakedret
+    - prealloc
+
+issues:
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  skip-dirs:
+    - vendor
+    - .git
+  skip-files:
+    - ".*_gen.go"
+    - ".*_test.go"
+
+output:
+  format: colored-line-number
+  print-issued-lines: true
+  sort-results: true
+
