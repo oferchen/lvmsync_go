@@ -133,7 +133,7 @@ func DefaultConfig() *Config {
 		LVMEscalation:        "sudo -n",
 		Progress:             true,
 		BlockSize:            4096,
-		BlockSizeRaw:         "4K",
+		BlockSizeRaw:         "4KB",
 		Deduplication:        false,
 		DedupStrategy:        "checksum",
 		DedupStateFile:       filepath.Join(homeDir, ".lvmsync_dedup"),
