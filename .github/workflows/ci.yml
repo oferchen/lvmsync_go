@@ -21,32 +21,49 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Initialize go.mod if missing
+      - name: Setup Go module cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Ensure go.mod initialized (lvmsync_go)
         run: |
           if [ ! -f go.mod ]; then
-            go mod init "$(basename $(pwd))"
+            echo "Initializing go.mod with module 'lvmsync_go'"
+            go mod init lvmsync_go
           fi
 
-      - name: Resolve all module dependencies
+      - name: Resolve and verify module dependencies
         run: |
-          # Resolves imports and ensures go.sum is created
-          go list -deps ./... > /dev/null
           go mod tidy
+          go mod download
+          go list -e -json -compiled ./... > /dev/null
 
       - name: Format check
         run: |
           fmt_out=$(go fmt ./...)
           if [ -n "$fmt_out" ]; then
-            echo "::error::Code is not properly formatted. Run 'go fmt'."
+            echo "::error::The following files need formatting:"
             echo "$fmt_out"
             exit 1
           fi
 
-      - name: Vet
+      - name: Vet code
         run: go vet ./...
 
       - name: Build
-        run: go build ./...
+        run: go build -v ./...
 
-      - name: Test
-        run: go test -v ./...
+      - name: Run tests with coverage
+        run: go test -v -coverprofile=coverage.out -covermode=atomic ./...
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.out
