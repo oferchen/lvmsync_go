@@ -64,6 +64,44 @@ type Config struct {
 	UseBloomFilter       bool          `mapstructure:"use_bloom_filter"`
 }
 
+type ConfigBuilder struct {
+	v        *viper.Viper
+	defaults *Config
+}
+
+func (cb *ConfigBuilder) Build() (*Config, error) {
+	var conf Config
+	if err := cb.v.Unmarshal(&conf); err != nil {
+		return nil, fmt.Errorf("error unmarshaling config: %w", err)
+	}
+
+	conf.BlockSizeRaw = cb.getBlockSizeRaw()
+	conf.BlockSize = cb.parseBytesOrFallback("block_size", cb.defaults.BlockSizeRaw)
+	conf.SpeedLimit = cb.parseBytesOrFallback("speed", cb.defaults.Speed)
+
+	return &conf, nil
+}
+
+func (cb *ConfigBuilder) parseBytesOrFallback(key, fallback string) int {
+	raw := strings.ReplaceAll(cb.v.GetString(key), " ", "")
+	if raw == "" {
+		raw = fallback
+	}
+	val, err := humanize.ParseBytes(raw)
+	if err != nil {
+		panic(fmt.Errorf("invalid %s value %q: %w", key, raw, err))
+	}
+	return int(val)
+}
+
+func (cb *ConfigBuilder) getBlockSizeRaw() string {
+	raw := strings.TrimSpace(cb.v.GetString("block_size"))
+	if raw != "" {
+		return raw
+	}
+	return cb.defaults.BlockSizeRaw
+}
+
 func DefaultConfig() *Config {
 	homeDir, _ := os.UserHomeDir()
 	return &Config{
@@ -113,7 +151,7 @@ func LoadConfig() (*Config, error) {
 	compressionFlags = pflag.NewFlagSet("Compression Options", pflag.ExitOnError)
 	lvmFlags = pflag.NewFlagSet("LVM Options", pflag.ExitOnError)
 
-	// General Options.
+	// General Options
 	generalFlags.String("config", "", "Path to config YAML file")
 	generalFlags.String("apply", defaultCfg.ApplyMode, "Apply mode: read change dump from file ('-' for STDIN) and apply to destination device")
 	generalFlags.Bool("stdout", defaultCfg.StdoutMode, "Write change dump to STDOUT")
@@ -125,9 +163,9 @@ func LoadConfig() (*Config, error) {
 	generalFlags.String("block_size", defaultCfg.BlockSizeRaw, "Block size for data transfer")
 	generalFlags.CountP("verbose", "v", "Verbosity level")
 	generalFlags.Bool("verify_checksum", defaultCfg.VerifyChecksum, "Enable checksum verification")
-	generalFlags.Bool("progress", defaultCfg.Progress, "Show progress percentage during copy operation")
+	generalFlags.Bool("progress", defaultCfg.Progress, "Show progress during transfer")
 
-	// SSH Options.
+	// SSH Options
 	sshFlags.String("ssh_user", defaultCfg.SSHUser, "SSH username")
 	sshFlags.String("ssh_key", defaultCfg.SSHKeyPath, "Path to SSH private key or use agent")
 	sshFlags.Int("ssh_port", defaultCfg.SSHPort, "SSH port")
@@ -136,36 +174,37 @@ func LoadConfig() (*Config, error) {
 	sshFlags.String("known_hosts", defaultCfg.KnownHosts, "Path to known_hosts file")
 	sshFlags.Bool("stricthostkeychecking", defaultCfg.StrictHostKeyCheck, "Enable SSH StrictHostKeyChecking")
 
-	// Remote Options.
+	// Remote Options
 	remoteFlags.String("lvmsync_path", defaultCfg.LVMSyncPath, "Remote command to run")
 	remoteFlags.String("remote_pre_script", defaultCfg.RemotePreScript, "Remote script to run before transfer")
 	remoteFlags.String("remote_post_script", defaultCfg.RemotePostScript, "Remote script to run after transfer")
 
-	// Deduplication Options.
+	// Deduplication Options
 	dedupFlags.Bool("deduplication", defaultCfg.Deduplication, "Enable deduplication to avoid re-transferring unchanged blocks")
 	dedupFlags.String("dedup_strategy", defaultCfg.DedupStrategy, fmt.Sprintf("Deduplication strategy: %v", SupportedDedupStrategies))
 	dedupFlags.String("dedup_state_file", defaultCfg.DedupStateFile, "Path to deduplication state file")
 	dedupFlags.Bool("use_bloom_filter", defaultCfg.UseBloomFilter, "Use bloom filter for quick duplicate detection")
 
-	// Compression Options.
+	// Compression Options
 	compressionFlags.String("compress", defaultCfg.Compress, fmt.Sprintf("Compression type, options: %v", SupportedCompression))
 	compressionFlags.Int("compress_level", defaultCfg.CompressLevel, "Compression level for zstd (ignored for lz4)")
 
-	// LVM Options.
+	// LVM Options
 	lvmFlags.Bool("skip_snapshot_creation", defaultCfg.SkipSnapshotCreation, "Skip automatic snapshot creation")
 	lvmFlags.Bool("skip_disk_check", defaultCfg.SkipDiskCheck, "Skip disk space check before snapshot creation")
 	lvmFlags.String("snapshot_size", defaultCfg.SnapshotSize, "Snapshot size (e.g., '20G' or '20%')")
 	lvmFlags.String("lvm_escalation", defaultCfg.LVMEscalation, "Command used to escalate privileges for LVM commands")
 	lvmFlags.String("volume_group", defaultCfg.VolumeGroup, "Volume group name of the source LVM volume")
 
+	// Register flags and set usage
 	pflag.CommandLine.AddFlagSet(generalFlags)
 	pflag.CommandLine.AddFlagSet(sshFlags)
 	pflag.CommandLine.AddFlagSet(remoteFlags)
 	pflag.CommandLine.AddFlagSet(dedupFlags)
 	pflag.CommandLine.AddFlagSet(compressionFlags)
 	pflag.CommandLine.AddFlagSet(lvmFlags)
-
 	pflag.Usage = printUsage
+	pflag.Parse()
 
 	v := viper.New()
 	v.SetConfigName("config")
@@ -175,39 +214,22 @@ func LoadConfig() (*Config, error) {
 	v.SetEnvKeyReplacer(strings.NewReplacer("_", "."))
 	v.SetEnvPrefix("LVMSYNC")
 
-	pflag.Parse()
 	if err := v.BindPFlags(pflag.CommandLine); err != nil {
 		return nil, err
 	}
-	configFile := v.GetString("config")
-	if configFile != "" {
-		v.SetConfigFile(configFile)
+	if cfgFile := v.GetString("config"); cfgFile != "" {
+		v.SetConfigFile(cfgFile)
 		if err := v.ReadInConfig(); err != nil {
-			return nil, fmt.Errorf("error reading config file %q: %w", configFile, err)
+			return nil, fmt.Errorf("error reading config file %q: %w", cfgFile, err)
 		}
 	}
-	var conf Config
-	if err := v.Unmarshal(&conf); err != nil {
-		return nil, fmt.Errorf("error unmarshaling config: %w", err)
-	}
 
-	blockSizeStr := strings.ReplaceAll(v.GetString("block_size"), " ", "")
-	blockSize, err := humanize.ParseBytes(blockSizeStr)
-	if err != nil {
-		return nil, fmt.Errorf("invalid block size value %q: %w", blockSizeStr, err)
+	builder := &ConfigBuilder{
+		v:        v,
+		defaults: defaultCfg,
 	}
-	conf.BlockSize = int(blockSize)
-
-	speedStr := strings.ReplaceAll(v.GetString("speed"), " ", "")
-	speedVal, err := humanize.ParseBytes(speedStr)
-	if err != nil {
-		return nil, fmt.Errorf("invalid speed value %q: %w", speedStr, err)
-	}
-	conf.SpeedLimit = int(speedVal)
-
-	return &conf, nil
+	return builder.Build()
 }
-
 func (c *Config) Validate() error {
 	out, err := exec.Command("vgdisplay", c.VolumeGroup).CombinedOutput()
 	if err != nil {
