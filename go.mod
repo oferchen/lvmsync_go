@@ -3,25 +3,14 @@ module lvmsync_go
 go 1.24.3
 
 require (
-    go.uber.org/zap v0.0.0
-    github.com/dustin/go-humanize v0.0.0
-    github.com/spf13/pflag v0.0.0
-    github.com/spf13/viper v0.0.0
-    github.com/bits-and-blooms/bloom/v3 v3.0.0
-    github.com/juju/ratelimit v0.0.0
-    github.com/klauspost/compress/zstd v0.0.0
-    github.com/pierrec/lz4/v4 v4.0.0
-    golang.org/x/sys/cpu v0.0.0
-    golang.org/x/sys/unix v0.0.0
+    github.com/bits-and-blooms/bloom/v3 v3.3.0
+    github.com/dustin/go-humanize v1.0.1
+    github.com/juju/ratelimit v1.0.1
+    github.com/klauspost/compress v1.17.9
+    github.com/pierrec/lz4/v4 v4.1.17
+    github.com/spf13/pflag v1.0.5
+    github.com/spf13/viper v1.17.0
+    go.uber.org/zap v1.26.0
+    golang.org/x/crypto v0.24.0
+    golang.org/x/sys v0.21.0
 )
-
-replace go.uber.org/zap => ./stubs/go.uber.org/zap
-replace github.com/dustin/go-humanize => ./stubs/github.com/dustin/go-humanize
-replace github.com/spf13/pflag => ./stubs/github.com/spf13/pflag
-replace github.com/spf13/viper => ./stubs/github.com/spf13/viper
-replace github.com/bits-and-blooms/bloom/v3 => ./stubs/github.com/bits-and-blooms/bloom/v3
-replace github.com/juju/ratelimit => ./stubs/github.com/juju/ratelimit
-replace github.com/klauspost/compress/zstd => ./stubs/github.com/klauspost/compress/zstd
-replace github.com/pierrec/lz4/v4 => ./stubs/github.com/pierrec/lz4/v4
-replace golang.org/x/sys/cpu => ./stubs/golang.org/x/sys/cpu
-replace golang.org/x/sys/unix => ./stubs/golang.org/x/sys/unix
