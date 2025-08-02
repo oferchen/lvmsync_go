@@ -13,7 +13,5 @@ require (
     go.uber.org/zap v1.26.0
     golang.org/x/crypto v0.24.0
     golang.org/x/sys v0.21.0
+    go.uber.org/multierr v1.10.0
 )
-
-replace go.uber.org/zap => ./stubs/go.uber.org/zap
-replace github.com/dustin/go-humanize => ./stubs/github.com/dustin/go-humanize
