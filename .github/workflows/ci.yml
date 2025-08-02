@@ -1,18 +1,51 @@
-name: CI
+name: Go CI
 
 on:
   push:
+    branches: [main]
   pull_request:
+    branches: [main]
 
 jobs:
-  build:
+  build-test:
     runs-on: ubuntu-latest
     container:
       image: almalinux:8
+
     steps:
-      - name: Install dependencies
+      - name: Install system dependencies
         run: |
-          dnf -y install git golang
-      - uses: actions/checkout@v4
+          dnf -y install git golang tar gzip
+          go version
+
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Ensure go.mod exists (fallback init)
+        run: |
+          if [ ! -f go.mod ]; then
+            go mod init "$(basename $(pwd))"
+          fi
+
+      - name: Tidy and download modules
+        run: |
+          go mod tidy
+          go mod download
+
+      - name: Format check
+        run: |
+          fmt_out=$(go fmt ./...)
+          if [ -n "$fmt_out" ]; then
+            echo "::error::Code is not properly formatted. Run 'go fmt'."
+            echo "$fmt_out"
+            exit 1
+          fi
+
+      - name: Vet
+        run: go vet ./...
+
       - name: Build
         run: go build ./...
+
+      - name: Run tests
+        run: go test -v ./...
