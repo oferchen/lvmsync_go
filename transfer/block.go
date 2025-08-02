@@ -54,7 +54,6 @@ func ReadBlockWithRetries(cfg *config.Config, src *os.File, offset int64, useZer
 	blockSize := cfg.BlockSize
 	maxRetries := cfg.MaxRetries
 	var data []byte
-	var err error
 
 	if useZeroCopy {
 		if pipeFds[0] == -1 && pipeFds[1] == -1 {
