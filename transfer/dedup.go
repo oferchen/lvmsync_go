@@ -32,8 +32,23 @@ type BloomFilterDedup struct {
 	mu        sync.RWMutex
 }
 
+type RollingHashDedup struct {
+	stateFile string
+	hashes    map[int64]uint64
+	mu        sync.RWMutex
+}
+
 func NewDeduplicationStrategy(cfg *config.Config) DeduplicationStrategy {
 	switch cfg.DedupStrategy {
+	case "rolling_hash":
+		d := &RollingHashDedup{
+			stateFile: cfg.DedupStateFile,
+			hashes:    make(map[int64]uint64),
+		}
+		if err := d.loadState(); err != nil {
+			zap.L().Warn("failed to load dedup state", zap.Error(err))
+		}
+		return d
 	case "bloom":
 		d := &BloomFilterDedup{
 			filter:    bloom.NewWithEstimates(1000000, 0.01),
@@ -112,6 +127,88 @@ func (c *ChecksumDedup) loadState() error {
 			return err
 		}
 		c.hashes[offset] = hash
+	}
+	return nil
+}
+
+func (r *RollingHashDedup) computeHash(data []byte) uint64 {
+	const base uint64 = 257
+	var h uint64
+	for _, b := range data {
+		h = h*base + uint64(b)
+	}
+	return h
+}
+
+func (r *RollingHashDedup) ShouldTransfer(offset int64, data []byte) bool {
+	h := r.computeHash(data)
+
+	r.mu.RLock()
+	prev, exists := r.hashes[offset]
+	r.mu.RUnlock()
+
+	return !exists || prev != h
+}
+
+func (r *RollingHashDedup) RecordTransfer(offset int64, data []byte) {
+	h := r.computeHash(data)
+
+	r.mu.Lock()
+	r.hashes[offset] = h
+	r.mu.Unlock()
+}
+
+func (r *RollingHashDedup) SaveState() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	file, err := os.Create(r.stateFile)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	for offset, hash := range r.hashes {
+		if err := binary.Write(file, binary.LittleEndian, offset); err != nil {
+			return err
+		}
+		if err := binary.Write(file, binary.LittleEndian, hash); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *RollingHashDedup) loadState() error {
+	file, err := os.Open(r.stateFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	defer file.Close()
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.hashes == nil {
+		r.hashes = make(map[int64]uint64)
+	}
+
+	for {
+		var offset int64
+		if err := binary.Read(file, binary.LittleEndian, &offset); err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+		var hash uint64
+		if err := binary.Read(file, binary.LittleEndian, &hash); err != nil {
+			return err
+		}
+		r.hashes[offset] = hash
 	}
 	return nil
 }
