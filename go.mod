@@ -15,5 +15,3 @@ require (
     golang.org/x/sys v0.21.0
     go.uber.org/multierr v1.10.0
 )
-
-replace go.uber.org/multierr => ./internal/multierr
