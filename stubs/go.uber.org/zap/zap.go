@@ -8,6 +8,7 @@ func (l *Logger) Info(msg string, fields ...Field)  {}
 func (l *Logger) Warn(msg string, fields ...Field)  {}
 func (l *Logger) Error(msg string, fields ...Field) {}
 func (l *Logger) Debug(msg string, fields ...Field) {}
+func (l *Logger) Fatal(msg string, fields ...Field) {}
 
 // Sugared Logger placeholder
 func (l *Logger) Sugar() *SugaredLogger { return &SugaredLogger{} }
