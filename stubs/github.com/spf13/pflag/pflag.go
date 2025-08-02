@@ -1,8 +1,13 @@
 package pflag
 
-import "time"
+import (
+	"os"
+	"time"
+)
 
 type FlagSet struct{}
+
+var arguments []string
 
 func NewFlagSet(name string, errorHandling int) *FlagSet { return &FlagSet{} }
 
@@ -14,12 +19,24 @@ func (f *FlagSet) Duration(name string, value time.Duration, usage string) *time
 }
 func (f *FlagSet) CountP(name, shorthand, usage string) *int { return new(int) }
 func (f *FlagSet) AddFlagSet(fs *FlagSet)                    {}
-func (f *FlagSet) Parse(args []string) error                 { return nil }
-func (f *FlagSet) PrintDefaults()                            {}
+func (f *FlagSet) Parse(args []string) error {
+	arguments = args
+	return nil
+}
+func (f *FlagSet) PrintDefaults() {}
 
 var CommandLine = NewFlagSet("", ExitOnError)
 
-func Parse() {}
+func Parse() { CommandLine.Parse(os.Args[1:]) }
+
+func Args() []string { return arguments }
+
+func Arg(i int) string {
+	if i < 0 || i >= len(arguments) {
+		return ""
+	}
+	return arguments[i]
+}
 
 var Usage func()
 
