@@ -5,6 +5,7 @@ run:
 linters-settings:
   depguard:
     list-type: allow
+    include-go-root: true
     packages:
       - github.com/spf13/viper
       - github.com/spf13/pflag
@@ -23,6 +24,11 @@ linters-settings:
       - syscall
       - encoding/binary
       - time
+      - lvmsync_go
+      - lvmsync_go/config
+      - lvmsync_go/remote
+      - lvmsync_go/transfer
+      - lvmsync_go/common
     include-go-root: true
 
   gocritic:
