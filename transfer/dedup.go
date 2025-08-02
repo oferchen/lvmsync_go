@@ -135,16 +135,34 @@ func (b *BloomFilterDedup) RecordTransfer(offset int64, data []byte) {
 func (b *BloomFilterDedup) SaveState() error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	return nil
+
+	file, err := os.Create(b.stateFile)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	_, err = b.filter.WriteTo(file)
+	return err
 }
 
 func (b *BloomFilterDedup) loadState() error {
-	if _, err := os.Stat(b.stateFile); err != nil {
+	file, err := os.Open(b.stateFile)
+	if err != nil {
 		if os.IsNotExist(err) {
 			return nil
 		}
 		return err
 	}
-	// Persistence for bloom filter is currently not implemented.
-	return nil
+	defer file.Close()
+
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	if b.filter == nil {
+		b.filter = bloom.NewWithEstimates(1000000, 0.01)
+	}
+
+	_, err = b.filter.ReadFrom(file)
+	return err
 }
