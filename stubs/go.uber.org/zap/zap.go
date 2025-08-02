@@ -1,8 +1,26 @@
 package zap
 
+// Logger is a minimal placeholder used by the project to avoid pulling in the
+// real zap dependency. It purposefully exposes only the pieces of API that are
+// required by the application code.
 type Logger struct{}
 
-func L() *Logger { return &Logger{} }
+// globalL holds the process-wide logger instance returned by L(). It defaults
+// to a new no-op Logger so calls are always safe.
+var globalL = &Logger{}
+
+// L returns the package-wide *Logger. This mimics zap's behavior where the
+// logger can be replaced by calling ReplaceGlobals.
+func L() *Logger { return globalL }
+
+// ReplaceGlobals swaps the package-wide *Logger returned by L(). It is a no-op
+// in this stub other than storing the provided logger.
+func ReplaceGlobals(l *Logger) { globalL = l }
+
+// NewProduction returns a new *Logger configured for production use. In this
+// stub implementation it simply returns a new no-op Logger and a nil error so
+// callers can continue to compile and run.
+func NewProduction() (*Logger, error) { return &Logger{}, nil }
 
 func (l *Logger) Info(msg string, fields ...Field)  {}
 func (l *Logger) Warn(msg string, fields ...Field)  {}
