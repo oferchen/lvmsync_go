@@ -1,4 +1,4 @@
-##**ATTENTION: This is actively WIP, please be patient.**
+##**ATTENTION: This is actively WIP Do not use in production systems, please be patient.**
 
 # LVMSync
 
