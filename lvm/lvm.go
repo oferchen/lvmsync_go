@@ -277,7 +277,15 @@ func GetVolumeSize(volumePath string) (uint64, error) {
 	var size uint64
 	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(fd), uintptr(BLKGETSIZE64), uintptr(unsafe.Pointer(&size)))
 	if errno != 0 {
-		return 0, fmt.Errorf("ioctl BLKGETSIZE64 failed on %q: %w", volumePath, errno)
+		if errno == syscall.ENOTTY {
+			info, statErr := os.Stat(volumePath)
+			if statErr != nil {
+				return 0, fmt.Errorf("stat failed on %q: %w", volumePath, statErr)
+			}
+			size = uint64(info.Size())
+		} else {
+			return 0, fmt.Errorf("ioctl BLKGETSIZE64 failed on %q: %w", volumePath, errno)
+		}
 	}
 
 	zap.L().Debug("Volume size retrieved",
@@ -287,9 +295,15 @@ func GetVolumeSize(volumePath string) (uint64, error) {
 	return size, nil
 }
 
+var sysBlockPath = "/sys/block"
+
+func SetSysBlockPath(path string) {
+	sysBlockPath = path
+}
+
 func GetVolumeAttributes(volumePath string) (map[string]string, error) {
 	devName := filepath.Base(volumePath)
-	sysfsPath := filepath.Join("/sys/block", devName)
+	sysfsPath := filepath.Join(sysBlockPath, devName)
 
 	if _, err := os.Stat(sysfsPath); err != nil {
 		return nil, fmt.Errorf("device %s not found in sysfs: %w", devName, err)
