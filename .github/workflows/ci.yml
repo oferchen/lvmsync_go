@@ -21,20 +21,17 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Ensure go.mod exists (fallback init)
+      - name: Initialize go.mod if missing
         run: |
           if [ ! -f go.mod ]; then
             go mod init "$(basename $(pwd))"
           fi
 
-      - name: Build to resolve dependencies
+      - name: Resolve all module dependencies
         run: |
-          go build ./...
-
-      - name: Tidy and download modules
-        run: |
+          # Resolves imports and ensures go.sum is created
+          go list -deps ./... > /dev/null
           go mod tidy
-          go mod download
 
       - name: Format check
         run: |
@@ -47,6 +44,9 @@ jobs:
 
       - name: Vet
         run: go vet ./...
+
+      - name: Build
+        run: go build ./...
 
       - name: Test
         run: go test -v ./...
