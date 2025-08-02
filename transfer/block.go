@@ -12,6 +12,7 @@ import (
 	"lvmsync_go/config"
 
 	"go.uber.org/zap"
+	"golang.org/x/sys/unix"
 )
 
 // PipeCreationCount tracks the number of pipes created by ReadBlockWithRetries
@@ -22,14 +23,14 @@ func ZeroCopyTransfer(src *os.File, dst *os.File, offset int64, length int64, pi
 	remaining := length
 	off := offset
 	for remaining > 0 {
-		n, err := syscall.Splice(int(src.Fd()), &off, pipeFds[1], nil, int(remaining), 0)
+		n, err := unix.Splice(int(src.Fd()), &off, pipeFds[1], nil, int(remaining), 0)
 		if err != nil {
 			return fmt.Errorf("splice read failed: %w", err)
 		}
 		if n == 0 {
 			break
 		}
-		_, err = syscall.Splice(pipeFds[0], nil, int(dst.Fd()), nil, int(n), 0)
+		_, err = unix.Splice(pipeFds[0], nil, int(dst.Fd()), nil, int(n), 0)
 		if err != nil {
 			return fmt.Errorf("splice write failed: %w", err)
 		}

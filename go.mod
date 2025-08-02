@@ -12,6 +12,7 @@ require (
     github.com/klauspost/compress/zstd v0.0.0
     github.com/pierrec/lz4/v4 v4.0.0
     golang.org/x/sys/cpu v0.0.0
+    golang.org/x/sys/unix v0.0.0
 )
 
 replace go.uber.org/zap => ./stubs/go.uber.org/zap
@@ -23,3 +24,4 @@ replace github.com/juju/ratelimit => ./stubs/github.com/juju/ratelimit
 replace github.com/klauspost/compress/zstd => ./stubs/github.com/klauspost/compress/zstd
 replace github.com/pierrec/lz4/v4 => ./stubs/github.com/pierrec/lz4/v4
 replace golang.org/x/sys/cpu => ./stubs/golang.org/x/sys/cpu
+replace golang.org/x/sys/unix => ./stubs/golang.org/x/sys/unix
