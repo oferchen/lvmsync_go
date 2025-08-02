@@ -19,17 +19,19 @@ import (
 	"go.uber.org/zap"
 )
 
-var cfg *config.Config
+var (
+	cfg       *config.Config
+	applyFunc = transfer.RunApply
+)
 
-func runApplyMode() error {
+func runApplyMode(applyFile string) error {
 	args := pflag.Args()
 	if len(args) < 1 {
 		return fmt.Errorf("no destination device specified for apply mode")
 	}
 	destDevice := args[0]
-	applyFile := "-"
 
-	return transfer.RunApply(cfg, applyFile, destDevice)
+	return applyFunc(cfg, applyFile, destDevice)
 }
 
 func runClientMode(snapshotDevice, dest string) error {
@@ -173,6 +175,13 @@ func main() {
 	var snapshotPath string
 
 	go handleSignals(signals, &snapshotPath)
+
+	if cfg.ApplyMode != "" {
+		if err := runApplyMode(cfg.ApplyMode); err != nil {
+			logger.Fatal("Apply operation failed", zap.Error(err))
+		}
+		return
+	}
 
 	args := pflag.Args()
 	if len(args) < 2 {
