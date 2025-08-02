@@ -11,8 +11,9 @@ LVMSync is a high-performance incremental data replication tool for LVM snapshot
 - **Parallel Execution**: Configurable concurrency for optimal performance.
 - **Rate-Limiting**: Control bandwidth usage during transfers.
 - **Compression**: Supports LZ4 and Zstd (with configurable compression levels and an auto mode based on CPU features).
-- **Checksum Verification**: Ensures data integrity.
-- **Remote Execution via SSH**: Replicates data over SSH with support for pre/post-scripts.
+ - **Checksum Verification**: Ensures data integrity.
+ - **Deduplication Strategies**: Detect unchanged blocks using checksum, rolling hash, or Bloom filter with persistent state.
+ - **Remote Execution via SSH**: Replicates data over SSH with support for pre/post-scripts.
 - **Resume Support**: Ability to resume interrupted transfers.
 - **LVM Snapshot Management**:
   - Automatic snapshot creation and removal.
@@ -88,6 +89,14 @@ The tool supports both local and remote transfers, as well as an "apply mode" fo
 | `--lvmsync_path`      | Remote command to run (e.g., `"lvmsync"`)               | `"lvmsync"`|
 | `--remote_pre_script` | Remote script to run before starting the transfer       | `""`      |
 | `--remote_post_script`| Remote script to run after finishing the transfer        | `""`      |
+
+#### Deduplication Options
+
+| Option               | Description                                                                             | Default          |
+|----------------------|-----------------------------------------------------------------------------------------|------------------|
+| `--deduplication`    | Enable deduplication to avoid re-transferring unchanged blocks                          | `false`          |
+| `--dedup_strategy`   | Deduplication strategy (`"checksum"`, `"rolling_hash"`, or `"bloom"`)                  | `"checksum"`    |
+| `--dedup_state_file` | Path to deduplication state file                                                        | `~/.lvmsync_dedup` |
 
 #### Compression Options
 
@@ -190,6 +199,11 @@ speed: "100MB"                          # Transfer speed limit (e.g., "100MB")
 verbose: 0                              # Verbosity level
 verify_checksum: false                  # Enable checksum verification
 progress: true                          # Show progress percentage during the transfer
+
+# Deduplication Options:
+deduplication: false                    # Enable deduplication to avoid re-transferring unchanged blocks
+dedup_strategy: "checksum"               # Strategy: "checksum", "rolling_hash", or "bloom"
+dedup_state_file: "~/.lvmsync_dedup"    # Path to deduplication state file
 
 # SSH Options:
 ssh_user: "root"                        # SSH username
