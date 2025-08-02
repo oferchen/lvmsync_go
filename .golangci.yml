@@ -29,7 +29,6 @@ linters-settings:
       - lvmsync_go/remote
       - lvmsync_go/transfer
       - lvmsync_go/common
-    include-go-root: true
 
   gocritic:
     enabled-checks:
