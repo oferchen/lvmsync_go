@@ -21,6 +21,12 @@ import (
 
 var cfg *config.Config
 
+var (
+	dumpChangesSequential        = transfer.DumpChangesSequential
+	dumpChangesParallel          = transfer.DumpChangesParallel
+	dumpChangesWithDeduplication = transfer.DumpChangesWithDeduplication
+)
+
 func runApplyMode() error {
 	args := pflag.Args()
 	if len(args) < 1 {
@@ -34,6 +40,18 @@ func runApplyMode() error {
 
 func runClientMode(snapshotDevice, dest string) error {
 	originDevice := snapshotDevice
+	if cfg.StdoutMode {
+		limitedOut := transfer.WrapRateLimitedWriter(os.Stdout, cfg.SpeedLimit)
+		if cfg.Deduplication {
+			dedup := transfer.NewDeduplicationStrategy(cfg)
+			defer dedup.SaveState()
+			return dumpChangesWithDeduplication(cfg, snapshotDevice, originDevice, limitedOut, dedup)
+		}
+		if cfg.Parallel <= 1 {
+			return dumpChangesSequential(cfg, snapshotDevice, originDevice, limitedOut)
+		}
+		return dumpChangesParallel(cfg, snapshotDevice, originDevice, limitedOut)
+	}
 	if strings.Contains(dest, ":") {
 		parts := strings.SplitN(dest, ":", 2)
 		destHost := parts[0]
@@ -86,12 +104,12 @@ func runClientMode(snapshotDevice, dest string) error {
 		if cfg.Deduplication {
 			dedup := transfer.NewDeduplicationStrategy(cfg)
 			defer dedup.SaveState()
-			streamErr = transfer.DumpChangesWithDeduplication(cfg, snapshotDevice, originDevice, remoteStdin, dedup)
+			streamErr = dumpChangesWithDeduplication(cfg, snapshotDevice, originDevice, remoteStdin, dedup)
 		} else {
 			if cfg.Parallel <= 1 {
-				streamErr = transfer.DumpChangesSequential(cfg, snapshotDevice, originDevice, remoteStdin)
+				streamErr = dumpChangesSequential(cfg, snapshotDevice, originDevice, remoteStdin)
 			} else {
-				streamErr = transfer.DumpChangesParallel(cfg, snapshotDevice, originDevice, remoteStdin)
+				streamErr = dumpChangesParallel(cfg, snapshotDevice, originDevice, remoteStdin)
 			}
 		}
 
@@ -121,13 +139,12 @@ func runClientMode(snapshotDevice, dest string) error {
 		if cfg.Deduplication {
 			dedup := transfer.NewDeduplicationStrategy(cfg)
 			defer dedup.SaveState()
-			return transfer.DumpChangesWithDeduplication(cfg, snapshotDevice, originDevice, limitedOut, dedup)
-		} else {
-			if cfg.Parallel <= 1 {
-				return transfer.DumpChangesSequential(cfg, snapshotDevice, originDevice, limitedOut)
-			}
-			return transfer.DumpChangesParallel(cfg, snapshotDevice, originDevice, limitedOut)
+			return dumpChangesWithDeduplication(cfg, snapshotDevice, originDevice, limitedOut, dedup)
 		}
+		if cfg.Parallel <= 1 {
+			return dumpChangesSequential(cfg, snapshotDevice, originDevice, limitedOut)
+		}
+		return dumpChangesParallel(cfg, snapshotDevice, originDevice, limitedOut)
 	}
 	return nil
 }
@@ -175,12 +192,15 @@ func main() {
 	go handleSignals(signals, &snapshotPath)
 
 	args := pflag.Args()
-	if len(args) < 2 {
+	if (cfg.StdoutMode && len(args) < 1) || (!cfg.StdoutMode && len(args) < 2) {
 		pflag.Usage()
 		os.Exit(1)
 	}
 	originalVolume := args[0]
-	destPath := args[1]
+	destPath := ""
+	if !cfg.StdoutMode {
+		destPath = args[1]
+	}
 
 	if !cfg.SkipDiskCheck {
 		freeSpace, err := lvm.CheckDiskSpace("/")
