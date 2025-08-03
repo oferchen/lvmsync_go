@@ -81,6 +81,6 @@ issues:
     - ".*_test.go"
 
 output:
-  format: colored-line-number
+  formats: colored-line-number
   print-issued-lines: true
   sort-results: true
