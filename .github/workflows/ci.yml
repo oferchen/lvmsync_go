@@ -59,7 +59,7 @@ jobs:
 
       - name: Run golangci-lint
         run: |
-          golangci-lint run --output.formats=colored-line-number,github-actions
+          golangci-lint run --out-format=github-actions
         env:
           GOFLAGS: "-buildvcs=false"
 
