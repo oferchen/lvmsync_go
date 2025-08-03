@@ -56,12 +56,16 @@ type Config struct {
 	VolumeGroup          string        `mapstructure:"volume_group"`
 	LVMEscalation        string        `mapstructure:"lvm_escalation"`
 	Progress             bool          `mapstructure:"progress"`
-	BlockSize            int           `mapstructure:"block_size"`
+	BlockSize            int           `mapstructure:"-"`
 	BlockSizeRaw         string        `mapstructure:"-"`
 	Deduplication        bool          `mapstructure:"deduplication"`
 	DedupStrategy        string        `mapstructure:"dedup_strategy"`
 	DedupStateFile       string        `mapstructure:"dedup_state_file"`
 	UseBloomFilter       bool          `mapstructure:"use_bloom_filter"`
+}
+
+func (c *Config) HumanBlockSize() string {
+	return humanize.Bytes(uint64(c.BlockSize))
 }
 
 type ConfigBuilder struct {

@@ -20,8 +20,8 @@ import (
 )
 
 var (
-	cfg       *config.Config
-	applyFunc = transfer.RunApply
+	cfg                          *config.Config
+	applyFunc                    = transfer.RunApply
 	dumpChangesSequential        = transfer.DumpChangesSequential
 	dumpChangesParallel          = transfer.DumpChangesParallel
 	dumpChangesWithDeduplication = transfer.DumpChangesWithDeduplication
@@ -183,6 +183,19 @@ func main() {
 	}
 	zap.ReplaceGlobals(logger)
 	defer logger.Sync()
+
+	logger.Info("Effective configuration",
+		zap.String("block_size", cfg.HumanBlockSize()),
+		zap.Int("parallel", cfg.Parallel),
+		zap.Bool("deduplication", cfg.Deduplication),
+		zap.String("dedup_strategy", cfg.DedupStrategy),
+		zap.String("compress", cfg.Compress),
+		zap.Int("compress_level", cfg.CompressLevel),
+		zap.String("snapshot_size", cfg.SnapshotSize),
+		zap.String("volume_group", cfg.VolumeGroup),
+		zap.Bool("stdout_mode", cfg.StdoutMode),
+		zap.String("lvmsync_path", cfg.LVMSyncPath),
+	)
 
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
