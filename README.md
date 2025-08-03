@@ -24,6 +24,18 @@ LVMSync is a high-performance incremental data replication tool for LVM snapshot
 - **Graceful Shutdown**: Signal handling ensures snapshots are cleaned up on interruption.
 - **Configuration Validation**: Checks key parameters (e.g., volume group existence, escalation command) before starting operations.
 
+## Architecture
+
+LVMSync is organized into modular packages to keep concerns separated:
+
+- `lvm` – manages snapshot creation, monitoring, and cleanup.
+- `transfer` – performs block-level synchronization, compression, deduplication, and resume logic.
+- `remote` – wraps SSH functionality for running commands on remote hosts and coordinating transfers.
+- `config` – parses and validates configuration files and CLI options.
+- `common` and `internal` – shared helpers and internal utilities such as multi-error handling.
+
+This structure allows individual packages to be developed and tested in isolation.
+
 ## Installation
 
 ### Requirements
