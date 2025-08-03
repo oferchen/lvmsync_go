@@ -75,11 +75,6 @@ linters-settings:
       - name: cognitive-complexity
       - name: time-naming
 
-  errcheck:
-    check-type-assertions: true
-    exclude: |
-      defer .*\.Close\(\)
-
   goimports:
     local-prefixes: github.com/oferchen/lvmsync_go
 
