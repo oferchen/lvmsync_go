@@ -62,12 +62,6 @@ linters:
     - typecheck
     - gocritic
     - depguard
-  disable:
-    - lll
-    - gocyclo
-    - dupl
-    - nakedret
-    - prealloc
 
 issues:
   exclude-use-default: false
