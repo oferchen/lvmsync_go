@@ -109,7 +109,7 @@ func TestDumpChangesSequential(t *testing.T) {
 	changed := []int{0, 2}
 	src, snapshot := createDumpTestFiles(t, blockSize, changed)
 
-	cfg := &config.Config{BlockSize: int(blockSize), Compress: "none", DedupStateFile: filepath.Join(t.TempDir(), "state"), DedupStrategy: "checksum"}
+	cfg := &config.Config{BlockSize: int(blockSize), Compress: "none", DedupStateFile: filepath.Join(t.TempDir(), "state"), DedupStrategy: "checksum", MaxRetries: 1}
 	var buf bytes.Buffer
 	if err := DumpChangesSequential(cfg, snapshot, src, &buf); err != nil {
 		t.Fatalf("DumpChangesSequential failed: %v", err)
@@ -133,7 +133,7 @@ func TestDumpChangesWithDeduplication(t *testing.T) {
 	changed := []int{1}
 	src, snapshot := createDumpTestFiles(t, blockSize, changed)
 
-	cfg := &config.Config{BlockSize: int(blockSize), Compress: "none"}
+	cfg := &config.Config{BlockSize: int(blockSize), Compress: "none", MaxRetries: 1}
 	var buf bytes.Buffer
 	dedup := &dummyDedup{}
 	if err := DumpChangesWithDeduplication(cfg, snapshot, src, &buf, dedup); err != nil {
