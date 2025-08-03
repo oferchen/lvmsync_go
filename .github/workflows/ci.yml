@@ -60,11 +60,14 @@ jobs:
           restore-keys: |
             golangci-lint-${{ runner.os }}-
 
+      - name: Install golangci-lint manually
+        run: |
+          curl -sSL https://github.com/golangci/golangci-lint/releases/download/v2.0.0/golangci-lint-2.0.0-linux-amd64.tar.gz | tar xz
+          mv golangci-lint-2.0.0-linux-amd64/golangci-lint /usr/local/bin/
+      
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v3
-        with:
-          version: v2.0.0
-          args: run --output.formats=colored-line-number,github-actions
+        run: |
+          golangci-lint run --output.formats=colored-line-number,github-actions
         env:
           GOFLAGS: "-buildvcs=false"
 
