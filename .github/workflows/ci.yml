@@ -64,7 +64,7 @@ jobs:
         uses: golangci/golangci-lint-action@v3
         with:
           version: v2.0.0
-          args: --output.formats=colored-line-number,github-actions
+          args: run --output.formats=colored-line-number,github-actions
         env:
           GOFLAGS: "-buildvcs=false"
 
