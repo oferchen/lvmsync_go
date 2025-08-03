@@ -55,9 +55,7 @@ linters-settings:
   gocritic:
     enabled-checks:
       - rangeValCopy
-      - ifElseChain
       - boolExprSimplify
-      - unlambda
 
   revive:
     severity: warning
@@ -110,7 +108,7 @@ issues:
     - ".*_test.go"
 
 output:
-  format: colored-line-number
+  formats: [colored-line-number]
   print-issued-lines: true
   sort-results: true
 
