@@ -79,7 +79,7 @@ linters-settings:
   errcheck:
     check-type-assertions: true
     exclude:
-      - 'defer .*\.Close\(\)'
+      - "defer .*\\.Close\\(\\)"
 
   goimports:
     local-prefixes: github.com/oferchen/lvmsync_go
