@@ -124,9 +124,7 @@ func TestSSHManager(t *testing.T) {
 	if client1 != client2 {
 		t.Fatalf("expected cached client")
 	}
-	if server.ConnectionCount() != 1 {
-		t.Fatalf("expected one connection, got %d", server.ConnectionCount())
-	}
+	waitForConnectionCount(t, server, 1)
 
 	mgr.CloseAll()
 
@@ -137,9 +135,19 @@ func TestSSHManager(t *testing.T) {
 	if client3 == client1 {
 		t.Fatalf("expected new client after CloseAll")
 	}
-	if server.ConnectionCount() != 2 {
-		t.Fatalf("expected two connections, got %d", server.ConnectionCount())
-	}
+	waitForConnectionCount(t, server, 2)
 
 	mgr.CloseAll()
+}
+
+func waitForConnectionCount(t *testing.T, server *mockSSHServer, expected int) {
+	t.Helper()
+	deadline := time.Now().Add(200 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		if server.ConnectionCount() == expected {
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	t.Fatalf("expected %d connections, got %d", expected, server.ConnectionCount())
 }
