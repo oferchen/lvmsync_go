@@ -1,6 +1,33 @@
+version: 2
+
 run:
-  timeout: 3m
   tests: true
+  timeout: 3m
+  skip-dirs:
+    - vendor
+    - .git
+  skip-files:
+    - ".*_gen.go"
+    - ".*_test.go"
+
+output:
+  format: colored-line-number
+  print-issued-lines: true
+  sort-results: true
+
+linters:
+  enable:
+    - govet                # Standard Go vetting
+    - staticcheck          # Strong static analysis (SSA, nil, unused, etc.)
+    - revive               # Style, naming, idiomatic patterns
+    - errcheck             # Check unhandled errors
+    - ineffassign          # Ineffectual assignments
+    - unused               # Unused variables, functions, constants
+    - gocritic             # Code quality checks
+    - depguard             # Import restrictions
+    - asciicheck           # Disallow non-ASCII literals
+    - bodyclose            # Verify HTTP response bodies are closed
+    - misspell             # Spelling mistakes
 
 linters-settings:
   depguard:
@@ -25,10 +52,15 @@ linters-settings:
       - time
       - lvmsync_go
       - lvmsync_go/...
+
   gocritic:
     enabled-checks:
       - rangeValCopy
-      - boolExprSimplify
+      - ifElse
+      - captLocal
+      - commentFormatting
+      - unlambda
+      - appendCombine
 
   revive:
     severity: warning
@@ -39,42 +71,20 @@ linters-settings:
       - name: blank-imports
       - name: var-naming
       - name: error-naming
+      - name: unexported-return
+      - name: function-length
+      - name: cognitive-complexity
+      - name: time-naming
 
   errcheck:
     check-type-assertions: true
-
-  unused:
-    check-exported: true
+    exclude:
+      - 'defer .*\.Close\(\)'
 
   goimports:
     local-prefixes: github.com/oferchen/lvmsync_go
-
-linters:
-  enable:
-    - govet
-    - staticcheck
-    - revive
-    - errcheck
-    - gofmt
-    - goimports
-    - ineffassign
-    - unused
-    - typecheck
-    - gocritic
-    - depguard
 
 issues:
   exclude-use-default: false
   max-issues-per-linter: 0
   max-same-issues: 0
-  skip-dirs:
-    - vendor
-    - .git
-  skip-files:
-    - ".*_gen.go"
-    - ".*_test.go"
-
-output:
-  formats: colored-line-number
-  print-issued-lines: true
-  sort-results: true
