@@ -10,14 +10,13 @@ linters-settings:
       - github.com/spf13/viper
       - github.com/spf13/pflag
       - github.com/dustin/go-humanize
-      - go.uber.org/zap
+      - go.uber.org/zap/...
       - github.com/bits-and-blooms/bloom/v3
       - github.com/klauspost/compress/zstd
       - github.com/pierrec/lz4/v4
       - github.com/juju/ratelimit
       - golang.org/x/crypto/...
-      - golang.org/x/sys/unix
-      - golang.org/x/sys/cpu
+      - golang.org/x/sys/...
       - fmt
       - io
       - os
@@ -25,10 +24,7 @@ linters-settings:
       - encoding/binary
       - time
       - lvmsync_go
-      - lvmsync_go/config
-      - lvmsync_go/remote
-      - lvmsync_go/transfer
-      - lvmsync_go/common
+      - lvmsync_go/...
     allow:
       - github.com/spf13/viper
       - github.com/spf13/pflag
