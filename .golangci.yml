@@ -72,10 +72,11 @@ linters-settings:
       - name: error-naming
       - name: unexported-return
       - name: function-length
-      - name: cognitive-complexity
-      - name: time-naming
       - name: function-length
         arguments: [50, 25]
+      - name: cognitive-complexity
+        arguments: [15]
+      - name: time-naming
 
   goimports:
     local-prefixes: github.com/oferchen/lvmsync_go
