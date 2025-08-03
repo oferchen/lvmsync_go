@@ -55,7 +55,7 @@ linters-settings:
   gocritic:
     enabled-checks:
       - rangeValCopy
-      - ifElse
+      - elseif
       - captLocal
       - commentFormatting
       - unlambda
