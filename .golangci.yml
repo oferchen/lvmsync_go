@@ -29,10 +29,6 @@ linters:
     - misspell             # Spelling mistakes
 
 linters-settings:
-  revive:
-    rules:
-      - name: function-length
-        arguments: [50, 25]
   depguard:
     list-type: allow
     include-go-root: true
@@ -78,6 +74,8 @@ linters-settings:
       - name: function-length
       - name: cognitive-complexity
       - name: time-naming
+      - name: function-length
+        arguments: [50, 25]
 
   goimports:
     local-prefixes: github.com/oferchen/lvmsync_go
