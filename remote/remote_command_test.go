@@ -14,11 +14,13 @@ import (
 )
 
 type mockSSHServer struct {
-	addr     string
-	listener net.Listener
-	handler  func(string) int
-	mu       sync.Mutex
-	commands []string
+	addr       string
+	listener   net.Listener
+	handler    func(string) int
+	mu         sync.Mutex
+	commands   []string
+	globalReqs []string
+	connCount  int
 }
 
 func newMockSSHServer(t *testing.T, handler func(string) int) *mockSSHServer {
@@ -52,7 +54,10 @@ func (s *mockSSHServer) serve(config *ssh.ServerConfig) {
 			if err != nil {
 				return
 			}
-			go ssh.DiscardRequests(reqs)
+			s.mu.Lock()
+			s.connCount++
+			s.mu.Unlock()
+			go s.handleRequests(reqs)
 			for newCh := range chans {
 				if newCh.ChannelType() != "session" {
 					newCh.Reject(ssh.UnknownChannelType, "unknown channel type")
@@ -88,6 +93,15 @@ func (s *mockSSHServer) handleChannel(ch ssh.Channel, in <-chan *ssh.Request) {
 	}
 }
 
+func (s *mockSSHServer) handleRequests(in <-chan *ssh.Request) {
+	for req := range in {
+		s.mu.Lock()
+		s.globalReqs = append(s.globalReqs, req.Type)
+		s.mu.Unlock()
+		req.Reply(true, nil)
+	}
+}
+
 func (s *mockSSHServer) Close() {
 	s.listener.Close()
 }
@@ -96,6 +110,18 @@ func (s *mockSSHServer) Commands() []string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return append([]string(nil), s.commands...)
+}
+
+func (s *mockSSHServer) GlobalRequests() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]string(nil), s.globalReqs...)
+}
+
+func (s *mockSSHServer) ConnectionCount() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.connCount
 }
 
 func TestValidateRemoteCommand(t *testing.T) {
