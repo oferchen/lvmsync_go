@@ -15,3 +15,7 @@ require (
     golang.org/x/sys v0.21.0
     go.uber.org/multierr v1.10.0
 )
+
+replace github.com/dustin/go-humanize => ./stubs/github.com/dustin/go-humanize
+replace go.uber.org/zap => ./stubs/go.uber.org/zap
+replace go.uber.org/multierr => ./internal/multierr

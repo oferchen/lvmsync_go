@@ -39,6 +39,8 @@ var deviceFDCache = &fdCache{
 	fds: make(map[string]int),
 }
 
+var statfsFunc = syscall.Statfs
+
 func SetEscalationCommand(cmd string) {
 	escalationCommandLock.Lock()
 	defer escalationCommandLock.Unlock()
@@ -256,7 +258,7 @@ func MonitorSnapshot(snapshotPath string, threshold float64, interval time.Durat
 
 func CheckDiskSpace(mountPoint string) (uint64, error) {
 	var stat syscall.Statfs_t
-	if err := syscall.Statfs(mountPoint, &stat); err != nil {
+	if err := statfsFunc(mountPoint, &stat); err != nil {
 		return 0, fmt.Errorf("failed to get disk stats for %q: %w", mountPoint, err)
 	}
 
