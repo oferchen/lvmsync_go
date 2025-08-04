@@ -6,6 +6,9 @@ import (
 )
 
 func TestSelectVolumeGroupByFreeSpace(t *testing.T) {
+	orig := checkPrivs
+	checkPrivs = func() error { return nil }
+	t.Cleanup(func() { checkPrivs = orig })
 	restore := SetRunLVMCommand(func(name string, args ...string) ([]byte, error) {
 		if name != "vgs" {
 			return nil, fmt.Errorf("unexpected command %s", name)

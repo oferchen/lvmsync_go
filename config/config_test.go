@@ -73,7 +73,10 @@ func TestConfigValidate(t *testing.T) {
 			return []byte("100B\n"), nil
 		})
 		defer restore()
-		cfg := &Config{VolumeGroup: "vg0"}
+		prev := lvm.GetEscalationCommand()
+		lvm.SetEscalationCommand("sudo")
+		defer lvm.SetEscalationCommand(prev)
+		cfg := &Config{VolumeGroup: "vg0", LVMEscalation: "sudo"}
 		if err := cfg.Validate(); err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
@@ -84,7 +87,10 @@ func TestConfigValidate(t *testing.T) {
 			return nil, fmt.Errorf("command error")
 		})
 		defer restore()
-		cfg := &Config{VolumeGroup: "vg0"}
+		prev := lvm.GetEscalationCommand()
+		lvm.SetEscalationCommand("sudo")
+		defer lvm.SetEscalationCommand(prev)
+		cfg := &Config{VolumeGroup: "vg0", LVMEscalation: "sudo"}
 		if err := cfg.Validate(); err == nil {
 			t.Fatalf("expected error")
 		}
