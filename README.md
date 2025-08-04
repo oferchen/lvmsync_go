@@ -109,6 +109,8 @@ The tool supports both local and remote transfers, as well as an "apply mode" fo
 | `--deduplication`    | Enable deduplication to avoid re-transferring unchanged blocks                          | `false`          |
 | `--dedup_strategy`   | Deduplication strategy (`"checksum"`, `"rolling_hash"`, or `"bloom"`)                  | `"checksum"`    |
 | `--dedup_state_file` | Path to deduplication state file                                                        | `~/.lvmsync_dedup` |
+| `--bloom_entries`    | Estimated number of entries for bloom filter                                           | `1000000` |
+| `--bloom_fp_rate`    | False positive rate for bloom filter                                                   | `0.01` |
 
 #### Compression Options
 
@@ -219,6 +221,8 @@ progress: true                          # Show progress percentage during the tr
 deduplication: false                    # Enable deduplication to avoid re-transferring unchanged blocks
 dedup_strategy: "checksum"               # Strategy: "checksum", "rolling_hash", or "bloom"
 dedup_state_file: "~/.lvmsync_dedup"    # Path to deduplication state file
+bloom_entries: 1000000                  # Estimated number of entries for bloom filter
+bloom_fp_rate: 0.01                     # False positive rate for bloom filter
 
 # SSH Options:
 ssh_user: "root"                        # SSH username

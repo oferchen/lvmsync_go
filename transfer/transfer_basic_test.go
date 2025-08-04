@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"testing"
 
+	"github.com/bits-and-blooms/bloom/v3"
 	"lvmsync_go/config"
 )
 
@@ -30,9 +31,15 @@ func TestWrapRateLimitedWriterEnabled(t *testing.T) {
 }
 
 func TestNewDeduplicationStrategy(t *testing.T) {
-	cfg := &config.Config{DedupStrategy: "bloom", DedupStateFile: "state"}
-	if _, ok := NewDeduplicationStrategy(cfg).(*BloomFilterDedup); !ok {
+	cfg := &config.Config{DedupStrategy: "bloom", DedupStateFile: "state", BloomEntries: 1000, BloomFpRate: 0.05}
+	d := NewDeduplicationStrategy(cfg)
+	bf, ok := d.(*BloomFilterDedup)
+	if !ok {
 		t.Fatal("expected bloom filter strategy")
+	}
+	m, k := bloom.EstimateParameters(uint(cfg.BloomEntries), cfg.BloomFpRate)
+	if bf.filter.Cap() != m || bf.filter.K() != k {
+		t.Fatalf("unexpected bloom filter parameters m=%d k=%d want m=%d k=%d", bf.filter.Cap(), bf.filter.K(), m, k)
 	}
 
 	cfg.DedupStrategy = "checksum"

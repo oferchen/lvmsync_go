@@ -66,7 +66,8 @@ type Config struct {
 	Deduplication        bool          `mapstructure:"deduplication"`
 	DedupStrategy        string        `mapstructure:"dedup_strategy"`
 	DedupStateFile       string        `mapstructure:"dedup_state_file"`
-	UseBloomFilter       bool          `mapstructure:"use_bloom_filter"`
+	BloomEntries         int           `mapstructure:"bloom_entries"`
+	BloomFpRate          float64       `mapstructure:"bloom_fp_rate"`
 }
 
 func (c *Config) HumanBlockSize() string {
@@ -160,7 +161,8 @@ func DefaultConfig() *Config {
 		Deduplication:        false,
 		DedupStrategy:        "checksum",
 		DedupStateFile:       filepath.Join(homeDir, ".lvmsync_dedup"),
-		UseBloomFilter:       false,
+		BloomEntries:         1000000,
+		BloomFpRate:          0.01,
 	}
 }
 
@@ -206,7 +208,8 @@ func LoadConfig() (*Config, error) {
 	dedupFlags.Bool("deduplication", defaultCfg.Deduplication, "Enable deduplication to avoid re-transferring unchanged blocks")
 	dedupFlags.String("dedup_strategy", defaultCfg.DedupStrategy, fmt.Sprintf("Deduplication strategy: %v", SupportedDedupStrategies))
 	dedupFlags.String("dedup_state_file", defaultCfg.DedupStateFile, "Path to deduplication state file")
-	dedupFlags.Bool("use_bloom_filter", defaultCfg.UseBloomFilter, "Use bloom filter for quick duplicate detection")
+	dedupFlags.Int("bloom_entries", defaultCfg.BloomEntries, "Estimated number of entries for bloom filter")
+	dedupFlags.Float64("bloom_fp_rate", defaultCfg.BloomFpRate, "False positive rate for bloom filter")
 
 	// Compression Options
 	compressionFlags.String("compress", defaultCfg.Compress, fmt.Sprintf("Compression type, options: %v", SupportedCompression))
