@@ -35,7 +35,12 @@ func NewCompressionWriter(w io.Writer, compress string, level int) (io.WriteClos
 	case compressionLZ4:
 		return lz4.NewWriter(w), nil
 	case compressionZSTD:
-		return zstd.NewWriter(w, zstd.WithEncoderLevel(zstd.EncoderLevel(level)))
+		// Ensure provided level is within the supported zstd range.
+		if level < 1 || level > 22 {
+			return nil, fmt.Errorf("invalid zstd compression level: %d", level)
+		}
+		encLevel := zstd.EncoderLevelFromZstd(level)
+		return zstd.NewWriter(w, zstd.WithEncoderLevel(encLevel))
 	default:
 		return nil, fmt.Errorf("unsupported compression type: %s", compress)
 	}
