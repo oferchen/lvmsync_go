@@ -34,6 +34,8 @@ type BloomFilterDedup struct {
 	filter    *bloom.BloomFilter
 	stateFile string
 	mu        sync.RWMutex
+	entries   uint
+	fpRate    float64
 }
 
 type RollingHashDedup struct {
@@ -55,8 +57,10 @@ func NewDeduplicationStrategy(cfg *config.Config) DeduplicationStrategy {
 		return d
 	case "bloom":
 		d := &BloomFilterDedup{
-			filter:    bloom.NewWithEstimates(1000000, 0.01),
+			filter:    bloom.NewWithEstimates(uint(cfg.BloomEntries), cfg.BloomFpRate),
 			stateFile: cfg.DedupStateFile,
+			entries:   uint(cfg.BloomEntries),
+			fpRate:    cfg.BloomFpRate,
 		}
 		if err := d.loadState(); err != nil {
 			zap.L().Warn("failed to load dedup state", zap.Error(err))
@@ -265,7 +269,7 @@ func (b *BloomFilterDedup) loadState() error {
 	defer b.mu.Unlock()
 
 	if b.filter == nil {
-		b.filter = bloom.NewWithEstimates(1000000, 0.01)
+		b.filter = bloom.NewWithEstimates(b.entries, b.fpRate)
 	}
 
 	_, err = b.filter.ReadFrom(file)
