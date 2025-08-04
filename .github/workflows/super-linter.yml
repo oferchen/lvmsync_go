@@ -31,7 +31,6 @@ jobs:
           FIX_MARKDOWN_PRETTIER: true
           FIX_MARKDOWN: true
           VALIDATE_ALL_CODEBASE: true
-          VALIDATE_MARKDOWN: false
           VALIDATE_CHECKOV: false
           DEFAULT_BRANCH: "main"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
