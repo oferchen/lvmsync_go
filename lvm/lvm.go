@@ -41,6 +41,8 @@ var deviceFDCache = &fdCache{
 
 var statfsFunc = syscall.Statfs
 
+var checkPrivs = checkRootPrivileges
+
 func SetEscalationCommand(cmd string) {
 	escalationCommandLock.Lock()
 	defer escalationCommandLock.Unlock()
@@ -154,7 +156,7 @@ func executeCommand(name string, args ...string) ([]byte, error) {
 }
 
 func CreateSnapshot(lvPath, snapshotName, size string) error {
-	if err := checkRootPrivileges(); err != nil {
+	if err := checkPrivs(); err != nil {
 		return err
 	}
 
@@ -178,7 +180,7 @@ func CreateSnapshot(lvPath, snapshotName, size string) error {
 }
 
 func RemoveSnapshot(snapshotPath string) error {
-	if err := checkRootPrivileges(); err != nil {
+	if err := checkPrivs(); err != nil {
 		return err
 	}
 
@@ -199,7 +201,7 @@ func RemoveSnapshot(snapshotPath string) error {
 }
 
 func GetSnapshotUsage(snapshotPath string) (float64, error) {
-	if err := checkRootPrivileges(); err != nil {
+	if err := checkPrivs(); err != nil {
 		return 0, err
 	}
 
@@ -227,7 +229,7 @@ func GetSnapshotUsage(snapshotPath string) (float64, error) {
 }
 
 func MonitorSnapshot(snapshotPath string, threshold float64, interval time.Duration, stopChan <-chan struct{}) error {
-	if err := checkRootPrivileges(); err != nil {
+	if err := checkPrivs(); err != nil {
 		return err
 	}
 
@@ -376,7 +378,7 @@ func GetSnapshotDevicePath(snapshotName, volumeGroup string) string {
 }
 
 func GetVolumeGroupFreeSpace(vgName string) (uint64, error) {
-	if err := checkRootPrivileges(); err != nil {
+	if err := checkPrivs(); err != nil {
 		return 0, err
 	}
 

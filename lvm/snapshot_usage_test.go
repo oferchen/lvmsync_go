@@ -13,6 +13,10 @@ func init() {
 }
 
 func TestGetSnapshotUsage(t *testing.T) {
+	orig := checkPrivs
+	checkPrivs = func() error { return nil }
+	t.Cleanup(func() { checkPrivs = orig })
+
 	tmpDir := t.TempDir()
 	script := filepath.Join(tmpDir, "lvs")
 	if err := os.WriteFile(script, []byte("#!/bin/sh\necho 75.5\n"), 0755); err != nil {
@@ -32,6 +36,10 @@ func TestGetSnapshotUsage(t *testing.T) {
 }
 
 func TestMonitorSnapshot(t *testing.T) {
+	orig := checkPrivs
+	checkPrivs = func() error { return nil }
+	t.Cleanup(func() { checkPrivs = orig })
+
 	tmpDir := t.TempDir()
 	script := filepath.Join(tmpDir, "lvs")
 	if err := os.WriteFile(script, []byte("#!/bin/sh\necho 90\n"), 0755); err != nil {
