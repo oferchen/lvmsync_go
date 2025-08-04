@@ -23,19 +23,29 @@ jobs:
           autoconf automake libtool \
           libreadline-dev pkg-config \
           libdevmapper-dev uuid-dev \
+          libselinux-dev libsepol-dev \
           make gcc curl git
 
-    - name: Build and install LVM2 with lvm2cmd.h
+    - name: Clone and build LVM2 with lvm2cmd support (skip libaio)
       run: |
         git clone https://sourceware.org/git/lvm2.git
         cd lvm2
-        ./configure --prefix=/usr --enable-cmdlib --enable-pkgconfig
+        ./configure --prefix=/usr \
+          --enable-cmdlib \
+          --disable-thin \
+          --disable-vdo \
+          --disable-bcache \
+          --disable-dmeventd \
+          --disable-lockd \
+          --disable-readline \
+          --disable-pylvm \
+          --disable-lvmlockd \
+          --enable-static_link
         make -j$(nproc)
         sudo make install
 
-    - name: Verify lvm2cmd.h is available
-      run: |
-        test -f /usr/include/lvm2cmd.h || { echo "lvm2cmd.h not found!"; exit 1; }
+    - name: Ensure lvm2cmd.h is present
+      run: test -f /usr/include/lvm2cmd.h || { echo "ERROR: lvm2cmd.h missing"; exit 1; }
 
     - name: Set up Go
       uses: actions/setup-go@v5.5.0
