@@ -119,13 +119,16 @@ The tool supports both local and remote transfers, as well as an "apply mode" fo
 
 #### LVM Options
 
-| Option                     | Description                                                                                                          | Default      |
-|----------------------------|----------------------------------------------------------------------------------------------------------------------|--------------|
-| `--skip_snapshot_creation` | Skip automatic snapshot creation                                                                                     | `false`      |
-| `--skip_disk_check`        | Skip disk space check before snapshot creation                                                                       | `false`      |
-| `--snapshot_size`          | Snapshot size as an absolute value (e.g., `"20G"`) or as a percentage (e.g., `"20%"`)                                  | `"20%"`      |
-| `--volume_group`           | Volume group name of the source LVM volume                                                                            | `"vg0"`      |
-| `--lvm_escalation`         | Command used to escalate privileges for LVM commands (e.g., `"sudo -n"`)                                               | `"sudo -n"`  |
+| Option                     | Description                                                            | Default      |
+|----------------------------|------------------------------------------------------------------------|--------------|
+| `--skip_snapshot_creation` | Skip automatic snapshot creation                                       | `false`      |
+| `--skip_disk_check`        | Skip disk space check before snapshot creation                        | `false`      |
+| `--snapshot_size`          | Snapshot size as an absolute value (e.g., `"20G"`) or as a percentage (e.g., `"20%"`) | `"20%"`      |
+| `--volume_group`           | Source volume group. If empty, the group with the most free space is selected automatically. | `"vg0"`      |
+| `--target_volume_group`    | Volume group name of the target LVM volume                             | `""`       |
+| `--source_vgs`             | Candidate source volume groups for auto-selection                      | `[]`       |
+| `--target_vgs`             | Candidate target volume groups for auto-selection                      | `[]`       |
+| `--lvm_escalation`         | Command used to escalate privileges for LVM commands (e.g., `"sudo -n"`) | `"sudo -n"`  |
 
 ### Examples
 
@@ -237,19 +240,20 @@ compress_level: 3                       # Compression level for zstd (ignored fo
 skip_snapshot_creation: false           # Skip automatic snapshot creation
 skip_disk_check: false                  # Skip disk space check before snapshot creation
 snapshot_size: "20%"                    # Snapshot size as an absolute value (e.g., "20G") or as a percentage (e.g., "20%")
-volume_group: "vg0"                     # Volume group name of the source LVM volume
+volume_group: "vg0"                     # Source volume group. Auto-selected by free space when empty
+target_volume_group: ""                 # Volume group name of the target LVM volume
+source_vgs: []                          # Candidate source VGs for auto-selection
+target_vgs: []                          # Candidate target VGs for auto-selection
 lvm_escalation: "sudo -n"               # Command used to escalate privileges for LVM commands
 ```
-
-## Graceful Shutdown
 
 LVMSync installs signal handlers for SIGINT and SIGTERM. If an interruption occurs, the tool will attempt to remove any created snapshot before exiting, ensuring no orphaned snapshots remain.
 
 ## Configuration Validation
 
 Before starting, LVMSync validates key configuration parameters:
-- Checks that the specified volume group exists (via `vgdisplay`).
-- Verifies that the escalation command is available if not running as root.
+- Verifies that the specified volume groups exist.
+- Ensures the escalation command is available if not running as root.
 
 Invalid configurations will cause the tool to abort with a clear error message.
 

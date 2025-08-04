@@ -210,6 +210,7 @@ func main() {
 		zap.Int("compress_level", cfg.CompressLevel),
 		zap.String("snapshot_size", cfg.SnapshotSize),
 		zap.String("volume_group", cfg.VolumeGroup),
+		zap.String("target_volume_group", cfg.TargetVolumeGroup),
 		zap.Bool("stdout_mode", cfg.StdoutMode),
 		zap.String("lvmsync_path", cfg.LVMSyncPath),
 	)

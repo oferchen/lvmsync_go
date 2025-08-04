@@ -13,6 +13,7 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	"lvmsync_go/lvm"
 )
 
 var SupportedCompression = []string{"none", "lz4", "zstd", "auto"}
@@ -55,6 +56,9 @@ type Config struct {
 	SkipDiskCheck        bool          `mapstructure:"skip_disk_check"`
 	SnapshotSize         string        `mapstructure:"snapshot_size"`
 	VolumeGroup          string        `mapstructure:"volume_group"`
+	TargetVolumeGroup    string        `mapstructure:"target_volume_group"`
+	SourceVGCandidates   []string      `mapstructure:"source_vgs"`
+	TargetVGCandidates   []string      `mapstructure:"target_vgs"`
 	LVMEscalation        string        `mapstructure:"lvm_escalation"`
 	Progress             bool          `mapstructure:"progress"`
 	BlockSize            int           `mapstructure:"-"`
@@ -146,6 +150,9 @@ func DefaultConfig() *Config {
 		SkipDiskCheck:        false,
 		SnapshotSize:         "20%",
 		VolumeGroup:          "vg0",
+		TargetVolumeGroup:    "",
+		SourceVGCandidates:   []string{},
+		TargetVGCandidates:   []string{},
 		LVMEscalation:        "sudo -n",
 		Progress:             true,
 		BlockSize:            4096,
@@ -211,6 +218,9 @@ func LoadConfig() (*Config, error) {
 	lvmFlags.String("snapshot_size", defaultCfg.SnapshotSize, "Snapshot size (e.g., '20G' or '20%')")
 	lvmFlags.String("lvm_escalation", defaultCfg.LVMEscalation, "Command used to escalate privileges for LVM commands")
 	lvmFlags.String("volume_group", defaultCfg.VolumeGroup, "Volume group name of the source LVM volume")
+	lvmFlags.String("target_volume_group", defaultCfg.TargetVolumeGroup, "Volume group name of the target LVM volume")
+	lvmFlags.StringSlice("source_vgs", defaultCfg.SourceVGCandidates, "Candidate source volume groups for auto-selection")
+	lvmFlags.StringSlice("target_vgs", defaultCfg.TargetVGCandidates, "Candidate target volume groups for auto-selection")
 
 	// Register flags and set usage
 	pflag.CommandLine.AddFlagSet(generalFlags)
@@ -244,12 +254,38 @@ func LoadConfig() (*Config, error) {
 		v:        v,
 		defaults: defaultCfg,
 	}
-	return builder.Build()
+	conf, err := builder.Build()
+	if err != nil {
+		return nil, err
+	}
+
+	if conf.VolumeGroup == "" {
+		vg, _, err := lvm.SelectVolumeGroupByFreeSpace(conf.SourceVGCandidates)
+		if err != nil {
+			return nil, fmt.Errorf("failed to select source volume group: %w", err)
+		}
+		conf.VolumeGroup = vg
+	}
+	if conf.TargetVolumeGroup == "" && len(conf.TargetVGCandidates) > 0 {
+		vg, _, err := lvm.SelectVolumeGroupByFreeSpace(conf.TargetVGCandidates)
+		if err != nil {
+			return nil, fmt.Errorf("failed to select target volume group: %w", err)
+		}
+		conf.TargetVolumeGroup = vg
+	}
+
+	return conf, nil
 }
 func (c *Config) Validate() error {
-	out, err := exec.Command("vgdisplay", c.VolumeGroup).CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("volume group %q does not exist or is inaccessible: %w, output: %s", c.VolumeGroup, err, string(out))
+	if c.VolumeGroup != "" {
+		if _, err := lvm.GetVolumeGroupFreeSpace(c.VolumeGroup); err != nil {
+			return fmt.Errorf("volume group %q does not exist or is inaccessible: %w", c.VolumeGroup, err)
+		}
+	}
+	if c.TargetVolumeGroup != "" {
+		if _, err := lvm.GetVolumeGroupFreeSpace(c.TargetVolumeGroup); err != nil {
+			return fmt.Errorf("target volume group %q does not exist or is inaccessible: %w", c.TargetVolumeGroup, err)
+		}
 	}
 	if os.Geteuid() != 0 {
 		parts := strings.Fields(c.LVMEscalation)

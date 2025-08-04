@@ -3,11 +3,10 @@ package config
 import (
 	"fmt"
 	"math"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/spf13/viper"
+	"lvmsync_go/lvm"
 )
 
 func TestParseBytesOrFallback(t *testing.T) {
@@ -69,27 +68,22 @@ func TestParseBytesOrFallback(t *testing.T) {
 }
 
 func TestConfigValidate(t *testing.T) {
-	t.Run("vgdisplay success", func(t *testing.T) {
-		dir := t.TempDir()
-		script := filepath.Join(dir, "vgdisplay")
-		if err := os.WriteFile(script, []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
-			t.Fatalf("write script: %v", err)
-		}
-		t.Setenv("PATH", dir+":"+os.Getenv("PATH"))
-		cfg := DefaultConfig()
-		cfg.VolumeGroup = "vg0"
+	t.Run("success", func(t *testing.T) {
+		restore := lvm.SetRunLVMCommand(func(name string, args ...string) ([]byte, error) {
+			return []byte("100B\n"), nil
+		})
+		defer restore()
+		cfg := &Config{VolumeGroup: "vg0"}
 		if err := cfg.Validate(); err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
 	})
 
-	t.Run("vgdisplay failure", func(t *testing.T) {
-		dir := t.TempDir()
-		script := filepath.Join(dir, "vgdisplay")
-		if err := os.WriteFile(script, []byte("#!/bin/sh\nexit 1\n"), 0o755); err != nil {
-			t.Fatalf("write script: %v", err)
-		}
-		t.Setenv("PATH", dir+":"+os.Getenv("PATH"))
+	t.Run("failure", func(t *testing.T) {
+		restore := lvm.SetRunLVMCommand(func(name string, args ...string) ([]byte, error) {
+			return nil, fmt.Errorf("command error")
+		})
+		defer restore()
 		cfg := &Config{VolumeGroup: "vg0"}
 		if err := cfg.Validate(); err == nil {
 			t.Fatalf("expected error")
