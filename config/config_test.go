@@ -47,7 +47,8 @@ func TestConfigValidate(t *testing.T) {
 			t.Fatalf("write script: %v", err)
 		}
 		t.Setenv("PATH", dir+":"+os.Getenv("PATH"))
-		cfg := &Config{VolumeGroup: "vg0"}
+		cfg := DefaultConfig()
+		cfg.VolumeGroup = "vg0"
 		if err := cfg.Validate(); err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
