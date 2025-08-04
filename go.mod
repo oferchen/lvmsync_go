@@ -5,7 +5,6 @@ go 1.24.5
 require (
 	github.com/bits-and-blooms/bloom/v3 v3.7.0
 	github.com/dustin/go-humanize v1.0.1
-	github.com/juju/ratelimit v1.0.2
 	github.com/klauspost/compress v1.18.0
 	github.com/pierrec/lz4/v4 v4.1.22
 	github.com/spf13/pflag v1.0.7
@@ -13,6 +12,7 @@ require (
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.40.0
 	golang.org/x/sys v0.34.0
+	golang.org/x/time v0.12.0
 )
 
 require (
