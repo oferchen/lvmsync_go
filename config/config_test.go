@@ -117,7 +117,7 @@ func TestGetBlockSizeRaw(t *testing.T) {
 }
 
 func TestCompressLevelValidation(t *testing.T) {
-	t.Run("valid", func(t *testing.T) {
+	t.Run("zstdValid", func(t *testing.T) {
 		v := viper.New()
 		v.Set("compress", "zstd")
 		v.Set("compress_level", 3)
@@ -127,13 +127,43 @@ func TestCompressLevelValidation(t *testing.T) {
 		}
 	})
 
-	t.Run("invalid", func(t *testing.T) {
+	t.Run("zstdInvalid", func(t *testing.T) {
 		v := viper.New()
 		v.Set("compress", "zstd")
 		v.Set("compress_level", 100)
 		cb := &ConfigBuilder{v: v, defaults: DefaultConfig()}
 		if _, err := cb.Build(); err == nil {
 			t.Fatalf("expected error")
+		}
+	})
+
+	t.Run("autoValid", func(t *testing.T) {
+		v := viper.New()
+		v.Set("compress", "auto")
+		v.Set("compress_level", 3)
+		cb := &ConfigBuilder{v: v, defaults: DefaultConfig()}
+		if _, err := cb.Build(); err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+	})
+
+	t.Run("autoInvalid", func(t *testing.T) {
+		v := viper.New()
+		v.Set("compress", "auto")
+		v.Set("compress_level", 100)
+		cb := &ConfigBuilder{v: v, defaults: DefaultConfig()}
+		if _, err := cb.Build(); err == nil {
+			t.Fatalf("expected error")
+		}
+	})
+
+	t.Run("lz4NoValidation", func(t *testing.T) {
+		v := viper.New()
+		v.Set("compress", "lz4")
+		v.Set("compress_level", 100)
+		cb := &ConfigBuilder{v: v, defaults: DefaultConfig()}
+		if _, err := cb.Build(); err != nil {
+			t.Fatalf("expected no error, got %v", err)
 		}
 	})
 }
