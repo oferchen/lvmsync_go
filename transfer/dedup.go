@@ -14,6 +14,10 @@ import (
 	"go.uber.org/zap"
 )
 
+var createStateFile = func(name string) (io.WriteCloser, error) {
+	return os.Create(name)
+}
+
 type DeduplicationStrategy interface {
 	ShouldTransfer(offset int64, data []byte) bool
 	RecordTransfer(offset int64, data []byte)
@@ -91,15 +95,19 @@ func (c *ChecksumDedup) SaveState() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	file, err := os.Create(c.stateFile)
+	file, err := createStateFile(c.stateFile)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
 
 	for offset, hash := range c.hashes {
-		binary.Write(file, binary.LittleEndian, offset)
-		file.Write(hash[:])
+		if err := binary.Write(file, binary.LittleEndian, offset); err != nil {
+			return err
+		}
+		if _, err := file.Write(hash[:]); err != nil {
+			return err
+		}
 	}
 	return nil
 }
