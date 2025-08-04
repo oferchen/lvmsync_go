@@ -20,32 +20,38 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y \
-          autoconf automake libtool \
-          libreadline-dev pkg-config \
-          libdevmapper-dev uuid-dev \
+          autoconf automake libtool pkg-config \
+          build-essential libdevmapper-dev libreadline-dev \
+          uuid-dev libaio-dev \
           libselinux-dev libsepol-dev \
-          make gcc curl git
+          git curl
 
-    - name: Clone and build LVM2 with lvm2cmd support (skip libaio)
+    - name: Clone and build LVM2 with lvm2cmd.h
       run: |
         git clone https://sourceware.org/git/lvm2.git
         cd lvm2
-        ./configure --prefix=/usr \
+        ./configure \
+          --prefix=/usr \
           --enable-cmdlib \
+          --enable-pkgconfig \
+          --disable-selinux \
+          --disable-readline \
+          --disable-udev_sync \
+          --disable-udev_rules \
+          --disable-nls \
+          --disable-dmeventd \
+          --disable-bcache \
           --disable-thin \
           --disable-vdo \
-          --disable-bcache \
-          --disable-dmeventd \
-          --disable-lockd \
-          --disable-readline \
-          --disable-pylvm \
-          --disable-lvmlockd \
-          --enable-static_link
+          --disable-cache \
+          --disable-writecache \
+          --disable-integrity
         make -j$(nproc)
         sudo make install
 
-    - name: Ensure lvm2cmd.h is present
-      run: 'test -f /usr/include/lvm2cmd.h || { echo "ERROR: lvm2cmd.h missing"; exit 1; }'
+    - name: Verify required headers
+      run: |
+        test -f /usr/include/lvm2cmd.h || { echo "Missing lvm2cmd.h!"; exit 1; }
 
     - name: Set up Go
       uses: actions/setup-go@v5.5.0
