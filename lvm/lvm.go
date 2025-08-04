@@ -3,6 +3,7 @@ package lvm
 
 import (
 	"bytes"
+	"container/list"
 	"fmt"
 	"io"
 	"os"
@@ -30,13 +31,20 @@ var (
 	escalationCommandLock sync.RWMutex
 )
 
+type fdCacheEntry struct {
+	path string
+	fd   int
+}
+
 type fdCache struct {
-	fds   map[string]int
+	fds   map[string]*list.Element
+	order *list.List
 	mutex sync.Mutex
 }
 
 var deviceFDCache = &fdCache{
-	fds: make(map[string]int),
+	fds:   make(map[string]*list.Element),
+	order: list.New(),
 }
 
 var statfsFunc = syscall.Statfs
@@ -83,8 +91,9 @@ func (c *fdCache) getFD(devicePath string) (int, error) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	if fd, exists := c.fds[devicePath]; exists {
-		return fd, nil
+	if elem, exists := c.fds[devicePath]; exists {
+		c.order.MoveToFront(elem)
+		return elem.Value.(*fdCacheEntry).fd, nil
 	}
 
 	fd, err := syscall.Open(devicePath, syscall.O_RDONLY|syscall.O_NONBLOCK, 0)
@@ -92,17 +101,19 @@ func (c *fdCache) getFD(devicePath string) (int, error) {
 		return -1, fmt.Errorf("failed to open device %s: %w", devicePath, err)
 	}
 
-	if len(c.fds) >= fdCacheSize {
-		var oldestPath string
-		for path := range c.fds {
-			oldestPath = path
-			break
+	if c.order.Len() >= fdCacheSize {
+		back := c.order.Back()
+		if back != nil {
+			entry := back.Value.(*fdCacheEntry)
+			syscall.Close(entry.fd)
+			delete(c.fds, entry.path)
+			c.order.Remove(back)
 		}
-		syscall.Close(c.fds[oldestPath])
-		delete(c.fds, oldestPath)
 	}
 
-	c.fds[devicePath] = fd
+	entry := &fdCacheEntry{path: devicePath, fd: fd}
+	elem := c.order.PushFront(entry)
+	c.fds[devicePath] = elem
 	return fd, nil
 }
 
@@ -110,10 +121,12 @@ func (c *fdCache) Close() {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	for path, fd := range c.fds {
-		syscall.Close(fd)
-		delete(c.fds, path)
+	for _, elem := range c.fds {
+		entry := elem.Value.(*fdCacheEntry)
+		syscall.Close(entry.fd)
 	}
+	c.fds = make(map[string]*list.Element)
+	c.order.Init()
 }
 
 func captureOutput(r io.Reader, ch chan<- error, buf *bytes.Buffer) {
