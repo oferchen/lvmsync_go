@@ -69,74 +69,68 @@ The tool supports both local and remote transfers, as well as an "apply mode" fo
 
 #### General Options
 
-| Option        | Description                                                                                          | Default   |
-|---------------|------------------------------------------------------------------------------------------------------|-----------|
-| `--config`    | Path to a YAML configuration file                                                                  | `""`      |
-| `--apply`     | Apply mode: read change dump from file (`-` for STDIN) and apply to destination device               | `""`      |
-| `--stdout`    | Write change dump to STDOUT                                                                          | `false`   |
-| `--parallel`  | Number of concurrent workers                                                                         | `4`       |
-| `--zerocopy`  | Enable zero-copy transfers (only used in sequential mode)                                           | `false`   |
-| `--max_retries` | Maximum number of retries per block                                                                 | `3`       |
-| `--resume`    | Path to resume state file                                                                            | `""`      |
-| `--speed`     | Transfer speed limit (e.g., `"100MB"`)                                                               | `"100MB"` |
-| `-v, --verbose` | Verbosity level (e.g., `-v`, `-vv`, `-vvv`)                                                         | `0`       |
-| `--verify_checksum` | Enable checksum verification for data integrity                                               | `false`   |
-| `--progress`  | Show progress percentage during the transfer                                                       | `true`    |
-| `--block_size` | Block size for data transfer (e.g., "4K", "64K", "512K", "1M")                                     | `"4K"`    |
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--config` | Path to a YAML configuration file | `""` |
+| `--apply` | Apply mode: read change dump from file (`-` for STDIN) and apply to destination device | `""` |
+| `--stdout` | Write change dump to STDOUT | `false` |
+| `--parallel` | Number of concurrent workers | `4` |
+| `--zerocopy` | Enable zero-copy transfers (only used in sequential mode) | `false` |
+| `--max_retries` | Maximum number of retries per block | `3` |
+| `--resume` | Path to resume state file | `""` |
+| `--speed` | Transfer speed limit (e.g., `"100MB"`) | `"100MB"` |
+| `-v, --verbose` | Verbosity level (e.g., `-v`, `-vv`, `-vvv`) | `0` |
+| `--verify_checksum` | Enable checksum verification for data integrity | `false` |
+| `--progress` | Show progress percentage during the transfer | `true` |
+| `--block_size` | Block size for data transfer (e.g., `"4K"`, `"64K"`, `"512K"`, `"1M"`) | `"4K"` |
 
 #### SSH Options
 
-| Option                   | Description                                                      | Default                                |
-|--------------------------|------------------------------------------------------------------|----------------------------------------|
-| `--ssh_user`             | SSH username                                                     | `"root"`                               |
-| `--ssh_key`              | Path to SSH private key or use the SSH agent                     | `""`                                   |
-| `--ssh_port`             | SSH port number                                                  | `22`                                   |
-| `--known_hosts`          | Path to known_hosts file (defaults to `$HOME/.ssh/known_hosts`)    | `$HOME/.ssh/known_hosts`               |
-| `--stricthostkeychecking`| Enable SSH StrictHostKeyChecking                                 | `true`                                 |
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--ssh_user` | SSH username | `"root"` |
+| `--ssh_key` | Path to SSH private key or use the SSH agent | `""` |
+| `--ssh_port` | SSH port number | `22` |
+| `--known_hosts` | Path to known_hosts file (defaults to `$HOME/.ssh/known_hosts`) | `$HOME/.ssh/known_hosts` |
+| `--stricthostkeychecking` | Enable SSH StrictHostKeyChecking | `true` |
 
 #### Remote Options
 
-| Option                | Description                                             | Default   |
-|-----------------------|---------------------------------------------------------|-----------|
-| `--lvmsync_path`      | Remote command to run (e.g., `"lvmsync"`)               | `"lvmsync"`|
-| `--remote_pre_script` | Remote script to run before starting the transfer       | `""`      |
-| `--remote_post_script`| Remote script to run after finishing the transfer        | `""`      |
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--lvmsync_path` | Remote command to run (e.g., `"lvmsync"`) | `"lvmsync"` |
+| `--remote_pre_script` | Remote script to run before starting the transfer | `""` |
+| `--remote_post_script` | Remote script to run after finishing the transfer | `""` |
 
 #### Deduplication Options
 
-| Option               | Description                                                                             | Default          |
-|----------------------|-----------------------------------------------------------------------------------------|------------------|
-| `--deduplication`    | Enable deduplication to avoid re-transferring unchanged blocks                          | `false`          |
-| `--dedup_strategy`   | Deduplication strategy (`"auto"`, `"checksum"`, `"rolling_hash"`, or `"bloom"`)        | `"auto"`        |
-| `--dedup_state_file` | Path to deduplication state file                                                        | `~/.lvmsync_dedup` |
-| `--bloom_entries`    | Estimated number of entries for bloom filter                                           | `1000000` |
-| `--bloom_fp_rate`    | False positive rate for bloom filter                                                   | `0.01` |
-
-By default, `--dedup_strategy auto` inspects CPU capabilities via
-`golang.org/x/sys/cpu`. If hardware SHA support is detected, the checksum
-strategy is selected; otherwise a rolling hash is used. Experts can override
-this behaviour with `--dedup_strategy checksum`, `--dedup_strategy rolling_hash`,
-or `--dedup_strategy bloom`.
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--deduplication` | Enable deduplication to avoid re-transferring unchanged blocks | `false` |
+| `--dedup_strategy` | Deduplication strategy (`"auto"`, `"checksum"`, `"rolling_hash"`, or `"bloom"`) | `"auto"` |
+| `--dedup_state_file` | Path to deduplication state file | `~/.lvmsync_dedup` |
+| `--bloom_entries` | Estimated number of entries for bloom filter | `1000000` |
+| `--bloom_fp_rate` | False positive rate for bloom filter | `0.01` |
 
 #### Compression Options
 
-| Option            | Description                                                                  | Default   |
-|-------------------|------------------------------------------------------------------------------|-----------|
-| `--compress`      | Compression type (options: `"none"`, `"lz4"`, `"zstd"`, `"auto"`)            | `"lz4"`   |
-| `--compress_level`| Compression level for Zstd (ignored for LZ4)                                 | `3`       |
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--compress` | Compression type (options: `"none"`, `"lz4"`, `"zstd"`, `"auto"`) | `"lz4"` |
+| `--compress_level` | Compression level for Zstd (ignored for LZ4) | `3` |
 
 #### LVM Options
 
-| Option                     | Description                                                            | Default      |
-|----------------------------|------------------------------------------------------------------------|--------------|
-| `--skip_snapshot_creation` | Skip automatic snapshot creation                                       | `false`      |
-| `--skip_disk_check`        | Skip disk space check before snapshot creation                        | `false`      |
-| `--snapshot_size`          | Snapshot size as an absolute value (e.g., `"20G"`) or as a percentage (e.g., `"20%"`) | `"20%"`      |
-| `--volume_group`           | Source volume group. If empty, the group with the most free space is selected automatically. | `"vg0"`      |
-| `--target_volume_group`    | Volume group name of the target LVM volume                             | `""`       |
-| `--source_vgs`             | Candidate source volume groups for auto-selection                      | `[]`       |
-| `--target_vgs`             | Candidate target volume groups for auto-selection                      | `[]`       |
-| `--lvm_escalation`         | Command used to escalate privileges for LVM commands (e.g., `"sudo -n"`) | `"sudo -n"`  |
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--skip_snapshot_creation` | Skip automatic snapshot creation | `false` |
+| `--skip_disk_check` | Skip disk space check before snapshot creation | `false` |
+| `--snapshot_size` | Snapshot size as an absolute value (e.g., `"20G"`) or as a percentage (e.g., `"20%"`) | `"20%"` |
+| `--volume_group` | Source volume group. If empty, the group with the most free space is selected automatically | `"vg0"` |
+| `--target_volume_group` | Volume group name of the target LVM volume | `""` |
+| `--source_vgs` | Candidate source volume groups for auto-selection | `[]` |
+| `--target_vgs` | Candidate target volume groups for auto-selection | `[]` |
+| `--lvm_escalation` | Command used to escalate privileges for LVM commands (e.g., `"sudo -n"`) | `"sudo -n"` |
 
 ### Examples
 
