@@ -1,16 +1,11 @@
-# This workflow executes several linters on changed files based on languages used in your code base whenever
-# you push a code or open a pull request.
-#
-# You can adjust the behavior by modifying this file.
-# For more information, see:
-# https://github.com/github/super-linter
 name: Lint Code Base
 
 on:
   push:
-    branches: [ "main","master" ]
+    branches: [ "main", "master" ]
   pull_request:
-    branches: [ "main","master" ]
+    branches: [ "main", "master" ]
+
 jobs:
   run-lint:
     runs-on: ubuntu-latest
@@ -18,7 +13,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          # Full git history is needed to get a proper list of changed files within `super-linter`
           fetch-depth: 0
 
       - name: Install build dependencies
@@ -30,7 +24,7 @@ jobs:
             uuid-dev libaio-dev \
             libselinux-dev libsepol-dev \
             git curl
-  
+
       - name: Clone and build LVM2 with lvm2cmd.h
         run: |
           git clone https://sourceware.org/git/lvm2.git
@@ -47,13 +41,15 @@ jobs:
             --disable-dmeventd
           make -j$(nproc)
           sudo make install
-  
+
       - name: Verify required headers
-        run: |
-          test -f /usr/include/lvm2cmd.h || { echo "Missing lvm2cmd.h!"; exit 1; }
+        run: test -f /usr/include/lvm2cmd.h || { echo "Missing lvm2cmd.h!"; exit 1; }
 
       - name: Install Go mod dependencies
-        run: rm go.mod go.sum && go mod init lvmsync_go && go mod tidy
+        run: |
+          rm -f go.mod go.sum
+          go mod init lvmsync_go
+          go mod tidy
 
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v4
@@ -67,13 +63,16 @@ jobs:
       - name: Super-Linter
         uses: super-linter/super-linter@v8.0.0
         env:
-          FIX_YAML_PRETTIER: true
-          FIX_GO_MODULES: false
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VALIDATE_GO: false
           FIX_GO: false
-          FIX_MARKDOWN_PRETTIER: true
+          FIX_GO_MODULES: false
+          VALIDATE_MARKDOWN: true
           FIX_MARKDOWN: true
+          FIX_MARKDOWN_PRETTIER: true
+          VALIDATE_CPP: true
+          FIX_YAML_PRETTIER: true
           VALIDATE_ALL_CODEBASE: false
           VALIDATE_CHECKOV: false
           VALIDATE_JSCPD: false
           DEFAULT_BRANCH: "main"
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
