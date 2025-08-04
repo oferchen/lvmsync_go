@@ -39,13 +39,7 @@ jobs:
           --disable-udev_sync \
           --disable-udev_rules \
           --disable-nls \
-          --disable-dmeventd \
-          --disable-bcache \
-          --disable-thin \
-          --disable-vdo \
-          --disable-cache \
-          --disable-writecache \
-          --disable-integrity
+          --disable-dmeventd
         make -j$(nproc)
         sudo make install
 
