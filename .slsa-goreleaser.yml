@@ -1,2 +1,8 @@
  # .slsa-goreleaser.yml
- 
+version: v1
+build:
+  goos: linux
+  goarch: amd64
+  dir: .
+  main: ./main.go
+  outputBinary: lvmsync_go
