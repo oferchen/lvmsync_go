@@ -46,4 +46,19 @@ func TestNewDeduplicationStrategy(t *testing.T) {
 	if _, ok := NewDeduplicationStrategy(cfg).(*ChecksumDedup); !ok {
 		t.Fatal("expected checksum strategy")
 	}
+
+	origDetect := detectBestStrategy
+	defer func() { detectBestStrategy = origDetect }()
+
+	cfg.DedupStrategy = "auto"
+	detectBestStrategy = func() string { return "rolling_hash" }
+	if _, ok := NewDeduplicationStrategy(cfg).(*RollingHashDedup); !ok {
+		t.Fatal("expected rolling hash strategy for auto")
+	}
+
+	cfg.DedupStrategy = "auto"
+	detectBestStrategy = func() string { return "checksum" }
+	if _, ok := NewDeduplicationStrategy(cfg).(*ChecksumDedup); !ok {
+		t.Fatal("expected checksum strategy for auto")
+	}
 }

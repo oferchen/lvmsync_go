@@ -485,8 +485,8 @@ func RunApply(cfg *config.Config, applyFile, destDevice string) error {
 	}
 
 	if cfg.Deduplication {
-		Logger.Info("Applying deduplication during restore", zap.String("strategy", cfg.DedupStrategy))
 		dedup := NewDeduplicationStrategy(cfg)
+		Logger.Info("Applying deduplication during restore", zap.String("strategy", cfg.DedupStrategy))
 		defer func() {
 			if err := dedup.SaveState(); err != nil {
 				Logger.Error("Failed to save dedup state", zap.Error(err))
