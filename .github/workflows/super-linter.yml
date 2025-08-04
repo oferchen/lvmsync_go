@@ -32,4 +32,5 @@ jobs:
           VALIDATE_ALL_CODEBASE: true
           VALIDATE_CHECKOV: false
           DEFAULT_BRANCH: "main"
+          DEFAULT_WORKSPACE: "/"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
