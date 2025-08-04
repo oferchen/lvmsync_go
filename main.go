@@ -55,7 +55,7 @@ func runApplyMode(applyFile string) error {
 	return applyFunc(cfg, applyFile, destDevice)
 }
 
-func runClientMode(snapshotDevice, dest string) error {
+func runClientMode(snapshotDevice, dest string) (err error) {
 	originDevice := snapshotDevice
 	if cfg.StdoutMode {
 		limitedOut := transfer.WrapRateLimitedWriter(os.Stdout, cfg.SpeedLimit)
@@ -88,6 +88,17 @@ func runClientMode(snapshotDevice, dest string) error {
 			if err := remote.RunRemoteScript(client, cfg.RemotePreScript); err != nil {
 				return fmt.Errorf("remote pre-script failed: %w", err)
 			}
+		}
+		if cfg.RemotePostScript != "" {
+			defer func() {
+				if err2 := remote.RunRemoteScript(client, cfg.RemotePostScript); err2 != nil {
+					if err == nil {
+						err = fmt.Errorf("remote post-script failed: %w", err2)
+					} else {
+						err = fmt.Errorf("%v; remote post-script failed: %w", err, err2)
+					}
+				}
+			}()
 		}
 		if err := remote.ValidateRemoteCommand(client, cfg.LVMSyncPath); err != nil {
 			return fmt.Errorf("remote command validation failed: %w", err)
@@ -152,12 +163,6 @@ func runClientMode(snapshotDevice, dest string) error {
 		}
 		if err := <-stderrErrCh; err != nil {
 			return fmt.Errorf("stderr copy error: %w", err)
-		}
-
-		if cfg.RemotePostScript != "" {
-			if err := remote.RunRemoteScript(client, cfg.RemotePostScript); err != nil {
-				return fmt.Errorf("remote post-script failed: %w", err)
-			}
 		}
 	} else {
 		destFile, err := os.OpenFile(dest, os.O_RDWR, 0)

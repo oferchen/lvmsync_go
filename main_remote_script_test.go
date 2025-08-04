@@ -1,0 +1,169 @@
+package main
+
+import (
+	"crypto/rand"
+	"crypto/rsa"
+	"io"
+	"net"
+	"strconv"
+	"strings"
+	"sync"
+	"testing"
+
+	"golang.org/x/crypto/ssh"
+	"lvmsync_go/config"
+)
+
+// mockSSHServer is copied from remote package tests for use in integration tests.
+type mockSSHServer struct {
+	addr     string
+	listener net.Listener
+	handler  func(string) int
+	mu       sync.Mutex
+	commands []string
+}
+
+func newMockSSHServer(t *testing.T, handler func(string) int) *mockSSHServer {
+	private, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("failed to generate key: %v", err)
+	}
+	signer, err := ssh.NewSignerFromKey(private)
+	if err != nil {
+		t.Fatalf("failed to create signer: %v", err)
+	}
+	config := &ssh.ServerConfig{NoClientAuth: true}
+	config.AddHostKey(signer)
+	listener, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatalf("failed to listen: %v", err)
+	}
+	srv := &mockSSHServer{addr: listener.Addr().String(), listener: listener, handler: handler}
+	go srv.serve(config)
+	return srv
+}
+
+func (s *mockSSHServer) serve(config *ssh.ServerConfig) {
+	for {
+		conn, err := s.listener.Accept()
+		if err != nil {
+			return
+		}
+		go func(nConn net.Conn) {
+			serverConn, chans, reqs, err := ssh.NewServerConn(nConn, config)
+			if err != nil {
+				return
+			}
+			go ssh.DiscardRequests(reqs)
+			for newCh := range chans {
+				if newCh.ChannelType() != "session" {
+					newCh.Reject(ssh.UnknownChannelType, "unknown channel type")
+					continue
+				}
+				ch, requests, err := newCh.Accept()
+				if err != nil {
+					continue
+				}
+				go s.handleChannel(ch, requests)
+			}
+			serverConn.Close()
+		}(conn)
+	}
+}
+
+func (s *mockSSHServer) handleChannel(ch ssh.Channel, in <-chan *ssh.Request) {
+	defer ch.Close()
+	for req := range in {
+		if req.Type == "exec" {
+			var payload struct {
+				Command string `ssh:"command"`
+			}
+			ssh.Unmarshal(req.Payload, &payload)
+			s.mu.Lock()
+			s.commands = append(s.commands, payload.Command)
+			s.mu.Unlock()
+			status := s.handler(payload.Command)
+			req.Reply(true, nil)
+			ch.SendRequest("exit-status", false, ssh.Marshal(struct{ Status uint32 }{uint32(status)}))
+			return
+		}
+	}
+}
+
+func (s *mockSSHServer) Close() { s.listener.Close() }
+
+func (s *mockSSHServer) Commands() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]string(nil), s.commands...)
+}
+
+// Test that remote post script executes even when dumpChanges fails
+func TestRemotePostScriptRunsOnError(t *testing.T) {
+	server := newMockSSHServer(t, func(cmd string) int { return 0 })
+	defer server.Close()
+
+	host, portStr, _ := strings.Cut(server.addr, ":")
+	port, _ := strconv.Atoi(portStr)
+
+	cfg = config.DefaultConfig()
+	cfg.RemotePreScript = "pre-script"
+	cfg.RemotePostScript = "post-script"
+	cfg.SSHUser = "test"
+	cfg.SSHPort = port
+	cfg.StrictHostKeyCheck = false
+	cfg.LVMSyncPath = "lvmsync"
+
+	original := dumpChangesSequential
+	dumpChangesSequential = func(c *config.Config, snapshot, source string, out io.Writer) error {
+		return io.ErrUnexpectedEOF
+	}
+	defer func() { dumpChangesSequential = original }()
+
+	dest := host + ":/dev/null"
+	err := runClientMode("/dev/snap", dest)
+	if err == nil || !strings.Contains(err.Error(), "dumpChanges") {
+		t.Fatalf("expected dumpChanges error, got %v", err)
+	}
+
+	cmds := server.Commands()
+	if len(cmds) != 4 {
+		t.Fatalf("expected 4 commands, got %d: %v", len(cmds), cmds)
+	}
+	if cmds[0] != cfg.RemotePreScript || cmds[3] != cfg.RemotePostScript {
+		t.Fatalf("unexpected command order: %v", cmds)
+	}
+}
+
+// Test that post script is not executed when pre script fails
+func TestRemotePostScriptNotRunIfPreScriptFails(t *testing.T) {
+	server := newMockSSHServer(t, func(cmd string) int {
+		if cmd == "fail-pre" {
+			return 1
+		}
+		return 0
+	})
+	defer server.Close()
+
+	host, portStr, _ := strings.Cut(server.addr, ":")
+	port, _ := strconv.Atoi(portStr)
+
+	cfg = config.DefaultConfig()
+	cfg.RemotePreScript = "fail-pre"
+	cfg.RemotePostScript = "post-script"
+	cfg.SSHUser = "test"
+	cfg.SSHPort = port
+	cfg.StrictHostKeyCheck = false
+	cfg.LVMSyncPath = "lvmsync"
+
+	dest := host + ":/dev/null"
+	err := runClientMode("/dev/snap", dest)
+	if err == nil {
+		t.Fatalf("expected error from pre-script")
+	}
+
+	cmds := server.Commands()
+	if len(cmds) != 1 || cmds[0] != cfg.RemotePreScript {
+		t.Fatalf("post script should not run, commands: %v", cmds)
+	}
+}
