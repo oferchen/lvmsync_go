@@ -1,8 +1,6 @@
 package lvm
 
 import (
-	"os"
-	"path/filepath"
 	"syscall"
 	"testing"
 	"time"
@@ -17,14 +15,11 @@ func TestGetSnapshotUsage(t *testing.T) {
 	checkPrivs = func() error { return nil }
 	t.Cleanup(func() { checkPrivs = orig })
 
-	tmpDir := t.TempDir()
-	script := filepath.Join(tmpDir, "lvs")
-	if err := os.WriteFile(script, []byte("#!/bin/sh\necho 75.5\n"), 0755); err != nil {
-		t.Fatalf("failed to write lvs script: %v", err)
+	origRun := runLVMCommand
+	runLVMCommand = func(name string, args ...string) ([]byte, error) {
+		return []byte("75.5\n"), nil
 	}
-	oldPath := os.Getenv("PATH")
-	os.Setenv("PATH", tmpDir+":"+oldPath)
-	defer os.Setenv("PATH", oldPath)
+	t.Cleanup(func() { runLVMCommand = origRun })
 
 	usage, err := GetSnapshotUsage("/dev/vg0/snap")
 	if err != nil {
@@ -40,14 +35,11 @@ func TestMonitorSnapshot(t *testing.T) {
 	checkPrivs = func() error { return nil }
 	t.Cleanup(func() { checkPrivs = orig })
 
-	tmpDir := t.TempDir()
-	script := filepath.Join(tmpDir, "lvs")
-	if err := os.WriteFile(script, []byte("#!/bin/sh\necho 90\n"), 0755); err != nil {
-		t.Fatalf("failed to write lvs script: %v", err)
+	origRun := runLVMCommand
+	runLVMCommand = func(name string, args ...string) ([]byte, error) {
+		return []byte("90\n"), nil
 	}
-	oldPath := os.Getenv("PATH")
-	os.Setenv("PATH", tmpDir+":"+oldPath)
-	defer os.Setenv("PATH", oldPath)
+	t.Cleanup(func() { runLVMCommand = origRun })
 
 	err := MonitorSnapshot("/dev/vg0/snap", 80, 10*time.Millisecond, make(chan struct{}))
 	if err == nil {
