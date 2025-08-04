@@ -132,7 +132,7 @@ func dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer,
 		if err != nil {
 			return fmt.Errorf("error reading block at offset %d: %w", r.Start, err)
 		}
-		if cfg.Deduplication && dedup != nil {
+		if dedup != nil {
 			if !dedup.ShouldTransfer(r.Start, data) {
 				skippedBlocks++
 				putBlockBuffer(data)
@@ -170,12 +170,15 @@ func dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer,
 }
 
 func DumpChangesSequential(cfg *config.Config, snapshot, source string, out io.Writer) error {
-	dedup := NewDeduplicationStrategy(cfg)
-	defer func() {
-		if err := dedup.SaveState(); err != nil {
-			Logger.Error("Failed to save dedup state", zap.Error(err))
-		}
-	}()
+	var dedup DeduplicationStrategy
+	if cfg.Deduplication {
+		dedup = NewDeduplicationStrategy(cfg)
+		defer func() {
+			if err := dedup.SaveState(); err != nil {
+				Logger.Error("Failed to save dedup state", zap.Error(err))
+			}
+		}()
+	}
 	return dumpChangesCore(cfg, snapshot, source, out, dedup, "")
 }
 
@@ -185,13 +188,13 @@ func DumpChangesWithDeduplication(cfg *config.Config, snapshot, source string, o
 }
 
 func DumpChanges(cfg *config.Config, snapshot, source string, out io.Writer) error {
-	dedup := NewDeduplicationStrategy(cfg)
-	defer func() {
-		if err := dedup.SaveState(); err != nil {
-			Logger.Error("Failed to save dedup state", zap.Error(err))
-		}
-	}()
 	if cfg.Deduplication {
+		dedup := NewDeduplicationStrategy(cfg)
+		defer func() {
+			if err := dedup.SaveState(); err != nil {
+				Logger.Error("Failed to save dedup state", zap.Error(err))
+			}
+		}()
 		Logger.Info("Deduplication enabled", zap.String("strategy", cfg.DedupStrategy))
 		return DumpChangesWithDeduplication(cfg, snapshot, source, out, dedup)
 	}
