@@ -2,10 +2,10 @@
 
 package transfer
 
-import "golang.org/x/sys/cpu"
+import "github.com/klauspost/cpuid/v2"
 
 func detectOptimalCompression() string {
-	if cpu.ARM64.HasASIMD {
+	if cpuid.CPU.Has(cpuid.ASIMD) {
 		return compressionZSTD
 	}
 	return compressionLZ4
