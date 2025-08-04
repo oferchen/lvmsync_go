@@ -131,6 +131,18 @@ var (
 	runLVMCommand = realRunLVMCommand
 )
 
+// SetRunLVMCommand overrides the function used to execute LVM commands.
+// It returns a restore function to reset the original behavior.
+func SetRunLVMCommand(f func(string, ...string) ([]byte, error)) func() {
+	orig := runLVMCommand
+	if f == nil {
+		runLVMCommand = realRunLVMCommand
+	} else {
+		runLVMCommand = f
+	}
+	return func() { runLVMCommand = orig }
+}
+
 func init() {
 	C.setLvmLog()
 	C.lvm2_log_level(lvmHandle, C.LVM2_LOG_DEBUG)
@@ -416,6 +428,78 @@ func GetVolumeGroupFreeSpace(vgName string) (uint64, error) {
 	}
 
 	return size, nil
+}
+
+// VolumeGroup represents basic information about a volume group.
+type VolumeGroup struct {
+	Name string
+	Free uint64
+}
+
+// ListVolumeGroups returns information about all available volume groups.
+func ListVolumeGroups() ([]VolumeGroup, error) {
+	if err := checkPrivs(); err != nil {
+		return nil, err
+	}
+
+	output, err := runLVMCommand("vgs", "--noheadings", "--units", "b",
+		"--options", "vg_name,vg_free", "--separator", ":")
+	if err != nil {
+		return nil, fmt.Errorf("failed to list volume groups: %w", err)
+	}
+
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	vgs := make([]VolumeGroup, 0, len(lines))
+	for _, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		parts := strings.Split(line, ":")
+		if len(parts) != 2 {
+			continue
+		}
+		name := strings.TrimSpace(parts[0])
+		freeStr := strings.TrimSuffix(strings.TrimSpace(parts[1]), "B")
+		free, err := strconv.ParseUint(freeStr, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse VG free space %q: %w", freeStr, err)
+		}
+		vgs = append(vgs, VolumeGroup{Name: name, Free: free})
+	}
+	return vgs, nil
+}
+
+// SelectVolumeGroupByFreeSpace chooses the volume group with the most free space.
+// If candidates is non-empty, only those volume groups are considered.
+func SelectVolumeGroupByFreeSpace(candidates []string) (string, uint64, error) {
+	vgs, err := ListVolumeGroups()
+	if err != nil {
+		return "", 0, err
+	}
+
+	candidateSet := make(map[string]struct{}, len(candidates))
+	for _, c := range candidates {
+		candidateSet[c] = struct{}{}
+	}
+
+	var chosen VolumeGroup
+	for _, vg := range vgs {
+		if len(candidateSet) > 0 {
+			if _, ok := candidateSet[vg.Name]; !ok {
+				continue
+			}
+		}
+		if vg.Free > chosen.Free {
+			chosen = vg
+		}
+	}
+	if chosen.Name == "" {
+		if len(candidateSet) > 0 {
+			return "", 0, fmt.Errorf("no matching volume group found")
+		}
+		return "", 0, fmt.Errorf("no volume groups found")
+	}
+	return chosen.Name, chosen.Free, nil
 }
 
 func Cleanup() {
