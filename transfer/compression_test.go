@@ -38,3 +38,17 @@ func TestCompressionRoundTrip(t *testing.T) {
 		}
 	}
 }
+
+func TestNewCompressionWriterLevel(t *testing.T) {
+	t.Run("valid", func(t *testing.T) {
+		if _, err := NewCompressionWriter(io.Discard, compressionZSTD, 3); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("invalid", func(t *testing.T) {
+		if _, err := NewCompressionWriter(io.Discard, compressionZSTD, 100); err == nil {
+			t.Fatalf("expected error")
+		}
+	})
+}

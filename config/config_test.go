@@ -115,3 +115,25 @@ func TestGetBlockSizeRaw(t *testing.T) {
 		}
 	})
 }
+
+func TestCompressLevelValidation(t *testing.T) {
+	t.Run("valid", func(t *testing.T) {
+		v := viper.New()
+		v.Set("compress", "zstd")
+		v.Set("compress_level", 3)
+		cb := &ConfigBuilder{v: v, defaults: DefaultConfig()}
+		if _, err := cb.Build(); err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+	})
+
+	t.Run("invalid", func(t *testing.T) {
+		v := viper.New()
+		v.Set("compress", "zstd")
+		v.Set("compress_level", 100)
+		cb := &ConfigBuilder{v: v, defaults: DefaultConfig()}
+		if _, err := cb.Build(); err == nil {
+			t.Fatalf("expected error")
+		}
+	})
+}
