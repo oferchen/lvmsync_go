@@ -61,7 +61,11 @@ func runClientMode(snapshotDevice, dest string) error {
 		limitedOut := transfer.WrapRateLimitedWriter(os.Stdout, cfg.SpeedLimit)
 		if cfg.Deduplication {
 			dedup := transfer.NewDeduplicationStrategy(cfg)
-			defer dedup.SaveState()
+			defer func() {
+				if err := dedup.SaveState(); err != nil {
+					zap.L().Error("Failed to save dedup state", zap.Error(err))
+				}
+			}()
 			return dumpChangesWithDeduplication(cfg, snapshotDevice, originDevice, limitedOut, dedup)
 		}
 		if cfg.Parallel <= 1 {
@@ -120,7 +124,11 @@ func runClientMode(snapshotDevice, dest string) error {
 		var streamErr error
 		if cfg.Deduplication {
 			dedup := transfer.NewDeduplicationStrategy(cfg)
-			defer dedup.SaveState()
+			defer func() {
+				if err := dedup.SaveState(); err != nil {
+					zap.L().Error("Failed to save dedup state", zap.Error(err))
+				}
+			}()
 			streamErr = dumpChangesWithDeduplication(cfg, snapshotDevice, originDevice, remoteStdin, dedup)
 		} else {
 			if cfg.Parallel <= 1 {
@@ -162,7 +170,11 @@ func runClientMode(snapshotDevice, dest string) error {
 
 		if cfg.Deduplication {
 			dedup := transfer.NewDeduplicationStrategy(cfg)
-			defer dedup.SaveState()
+			defer func() {
+				if err := dedup.SaveState(); err != nil {
+					zap.L().Error("Failed to save dedup state", zap.Error(err))
+				}
+			}()
 			return dumpChangesWithDeduplication(cfg, snapshotDevice, originDevice, limitedOut, dedup)
 		}
 		if cfg.Parallel <= 1 {

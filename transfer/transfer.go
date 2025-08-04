@@ -171,7 +171,11 @@ func dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer,
 
 func DumpChangesSequential(cfg *config.Config, snapshot, source string, out io.Writer) error {
 	dedup := NewDeduplicationStrategy(cfg)
-	defer dedup.SaveState()
+	defer func() {
+		if err := dedup.SaveState(); err != nil {
+			Logger.Error("Failed to save dedup state", zap.Error(err))
+		}
+	}()
 	return dumpChangesCore(cfg, snapshot, source, out, dedup, "")
 }
 
@@ -182,7 +186,11 @@ func DumpChangesWithDeduplication(cfg *config.Config, snapshot, source string, o
 
 func DumpChanges(cfg *config.Config, snapshot, source string, out io.Writer) error {
 	dedup := NewDeduplicationStrategy(cfg)
-	defer dedup.SaveState()
+	defer func() {
+		if err := dedup.SaveState(); err != nil {
+			Logger.Error("Failed to save dedup state", zap.Error(err))
+		}
+	}()
 	if cfg.Deduplication {
 		Logger.Info("Deduplication enabled", zap.String("strategy", cfg.DedupStrategy))
 		return DumpChangesWithDeduplication(cfg, snapshot, source, out, dedup)
@@ -476,7 +484,11 @@ func RunApply(cfg *config.Config, applyFile, destDevice string) error {
 	if cfg.Deduplication {
 		Logger.Info("Applying deduplication during restore", zap.String("strategy", cfg.DedupStrategy))
 		dedup := NewDeduplicationStrategy(cfg)
-		defer dedup.SaveState()
+		defer func() {
+			if err := dedup.SaveState(); err != nil {
+				Logger.Error("Failed to save dedup state", zap.Error(err))
+			}
+		}()
 		return ProcessDumpDataWithDeduplication(cfg, in, destDevice, dedup)
 	}
 
