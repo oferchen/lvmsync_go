@@ -1,13 +1,21 @@
 // lvm/lvm.go
 package lvm
 
+/*
+#cgo LDFLAGS: -llvm2cmd
+#include <stdlib.h>
+#include <lvm2cmd.h>
+
+extern void goLvmLog(int level, char *file, int line, int dm_errno, char *msg);
+static inline void setLvmLog() { lvm2_log_fn((lvm2_log_fn_t)goLvmLog); }
+*/
+import "C"
+
 import (
 	"bytes"
 	"container/list"
 	"fmt"
-	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -63,19 +71,6 @@ func GetEscalationCommand() string {
 	return escalationCommand
 }
 
-func buildCommand(name string, args ...string) *exec.Cmd {
-	escalationCommandLock.RLock()
-	escCmd := escalationCommand
-	escalationCommandLock.RUnlock()
-
-	if escCmd != "" && os.Geteuid() != 0 {
-		cmdArgs := append([]string{name}, args...)
-		return exec.Command(escCmd, cmdArgs...)
-	}
-
-	return exec.Command(name, args...)
-}
-
 func checkRootPrivileges() error {
 	escalationCommandLock.RLock()
 	escCmd := escalationCommand
@@ -129,43 +124,53 @@ func (c *fdCache) Close() {
 	c.order.Init()
 }
 
-func captureOutput(r io.Reader, ch chan<- error, buf *bytes.Buffer) {
-	_, err := buf.ReadFrom(r)
-	ch <- err
+var (
+	lvmHandle     = C.lvm2_init()
+	cmdMutex      sync.Mutex
+	logBuffer     *bytes.Buffer
+	runLVMCommand = realRunLVMCommand
+)
+
+func init() {
+	C.setLvmLog()
+	C.lvm2_log_level(lvmHandle, C.LVM2_LOG_DEBUG)
 }
 
-func executeCommand(name string, args ...string) ([]byte, error) {
-	cmd := buildCommand(name, args...)
-
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return nil, err
+//export goLvmLog
+func goLvmLog(level C.int, file *C.char, line C.int, dm_errno C.int, msg *C.char) {
+	cmdMutex.Lock()
+	if logBuffer != nil {
+		logBuffer.WriteString(C.GoString(msg))
+		logBuffer.WriteByte('\n')
 	}
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return nil, err
+	cmdMutex.Unlock()
+}
+
+func realRunLVMCommand(name string, args ...string) ([]byte, error) {
+	cmdMutex.Lock()
+	defer cmdMutex.Unlock()
+
+	logBuffer = &bytes.Buffer{}
+	var b strings.Builder
+	b.WriteString(name)
+	for _, a := range args {
+		b.WriteByte(' ')
+		if strings.ContainsAny(a, " \t\n\"") {
+			b.WriteString(strconv.Quote(a))
+		} else {
+			b.WriteString(a)
+		}
 	}
+	ccmd := C.CString(b.String())
+	defer C.free(unsafe.Pointer(ccmd))
 
-	if err := cmd.Start(); err != nil {
-		return nil, err
+	ret := C.lvm2_run(lvmHandle, ccmd)
+	out := logBuffer.Bytes()
+	logBuffer = nil
+	if ret != C.LVM2_COMMAND_SUCCEEDED {
+		return out, fmt.Errorf("lvm command failed: %s", strings.TrimSpace(string(out)))
 	}
-
-	var outBuf, errBuf bytes.Buffer
-	outCh := make(chan error, 1)
-	errCh := make(chan error, 1)
-
-	go captureOutput(stdout, outCh, &outBuf)
-	go captureOutput(stderr, errCh, &errBuf)
-
-	<-outCh
-	<-errCh
-
-	err = cmd.Wait()
-	if err != nil {
-		return outBuf.Bytes(), fmt.Errorf("%w: %s", err, errBuf.String())
-	}
-
-	return outBuf.Bytes(), nil
+	return out, nil
 }
 
 func CreateSnapshot(lvPath, snapshotName, size string) error {
@@ -177,7 +182,7 @@ func CreateSnapshot(lvPath, snapshotName, size string) error {
 		return fmt.Errorf("invalid parameters: lvPath, snapshotName, and size must be non-empty")
 	}
 
-	output, err := executeCommand("lvcreate", "-s", "-n", snapshotName, "-L", size, lvPath)
+	output, err := runLVMCommand("lvcreate", "-s", "-n", snapshotName, "-L", size, lvPath)
 	if err != nil {
 		return fmt.Errorf("failed to create snapshot [%s] for LV %s with size %s: %w",
 			snapshotName, lvPath, size, err)
@@ -201,7 +206,7 @@ func RemoveSnapshot(snapshotPath string) error {
 		return fmt.Errorf("invalid parameter: snapshotPath must be non-empty")
 	}
 
-	output, err := executeCommand("lvremove", "-f", snapshotPath)
+	output, err := runLVMCommand("lvremove", "-f", snapshotPath)
 	if err != nil {
 		return fmt.Errorf("failed to remove snapshot [%s]: %w", snapshotPath, err)
 	}
@@ -222,7 +227,7 @@ func GetSnapshotUsage(snapshotPath string) (float64, error) {
 		return 0, fmt.Errorf("invalid parameter: snapshotPath must be non-empty")
 	}
 
-	output, err := executeCommand("lvs", "--noheadings", "--units", "b",
+	output, err := runLVMCommand("lvs", "--noheadings", "--units", "b",
 		"--options", "data_percent", snapshotPath)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get snapshot usage for %s: %w", snapshotPath, err)
@@ -395,7 +400,7 @@ func GetVolumeGroupFreeSpace(vgName string) (uint64, error) {
 		return 0, err
 	}
 
-	output, err := executeCommand("vgs", "--noheadings", "--units", "b",
+	output, err := runLVMCommand("vgs", "--noheadings", "--units", "b",
 		"--options", "vg_free", vgName)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get free space for VG %s: %w", vgName, err)
