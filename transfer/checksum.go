@@ -2,7 +2,6 @@
 package transfer
 
 import (
-	"crypto/md5"
 	"crypto/sha256"
 	"sync"
 )
@@ -18,31 +17,17 @@ func (s *SHA256Checksum) Compute(data []byte) []byte {
 	return sum[:]
 }
 
-type MD5Checksum struct{}
-
-func (m *MD5Checksum) Compute(data []byte) []byte {
-	sum := md5.Sum(data)
-	return sum[:]
-}
-
 var (
 	sha256Instance ChecksumStrategy = &SHA256Checksum{}
-	md5Instance    ChecksumStrategy = &MD5Checksum{}
 	initOnce       sync.Once
 )
 
 func initChecksumStrategies() {
 	sha256Instance = &SHA256Checksum{}
-	md5Instance = &MD5Checksum{}
 }
 
 func GetChecksumStrategy(algo string) ChecksumStrategy {
 	initOnce.Do(initChecksumStrategies)
-
-	switch algo {
-	case "md5":
-		return md5Instance
-	default:
-		return sha256Instance
-	}
+	// Only SHA-256 is supported; default to it for any request.
+	return sha256Instance
 }
