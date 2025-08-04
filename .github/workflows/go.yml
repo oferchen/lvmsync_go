@@ -25,6 +25,18 @@ jobs:
           libdevmapper-dev uuid-dev \
           make gcc curl git
 
+    - name: Build and install LVM2 with lvm2cmd.h
+      run: |
+        git clone https://sourceware.org/git/lvm2.git
+        cd lvm2
+        ./configure --prefix=/usr --enable-cmdlib --enable-pkgconfig
+        make -j$(nproc)
+        sudo make install
+
+    - name: Verify lvm2cmd.h is available
+      run: |
+        test -f /usr/include/lvm2cmd.h || { echo "lvm2cmd.h not found!"; exit 1; }
+
     - name: Set up Go
       uses: actions/setup-go@v5.5.0
       with:
