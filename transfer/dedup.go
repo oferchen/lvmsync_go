@@ -179,7 +179,7 @@ func (r *RollingHashDedup) SaveState() error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	file, err := os.Create(r.stateFile)
+	file, err := createStateFile(r.stateFile)
 	if err != nil {
 		return err
 	}
@@ -263,7 +263,7 @@ func (b *BloomFilterDedup) SaveState() error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	file, err := os.Create(b.stateFile)
+	file, err := createStateFile(b.stateFile)
 	if err != nil {
 		return err
 	}
