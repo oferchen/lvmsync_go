@@ -19,6 +19,24 @@ import (
 	"go.uber.org/zap"
 )
 
+// copyPipeAsync copies data from src to dst in a new goroutine and returns a channel that receives
+// the resulting error from io.Copy.
+func copyPipeAsync(dst io.Writer, src io.Reader) <-chan error {
+	errCh := make(chan error, 1)
+	go func() {
+		_, err := io.Copy(dst, src)
+		errCh <- err
+	}()
+	return errCh
+}
+
+// syncLogger flushes any buffered log entries and logs if the sync fails.
+func syncLogger(logger *zap.Logger) {
+	if err := logger.Sync(); err != nil {
+		logger.Error("Logger sync error", zap.Error(err))
+	}
+}
+
 var (
 	cfg                          *config.Config
 	applyFunc                    = transfer.RunApply
@@ -85,8 +103,8 @@ func runClientMode(snapshotDevice, dest string) error {
 		if err != nil {
 			return fmt.Errorf("failed to get stderr pipe: %w", err)
 		}
-		go io.Copy(os.Stdout, stdoutPipe)
-		go io.Copy(os.Stderr, stderrPipe)
+		stdoutErrCh := copyPipeAsync(os.Stdout, stdoutPipe)
+		stderrErrCh := copyPipeAsync(os.Stderr, stderrPipe)
 
 		remoteCmd := fmt.Sprintf("%s --apply - %s", cfg.LVMSyncPath, destDevice)
 		zap.L().Info("Starting remote apply command", zap.String("command", remoteCmd))
@@ -119,6 +137,13 @@ func runClientMode(snapshotDevice, dest string) error {
 
 		if err := session.Wait(); err != nil {
 			return fmt.Errorf("remote command error: %w", err)
+		}
+
+		if err := <-stdoutErrCh; err != nil {
+			return fmt.Errorf("stdout copy error: %w", err)
+		}
+		if err := <-stderrErrCh; err != nil {
+			return fmt.Errorf("stderr copy error: %w", err)
 		}
 
 		if cfg.RemotePostScript != "" {
@@ -182,7 +207,7 @@ func main() {
 		os.Exit(1)
 	}
 	zap.ReplaceGlobals(logger)
-	defer logger.Sync()
+	defer syncLogger(logger)
 
 	logger.Info("Effective configuration",
 		zap.String("block_size", cfg.HumanBlockSize()),
