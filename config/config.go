@@ -97,9 +97,11 @@ func (cb *ConfigBuilder) Build() (*Config, error) {
 	}
 	conf.SpeedLimit = sl
 
-	// Validate compression level for zstd.
-	if conf.CompressLevel < 1 || conf.CompressLevel > 22 {
-		return nil, fmt.Errorf("invalid zstd compression level: %d", conf.CompressLevel)
+	// Validate compression level for zstd or auto.
+	if conf.Compress == "zstd" || conf.Compress == "auto" {
+		if conf.CompressLevel < 1 || conf.CompressLevel > 22 {
+			return nil, fmt.Errorf("invalid zstd compression level: %d", conf.CompressLevel)
+		}
 	}
 
 	return &conf, nil
