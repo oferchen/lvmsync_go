@@ -29,9 +29,6 @@ jobs:
           FIX_GO: true
           FIX_MARKDOWN_PRETTIER: true
           FIX_MARKDOWN: true
-          VALIDATE_GO: true
-          VALIDATE_GO_MODULES: true
-          VALIDATE_GO_RELEASER: true
           VALIDATE_ALL_CODEBASE: true
           VALIDATE_CHECKOV: false
           DEFAULT_BRANCH: "main"
