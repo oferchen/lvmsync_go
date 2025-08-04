@@ -116,7 +116,15 @@ func TestDumpChangesSequential(t *testing.T) {
 	if err := DumpChangesSequential(cfg, snapshot, src, &buf); err != nil {
 		t.Fatalf("DumpChangesSequential failed: %v", err)
 	}
-	offsets := parseOffsetsNoHandshake(t, bytes.NewReader(buf.Bytes()))
+	reader := bufio.NewReader(bytes.NewReader(buf.Bytes()))
+	line, err := reader.ReadString('\n')
+	if err != nil {
+		t.Fatalf("failed to read handshake: %v", err)
+	}
+	if strings.TrimSpace(line) != common.ProtocolVersion+" compress:none" {
+		t.Fatalf("unexpected handshake %q", strings.TrimSpace(line))
+	}
+	offsets := parseOffsetsNoHandshake(t, reader)
 	expected := []int64{0, 2 * blockSize}
 	if !reflect.DeepEqual(offsets, expected) {
 		t.Fatalf("unexpected offsets %v, want %v", offsets, expected)
@@ -146,12 +154,68 @@ func TestDumpChangesWithDeduplication(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to read handshake: %v", err)
 	}
-	if strings.TrimSpace(line) != common.ProtocolVersion+" checksum-dedup" {
+	if strings.TrimSpace(line) != common.ProtocolVersion+" checksum-dedup compress:none" {
 		t.Fatalf("unexpected handshake %q", strings.TrimSpace(line))
 	}
 	offsets := parseOffsetsNoHandshake(t, reader)
 	expected := []int64{1 * blockSize}
 	if !reflect.DeepEqual(offsets, expected) {
 		t.Fatalf("unexpected offsets %v, want %v", offsets, expected)
+	}
+}
+
+func TestProcessDumpDataAutoDecompression(t *testing.T) {
+	SetLogger(zap.NewNop())
+	blockSize := int64(1024)
+	changed := []int{0}
+	src, snapshot := createDumpTestFiles(t, blockSize, changed)
+
+	cfgDump := &config.Config{BlockSize: int(blockSize), Compress: "zstd", CompressLevel: 1, VerifyChecksum: true, Parallel: 1, MaxRetries: 1}
+	var buf bytes.Buffer
+	if err := DumpChangesParallel(cfgDump, snapshot, src, &buf); err != nil {
+		t.Fatalf("DumpChangesParallel failed: %v", err)
+	}
+
+	data := buf.Bytes()
+	reader := bufio.NewReader(bytes.NewReader(data))
+	line, err := reader.ReadString('\n')
+	if err != nil {
+		t.Fatalf("failed to read handshake: %v", err)
+	}
+	if strings.TrimSpace(line) != common.ProtocolVersion+" checksum compress:zstd" {
+		t.Fatalf("unexpected handshake %q", strings.TrimSpace(line))
+	}
+
+	dest := filepath.Join(t.TempDir(), "dest")
+	info, err := os.Stat(src)
+	if err != nil {
+		t.Fatalf("stat source: %v", err)
+	}
+	destFile, err := os.Create(dest)
+	if err != nil {
+		t.Fatalf("create dest: %v", err)
+	}
+	if err := destFile.Truncate(info.Size()); err != nil {
+		t.Fatalf("truncate dest: %v", err)
+	}
+	destFile.Close()
+
+	cfgProcess := &config.Config{BlockSize: int(blockSize), Compress: "none", MaxRetries: 1}
+	if err := ProcessDumpData(cfgProcess, bytes.NewReader(data), dest); err != nil {
+		t.Fatalf("ProcessDumpData failed: %v", err)
+	}
+
+	outFile, err := os.Open(dest)
+	if err != nil {
+		t.Fatalf("open dest: %v", err)
+	}
+	got := make([]byte, blockSize)
+	if _, err := outFile.ReadAt(got, 0); err != nil {
+		t.Fatalf("read dest: %v", err)
+	}
+	outFile.Close()
+	want := bytes.Repeat([]byte{1}, int(blockSize))
+	if !bytes.Equal(got, want) {
+		t.Fatalf("unexpected data %v, want %v", got[:4], want[:4])
 	}
 }
