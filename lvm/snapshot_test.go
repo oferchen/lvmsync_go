@@ -1,6 +1,7 @@
 package lvm
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,6 +13,10 @@ func init() {
 }
 
 func TestCreateAndRemoveSnapshot(t *testing.T) {
+	orig := checkPrivs
+	checkPrivs = func() error { return nil }
+	t.Cleanup(func() { checkPrivs = orig })
+
 	tmpDir := t.TempDir()
 
 	// Create mock lvcreate script
@@ -64,5 +69,17 @@ func TestCreateAndRemoveSnapshot(t *testing.T) {
 	expected = "-f " + snapPath
 	if got != expected {
 		t.Fatalf("lvremove args = %q, want %q", got, expected)
+	}
+}
+
+func TestCreateSnapshotPrivilegeError(t *testing.T) {
+	orig := checkPrivs
+	errPriv := errors.New("privileges required")
+	checkPrivs = func() error { return errPriv }
+	t.Cleanup(func() { checkPrivs = orig })
+
+	err := CreateSnapshot("/dev/vg0/origin", "snap", "1G")
+	if !errors.Is(err, errPriv) {
+		t.Fatalf("expected privilege error, got %v", err)
 	}
 }
