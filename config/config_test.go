@@ -1,6 +1,8 @@
 package config
 
 import (
+	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"testing"
@@ -13,7 +15,11 @@ func TestParseBytesOrFallback(t *testing.T) {
 		v := viper.New()
 		v.Set("block_size", "1KB")
 		cb := &ConfigBuilder{v: v}
-		if got := cb.parseBytesOrFallback("block_size", "4KB"); got != 1000 {
+		got, err := cb.parseBytesOrFallback("block_size", "4KB")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got != 1000 {
 			t.Fatalf("expected 1000, got %d", got)
 		}
 	})
@@ -21,7 +27,11 @@ func TestParseBytesOrFallback(t *testing.T) {
 	t.Run("fallback", func(t *testing.T) {
 		v := viper.New()
 		cb := &ConfigBuilder{v: v}
-		if got := cb.parseBytesOrFallback("block_size", "2KB"); got != 2000 {
+		got, err := cb.parseBytesOrFallback("block_size", "2KB")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got != 2000 {
 			t.Fatalf("expected 2000, got %d", got)
 		}
 	})
@@ -30,12 +40,31 @@ func TestParseBytesOrFallback(t *testing.T) {
 		v := viper.New()
 		v.Set("block_size", "notbytes")
 		cb := &ConfigBuilder{v: v}
-		defer func() {
-			if r := recover(); r == nil {
-				t.Fatalf("expected panic")
-			}
-		}()
-		cb.parseBytesOrFallback("block_size", "4KB")
+		if _, err := cb.parseBytesOrFallback("block_size", "4KB"); err == nil {
+			t.Fatalf("expected error")
+		}
+	})
+
+	t.Run("nearMaxInt", func(t *testing.T) {
+		v := viper.New()
+		v.Set("block_size", fmt.Sprintf("%d", uint64(math.MaxInt-1023)))
+		cb := &ConfigBuilder{v: v}
+		got, err := cb.parseBytesOrFallback("block_size", "4KB")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got != math.MaxInt-1023 {
+			t.Fatalf("expected %d, got %d", math.MaxInt-1023, got)
+		}
+	})
+
+	t.Run("overflow", func(t *testing.T) {
+		v := viper.New()
+		v.Set("block_size", fmt.Sprintf("%d", uint64(math.MaxInt)+1))
+		cb := &ConfigBuilder{v: v}
+		if _, err := cb.parseBytesOrFallback("block_size", "4KB"); err == nil {
+			t.Fatalf("expected error")
+		}
 	})
 }
 

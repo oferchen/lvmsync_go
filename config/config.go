@@ -3,6 +3,7 @@ package config
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -80,22 +81,33 @@ func (cb *ConfigBuilder) Build() (*Config, error) {
 	}
 
 	conf.BlockSizeRaw = cb.getBlockSizeRaw()
-	conf.BlockSize = cb.parseBytesOrFallback("block_size", cb.defaults.BlockSizeRaw)
-	conf.SpeedLimit = cb.parseBytesOrFallback("speed", cb.defaults.Speed)
+	bs, err := cb.parseBytesOrFallback("block_size", cb.defaults.BlockSizeRaw)
+	if err != nil {
+		return nil, err
+	}
+	conf.BlockSize = bs
+	sl, err := cb.parseBytesOrFallback("speed", cb.defaults.Speed)
+	if err != nil {
+		return nil, err
+	}
+	conf.SpeedLimit = sl
 
 	return &conf, nil
 }
 
-func (cb *ConfigBuilder) parseBytesOrFallback(key, fallback string) int {
+func (cb *ConfigBuilder) parseBytesOrFallback(key, fallback string) (int, error) {
 	raw := strings.ReplaceAll(cb.v.GetString(key), " ", "")
 	if raw == "" {
 		raw = fallback
 	}
 	val, err := humanize.ParseBytes(raw)
 	if err != nil {
-		panic(fmt.Errorf("invalid %s value %q: %w", key, raw, err))
+		return 0, fmt.Errorf("invalid %s value %q: %w", key, raw, err)
 	}
-	return int(val)
+	if val > uint64(math.MaxInt) {
+		return 0, fmt.Errorf("%s value %q overflows int", key, raw)
+	}
+	return int(val), nil
 }
 
 func (cb *ConfigBuilder) getBlockSizeRaw() string {
