@@ -222,19 +222,18 @@ func (r *RollingHashDedup) loadState() error {
 }
 
 func (b *BloomFilterDedup) ShouldTransfer(offset int64, data []byte) bool {
-	b.mu.RLock()
-	defer b.mu.RUnlock()
-
 	h := sha256.Sum256(data)
-	return !b.filter.Test(h[:])
+	b.mu.RLock()
+	ok := !b.filter.Test(h[:])
+	b.mu.RUnlock()
+	return ok
 }
 
 func (b *BloomFilterDedup) RecordTransfer(offset int64, data []byte) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-
 	h := sha256.Sum256(data)
+	b.mu.Lock()
 	b.filter.Add(h[:])
+	b.mu.Unlock()
 }
 
 func (b *BloomFilterDedup) SaveState() error {
