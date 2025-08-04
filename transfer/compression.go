@@ -7,7 +7,6 @@ import (
 
 	zstd "github.com/klauspost/compress/zstd"
 	"github.com/pierrec/lz4/v4"
-	"golang.org/x/sys/cpu"
 )
 
 const (
@@ -16,13 +15,6 @@ const (
 )
 
 // No shared state is kept between decompression readers.
-
-func detectOptimalCompression() string {
-	if cpu.X86.HasAVX2 {
-		return compressionZSTD
-	}
-	return compressionLZ4
-}
 
 func NewCompressionWriter(w io.Writer, compress string, level int) (io.WriteCloser, error) {
 	if compress == "auto" {
