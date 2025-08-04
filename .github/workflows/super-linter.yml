@@ -24,9 +24,14 @@ jobs:
       - name: Super-Linter
         uses: super-linter/super-linter@v8.0.0
         env:
+          FIX_YAML: true
+          FIX_YAML_PRETTIER: true
+          FIX_GO_MODULES: true
+          FIX_GO: true
+          FIX_MARKDOWN_PRETTIER: true
+          FIX_MARKDOWN: true
           VALIDATE_ALL_CODEBASE: true
           VALIDATE_MARKDOWN: false
           VALIDATE_CHECKOV: false
-          FIX_YAML_PRETTIER: true
           DEFAULT_BRANCH: "main"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
