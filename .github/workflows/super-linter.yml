@@ -29,8 +29,12 @@ jobs:
           FIX_GO: true
           FIX_MARKDOWN_PRETTIER: true
           FIX_MARKDOWN: true
+          VALIDATE_GO: true
+          VALIDATE_GO_MODULES: true
+          VALIDATE_GO_RELEASER: true
           VALIDATE_ALL_CODEBASE: true
           VALIDATE_CHECKOV: false
+          ENABLED_LANGUAGES: go,go_mod,markdown,yaml
           DEFAULT_BRANCH: "main"
-          DEFAULT_WORKSPACE: "/"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
