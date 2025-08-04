@@ -14,6 +14,21 @@ func TestWrapRateLimitedWriterDisabled(t *testing.T) {
 	}
 }
 
+func TestWrapRateLimitedWriterEnabled(t *testing.T) {
+	buf := &bytes.Buffer{}
+	w := WrapRateLimitedWriter(buf, 1024)
+	if w == buf {
+		t.Fatal("writer should be wrapped when limit is positive")
+	}
+	data := []byte("test data")
+	if _, err := w.Write(data); err != nil {
+		t.Fatalf("write failed: %v", err)
+	}
+	if got := buf.String(); got != string(data) {
+		t.Fatalf("unexpected buffer content %q", got)
+	}
+}
+
 func TestNewDeduplicationStrategy(t *testing.T) {
 	cfg := &config.Config{DedupStrategy: "bloom", DedupStateFile: "state"}
 	if _, ok := NewDeduplicationStrategy(cfg).(*BloomFilterDedup); !ok {
