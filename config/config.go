@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -48,6 +49,7 @@ type Config struct {
 	RemotePostScript     string        `mapstructure:"remote_post_script"`
 	Compress             string        `mapstructure:"compress"`
 	CompressLevel        int           `mapstructure:"compress_level"`
+	CompressWorkers      int           `mapstructure:"compress_workers"`
 	Speed                string        `mapstructure:"speed"`
 	SpeedLimit           int           `mapstructure:"-"`
 	VerifyChecksum       bool          `mapstructure:"verify_checksum"`
@@ -102,6 +104,10 @@ func (cb *ConfigBuilder) Build() (*Config, error) {
 		return nil, fmt.Errorf("invalid zstd compression level: %d", conf.CompressLevel)
 	}
 
+	if conf.CompressWorkers <= 0 {
+		conf.CompressWorkers = runtime.NumCPU()
+	}
+
 	return &conf, nil
 }
 
@@ -149,6 +155,7 @@ func DefaultConfig() *Config {
 		RemotePostScript:     "",
 		Compress:             "lz4",
 		CompressLevel:        3,
+		CompressWorkers:      runtime.NumCPU(),
 		Speed:                "100MB",
 		VerifyChecksum:       false,
 		Verbose:              0,
@@ -219,6 +226,7 @@ func LoadConfig() (*Config, error) {
 	// Compression Options
 	compressionFlags.String("compress", defaultCfg.Compress, fmt.Sprintf("Compression type, options: %v", SupportedCompression))
 	compressionFlags.Int("compress_level", defaultCfg.CompressLevel, "Compression level for zstd (ignored for lz4)")
+	compressionFlags.Int("compress_workers", defaultCfg.CompressWorkers, "Maximum concurrency for compression")
 
 	// LVM Options
 	lvmFlags.Bool("skip_snapshot_creation", defaultCfg.SkipSnapshotCreation, "Skip automatic snapshot creation")

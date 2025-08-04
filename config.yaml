@@ -27,6 +27,7 @@ remote_post_script: ""                 # Remote script to run after finishing tr
 
 compress: "lz4"                        # Compression method (options: "none", "lz4", "zstd", "auto")
 compress_level: 3                      # Compression level for zstd (ignored for lz4)
+compress_workers: 4                    # Maximum number of concurrent compression workers
 speed: "100MB"                         # Speed limit (e.g. "100MB")
 verify_checksum: false                 # Enable checksum verification for data integrity
 verbose: 0                             # Verbosity level (0 = silent, higher numbers = more verbose)

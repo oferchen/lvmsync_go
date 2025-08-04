@@ -16,7 +16,7 @@ func TestNewCompressionWriterAutoX86(t *testing.T) {
 	defer func() { cpu.X86.HasAVX2 = original }()
 
 	cpu.X86.HasAVX2 = true
-	w, err := NewCompressionWriter(io.Discard, "auto", 1)
+	w, err := NewCompressionWriter(io.Discard, "auto", 1, 1)
 	if err != nil {
 		t.Fatalf("NewCompressionWriter with AVX2: %v", err)
 	}
@@ -26,7 +26,7 @@ func TestNewCompressionWriterAutoX86(t *testing.T) {
 	w.Close()
 
 	cpu.X86.HasAVX2 = false
-	w, err = NewCompressionWriter(io.Discard, "auto", 1)
+	w, err = NewCompressionWriter(io.Discard, "auto", 1, 1)
 	if err != nil {
 		t.Fatalf("NewCompressionWriter without AVX2: %v", err)
 	}

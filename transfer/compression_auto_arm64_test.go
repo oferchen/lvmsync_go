@@ -16,7 +16,7 @@ func TestNewCompressionWriterAutoARM64(t *testing.T) {
 	defer func() { cpu.ARM64.HasASIMD = original }()
 
 	cpu.ARM64.HasASIMD = true
-	w, err := NewCompressionWriter(io.Discard, "auto", 1)
+	w, err := NewCompressionWriter(io.Discard, "auto", 1, 1)
 	if err != nil {
 		t.Fatalf("NewCompressionWriter with ASIMD: %v", err)
 	}
@@ -26,7 +26,7 @@ func TestNewCompressionWriterAutoARM64(t *testing.T) {
 	w.Close()
 
 	cpu.ARM64.HasASIMD = false
-	w, err = NewCompressionWriter(io.Discard, "auto", 1)
+	w, err = NewCompressionWriter(io.Discard, "auto", 1, 1)
 	if err != nil {
 		t.Fatalf("NewCompressionWriter without ASIMD: %v", err)
 	}

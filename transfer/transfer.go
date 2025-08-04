@@ -64,7 +64,7 @@ func SaveChecksumState(filename string, state *ChecksumState) error {
 
 func prepareOutputWriter(out io.Writer, cfg *config.Config) (io.WriteCloser, *bufio.Writer, error) {
 	limitedOut := WrapRateLimitedWriter(out, cfg.SpeedLimit)
-	compWriter, err := NewCompressionWriter(limitedOut, cfg.Compress, cfg.CompressLevel)
+	compWriter, err := NewCompressionWriter(limitedOut, cfg.Compress, cfg.CompressLevel, cfg.CompressWorkers)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create compression writer: %w", err)
 	}
@@ -248,7 +248,7 @@ func DumpChangesParallel(cfg *config.Config, snapshot, source string, out io.Wri
 	fmt.Fprintln(out, handshake)
 
 	limitedOut := WrapRateLimitedWriter(out, cfg.SpeedLimit)
-	compWriter, err := NewCompressionWriter(limitedOut, cfg.Compress, cfg.CompressLevel)
+	compWriter, err := NewCompressionWriter(limitedOut, cfg.Compress, cfg.CompressLevel, cfg.CompressWorkers)
 	if err != nil {
 		return fmt.Errorf("failed to create compression writer: %w", err)
 	}
