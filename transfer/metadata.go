@@ -10,6 +10,13 @@ import (
 	"strings"
 )
 
+var mapperDir = "/dev/mapper"
+
+// SetMapperDir overrides the directory used to look up mapper devices.
+func SetMapperDir(dir string) {
+	mapperDir = dir
+}
+
 func ReadMetadataHeader(metadataPath string) (int64, error) {
 	file, err := os.Open(metadataPath)
 	if err != nil {
@@ -90,5 +97,5 @@ func GetMetadataDevice(snapshot string) string {
 	vg := replacer.Replace(parts[0])
 	lv := replacer.Replace(parts[1])
 
-	return fmt.Sprintf("/dev/mapper/%s-%s-cow", vg, lv)
+	return filepath.Join(mapperDir, fmt.Sprintf("%s-%s-cow", vg, lv))
 }

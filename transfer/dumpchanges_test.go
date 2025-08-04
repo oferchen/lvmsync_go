@@ -67,16 +67,18 @@ func createDumpTestFiles(t *testing.T, blockSize int64, changedBlocks []int) (sr
 	}
 	metaFile.Close()
 
-	// create symlink for GetMetadataDevice
-	if err := os.MkdirAll("/dev/mapper", 0755); err != nil {
-		t.Fatalf("failed to create /dev/mapper: %v", err)
-	}
+	// create symlink for GetMetadataDevice in a temporary mapper directory
+	mapper := t.TempDir()
+	SetMapperDir(mapper)
 	snapshot = "testvg-testlv"
-	link := "/dev/mapper/testvg-testlv-cow"
+	link := filepath.Join(mapper, "testvg-testlv-cow")
 	if err := os.Symlink(meta, link); err != nil {
 		t.Fatalf("failed to create metadata symlink: %v", err)
 	}
-	t.Cleanup(func() { os.Remove(link) })
+	t.Cleanup(func() {
+		os.Remove(link)
+		SetMapperDir("/dev/mapper")
+	})
 
 	return src, snapshot
 }
