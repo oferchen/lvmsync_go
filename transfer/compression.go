@@ -8,6 +8,7 @@ import (
 	zstd "github.com/klauspost/compress/zstd"
 	"github.com/pierrec/lz4/v4"
 	"golang.org/x/sys/cpu"
+	"runtime"
 )
 
 const (
@@ -35,7 +36,9 @@ func NewCompressionWriter(w io.Writer, compress string, level int) (io.WriteClos
 	case compressionLZ4:
 		return lz4.NewWriter(w), nil
 	case compressionZSTD:
-		return zstd.NewWriter(w, zstd.WithEncoderLevel(zstd.EncoderLevel(level)))
+		return zstd.NewWriter(w,
+			zstd.WithEncoderLevel(zstd.EncoderLevel(level)),
+			zstd.WithEncoderConcurrency(runtime.GOMAXPROCS(0)))
 	default:
 		return nil, fmt.Errorf("unsupported compression type: %s", compress)
 	}
@@ -48,7 +51,7 @@ func NewDecompressionReader(r io.Reader, compress string) (io.ReadCloser, error)
 	case compressionLZ4:
 		return nopReadCloser{lz4.NewReader(r)}, nil
 	case compressionZSTD:
-		decoder, err := zstd.NewReader(r)
+		decoder, err := zstd.NewReader(r, zstd.WithDecoderConcurrency(runtime.GOMAXPROCS(0)))
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize zstd decoder: %w", err)
 		}
