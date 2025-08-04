@@ -66,11 +66,15 @@ func (s *SSHSession) Close() {
 	s.Session.Close()
 }
 
-func RunSSHCommand(host, user, keyPath string, port int, command string, timeout time.Duration) error {
+func RunSSHCommand(host, user, keyPath, hostKeyPath string, port int, command string, timeout time.Duration) error {
+	publicKey, err := loadHostPublicKeyMust(hostKeyPath)
+	if err != nil {
+		return fmt.Errorf("failed to load host public key: %w", err)
+	}
 	client, err := dialSSH(fmt.Sprintf("%s:%d", host, port), &ssh.ClientConfig{
 		User:            user,
 		Auth:            []ssh.AuthMethod{ssh.PublicKeys(loadPrivateKeyMust(keyPath))},
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		HostKeyCallback: ssh.FixedHostKey(publicKey),
 		Timeout:         timeout,
 	}, timeout)
 
@@ -110,4 +114,19 @@ func loadPrivateKeyMust(keyPath string) ssh.Signer {
 		zap.L().Fatal("Failed to parse SSH private key", zap.String("keyPath", keyPath), zap.Error(err))
 	}
 	return signer
+}
+
+// loadHostPublicKeyMust loads the allowed host public key from the given path and parses it.
+func loadHostPublicKeyMust(keyPath string) (ssh.PublicKey, error) {
+	key, err := os.ReadFile(keyPath)
+	if err != nil {
+		zap.L().Fatal("Failed to read SSH host public key", zap.String("keyPath", keyPath), zap.Error(err))
+		return nil, err
+	}
+	publicKey, err := ssh.ParsePublicKey(key)
+	if err != nil {
+		zap.L().Fatal("Failed to parse SSH host public key", zap.String("keyPath", keyPath), zap.Error(err))
+		return nil, err
+	}
+	return publicKey, nil
 }
