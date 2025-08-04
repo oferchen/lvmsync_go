@@ -24,7 +24,6 @@ jobs:
       - name: Super-Linter
         uses: super-linter/super-linter@v8.0.0
         env:
-          FIX_YAML: true
           FIX_YAML_PRETTIER: true
           FIX_GO_MODULES: true
           FIX_GO: true
