@@ -16,23 +16,26 @@ const (
 
 // No shared state is kept between decompression readers.
 
-func NewCompressionWriter(w io.Writer, compress string, level int) (io.WriteCloser, error) {
+func NewCompressionWriter(dst io.Writer, compress string, level int) (io.WriteCloser, error) {
 	if compress == "auto" {
 		compress = detectOptimalCompression()
 	}
 
 	switch compress {
 	case "none":
-		return nopWriteCloser{w}, nil
+		return nopWriteCloser{dst}, nil
 	case compressionLZ4:
-		return lz4.NewWriter(w), nil
+		// For LZ4, valid levels include lz4.Fast and lz4.Level1 through lz4.Level9.
+		w := lz4.NewWriter(dst)
+		w.Apply(lz4.CompressionLevelOption(lz4.CompressionLevel(level)))
+		return w, nil
 	case compressionZSTD:
 		// Ensure provided level is within the supported zstd range.
 		if level < 1 || level > 22 {
 			return nil, fmt.Errorf("invalid zstd compression level: %d", level)
 		}
 		encLevel := zstd.EncoderLevelFromZstd(level)
-		return zstd.NewWriter(w, zstd.WithEncoderLevel(encLevel))
+		return zstd.NewWriter(dst, zstd.WithEncoderLevel(encLevel))
 	default:
 		return nil, fmt.Errorf("unsupported compression type: %s", compress)
 	}

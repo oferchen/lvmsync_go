@@ -4,37 +4,79 @@ import (
 	"bytes"
 	"io"
 	"testing"
+
+	"github.com/pierrec/lz4/v4"
 )
 
 func TestCompressionRoundTrip(t *testing.T) {
 	data := []byte("some test data for compression")
-	types := []string{"none", compressionLZ4, compressionZSTD}
+	cases := []struct {
+		c     string
+		level int
+	}{
+		{"none", 0},
+		{compressionLZ4, int(lz4.Level1)},
+		{compressionZSTD, 1},
+	}
 
-	for _, c := range types {
+	for _, tc := range cases {
 		var buf bytes.Buffer
-		w, err := NewCompressionWriter(&buf, c, 1)
+		w, err := NewCompressionWriter(&buf, tc.c, tc.level)
 		if err != nil {
-			t.Fatalf("writer for %s: %v", c, err)
+			t.Fatalf("writer for %s: %v", tc.c, err)
 		}
 		if _, err := w.Write(data); err != nil {
-			t.Fatalf("write %s: %v", c, err)
+			t.Fatalf("write %s: %v", tc.c, err)
 		}
 		if err := w.Close(); err != nil {
-			t.Fatalf("close %s: %v", c, err)
+			t.Fatalf("close %s: %v", tc.c, err)
 		}
 
-		r, err := NewDecompressionReader(&buf, c)
+		r, err := NewDecompressionReader(&buf, tc.c)
 		if err != nil {
-			t.Fatalf("reader for %s: %v", c, err)
+			t.Fatalf("reader for %s: %v", tc.c, err)
 		}
 		out, err := io.ReadAll(r)
 		if err != nil {
-			t.Fatalf("read %s: %v", c, err)
+			t.Fatalf("read %s: %v", tc.c, err)
 		}
 		r.Close()
 
 		if !bytes.Equal(out, data) {
-			t.Fatalf("roundtrip mismatch for %s", c)
+			t.Fatalf("roundtrip mismatch for %s", tc.c)
+		}
+	}
+}
+
+func TestLZ4CompressionLevels(t *testing.T) {
+	data := []byte("some test data for compression")
+	levels := []int{int(lz4.Fast), int(lz4.Level5), int(lz4.Level9)}
+
+	for _, lvl := range levels {
+		var buf bytes.Buffer
+		w, err := NewCompressionWriter(&buf, compressionLZ4, lvl)
+		if err != nil {
+			t.Fatalf("writer for level %d: %v", lvl, err)
+		}
+		if _, err := w.Write(data); err != nil {
+			t.Fatalf("write level %d: %v", lvl, err)
+		}
+		if err := w.Close(); err != nil {
+			t.Fatalf("close level %d: %v", lvl, err)
+		}
+
+		r, err := NewDecompressionReader(&buf, compressionLZ4)
+		if err != nil {
+			t.Fatalf("reader for level %d: %v", lvl, err)
+		}
+		out, err := io.ReadAll(r)
+		if err != nil {
+			t.Fatalf("read level %d: %v", lvl, err)
+		}
+		r.Close()
+
+		if !bytes.Equal(out, data) {
+			t.Fatalf("roundtrip mismatch for level %d", lvl)
 		}
 	}
 }

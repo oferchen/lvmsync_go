@@ -47,27 +47,28 @@ type Config struct {
 	RemotePreScript      string        `mapstructure:"remote_pre_script"`
 	RemotePostScript     string        `mapstructure:"remote_post_script"`
 	Compress             string        `mapstructure:"compress"`
-	CompressLevel        int           `mapstructure:"compress_level"`
-	Speed                string        `mapstructure:"speed"`
-	SpeedLimit           int           `mapstructure:"-"`
-	VerifyChecksum       bool          `mapstructure:"verify_checksum"`
-	Verbose              int           `mapstructure:"verbose"`
-	SkipSnapshotCreation bool          `mapstructure:"skip_snapshot_creation"`
-	SkipDiskCheck        bool          `mapstructure:"skip_disk_check"`
-	SnapshotSize         string        `mapstructure:"snapshot_size"`
-	VolumeGroup          string        `mapstructure:"volume_group"`
-	TargetVolumeGroup    string        `mapstructure:"target_volume_group"`
-	SourceVGCandidates   []string      `mapstructure:"source_vgs"`
-	TargetVGCandidates   []string      `mapstructure:"target_vgs"`
-	LVMEscalation        string        `mapstructure:"lvm_escalation"`
-	Progress             bool          `mapstructure:"progress"`
-	BlockSize            int           `mapstructure:"-"`
-	BlockSizeRaw         string        `mapstructure:"-"`
-	Deduplication        bool          `mapstructure:"deduplication"`
-	DedupStrategy        string        `mapstructure:"dedup_strategy"`
-	DedupStateFile       string        `mapstructure:"dedup_state_file"`
-	BloomEntries         int           `mapstructure:"bloom_entries"`
-	BloomFpRate          float64       `mapstructure:"bloom_fp_rate"`
+	// For LZ4 use lz4.Fast or lz4.Level1 through lz4.Level9; ZSTD accepts levels 1-22.
+	CompressLevel        int      `mapstructure:"compress_level"`
+	Speed                string   `mapstructure:"speed"`
+	SpeedLimit           int      `mapstructure:"-"`
+	VerifyChecksum       bool     `mapstructure:"verify_checksum"`
+	Verbose              int      `mapstructure:"verbose"`
+	SkipSnapshotCreation bool     `mapstructure:"skip_snapshot_creation"`
+	SkipDiskCheck        bool     `mapstructure:"skip_disk_check"`
+	SnapshotSize         string   `mapstructure:"snapshot_size"`
+	VolumeGroup          string   `mapstructure:"volume_group"`
+	TargetVolumeGroup    string   `mapstructure:"target_volume_group"`
+	SourceVGCandidates   []string `mapstructure:"source_vgs"`
+	TargetVGCandidates   []string `mapstructure:"target_vgs"`
+	LVMEscalation        string   `mapstructure:"lvm_escalation"`
+	Progress             bool     `mapstructure:"progress"`
+	BlockSize            int      `mapstructure:"-"`
+	BlockSizeRaw         string   `mapstructure:"-"`
+	Deduplication        bool     `mapstructure:"deduplication"`
+	DedupStrategy        string   `mapstructure:"dedup_strategy"`
+	DedupStateFile       string   `mapstructure:"dedup_state_file"`
+	BloomEntries         int      `mapstructure:"bloom_entries"`
+	BloomFpRate          float64  `mapstructure:"bloom_fp_rate"`
 }
 
 func (c *Config) HumanBlockSize() string {
@@ -220,7 +221,7 @@ func LoadConfig() (*Config, error) {
 
 	// Compression Options
 	compressionFlags.String("compress", defaultCfg.Compress, fmt.Sprintf("Compression type, options: %v", SupportedCompression))
-	compressionFlags.Int("compress_level", defaultCfg.CompressLevel, "Compression level for zstd (ignored for lz4)")
+	compressionFlags.Int("compress_level", defaultCfg.CompressLevel, "Compression level. LZ4 accepts lz4.Fast or lz4.Level1..lz4.Level9; ZSTD accepts 1-22")
 
 	// LVM Options
 	lvmFlags.Bool("skip_snapshot_creation", defaultCfg.SkipSnapshotCreation, "Skip automatic snapshot creation")
