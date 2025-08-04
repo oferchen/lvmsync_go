@@ -14,6 +14,7 @@ func TestGetSnapshotDevicePath(t *testing.T) {
 }
 
 func TestSetGetEscalationCommand(t *testing.T) {
+	t.Cleanup(func() { SetEscalationCommand("") })
 	SetEscalationCommand("sudo")
 	if GetEscalationCommand() != "sudo" {
 		t.Fatalf("expected sudo, got %s", GetEscalationCommand())
