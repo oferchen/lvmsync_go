@@ -8,6 +8,10 @@ import (
 	"time"
 )
 
+func init() {
+	SetEscalationCommand("")
+}
+
 func TestGetSnapshotUsage(t *testing.T) {
 	tmpDir := t.TempDir()
 	script := filepath.Join(tmpDir, "lvs")

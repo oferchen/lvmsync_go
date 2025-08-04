@@ -7,6 +7,10 @@ import (
 	"testing"
 )
 
+func init() {
+	SetEscalationCommand("")
+}
+
 func TestCreateAndRemoveSnapshot(t *testing.T) {
 	tmpDir := t.TempDir()
 
