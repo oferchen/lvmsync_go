@@ -15,11 +15,6 @@ import (
 )
 
 func NewSSHClient(host, user, keyPath string, port int, knownHostsPath string, verify bool, timeout, keepAliveInterval time.Duration, retries int) (*ssh.Client, error) {
-	logger := Logger
-	if logger == nil {
-		logger = zap.L()
-	}
-
 	var authMethods []ssh.AuthMethod
 	if keyPath != "" {
 		key, err := os.ReadFile(keyPath)
@@ -65,7 +60,7 @@ func NewSSHClient(host, user, keyPath string, port int, knownHostsPath string, v
 		if err == nil {
 			break
 		}
-		logger.Warn("SSH dial failed",
+		Logger.Warn("SSH dial failed",
 			zap.String("host", host),
 			zap.Int("port", port),
 			zap.Int("attempt", attempt+1),
@@ -76,7 +71,7 @@ func NewSSHClient(host, user, keyPath string, port int, knownHostsPath string, v
 		}
 	}
 	if err != nil {
-		logger.Error("Unable to establish SSH connection", zap.String("host", host), zap.Int("port", port), zap.Error(err))
+		Logger.Error("Unable to establish SSH connection", zap.String("host", host), zap.Int("port", port), zap.Error(err))
 		return nil, fmt.Errorf("failed to dial SSH after %d attempts: %w", retries+1, err)
 	}
 
@@ -112,8 +107,11 @@ func RunRemoteScript(client *ssh.Client, script string) error {
 	return session.Run(script)
 }
 
-var Logger *zap.Logger
+var Logger = zap.NewNop()
 
 func SetLogger(logger *zap.Logger) {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
 	Logger = logger
 }
