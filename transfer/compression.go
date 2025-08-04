@@ -10,13 +10,18 @@ import (
 	"golang.org/x/sys/cpu"
 )
 
+const (
+	compressionLZ4  = "lz4"
+	compressionZSTD = "zstd"
+)
+
 // No shared state is kept between decompression readers.
 
 func detectOptimalCompression() string {
 	if cpu.X86.HasAVX2 {
-		return "zstd"
+		return compressionZSTD
 	}
-	return "lz4"
+	return compressionLZ4
 }
 
 func NewCompressionWriter(w io.Writer, compress string, level int) (io.WriteCloser, error) {
@@ -27,9 +32,9 @@ func NewCompressionWriter(w io.Writer, compress string, level int) (io.WriteClos
 	switch compress {
 	case "none":
 		return nopWriteCloser{w}, nil
-	case "lz4":
+	case compressionLZ4:
 		return lz4.NewWriter(w), nil
-	case "zstd":
+	case compressionZSTD:
 		return zstd.NewWriter(w, zstd.WithEncoderLevel(zstd.EncoderLevel(level)))
 	default:
 		return nil, fmt.Errorf("unsupported compression type: %s", compress)
@@ -40,9 +45,9 @@ func NewDecompressionReader(r io.Reader, compress string) (io.ReadCloser, error)
 	switch compress {
 	case "none":
 		return nopReadCloser{r}, nil
-	case "lz4":
+	case compressionLZ4:
 		return nopReadCloser{lz4.NewReader(r)}, nil
-	case "zstd":
+	case compressionZSTD:
 		decoder, err := zstd.NewReader(r)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize zstd decoder: %w", err)
