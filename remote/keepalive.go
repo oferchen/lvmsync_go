@@ -23,7 +23,7 @@ func startKeepAlive(client *ssh.Client, host string, interval time.Duration) {
 func sendKeepAlive(client *ssh.Client, host string) error {
 	_, _, err := client.SendRequest("keepalive@openssh.com", true, nil)
 	if err != nil {
-		zap.L().Warn("SSH keepalive failed", zap.String("host", host), zap.Error(err))
+		Logger.Warn("SSH keepalive failed", zap.String("host", host), zap.Error(err))
 		return err
 	}
 	return nil

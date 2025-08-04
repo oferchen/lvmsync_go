@@ -96,18 +96,18 @@ func RunSSHCommand(host, user, keyPath string, port int, command string, timeout
 		return fmt.Errorf("SSH command failed: %w", err)
 	}
 
-	zap.L().Info("SSH command completed", zap.String("host", host), zap.String("command", command))
+	Logger.Info("SSH command completed", zap.String("host", host), zap.String("command", command))
 	return nil
 }
 
 func loadPrivateKeyMust(keyPath string) ssh.Signer {
 	key, err := os.ReadFile(keyPath)
 	if err != nil {
-		zap.L().Fatal("Failed to read SSH private key", zap.String("keyPath", keyPath), zap.Error(err))
+		Logger.Fatal("Failed to read SSH private key", zap.String("keyPath", keyPath), zap.Error(err))
 	}
 	signer, err := ssh.ParsePrivateKey(key)
 	if err != nil {
-		zap.L().Fatal("Failed to parse SSH private key", zap.String("keyPath", keyPath), zap.Error(err))
+		Logger.Fatal("Failed to parse SSH private key", zap.String("keyPath", keyPath), zap.Error(err))
 	}
 	return signer
 }
