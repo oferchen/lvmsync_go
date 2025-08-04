@@ -96,9 +96,13 @@ func dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer,
 		return fmt.Errorf("error getting differences: %w", err)
 	}
 	Logger.Info("Changed blocks determined", zap.Int("blockCount", len(ranges)))
+
+	tokens := []string{common.ProtocolVersion}
 	if handshake != "" {
-		fmt.Fprintln(out, handshake)
+		tokens = append(tokens, handshake)
 	}
+	tokens = append(tokens, "compress:"+cfg.Compress)
+	fmt.Fprintln(out, strings.Join(tokens, " "))
 
 	compWriter, bufOut, err := prepareOutputWriter(out, cfg)
 	if err != nil {
@@ -183,8 +187,7 @@ func DumpChangesSequential(cfg *config.Config, snapshot, source string, out io.W
 }
 
 func DumpChangesWithDeduplication(cfg *config.Config, snapshot, source string, out io.Writer, dedup DeduplicationStrategy) error {
-	handshake := common.ProtocolVersion + " checksum-dedup"
-	return dumpChangesCore(cfg, snapshot, source, out, dedup, handshake)
+	return dumpChangesCore(cfg, snapshot, source, out, dedup, "checksum-dedup")
 }
 
 func DumpChanges(cfg *config.Config, snapshot, source string, out io.Writer) error {
@@ -241,11 +244,12 @@ func DumpChangesParallel(cfg *config.Config, snapshot, source string, out io.Wri
 		totalDataSize += (r.End - r.Start + 1)
 	}
 
-	handshake := common.ProtocolVersion
+	htokens := []string{common.ProtocolVersion}
 	if cfg.VerifyChecksum {
-		handshake += " checksum"
+		htokens = append(htokens, "checksum")
 	}
-	fmt.Fprintln(out, handshake)
+	htokens = append(htokens, "compress:"+cfg.Compress)
+	fmt.Fprintln(out, strings.Join(htokens, " "))
 
 	limitedOut := WrapRateLimitedWriter(out, cfg.SpeedLimit)
 	compWriter, err := NewCompressionWriter(limitedOut, cfg.Compress, cfg.CompressLevel)
@@ -362,33 +366,47 @@ func finalizeResults(wg *sync.WaitGroup, results chan<- *BlockResult) {
 }
 
 func processDumpDataCore(cfg *config.Config, in io.Reader, destPath string, dedup DeduplicationStrategy, verify bool) error {
-	decReader, err := NewDecompressionReader(in, cfg.Compress)
+	bufReader := bufio.NewReader(in)
+	handshake, err := bufReader.ReadString('\n')
+	if err != nil {
+		return fmt.Errorf("failed to read protocol handshake: %w", err)
+	}
+	handshake = strings.TrimSpace(handshake)
+	if !strings.HasPrefix(handshake, common.ProtocolVersion) {
+		return fmt.Errorf("unexpected protocol handshake: %s", handshake)
+	}
+	rest := strings.TrimSpace(strings.TrimPrefix(handshake, common.ProtocolVersion))
+	tokens := strings.Fields(rest)
+	compress := "none"
+	hasChecksum := false
+	hasDedup := false
+	for _, t := range tokens {
+		if strings.HasPrefix(t, "compress:") {
+			compress = strings.TrimPrefix(t, "compress:")
+		} else if t == "checksum" {
+			hasChecksum = true
+		} else if t == "checksum-dedup" {
+			hasChecksum = true
+			hasDedup = true
+		} else {
+			return fmt.Errorf("unexpected protocol handshake: %s", handshake)
+		}
+	}
+
+	if verify && !hasChecksum {
+		return fmt.Errorf("unexpected protocol handshake: %s", handshake)
+	}
+	if dedup != nil && !hasDedup {
+		return fmt.Errorf("unexpected protocol handshake: %s", handshake)
+	}
+
+	decReader, err := NewDecompressionReader(bufReader, compress)
 	if err != nil {
 		return fmt.Errorf("failed to create decompression reader: %w", err)
 	}
 	defer decReader.Close()
 
 	reader := bufio.NewReader(decReader)
-	handshake, err := reader.ReadString('\n')
-	if err != nil {
-		return fmt.Errorf("failed to read protocol handshake: %w", err)
-	}
-	handshake = strings.TrimSpace(handshake)
-	allowedHandshakes := []string{
-		common.ProtocolVersion,
-		common.ProtocolVersion + " checksum",
-		common.ProtocolVersion + " checksum-dedup",
-	}
-	valid := false
-	for _, h := range allowedHandshakes {
-		if handshake == h {
-			valid = true
-			break
-		}
-	}
-	if !valid {
-		return fmt.Errorf("unexpected protocol handshake: %s", handshake)
-	}
 
 	destFile, err := os.OpenFile(destPath, os.O_RDWR, 0)
 	if err != nil {

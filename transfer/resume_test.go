@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	"lvmsync_go/common"
 	"lvmsync_go/config"
 
 	"go.uber.org/zap"
@@ -85,8 +86,12 @@ func createTestFiles(t *testing.T, blockSize int64, blockCount int) (srcPath, sn
 func parseOffsets(t *testing.T, data []byte, blockSize int64) []int64 {
 	t.Helper()
 	reader := bufio.NewReader(bytes.NewReader(data))
-	if _, err := reader.ReadString('\n'); err != nil {
+	line, err := reader.ReadString('\n')
+	if err != nil {
 		t.Fatalf("failed to read handshake: %v", err)
+	}
+	if strings.TrimSpace(line) != common.ProtocolVersion+" compress:none" {
+		t.Fatalf("unexpected handshake %q", strings.TrimSpace(line))
 	}
 	var offsets []int64
 	for {
