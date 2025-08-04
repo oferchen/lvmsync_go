@@ -8,7 +8,7 @@ import (
 
 func TestCompressionRoundTrip(t *testing.T) {
 	data := []byte("some test data for compression")
-	types := []string{"none", "lz4", "zstd"}
+	types := []string{"none", compressionLZ4, compressionZSTD}
 
 	for _, c := range types {
 		var buf bytes.Buffer
