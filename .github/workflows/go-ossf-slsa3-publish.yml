@@ -33,7 +33,6 @@ jobs:
     with:
       go-version: 1.24.5
       config-file: .slsa-goreleaser.yml
-      binary: lvmsync_go
       env: |
         GOOS=linux
         GOARCH=amd64
