@@ -55,23 +55,27 @@ func runApplyMode(applyFile string) error {
 	return applyFunc(cfg, applyFile, destDevice)
 }
 
+func executeDump(cfg *config.Config, snapshotDevice, originDevice string, out io.Writer) error {
+	if cfg.Deduplication {
+		dedup := transfer.NewDeduplicationStrategy(cfg)
+		defer func() {
+			if err := dedup.SaveState(); err != nil {
+				zap.L().Error("Failed to save dedup state", zap.Error(err))
+			}
+		}()
+		return dumpChangesWithDeduplication(cfg, snapshotDevice, originDevice, out, dedup)
+	}
+	if cfg.Parallel <= 1 {
+		return dumpChangesSequential(cfg, snapshotDevice, originDevice, out)
+	}
+	return dumpChangesParallel(cfg, snapshotDevice, originDevice, out)
+}
+
 func runClientMode(snapshotDevice, dest string) (err error) {
 	originDevice := snapshotDevice
 	if cfg.StdoutMode {
 		limitedOut := transfer.WrapRateLimitedWriter(os.Stdout, cfg.SpeedLimit)
-		if cfg.Deduplication {
-			dedup := transfer.NewDeduplicationStrategy(cfg)
-			defer func() {
-				if err := dedup.SaveState(); err != nil {
-					zap.L().Error("Failed to save dedup state", zap.Error(err))
-				}
-			}()
-			return dumpChangesWithDeduplication(cfg, snapshotDevice, originDevice, limitedOut, dedup)
-		}
-		if cfg.Parallel <= 1 {
-			return dumpChangesSequential(cfg, snapshotDevice, originDevice, limitedOut)
-		}
-		return dumpChangesParallel(cfg, snapshotDevice, originDevice, limitedOut)
+		return executeDump(cfg, snapshotDevice, originDevice, limitedOut)
 	}
 	if strings.Contains(dest, ":") {
 		parts := strings.SplitN(dest, ":", 2)
@@ -132,22 +136,7 @@ func runClientMode(snapshotDevice, dest string) (err error) {
 			return fmt.Errorf("failed to start remote command: %w", err)
 		}
 
-		var streamErr error
-		if cfg.Deduplication {
-			dedup := transfer.NewDeduplicationStrategy(cfg)
-			defer func() {
-				if err := dedup.SaveState(); err != nil {
-					zap.L().Error("Failed to save dedup state", zap.Error(err))
-				}
-			}()
-			streamErr = dumpChangesWithDeduplication(cfg, snapshotDevice, originDevice, remoteStdin, dedup)
-		} else {
-			if cfg.Parallel <= 1 {
-				streamErr = dumpChangesSequential(cfg, snapshotDevice, originDevice, remoteStdin)
-			} else {
-				streamErr = dumpChangesParallel(cfg, snapshotDevice, originDevice, remoteStdin)
-			}
-		}
+		streamErr := executeDump(cfg, snapshotDevice, originDevice, remoteStdin)
 
 		remoteStdin.Close()
 		if streamErr != nil {
@@ -164,30 +153,16 @@ func runClientMode(snapshotDevice, dest string) (err error) {
 		if err := <-stderrErrCh; err != nil {
 			return fmt.Errorf("stderr copy error: %w", err)
 		}
-	} else {
-		destFile, err := os.OpenFile(dest, os.O_RDWR, 0)
-		if err != nil {
-			return fmt.Errorf("failed to open destination device %s: %w", dest, err)
-		}
-		defer destFile.Close()
-
-		limitedOut := transfer.WrapRateLimitedWriter(destFile, cfg.SpeedLimit)
-
-		if cfg.Deduplication {
-			dedup := transfer.NewDeduplicationStrategy(cfg)
-			defer func() {
-				if err := dedup.SaveState(); err != nil {
-					zap.L().Error("Failed to save dedup state", zap.Error(err))
-				}
-			}()
-			return dumpChangesWithDeduplication(cfg, snapshotDevice, originDevice, limitedOut, dedup)
-		}
-		if cfg.Parallel <= 1 {
-			return dumpChangesSequential(cfg, snapshotDevice, originDevice, limitedOut)
-		}
-		return dumpChangesParallel(cfg, snapshotDevice, originDevice, limitedOut)
+		return nil
 	}
-	return nil
+	destFile, err := os.OpenFile(dest, os.O_RDWR, 0)
+	if err != nil {
+		return fmt.Errorf("failed to open destination device %s: %w", dest, err)
+	}
+	defer destFile.Close()
+
+	limitedOut := transfer.WrapRateLimitedWriter(destFile, cfg.SpeedLimit)
+	return executeDump(cfg, snapshotDevice, originDevice, limitedOut)
 }
 
 func handleSignals(signals <-chan os.Signal, snapshotPath *string) {
