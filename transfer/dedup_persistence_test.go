@@ -1,6 +1,7 @@
 package transfer
 
 import (
+	"hash/maphash"
 	"path/filepath"
 	"testing"
 
@@ -34,7 +35,7 @@ func TestBloomFilterDedupPersistence(t *testing.T) {
 func TestRollingHashDedupPersistence(t *testing.T) {
 	stateFile := filepath.Join(t.TempDir(), "state")
 
-	d1 := &RollingHashDedup{stateFile: stateFile, hashes: make(map[int64]uint64)}
+	d1 := &RollingHashDedup{stateFile: stateFile, hashes: make(map[int64]uint64), seed: maphash.MakeSeed()}
 	data := []byte("hello")
 
 	if !d1.ShouldTransfer(0, data) {
@@ -45,7 +46,7 @@ func TestRollingHashDedupPersistence(t *testing.T) {
 		t.Fatalf("failed to save state: %v", err)
 	}
 
-	d2 := &RollingHashDedup{stateFile: stateFile, hashes: make(map[int64]uint64)}
+	d2 := &RollingHashDedup{stateFile: stateFile, hashes: make(map[int64]uint64), seed: maphash.MakeSeed()}
 	if err := d2.loadState(); err != nil {
 		t.Fatalf("failed to load state: %v", err)
 	}

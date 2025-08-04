@@ -4,9 +4,11 @@ package transfer
 import (
 	"crypto/sha256"
 	"encoding/binary"
+	"hash/maphash"
 	"io"
 	"os"
 	"sync"
+	"unsafe"
 
 	"lvmsync_go/config"
 
@@ -40,6 +42,11 @@ type RollingHashDedup struct {
 	stateFile string
 	hashes    map[int64]uint64
 	mu        sync.RWMutex
+	seed      maphash.Seed
+}
+
+var rollingHashPool = sync.Pool{
+	New: func() any { return new(maphash.Hash) },
 }
 
 func NewDeduplicationStrategy(cfg *config.Config) DeduplicationStrategy {
@@ -48,6 +55,7 @@ func NewDeduplicationStrategy(cfg *config.Config) DeduplicationStrategy {
 		d := &RollingHashDedup{
 			stateFile: cfg.DedupStateFile,
 			hashes:    make(map[int64]uint64),
+			seed:      maphash.MakeSeed(),
 		}
 		if err := d.loadState(); err != nil {
 			zap.L().Warn("failed to load dedup state", zap.Error(err))
@@ -140,12 +148,13 @@ func (c *ChecksumDedup) loadState() error {
 }
 
 func (r *RollingHashDedup) computeHash(data []byte) uint64 {
-	const base uint64 = 257
-	var h uint64
-	for _, b := range data {
-		h = h*base + uint64(b)
-	}
-	return h
+	h := rollingHashPool.Get().(*maphash.Hash)
+	h.Reset()
+	h.SetSeed(r.seed)
+	h.Write(data)
+	sum := h.Sum64()
+	rollingHashPool.Put(h)
+	return sum
 }
 
 func (r *RollingHashDedup) ShouldTransfer(offset int64, data []byte) bool {
@@ -176,6 +185,11 @@ func (r *RollingHashDedup) SaveState() error {
 	}
 	defer file.Close()
 
+	seedArr := *(*[2]uint64)(unsafe.Pointer(&r.seed))
+	if err := binary.Write(file, binary.LittleEndian, seedArr); err != nil {
+		return err
+	}
+
 	for offset, hash := range r.hashes {
 		if err := binary.Write(file, binary.LittleEndian, offset); err != nil {
 			return err
@@ -203,6 +217,15 @@ func (r *RollingHashDedup) loadState() error {
 	if r.hashes == nil {
 		r.hashes = make(map[int64]uint64)
 	}
+
+	var seedArr [2]uint64
+	if err := binary.Read(file, binary.LittleEndian, &seedArr); err != nil {
+		if err == io.EOF {
+			return nil
+		}
+		return err
+	}
+	r.seed = *(*maphash.Seed)(unsafe.Pointer(&seedArr))
 
 	for {
 		var offset int64
