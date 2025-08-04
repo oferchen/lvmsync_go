@@ -1,5 +1,5 @@
  # .slsa-goreleaser.yml
-version: v1
+version: 1
 build:
   goos: linux
   goarch: amd64
