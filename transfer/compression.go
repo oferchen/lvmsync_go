@@ -44,9 +44,9 @@ func NewCompressionWriter(w io.Writer, compress string, level int) (io.WriteClos
 func NewDecompressionReader(r io.Reader, compress string) (io.ReadCloser, error) {
 	switch compress {
 	case "none":
-		return nopReadCloser{r}, nil
+		return io.NopCloser(r), nil
 	case compressionLZ4:
-		return nopReadCloser{lz4.NewReader(r)}, nil
+		return io.NopCloser(lz4.NewReader(r)), nil
 	case compressionZSTD:
 		decoder, err := zstd.NewReader(r)
 		if err != nil {
@@ -63,12 +63,6 @@ type nopWriteCloser struct {
 }
 
 func (nopWriteCloser) Close() error { return nil }
-
-type nopReadCloser struct {
-	io.Reader
-}
-
-func (nopReadCloser) Close() error { return nil }
 
 type zstdReadCloser struct {
 	*zstd.Decoder
