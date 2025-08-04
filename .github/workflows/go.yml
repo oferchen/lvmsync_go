@@ -45,7 +45,7 @@ jobs:
         sudo make install
 
     - name: Ensure lvm2cmd.h is present
-      run: test -f /usr/include/lvm2cmd.h || { echo "ERROR: lvm2cmd.h missing"; exit 1; }
+      run: 'test -f /usr/include/lvm2cmd.h || { echo "ERROR: lvm2cmd.h missing"; exit 1; }'
 
     - name: Set up Go
       uses: actions/setup-go@v5.5.0
