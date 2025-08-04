@@ -107,8 +107,14 @@ The tool supports both local and remote transfers, as well as an "apply mode" fo
 | Option               | Description                                                                             | Default          |
 |----------------------|-----------------------------------------------------------------------------------------|------------------|
 | `--deduplication`    | Enable deduplication to avoid re-transferring unchanged blocks                          | `false`          |
-| `--dedup_strategy`   | Deduplication strategy (`"checksum"`, `"rolling_hash"`, or `"bloom"`)                  | `"checksum"`    |
+| `--dedup_strategy`   | Deduplication strategy (`"auto"`, `"checksum"`, `"rolling_hash"`, or `"bloom"`)        | `"auto"`        |
 | `--dedup_state_file` | Path to deduplication state file                                                        | `~/.lvmsync_dedup` |
+
+By default, `--dedup_strategy auto` inspects CPU capabilities via
+`golang.org/x/sys/cpu`. If hardware SHA support is detected, the checksum
+strategy is selected; otherwise a rolling hash is used. Experts can override
+this behaviour with `--dedup_strategy checksum`, `--dedup_strategy rolling_hash`,
+or `--dedup_strategy bloom`.
 
 #### Compression Options
 
@@ -217,7 +223,7 @@ progress: true                          # Show progress percentage during the tr
 
 # Deduplication Options:
 deduplication: false                    # Enable deduplication to avoid re-transferring unchanged blocks
-dedup_strategy: "checksum"               # Strategy: "checksum", "rolling_hash", or "bloom"
+dedup_strategy: "auto"                   # Strategy: "auto", "checksum", "rolling_hash", or "bloom"
 dedup_state_file: "~/.lvmsync_dedup"    # Path to deduplication state file
 
 # SSH Options:

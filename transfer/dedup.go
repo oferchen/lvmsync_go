@@ -6,12 +6,14 @@ import (
 	"encoding/binary"
 	"io"
 	"os"
+	"runtime"
 	"sync"
 
 	"lvmsync_go/config"
 
 	"github.com/bits-and-blooms/bloom/v3"
 	"go.uber.org/zap"
+	"golang.org/x/sys/cpu"
 )
 
 var createStateFile = func(name string) (io.WriteCloser, error) {
@@ -42,8 +44,38 @@ type RollingHashDedup struct {
 	mu        sync.RWMutex
 }
 
+// detectBestStrategy selects the fastest deduplication strategy for the current
+// CPU. Checksum-based deduplication is preferred when hardware SHA
+// acceleration is available; otherwise a rolling hash is used.
+var detectBestStrategy = func() string {
+	if hasHardwareSHA() {
+		return "checksum"
+	}
+	return "rolling_hash"
+}
+
+func hasHardwareSHA() bool {
+	switch runtime.GOARCH {
+	case "amd64":
+		return true
+	case "arm64":
+		return cpu.ARM64.HasSHA2
+	case "arm":
+		return cpu.ARM.HasSHA2
+	case "s390x":
+		return cpu.S390X.HasSHA256
+	default:
+		return false
+	}
+}
+
 func NewDeduplicationStrategy(cfg *config.Config) DeduplicationStrategy {
-	switch cfg.DedupStrategy {
+	strategy := cfg.DedupStrategy
+	if strategy == "auto" {
+		strategy = detectBestStrategy()
+		cfg.DedupStrategy = strategy
+	}
+	switch strategy {
 	case "rolling_hash":
 		d := &RollingHashDedup{
 			stateFile: cfg.DedupStateFile,

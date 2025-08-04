@@ -17,7 +17,7 @@ import (
 )
 
 var SupportedCompression = []string{"none", "lz4", "zstd", "auto"}
-var SupportedDedupStrategies = []string{"checksum", "rolling_hash", "bloom"}
+var SupportedDedupStrategies = []string{"auto", "checksum", "rolling_hash", "bloom"}
 
 var (
 	generalFlags     *pflag.FlagSet
@@ -158,7 +158,7 @@ func DefaultConfig() *Config {
 		BlockSize:            4096,
 		BlockSizeRaw:         "4KB",
 		Deduplication:        false,
-		DedupStrategy:        "checksum",
+		DedupStrategy:        "auto",
 		DedupStateFile:       filepath.Join(homeDir, ".lvmsync_dedup"),
 		UseBloomFilter:       false,
 	}
