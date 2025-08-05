@@ -11,7 +11,7 @@ import (
 func TestRunClientModeStdout(t *testing.T) {
 	cfg = config.DefaultConfig()
 	cfg.StdoutMode = true
-	cfg.Deduplication = false
+	cfg.DedupStrategy = "none"
 	cfg.Parallel = 1
 	cfg.SpeedLimit = 0
 

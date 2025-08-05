@@ -20,7 +20,7 @@ import (
 )
 
 var SupportedCompression = []string{"none", "lz4", "zstd", "auto"}
-var SupportedDedupStrategies = []string{"auto", "checksum", "rolling_hash", "bloom"}
+var SupportedDedupStrategies = []string{"none", "auto", "checksum", "rolling_hash", "bloom"}
 var SupportedChecksumAlgorithms = []string{"sha256", "blake3", "blake3-512"}
 
 var (
@@ -71,7 +71,6 @@ type Config struct {
 	Progress             bool     `mapstructure:"progress"`
 	BlockSize            int      `mapstructure:"-"`
 	BlockSizeRaw         string   `mapstructure:"-"`
-	Deduplication        bool     `mapstructure:"deduplication"`
 	DedupStrategy        string   `mapstructure:"dedup_strategy"`
 	DedupStateFile       string   `mapstructure:"dedup_state_file"`
 	BloomEntries         int      `mapstructure:"bloom_entries"`
@@ -217,8 +216,7 @@ func DefaultConfig() *Config {
 		Progress:             true,
 		BlockSize:            0,
 		BlockSizeRaw:         "auto",
-		Deduplication:        false,
-		DedupStrategy:        "auto",
+		DedupStrategy:        "none",
 		DedupStateFile:       filepath.Join(homeDir, ".lvmsync_dedup"),
 		BloomEntries:         1000000,
 		BloomFpRate:          0.01,
@@ -265,7 +263,6 @@ func LoadConfig() (*Config, error) {
 	remoteFlags.String("remote_post_script", defaultCfg.RemotePostScript, "Remote script to run after transfer")
 
 	// Deduplication Options
-	dedupFlags.Bool("deduplication", defaultCfg.Deduplication, "Enable deduplication to avoid re-transferring unchanged blocks")
 	dedupFlags.String("dedup_strategy", defaultCfg.DedupStrategy, fmt.Sprintf("Deduplication strategy: %v", SupportedDedupStrategies))
 	dedupFlags.String("dedup_state_file", defaultCfg.DedupStateFile, "Path to deduplication state file")
 	dedupFlags.Int("bloom_entries", defaultCfg.BloomEntries, "Estimated number of entries for bloom filter")

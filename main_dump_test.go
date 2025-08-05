@@ -10,7 +10,7 @@ import (
 
 func TestExecuteDumpSequential(t *testing.T) {
 	cfg := config.DefaultConfig()
-	cfg.Deduplication = false
+	cfg.DedupStrategy = "none"
 	cfg.Parallel = 1
 
 	called := false
@@ -51,7 +51,7 @@ func TestExecuteDumpParallel(t *testing.T) {
 
 func TestExecuteDumpWithDedup(t *testing.T) {
 	cfg := config.DefaultConfig()
-	cfg.Deduplication = true
+	cfg.DedupStrategy = "checksum"
 
 	called := false
 	original := dumpChangesWithDeduplication
