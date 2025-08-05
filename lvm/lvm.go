@@ -345,6 +345,18 @@ func GetSnapshotDevicePath(snapshotName, volumeGroup string) string {
 	return path
 }
 
+// GetVolumeGroupName extracts the volume group name from a logical volume path.
+// The path must be of the form /dev/<vg>/<lv>. It returns an error for invalid
+// paths.
+func GetVolumeGroupName(lvPath string) (string, error) {
+	trimmed := strings.TrimPrefix(lvPath, "/dev/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return "", fmt.Errorf("invalid logical volume path: %s", lvPath)
+	}
+	return parts[0], nil
+}
+
 func GetVolumeGroupFreeSpace(ctx context.Context, vgName string) (uint64, error) {
 	if err := checkPrivs(); err != nil {
 		return 0, err

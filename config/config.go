@@ -66,7 +66,6 @@ type Config struct {
 	SnapshotSize         string   `mapstructure:"snapshot_size"`
 	VolumeGroup          string   `mapstructure:"volume_group"`
 	TargetVolumeGroup    string   `mapstructure:"target_volume_group"`
-	SourceVGCandidates   []string `mapstructure:"source_vgs"`
 	TargetVGCandidates   []string `mapstructure:"target_vgs"`
 	LVMEscalation        string   `mapstructure:"lvm_escalation"`
 	Progress             bool     `mapstructure:"progress"`
@@ -213,7 +212,6 @@ func DefaultConfig() *Config {
 		SnapshotSize:         "20%",
 		VolumeGroup:          "",
 		TargetVolumeGroup:    "",
-		SourceVGCandidates:   []string{},
 		TargetVGCandidates:   []string{},
 		LVMEscalation:        "sudo -n",
 		Progress:             true,
@@ -283,9 +281,8 @@ func LoadConfig() (*Config, error) {
 	lvmFlags.Bool("skip_disk_check", defaultCfg.SkipDiskCheck, "Skip disk space check before snapshot creation")
 	lvmFlags.String("snapshot_size", defaultCfg.SnapshotSize, "Snapshot size (e.g., '20G' or '20%')")
 	lvmFlags.String("lvm_escalation", defaultCfg.LVMEscalation, "Command used to escalate privileges for LVM commands")
-	lvmFlags.String("volume_group", defaultCfg.VolumeGroup, "Volume group name of the source LVM volume")
+	lvmFlags.String("volume_group", defaultCfg.VolumeGroup, "Source volume group; derived from the source device path when empty")
 	lvmFlags.String("target_volume_group", defaultCfg.TargetVolumeGroup, "Volume group name of the target LVM volume")
-	lvmFlags.StringSlice("source_vgs", defaultCfg.SourceVGCandidates, "Candidate source volume groups for auto-selection")
 	lvmFlags.StringSlice("target_vgs", defaultCfg.TargetVGCandidates, "Candidate target volume groups for auto-selection")
 
 	// Register flags and set usage

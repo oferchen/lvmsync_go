@@ -18,7 +18,7 @@ LVMSync is a high-performance incremental data replication tool for LVM snapshot
   - Automatic snapshot creation and removal.
   - Configurable snapshot size (absolute or percentage-based).
   - Configurable volume group for constructing the snapshot device path.
-  - Auto-selection of source and target volume groups with sufficient free space.
+  - Auto-selection of target volume groups with sufficient free space.
   - Automatic privilege escalation (defaulting to `sudo -n`).
   - Snapshot health monitoring that fails fast if usage exceeds a threshold.
 - **Graceful Shutdown**: Signal handling ensures snapshots are cleaned up on interruption.
@@ -128,9 +128,8 @@ The tool supports both local and remote transfers, as well as an "apply mode" fo
 | `--skip_snapshot_creation` | Skip automatic snapshot creation | `false` |
 | `--skip_disk_check` | Skip disk space check before snapshot creation | `false` |
 | `--snapshot_size` | Snapshot size as an absolute value (e.g., `"20G"`) or as a percentage (e.g., `"20%"`) | `"20%"` |
-| `--volume_group` | Source volume group. If empty, a group with sufficient free space is selected automatically | `""` |
+| `--volume_group` | Source volume group. Derived from the source device path when empty | `""` |
 | `--target_volume_group` | Volume group name of the target LVM volume | `""` |
-| `--source_vgs` | Candidate source volume groups for auto-selection | `[]` |
 | `--target_vgs` | Candidate target volume groups for auto-selection | `[]` |
 | `--lvm_escalation` | Command used to re-execute the program with elevated privileges when not running as root (e.g., `"sudo -n"`) | `"sudo -n"` |
 
@@ -247,9 +246,8 @@ compress_concurrency: 0                # Number of goroutines for compression (0
 skip_snapshot_creation: false           # Skip automatic snapshot creation
 skip_disk_check: false                  # Skip disk space check before snapshot creation
 snapshot_size: "20%"                    # Snapshot size as an absolute value (e.g., "20G") or as a percentage (e.g., "20%")
-volume_group: ""                        # Source volume group. Auto-selected with enough free space when empty
+volume_group: ""                        # Source volume group. Derived from the source path when empty
 target_volume_group: ""                 # Volume group name of the target LVM volume
-source_vgs: []                          # Candidate source VGs for auto-selection
 target_vgs: []                          # Candidate target VGs for auto-selection
 lvm_escalation: "sudo -n"               # Command used to re-execute the program with elevated privileges when needed
 ```

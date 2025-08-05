@@ -260,12 +260,12 @@ func main() {
 	}
 
 	if cfg.VolumeGroup == "" {
-		vg, err := lvm.SelectVolumeGroupForSize(context.Background(), cfg.SourceVGCandidates, snapshotBytes)
+		vg, err := lvm.GetVolumeGroupName(originalVolume)
 		if err != nil {
-			logger.Fatal("Failed to select source volume group", zap.Error(err))
+			logger.Fatal("Failed to determine source volume group", zap.Error(err))
 		}
-		cfg.VolumeGroup = vg.Name
-		logger.Info("Selected source volume group", zap.String("volume_group", cfg.VolumeGroup))
+		cfg.VolumeGroup = vg
+		logger.Info("Using source volume group", zap.String("volume_group", cfg.VolumeGroup))
 	}
 
 	if cfg.TargetVolumeGroup == "" && len(cfg.TargetVGCandidates) > 0 {
