@@ -201,9 +201,8 @@ func dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer,
 }
 
 func DumpChangesSequential(cfg *config.Config, snapshot, source string, out io.Writer) error {
-	var dedup DeduplicationStrategy
-	if cfg.DedupStrategy != "none" {
-		dedup = NewDeduplicationStrategy(cfg)
+	dedup := NewDeduplicationStrategy(cfg)
+	if dedup != nil {
 		defer func() {
 			if err := dedup.SaveState(); err != nil {
 				Logger.Error("Failed to save dedup state", zap.Error(err))
@@ -218,8 +217,8 @@ func DumpChangesWithDeduplication(cfg *config.Config, snapshot, source string, o
 }
 
 func DumpChanges(cfg *config.Config, snapshot, source string, out io.Writer) error {
-	if cfg.DedupStrategy != "none" {
-		dedup := NewDeduplicationStrategy(cfg)
+	dedup := NewDeduplicationStrategy(cfg)
+	if dedup != nil {
 		defer func() {
 			if err := dedup.SaveState(); err != nil {
 				Logger.Error("Failed to save dedup state", zap.Error(err))
@@ -480,7 +479,7 @@ func processDumpDataCore(cfg *config.Config, in io.Reader, destPath string, dedu
 			}
 		}
 
-		if dedup != nil && cfg.DedupStrategy != "none" {
+		if dedup != nil {
 			if !dedup.ShouldTransfer(int64(offset), data) {
 				putBlockBuffer(data)
 				continue
@@ -530,8 +529,8 @@ func RunApply(cfg *config.Config, applyFile, destDevice string) error {
 		in = f
 	}
 
-	if cfg.DedupStrategy != "none" {
-		dedup := NewDeduplicationStrategy(cfg)
+	dedup := NewDeduplicationStrategy(cfg)
+	if dedup != nil {
 		Logger.Info("Applying deduplication during restore", zap.String("strategy", cfg.DedupStrategy))
 		defer func() {
 			if err := dedup.SaveState(); err != nil {
