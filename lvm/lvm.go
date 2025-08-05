@@ -414,6 +414,42 @@ func ByFreeSpace(vgs []VolumeGroup) (VolumeGroup, error) {
 	return chosen, nil
 }
 
+// ByFreeSpaceFit returns a selector that chooses the volume group with the
+// largest amount of free space among those providing at least the required
+// amount of free bytes. It fails if no volume group satisfies the requirement.
+func ByFreeSpaceFit(required uint64) VolumeGroupSelector {
+	return func(vgs []VolumeGroup) (VolumeGroup, error) {
+		var (
+			chosen VolumeGroup
+			found  bool
+		)
+		for _, vg := range vgs {
+			if vg.Free < required {
+				continue
+			}
+			if !found || vg.Free > chosen.Free {
+				chosen = vg
+				found = true
+			}
+		}
+		if !found {
+			return VolumeGroup{}, fmt.Errorf("no volume group has %d bytes free", required)
+		}
+		return chosen, nil
+	}
+}
+
+// SelectVolumeGroupForSize selects a volume group from the given candidates
+// that has at least the required amount of free space. If required is zero it
+// behaves like SelectVolumeGroup with ByFreeSpace.
+func SelectVolumeGroupForSize(ctx context.Context, candidates []string, required uint64) (VolumeGroup, error) {
+	selector := ByFreeSpace
+	if required > 0 {
+		selector = ByFreeSpaceFit(required)
+	}
+	return SelectVolumeGroup(ctx, candidates, selector)
+}
+
 func Cleanup() {
 	deviceFDCache.Close()
 }

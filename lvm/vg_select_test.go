@@ -110,3 +110,24 @@ func TestSelectVolumeGroupCustomSelector(t *testing.T) {
 		t.Fatalf("expected vg0, got %s", vg.Name)
 	}
 }
+
+func TestSelectVolumeGroupForSize(t *testing.T) {
+	orig := checkPrivs
+	checkPrivs = func() error { return nil }
+	t.Cleanup(func() { checkPrivs = orig })
+	fb := &vgBackend{vgs: []VolumeGroup{{Name: "vg0", Free: 100}, {Name: "vg1", Free: 200}}}
+	restore := SetBackend(fb)
+	defer restore()
+
+	vg, err := SelectVolumeGroupForSize(context.Background(), nil, 150)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if vg.Name != "vg1" {
+		t.Fatalf("expected vg1, got %s", vg.Name)
+	}
+
+	if _, err := SelectVolumeGroupForSize(context.Background(), nil, 250); err == nil {
+		t.Fatalf("expected error when no vg has enough space")
+	}
+}

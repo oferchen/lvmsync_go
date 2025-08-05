@@ -259,6 +259,28 @@ func main() {
 		logger.Fatal("Failed to parse snapshot size", zap.Error(err))
 	}
 
+	if cfg.VolumeGroup == "" {
+		vg, err := lvm.SelectVolumeGroupForSize(context.Background(), cfg.SourceVGCandidates, snapshotBytes)
+		if err != nil {
+			logger.Fatal("Failed to select source volume group", zap.Error(err))
+		}
+		cfg.VolumeGroup = vg.Name
+		logger.Info("Selected source volume group", zap.String("volume_group", cfg.VolumeGroup))
+	}
+
+	if cfg.TargetVolumeGroup == "" && len(cfg.TargetVGCandidates) > 0 {
+		lvSize, err := lvm.GetVolumeSize(originalVolume)
+		if err != nil {
+			logger.Fatal("Failed to determine volume size", zap.Error(err))
+		}
+		vg, err := lvm.SelectVolumeGroupForSize(context.Background(), cfg.TargetVGCandidates, lvSize)
+		if err != nil {
+			logger.Fatal("Failed to select target volume group", zap.Error(err))
+		}
+		cfg.TargetVolumeGroup = vg.Name
+		logger.Info("Selected target volume group", zap.String("target_volume_group", cfg.TargetVolumeGroup))
+	}
+
 	if !cfg.SkipDiskCheck {
 		freeSpace, err := lvm.CheckDiskSpace("/")
 		if err != nil {

@@ -37,7 +37,7 @@ verbose: 0                             # Verbosity level (0 = silent, higher num
 skip_snapshot_creation: false          # Skip automatic snapshot creation
 skip_disk_check: false                 # Skip disk space check before snapshot creation
 snapshot_size: "20%"                   # Snapshot size as an absolute value (e.g. "20G") or as a percentage (e.g. "20%")
-volume_group: "vg0"                    # Source volume group. Auto-selected by free space when empty
+volume_group: ""                      # Source volume group. Auto-selected with enough free space when empty
 target_volume_group: ""                # Volume group name of the target LVM volume
 source_vgs: []                         # Candidate source VGs for auto-selection
 target_vgs: []                         # Candidate target VGs for auto-selection
