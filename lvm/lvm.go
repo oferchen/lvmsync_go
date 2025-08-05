@@ -398,11 +398,4 @@ func SelectVolumeGroupByFreeSpace(ctx context.Context, candidates []string) (Vol
 
 func Cleanup() {
 	deviceFDCache.Close()
-
-	if b, ok := backend.(*lvm2Backend); ok {
-		if b.wrapperPath != "" {
-			os.Remove(b.wrapperPath)
-			b.wrapperPath = ""
-		}
-	}
 }
