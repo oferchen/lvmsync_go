@@ -3,6 +3,7 @@ package transfer
 import (
 	"bytes"
 	"io"
+	"math/rand"
 	"time"
 
 	zstd "github.com/klauspost/compress/zstd"
@@ -14,12 +15,21 @@ import (
 // benchmark is intentionally small so it can run during start-up without
 // adding noticeable overhead.
 func benchmarkCompression() string {
-	sample := bytes.Repeat([]byte("a"), 1<<16) // 64KB sample block
+	sample := make([]byte, 1<<16) // 64KB sample block
+	copy(sample[:1<<15], bytes.Repeat([]byte("a"), 1<<15))
+	prng := rand.New(rand.NewSource(0))
+	if _, err := prng.Read(sample[1<<15:]); err != nil {
+		return compressionLZ4
+	}
 
 	lz4Start := time.Now()
 	lw := lz4.NewWriter(io.Discard)
-	_, _ = lw.Write(sample)
-	_ = lw.Close()
+	if _, err := lw.Write(sample); err != nil {
+		return compressionLZ4
+	}
+	if err := lw.Close(); err != nil {
+		return compressionLZ4
+	}
 	lz4Dur := time.Since(lz4Start)
 
 	zw, err := zstd.NewWriter(io.Discard)
@@ -27,8 +37,13 @@ func benchmarkCompression() string {
 		return compressionLZ4
 	}
 	zstdStart := time.Now()
-	_, _ = zw.Write(sample)
-	_ = zw.Close()
+	if _, err := zw.Write(sample); err != nil {
+		zw.Close()
+		return compressionLZ4
+	}
+	if err := zw.Close(); err != nil {
+		return compressionLZ4
+	}
 	zstdDur := time.Since(zstdStart)
 
 	if zstdDur < lz4Dur {
