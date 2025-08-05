@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"math/rand"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -150,12 +151,21 @@ var (
 )
 
 func benchmarkCompression() string {
-	sample := bytes.Repeat([]byte("a"), 1<<16)
+	sample := make([]byte, 1<<16)
+	copy(sample[:1<<15], bytes.Repeat([]byte("a"), 1<<15))
+	prng := rand.New(rand.NewSource(0))
+	if _, err := prng.Read(sample[1<<15:]); err != nil {
+		return "lz4"
+	}
 
 	lz4Start := time.Now()
 	lw := lz4.NewWriter(io.Discard)
-	_, _ = lw.Write(sample)
-	_ = lw.Close()
+	if _, err := lw.Write(sample); err != nil {
+		return "lz4"
+	}
+	if err := lw.Close(); err != nil {
+		return "lz4"
+	}
 	lz4Dur := time.Since(lz4Start)
 
 	zw, err := zstd.NewWriter(io.Discard)
@@ -163,8 +173,13 @@ func benchmarkCompression() string {
 		return "lz4"
 	}
 	zstdStart := time.Now()
-	_, _ = zw.Write(sample)
-	_ = zw.Close()
+	if _, err := zw.Write(sample); err != nil {
+		zw.Close()
+		return "lz4"
+	}
+	if err := zw.Close(); err != nil {
+		return "lz4"
+	}
 	zstdDur := time.Since(zstdStart)
 
 	if zstdDur < lz4Dur {
