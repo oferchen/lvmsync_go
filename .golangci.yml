@@ -3,16 +3,16 @@ version: "2"
 run:
   timeout: 3m
   tests: true
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
   skip-dirs:
     - vendor
     - .git
   skip-files:
     - ".*_gen.go"
     - ".*_test.go"
-
-issues:
-  max-issues-per-linter: 0
-  max-same-issues: 0
 
 linters:
   enable:
