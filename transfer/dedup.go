@@ -76,6 +76,8 @@ func NewDeduplicationStrategy(cfg *config.Config) DeduplicationStrategy {
 		cfg.DedupStrategy = strategy
 	}
 	switch strategy {
+	case "none":
+		return nil
 	case "rolling_hash":
 		d := &RollingHashDedup{
 			stateFile: cfg.DedupStateFile,
