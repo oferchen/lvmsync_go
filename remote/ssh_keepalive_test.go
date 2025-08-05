@@ -87,7 +87,8 @@ func TestNewSSHClient(t *testing.T) {
 	host, portStr, _ := net.SplitHostPort(server.addr)
 	port, _ := strconv.Atoi(portStr)
 
-	client, err := NewSSHClient(host, "test", "", port, "", false, time.Second, 10*time.Millisecond, 0)
+	keyPath := createTempKey(t)
+	client, err := NewSSHClient(host, "test", keyPath, port, "", false, time.Second, 10*time.Millisecond, 0)
 	if err != nil {
 		t.Fatalf("NewSSHClient error: %v", err)
 	}

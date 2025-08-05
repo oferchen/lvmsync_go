@@ -36,6 +36,9 @@ func NewSSHClient(host, user, keyPath string, port int, knownHostsPath string, v
 			}
 		}
 	}
+	if len(authMethods) == 0 {
+		return nil, fmt.Errorf("no SSH authentication methods configured")
+	}
 	var hostKeyCallback ssh.HostKeyCallback
 	if verify {
 		var err error
