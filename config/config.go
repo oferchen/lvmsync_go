@@ -21,6 +21,7 @@ import (
 
 var SupportedCompression = []string{"none", "lz4", "zstd", "auto"}
 var SupportedDedupStrategies = []string{"auto", "checksum", "rolling_hash", "bloom"}
+var SupportedChecksumAlgorithms = []string{"sha256", "blake3", "blake3-512"}
 
 var (
 	generalFlags     *pflag.FlagSet
@@ -58,6 +59,7 @@ type Config struct {
 	Speed                string   `mapstructure:"speed"`
 	SpeedLimit           int      `mapstructure:"-"`
 	VerifyChecksum       bool     `mapstructure:"verify_checksum"`
+	ChecksumAlgorithm    string   `mapstructure:"checksum_algorithm"`
 	Verbose              int      `mapstructure:"verbose"`
 	SkipSnapshotCreation bool     `mapstructure:"skip_snapshot_creation"`
 	SkipDiskCheck        bool     `mapstructure:"skip_disk_check"`
@@ -98,11 +100,22 @@ func (cb *ConfigBuilder) Build() (*Config, error) {
 		return nil, err
 	}
 	conf.BlockSize = bs
+	if conf.ChecksumAlgorithm == "" {
+		conf.ChecksumAlgorithm = cb.defaults.ChecksumAlgorithm
+	}
 	sl, err := cb.parseBytesOrFallback("speed", cb.defaults.Speed)
 	if err != nil {
 		return nil, err
 	}
 	conf.SpeedLimit = sl
+
+	algo := strings.ToLower(conf.ChecksumAlgorithm)
+	switch algo {
+	case "sha256", "blake3", "blake3-512":
+		conf.ChecksumAlgorithm = algo
+	default:
+		return nil, fmt.Errorf("unsupported checksum algorithm: %s", conf.ChecksumAlgorithm)
+	}
 
 	if conf.CompressConcurrency <= 0 {
 		conf.CompressConcurrency = runtime.GOMAXPROCS(0)
@@ -179,6 +192,7 @@ func DefaultConfig() *Config {
 		CompressConcurrency:  runtime.GOMAXPROCS(0),
 		Speed:                "100MB",
 		VerifyChecksum:       false,
+		ChecksumAlgorithm:    "sha256",
 		Verbose:              0,
 		SkipSnapshotCreation: false,
 		SkipDiskCheck:        false,
@@ -221,6 +235,7 @@ func LoadConfig() (*Config, error) {
 	generalFlags.String("block_size", defaultCfg.BlockSizeRaw, "Block size for data transfer")
 	generalFlags.CountP("verbose", "v", "Verbosity level")
 	generalFlags.Bool("verify_checksum", defaultCfg.VerifyChecksum, "Enable checksum verification")
+	generalFlags.String("checksum_algorithm", defaultCfg.ChecksumAlgorithm, fmt.Sprintf("Checksum algorithm: %v", SupportedChecksumAlgorithms))
 	generalFlags.Bool("progress", defaultCfg.Progress, "Show progress during transfer")
 
 	// SSH Options

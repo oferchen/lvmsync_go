@@ -3,11 +3,17 @@ package transfer
 
 import (
 	"crypto/sha256"
+	"strings"
 	"sync"
+
+	"github.com/zeebo/blake3"
 )
 
+// ChecksumStrategy defines an interface for computing checksums with a
+// predictable output size.
 type ChecksumStrategy interface {
 	Compute(data []byte) []byte
+	Size() int
 }
 
 type SHA256Checksum struct{}
@@ -17,17 +23,42 @@ func (s *SHA256Checksum) Compute(data []byte) []byte {
 	return sum[:]
 }
 
+func (s *SHA256Checksum) Size() int { return sha256.Size }
+
+type BLAKE3Checksum struct{ size int }
+
+func (b *BLAKE3Checksum) Compute(data []byte) []byte {
+	if b.size > 32 {
+		sum := blake3.Sum512(data)
+		return sum[:]
+	}
+	sum := blake3.Sum256(data)
+	return sum[:]
+}
+
+func (b *BLAKE3Checksum) Size() int { return b.size }
+
 var (
-	sha256Instance ChecksumStrategy = &SHA256Checksum{}
-	initOnce       sync.Once
+	strategies map[string]ChecksumStrategy
+	initOnce   sync.Once
 )
 
 func initChecksumStrategies() {
-	sha256Instance = &SHA256Checksum{}
+	strategies = map[string]ChecksumStrategy{
+		"sha256":     &SHA256Checksum{},
+		"blake3":     &BLAKE3Checksum{size: 32},
+		"blake3-256": &BLAKE3Checksum{size: 32},
+		"blake3-512": &BLAKE3Checksum{size: 64},
+	}
 }
 
+// GetChecksumStrategy returns a checksum strategy for the requested algorithm.
+// An unknown algorithm defaults to SHA-256.
 func GetChecksumStrategy(algo string) ChecksumStrategy {
 	initOnce.Do(initChecksumStrategies)
-	// Only SHA-256 is supported; default to it for any request.
-	return sha256Instance
+	a := strings.ToLower(algo)
+	if s, ok := strategies[a]; ok {
+		return s
+	}
+	return strategies["sha256"]
 }
