@@ -1,7 +1,6 @@
 package lvm
 
 import (
-	"container/list"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,10 +10,7 @@ import (
 )
 
 func TestFdCacheEvictionOrder(t *testing.T) {
-	cache := &fdCache{
-		fds:   make(map[string]*list.Element),
-		order: list.New(),
-	}
+	cache := NewFDCache(fdCacheSize)
 
 	tmpDir := t.TempDir()
 	var fd0, fd1 int
@@ -58,10 +54,7 @@ func TestFdCacheEvictionOrder(t *testing.T) {
 }
 
 func TestFdCacheCloseClosesAll(t *testing.T) {
-	cache := &fdCache{
-		fds:   make(map[string]*list.Element),
-		order: list.New(),
-	}
+	cache := NewFDCache(fdCacheSize)
 	tmpDir := t.TempDir()
 	var fds []int
 	for i := 0; i < 3; i++ {
