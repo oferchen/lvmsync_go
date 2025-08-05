@@ -4,9 +4,9 @@ go 1.24.5
 
 require (
 	github.com/bits-and-blooms/bloom/v3 v3.7.0
-	github.com/dpeckett/lvm2 v0.3.1
 	github.com/klauspost/compress v1.18.0
 	github.com/klauspost/cpuid/v2 v2.2.7
+	github.com/nak3/go-lvm v0.0.0
 	github.com/pierrec/lz4/v4 v4.1.22
 	github.com/spf13/pflag v1.0.7
 	github.com/spf13/viper v1.20.1
@@ -16,7 +16,7 @@ require (
 	golang.org/x/time v0.12.0
 )
 
-replace github.com/dpeckett/lvm2 => ./stubs/github.com/dpeckett/lvm2
+replace github.com/nak3/go-lvm => ./stubs/github.com/nak3/go-lvm
 
 require (
 	github.com/bits-and-blooms/bitset v1.10.0 // indirect

@@ -2,47 +2,50 @@ package lvm
 
 import (
 	"context"
-	"fmt"
-	"os"
-	"path/filepath"
 	"testing"
 )
 
-func TestCreateSnapshotWithEscalationNonRoot(t *testing.T) {
-	tmpDir := t.TempDir()
-	argsFile := filepath.Join(tmpDir, "args")
-	script := filepath.Join(tmpDir, "esc.sh")
-	content := fmt.Sprintf("#!/bin/sh\nprintf '%%s %%s' \"$1\" \"$2\" > %s\n", argsFile)
-	if err := os.WriteFile(script, []byte(content), 0700); err != nil {
-		t.Fatalf("failed to create script: %v", err)
-	}
+func TestGolvmBackend(t *testing.T) {
+	b := newLVMBackend()
+	ctx := context.Background()
 
-	t.Cleanup(func() {
-		SetEscalationCommand("")
-	})
-
-	SetEscalationCommand(script)
-	restore := SetBackend(nil)
-	t.Cleanup(restore)
-
-	orig := checkPrivs
-	checkPrivs = func() error {
-		if GetEscalationCommand() == "" {
-			return fmt.Errorf("privileges required")
-		}
-		return nil
-	}
-	t.Cleanup(func() { checkPrivs = orig })
-
-	if err := CreateSnapshot(context.Background(), "/dev/vg0/origin", "snap", "1G"); err != nil {
+	if err := b.CreateSnapshot(ctx, "/dev/vg0/origin", "snap", "1G"); err != nil {
 		t.Fatalf("CreateSnapshot failed: %v", err)
 	}
 
-	data, err := os.ReadFile(argsFile)
-	if err != nil {
-		t.Fatalf("failed to read args file: %v", err)
+	if err := b.RemoveSnapshot(ctx, "/dev/vg0/snap"); err != nil {
+		t.Fatalf("RemoveSnapshot failed: %v", err)
 	}
-	if string(data) != "lvm lvcreate" {
-		t.Fatalf("unexpected args %q", string(data))
+
+	usage, err := b.GetSnapshotUsage(ctx, "/dev/vg0/snap")
+	if err != nil {
+		t.Fatalf("GetSnapshotUsage failed: %v", err)
+	}
+	if usage != 55.5 {
+		t.Fatalf("unexpected usage %.1f", usage)
+	}
+
+	free, err := b.GetVolumeGroupFreeSpace(ctx, "vg0")
+	if err != nil {
+		t.Fatalf("GetVolumeGroupFreeSpace failed: %v", err)
+	}
+	if free != 1024 {
+		t.Fatalf("unexpected free %d", free)
+	}
+
+	vgs, err := b.ListVolumeGroups(ctx, nil)
+	if err != nil {
+		t.Fatalf("ListVolumeGroups failed: %v", err)
+	}
+	if len(vgs) != 2 {
+		t.Fatalf("expected 2 groups, got %d", len(vgs))
+	}
+
+	vgs, err = b.ListVolumeGroups(ctx, []string{"vg1"})
+	if err != nil {
+		t.Fatalf("ListVolumeGroups with filter failed: %v", err)
+	}
+	if len(vgs) != 1 || vgs[0].Name != "vg1" || vgs[0].Free != 2048 {
+		t.Fatalf("unexpected filtered result: %#v", vgs)
 	}
 }
