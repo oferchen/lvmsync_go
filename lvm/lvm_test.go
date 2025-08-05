@@ -13,6 +13,19 @@ func TestGetSnapshotDevicePath(t *testing.T) {
 	}
 }
 
+func TestGetVolumeGroupName(t *testing.T) {
+	vg, err := GetVolumeGroupName("/dev/vg0/lv1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if vg != "vg0" {
+		t.Fatalf("expected vg0, got %s", vg)
+	}
+	if _, err := GetVolumeGroupName("/dev/invalid"); err == nil {
+		t.Fatalf("expected error for invalid path")
+	}
+}
+
 func TestParseSnapshotSize(t *testing.T) {
 	tmpFile := filepath.Join(t.TempDir(), "vol")
 	if err := os.WriteFile(tmpFile, make([]byte, 1024*1024), 0644); err != nil {
