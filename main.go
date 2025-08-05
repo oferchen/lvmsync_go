@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -243,19 +244,20 @@ func main() {
 		destPath = args[1]
 	}
 
+	snapshotBytes, err := lvm.ParseSnapshotSize(cfg.SnapshotSize, originalVolume)
+	if err != nil {
+		logger.Fatal("Failed to parse snapshot size", zap.Error(err))
+	}
+
 	if !cfg.SkipDiskCheck {
 		freeSpace, err := lvm.CheckDiskSpace("/")
 		if err != nil {
 			logger.Fatal("Disk space check failed", zap.Error(err))
 		}
-		requiredBytes, err := lvm.ParseSnapshotSize(cfg.SnapshotSize, originalVolume)
-		if err != nil {
-			logger.Fatal("Failed to parse snapshot size", zap.Error(err))
-		}
-		if freeSpace < requiredBytes {
+		if freeSpace < snapshotBytes {
 			logger.Fatal("Insufficient disk space for snapshot",
 				zap.Uint64("free", freeSpace),
-				zap.Uint64("required", requiredBytes))
+				zap.Uint64("required", snapshotBytes))
 		}
 		logger.Info("Disk space check passed", zap.Uint64("free", freeSpace))
 	}
@@ -263,7 +265,7 @@ func main() {
 	snapshotPath = originalVolume
 	if !cfg.SkipSnapshotCreation {
 		snapshotName := fmt.Sprintf("snap-%d", time.Now().Unix())
-		err = lvm.CreateSnapshot(context.Background(), originalVolume, snapshotName, cfg.SnapshotSize)
+		err = lvm.CreateSnapshot(context.Background(), originalVolume, snapshotName, strconv.FormatUint(snapshotBytes, 10))
 		if err != nil {
 			logger.Fatal("Snapshot creation failed", zap.Error(err))
 		}
