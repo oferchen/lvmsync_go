@@ -19,7 +19,8 @@ type lvmBackend interface {
 }
 
 type lvm2Backend struct {
-	client *lvm2.Client
+	client      *lvm2.Client
+	wrapperPath string
 }
 
 func newLVMBackend() lvmBackend {
@@ -38,7 +39,7 @@ func newLVMBackend() lvmBackend {
 		return &lvm2Backend{client: lvm2.NewClient()}
 	}
 
-	return &lvm2Backend{client: lvm2.NewClient(lvm2.WithLVM(wrapperPath))}
+	return &lvm2Backend{client: lvm2.NewClient(lvm2.WithLVM(wrapperPath)), wrapperPath: wrapperPath}
 }
 
 func buildEscalationWrapper(bin string, args []string) (string, error) {
