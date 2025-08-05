@@ -61,11 +61,7 @@ func GetEscalationCommand() string {
 }
 
 func checkRootPrivileges() error {
-	escalationCommandLock.RLock()
-	escCmd := escalationCommand
-	escalationCommandLock.RUnlock()
-
-	if os.Geteuid() != 0 && escCmd == "" {
+	if os.Geteuid() != 0 && GetEscalationCommand() == "" {
 		return fmt.Errorf("insufficient privileges: LVM operations require root privileges")
 	}
 	return nil
