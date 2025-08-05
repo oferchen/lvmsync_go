@@ -195,7 +195,7 @@ func GetSnapshotUsage(ctx context.Context, snapshotPath string) (float64, error)
 	return usage, nil
 }
 
-func MonitorSnapshot(snapshotPath string, threshold float64, interval time.Duration, stopChan <-chan struct{}) error {
+func MonitorSnapshot(ctx context.Context, snapshotPath string, threshold float64, interval time.Duration) error {
 	if err := checkPrivs(); err != nil {
 		return err
 	}
@@ -210,7 +210,7 @@ func MonitorSnapshot(snapshotPath string, threshold float64, interval time.Durat
 	for {
 		select {
 		case <-ticker.C:
-			usage, err := GetSnapshotUsage(context.Background(), snapshotPath)
+			usage, err := GetSnapshotUsage(ctx, snapshotPath)
 			if err != nil {
 				return err
 			}
@@ -218,9 +218,9 @@ func MonitorSnapshot(snapshotPath string, threshold float64, interval time.Durat
 			if usage >= threshold {
 				return fmt.Errorf("snapshot usage (%.2f%%) exceeds threshold (%.2f%%)", usage, threshold)
 			}
-		case <-stopChan:
+		case <-ctx.Done():
 			zap.L().Info("Snapshot monitoring stopped", zap.String("snapshot", snapshotPath))
-			return nil
+			return ctx.Err()
 		}
 	}
 }

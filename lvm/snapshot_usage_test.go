@@ -55,7 +55,7 @@ func TestMonitorSnapshot(t *testing.T) {
 	restore := SetBackend(fb)
 	t.Cleanup(restore)
 
-	err := MonitorSnapshot("/dev/vg0/snap", 80, 10*time.Millisecond, make(chan struct{}))
+	err := MonitorSnapshot(context.Background(), "/dev/vg0/snap", 80, 10*time.Millisecond)
 	if err == nil {
 		t.Fatalf("MonitorSnapshot expected error, got nil")
 	}

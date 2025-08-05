@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -268,14 +269,14 @@ func main() {
 		snapshotPath = lvm.GetSnapshotDevicePath(snapshotName, cfg.VolumeGroup)
 		logger.Info("Snapshot created", zap.String("snapshot", snapshotPath))
 
-		stopMonitor := make(chan struct{})
+		monitorCtx, cancel := context.WithCancel(context.Background())
 		go func() {
-			if err := lvm.MonitorSnapshot(snapshotPath, 80.0, 10*time.Second, stopMonitor); err != nil {
+			if err := lvm.MonitorSnapshot(monitorCtx, snapshotPath, 80.0, 10*time.Second); err != nil && !errors.Is(err, context.Canceled) {
 				zap.L().Error("Snapshot monitor error", zap.Error(err))
 				os.Exit(1)
 			}
 		}()
-		defer close(stopMonitor)
+		defer cancel()
 	}
 
 	if err := runClientMode(snapshotPath, destPath); err != nil {
