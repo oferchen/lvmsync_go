@@ -404,7 +404,11 @@ func processDumpDataCore(cfg *config.Config, in io.Reader, destPath string, dedu
 	if err != nil {
 		return fmt.Errorf("failed to create decompression reader: %w", err)
 	}
-	defer decReader.Close()
+	defer func() {
+		if err := decReader.Close(); err != nil && Logger != nil {
+			Logger.Warn("Failed to close decompression reader", zap.Error(err))
+		}
+	}()
 
 	reader := bufio.NewReader(decReader)
 

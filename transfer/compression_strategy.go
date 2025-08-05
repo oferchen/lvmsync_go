@@ -80,6 +80,5 @@ type zstdReadCloser struct {
 }
 
 func (z *zstdReadCloser) Close() error {
-	z.Decoder.Close()
-	return nil
+	return z.Decoder.Close()
 }
