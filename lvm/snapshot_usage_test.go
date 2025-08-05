@@ -1,9 +1,10 @@
 package lvm
 
 import (
-	"syscall"
 	"testing"
 	"time"
+
+	"golang.org/x/sys/unix"
 )
 
 type usageBackend struct {
@@ -55,7 +56,7 @@ func TestMonitorSnapshot(t *testing.T) {
 
 func TestCheckDiskSpace(t *testing.T) {
 	orig := statfsFunc
-	statfsFunc = func(_ string, stat *syscall.Statfs_t) error {
+	statfsFunc = func(_ string, stat *unix.Statfs_t) error {
 		stat.Bavail = 100
 		stat.Bsize = 4096
 		return nil
