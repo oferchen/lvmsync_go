@@ -2,6 +2,7 @@
 package config
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"os"
@@ -294,14 +295,14 @@ func LoadConfig() (*Config, error) {
 	}
 
 	if conf.VolumeGroup == "" {
-		vg, err := lvm.SelectVolumeGroupByFreeSpace(conf.SourceVGCandidates)
+		vg, err := lvm.SelectVolumeGroupByFreeSpace(context.Background(), conf.SourceVGCandidates)
 		if err != nil {
 			return nil, fmt.Errorf("failed to select source volume group: %w", err)
 		}
 		conf.VolumeGroup = vg.Name
 	}
 	if conf.TargetVolumeGroup == "" && len(conf.TargetVGCandidates) > 0 {
-		vg, err := lvm.SelectVolumeGroupByFreeSpace(conf.TargetVGCandidates)
+		vg, err := lvm.SelectVolumeGroupByFreeSpace(context.Background(), conf.TargetVGCandidates)
 		if err != nil {
 			return nil, fmt.Errorf("failed to select target volume group: %w", err)
 		}
@@ -312,12 +313,12 @@ func LoadConfig() (*Config, error) {
 }
 func (c *Config) Validate() error {
 	if c.VolumeGroup != "" {
-		if _, err := lvm.GetVolumeGroupFreeSpace(c.VolumeGroup); err != nil {
+		if _, err := lvm.GetVolumeGroupFreeSpace(context.Background(), c.VolumeGroup); err != nil {
 			return fmt.Errorf("volume group %q does not exist or is inaccessible: %w", c.VolumeGroup, err)
 		}
 	}
 	if c.TargetVolumeGroup != "" {
-		if _, err := lvm.GetVolumeGroupFreeSpace(c.TargetVolumeGroup); err != nil {
+		if _, err := lvm.GetVolumeGroupFreeSpace(context.Background(), c.TargetVolumeGroup); err != nil {
 			return fmt.Errorf("target volume group %q does not exist or is inaccessible: %w", c.TargetVolumeGroup, err)
 		}
 	}

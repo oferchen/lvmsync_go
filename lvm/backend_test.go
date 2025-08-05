@@ -1,6 +1,7 @@
 package lvm
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -33,7 +34,7 @@ func TestCreateSnapshotWithEscalationNonRoot(t *testing.T) {
 	}
 	t.Cleanup(func() { checkPrivs = orig })
 
-	if err := CreateSnapshot("/dev/vg0/origin", "snap", "1G"); err != nil {
+	if err := CreateSnapshot(context.Background(), "/dev/vg0/origin", "snap", "1G"); err != nil {
 		t.Fatalf("CreateSnapshot failed: %v", err)
 	}
 
