@@ -67,6 +67,7 @@ type CreateLVOptions struct {
 	VGName   string
 	Size     string
 	Snapshot bool
+	LVName   string
 }
 
 // RemoveLVOptions contains options for removing logical volumes.
@@ -99,7 +100,7 @@ type VolumeGroup struct {
 
 // CreateLogicalVolume executes an lvcreate command.
 func (c *Client) CreateLogicalVolume(ctx context.Context, opts CreateLVOptions) error {
-	_, err := c.run(ctx, "lvcreate")
+	_, err := c.run(ctx, "lvcreate", opts.VGName, opts.LVName)
 	return err
 }
 
