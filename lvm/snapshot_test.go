@@ -36,7 +36,7 @@ func (f *mockBackend) GetSnapshotUsage(context.Context, string) (float64, error)
 func (f *mockBackend) GetVolumeGroupFreeSpace(context.Context, string) (uint64, error) {
 	return 0, nil
 }
-func (f *mockBackend) ListVolumeGroups(context.Context) ([]VolumeGroup, error) {
+func (f *mockBackend) ListVolumeGroups(context.Context, []string) ([]VolumeGroup, error) {
 	return nil, nil
 }
 

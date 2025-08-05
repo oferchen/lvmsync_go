@@ -367,7 +367,7 @@ func ListVolumeGroups(ctx context.Context) ([]VolumeGroup, error) {
 		return nil, err
 	}
 
-	vgs, err := backend.ListVolumeGroups(ctx)
+	vgs, err := backend.ListVolumeGroups(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list volume groups: %w", err)
 	}
@@ -377,36 +377,23 @@ func ListVolumeGroups(ctx context.Context) ([]VolumeGroup, error) {
 // SelectVolumeGroupByFreeSpace chooses the volume group with the most free space.
 // If candidates is non-empty, only those volume groups are considered.
 func SelectVolumeGroupByFreeSpace(ctx context.Context, candidates []string) (VolumeGroup, error) {
-	vgs, err := ListVolumeGroups(ctx)
+	vgs, err := backend.ListVolumeGroups(ctx, candidates)
 	if err != nil {
 		return VolumeGroup{}, err
 	}
-
-	candidateSet := make(map[string]struct{}, len(candidates))
-	for _, c := range candidates {
-		candidateSet[c] = struct{}{}
-	}
-
-	var chosen *VolumeGroup
-	for _, vg := range vgs {
-		if len(candidateSet) > 0 {
-			if _, ok := candidateSet[vg.Name]; !ok {
-				continue
-			}
-		}
-		if chosen == nil || vg.Free > chosen.Free {
-			// create copy to avoid referencing loop variable
-			v := vg
-			chosen = &v
-		}
-	}
-	if chosen == nil {
-		if len(candidateSet) > 0 {
+	if len(vgs) == 0 {
+		if len(candidates) > 0 {
 			return VolumeGroup{}, fmt.Errorf("no matching volume group found")
 		}
 		return VolumeGroup{}, fmt.Errorf("no volume groups found")
 	}
-	return *chosen, nil
+	chosen := vgs[0]
+	for _, vg := range vgs[1:] {
+		if vg.Free > chosen.Free {
+			chosen = vg
+		}
+	}
+	return chosen, nil
 }
 
 func Cleanup() {

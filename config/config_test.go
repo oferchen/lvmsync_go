@@ -24,7 +24,21 @@ func (f *fakeBackend) GetSnapshotUsage(context.Context, string) (float64, error)
 func (f *fakeBackend) GetVolumeGroupFreeSpace(context.Context, string) (uint64, error) {
 	return f.free, f.err
 }
-func (f *fakeBackend) ListVolumeGroups(context.Context) ([]lvm.VolumeGroup, error) { return f.vgs, nil }
+func (f *fakeBackend) ListVolumeGroups(_ context.Context, candidates []string) ([]lvm.VolumeGroup, error) {
+	if len(candidates) == 0 {
+		return f.vgs, nil
+	}
+	res := []lvm.VolumeGroup{}
+	for _, name := range candidates {
+		for _, vg := range f.vgs {
+			if vg.Name == name {
+				res = append(res, vg)
+				break
+			}
+		}
+	}
+	return res, nil
+}
 
 func TestDefaultConfigCompress(t *testing.T) {
 	cfg := DefaultConfig()

@@ -20,7 +20,9 @@ func (f *usageBackend) GetSnapshotUsage(context.Context, string) (float64, error
 func (f *usageBackend) GetVolumeGroupFreeSpace(context.Context, string) (uint64, error) {
 	return 0, nil
 }
-func (f *usageBackend) ListVolumeGroups(context.Context) ([]VolumeGroup, error) { return nil, nil }
+func (f *usageBackend) ListVolumeGroups(context.Context, []string) ([]VolumeGroup, error) {
+	return nil, nil
+}
 
 func init() {
 	SetEscalationCommand("")
