@@ -7,14 +7,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/dustin/go-humanize"
 	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
+	"lvmsync_go/internal/sizeparse"
 )
 
 const (
@@ -336,15 +335,14 @@ func GetVolumeAttributes(volumePath string) (*VolumeAttributes, error) {
 func ParseSnapshotSize(sizeStr, volumePath string) (uint64, error) {
 	sizeStr = strings.TrimSpace(sizeStr)
 
-	if strings.HasSuffix(sizeStr, "%") {
-		percentStr := strings.TrimSuffix(sizeStr, "%")
-		percent, err := strconv.ParseFloat(percentStr, 64)
-		if err != nil {
-			return 0, fmt.Errorf("invalid percentage value %q: %w", sizeStr, err)
-		}
+	val, isPercent, err := sizeparse.Parse(sizeStr)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse snapshot size %q: %w", sizeStr, err)
+	}
 
-		if percent <= 0 || percent > 100 {
-			return 0, fmt.Errorf("percentage must be between 0 and 100, got %v", percent)
+	if isPercent {
+		if val <= 0 || val > 100 {
+			return 0, fmt.Errorf("percentage must be between 0 and 100, got %v", val)
 		}
 
 		volSize, err := GetVolumeSize(volumePath)
@@ -352,7 +350,7 @@ func ParseSnapshotSize(sizeStr, volumePath string) (uint64, error) {
 			return 0, fmt.Errorf("failed to get volume size for %q: %w", volumePath, err)
 		}
 
-		parsedSize := uint64(float64(volSize) * (percent / 100.0))
+		parsedSize := uint64(float64(volSize) * (val / 100.0))
 
 		zap.L().Debug("Parsed snapshot size from percentage",
 			zap.String("input", sizeStr),
@@ -361,10 +359,7 @@ func ParseSnapshotSize(sizeStr, volumePath string) (uint64, error) {
 		return parsedSize, nil
 	}
 
-	parsedSize, err := humanize.ParseBytes(sizeStr)
-	if err != nil {
-		return 0, fmt.Errorf("failed to parse snapshot size %q: %w", sizeStr, err)
-	}
+	parsedSize := uint64(val)
 
 	zap.L().Debug("Parsed snapshot size",
 		zap.String("input", sizeStr),

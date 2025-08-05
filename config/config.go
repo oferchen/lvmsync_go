@@ -11,11 +11,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dustin/go-humanize"
 	"github.com/pierrec/lz4/v4"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"lvmsync_go/internal/compressiondetect"
+	"lvmsync_go/internal/sizeparse"
 	"lvmsync_go/lvm"
 	"runtime"
 )
@@ -77,7 +77,7 @@ type Config struct {
 }
 
 func (c *Config) HumanBlockSize() string {
-	return humanize.Bytes(uint64(c.BlockSize))
+	return sizeparse.FormatBytes(uint64(c.BlockSize))
 }
 
 type ConfigBuilder struct {
@@ -135,14 +135,15 @@ func (cb *ConfigBuilder) parseBytesOrFallback(key, fallback string) (int, error)
 	if raw == "" {
 		raw = fallback
 	}
-	val, err := humanize.ParseBytes(raw)
-	if err != nil {
+	val, isPercent, err := sizeparse.Parse(raw)
+	if err != nil || isPercent {
 		return 0, fmt.Errorf("invalid %s value %q: %w", key, raw, err)
 	}
-	if val > uint64(math.MaxInt) {
+	u := uint64(val)
+	if float64(u) != val || u > uint64(math.MaxInt) {
 		return 0, fmt.Errorf("%s value %q overflows int", key, raw)
 	}
-	return int(val), nil
+	return int(u), nil
 }
 
 func (cb *ConfigBuilder) getBlockSizeRaw() string {
