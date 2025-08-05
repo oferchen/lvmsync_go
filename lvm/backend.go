@@ -31,14 +31,33 @@ func (b *golvmBackend) openVG(name, mode string) (*golvm.VgObject, error) {
 	return vgo, nil
 }
 
-func (b *golvmBackend) CreateSnapshot(ctx context.Context, lvPath, snapshotName, size string) error {
-	trimmed := strings.TrimPrefix(lvPath, "/dev/")
+func parseLVPath(path string) (string, string, error) {
+	trimmed := strings.TrimPrefix(path, "/dev/")
 	parts := strings.Split(trimmed, "/")
-	if len(parts) != 2 {
-		return fmt.Errorf("invalid LV path: %s", lvPath)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return "", "", fmt.Errorf("invalid logical volume path: %s", path)
 	}
-	vgName, lvName := parts[0], parts[1]
+	return parts[0], parts[1], nil
+}
 
+func (b *golvmBackend) withLV(path, mode string, fn func(*golvm.LvObject) error) error {
+	vgName, lvName, err := parseLVPath(path)
+	if err != nil {
+		return err
+	}
+	vg, err := b.openVG(vgName, mode)
+	if err != nil {
+		return err
+	}
+	defer vg.Close()
+	lv, err := vg.LvFromName(lvName)
+	if err != nil {
+		return err
+	}
+	return fn(lv)
+}
+
+func (b *golvmBackend) CreateSnapshot(ctx context.Context, lvPath, snapshotName, size string) error {
 	bytes, percent, err := sizeparse.Parse(size)
 	if err != nil {
 		return err
@@ -47,68 +66,29 @@ func (b *golvmBackend) CreateSnapshot(ctx context.Context, lvPath, snapshotName,
 		return fmt.Errorf("percentage sizes not supported")
 	}
 
-	vg, err := b.openVG(vgName, "w")
-	if err != nil {
+	return b.withLV(lvPath, "w", func(lv *golvm.LvObject) error {
+		_, err := lv.Snapshot(snapshotName, uint64(bytes))
 		return err
-	}
-	defer vg.Close()
-
-	lv, err := vg.LvFromName(lvName)
-	if err != nil {
-		return err
-	}
-	_, err = lv.Snapshot(snapshotName, uint64(bytes))
-	return err
+	})
 }
 
 func (b *golvmBackend) RemoveSnapshot(ctx context.Context, snapshotPath string) error {
-	trimmed := strings.TrimPrefix(snapshotPath, "/dev/")
-	parts := strings.Split(trimmed, "/")
-	if len(parts) != 2 {
-		return fmt.Errorf("invalid snapshot path: %s", snapshotPath)
-	}
-	vgName, lvName := parts[0], parts[1]
-
-	vg, err := b.openVG(vgName, "w")
-	if err != nil {
-		return err
-	}
-	defer vg.Close()
-
-	lv, err := vg.LvFromName(lvName)
-	if err != nil {
-		return err
-	}
-	return lv.Remove()
+	return b.withLV(snapshotPath, "w", func(lv *golvm.LvObject) error {
+		return lv.Remove()
+	})
 }
 
 func (b *golvmBackend) GetSnapshotUsage(ctx context.Context, snapshotPath string) (float64, error) {
-	trimmed := strings.TrimPrefix(snapshotPath, "/dev/")
-	parts := strings.Split(trimmed, "/")
-	if len(parts) != 2 {
-		return 0, fmt.Errorf("invalid snapshot path: %s", snapshotPath)
-	}
-	vgName, lvName := parts[0], parts[1]
-
-	vg, err := b.openVG(vgName, "r")
-	if err != nil {
-		return 0, err
-	}
-	defer vg.Close()
-
-	lv, err := vg.LvFromName(lvName)
-	if err != nil {
-		return 0, err
-	}
-	prop, err := lv.GetProperty("data_percent")
-	if err != nil {
-		return 0, err
-	}
-	usage, err := strconv.ParseFloat(strings.TrimSpace(prop.Str), 64)
-	if err != nil {
-		return 0, err
-	}
-	return usage, nil
+	var usage float64
+	err := b.withLV(snapshotPath, "r", func(lv *golvm.LvObject) error {
+		prop, err := lv.GetProperty("data_percent")
+		if err != nil {
+			return err
+		}
+		usage, err = strconv.ParseFloat(strings.TrimSpace(prop.Str), 64)
+		return err
+	})
+	return usage, err
 }
 
 func (b *golvmBackend) GetVolumeGroupFreeSpace(ctx context.Context, vgName string) (uint64, error) {
