@@ -3,6 +3,7 @@ package lvm
 import (
 	"context"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
@@ -22,7 +23,39 @@ type lvm2Backend struct {
 }
 
 func newLVMBackend() lvmBackend {
-	return &lvm2Backend{client: lvm2.NewClient()}
+	esc := GetEscalationCommand()
+	if esc == "" {
+		return &lvm2Backend{client: lvm2.NewClient()}
+	}
+
+	parts := strings.Fields(esc)
+	if len(parts) == 0 {
+		return &lvm2Backend{client: lvm2.NewClient()}
+	}
+
+	tmp, err := os.CreateTemp("", "lvmsync_lvm_wrapper_*")
+	if err != nil {
+		return &lvm2Backend{client: lvm2.NewClient()}
+	}
+	wrapperPath := tmp.Name()
+
+	args := strings.Join(parts[1:], " ")
+	if args != "" {
+		args = " " + args
+	}
+	script := fmt.Sprintf("#!/bin/sh\nexec %s%s lvm \"$@\"\n", parts[0], args)
+	if _, err := tmp.WriteString(script); err != nil {
+		tmp.Close()
+		os.Remove(wrapperPath)
+		return &lvm2Backend{client: lvm2.NewClient()}
+	}
+	tmp.Close()
+	if err := os.Chmod(wrapperPath, 0700); err != nil {
+		os.Remove(wrapperPath)
+		return &lvm2Backend{client: lvm2.NewClient()}
+	}
+
+	return &lvm2Backend{client: lvm2.NewClient(lvm2.WithLVM(wrapperPath))}
 }
 
 func (b *lvm2Backend) CreateSnapshot(lvPath, snapshotName, size string) error {
