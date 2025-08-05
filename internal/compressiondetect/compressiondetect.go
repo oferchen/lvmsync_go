@@ -2,8 +2,10 @@ package compressiondetect
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"math/rand"
+	"runtime"
 	"sync"
 	"time"
 
@@ -15,15 +17,30 @@ import (
 var (
 	detectOnce sync.Once
 	detected   string
+
+	benchMu    sync.Mutex
+	benchCache = make(map[string]string)
 )
 
 // DetectOptimalCompression determines the fastest compression algorithm for the current CPU.
 func DetectOptimalCompression() string {
 	detectOnce.Do(func() {
-		if cpuid.CPU.Has(cpuid.AVX512F) || cpuid.CPU.Has(cpuid.AVX2) || cpuid.CPU.Has(cpuid.BMI2) || cpuid.CPU.Has(cpuid.SSE42) || cpuid.CPU.Has(cpuid.ASIMD) || cpuid.CPU.Has(cpuid.SVE) {
+		cores := cpuid.CPU.PhysicalCores
+		if cores == 0 {
+			cores = runtime.NumCPU()
+		}
+		cacheSize := 0
+		if cpuid.CPU.Cache.L3 > 0 {
+			cacheSize += cpuid.CPU.Cache.L3
+		}
+		if cpuid.CPU.Cache.L2 > 0 {
+			cacheSize += cpuid.CPU.Cache.L2
+		}
+
+		if cpuid.CPU.Has(cpuid.AVX512F) || cpuid.CPU.Has(cpuid.AVX2) || cpuid.CPU.Has(cpuid.BMI2) || cpuid.CPU.Has(cpuid.SSE42) || cpuid.CPU.Has(cpuid.ASIMD) || cpuid.CPU.Has(cpuid.SVE) || (cores >= 4 && cacheSize >= 2<<20) {
 			detected = "zstd"
 		} else {
-			detected = BenchmarkCompression()
+			detected = benchmarkCached(cores, cacheSize)
 		}
 	})
 	return detected
@@ -38,29 +55,8 @@ func BenchmarkCompression() string {
 		return "lz4"
 	}
 
-	lz4Start := time.Now()
-	lw := lz4.NewWriter(io.Discard)
-	if _, err := lw.Write(sample); err != nil {
-		return "lz4"
-	}
-	if err := lw.Close(); err != nil {
-		return "lz4"
-	}
-	lz4Dur := time.Since(lz4Start)
-
-	zw, err := zstd.NewWriter(io.Discard)
-	if err != nil {
-		return "lz4"
-	}
-	zstdStart := time.Now()
-	if _, err := zw.Write(sample); err != nil {
-		zw.Close()
-		return "lz4"
-	}
-	if err := zw.Close(); err != nil {
-		return "lz4"
-	}
-	zstdDur := time.Since(zstdStart)
+	lz4Dur := benchLZ4(sample)
+	zstdDur := benchZSTD(sample)
 
 	if zstdDur < lz4Dur {
 		return "zstd"
@@ -68,8 +64,82 @@ func BenchmarkCompression() string {
 	return "lz4"
 }
 
+func benchLZ4(sample []byte) time.Duration {
+	var buf bytes.Buffer
+
+	start := time.Now()
+	lw := lz4.NewWriter(&buf)
+	if _, err := lw.Write(sample); err != nil {
+		return time.Hour
+	}
+	if err := lw.Close(); err != nil {
+		return time.Hour
+	}
+	compDur := time.Since(start)
+
+	r := lz4.NewReader(bytes.NewReader(buf.Bytes()))
+	decStart := time.Now()
+	if _, err := io.Copy(io.Discard, r); err != nil {
+		return time.Hour
+	}
+	decDur := time.Since(decStart)
+
+	return compDur + decDur
+}
+
+func benchZSTD(sample []byte) time.Duration {
+	var buf bytes.Buffer
+
+	zw, err := zstd.NewWriter(&buf)
+	if err != nil {
+		return time.Hour
+	}
+	start := time.Now()
+	if _, err := zw.Write(sample); err != nil {
+		zw.Close()
+		return time.Hour
+	}
+	if err := zw.Close(); err != nil {
+		return time.Hour
+	}
+	compDur := time.Since(start)
+
+	zr, err := zstd.NewReader(bytes.NewReader(buf.Bytes()))
+	if err != nil {
+		return time.Hour
+	}
+	decStart := time.Now()
+	if _, err := io.Copy(io.Discard, zr); err != nil {
+		zr.Close()
+		return time.Hour
+	}
+	zr.Close()
+	decDur := time.Since(decStart)
+
+	return compDur + decDur
+}
+
+func benchmarkCached(cores, cache int) string {
+	key := fmt.Sprintf("%d-%d", cores, cache)
+	benchMu.Lock()
+	if res, ok := benchCache[key]; ok {
+		benchMu.Unlock()
+		return res
+	}
+	benchMu.Unlock()
+
+	res := BenchmarkCompression()
+	benchMu.Lock()
+	benchCache[key] = res
+	benchMu.Unlock()
+	return res
+}
+
 // ResetForTest clears cached detection results; intended for use in tests.
 func ResetForTest() {
 	detectOnce = sync.Once{}
 	detected = ""
+	benchMu.Lock()
+	benchCache = make(map[string]string)
+	benchMu.Unlock()
 }
