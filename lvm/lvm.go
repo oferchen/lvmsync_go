@@ -9,12 +9,12 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 	"unsafe"
 
 	"github.com/dustin/go-humanize"
 	"go.uber.org/zap"
+	"golang.org/x/sys/unix"
 )
 
 const (
@@ -44,9 +44,18 @@ var deviceFDCache = &fdCache{
 	order: list.New(),
 }
 
-var statfsFunc = syscall.Statfs
+var statfsFunc = unix.Statfs
 
 var checkPrivs = checkRootPrivileges
+
+func ioctlGetUint64(fd int, req uint) (uint64, error) {
+	var value uint64
+	_, _, errno := unix.Syscall(unix.SYS_IOCTL, uintptr(fd), uintptr(req), uintptr(unsafe.Pointer(&value)))
+	if errno != 0 {
+		return 0, errno
+	}
+	return value, nil
+}
 
 func SetEscalationCommand(cmd string) {
 	escalationCommandLock.Lock()
@@ -80,7 +89,7 @@ func (c *fdCache) getFD(devicePath string) (int, error) {
 		return elem.Value.(*fdCacheEntry).fd, nil
 	}
 
-	fd, err := syscall.Open(devicePath, syscall.O_RDONLY|syscall.O_NONBLOCK, 0)
+	fd, err := unix.Open(devicePath, unix.O_RDONLY|unix.O_NONBLOCK, 0)
 	if err != nil {
 		return -1, fmt.Errorf("failed to open device %s: %w", devicePath, err)
 	}
@@ -89,7 +98,7 @@ func (c *fdCache) getFD(devicePath string) (int, error) {
 		back := c.order.Back()
 		if back != nil {
 			entry := back.Value.(*fdCacheEntry)
-			syscall.Close(entry.fd)
+			unix.Close(entry.fd)
 			delete(c.fds, entry.path)
 			c.order.Remove(back)
 		}
@@ -107,7 +116,7 @@ func (c *fdCache) Close() {
 
 	for _, elem := range c.fds {
 		entry := elem.Value.(*fdCacheEntry)
-		syscall.Close(entry.fd)
+		unix.Close(entry.fd)
 	}
 	c.fds = make(map[string]*list.Element)
 	c.order.Init()
@@ -220,7 +229,7 @@ func MonitorSnapshot(snapshotPath string, threshold float64, interval time.Durat
 }
 
 func CheckDiskSpace(mountPoint string) (uint64, error) {
-	var stat syscall.Statfs_t
+	var stat unix.Statfs_t
 	if err := statfsFunc(mountPoint, &stat); err != nil {
 		return 0, fmt.Errorf("failed to get disk stats for %q: %w", mountPoint, err)
 	}
@@ -239,17 +248,16 @@ func GetVolumeSize(volumePath string) (uint64, error) {
 		return 0, err
 	}
 
-	var size uint64
-	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(fd), uintptr(BLKGETSIZE64), uintptr(unsafe.Pointer(&size)))
-	if errno != 0 {
-		if errno == syscall.ENOTTY {
+	size, err := ioctlGetUint64(fd, BLKGETSIZE64)
+	if err != nil {
+		if err == unix.ENOTTY {
 			info, statErr := os.Stat(volumePath)
 			if statErr != nil {
 				return 0, fmt.Errorf("stat failed on %q: %w", volumePath, statErr)
 			}
 			size = uint64(info.Size())
 		} else {
-			return 0, fmt.Errorf("ioctl BLKGETSIZE64 failed on %q: %w", volumePath, errno)
+			return 0, fmt.Errorf("ioctl BLKGETSIZE64 failed on %q: %w", volumePath, err)
 		}
 	}
 
