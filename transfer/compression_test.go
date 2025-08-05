@@ -21,7 +21,7 @@ func TestCompressionRoundTrip(t *testing.T) {
 
 	for _, tc := range cases {
 		var buf bytes.Buffer
-		w, err := NewCompressionWriter(&buf, tc.c, tc.level)
+		w, err := NewCompressionWriter(&buf, tc.c, tc.level, 1)
 		if err != nil {
 			t.Fatalf("writer for %s: %v", tc.c, err)
 		}
@@ -54,7 +54,7 @@ func TestLZ4CompressionLevels(t *testing.T) {
 
 	for _, lvl := range levels {
 		var buf bytes.Buffer
-		w, err := NewCompressionWriter(&buf, compressionLZ4, lvl)
+		w, err := NewCompressionWriter(&buf, compressionLZ4, lvl, 1)
 		if err != nil {
 			t.Fatalf("writer for level %d: %v", lvl, err)
 		}
@@ -83,25 +83,25 @@ func TestLZ4CompressionLevels(t *testing.T) {
 
 func TestNewCompressionWriterLevel(t *testing.T) {
 	t.Run("zstdValid", func(t *testing.T) {
-		if _, err := NewCompressionWriter(io.Discard, compressionZSTD, 3); err != nil {
+		if _, err := NewCompressionWriter(io.Discard, compressionZSTD, 3, 1); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})
 
 	t.Run("zstdInvalid", func(t *testing.T) {
-		if _, err := NewCompressionWriter(io.Discard, compressionZSTD, 100); err == nil {
+		if _, err := NewCompressionWriter(io.Discard, compressionZSTD, 100, 1); err == nil {
 			t.Fatalf("expected error")
 		}
 	})
 
 	t.Run("lz4Valid", func(t *testing.T) {
-		if _, err := NewCompressionWriter(io.Discard, compressionLZ4, int(lz4.Level3)); err != nil {
+		if _, err := NewCompressionWriter(io.Discard, compressionLZ4, int(lz4.Level3), 1); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})
 
 	t.Run("lz4Invalid", func(t *testing.T) {
-		if _, err := NewCompressionWriter(io.Discard, compressionLZ4, 3); err == nil {
+		if _, err := NewCompressionWriter(io.Discard, compressionLZ4, 3, 1); err == nil {
 			t.Fatalf("expected error")
 		}
 	})

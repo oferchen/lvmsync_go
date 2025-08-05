@@ -186,3 +186,30 @@ func TestCompressLevelValidation(t *testing.T) {
 		}
 	})
 }
+
+func TestCompressConcurrency(t *testing.T) {
+	t.Run("defaultPositive", func(t *testing.T) {
+		v := viper.New()
+		cb := &ConfigBuilder{v: v, defaults: DefaultConfig()}
+		cfg, err := cb.Build()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if cfg.CompressConcurrency <= 0 {
+			t.Fatalf("expected positive concurrency, got %d", cfg.CompressConcurrency)
+		}
+	})
+
+	t.Run("override", func(t *testing.T) {
+		v := viper.New()
+		v.Set("compress_concurrency", 8)
+		cb := &ConfigBuilder{v: v, defaults: DefaultConfig()}
+		cfg, err := cb.Build()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if cfg.CompressConcurrency != 8 {
+			t.Fatalf("expected 8, got %d", cfg.CompressConcurrency)
+		}
+	})
+}

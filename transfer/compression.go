@@ -4,6 +4,7 @@ package transfer
 import (
 	"fmt"
 	"io"
+	"runtime"
 
 	zstd "github.com/klauspost/compress/zstd"
 	"github.com/pierrec/lz4/v4"
@@ -16,9 +17,13 @@ const (
 
 // No shared state is kept between decompression readers.
 
-func NewCompressionWriter(dst io.Writer, compress string, level int) (io.WriteCloser, error) {
+func NewCompressionWriter(dst io.Writer, compress string, level int, concurrency int) (io.WriteCloser, error) {
 	if compress == "auto" {
 		compress = detectOptimalCompression()
+	}
+
+	if concurrency <= 0 {
+		concurrency = runtime.GOMAXPROCS(0)
 	}
 
 	switch compress {
@@ -44,7 +49,8 @@ func NewCompressionWriter(dst io.Writer, compress string, level int) (io.WriteCl
 			return nil, fmt.Errorf("invalid zstd compression level: %d", level)
 		}
 		encLevel := zstd.EncoderLevelFromZstd(level)
-		return zstd.NewWriter(dst, zstd.WithEncoderLevel(encLevel))
+		opts := []zstd.EOption{zstd.WithEncoderLevel(encLevel), zstd.WithEncoderConcurrency(concurrency)}
+		return zstd.NewWriter(dst, opts...)
 	default:
 		return nil, fmt.Errorf("unsupported compression type: %s", compress)
 	}

@@ -20,6 +20,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"lvmsync_go/lvm"
+	"runtime"
 )
 
 var SupportedCompression = []string{"none", "lz4", "zstd", "auto"}
@@ -55,6 +56,7 @@ type Config struct {
 	Compress             string        `mapstructure:"compress"`
 	// For LZ4 use lz4.Fast or lz4.Level1 through lz4.Level9; ZSTD accepts levels 1-22.
 	CompressLevel        int      `mapstructure:"compress_level"`
+	CompressConcurrency  int      `mapstructure:"compress_concurrency"`
 	Speed                string   `mapstructure:"speed"`
 	SpeedLimit           int      `mapstructure:"-"`
 	VerifyChecksum       bool     `mapstructure:"verify_checksum"`
@@ -103,6 +105,10 @@ func (cb *ConfigBuilder) Build() (*Config, error) {
 		return nil, err
 	}
 	conf.SpeedLimit = sl
+
+	if conf.CompressConcurrency <= 0 {
+		conf.CompressConcurrency = runtime.GOMAXPROCS(0)
+	}
 
 	// Validate compression levels based on the resolved compression algorithm.
 	resolved := conf.Compress
@@ -211,6 +217,7 @@ func DefaultConfig() *Config {
 		RemotePostScript:     "",
 		Compress:             "lz4",
 		CompressLevel:        3,
+		CompressConcurrency:  runtime.GOMAXPROCS(0),
 		Speed:                "100MB",
 		VerifyChecksum:       false,
 		Verbose:              0,
@@ -281,6 +288,7 @@ func LoadConfig() (*Config, error) {
 	// Compression Options
 	compressionFlags.String("compress", defaultCfg.Compress, fmt.Sprintf("Compression type, options: %v", SupportedCompression))
 	compressionFlags.Int("compress_level", defaultCfg.CompressLevel, "Compression level. LZ4 accepts lz4.Fast or lz4.Level1..lz4.Level9; ZSTD accepts 1-22")
+	compressionFlags.Int("compress_concurrency", defaultCfg.CompressConcurrency, "Compression concurrency (0 to use GOMAXPROCS)")
 
 	// LVM Options
 	lvmFlags.Bool("skip_snapshot_creation", defaultCfg.SkipSnapshotCreation, "Skip automatic snapshot creation")
