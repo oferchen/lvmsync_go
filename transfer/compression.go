@@ -32,10 +32,13 @@ func NewCompressionWriter(dst io.Writer, compress string, level int, concurrency
 	return strategy.NewWriter(dst, level, concurrency)
 }
 
-func NewDecompressionReader(r io.Reader, compress string) (io.ReadCloser, error) {
+func NewDecompressionReader(r io.Reader, compress string, concurrency int) (io.ReadCloser, error) {
+	if concurrency <= 0 {
+		concurrency = runtime.GOMAXPROCS(0)
+	}
 	strategy, ok := compressionStrategies[compress]
 	if !ok {
 		return nil, fmt.Errorf("unsupported compression type: %s", compress)
 	}
-	return strategy.NewReader(r)
+	return strategy.NewReader(r, concurrency)
 }

@@ -11,7 +11,7 @@ import (
 
 type CompressionStrategy interface {
 	NewWriter(dst io.Writer, level int, concurrency int) (io.WriteCloser, error)
-	NewReader(src io.Reader) (io.ReadCloser, error)
+	NewReader(src io.Reader, concurrency int) (io.ReadCloser, error)
 }
 
 type noneStrategy struct{}
@@ -20,7 +20,7 @@ func (noneStrategy) NewWriter(dst io.Writer, level int, concurrency int) (io.Wri
 	return nopWriteCloser{dst}, nil
 }
 
-func (noneStrategy) NewReader(src io.Reader) (io.ReadCloser, error) {
+func (noneStrategy) NewReader(src io.Reader, concurrency int) (io.ReadCloser, error) {
 	return io.NopCloser(src), nil
 }
 
@@ -41,7 +41,7 @@ func (lz4Strategy) NewWriter(dst io.Writer, level int, concurrency int) (io.Writ
 	return w, nil
 }
 
-func (lz4Strategy) NewReader(src io.Reader) (io.ReadCloser, error) {
+func (lz4Strategy) NewReader(src io.Reader, concurrency int) (io.ReadCloser, error) {
 	return io.NopCloser(lz4.NewReader(src)), nil
 }
 
@@ -101,23 +101,44 @@ func (zstdStrategy) NewWriter(dst io.Writer, level int, concurrency int) (io.Wri
 	return &pooledZstdWriter{Encoder: entry.enc, entry: entry}, nil
 }
 
-func (zstdStrategy) NewReader(src io.Reader) (io.ReadCloser, error) {
+type pooledZstdDecoder struct {
+	dec         *zstd.Decoder
+	concurrency int
+}
+
+type pooledZstdReader struct {
+	*zstd.Decoder
+	entry *pooledZstdDecoder
+}
+
+func (zstdStrategy) NewReader(src io.Reader, concurrency int) (io.ReadCloser, error) {
 	entryAny := zstdDecoderPool.Get()
-	var decoder *zstd.Decoder
+	var entry *pooledZstdDecoder
 	if entryAny == nil {
-		dec, err := zstd.NewReader(src)
+		entry = &pooledZstdDecoder{}
+	} else {
+		entry = entryAny.(*pooledZstdDecoder)
+	}
+
+	if entry.dec == nil || entry.concurrency != concurrency {
+		if entry.dec != nil {
+			entry.dec.Close()
+		}
+		dec, err := zstd.NewReader(src, zstd.WithDecoderConcurrency(concurrency))
 		if err != nil {
+			zstdDecoderPool.Put(entry)
 			return nil, fmt.Errorf("failed to initialize zstd decoder: %w", err)
 		}
-		decoder = dec
+		entry.dec = dec
+		entry.concurrency = concurrency
 	} else {
-		decoder = entryAny.(*zstd.Decoder)
-		if err := decoder.Reset(src); err != nil {
-			zstdDecoderPool.Put(decoder)
+		if err := entry.dec.Reset(src); err != nil {
+			zstdDecoderPool.Put(entry)
 			return nil, fmt.Errorf("failed to reset zstd decoder: %w", err)
 		}
 	}
-	return &zstdReadCloser{Decoder: decoder}, nil
+
+	return &pooledZstdReader{Decoder: entry.dec, entry: entry}, nil
 }
 
 var compressionStrategies = map[string]CompressionStrategy{
@@ -132,12 +153,8 @@ type nopWriteCloser struct {
 
 func (nopWriteCloser) Close() error { return nil }
 
-type zstdReadCloser struct {
-	*zstd.Decoder
-}
-
-func (z *zstdReadCloser) Close() error {
-	z.Decoder.Reset(nil)
-	zstdDecoderPool.Put(z.Decoder)
+func (r *pooledZstdReader) Close() error {
+	r.Decoder.Reset(nil)
+	zstdDecoderPool.Put(r.entry)
 	return nil
 }
