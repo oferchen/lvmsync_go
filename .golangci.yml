@@ -2,12 +2,6 @@
 run:
   tests: true
   timeout: 3m
-  skip-dirs:
-    - vendor
-    - .git
-  skip-files:
-    - ".*_gen.go"
-    - ".*_test.go"
 
 output:
   format: colored-line-number
@@ -81,3 +75,9 @@ issues:
   exclude-use-default: false
   max-issues-per-linter: 0
   max-same-issues: 0
+  skip-dirs:
+    - vendor
+    - .git
+  skip-files:
+    - ".*_gen.go"
+    - ".*_test.go"
