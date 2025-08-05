@@ -201,6 +201,7 @@ func main() {
 	}
 	zap.ReplaceGlobals(logger)
 	defer syncLogger(logger)
+	defer lvm.Cleanup()
 
 	logger.Info("Effective configuration",
 		zap.String("block_size", cfg.HumanBlockSize()),
