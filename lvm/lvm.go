@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unsafe"
 
 	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
@@ -47,6 +48,8 @@ var deviceFDCache = &fdCache{
 var statfsFunc = unix.Statfs
 
 var checkPrivs = checkRootPrivileges
+
+var ioctlGetUint64Func = ioctlGetUint64
 
 func SetEscalationCommand(cmd string) {
 	escalationCommandLock.Lock()
@@ -229,14 +232,22 @@ func CheckDiskSpace(mountPoint string) (uint64, error) {
 	return available, nil
 }
 
+func ioctlGetUint64(fd int, req uint) (uint64, error) {
+	var value uint64
+	_, _, err := unix.Syscall(unix.SYS_IOCTL, uintptr(fd), uintptr(req), uintptr(unsafe.Pointer(&value)))
+	if err != 0 {
+		return 0, err
+	}
+	return value, nil
+}
+
 func GetVolumeSize(volumePath string) (uint64, error) {
 	fd, err := deviceFDCache.getFD(volumePath)
 	if err != nil {
 		return 0, err
 	}
 
-	sizeInt, err := unix.IoctlGetInt(fd, BLKGETSIZE64)
-	size := uint64(sizeInt)
+	size, err := ioctlGetUint64Func(fd, BLKGETSIZE64)
 	if err != nil {
 		if err == unix.ENOTTY {
 			info, statErr := os.Stat(volumePath)

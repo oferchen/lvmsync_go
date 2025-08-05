@@ -55,17 +55,64 @@ func TestParseSnapshotSize(t *testing.T) {
 }
 
 func TestGetVolumeSize(t *testing.T) {
+	t.Run("smallFile", func(t *testing.T) {
+		tmpFile := filepath.Join(t.TempDir(), "vol")
+		if err := os.WriteFile(tmpFile, make([]byte, 2*1024*1024), 0644); err != nil {
+			t.Fatalf("failed to create temp volume: %v", err)
+		}
+
+		size, err := GetVolumeSize(tmpFile)
+		if err != nil {
+			t.Fatalf("GetVolumeSize failed: %v", err)
+		}
+		if size != 2*1024*1024 {
+			t.Fatalf("size = %d, want %d", size, 2*1024*1024)
+		}
+	})
+
+	t.Run("largeFile", func(t *testing.T) {
+		tmpFile := filepath.Join(t.TempDir(), "vol")
+		f, err := os.Create(tmpFile)
+		if err != nil {
+			t.Fatalf("failed to create temp volume: %v", err)
+		}
+		defer f.Close()
+		if err := f.Truncate(int64(5 * 1024 * 1024 * 1024)); err != nil {
+			t.Fatalf("truncate failed: %v", err)
+		}
+
+		size, err := GetVolumeSize(tmpFile)
+		if err != nil {
+			t.Fatalf("GetVolumeSize failed: %v", err)
+		}
+		want := uint64(5) * 1024 * 1024 * 1024
+		if size != want {
+			t.Fatalf("size = %d, want %d", size, want)
+		}
+	})
+
+	Cleanup()
+}
+
+func TestGetVolumeSizeIoctlLarge(t *testing.T) {
 	tmpFile := filepath.Join(t.TempDir(), "vol")
-	if err := os.WriteFile(tmpFile, make([]byte, 2*1024*1024), 0644); err != nil {
+	if err := os.WriteFile(tmpFile, nil, 0644); err != nil {
 		t.Fatalf("failed to create temp volume: %v", err)
 	}
+
+	fiveGiB := uint64(5) * 1024 * 1024 * 1024
+	orig := ioctlGetUint64Func
+	ioctlGetUint64Func = func(fd int, req uint) (uint64, error) {
+		return fiveGiB, nil
+	}
+	defer func() { ioctlGetUint64Func = orig }()
 
 	size, err := GetVolumeSize(tmpFile)
 	if err != nil {
 		t.Fatalf("GetVolumeSize failed: %v", err)
 	}
-	if size != 2*1024*1024 {
-		t.Fatalf("size = %d, want %d", size, 2*1024*1024)
+	if size != fiveGiB {
+		t.Fatalf("size = %d, want %d", size, fiveGiB)
 	}
 
 	Cleanup()
