@@ -1,7 +1,7 @@
 # LVMSync PRD
 
 ## Overview
-LVMSync provides high-performance block-level replication for LVM snapshots. The repository already includes Go modules, basic tests and CI, but still needs improved coverage, error handling and developer documentation. This PRD outlines remaining capabilities, coding standards and tasks for future development.
+LVMSync provides high-performance block-level replication for LVM snapshots on 64-bit Linux systems. The repository already includes Go modules, basic tests and CI, but still needs improved coverage, error handling and developer documentation. This PRD outlines remaining capabilities, coding standards and tasks for future development.
 
 ## Goals
 - Reliable incremental replication of LVM snapshots across hosts.
@@ -18,6 +18,8 @@ LVMSync provides high-performance block-level replication for LVM snapshots. The
 - Use `go fmt` and `go vet` to maintain code style and catch common mistakes.
 - Prefer explicit error handling; log contextual details using `zap`.
 - Keep functions small and focused; avoid side effects where possible.
+- Favor Go standard library functionality; introduce external dependencies only when well supported and necessary.
+- Interact with LVM using maintained Go bindings to `liblvm` instead of shelling out.
 - Protect concurrent access to shared state with mutexes.
 - Maintain backward compatibility for CLI flags when adding new features.
 
@@ -33,8 +35,10 @@ LVMSync provides high-performance block-level replication for LVM snapshots. The
 3. **Improve Remote Error Handling**
    - Add retry logic for establishing SSH connections.
    - Surface clearer errors when remote commands fail.
+4. **Refactor Monolithic Functions**
+   - Break down large functions (e.g., client modes) into smaller composable units to improve readability and testability.
 
-4. **Extended Documentation**
+5. **Extended Documentation**
    - Document package architecture and developer guidelines.
    - Explain how to run tests and CI locally.
 

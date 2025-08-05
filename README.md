@@ -1,8 +1,6 @@
-##**ATTENTION: This is actively WIP Do not use in production systems, please be patient.**
-
 # LVMSync
 
-LVMSync is a high-performance incremental data replication tool for LVM snapshots. It efficiently transfers only changed blocks using metadata from snapshot COW (Copy-On-Write) devices.
+LVMSync is a high-performance incremental data replication tool for LVM snapshots. It efficiently transfers only changed blocks using metadata from snapshot COW (Copy-On-Write) devices and communicates with LVM through native Go bindings rather than shell commands.
 
 ## Features
 
@@ -12,8 +10,9 @@ LVMSync is a high-performance incremental data replication tool for LVM snapshot
 - **Rate-Limiting**: Control bandwidth usage during transfers.
 - **Compression**: Supports LZ4 and Zstd (with configurable compression levels and an auto mode based on CPU features).
 - **Checksum Verification**: Ensures data integrity using SHA-256.
- - **Deduplication Strategies**: Detect unchanged blocks using checksum, rolling hash, or Bloom filter with persistent state.
- - **Remote Execution via SSH**: Replicates data over SSH with support for pre/post-scripts.
+- **Native LVM2 Integration**: Uses Go bindings to `liblvm` instead of shelling out.
+- **Deduplication Strategies**: Detect unchanged blocks using checksum, rolling hash, or Bloom filter with persistent state.
+- **Remote Execution via SSH**: Replicates data over SSH with support for pre/post-scripts.
 - **Resume Support**: Ability to resume interrupted transfers.
 - **LVM Snapshot Management**:
   - Automatic snapshot creation and removal.
@@ -41,7 +40,8 @@ This structure allows individual packages to be developed and tested in isolatio
 ### Requirements
 
 - Go 1.18+
-- LVM2 (for snapshot support)
+- 64-bit Linux (x86_64) on AMD EPYC or Intel Xeon processors
+- LVM2 with development headers for snapshot support
 - SSH client & server (for remote transfers)
 
 ### Build
