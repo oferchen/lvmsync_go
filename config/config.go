@@ -232,7 +232,7 @@ func LoadConfig() (*Config, error) {
 	generalFlags.Int("max_retries", defaultCfg.MaxRetries, "Maximum number of retries per block")
 	generalFlags.String("resume", defaultCfg.ResumeState, "Path to resume state file")
 	generalFlags.String("speed", defaultCfg.Speed, "Transfer speed limit")
-	generalFlags.String("block_size", defaultCfg.BlockSizeRaw, "Block size for data transfer")
+	generalFlags.String("block_size", defaultCfg.BlockSizeRaw, "Block size for data transfer; 0 for automatic detection")
 	generalFlags.CountP("verbose", "v", "Verbosity level")
 	generalFlags.Bool("verify_checksum", defaultCfg.VerifyChecksum, "Enable checksum verification")
 	generalFlags.String("checksum_algorithm", defaultCfg.ChecksumAlgorithm, fmt.Sprintf("Checksum algorithm: %v", SupportedChecksumAlgorithms))

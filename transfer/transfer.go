@@ -17,6 +17,7 @@ import (
 
 	"lvmsync_go/common"
 	"lvmsync_go/config"
+	"lvmsync_go/internal/blocksize"
 
 	"go.uber.org/zap"
 )
@@ -93,6 +94,16 @@ func cleanupOutput(buf *bufio.Writer, w io.WriteCloser) {
 }
 
 func dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer, dedup DeduplicationStrategy, handshake string) error {
+	if cfg.BlockSize == 0 {
+		bs, err := blocksize.Detect(source)
+		if err != nil {
+			return fmt.Errorf("auto-detect block size: %w", err)
+		}
+		cfg.BlockSize = bs
+		Logger.Info("Auto-detected block size", zap.Int("blockSize", cfg.BlockSize))
+	}
+	Logger.Info("Using block size", zap.Int("blockSize", cfg.BlockSize))
+
 	metadataDevice := GetMetadataDevice(snapshot)
 	if metadataDevice == "" {
 		return fmt.Errorf("failed to determine metadata device from snapshot %s", snapshot)
@@ -241,13 +252,22 @@ func DumpChangesParallel(cfg *config.Config, snapshot, source string, out io.Wri
 		return DumpChangesSequential(cfg, snapshot, source, out)
 	}
 
+	if cfg.BlockSize == 0 {
+		bs, err := blocksize.Detect(source)
+		if err != nil {
+			return fmt.Errorf("auto-detect block size: %w", err)
+		}
+		cfg.BlockSize = bs
+		Logger.Info("Auto-detected block size", zap.Int("blockSize", cfg.BlockSize))
+	}
+
 	metadataDevice := GetMetadataDevice(snapshot)
 	if metadataDevice == "" {
 		return fmt.Errorf("failed to determine metadata device from snapshot %s", snapshot)
 	}
 	blockSize := int64(cfg.BlockSize)
 
-	Logger.Info("Using configured block size", zap.Int("blockSize", cfg.BlockSize))
+	Logger.Info("Using block size", zap.Int("blockSize", cfg.BlockSize))
 
 	ranges, err := GetDifferences(metadataDevice, blockSize)
 	if err != nil {
