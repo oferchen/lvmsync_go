@@ -11,6 +11,13 @@ import (
 	"lvmsync_go/lvm"
 )
 
+func TestDefaultConfigCompress(t *testing.T) {
+	cfg := DefaultConfig()
+	if cfg.Compress != "auto" {
+		t.Fatalf("expected default Compress to be 'auto', got %q", cfg.Compress)
+	}
+}
+
 func TestParseBytesOrFallback(t *testing.T) {
 	t.Run("valid", func(t *testing.T) {
 		v := viper.New()

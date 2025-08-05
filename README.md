@@ -116,7 +116,7 @@ The tool supports both local and remote transfers, as well as an "apply mode" fo
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `--compress` | Compression type (options: `"none"`, `"lz4"`, `"zstd"`, `"auto"`) | `"lz4"` |
+| `--compress` | Compression type (options: `"none"`, `"lz4"`, `"zstd"`, `"auto"`) | `"auto"` |
 | `--compress_level` | Compression level for Zstd (ignored for LZ4) | `3` |
 | `--compress_concurrency` | Number of goroutines used for compression (`0` to use all cores) | `0` |
 
@@ -238,7 +238,7 @@ remote_pre_script: ""                   # Remote script to run before starting t
 remote_post_script: ""                  # Remote script to run after finishing transfer
 
 # Compression Options:
-compress: "lz4"                         # Compression type (options: "none", "lz4", "zstd", "auto")
+compress: "auto"                        # Compression type (options: "none", "lz4", "zstd", "auto")
 compress_level: 3                       # Compression level for zstd (ignored for lz4)
 compress_concurrency: 0                # Number of goroutines for compression (0 to use all cores)
 
