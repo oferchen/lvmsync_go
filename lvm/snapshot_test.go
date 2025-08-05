@@ -4,8 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/dpeckett/lvm2"
 )
 
 type mockBackend struct{ calls []string }
@@ -112,5 +117,34 @@ func TestCreateSnapshotContextCancel(t *testing.T) {
 	// backend should have recorded attempt before ctx cancelled
 	if len(fb.calls) == 0 || fb.calls[0] != fmt.Sprintf("create:%s:%s:%s", lvPath, snapName, size) {
 		t.Fatalf("backend call not recorded")
+	}
+}
+
+func TestLVM2BackendCreateSnapshotUsesVGAndLV(t *testing.T) {
+	tmpDir := t.TempDir()
+	argsFile := filepath.Join(tmpDir, "args")
+	script := filepath.Join(tmpDir, "lvm.sh")
+	content := fmt.Sprintf("#!/bin/sh\nprintf '%%s ' \"$@\" > %s\n", argsFile)
+	if err := os.WriteFile(script, []byte(content), 0700); err != nil {
+		t.Fatalf("failed to create script: %v", err)
+	}
+
+	b := &lvm2Backend{client: lvm2.NewClient(lvm2.WithLVM(script))}
+
+	if err := b.CreateSnapshot(context.Background(), "/dev/vg0/origin", "snap", "1G"); err != nil {
+		t.Fatalf("CreateSnapshot failed: %v", err)
+	}
+
+	data, err := os.ReadFile(argsFile)
+	if err != nil {
+		t.Fatalf("failed to read args file: %v", err)
+	}
+	args := strings.Fields(string(data))
+	if len(args) < 2 {
+		t.Fatalf("insufficient arguments: %v", args)
+	}
+	vg, lv := args[len(args)-2], args[len(args)-1]
+	if vg != "vg0" || lv != "origin" {
+		t.Fatalf("unexpected VG/LV args: %v", args[len(args)-2:])
 	}
 }
