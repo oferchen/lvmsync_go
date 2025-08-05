@@ -2,7 +2,6 @@
 package lvm
 
 import (
-	"container/list"
 	"context"
 	"fmt"
 	"lvmsync_go/internal/sizeparse"
@@ -20,30 +19,12 @@ import (
 
 const (
 	BLKGETSIZE64 = 0x80081272
-
-	fdCacheSize = 16
 )
 
 var (
 	escalationCommand     string
 	escalationCommandLock sync.RWMutex
 )
-
-type fdCacheEntry struct {
-	path string
-	fd   int
-}
-
-type fdCache struct {
-	fds   map[string]*list.Element
-	order *list.List
-	mutex sync.Mutex
-}
-
-var deviceFDCache = &fdCache{
-	fds:   make(map[string]*list.Element),
-	order: list.New(),
-}
 
 var statfsFunc = unix.Statfs
 
@@ -68,48 +49,6 @@ func checkRootPrivileges() error {
 		return fmt.Errorf("insufficient privileges: LVM operations require root privileges")
 	}
 	return nil
-}
-
-func (c *fdCache) getFD(devicePath string) (int, error) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
-	if elem, exists := c.fds[devicePath]; exists {
-		c.order.MoveToFront(elem)
-		return elem.Value.(*fdCacheEntry).fd, nil
-	}
-
-	fd, err := unix.Open(devicePath, unix.O_RDONLY|unix.O_NONBLOCK, 0)
-	if err != nil {
-		return -1, fmt.Errorf("failed to open device %s: %w", devicePath, err)
-	}
-
-	if c.order.Len() >= fdCacheSize {
-		back := c.order.Back()
-		if back != nil {
-			entry := back.Value.(*fdCacheEntry)
-			unix.Close(entry.fd)
-			delete(c.fds, entry.path)
-			c.order.Remove(back)
-		}
-	}
-
-	entry := &fdCacheEntry{path: devicePath, fd: fd}
-	elem := c.order.PushFront(entry)
-	c.fds[devicePath] = elem
-	return fd, nil
-}
-
-func (c *fdCache) Close() {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
-	for _, elem := range c.fds {
-		entry := elem.Value.(*fdCacheEntry)
-		unix.Close(entry.fd)
-	}
-	c.fds = make(map[string]*list.Element)
-	c.order.Init()
 }
 
 // backend is used to execute LVM operations. It can be overridden for tests.

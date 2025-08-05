@@ -1,0 +1,84 @@
+package lvm
+
+import (
+	"container/list"
+	"fmt"
+	"sync"
+
+	"golang.org/x/sys/unix"
+)
+
+const fdCacheSize = 16
+
+// fdCacheEntry represents a cached file descriptor.
+type fdCacheEntry struct {
+	path string
+	fd   int
+}
+
+// fdCache provides a simple LRU cache for file descriptors.
+type fdCache struct {
+	fds   map[string]*list.Element
+	order *list.List
+	mutex sync.Mutex
+	size  int
+}
+
+// NewFDCache returns an initialized file descriptor cache with the given capacity.
+func NewFDCache(size int) *fdCache {
+	if size <= 0 {
+		size = fdCacheSize
+	}
+	return &fdCache{
+		fds:   make(map[string]*list.Element, size),
+		order: list.New(),
+		size:  size,
+	}
+}
+
+// getFD retrieves an open file descriptor for the specified device path.
+// It reuses descriptors when possible and evicts the least recently used entry
+// when the cache reaches its capacity.
+func (c *fdCache) getFD(devicePath string) (int, error) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	if elem, ok := c.fds[devicePath]; ok {
+		c.order.MoveToFront(elem)
+		return elem.Value.(*fdCacheEntry).fd, nil
+	}
+
+	fd, err := unix.Open(devicePath, unix.O_RDONLY|unix.O_NONBLOCK, 0)
+	if err != nil {
+		return -1, fmt.Errorf("failed to open device %s: %w", devicePath, err)
+	}
+
+	if c.order.Len() >= c.size {
+		if back := c.order.Back(); back != nil {
+			entry := back.Value.(*fdCacheEntry)
+			unix.Close(entry.fd)
+			delete(c.fds, entry.path)
+			c.order.Remove(back)
+		}
+	}
+
+	elem := c.order.PushFront(&fdCacheEntry{path: devicePath, fd: fd})
+	c.fds[devicePath] = elem
+	return fd, nil
+}
+
+// Close releases all cached file descriptors and resets the cache state.
+func (c *fdCache) Close() {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	for _, elem := range c.fds {
+		entry := elem.Value.(*fdCacheEntry)
+		unix.Close(entry.fd)
+	}
+	c.fds = make(map[string]*list.Element, c.size)
+	c.order.Init()
+}
+
+// deviceFDCache is the global cache used by volume operations.
+var deviceFDCache = NewFDCache(fdCacheSize)
