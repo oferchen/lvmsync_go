@@ -33,7 +33,7 @@ func TestNewCompressionWriterAutoX86(t *testing.T) {
 
 	t.Run("fallback", func(t *testing.T) {
 		cpuid.CPU = cpuid.CPUInfo{}
-		w, err := NewCompressionWriter(io.Discard, "auto", 1)
+		w, err := NewCompressionWriter(io.Discard, "auto", int(lz4.Level1))
 		if err != nil {
 			t.Fatalf("NewCompressionWriter without features: %v", err)
 		}

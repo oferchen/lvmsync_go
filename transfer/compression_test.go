@@ -82,14 +82,26 @@ func TestLZ4CompressionLevels(t *testing.T) {
 }
 
 func TestNewCompressionWriterLevel(t *testing.T) {
-	t.Run("valid", func(t *testing.T) {
+	t.Run("zstdValid", func(t *testing.T) {
 		if _, err := NewCompressionWriter(io.Discard, compressionZSTD, 3); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})
 
-	t.Run("invalid", func(t *testing.T) {
+	t.Run("zstdInvalid", func(t *testing.T) {
 		if _, err := NewCompressionWriter(io.Discard, compressionZSTD, 100); err == nil {
+			t.Fatalf("expected error")
+		}
+	})
+
+	t.Run("lz4Valid", func(t *testing.T) {
+		if _, err := NewCompressionWriter(io.Discard, compressionLZ4, int(lz4.Level3)); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("lz4Invalid", func(t *testing.T) {
+		if _, err := NewCompressionWriter(io.Discard, compressionLZ4, 3); err == nil {
 			t.Fatalf("expected error")
 		}
 	})

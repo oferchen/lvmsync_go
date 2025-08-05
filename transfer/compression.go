@@ -25,9 +25,18 @@ func NewCompressionWriter(dst io.Writer, compress string, level int) (io.WriteCl
 	case "none":
 		return nopWriteCloser{dst}, nil
 	case compressionLZ4:
-		// For LZ4, valid levels include lz4.Fast and lz4.Level1 through lz4.Level9.
+		// Validate level prior to constructing the writer to avoid applying an invalid option.
+		lvl := lz4.CompressionLevel(level)
+		switch lvl {
+		case lz4.Fast, lz4.Level1, lz4.Level2, lz4.Level3, lz4.Level4, lz4.Level5, lz4.Level6, lz4.Level7, lz4.Level8, lz4.Level9:
+		// valid
+		default:
+			return nil, fmt.Errorf("invalid lz4 compression level: %d", level)
+		}
 		w := lz4.NewWriter(dst)
-		w.Apply(lz4.CompressionLevelOption(lz4.CompressionLevel(level)))
+		if err := w.Apply(lz4.CompressionLevelOption(lvl)); err != nil {
+			return nil, fmt.Errorf("failed to apply lz4 compression level: %w", err)
+		}
 		return w, nil
 	case compressionZSTD:
 		// Ensure provided level is within the supported zstd range.

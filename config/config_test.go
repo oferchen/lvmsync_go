@@ -5,6 +5,7 @@ import (
 	"math"
 	"testing"
 
+	"github.com/pierrec/lz4/v4"
 	"github.com/spf13/viper"
 	"lvmsync_go/lvm"
 )
@@ -140,7 +141,11 @@ func TestCompressLevelValidation(t *testing.T) {
 	t.Run("autoValid", func(t *testing.T) {
 		v := viper.New()
 		v.Set("compress", "auto")
-		v.Set("compress_level", 3)
+		if detectOptimalCompression() == "zstd" {
+			v.Set("compress_level", 3)
+		} else {
+			v.Set("compress_level", int(lz4.Level3))
+		}
 		cb := &ConfigBuilder{v: v, defaults: DefaultConfig()}
 		if _, err := cb.Build(); err != nil {
 			t.Fatalf("expected no error, got %v", err)
@@ -150,20 +155,34 @@ func TestCompressLevelValidation(t *testing.T) {
 	t.Run("autoInvalid", func(t *testing.T) {
 		v := viper.New()
 		v.Set("compress", "auto")
-		v.Set("compress_level", 100)
+		if detectOptimalCompression() == "zstd" {
+			v.Set("compress_level", 100)
+		} else {
+			v.Set("compress_level", 3)
+		}
 		cb := &ConfigBuilder{v: v, defaults: DefaultConfig()}
 		if _, err := cb.Build(); err == nil {
 			t.Fatalf("expected error")
 		}
 	})
 
-	t.Run("lz4NoValidation", func(t *testing.T) {
+	t.Run("lz4Valid", func(t *testing.T) {
 		v := viper.New()
 		v.Set("compress", "lz4")
-		v.Set("compress_level", 100)
+		v.Set("compress_level", int(lz4.Level3))
 		cb := &ConfigBuilder{v: v, defaults: DefaultConfig()}
 		if _, err := cb.Build(); err != nil {
 			t.Fatalf("expected no error, got %v", err)
+		}
+	})
+
+	t.Run("lz4Invalid", func(t *testing.T) {
+		v := viper.New()
+		v.Set("compress", "lz4")
+		v.Set("compress_level", 3)
+		cb := &ConfigBuilder{v: v, defaults: DefaultConfig()}
+		if _, err := cb.Build(); err == nil {
+			t.Fatalf("expected error")
 		}
 	})
 }
