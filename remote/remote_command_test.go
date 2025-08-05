@@ -1,12 +1,11 @@
 package remote
 
 import (
-	"crypto/rand"
-	"crypto/rsa"
-	"net"
-	"strings"
-	"sync"
-	"testing"
+        "crypto/rand"
+        "crypto/rsa"
+        "net"
+        "sync"
+        "testing"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
@@ -125,15 +124,16 @@ func (s *mockSSHServer) ConnectionCount() int {
 }
 
 func TestValidateRemoteCommand(t *testing.T) {
-	server := newMockSSHServer(t, func(cmd string) int {
-		if strings.Contains(cmd, "command -v echo") {
-			return 0
-		}
-		if strings.Contains(cmd, "command -v nonexistent") {
-			return 1
-		}
-		return 0
-	})
+        server := newMockSSHServer(t, func(cmd string) int {
+                switch cmd {
+                case "echo --version":
+                        return 0
+                case "nonexistent --version":
+                        return 127
+                default:
+                        return 0
+                }
+        })
 	defer server.Close()
 
 	client, err := ssh.Dial("tcp", server.addr, &ssh.ClientConfig{User: "test", HostKeyCallback: ssh.InsecureIgnoreHostKey()})
