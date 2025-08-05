@@ -211,7 +211,7 @@ func DefaultConfig() *Config {
 		SkipSnapshotCreation: false,
 		SkipDiskCheck:        false,
 		SnapshotSize:         "20%",
-		VolumeGroup:          "vg0",
+		VolumeGroup:          "",
 		TargetVolumeGroup:    "",
 		SourceVGCandidates:   []string{},
 		TargetVGCandidates:   []string{},
@@ -323,21 +323,6 @@ func LoadConfig() (*Config, error) {
 	conf, err := builder.Build()
 	if err != nil {
 		return nil, err
-	}
-
-	if conf.VolumeGroup == "" {
-		vg, err := lvm.SelectVolumeGroup(context.Background(), conf.SourceVGCandidates, lvm.ByFreeSpace)
-		if err != nil {
-			return nil, fmt.Errorf("failed to select source volume group: %w", err)
-		}
-		conf.VolumeGroup = vg.Name
-	}
-	if conf.TargetVolumeGroup == "" && len(conf.TargetVGCandidates) > 0 {
-		vg, err := lvm.SelectVolumeGroup(context.Background(), conf.TargetVGCandidates, lvm.ByFreeSpace)
-		if err != nil {
-			return nil, fmt.Errorf("failed to select target volume group: %w", err)
-		}
-		conf.TargetVolumeGroup = vg.Name
 	}
 
 	return conf, nil
