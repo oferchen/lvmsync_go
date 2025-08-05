@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -31,6 +30,8 @@ var (
 	compressionFlags *pflag.FlagSet
 	lvmFlags         *pflag.FlagSet
 )
+
+var getEuid = os.Geteuid
 
 type Config struct {
 	ConfigFile           string        `mapstructure:"config"`
@@ -322,16 +323,44 @@ func (c *Config) Validate() error {
 			return fmt.Errorf("target volume group %q does not exist or is inaccessible: %w", c.TargetVolumeGroup, err)
 		}
 	}
-	if os.Geteuid() != 0 {
+	if getEuid() != 0 {
 		parts := strings.Fields(c.LVMEscalation)
 		if len(parts) == 0 {
 			return fmt.Errorf("lvm escalation command is empty")
 		}
-		if _, err := exec.LookPath(parts[0]); err != nil {
+		if _, err := findInPath(parts[0]); err != nil {
 			return fmt.Errorf("lvm escalation command %q not found: %w", parts[0], err)
 		}
 	}
 	return nil
+}
+
+func findInPath(name string) (string, error) {
+	if strings.ContainsRune(name, os.PathSeparator) {
+		info, err := os.Stat(name)
+		if err != nil {
+			return "", err
+		}
+		if info.IsDir() || info.Mode().Perm()&0111 == 0 {
+			return "", fmt.Errorf("%s is not executable", name)
+		}
+		return name, nil
+	}
+	pathEnv := os.Getenv("PATH")
+	for _, dir := range filepath.SplitList(pathEnv) {
+		if dir == "" {
+			continue
+		}
+		full := filepath.Join(dir, name)
+		info, err := os.Stat(full)
+		if err != nil {
+			continue
+		}
+		if !info.IsDir() && info.Mode().Perm()&0111 != 0 {
+			return full, nil
+		}
+	}
+	return "", fmt.Errorf("executable %q not found in $PATH", name)
 }
 
 func printUsage() {
