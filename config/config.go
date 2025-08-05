@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/dustin/go-humanize"
+	"github.com/klauspost/cpuid/v2"
+	"github.com/pierrec/lz4/v4"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"lvmsync_go/lvm"
@@ -98,14 +100,37 @@ func (cb *ConfigBuilder) Build() (*Config, error) {
 	}
 	conf.SpeedLimit = sl
 
-	// Validate compression level for zstd or auto.
-	if conf.Compress == "zstd" || conf.Compress == "auto" {
+	// Validate compression levels based on the resolved compression algorithm.
+	resolved := conf.Compress
+	if resolved == "auto" {
+		resolved = detectOptimalCompression()
+	}
+	switch resolved {
+	case "zstd":
 		if conf.CompressLevel < 1 || conf.CompressLevel > 22 {
 			return nil, fmt.Errorf("invalid zstd compression level: %d", conf.CompressLevel)
+		}
+	case "lz4":
+		lvl := lz4.CompressionLevel(conf.CompressLevel)
+		switch lvl {
+		case lz4.Fast, lz4.Level1, lz4.Level2, lz4.Level3, lz4.Level4, lz4.Level5, lz4.Level6, lz4.Level7, lz4.Level8, lz4.Level9:
+		// valid
+		default:
+			return nil, fmt.Errorf("invalid lz4 compression level: %d", conf.CompressLevel)
 		}
 	}
 
 	return &conf, nil
+}
+
+func detectOptimalCompression() string {
+	if cpuid.CPU.Has(cpuid.AVX512F) || cpuid.CPU.Has(cpuid.AVX2) || cpuid.CPU.Has(cpuid.BMI2) {
+		return "zstd"
+	}
+	if cpuid.CPU.Has(cpuid.ASIMD) {
+		return "zstd"
+	}
+	return "lz4"
 }
 
 func (cb *ConfigBuilder) parseBytesOrFallback(key, fallback string) (int, error) {
