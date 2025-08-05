@@ -1,6 +1,7 @@
 package lvm
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -11,11 +12,15 @@ type usageBackend struct {
 	usage float64
 }
 
-func (f *usageBackend) CreateSnapshot(string, string, string) error    { return nil }
-func (f *usageBackend) RemoveSnapshot(string) error                    { return nil }
-func (f *usageBackend) GetSnapshotUsage(string) (float64, error)       { return f.usage, nil }
-func (f *usageBackend) GetVolumeGroupFreeSpace(string) (uint64, error) { return 0, nil }
-func (f *usageBackend) ListVolumeGroups() ([]VolumeGroup, error)       { return nil, nil }
+func (f *usageBackend) CreateSnapshot(context.Context, string, string, string) error { return nil }
+func (f *usageBackend) RemoveSnapshot(context.Context, string) error                 { return nil }
+func (f *usageBackend) GetSnapshotUsage(context.Context, string) (float64, error) {
+	return f.usage, nil
+}
+func (f *usageBackend) GetVolumeGroupFreeSpace(context.Context, string) (uint64, error) {
+	return 0, nil
+}
+func (f *usageBackend) ListVolumeGroups(context.Context) ([]VolumeGroup, error) { return nil, nil }
 
 func init() {
 	SetEscalationCommand("")
@@ -30,7 +35,7 @@ func TestGetSnapshotUsage(t *testing.T) {
 	restore := SetBackend(fb)
 	t.Cleanup(restore)
 
-	usage, err := GetSnapshotUsage("/dev/vg0/snap")
+	usage, err := GetSnapshotUsage(context.Background(), "/dev/vg0/snap")
 	if err != nil {
 		t.Fatalf("GetSnapshotUsage failed: %v", err)
 	}

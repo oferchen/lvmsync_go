@@ -2,6 +2,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -169,7 +170,7 @@ func handleSignals(signals <-chan os.Signal, snapshotPath *string) {
 	sig := <-signals
 	zap.L().Info("Received signal, aborting", zap.String("signal", sig.String()))
 	if !cfg.SkipSnapshotCreation && *snapshotPath != "" && *snapshotPath != pflag.Arg(0) {
-		if err := lvm.RemoveSnapshot(*snapshotPath); err != nil {
+		if err := lvm.RemoveSnapshot(context.Background(), *snapshotPath); err != nil {
 			zap.L().Warn("Failed to remove snapshot on shutdown", zap.Error(err))
 		} else {
 			zap.L().Info("Snapshot removed on shutdown", zap.String("snapshot", *snapshotPath))
@@ -260,7 +261,7 @@ func main() {
 	snapshotPath = originalVolume
 	if !cfg.SkipSnapshotCreation {
 		snapshotName := fmt.Sprintf("snap-%d", time.Now().Unix())
-		err = lvm.CreateSnapshot(originalVolume, snapshotName, cfg.SnapshotSize)
+		err = lvm.CreateSnapshot(context.Background(), originalVolume, snapshotName, cfg.SnapshotSize)
 		if err != nil {
 			logger.Fatal("Snapshot creation failed", zap.Error(err))
 		}
@@ -282,7 +283,7 @@ func main() {
 	}
 
 	if !cfg.SkipSnapshotCreation {
-		err = lvm.RemoveSnapshot(snapshotPath)
+		err = lvm.RemoveSnapshot(context.Background(), snapshotPath)
 		if err != nil {
 			logger.Warn("Failed to remove snapshot", zap.Error(err))
 		} else {

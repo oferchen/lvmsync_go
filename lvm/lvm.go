@@ -3,6 +3,7 @@ package lvm
 
 import (
 	"container/list"
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -132,7 +133,7 @@ func SetBackend(b lvmBackend) func() {
 	return func() { backend = orig }
 }
 
-func CreateSnapshot(lvPath, snapshotName, size string) error {
+func CreateSnapshot(ctx context.Context, lvPath, snapshotName, size string) error {
 	if err := checkPrivs(); err != nil {
 		return err
 	}
@@ -141,7 +142,7 @@ func CreateSnapshot(lvPath, snapshotName, size string) error {
 		return fmt.Errorf("invalid parameters: lvPath, snapshotName, and size must be non-empty")
 	}
 
-	if err := backend.CreateSnapshot(lvPath, snapshotName, size); err != nil {
+	if err := backend.CreateSnapshot(ctx, lvPath, snapshotName, size); err != nil {
 		return fmt.Errorf("failed to create snapshot [%s] for LV %s with size %s: %w",
 			snapshotName, lvPath, size, err)
 	}
@@ -154,7 +155,7 @@ func CreateSnapshot(lvPath, snapshotName, size string) error {
 	return nil
 }
 
-func RemoveSnapshot(snapshotPath string) error {
+func RemoveSnapshot(ctx context.Context, snapshotPath string) error {
 	if err := checkPrivs(); err != nil {
 		return err
 	}
@@ -163,7 +164,7 @@ func RemoveSnapshot(snapshotPath string) error {
 		return fmt.Errorf("invalid parameter: snapshotPath must be non-empty")
 	}
 
-	if err := backend.RemoveSnapshot(snapshotPath); err != nil {
+	if err := backend.RemoveSnapshot(ctx, snapshotPath); err != nil {
 		return fmt.Errorf("failed to remove snapshot [%s]: %w", snapshotPath, err)
 	}
 
@@ -173,7 +174,7 @@ func RemoveSnapshot(snapshotPath string) error {
 	return nil
 }
 
-func GetSnapshotUsage(snapshotPath string) (float64, error) {
+func GetSnapshotUsage(ctx context.Context, snapshotPath string) (float64, error) {
 	if err := checkPrivs(); err != nil {
 		return 0, err
 	}
@@ -182,7 +183,7 @@ func GetSnapshotUsage(snapshotPath string) (float64, error) {
 		return 0, fmt.Errorf("invalid parameter: snapshotPath must be non-empty")
 	}
 
-	usage, err := backend.GetSnapshotUsage(snapshotPath)
+	usage, err := backend.GetSnapshotUsage(ctx, snapshotPath)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get snapshot usage for %s: %w", snapshotPath, err)
 	}
@@ -209,7 +210,7 @@ func MonitorSnapshot(snapshotPath string, threshold float64, interval time.Durat
 	for {
 		select {
 		case <-ticker.C:
-			usage, err := GetSnapshotUsage(snapshotPath)
+			usage, err := GetSnapshotUsage(context.Background(), snapshotPath)
 			if err != nil {
 				return err
 			}
@@ -342,12 +343,12 @@ func GetSnapshotDevicePath(snapshotName, volumeGroup string) string {
 	return path
 }
 
-func GetVolumeGroupFreeSpace(vgName string) (uint64, error) {
+func GetVolumeGroupFreeSpace(ctx context.Context, vgName string) (uint64, error) {
 	if err := checkPrivs(); err != nil {
 		return 0, err
 	}
 
-	size, err := backend.GetVolumeGroupFreeSpace(vgName)
+	size, err := backend.GetVolumeGroupFreeSpace(ctx, vgName)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get free space for VG %s: %w", vgName, err)
 	}
@@ -361,12 +362,12 @@ type VolumeGroup struct {
 }
 
 // ListVolumeGroups returns information about all available volume groups.
-func ListVolumeGroups() ([]VolumeGroup, error) {
+func ListVolumeGroups(ctx context.Context) ([]VolumeGroup, error) {
 	if err := checkPrivs(); err != nil {
 		return nil, err
 	}
 
-	vgs, err := backend.ListVolumeGroups()
+	vgs, err := backend.ListVolumeGroups(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list volume groups: %w", err)
 	}
@@ -375,8 +376,8 @@ func ListVolumeGroups() ([]VolumeGroup, error) {
 
 // SelectVolumeGroupByFreeSpace chooses the volume group with the most free space.
 // If candidates is non-empty, only those volume groups are considered.
-func SelectVolumeGroupByFreeSpace(candidates []string) (VolumeGroup, error) {
-	vgs, err := ListVolumeGroups()
+func SelectVolumeGroupByFreeSpace(ctx context.Context, candidates []string) (VolumeGroup, error) {
+	vgs, err := ListVolumeGroups(ctx)
 	if err != nil {
 		return VolumeGroup{}, err
 	}

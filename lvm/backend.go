@@ -11,11 +11,11 @@ import (
 )
 
 type lvmBackend interface {
-	CreateSnapshot(lvPath, snapshotName, size string) error
-	RemoveSnapshot(snapshotPath string) error
-	GetSnapshotUsage(snapshotPath string) (float64, error)
-	GetVolumeGroupFreeSpace(vgName string) (uint64, error)
-	ListVolumeGroups() ([]VolumeGroup, error)
+	CreateSnapshot(ctx context.Context, lvPath, snapshotName, size string) error
+	RemoveSnapshot(ctx context.Context, snapshotPath string) error
+	GetSnapshotUsage(ctx context.Context, snapshotPath string) (float64, error)
+	GetVolumeGroupFreeSpace(ctx context.Context, vgName string) (uint64, error)
+	ListVolumeGroups(ctx context.Context) ([]VolumeGroup, error)
 }
 
 type lvm2Backend struct {
@@ -69,8 +69,7 @@ func buildEscalationWrapper(bin string, args []string) (string, error) {
 	return wrapperPath, nil
 }
 
-func (b *lvm2Backend) CreateSnapshot(lvPath, snapshotName, size string) error {
-	ctx := context.Background()
+func (b *lvm2Backend) CreateSnapshot(ctx context.Context, lvPath, snapshotName, size string) error {
 	opts := lvm2.CreateLVOptions{
 		Name:     snapshotName,
 		VGName:   lvPath,
@@ -80,8 +79,7 @@ func (b *lvm2Backend) CreateSnapshot(lvPath, snapshotName, size string) error {
 	return b.client.CreateLogicalVolume(ctx, opts)
 }
 
-func (b *lvm2Backend) RemoveSnapshot(snapshotPath string) error {
-	ctx := context.Background()
+func (b *lvm2Backend) RemoveSnapshot(ctx context.Context, snapshotPath string) error {
 	opts := lvm2.RemoveLVOptions{
 		Name:  snapshotPath,
 		Force: true,
@@ -89,8 +87,7 @@ func (b *lvm2Backend) RemoveSnapshot(snapshotPath string) error {
 	return b.client.RemoveLogicalVolume(ctx, opts)
 }
 
-func (b *lvm2Backend) GetSnapshotUsage(snapshotPath string) (float64, error) {
-	ctx := context.Background()
+func (b *lvm2Backend) GetSnapshotUsage(ctx context.Context, snapshotPath string) (float64, error) {
 	lvs, err := b.client.ListLogicalVolumes(ctx, &lvm2.ListLVOptions{
 		Names: []string{snapshotPath},
 	})
@@ -108,8 +105,7 @@ func (b *lvm2Backend) GetSnapshotUsage(snapshotPath string) (float64, error) {
 	return usage, nil
 }
 
-func (b *lvm2Backend) GetVolumeGroupFreeSpace(vgName string) (uint64, error) {
-	ctx := context.Background()
+func (b *lvm2Backend) GetVolumeGroupFreeSpace(ctx context.Context, vgName string) (uint64, error) {
 	vgs, err := b.client.ListVolumeGroups(ctx, &lvm2.ListVGOptions{
 		Names: []string{vgName},
 	})
@@ -128,8 +124,7 @@ func (b *lvm2Backend) GetVolumeGroupFreeSpace(vgName string) (uint64, error) {
 	return free, nil
 }
 
-func (b *lvm2Backend) ListVolumeGroups() ([]VolumeGroup, error) {
-	ctx := context.Background()
+func (b *lvm2Backend) ListVolumeGroups(ctx context.Context) ([]VolumeGroup, error) {
 	vgs, err := b.client.ListVolumeGroups(ctx, nil)
 	if err != nil {
 		return nil, err

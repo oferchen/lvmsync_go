@@ -1,6 +1,7 @@
 package config
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"testing"
@@ -17,11 +18,13 @@ type fakeBackend struct {
 	vgs  []lvm.VolumeGroup
 }
 
-func (f *fakeBackend) CreateSnapshot(string, string, string) error    { return nil }
-func (f *fakeBackend) RemoveSnapshot(string) error                    { return nil }
-func (f *fakeBackend) GetSnapshotUsage(string) (float64, error)       { return 0, nil }
-func (f *fakeBackend) GetVolumeGroupFreeSpace(string) (uint64, error) { return f.free, f.err }
-func (f *fakeBackend) ListVolumeGroups() ([]lvm.VolumeGroup, error)   { return f.vgs, nil }
+func (f *fakeBackend) CreateSnapshot(context.Context, string, string, string) error { return nil }
+func (f *fakeBackend) RemoveSnapshot(context.Context, string) error                 { return nil }
+func (f *fakeBackend) GetSnapshotUsage(context.Context, string) (float64, error)    { return 0, nil }
+func (f *fakeBackend) GetVolumeGroupFreeSpace(context.Context, string) (uint64, error) {
+	return f.free, f.err
+}
+func (f *fakeBackend) ListVolumeGroups(context.Context) ([]lvm.VolumeGroup, error) { return f.vgs, nil }
 
 func TestDefaultConfigCompress(t *testing.T) {
 	cfg := DefaultConfig()

@@ -1,26 +1,44 @@
 package lvm
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 )
 
 type mockBackend struct{ calls []string }
 
-func (f *mockBackend) CreateSnapshot(lvPath, snapName, size string) error {
+func (f *mockBackend) CreateSnapshot(ctx context.Context, lvPath, snapName, size string) error {
 	f.calls = append(f.calls, fmt.Sprintf("create:%s:%s:%s", lvPath, snapName, size))
-	return nil
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-time.After(50 * time.Millisecond):
+		return nil
+	}
 }
 
-func (f *mockBackend) RemoveSnapshot(path string) error {
+func (f *mockBackend) RemoveSnapshot(ctx context.Context, path string) error {
 	f.calls = append(f.calls, fmt.Sprintf("remove:%s", path))
-	return nil
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-time.After(50 * time.Millisecond):
+		return nil
+	}
 }
 
-func (f *mockBackend) GetSnapshotUsage(string) (float64, error)       { return 0, nil }
-func (f *mockBackend) GetVolumeGroupFreeSpace(string) (uint64, error) { return 0, nil }
-func (f *mockBackend) ListVolumeGroups() ([]VolumeGroup, error)       { return nil, nil }
+func (f *mockBackend) GetSnapshotUsage(context.Context, string) (float64, error) {
+	return 0, nil
+}
+func (f *mockBackend) GetVolumeGroupFreeSpace(context.Context, string) (uint64, error) {
+	return 0, nil
+}
+func (f *mockBackend) ListVolumeGroups(context.Context) ([]VolumeGroup, error) {
+	return nil, nil
+}
 
 func init() {
 	SetEscalationCommand("")
@@ -39,11 +57,11 @@ func TestCreateAndRemoveSnapshot(t *testing.T) {
 	snapName := "snap"
 	size := "1G"
 
-	if err := CreateSnapshot(lvPath, snapName, size); err != nil {
+	if err := CreateSnapshot(context.Background(), lvPath, snapName, size); err != nil {
 		t.Fatalf("CreateSnapshot failed: %v", err)
 	}
 	snapPath := "/dev/vg0/" + snapName
-	if err := RemoveSnapshot(snapPath); err != nil {
+	if err := RemoveSnapshot(context.Background(), snapPath); err != nil {
 		t.Fatalf("RemoveSnapshot failed: %v", err)
 	}
 
@@ -64,8 +82,35 @@ func TestCreateSnapshotPrivilegeError(t *testing.T) {
 	checkPrivs = func() error { return errPriv }
 	t.Cleanup(func() { checkPrivs = orig })
 
-	err := CreateSnapshot("/dev/vg0/origin", "snap", "1G")
+	err := CreateSnapshot(context.Background(), "/dev/vg0/origin", "snap", "1G")
 	if !errors.Is(err, errPriv) {
 		t.Fatalf("expected privilege error, got %v", err)
+	}
+}
+
+func TestCreateSnapshotContextCancel(t *testing.T) {
+	orig := checkPrivs
+	checkPrivs = func() error { return nil }
+	t.Cleanup(func() { checkPrivs = orig })
+
+	fb := &mockBackend{}
+	restore := SetBackend(fb)
+	t.Cleanup(restore)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+
+	lvPath := "/dev/vg0/origin"
+	snapName := "snap"
+	size := "1G"
+
+	err := CreateSnapshot(ctx, lvPath, snapName, size)
+	if err == nil || !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected context deadline exceeded, got %v", err)
+	}
+
+	// backend should have recorded attempt before ctx cancelled
+	if len(fb.calls) == 0 || fb.calls[0] != fmt.Sprintf("create:%s:%s:%s", lvPath, snapName, size) {
+		t.Fatalf("backend call not recorded")
 	}
 }
