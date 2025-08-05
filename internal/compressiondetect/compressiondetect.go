@@ -37,7 +37,7 @@ func DetectOptimalCompression() string {
 			cacheSize += cpuid.CPU.Cache.L2
 		}
 
-		if cpuid.CPU.Has(cpuid.AVX512F) || cpuid.CPU.Has(cpuid.AVX2) || cpuid.CPU.Has(cpuid.BMI2) || cpuid.CPU.Has(cpuid.SSE42) || cpuid.CPU.Has(cpuid.ASIMD) || cpuid.CPU.Has(cpuid.SVE) || (cores >= 4 && cacheSize >= 2<<20) {
+		if cpuid.CPU.Has(cpuid.AVX512F) || cpuid.CPU.Has(cpuid.AVX2) || cpuid.CPU.Has(cpuid.BMI2) || cpuid.CPU.Has(cpuid.SSE42) || (cores >= 4 && cacheSize >= 2<<20) {
 			detected = "zstd"
 		} else {
 			detected = benchmarkCached(cores, cacheSize)
