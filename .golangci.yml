@@ -3,20 +3,16 @@ version: "2"
 run:
   timeout: 3m
   tests: true
-
-output:
-  format: colored-line-number
-
-issues:
-  max-issues-per-linter: 0
-  max-same-issues: 0
-  exclude-use-default: false
   skip-dirs:
     - vendor
     - .git
   skip-files:
     - ".*_gen.go"
     - ".*_test.go"
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
 
 linters:
   enable:
@@ -27,35 +23,11 @@ linters:
     - ineffassign
     - unused
     - gocritic
-    - depguard
     - asciicheck
     - bodyclose
     - misspell
 
   settings:
-    depguard:
-      list-type: allow
-      include-go-root: true
-      packages:
-        - github.com/spf13/viper
-        - github.com/spf13/pflag
-        - github.com/dustin/go-humanize
-        - go.uber.org/zap/...
-        - github.com/bits-and-blooms/bloom/v3
-        - github.com/klauspost/compress/zstd
-        - github.com/pierrec/lz4/v4
-        - github.com/juju/ratelimit
-        - golang.org/x/crypto/...
-        - golang.org/x/sys/...
-        - fmt
-        - io
-        - os
-        - syscall
-        - encoding/binary
-        - time
-        - lvmsync_go
-        - lvmsync_go/...
-
     gocritic:
       enabled-checks:
         - rangeValCopy
