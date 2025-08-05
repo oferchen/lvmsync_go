@@ -9,7 +9,7 @@ import (
 	zstd "github.com/klauspost/compress/zstd"
 	"github.com/klauspost/cpuid/v2"
 	"github.com/pierrec/lz4/v4"
-	"sync"
+	compressiondetect "lvmsync_go/internal/compressiondetect"
 )
 
 func TestNewCompressionWriterAutoX86(t *testing.T) {
@@ -21,8 +21,7 @@ func TestNewCompressionWriterAutoX86(t *testing.T) {
 		t.Run(feat.String(), func(t *testing.T) {
 			cpuid.CPU = cpuid.CPUInfo{}
 			cpuid.CPU.Enable(feat)
-			detectOnce = sync.Once{}
-			detected = ""
+			compressiondetect.ResetForTest()
 			w, err := NewCompressionWriter(io.Discard, "auto", 1, 1)
 			if err != nil {
 				t.Fatalf("NewCompressionWriter with %s: %v", feat.String(), err)
@@ -36,9 +35,8 @@ func TestNewCompressionWriterAutoX86(t *testing.T) {
 
 	t.Run("fallback", func(t *testing.T) {
 		cpuid.CPU = cpuid.CPUInfo{}
-		detectOnce = sync.Once{}
-		detected = ""
-		algo := detectOptimalCompression()
+		compressiondetect.ResetForTest()
+		algo := compressiondetect.DetectOptimalCompression()
 		lvl := 1
 		if algo == compressionLZ4 {
 			lvl = int(lz4.Level1)

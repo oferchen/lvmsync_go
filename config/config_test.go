@@ -7,6 +7,7 @@ import (
 
 	"github.com/pierrec/lz4/v4"
 	"github.com/spf13/viper"
+	compressiondetect "lvmsync_go/internal/compressiondetect"
 	"lvmsync_go/lvm"
 )
 
@@ -141,7 +142,7 @@ func TestCompressLevelValidation(t *testing.T) {
 	t.Run("autoValid", func(t *testing.T) {
 		v := viper.New()
 		v.Set("compress", "auto")
-		if detectOptimalCompression() == "zstd" {
+		if compressiondetect.DetectOptimalCompression() == "zstd" {
 			v.Set("compress_level", 3)
 		} else {
 			v.Set("compress_level", int(lz4.Level3))
@@ -155,7 +156,7 @@ func TestCompressLevelValidation(t *testing.T) {
 	t.Run("autoInvalid", func(t *testing.T) {
 		v := viper.New()
 		v.Set("compress", "auto")
-		if detectOptimalCompression() == "zstd" {
+		if compressiondetect.DetectOptimalCompression() == "zstd" {
 			v.Set("compress_level", 100)
 		} else {
 			v.Set("compress_level", 3)

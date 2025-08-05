@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"runtime"
+
+	"lvmsync_go/internal/compressiondetect"
 )
 
 const (
@@ -16,7 +18,7 @@ const (
 
 func NewCompressionWriter(dst io.Writer, compress string, level int, concurrency int) (io.WriteCloser, error) {
 	if compress == "auto" {
-		compress = detectOptimalCompression()
+		compress = compressiondetect.DetectOptimalCompression()
 	}
 
 	if concurrency <= 0 {
