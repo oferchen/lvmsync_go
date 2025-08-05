@@ -11,7 +11,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"unsafe"
 
 	"github.com/dustin/go-humanize"
 	"go.uber.org/zap"
@@ -48,15 +47,6 @@ var deviceFDCache = &fdCache{
 var statfsFunc = unix.Statfs
 
 var checkPrivs = checkRootPrivileges
-
-func ioctlGetUint64(fd int, req uint) (uint64, error) {
-	var value uint64
-	_, _, errno := unix.Syscall(unix.SYS_IOCTL, uintptr(fd), uintptr(req), uintptr(unsafe.Pointer(&value)))
-	if errno != 0 {
-		return 0, errno
-	}
-	return value, nil
-}
 
 func SetEscalationCommand(cmd string) {
 	escalationCommandLock.Lock()
@@ -245,7 +235,8 @@ func GetVolumeSize(volumePath string) (uint64, error) {
 		return 0, err
 	}
 
-	size, err := ioctlGetUint64(fd, BLKGETSIZE64)
+	sizeInt, err := unix.IoctlGetInt(fd, BLKGETSIZE64)
+	size := uint64(sizeInt)
 	if err != nil {
 		if err == unix.ENOTTY {
 			info, statErr := os.Stat(volumePath)

@@ -84,3 +84,41 @@ func TestFdCacheCloseClosesAll(t *testing.T) {
 		}
 	}
 }
+
+func TestGetVolumeSizeCachesFD(t *testing.T) {
+	deviceFDCache.Close()
+
+	tmpFile := filepath.Join(t.TempDir(), "vol")
+	if err := os.WriteFile(tmpFile, make([]byte, 1024), 0644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+
+	size, err := GetVolumeSize(tmpFile)
+	if err != nil {
+		t.Fatalf("GetVolumeSize failed: %v", err)
+	}
+	if size != 1024 {
+		t.Fatalf("size = %d, want 1024", size)
+	}
+
+	elem, ok := deviceFDCache.fds[tmpFile]
+	if !ok {
+		t.Fatalf("file descriptor not cached")
+	}
+	fd := elem.Value.(*fdCacheEntry).fd
+
+	size, err = GetVolumeSize(tmpFile)
+	if err != nil {
+		t.Fatalf("second GetVolumeSize failed: %v", err)
+	}
+	if size != 1024 {
+		t.Fatalf("size = %d, want 1024", size)
+	}
+
+	elem2, ok := deviceFDCache.fds[tmpFile]
+	if !ok || elem2.Value.(*fdCacheEntry).fd != fd {
+		t.Fatalf("file descriptor not reused")
+	}
+
+	Cleanup()
+}
