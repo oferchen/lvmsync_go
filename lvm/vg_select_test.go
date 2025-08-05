@@ -40,7 +40,7 @@ func (f *vgBackend) ListVolumeGroups(_ context.Context, candidates []string) ([]
 	return res, nil
 }
 
-func TestSelectVolumeGroupByFreeSpace(t *testing.T) {
+func TestSelectVolumeGroup(t *testing.T) {
 	orig := checkPrivs
 	checkPrivs = func() error { return nil }
 	t.Cleanup(func() { checkPrivs = orig })
@@ -48,7 +48,7 @@ func TestSelectVolumeGroupByFreeSpace(t *testing.T) {
 	restore := SetBackend(fb)
 	defer restore()
 
-	vg, err := SelectVolumeGroupByFreeSpace(context.Background(), nil)
+	vg, err := SelectVolumeGroup(context.Background(), nil, ByFreeSpace)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -56,7 +56,7 @@ func TestSelectVolumeGroupByFreeSpace(t *testing.T) {
 		t.Fatalf("expected vg1 with 200, got %s with %d", vg.Name, vg.Free)
 	}
 
-	vg, err = SelectVolumeGroupByFreeSpace(context.Background(), []string{"vg0"})
+	vg, err = SelectVolumeGroup(context.Background(), []string{"vg0"}, ByFreeSpace)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -64,12 +64,12 @@ func TestSelectVolumeGroupByFreeSpace(t *testing.T) {
 		t.Fatalf("expected vg0 with 100, got %s with %d", vg.Name, vg.Free)
 	}
 
-	if _, err := SelectVolumeGroupByFreeSpace(context.Background(), []string{"vg2"}); err == nil {
+	if _, err := SelectVolumeGroup(context.Background(), []string{"vg2"}, ByFreeSpace); err == nil {
 		t.Fatalf("expected error for unknown vg")
 	}
 }
 
-func TestSelectVolumeGroupByFreeSpaceQueriesCandidates(t *testing.T) {
+func TestSelectVolumeGroupQueriesCandidates(t *testing.T) {
 	orig := checkPrivs
 	checkPrivs = func() error { return nil }
 	t.Cleanup(func() { checkPrivs = orig })
@@ -77,10 +77,36 @@ func TestSelectVolumeGroupByFreeSpaceQueriesCandidates(t *testing.T) {
 	restore := SetBackend(fb)
 	defer restore()
 
-	if _, err := SelectVolumeGroupByFreeSpace(context.Background(), []string{"vg0"}); err != nil {
+	if _, err := SelectVolumeGroup(context.Background(), []string{"vg0"}, ByFreeSpace); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if !reflect.DeepEqual(fb.lastArgs, []string{"vg0"}) {
 		t.Fatalf("expected backend queried with [vg0], got %v", fb.lastArgs)
+	}
+}
+
+func TestSelectVolumeGroupCustomSelector(t *testing.T) {
+	orig := checkPrivs
+	checkPrivs = func() error { return nil }
+	t.Cleanup(func() { checkPrivs = orig })
+	fb := &vgBackend{vgs: []VolumeGroup{{Name: "vg0", Free: 100}, {Name: "vg1", Free: 200}}}
+	restore := SetBackend(fb)
+	defer restore()
+
+	selector := func(vgs []VolumeGroup) (VolumeGroup, error) {
+		for _, vg := range vgs {
+			if vg.Name == "vg0" {
+				return vg, nil
+			}
+		}
+		return VolumeGroup{}, fmt.Errorf("no suitable volume group")
+	}
+
+	vg, err := SelectVolumeGroup(context.Background(), nil, selector)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if vg.Name != "vg0" {
+		t.Fatalf("expected vg0, got %s", vg.Name)
 	}
 }

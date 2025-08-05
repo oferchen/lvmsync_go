@@ -297,14 +297,14 @@ func LoadConfig() (*Config, error) {
 	}
 
 	if conf.VolumeGroup == "" {
-		vg, err := lvm.SelectVolumeGroupByFreeSpace(context.Background(), conf.SourceVGCandidates)
+		vg, err := lvm.SelectVolumeGroup(context.Background(), conf.SourceVGCandidates, lvm.ByFreeSpace)
 		if err != nil {
 			return nil, fmt.Errorf("failed to select source volume group: %w", err)
 		}
 		conf.VolumeGroup = vg.Name
 	}
 	if conf.TargetVolumeGroup == "" && len(conf.TargetVGCandidates) > 0 {
-		vg, err := lvm.SelectVolumeGroupByFreeSpace(context.Background(), conf.TargetVGCandidates)
+		vg, err := lvm.SelectVolumeGroup(context.Background(), conf.TargetVGCandidates, lvm.ByFreeSpace)
 		if err != nil {
 			return nil, fmt.Errorf("failed to select target volume group: %w", err)
 		}
