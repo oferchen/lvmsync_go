@@ -40,7 +40,9 @@ func TestCompressionRoundTrip(t *testing.T) {
 		if err != nil {
 			t.Fatalf("read %s: %v", tc.c, err)
 		}
-		r.Close()
+		if err := r.Close(); err != nil {
+			t.Fatalf("close %s: %v", tc.c, err)
+		}
 
 		if !bytes.Equal(out, data) {
 			t.Fatalf("roundtrip mismatch for %s", tc.c)
@@ -73,7 +75,9 @@ func TestLZ4CompressionLevels(t *testing.T) {
 		if err != nil {
 			t.Fatalf("read level %d: %v", lvl, err)
 		}
-		r.Close()
+		if err := r.Close(); err != nil {
+			t.Fatalf("close level %d: %v", lvl, err)
+		}
 
 		if !bytes.Equal(out, data) {
 			t.Fatalf("roundtrip mismatch for level %d", lvl)
