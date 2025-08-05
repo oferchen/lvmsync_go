@@ -2,6 +2,16 @@
 
 package transfer
 
+import "sync"
+
+var (
+	detectOnce sync.Once
+	detected   string
+)
+
 func detectOptimalCompression() string {
-	return compressionLZ4
+	detectOnce.Do(func() {
+		detected = benchmarkCompression()
+	})
+	return detected
 }
