@@ -21,7 +21,7 @@ jobs:
           sudo apt-get install -y \
             autoconf automake libtool pkg-config \
             build-essential libdevmapper-dev libreadline-dev \
-            uuid-dev libaio-dev \
+            uuid-dev libaio-dev liblvm2-dev \
             libselinux-dev libsepol-dev \
             git curl
 
