@@ -28,7 +28,7 @@ func TestChecksumDedupSaveStateWriteFailures(t *testing.T) {
 	hash := sha256.Sum256([]byte("data"))
 
 	t.Run("binary write failure", func(t *testing.T) {
-		c := &ChecksumDedup{stateFile: "ignored", hashes: map[int64][32]byte{1: hash}}
+		c := &ChecksumDedup{stateFile: "ignored", hashes: map[int64][]byte{1: hash[:]}, strategy: &SHA256Checksum{}}
 		fw := &failingWriter{failAfter: 0}
 		orig := createStateFile
 		createStateFile = func(string) (io.WriteCloser, error) { return fw, nil }
@@ -39,7 +39,7 @@ func TestChecksumDedupSaveStateWriteFailures(t *testing.T) {
 	})
 
 	t.Run("file write failure", func(t *testing.T) {
-		c := &ChecksumDedup{stateFile: "ignored", hashes: map[int64][32]byte{1: hash}}
+		c := &ChecksumDedup{stateFile: "ignored", hashes: map[int64][]byte{1: hash[:]}, strategy: &SHA256Checksum{}}
 		fw := &failingWriter{failAfter: 1}
 		orig := createStateFile
 		createStateFile = func(string) (io.WriteCloser, error) { return fw, nil }
@@ -75,7 +75,7 @@ func TestRollingHashDedupSaveStateWriteFailures(t *testing.T) {
 }
 
 func TestBloomFilterDedupSaveStateWriteFailure(t *testing.T) {
-	b := &BloomFilterDedup{filter: bloom.NewWithEstimates(1000, 0.01), stateFile: "ignored"}
+	b := &BloomFilterDedup{filter: bloom.NewWithEstimates(1000, 0.01), stateFile: "ignored", strategy: &SHA256Checksum{}}
 	b.RecordTransfer(0, []byte("data"))
 	fw := &failingWriter{failAfter: 0}
 	orig := createStateFile

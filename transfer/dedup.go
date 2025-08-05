@@ -2,7 +2,7 @@
 package transfer
 
 import (
-	"crypto/sha256"
+	"bytes"
 	"encoding/binary"
 	"hash/maphash"
 	"io"
@@ -30,8 +30,9 @@ type DeduplicationStrategy interface {
 
 type ChecksumDedup struct {
 	stateFile string
-	hashes    map[int64][32]byte
+	hashes    map[int64][]byte
 	mu        sync.RWMutex
+	strategy  ChecksumStrategy
 }
 
 type BloomFilterDedup struct {
@@ -40,6 +41,7 @@ type BloomFilterDedup struct {
 	mu        sync.RWMutex
 	entries   uint
 	fpRate    float64
+	strategy  ChecksumStrategy
 }
 
 type RollingHashDedup struct {
@@ -101,6 +103,7 @@ func NewDeduplicationStrategy(cfg *config.Config) DeduplicationStrategy {
 			stateFile: cfg.DedupStateFile,
 			entries:   uint(cfg.BloomEntries),
 			fpRate:    cfg.BloomFpRate,
+			strategy:  GetChecksumStrategy(cfg.ChecksumAlgorithm),
 		}
 		if err := d.loadState(); err != nil {
 			zap.L().Warn("failed to load dedup state", zap.Error(err))
@@ -109,7 +112,8 @@ func NewDeduplicationStrategy(cfg *config.Config) DeduplicationStrategy {
 	default:
 		d := &ChecksumDedup{
 			stateFile: cfg.DedupStateFile,
-			hashes:    make(map[int64][32]byte),
+			hashes:    make(map[int64][]byte),
+			strategy:  GetChecksumStrategy(cfg.ChecksumAlgorithm),
 		}
 		if err := d.loadState(); err != nil {
 			zap.L().Warn("failed to load dedup state", zap.Error(err))
@@ -123,12 +127,12 @@ func (c *ChecksumDedup) ShouldTransfer(offset int64, data []byte) bool {
 	prev, exists := c.hashes[offset]
 	c.mu.RUnlock()
 
-	sum := sha256.Sum256(data)
-	return !exists || prev != sum
+	sum := c.strategy.Compute(data)
+	return !exists || !bytes.Equal(prev, sum)
 }
 
 func (c *ChecksumDedup) RecordTransfer(offset int64, data []byte) {
-	sum := sha256.Sum256(data)
+	sum := c.strategy.Compute(data)
 
 	c.mu.Lock()
 	c.hashes[offset] = sum
@@ -145,11 +149,15 @@ func (c *ChecksumDedup) SaveState() error {
 	}
 	defer file.Close()
 
+	size := c.strategy.Size()
 	for offset, hash := range c.hashes {
 		if err := binary.Write(file, binary.LittleEndian, offset); err != nil {
 			return err
 		}
-		if _, err := file.Write(hash[:]); err != nil {
+		if len(hash) != size {
+			continue
+		}
+		if _, err := file.Write(hash); err != nil {
 			return err
 		}
 	}
@@ -166,6 +174,7 @@ func (c *ChecksumDedup) loadState() error {
 	}
 	defer file.Close()
 
+	size := c.strategy.Size()
 	for {
 		var offset int64
 		if err := binary.Read(file, binary.LittleEndian, &offset); err != nil {
@@ -174,8 +183,8 @@ func (c *ChecksumDedup) loadState() error {
 			}
 			return err
 		}
-		var hash [32]byte
-		if _, err := io.ReadFull(file, hash[:]); err != nil {
+		hash := make([]byte, size)
+		if _, err := io.ReadFull(file, hash); err != nil {
 			return err
 		}
 		c.hashes[offset] = hash
@@ -281,17 +290,16 @@ func (r *RollingHashDedup) loadState() error {
 }
 
 func (b *BloomFilterDedup) ShouldTransfer(offset int64, data []byte) bool {
-	h := sha256.Sum256(data)
+	sum := b.strategy.Compute(data)
 	b.mu.RLock()
-	ok := !b.filter.Test(h[:])
+	ok := !b.filter.Test(sum)
 	b.mu.RUnlock()
 	return ok
 }
 
 func (b *BloomFilterDedup) RecordTransfer(offset int64, data []byte) {
-	h := sha256.Sum256(data)
 	b.mu.Lock()
-	b.filter.Add(h[:])
+	b.filter.Add(b.strategy.Compute(data))
 	b.mu.Unlock()
 }
 

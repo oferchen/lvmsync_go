@@ -10,6 +10,7 @@ require (
 	github.com/pierrec/lz4/v4 v4.1.22
 	github.com/spf13/pflag v1.0.7
 	github.com/spf13/viper v1.20.1
+	github.com/zeebo/blake3 v0.2.4
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.40.0
 	golang.org/x/sys v0.34.0

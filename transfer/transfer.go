@@ -3,7 +3,7 @@ package transfer
 
 import (
 	"bufio"
-	"crypto/sha256"
+	"bytes"
 	"encoding/binary"
 	"encoding/gob"
 	"fmt"
@@ -29,14 +29,15 @@ func SetLogger(logger *zap.Logger) {
 }
 
 type ChecksumState struct {
-	Checksums map[uint64][32]byte
+	Checksums map[uint64][]byte
+	Strategy  string
 }
 
 func LoadChecksumState(filename string) (*ChecksumState, error) {
 	file, err := os.Open(filename)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return &ChecksumState{Checksums: make(map[uint64][32]byte)}, nil
+			return &ChecksumState{Checksums: make(map[uint64][]byte), Strategy: "sha256"}, nil
 		}
 		return nil, err
 	}
@@ -48,6 +49,12 @@ func LoadChecksumState(filename string) (*ChecksumState, error) {
 		return nil, err
 	}
 
+	if state.Checksums == nil {
+		state.Checksums = make(map[uint64][]byte)
+	}
+	if state.Strategy == "" {
+		state.Strategy = "sha256"
+	}
 	return state, nil
 }
 
@@ -302,7 +309,12 @@ func DumpChangesParallel(cfg *config.Config, snapshot, source string, out io.Wri
 	startTime := time.Now()
 	var totalBytesTransferred int64
 
-	var header [12 + sha256.Size]byte
+	checksum := GetChecksumStrategy(cfg.ChecksumAlgorithm)
+	headerSize := 12
+	if cfg.VerifyChecksum {
+		headerSize += checksum.Size()
+	}
+	header := make([]byte, headerSize)
 	for res := range results {
 		if res.Err != nil {
 			return fmt.Errorf("error in block %d: %w", res.Index, res.Err)
@@ -312,9 +324,9 @@ func DumpChangesParallel(cfg *config.Config, snapshot, source string, out io.Wri
 		binary.BigEndian.PutUint32(header[8:12], res.Size)
 		n := 12
 		if cfg.VerifyChecksum {
-			sum := sha256.Sum256(res.Data)
-			copy(header[12:], sum[:])
-			n += sha256.Size
+			sum := checksum.Compute(res.Data)
+			copy(header[12:], sum)
+			n += checksum.Size()
 		}
 
 		if _, err := bufOut.Write(header[:n]); err != nil {
@@ -422,9 +434,10 @@ func processDumpDataCore(cfg *config.Config, in io.Reader, destPath string, dedu
 
 	startTime := time.Now()
 	var totalBytes int64
+	checksum := GetChecksumStrategy(cfg.ChecksumAlgorithm)
 	headerLen := 12
 	if verify {
-		headerLen += 32
+		headerLen += checksum.Size()
 	}
 	headerBuf := make([]byte, headerLen)
 
@@ -440,9 +453,10 @@ func processDumpDataCore(cfg *config.Config, in io.Reader, destPath string, dedu
 		offset := binary.BigEndian.Uint64(headerBuf[0:8])
 		chunkSize := binary.BigEndian.Uint32(headerBuf[8:12])
 
-		var transmittedSum [32]byte
+		var transmittedSum []byte
 		if verify {
-			copy(transmittedSum[:], headerBuf[12:44])
+			transmittedSum = make([]byte, checksum.Size())
+			copy(transmittedSum, headerBuf[12:])
 		}
 
 		data := getBlockBuffer(int(chunkSize))
@@ -452,8 +466,8 @@ func processDumpDataCore(cfg *config.Config, in io.Reader, destPath string, dedu
 		}
 
 		if verify {
-			computed := sha256.Sum256(data)
-			if transmittedSum != computed {
+			computed := checksum.Compute(data)
+			if !bytes.Equal(transmittedSum, computed) {
 				return fmt.Errorf("checksum mismatch at offset %d", offset)
 			}
 		}

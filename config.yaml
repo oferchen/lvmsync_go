@@ -30,6 +30,7 @@ compress_level: 3                      # Compression level for zstd (ignored for
 compress_concurrency: 0               # Number of goroutines for compression (0 to use all cores)
 speed: "100MB"                         # Speed limit (e.g. "100MB")
 verify_checksum: false                 # Enable checksum verification for data integrity
+checksum_algorithm: sha256             # Checksum algorithm (options: sha256, blake3, blake3-512)
 verbose: 0                             # Verbosity level (0 = silent, higher numbers = more verbose)
 
 # LVM Options:
