@@ -19,7 +19,7 @@ LVMSync is a high-performance incremental data replication tool for LVM snapshot
   - Automatic snapshot creation and removal.
   - Configurable snapshot size (absolute or percentage-based).
   - Configurable volume group for constructing the snapshot device path.
-  - Configurable privilege escalation (defaulting to `sudo -n`).
+  - Automatic privilege escalation (defaulting to `sudo -n`).
   - Snapshot health monitoring that fails fast if usage exceeds a threshold.
 - **Graceful Shutdown**: Signal handling ensures snapshots are cleaned up on interruption.
 - **Configuration Validation**: Checks key parameters (e.g., volume group existence, escalation command) before starting operations.
@@ -131,7 +131,7 @@ The tool supports both local and remote transfers, as well as an "apply mode" fo
 | `--target_volume_group` | Volume group name of the target LVM volume | `""` |
 | `--source_vgs` | Candidate source volume groups for auto-selection | `[]` |
 | `--target_vgs` | Candidate target volume groups for auto-selection | `[]` |
-| `--lvm_escalation` | Command used to escalate privileges for LVM commands (e.g., `"sudo -n"`) | `"sudo -n"` |
+| `--lvm_escalation` | Command used to re-execute the program with elevated privileges when not running as root (e.g., `"sudo -n"`) | `"sudo -n"` |
 
 ### Examples
 
@@ -192,7 +192,7 @@ lvmsync --skip_disk_check=false --snapshot_size "25%" --volume_group "vg_data" -
 In this example, LVMSync will:
 - Validate that the volume group `vg_data` exists.
 - Create a snapshot of `/dev/vg_data/original` sized at 25% of the original volume.
-- Use the escalation command `sudo -n` if not running as root.
+        - Automatically re-exec with `sudo -n` if not running as root.
 - Monitor snapshot usage (failing fast if usage exceeds 80%).
 - Perform the block-level transfer.
 - Remove the snapshot upon completion.
@@ -250,7 +250,7 @@ volume_group: "vg0"                     # Source volume group. Auto-selected by 
 target_volume_group: ""                 # Volume group name of the target LVM volume
 source_vgs: []                          # Candidate source VGs for auto-selection
 target_vgs: []                          # Candidate target VGs for auto-selection
-lvm_escalation: "sudo -n"               # Command used to escalate privileges for LVM commands
+lvm_escalation: "sudo -n"               # Command used to re-execute the program with elevated privileges when needed
 ```
 
 LVMSync installs signal handlers for SIGINT and SIGTERM. If an interruption occurs, the tool will attempt to remove any created snapshot before exiting, ensuring no orphaned snapshots remain.

@@ -112,9 +112,8 @@ func TestConfigValidate(t *testing.T) {
 		fb := &fakeBackend{free: 100}
 		restore := lvm.SetBackend(fb)
 		defer restore()
-		prev := lvm.GetEscalationCommand()
-		lvm.SetEscalationCommand("sudo")
-		defer lvm.SetEscalationCommand(prev)
+		restorePriv := lvm.SetPrivilegeChecker(func() error { return nil })
+		defer restorePriv()
 		cfg := &Config{VolumeGroup: "vg0", LVMEscalation: "sudo"}
 		if err := cfg.Validate(); err != nil {
 			t.Fatalf("expected no error, got %v", err)
@@ -125,9 +124,8 @@ func TestConfigValidate(t *testing.T) {
 		fb := &fakeBackend{err: fmt.Errorf("command error")}
 		restore := lvm.SetBackend(fb)
 		defer restore()
-		prev := lvm.GetEscalationCommand()
-		lvm.SetEscalationCommand("sudo")
-		defer lvm.SetEscalationCommand(prev)
+		restorePriv := lvm.SetPrivilegeChecker(func() error { return nil })
+		defer restorePriv()
 		cfg := &Config{VolumeGroup: "vg0", LVMEscalation: "sudo"}
 		if err := cfg.Validate(); err == nil {
 			t.Fatalf("expected error")

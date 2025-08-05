@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"lvmsync_go/config"
+	"lvmsync_go/internal/privesc"
 	"lvmsync_go/lvm"
 	"lvmsync_go/remote"
 	"lvmsync_go/transfer"
@@ -189,12 +190,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := privesc.EnsureRoot(cfg.LVMEscalation); err != nil {
+		fmt.Fprintf(os.Stderr, "Privilege escalation error: %v\n", err)
+		os.Exit(1)
+	}
+
 	if err := cfg.Validate(); err != nil {
 		fmt.Fprintf(os.Stderr, "Configuration validation error: %v\n", err)
 		os.Exit(1)
 	}
-
-	lvm.SetEscalationCommand(cfg.LVMEscalation)
 
 	logger, err := zap.NewProduction()
 	if err != nil {

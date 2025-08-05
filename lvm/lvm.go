@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 	"unsafe"
 
@@ -21,34 +20,29 @@ const (
 	BLKGETSIZE64 = 0x80081272
 )
 
-var (
-	escalationCommand     string
-	escalationCommandLock sync.RWMutex
-)
-
 var statfsFunc = unix.Statfs
 
 var checkPrivs = checkRootPrivileges
 
 var ioctlGetUint64Func = ioctlGetUint64
 
-func SetEscalationCommand(cmd string) {
-	escalationCommandLock.Lock()
-	defer escalationCommandLock.Unlock()
-	escalationCommand = cmd
-}
-
-func GetEscalationCommand() string {
-	escalationCommandLock.RLock()
-	defer escalationCommandLock.RUnlock()
-	return escalationCommand
-}
-
 func checkRootPrivileges() error {
-	if os.Geteuid() != 0 && GetEscalationCommand() == "" {
+	if os.Geteuid() != 0 {
 		return fmt.Errorf("insufficient privileges: LVM operations require root privileges")
 	}
 	return nil
+}
+
+// SetPrivilegeChecker overrides the default privilege check function. It
+// returns a restore function to reset the original behavior.
+func SetPrivilegeChecker(fn func() error) func() {
+	orig := checkPrivs
+	if fn == nil {
+		checkPrivs = checkRootPrivileges
+	} else {
+		checkPrivs = fn
+	}
+	return func() { checkPrivs = orig }
 }
 
 // backend is used to execute LVM operations. It can be overridden for tests.
