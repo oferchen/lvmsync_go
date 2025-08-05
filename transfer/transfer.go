@@ -131,6 +131,7 @@ func dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer,
 	var totalBytesTransferred int64
 	skippedBlocks := 0
 
+	var header [12]byte
 	for _, r := range ranges {
 		data, err := ReadBlockWithRetries(cfg, srcFile, r.Start, cfg.ZeroCopy, pipeFds)
 		if err != nil {
@@ -145,10 +146,9 @@ func dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer,
 			dedup.RecordTransfer(r.Start, data)
 		}
 
-		header := make([]byte, 12)
 		binary.BigEndian.PutUint64(header[0:8], uint64(r.Start))
 		binary.BigEndian.PutUint32(header[8:12], uint32(cfg.BlockSize))
-		if _, err := bufOut.Write(header); err != nil {
+		if _, err := bufOut.Write(header[:]); err != nil {
 			return fmt.Errorf("failed to write header: %w", err)
 		}
 		if _, err := bufOut.Write(data); err != nil {
@@ -302,20 +302,22 @@ func DumpChangesParallel(cfg *config.Config, snapshot, source string, out io.Wri
 	startTime := time.Now()
 	var totalBytesTransferred int64
 
+	var header [12 + sha256.Size]byte
 	for res := range results {
 		if res.Err != nil {
 			return fmt.Errorf("error in block %d: %w", res.Index, res.Err)
 		}
 
-		header := make([]byte, 12)
 		binary.BigEndian.PutUint64(header[0:8], res.Offset)
 		binary.BigEndian.PutUint32(header[8:12], res.Size)
+		n := 12
 		if cfg.VerifyChecksum {
 			sum := sha256.Sum256(res.Data)
-			header = append(header, sum[:]...)
+			copy(header[12:], sum[:])
+			n += sha256.Size
 		}
 
-		if _, err := bufOut.Write(header); err != nil {
+		if _, err := bufOut.Write(header[:n]); err != nil {
 			return fmt.Errorf("failed to write header: %w", err)
 		}
 		if _, err := bufOut.Write(res.Data); err != nil {

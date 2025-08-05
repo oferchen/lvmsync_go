@@ -18,7 +18,7 @@ import (
 )
 
 // helper to create source and metadata files with deterministic ranges
-func createDumpTestFiles(t *testing.T, blockSize int64, changedBlocks []int) (src, snapshot string) {
+func createDumpTestFiles(t testing.TB, blockSize int64, changedBlocks []int) (src, snapshot string) {
 	t.Helper()
 	dir := t.TempDir()
 
