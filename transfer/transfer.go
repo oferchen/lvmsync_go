@@ -104,12 +104,21 @@ func dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer,
 	}
 	Logger.Info("Changed blocks determined", zap.Int("blockCount", len(ranges)))
 
-	tokens := []string{common.ProtocolVersion}
-	if handshake != "" {
-		tokens = append(tokens, handshake)
+	// Compose protocol handshake using the shared helper to ensure
+	// consistent formatting between sender and receiver. This mirrors the
+	// textual negotiation style employed by rsync while remaining easy to
+	// extend with additional capability tokens.
+	hs := common.Handshake{Compress: cfg.Compress}
+	switch handshake {
+	case "checksum":
+		hs.Checksum = true
+	case "checksum-dedup":
+		hs.Checksum = true
+		hs.ChecksumDedup = true
 	}
-	tokens = append(tokens, "compress:"+cfg.Compress)
-	fmt.Fprintln(out, strings.Join(tokens, " "))
+	if err := common.WriteHandshake(out, hs); err != nil {
+		return err
+	}
 
 	compWriter, bufOut, err := prepareOutputWriter(out, cfg)
 	if err != nil {
@@ -381,40 +390,19 @@ func finalizeResults(wg *sync.WaitGroup, results chan<- *BlockResult) {
 
 func processDumpDataCore(cfg *config.Config, in io.Reader, destPath string, dedup DeduplicationStrategy, verify bool) error {
 	bufReader := bufio.NewReader(in)
-	handshake, err := bufReader.ReadString('\n')
+	hs, err := common.ReadHandshake(bufReader)
 	if err != nil {
 		return fmt.Errorf("failed to read protocol handshake: %w", err)
 	}
-	handshake = strings.TrimSpace(handshake)
-	if !strings.HasPrefix(handshake, common.ProtocolVersion) {
-		return fmt.Errorf("unexpected protocol handshake: %s", handshake)
+
+	if verify && !hs.Checksum {
+		return fmt.Errorf("unexpected protocol handshake: %s", hs.String())
 	}
-	rest := strings.TrimSpace(strings.TrimPrefix(handshake, common.ProtocolVersion))
-	tokens := strings.Fields(rest)
-	compress := "none"
-	hasChecksum := false
-	hasDedup := false
-	for _, t := range tokens {
-		if strings.HasPrefix(t, "compress:") {
-			compress = strings.TrimPrefix(t, "compress:")
-		} else if t == "checksum" {
-			hasChecksum = true
-		} else if t == "checksum-dedup" {
-			hasChecksum = true
-			hasDedup = true
-		} else {
-			return fmt.Errorf("unexpected protocol handshake: %s", handshake)
-		}
+	if dedup != nil && !hs.ChecksumDedup {
+		return fmt.Errorf("unexpected protocol handshake: %s", hs.String())
 	}
 
-	if verify && !hasChecksum {
-		return fmt.Errorf("unexpected protocol handshake: %s", handshake)
-	}
-	if dedup != nil && !hasDedup {
-		return fmt.Errorf("unexpected protocol handshake: %s", handshake)
-	}
-
-	decReader, err := NewDecompressionReader(bufReader, compress, cfg.CompressConcurrency)
+	decReader, err := NewDecompressionReader(bufReader, hs.Compress, cfg.CompressConcurrency)
 	if err != nil {
 		return fmt.Errorf("failed to create decompression reader: %w", err)
 	}
