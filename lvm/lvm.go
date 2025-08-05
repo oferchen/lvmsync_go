@@ -1,18 +1,7 @@
 // lvm/lvm.go
 package lvm
 
-/*
-#cgo LDFLAGS: -llvm2cmd
-#include <stdlib.h>
-#include <lvm2cmd.h>
-
-extern void goLvmLog(int level, char *file, int line, int dm_errno, char *msg);
-static inline void setLvmLog() { lvm2_log_fn((lvm2_log_fn_t)goLvmLog); }
-*/
-import "C"
-
 import (
-	"bytes"
 	"container/list"
 	"fmt"
 	"os"
@@ -124,65 +113,18 @@ func (c *fdCache) Close() {
 	c.order.Init()
 }
 
-var (
-	lvmHandle     = C.lvm2_init()
-	cmdMutex      sync.Mutex
-	logBuffer     *bytes.Buffer
-	runLVMCommand = realRunLVMCommand
-)
+// backend is used to execute LVM operations. It can be overridden for tests.
+var backend lvmBackend = newLVMBackend()
 
-// SetRunLVMCommand overrides the function used to execute LVM commands.
-// It returns a restore function to reset the original behavior.
-func SetRunLVMCommand(f func(string, ...string) ([]byte, error)) func() {
-	orig := runLVMCommand
-	if f == nil {
-		runLVMCommand = realRunLVMCommand
+// SetBackend overrides the LVM backend. It returns a restore function to reset the original behavior.
+func SetBackend(b lvmBackend) func() {
+	orig := backend
+	if b == nil {
+		backend = newLVMBackend()
 	} else {
-		runLVMCommand = f
+		backend = b
 	}
-	return func() { runLVMCommand = orig }
-}
-
-func init() {
-	C.setLvmLog()
-	C.lvm2_log_level(lvmHandle, C.LVM2_LOG_DEBUG)
-}
-
-//export goLvmLog
-func goLvmLog(level C.int, file *C.char, line C.int, dm_errno C.int, msg *C.char) {
-	cmdMutex.Lock()
-	if logBuffer != nil {
-		logBuffer.WriteString(C.GoString(msg))
-		logBuffer.WriteByte('\n')
-	}
-	cmdMutex.Unlock()
-}
-
-func realRunLVMCommand(name string, args ...string) ([]byte, error) {
-	cmdMutex.Lock()
-	defer cmdMutex.Unlock()
-
-	logBuffer = &bytes.Buffer{}
-	var b strings.Builder
-	b.WriteString(name)
-	for _, a := range args {
-		b.WriteByte(' ')
-		if strings.ContainsAny(a, " \t\n\"") {
-			b.WriteString(strconv.Quote(a))
-		} else {
-			b.WriteString(a)
-		}
-	}
-	ccmd := C.CString(b.String())
-	defer C.free(unsafe.Pointer(ccmd))
-
-	ret := C.lvm2_run(lvmHandle, ccmd)
-	out := logBuffer.Bytes()
-	logBuffer = nil
-	if ret != C.LVM2_COMMAND_SUCCEEDED {
-		return out, fmt.Errorf("lvm command failed: %s", strings.TrimSpace(string(out)))
-	}
-	return out, nil
+	return func() { backend = orig }
 }
 
 func CreateSnapshot(lvPath, snapshotName, size string) error {
@@ -194,8 +136,7 @@ func CreateSnapshot(lvPath, snapshotName, size string) error {
 		return fmt.Errorf("invalid parameters: lvPath, snapshotName, and size must be non-empty")
 	}
 
-	output, err := runLVMCommand("lvcreate", "-s", "-n", snapshotName, "-L", size, lvPath)
-	if err != nil {
+	if err := backend.CreateSnapshot(lvPath, snapshotName, size); err != nil {
 		return fmt.Errorf("failed to create snapshot [%s] for LV %s with size %s: %w",
 			snapshotName, lvPath, size, err)
 	}
@@ -203,8 +144,7 @@ func CreateSnapshot(lvPath, snapshotName, size string) error {
 	zap.L().Info("Snapshot created successfully",
 		zap.String("lv_path", lvPath),
 		zap.String("snapshot_name", snapshotName),
-		zap.String("size", size),
-		zap.String("output", string(output)))
+		zap.String("size", size))
 
 	return nil
 }
@@ -218,14 +158,12 @@ func RemoveSnapshot(snapshotPath string) error {
 		return fmt.Errorf("invalid parameter: snapshotPath must be non-empty")
 	}
 
-	output, err := runLVMCommand("lvremove", "-f", snapshotPath)
-	if err != nil {
+	if err := backend.RemoveSnapshot(snapshotPath); err != nil {
 		return fmt.Errorf("failed to remove snapshot [%s]: %w", snapshotPath, err)
 	}
 
 	zap.L().Info("Snapshot removed successfully",
-		zap.String("snapshot_path", snapshotPath),
-		zap.String("output", string(output)))
+		zap.String("snapshot_path", snapshotPath))
 
 	return nil
 }
@@ -239,16 +177,9 @@ func GetSnapshotUsage(snapshotPath string) (float64, error) {
 		return 0, fmt.Errorf("invalid parameter: snapshotPath must be non-empty")
 	}
 
-	output, err := runLVMCommand("lvs", "--noheadings", "--units", "b",
-		"--options", "data_percent", snapshotPath)
+	usage, err := backend.GetSnapshotUsage(snapshotPath)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get snapshot usage for %s: %w", snapshotPath, err)
-	}
-
-	usageStr := strings.TrimSpace(string(output))
-	usage, err := strconv.ParseFloat(usageStr, 64)
-	if err != nil {
-		return 0, fmt.Errorf("failed to parse snapshot usage %q: %w", usageStr, err)
 	}
 
 	zap.L().Info("Snapshot usage retrieved",
@@ -412,21 +343,10 @@ func GetVolumeGroupFreeSpace(vgName string) (uint64, error) {
 		return 0, err
 	}
 
-	output, err := runLVMCommand("vgs", "--noheadings", "--units", "b",
-		"--options", "vg_free", vgName)
+	size, err := backend.GetVolumeGroupFreeSpace(vgName)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get free space for VG %s: %w", vgName, err)
 	}
-
-	sizeStr := strings.TrimSpace(string(output))
-	sizeStr = strings.TrimSuffix(sizeStr, "B")
-	sizeStr = strings.TrimSpace(sizeStr)
-
-	size, err := strconv.ParseUint(sizeStr, 10, 64)
-	if err != nil {
-		return 0, fmt.Errorf("failed to parse VG free space %q: %w", sizeStr, err)
-	}
-
 	return size, nil
 }
 
@@ -442,29 +362,9 @@ func ListVolumeGroups() ([]VolumeGroup, error) {
 		return nil, err
 	}
 
-	output, err := runLVMCommand("vgs", "--noheadings", "--units", "b",
-		"--options", "vg_name,vg_free", "--separator", ":")
+	vgs, err := backend.ListVolumeGroups()
 	if err != nil {
 		return nil, fmt.Errorf("failed to list volume groups: %w", err)
-	}
-
-	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
-	vgs := make([]VolumeGroup, 0, len(lines))
-	for _, line := range lines {
-		if strings.TrimSpace(line) == "" {
-			continue
-		}
-		parts := strings.Split(line, ":")
-		if len(parts) != 2 {
-			continue
-		}
-		name := strings.TrimSpace(parts[0])
-		freeStr := strings.TrimSuffix(strings.TrimSpace(parts[1]), "B")
-		free, err := strconv.ParseUint(freeStr, 10, 64)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse VG free space %q: %w", freeStr, err)
-		}
-		vgs = append(vgs, VolumeGroup{Name: name, Free: free})
 	}
 	return vgs, nil
 }

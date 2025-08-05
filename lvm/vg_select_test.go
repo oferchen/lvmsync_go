@@ -5,16 +5,29 @@ import (
 	"testing"
 )
 
+type vgBackend struct {
+	vgs []VolumeGroup
+}
+
+func (f *vgBackend) CreateSnapshot(string, string, string) error { return nil }
+func (f *vgBackend) RemoveSnapshot(string) error                 { return nil }
+func (f *vgBackend) GetSnapshotUsage(string) (float64, error)    { return 0, nil }
+func (f *vgBackend) GetVolumeGroupFreeSpace(name string) (uint64, error) {
+	for _, vg := range f.vgs {
+		if vg.Name == name {
+			return vg.Free, nil
+		}
+	}
+	return 0, fmt.Errorf("unknown vg")
+}
+func (f *vgBackend) ListVolumeGroups() ([]VolumeGroup, error) { return f.vgs, nil }
+
 func TestSelectVolumeGroupByFreeSpace(t *testing.T) {
 	orig := checkPrivs
 	checkPrivs = func() error { return nil }
 	t.Cleanup(func() { checkPrivs = orig })
-	restore := SetRunLVMCommand(func(name string, args ...string) ([]byte, error) {
-		if name != "vgs" {
-			return nil, fmt.Errorf("unexpected command %s", name)
-		}
-		return []byte("vg0:100B\nvg1:200B\n"), nil
-	})
+	fb := &vgBackend{vgs: []VolumeGroup{{Name: "vg0", Free: 100}, {Name: "vg1", Free: 200}}}
+	restore := SetBackend(fb)
 	defer restore()
 
 	vg, free, err := SelectVolumeGroupByFreeSpace(nil)

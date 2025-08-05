@@ -6,6 +6,16 @@ import (
 	"time"
 )
 
+type usageBackend struct {
+	usage float64
+}
+
+func (f *usageBackend) CreateSnapshot(string, string, string) error    { return nil }
+func (f *usageBackend) RemoveSnapshot(string) error                    { return nil }
+func (f *usageBackend) GetSnapshotUsage(string) (float64, error)       { return f.usage, nil }
+func (f *usageBackend) GetVolumeGroupFreeSpace(string) (uint64, error) { return 0, nil }
+func (f *usageBackend) ListVolumeGroups() ([]VolumeGroup, error)       { return nil, nil }
+
 func init() {
 	SetEscalationCommand("")
 }
@@ -15,11 +25,9 @@ func TestGetSnapshotUsage(t *testing.T) {
 	checkPrivs = func() error { return nil }
 	t.Cleanup(func() { checkPrivs = orig })
 
-	origRun := runLVMCommand
-	runLVMCommand = func(name string, args ...string) ([]byte, error) {
-		return []byte("75.5\n"), nil
-	}
-	t.Cleanup(func() { runLVMCommand = origRun })
+	fb := &usageBackend{usage: 75.5}
+	restore := SetBackend(fb)
+	t.Cleanup(restore)
 
 	usage, err := GetSnapshotUsage("/dev/vg0/snap")
 	if err != nil {
@@ -35,11 +43,9 @@ func TestMonitorSnapshot(t *testing.T) {
 	checkPrivs = func() error { return nil }
 	t.Cleanup(func() { checkPrivs = orig })
 
-	origRun := runLVMCommand
-	runLVMCommand = func(name string, args ...string) ([]byte, error) {
-		return []byte("90\n"), nil
-	}
-	t.Cleanup(func() { runLVMCommand = origRun })
+	fb := &usageBackend{usage: 90}
+	restore := SetBackend(fb)
+	t.Cleanup(restore)
 
 	err := MonitorSnapshot("/dev/vg0/snap", 80, 10*time.Millisecond, make(chan struct{}))
 	if err == nil {
