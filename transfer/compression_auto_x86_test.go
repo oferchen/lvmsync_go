@@ -63,7 +63,7 @@ func TestNewCompressionWriterAutoX86(t *testing.T) {
 		}
 		switch algo {
 		case compressionLZ4:
-			if _, ok := w.(*lz4.Writer); !ok {
+			if _, ok := w.(*pooledLz4Writer); !ok {
 				t.Fatalf("expected lz4 writer when benchmark prefers lz4")
 			}
 		case compressionZSTD:
