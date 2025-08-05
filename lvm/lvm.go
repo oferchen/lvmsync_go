@@ -371,10 +371,10 @@ func ListVolumeGroups() ([]VolumeGroup, error) {
 
 // SelectVolumeGroupByFreeSpace chooses the volume group with the most free space.
 // If candidates is non-empty, only those volume groups are considered.
-func SelectVolumeGroupByFreeSpace(candidates []string) (string, uint64, error) {
+func SelectVolumeGroupByFreeSpace(candidates []string) (VolumeGroup, error) {
 	vgs, err := ListVolumeGroups()
 	if err != nil {
-		return "", 0, err
+		return VolumeGroup{}, err
 	}
 
 	candidateSet := make(map[string]struct{}, len(candidates))
@@ -382,24 +382,26 @@ func SelectVolumeGroupByFreeSpace(candidates []string) (string, uint64, error) {
 		candidateSet[c] = struct{}{}
 	}
 
-	var chosen VolumeGroup
+	var chosen *VolumeGroup
 	for _, vg := range vgs {
 		if len(candidateSet) > 0 {
 			if _, ok := candidateSet[vg.Name]; !ok {
 				continue
 			}
 		}
-		if vg.Free > chosen.Free {
-			chosen = vg
+		if chosen == nil || vg.Free > chosen.Free {
+			// create copy to avoid referencing loop variable
+			v := vg
+			chosen = &v
 		}
 	}
-	if chosen.Name == "" {
+	if chosen == nil {
 		if len(candidateSet) > 0 {
-			return "", 0, fmt.Errorf("no matching volume group found")
+			return VolumeGroup{}, fmt.Errorf("no matching volume group found")
 		}
-		return "", 0, fmt.Errorf("no volume groups found")
+		return VolumeGroup{}, fmt.Errorf("no volume groups found")
 	}
-	return chosen.Name, chosen.Free, nil
+	return *chosen, nil
 }
 
 func Cleanup() {

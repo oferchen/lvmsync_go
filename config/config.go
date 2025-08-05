@@ -294,18 +294,18 @@ func LoadConfig() (*Config, error) {
 	}
 
 	if conf.VolumeGroup == "" {
-		vg, _, err := lvm.SelectVolumeGroupByFreeSpace(conf.SourceVGCandidates)
+		vg, err := lvm.SelectVolumeGroupByFreeSpace(conf.SourceVGCandidates)
 		if err != nil {
 			return nil, fmt.Errorf("failed to select source volume group: %w", err)
 		}
-		conf.VolumeGroup = vg
+		conf.VolumeGroup = vg.Name
 	}
 	if conf.TargetVolumeGroup == "" && len(conf.TargetVGCandidates) > 0 {
-		vg, _, err := lvm.SelectVolumeGroupByFreeSpace(conf.TargetVGCandidates)
+		vg, err := lvm.SelectVolumeGroupByFreeSpace(conf.TargetVGCandidates)
 		if err != nil {
 			return nil, fmt.Errorf("failed to select target volume group: %w", err)
 		}
-		conf.TargetVolumeGroup = vg
+		conf.TargetVolumeGroup = vg.Name
 	}
 
 	return conf, nil

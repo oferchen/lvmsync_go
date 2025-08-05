@@ -2,10 +2,10 @@
 
 package lvm
 
-func SelectVolumeGroupByFreeSpace(_ []string) (string, int, error) {
-	return "", 0, nil
+func SelectVolumeGroupByFreeSpace(_ []string) (VolumeGroup, error) {
+	return VolumeGroup{}, nil
 }
 
-func GetVolumeGroupFreeSpace(_ string) (int, error) {
+func GetVolumeGroupFreeSpace(_ string) (uint64, error) {
 	return 0, nil
 }
