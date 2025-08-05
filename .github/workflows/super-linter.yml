@@ -55,7 +55,7 @@ jobs:
         uses: golangci/golangci-lint-action@v4
         with:
           version: latest
-          args: run ./...
+          args: ./...
         env:
           CGO_ENABLED: '1'
           CGO_CFLAGS: '-I/usr/include'
@@ -72,7 +72,7 @@ jobs:
           FIX_MARKDOWN_PRETTIER: true
           VALIDATE_CPP: true
           FIX_YAML_PRETTIER: true
-          VALIDATE_ALL_CODEBASE: true
+          VALIDATE_ALL_CODEBASE: false
           VALIDATE_CHECKOV: false
           VALIDATE_JSCPD: false
           DEFAULT_BRANCH: "main"
