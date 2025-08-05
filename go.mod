@@ -4,6 +4,7 @@ go 1.24.5
 
 require (
 	github.com/bits-and-blooms/bloom/v3 v3.7.0
+	github.com/dpeckett/lvm2 v0.3.1
 	github.com/dustin/go-humanize v1.0.1
 	github.com/klauspost/compress v1.18.0
 	github.com/klauspost/cpuid/v2 v2.2.7
@@ -18,6 +19,8 @@ require (
 
 require (
 	github.com/bits-and-blooms/bitset v1.10.0 // indirect
+	github.com/dpeckett/args v0.3.0 // indirect
+	github.com/fatih/structs v1.1.0 // indirect
 	github.com/fsnotify/fsnotify v1.8.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.2.1 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.3 // indirect

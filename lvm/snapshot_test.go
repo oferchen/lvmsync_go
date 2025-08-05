@@ -3,9 +3,24 @@ package lvm
 import (
 	"errors"
 	"fmt"
-	"strings"
 	"testing"
 )
+
+type mockBackend struct{ calls []string }
+
+func (f *mockBackend) CreateSnapshot(lvPath, snapName, size string) error {
+	f.calls = append(f.calls, fmt.Sprintf("create:%s:%s:%s", lvPath, snapName, size))
+	return nil
+}
+
+func (f *mockBackend) RemoveSnapshot(path string) error {
+	f.calls = append(f.calls, fmt.Sprintf("remove:%s", path))
+	return nil
+}
+
+func (f *mockBackend) GetSnapshotUsage(string) (float64, error)       { return 0, nil }
+func (f *mockBackend) GetVolumeGroupFreeSpace(string) (uint64, error) { return 0, nil }
+func (f *mockBackend) ListVolumeGroups() ([]VolumeGroup, error)       { return nil, nil }
 
 func init() {
 	SetEscalationCommand("")
@@ -16,13 +31,9 @@ func TestCreateAndRemoveSnapshot(t *testing.T) {
 	checkPrivs = func() error { return nil }
 	t.Cleanup(func() { checkPrivs = orig })
 
-	var cmds []string
-	origRun := runLVMCommand
-	runLVMCommand = func(name string, args ...string) ([]byte, error) {
-		cmds = append(cmds, strings.Join(append([]string{name}, args...), " "))
-		return []byte(""), nil
-	}
-	t.Cleanup(func() { runLVMCommand = origRun })
+	fb := &mockBackend{}
+	restore := SetBackend(fb)
+	t.Cleanup(restore)
 
 	lvPath := "/dev/vg0/origin"
 	snapName := "snap"
@@ -36,14 +47,14 @@ func TestCreateAndRemoveSnapshot(t *testing.T) {
 		t.Fatalf("RemoveSnapshot failed: %v", err)
 	}
 
-	if len(cmds) != 2 {
-		t.Fatalf("expected 2 commands, got %d", len(cmds))
+	if len(fb.calls) != 2 {
+		t.Fatalf("expected 2 calls, got %d", len(fb.calls))
 	}
-	if cmds[0] != fmt.Sprintf("lvcreate -s -n %s -L %s %s", snapName, size, lvPath) {
-		t.Fatalf("lvcreate args = %q", cmds[0])
+	if fb.calls[0] != fmt.Sprintf("create:%s:%s:%s", lvPath, snapName, size) {
+		t.Fatalf("unexpected create call %q", fb.calls[0])
 	}
-	if cmds[1] != fmt.Sprintf("lvremove -f %s", snapPath) {
-		t.Fatalf("lvremove args = %q", cmds[1])
+	if fb.calls[1] != fmt.Sprintf("remove:%s", snapPath) {
+		t.Fatalf("unexpected remove call %q", fb.calls[1])
 	}
 }
 

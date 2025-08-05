@@ -11,6 +11,17 @@ import (
 	"lvmsync_go/lvm"
 )
 
+type fakeBackend struct {
+	free uint64
+	err  error
+}
+
+func (f *fakeBackend) CreateSnapshot(string, string, string) error    { return nil }
+func (f *fakeBackend) RemoveSnapshot(string) error                    { return nil }
+func (f *fakeBackend) GetSnapshotUsage(string) (float64, error)       { return 0, nil }
+func (f *fakeBackend) GetVolumeGroupFreeSpace(string) (uint64, error) { return f.free, f.err }
+func (f *fakeBackend) ListVolumeGroups() ([]lvm.VolumeGroup, error)   { return nil, nil }
+
 func TestDefaultConfigCompress(t *testing.T) {
 	cfg := DefaultConfig()
 	if cfg.Compress != "auto" {
@@ -78,9 +89,8 @@ func TestParseBytesOrFallback(t *testing.T) {
 
 func TestConfigValidate(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
-		restore := lvm.SetRunLVMCommand(func(name string, args ...string) ([]byte, error) {
-			return []byte("100B\n"), nil
-		})
+		fb := &fakeBackend{free: 100}
+		restore := lvm.SetBackend(fb)
 		defer restore()
 		prev := lvm.GetEscalationCommand()
 		lvm.SetEscalationCommand("sudo")
@@ -92,9 +102,8 @@ func TestConfigValidate(t *testing.T) {
 	})
 
 	t.Run("failure", func(t *testing.T) {
-		restore := lvm.SetRunLVMCommand(func(name string, args ...string) ([]byte, error) {
-			return nil, fmt.Errorf("command error")
-		})
+		fb := &fakeBackend{err: fmt.Errorf("command error")}
+		restore := lvm.SetBackend(fb)
 		defer restore()
 		prev := lvm.GetEscalationCommand()
 		lvm.SetEscalationCommand("sudo")
