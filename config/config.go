@@ -2,15 +2,19 @@
 package config
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/dustin/go-humanize"
+	zstd "github.com/klauspost/compress/zstd"
 	"github.com/klauspost/cpuid/v2"
 	"github.com/pierrec/lz4/v4"
 	"github.com/spf13/pflag"
@@ -124,10 +128,40 @@ func (cb *ConfigBuilder) Build() (*Config, error) {
 }
 
 func detectOptimalCompression() string {
-	if cpuid.CPU.Has(cpuid.AVX512F) || cpuid.CPU.Has(cpuid.AVX2) || cpuid.CPU.Has(cpuid.BMI2) {
-		return "zstd"
+	detectOnce.Do(func() {
+		if cpuid.CPU.Has(cpuid.AVX512F) || cpuid.CPU.Has(cpuid.AVX2) || cpuid.CPU.Has(cpuid.BMI2) || cpuid.CPU.Has(cpuid.SSE42) || cpuid.CPU.Has(cpuid.ASIMD) || cpuid.CPU.Has(cpuid.SVE) {
+			detected = "zstd"
+		} else {
+			detected = benchmarkCompression()
+		}
+	})
+	return detected
+}
+
+var (
+	detectOnce sync.Once
+	detected   string
+)
+
+func benchmarkCompression() string {
+	sample := bytes.Repeat([]byte("a"), 1<<16)
+
+	lz4Start := time.Now()
+	lw := lz4.NewWriter(io.Discard)
+	_, _ = lw.Write(sample)
+	_ = lw.Close()
+	lz4Dur := time.Since(lz4Start)
+
+	zw, err := zstd.NewWriter(io.Discard)
+	if err != nil {
+		return "lz4"
 	}
-	if cpuid.CPU.Has(cpuid.ASIMD) {
+	zstdStart := time.Now()
+	_, _ = zw.Write(sample)
+	_ = zw.Close()
+	zstdDur := time.Since(zstdStart)
+
+	if zstdDur < lz4Dur {
 		return "zstd"
 	}
 	return "lz4"
