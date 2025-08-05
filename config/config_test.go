@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/pierrec/lz4/v4"
@@ -131,6 +133,32 @@ func TestConfigValidate(t *testing.T) {
 			t.Fatalf("expected error")
 		}
 	})
+}
+
+func TestValidateEscalationCommandPath(t *testing.T) {
+	oldEuid := getEuid
+	getEuid = func() int { return 1000 }
+	defer func() { getEuid = oldEuid }()
+
+	oldPath := os.Getenv("PATH")
+	defer os.Setenv("PATH", oldPath)
+
+	dir := t.TempDir()
+	exe := filepath.Join(dir, "sudo")
+	if err := os.WriteFile(exe, []byte("#!/bin/sh\n"), 0755); err != nil {
+		t.Fatalf("failed to create dummy executable: %v", err)
+	}
+	os.Setenv("PATH", dir)
+
+	cfg := &Config{LVMEscalation: "sudo"}
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	os.Setenv("PATH", "")
+	if err := cfg.Validate(); err == nil {
+		t.Fatalf("expected error when command missing")
+	}
 }
 
 func TestGetBlockSizeRaw(t *testing.T) {
