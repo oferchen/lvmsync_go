@@ -15,7 +15,6 @@ import (
 func TestRunClientModeLogsSaveStateError(t *testing.T) {
 	cfg = config.DefaultConfig()
 	cfg.StdoutMode = true
-	cfg.Deduplication = true
 	cfg.DedupStrategy = "checksum"
 	cfg.DedupStateFile = filepath.Join(t.TempDir(), "missing", "state")
 	cfg.BlockSize = 1024

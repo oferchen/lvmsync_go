@@ -8,8 +8,7 @@ max_retries: 3                         # Maximum number of retries per block
 resume: ""                             # Path to resume state file
 
 # Deduplication Options
-deduplication: false                    # Enable deduplication to avoid re-transferring unchanged blocks
-dedup_strategy: "checksum"               # Strategy: "checksum", "rolling_hash", or "bloom"
+dedup_strategy: "none"                   # Strategy: "none", "auto", "checksum", "rolling_hash", or "bloom" (use "none" to disable)
 dedup_state_file: "~/.lvmsync_dedup"    # Path to deduplication state file
 bloom_entries: 1000000                  # Estimated number of entries for bloom filter
 bloom_fp_rate: 0.01                     # False positive rate for bloom filter

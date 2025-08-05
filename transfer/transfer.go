@@ -202,7 +202,7 @@ func dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer,
 
 func DumpChangesSequential(cfg *config.Config, snapshot, source string, out io.Writer) error {
 	var dedup DeduplicationStrategy
-	if cfg.Deduplication {
+	if cfg.DedupStrategy != "none" {
 		dedup = NewDeduplicationStrategy(cfg)
 		defer func() {
 			if err := dedup.SaveState(); err != nil {
@@ -218,7 +218,7 @@ func DumpChangesWithDeduplication(cfg *config.Config, snapshot, source string, o
 }
 
 func DumpChanges(cfg *config.Config, snapshot, source string, out io.Writer) error {
-	if cfg.Deduplication {
+	if cfg.DedupStrategy != "none" {
 		dedup := NewDeduplicationStrategy(cfg)
 		defer func() {
 			if err := dedup.SaveState(); err != nil {
@@ -480,7 +480,7 @@ func processDumpDataCore(cfg *config.Config, in io.Reader, destPath string, dedu
 			}
 		}
 
-		if dedup != nil && cfg.Deduplication {
+		if dedup != nil && cfg.DedupStrategy != "none" {
 			if !dedup.ShouldTransfer(int64(offset), data) {
 				putBlockBuffer(data)
 				continue
@@ -530,7 +530,7 @@ func RunApply(cfg *config.Config, applyFile, destDevice string) error {
 		in = f
 	}
 
-	if cfg.Deduplication {
+	if cfg.DedupStrategy != "none" {
 		dedup := NewDeduplicationStrategy(cfg)
 		Logger.Info("Applying deduplication during restore", zap.String("strategy", cfg.DedupStrategy))
 		defer func() {

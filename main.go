@@ -60,7 +60,7 @@ func runApplyMode(applyFile string) error {
 }
 
 func executeDump(cfg *config.Config, snapshotDevice, originDevice string, out io.Writer) error {
-	if cfg.Deduplication {
+	if cfg.DedupStrategy != "none" {
 		dedup := transfer.NewDeduplicationStrategy(cfg)
 		defer func() {
 			if err := dedup.SaveState(); err != nil {
@@ -218,7 +218,7 @@ func main() {
 	logger.Info("Effective configuration",
 		zap.String("block_size", cfg.HumanBlockSize()),
 		zap.Int("parallel", cfg.Parallel),
-		zap.Bool("deduplication", cfg.Deduplication),
+		zap.Bool("deduplication", cfg.DedupStrategy != "none"),
 		zap.String("dedup_strategy", cfg.DedupStrategy),
 		zap.String("compress", cfg.Compress),
 		zap.Int("compress_level", cfg.CompressLevel),
