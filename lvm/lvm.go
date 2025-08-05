@@ -376,9 +376,20 @@ func ListVolumeGroups(ctx context.Context) ([]VolumeGroup, error) {
 	return vgs, nil
 }
 
-// SelectVolumeGroupByFreeSpace chooses the volume group with the most free space.
-// If candidates is non-empty, only those volume groups are considered.
-func SelectVolumeGroupByFreeSpace(ctx context.Context, candidates []string) (VolumeGroup, error) {
+// VolumeGroupSelector defines the strategy used to choose a volume group
+// from a list of candidates.
+type VolumeGroupSelector func([]VolumeGroup) (VolumeGroup, error)
+
+// SelectVolumeGroup chooses a volume group from the system using the provided
+// selector strategy. If candidates is non-empty, only those volume groups are
+// considered.
+func SelectVolumeGroup(ctx context.Context, candidates []string, selector VolumeGroupSelector) (VolumeGroup, error) {
+	if selector == nil {
+		return VolumeGroup{}, fmt.Errorf("selector must not be nil")
+	}
+	if err := checkPrivs(); err != nil {
+		return VolumeGroup{}, err
+	}
 	vgs, err := backend.ListVolumeGroups(ctx, candidates)
 	if err != nil {
 		return VolumeGroup{}, err
@@ -389,6 +400,11 @@ func SelectVolumeGroupByFreeSpace(ctx context.Context, candidates []string) (Vol
 		}
 		return VolumeGroup{}, fmt.Errorf("no volume groups found")
 	}
+	return selector(vgs)
+}
+
+// ByFreeSpace selects the volume group with the largest amount of free space.
+func ByFreeSpace(vgs []VolumeGroup) (VolumeGroup, error) {
 	chosen := vgs[0]
 	for _, vg := range vgs[1:] {
 		if vg.Free > chosen.Free {
