@@ -171,7 +171,7 @@ func DefaultConfig() *Config {
 		LVMSyncPath:          "lvmsync",
 		RemotePreScript:      "",
 		RemotePostScript:     "",
-		Compress:             "lz4",
+		Compress:             "auto",
 		CompressLevel:        3,
 		CompressConcurrency:  runtime.GOMAXPROCS(0),
 		Speed:                "100MB",
