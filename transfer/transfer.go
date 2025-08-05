@@ -400,7 +400,7 @@ func processDumpDataCore(cfg *config.Config, in io.Reader, destPath string, dedu
 		return fmt.Errorf("unexpected protocol handshake: %s", handshake)
 	}
 
-	decReader, err := NewDecompressionReader(bufReader, compress)
+	decReader, err := NewDecompressionReader(bufReader, compress, cfg.CompressConcurrency)
 	if err != nil {
 		return fmt.Errorf("failed to create decompression reader: %w", err)
 	}

@@ -32,7 +32,7 @@ func TestCompressionRoundTrip(t *testing.T) {
 			t.Fatalf("close %s: %v", tc.c, err)
 		}
 
-		r, err := NewDecompressionReader(&buf, tc.c)
+		r, err := NewDecompressionReader(&buf, tc.c, 1)
 		if err != nil {
 			t.Fatalf("reader for %s: %v", tc.c, err)
 		}
@@ -67,7 +67,7 @@ func TestLZ4CompressionLevels(t *testing.T) {
 			t.Fatalf("close level %d: %v", lvl, err)
 		}
 
-		r, err := NewDecompressionReader(&buf, compressionLZ4)
+		r, err := NewDecompressionReader(&buf, compressionLZ4, 1)
 		if err != nil {
 			t.Fatalf("reader for level %d: %v", lvl, err)
 		}
