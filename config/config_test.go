@@ -49,6 +49,20 @@ func TestDefaultConfigCompress(t *testing.T) {
 	}
 }
 
+func TestDefaultConfigBlockSize(t *testing.T) {
+	cfg := DefaultConfig()
+	if cfg.BlockSize != 0 || cfg.BlockSizeRaw != "auto" {
+		t.Fatalf("expected default block size auto, got %d (%s)", cfg.BlockSize, cfg.BlockSizeRaw)
+	}
+}
+
+func TestHumanBlockSize(t *testing.T) {
+	c := &Config{BlockSize: 0}
+	if c.HumanBlockSize() != "auto" {
+		t.Fatalf("expected auto, got %s", c.HumanBlockSize())
+	}
+}
+
 func TestParseBytesOrFallback(t *testing.T) {
 	t.Run("valid", func(t *testing.T) {
 		v := viper.New()
@@ -159,21 +173,30 @@ func TestValidateEscalationCommandPath(t *testing.T) {
 	}
 }
 
-func TestGetBlockSizeRaw(t *testing.T) {
-	t.Run("fromConfig", func(t *testing.T) {
+func TestBuildBlockSize(t *testing.T) {
+	t.Run("auto", func(t *testing.T) {
 		v := viper.New()
-		v.Set("block_size", "16KB")
-		cb := &ConfigBuilder{v: v, defaults: &Config{BlockSizeRaw: "4KB"}}
-		if got := cb.getBlockSizeRaw(); got != "16KB" {
-			t.Fatalf("expected 16KB, got %s", got)
+		v.Set("block_size", "auto")
+		cb := &ConfigBuilder{v: v, defaults: DefaultConfig()}
+		cfg, err := cb.Build()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if cfg.BlockSize != 0 || cfg.BlockSizeRaw != "auto" {
+			t.Fatalf("expected auto block size, got %d (%s)", cfg.BlockSize, cfg.BlockSizeRaw)
 		}
 	})
 
-	t.Run("fallback", func(t *testing.T) {
+	t.Run("numeric", func(t *testing.T) {
 		v := viper.New()
-		cb := &ConfigBuilder{v: v, defaults: &Config{BlockSizeRaw: "4KB"}}
-		if got := cb.getBlockSizeRaw(); got != "4KB" {
-			t.Fatalf("expected 4KB, got %s", got)
+		v.Set("block_size", "8KB")
+		cb := &ConfigBuilder{v: v, defaults: DefaultConfig()}
+		cfg, err := cb.Build()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if cfg.BlockSize != 8000 || cfg.BlockSizeRaw != "8KB" {
+			t.Fatalf("expected 8000/8KB, got %d/%s", cfg.BlockSize, cfg.BlockSizeRaw)
 		}
 	})
 }

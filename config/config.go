@@ -80,6 +80,9 @@ type Config struct {
 }
 
 func (c *Config) HumanBlockSize() string {
+	if c.BlockSize == 0 {
+		return "auto"
+	}
 	return sizeparse.FormatBytes(uint64(c.BlockSize))
 }
 
@@ -94,12 +97,12 @@ func (cb *ConfigBuilder) Build() (*Config, error) {
 		return nil, fmt.Errorf("error unmarshaling config: %w", err)
 	}
 
-	conf.BlockSizeRaw = cb.getBlockSizeRaw()
-	bs, err := cb.parseBytesOrFallback("block_size", cb.defaults.BlockSizeRaw)
+	bs, raw, err := cb.parseBlockSize()
 	if err != nil {
 		return nil, err
 	}
 	conf.BlockSize = bs
+	conf.BlockSizeRaw = raw
 	if conf.ChecksumAlgorithm == "" {
 		conf.ChecksumAlgorithm = cb.defaults.ChecksumAlgorithm
 	}
@@ -160,12 +163,23 @@ func (cb *ConfigBuilder) parseBytesOrFallback(key, fallback string) (int, error)
 	return int(u), nil
 }
 
-func (cb *ConfigBuilder) getBlockSizeRaw() string {
-	raw := strings.TrimSpace(cb.v.GetString("block_size"))
-	if raw != "" {
-		return raw
+func (cb *ConfigBuilder) parseBlockSize() (int, string, error) {
+	raw := strings.ReplaceAll(strings.TrimSpace(cb.v.GetString("block_size")), " ", "")
+	if raw == "" {
+		raw = cb.defaults.BlockSizeRaw
 	}
-	return cb.defaults.BlockSizeRaw
+	if strings.EqualFold(raw, "auto") {
+		return 0, raw, nil
+	}
+	val, isPercent, err := sizeparse.Parse(raw)
+	if err != nil || isPercent {
+		return 0, "", fmt.Errorf("invalid block_size value %q: %w", raw, err)
+	}
+	u := uint64(val)
+	if float64(u) != val || u > uint64(math.MaxInt) {
+		return 0, "", fmt.Errorf("block_size value %q overflows int", raw)
+	}
+	return int(u), raw, nil
 }
 
 func DefaultConfig() *Config {
@@ -203,8 +217,8 @@ func DefaultConfig() *Config {
 		TargetVGCandidates:   []string{},
 		LVMEscalation:        "sudo -n",
 		Progress:             true,
-		BlockSize:            4096,
-		BlockSizeRaw:         "4KB",
+		BlockSize:            0,
+		BlockSizeRaw:         "auto",
 		Deduplication:        false,
 		DedupStrategy:        "auto",
 		DedupStateFile:       filepath.Join(homeDir, ".lvmsync_dedup"),
@@ -232,7 +246,7 @@ func LoadConfig() (*Config, error) {
 	generalFlags.Int("max_retries", defaultCfg.MaxRetries, "Maximum number of retries per block")
 	generalFlags.String("resume", defaultCfg.ResumeState, "Path to resume state file")
 	generalFlags.String("speed", defaultCfg.Speed, "Transfer speed limit")
-	generalFlags.String("block_size", defaultCfg.BlockSizeRaw, "Block size for data transfer; 0 for automatic detection")
+	generalFlags.String("block_size", defaultCfg.BlockSizeRaw, "Block size for data transfer; specify 'auto' or 0 for automatic detection")
 	generalFlags.CountP("verbose", "v", "Verbosity level")
 	generalFlags.Bool("verify_checksum", defaultCfg.VerifyChecksum, "Enable checksum verification")
 	generalFlags.String("checksum_algorithm", defaultCfg.ChecksumAlgorithm, fmt.Sprintf("Checksum algorithm: %v", SupportedChecksumAlgorithms))
