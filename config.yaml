@@ -43,4 +43,4 @@ source_vgs: []                         # Candidate source VGs for auto-selection
 target_vgs: []                         # Candidate target VGs for auto-selection
 lvm_escalation: "sudo -n"              # Command used to re-execute the program with elevated privileges when required
 progress: true                         # Enable progress display during transfer
-block_size: "4K"                       # Block size for LVM operations
+block_size: "4K"                       # Block size for LVM operations (0 for auto)
