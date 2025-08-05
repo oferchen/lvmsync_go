@@ -281,6 +281,49 @@ type VolumeAttributes struct {
 	Removable bool
 }
 
+func readUintAttr(sysfsPath, name string) (uint64, error) {
+	path := filepath.Join(sysfsPath, name)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		zap.L().Warn("Failed to read attribute",
+			zap.String("device", filepath.Base(sysfsPath)),
+			zap.String("attribute", name),
+			zap.Error(err))
+		return 0, err
+	}
+
+	val, err := strconv.ParseUint(strings.TrimSpace(string(data)), 10, 64)
+	if err != nil {
+		zap.L().Warn("Failed to parse attribute",
+			zap.String("device", filepath.Base(sysfsPath)),
+			zap.String("attribute", name),
+			zap.Error(err))
+		return 0, err
+	}
+	return val, nil
+}
+
+func readBoolAttr(sysfsPath, name string) (bool, error) {
+	val, err := readUintAttr(sysfsPath, name)
+	if err != nil {
+		return false, err
+	}
+
+	switch val {
+	case 0:
+		return false, nil
+	case 1:
+		return true, nil
+	default:
+		err := fmt.Errorf("invalid boolean value %d", val)
+		zap.L().Warn("Invalid boolean attribute",
+			zap.String("device", filepath.Base(sysfsPath)),
+			zap.String("attribute", name),
+			zap.Error(err))
+		return false, err
+	}
+}
+
 func GetVolumeAttributes(volumePath string) (*VolumeAttributes, error) {
 	devName := filepath.Base(volumePath)
 	sysfsPath := filepath.Join(sysBlockPath, devName)
@@ -310,35 +353,18 @@ func GetVolumeAttributes(volumePath string) (*VolumeAttributes, error) {
 	}
 
 	// size
-	if data, err := os.ReadFile(filepath.Join(sysfsPath, "size")); err == nil {
-		if size, err := strconv.ParseUint(strings.TrimSpace(string(data)), 10, 64); err == nil {
-			attrs.Size = size
-		}
-	} else {
-		zap.L().Warn("Failed to read attribute",
-			zap.String("device", devName),
-			zap.String("attribute", "size"),
-			zap.Error(err))
+	if size, err := readUintAttr(sysfsPath, "size"); err == nil {
+		attrs.Size = size
 	}
 
 	// read-only flag
-	if data, err := os.ReadFile(filepath.Join(sysfsPath, "ro")); err == nil {
-		attrs.ReadOnly = strings.TrimSpace(string(data)) == "1"
-	} else {
-		zap.L().Warn("Failed to read attribute",
-			zap.String("device", devName),
-			zap.String("attribute", "ro"),
-			zap.Error(err))
+	if ro, err := readBoolAttr(sysfsPath, "ro"); err == nil {
+		attrs.ReadOnly = ro
 	}
 
 	// removable flag
-	if data, err := os.ReadFile(filepath.Join(sysfsPath, "removable")); err == nil {
-		attrs.Removable = strings.TrimSpace(string(data)) == "1"
-	} else {
-		zap.L().Warn("Failed to read attribute",
-			zap.String("device", devName),
-			zap.String("attribute", "removable"),
-			zap.Error(err))
+	if removable, err := readBoolAttr(sysfsPath, "removable"); err == nil {
+		attrs.Removable = removable
 	}
 
 	return attrs, nil
