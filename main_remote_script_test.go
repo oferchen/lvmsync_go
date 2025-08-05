@@ -3,8 +3,11 @@ package main
 import (
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
 	"io"
 	"net"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -98,6 +101,23 @@ func (s *mockSSHServer) Commands() []string {
 	return append([]string(nil), s.commands...)
 }
 
+func createTempKey(t *testing.T) string {
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("generate key: %v", err)
+	}
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)})
+	f, err := os.CreateTemp(t.TempDir(), "id_rsa")
+	if err != nil {
+		t.Fatalf("temp file: %v", err)
+	}
+	if _, err := f.Write(keyPEM); err != nil {
+		t.Fatalf("write key: %v", err)
+	}
+	f.Close()
+	return f.Name()
+}
+
 // Test that remote post script executes even when dumpChanges fails
 func TestRemotePostScriptRunsOnError(t *testing.T) {
 	server := newMockSSHServer(t, func(cmd string) int { return 0 })
@@ -111,6 +131,7 @@ func TestRemotePostScriptRunsOnError(t *testing.T) {
 	cfg.RemotePostScript = "post-script"
 	cfg.SSHUser = "test"
 	cfg.SSHPort = port
+	cfg.SSHKeyPath = createTempKey(t)
 	cfg.StrictHostKeyCheck = false
 	cfg.LVMSyncPath = "lvmsync"
 
@@ -153,6 +174,7 @@ func TestRemotePostScriptNotRunIfPreScriptFails(t *testing.T) {
 	cfg.RemotePostScript = "post-script"
 	cfg.SSHUser = "test"
 	cfg.SSHPort = port
+	cfg.SSHKeyPath = createTempKey(t)
 	cfg.StrictHostKeyCheck = false
 	cfg.LVMSyncPath = "lvmsync"
 
