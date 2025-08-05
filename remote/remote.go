@@ -2,11 +2,12 @@
 package remote
 
 import (
-	"fmt"
-	"net"
-	"os"
-	"strings"
-	"time"
+        "fmt"
+        "io"
+        "net"
+        "os"
+        "strings"
+        "time"
 
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
@@ -84,20 +85,28 @@ func NewSSHClient(host, user, keyPath string, port int, knownHostsPath string, v
 }
 
 func ValidateRemoteCommand(client *ssh.Client, remoteCmd string) error {
-	tokens := strings.Fields(remoteCmd)
-	if len(tokens) == 0 {
-		return fmt.Errorf("remote command is empty")
-	}
-	cmd := tokens[0]
-	session, err := client.NewSession()
-	if err != nil {
-		return fmt.Errorf("failed to create SSH session for validation: %w", err)
-	}
-	defer session.Close()
-	if err := session.Run(fmt.Sprintf("command -v %s >/dev/null 2>&1", cmd)); err != nil {
-		return fmt.Errorf("remote command %s not found or not executable: %w", cmd, err)
-	}
-	return nil
+        tokens := strings.Fields(remoteCmd)
+        if len(tokens) == 0 {
+                return fmt.Errorf("remote command is empty")
+        }
+        cmd := tokens[0]
+        session, err := client.NewSession()
+        if err != nil {
+                return fmt.Errorf("failed to create SSH session for validation: %w", err)
+        }
+        defer session.Close()
+        session.Stdout = io.Discard
+        session.Stderr = io.Discard
+        if err := session.Run(fmt.Sprintf("%s --version", cmd)); err != nil {
+                if exitErr, ok := err.(*ssh.ExitError); ok {
+                        status := exitErr.ExitStatus()
+                        if status == 126 || status == 127 {
+                                return fmt.Errorf("remote command %s not found or not executable: %w", cmd, err)
+                        }
+                }
+                return fmt.Errorf("failed to run remote command %s: %w", cmd, err)
+        }
+        return nil
 }
 
 func RunRemoteScript(client *ssh.Client, script string) error {
