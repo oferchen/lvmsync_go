@@ -26,6 +26,29 @@ func (noneStrategy) NewReader(src io.Reader, concurrency int) (io.ReadCloser, er
 
 type lz4Strategy struct{}
 
+var (
+	lz4WriterPool sync.Pool
+	lz4ReaderPool sync.Pool
+)
+
+type pooledLz4WriterEntry struct {
+	w           *lz4.Writer
+	level       int
+	concurrency int
+}
+
+type pooledLz4Writer struct {
+	*lz4.Writer
+	entry *pooledLz4WriterEntry
+}
+
+func (w *pooledLz4Writer) Close() error {
+	err := w.Writer.Close()
+	w.Writer.Reset(nil)
+	lz4WriterPool.Put(w.entry)
+	return err
+}
+
 func (lz4Strategy) NewWriter(dst io.Writer, level int, concurrency int) (io.WriteCloser, error) {
 	lvl := lz4.CompressionLevel(level)
 	switch lvl {
@@ -34,15 +57,82 @@ func (lz4Strategy) NewWriter(dst io.Writer, level int, concurrency int) (io.Writ
 	default:
 		return nil, fmt.Errorf("invalid lz4 compression level: %d", level)
 	}
-	w := lz4.NewWriter(dst)
-	if err := w.Apply(lz4.CompressionLevelOption(lvl)); err != nil {
-		return nil, fmt.Errorf("failed to apply lz4 compression level: %w", err)
+
+	entryAny := lz4WriterPool.Get()
+	var entry *pooledLz4WriterEntry
+	if entryAny == nil {
+		entry = &pooledLz4WriterEntry{}
+	} else {
+		entry = entryAny.(*pooledLz4WriterEntry)
 	}
-	return w, nil
+
+	if entry.w == nil {
+		entry.w = lz4.NewWriter(dst)
+		if err := entry.w.Apply(lz4.CompressionLevelOption(lvl), lz4.ConcurrencyOption(concurrency)); err != nil {
+			lz4WriterPool.Put(entry)
+			return nil, fmt.Errorf("failed to apply lz4 options: %w", err)
+		}
+		entry.level = level
+		entry.concurrency = concurrency
+	} else {
+		entry.w.Reset(dst)
+		if entry.level != level || entry.concurrency != concurrency {
+			if err := entry.w.Apply(lz4.CompressionLevelOption(lvl), lz4.ConcurrencyOption(concurrency)); err != nil {
+				lz4WriterPool.Put(entry)
+				return nil, fmt.Errorf("failed to apply lz4 options: %w", err)
+			}
+			entry.level = level
+			entry.concurrency = concurrency
+		}
+	}
+
+	return &pooledLz4Writer{Writer: entry.w, entry: entry}, nil
+}
+
+type pooledLz4ReaderEntry struct {
+	r           *lz4.Reader
+	concurrency int
+}
+
+type pooledLz4Reader struct {
+	*lz4.Reader
+	entry *pooledLz4ReaderEntry
+}
+
+func (r *pooledLz4Reader) Close() error {
+	r.Reader.Reset(nil)
+	lz4ReaderPool.Put(r.entry)
+	return nil
 }
 
 func (lz4Strategy) NewReader(src io.Reader, concurrency int) (io.ReadCloser, error) {
-	return io.NopCloser(lz4.NewReader(src)), nil
+	entryAny := lz4ReaderPool.Get()
+	var entry *pooledLz4ReaderEntry
+	if entryAny == nil {
+		entry = &pooledLz4ReaderEntry{}
+	} else {
+		entry = entryAny.(*pooledLz4ReaderEntry)
+	}
+
+	if entry.r == nil {
+		entry.r = lz4.NewReader(src)
+		if err := entry.r.Apply(lz4.ConcurrencyOption(concurrency)); err != nil {
+			lz4ReaderPool.Put(entry)
+			return nil, fmt.Errorf("failed to apply lz4 options: %w", err)
+		}
+		entry.concurrency = concurrency
+	} else {
+		entry.r.Reset(src)
+		if entry.concurrency != concurrency {
+			if err := entry.r.Apply(lz4.ConcurrencyOption(concurrency)); err != nil {
+				lz4ReaderPool.Put(entry)
+				return nil, fmt.Errorf("failed to apply lz4 options: %w", err)
+			}
+			entry.concurrency = concurrency
+		}
+	}
+
+	return &pooledLz4Reader{Reader: entry.r, entry: entry}, nil
 }
 
 type zstdStrategy struct{}
