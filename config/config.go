@@ -2,24 +2,19 @@
 package config
 
 import (
-	"bytes"
 	"fmt"
-	"io"
 	"math"
-	"math/rand"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/dustin/go-humanize"
-	zstd "github.com/klauspost/compress/zstd"
-	"github.com/klauspost/cpuid/v2"
 	"github.com/pierrec/lz4/v4"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	"lvmsync_go/internal/compressiondetect"
 	"lvmsync_go/lvm"
 	"runtime"
 )
@@ -114,7 +109,7 @@ func (cb *ConfigBuilder) Build() (*Config, error) {
 	// Validate compression levels based on the resolved compression algorithm.
 	resolved := conf.Compress
 	if resolved == "auto" {
-		resolved = detectOptimalCompression()
+		resolved = compressiondetect.DetectOptimalCompression()
 	}
 	switch resolved {
 	case "zstd":
@@ -132,60 +127,6 @@ func (cb *ConfigBuilder) Build() (*Config, error) {
 	}
 
 	return &conf, nil
-}
-
-func detectOptimalCompression() string {
-	detectOnce.Do(func() {
-		if cpuid.CPU.Has(cpuid.AVX512F) || cpuid.CPU.Has(cpuid.AVX2) || cpuid.CPU.Has(cpuid.BMI2) || cpuid.CPU.Has(cpuid.SSE42) || cpuid.CPU.Has(cpuid.ASIMD) || cpuid.CPU.Has(cpuid.SVE) {
-			detected = "zstd"
-		} else {
-			detected = benchmarkCompression()
-		}
-	})
-	return detected
-}
-
-var (
-	detectOnce sync.Once
-	detected   string
-)
-
-func benchmarkCompression() string {
-	sample := make([]byte, 1<<16)
-	copy(sample[:1<<15], bytes.Repeat([]byte("a"), 1<<15))
-	prng := rand.New(rand.NewSource(0))
-	if _, err := prng.Read(sample[1<<15:]); err != nil {
-		return "lz4"
-	}
-
-	lz4Start := time.Now()
-	lw := lz4.NewWriter(io.Discard)
-	if _, err := lw.Write(sample); err != nil {
-		return "lz4"
-	}
-	if err := lw.Close(); err != nil {
-		return "lz4"
-	}
-	lz4Dur := time.Since(lz4Start)
-
-	zw, err := zstd.NewWriter(io.Discard)
-	if err != nil {
-		return "lz4"
-	}
-	zstdStart := time.Now()
-	if _, err := zw.Write(sample); err != nil {
-		zw.Close()
-		return "lz4"
-	}
-	if err := zw.Close(); err != nil {
-		return "lz4"
-	}
-	zstdDur := time.Since(zstdStart)
-
-	if zstdDur < lz4Dur {
-		return "zstd"
-	}
-	return "lz4"
 }
 
 func (cb *ConfigBuilder) parseBytesOrFallback(key, fallback string) (int, error) {
