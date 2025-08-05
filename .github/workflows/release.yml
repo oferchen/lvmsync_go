@@ -12,7 +12,7 @@ jobs:
       # ex:
       # - 1.18beta1 -> 1.18.0-beta.1
       # - 1.18rc1 -> 1.18.0-rc.1
-      GO_VERSION: '1.24'
+      GO_VERSION: '1.24.5'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -20,6 +20,16 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            autoconf automake libtool pkg-config \
+            build-essential libdevmapper-dev libreadline-dev \
+            uuid-dev libaio-dev \
+            libselinux-dev libsepol-dev \
+            git curl
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
