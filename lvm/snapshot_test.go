@@ -40,10 +40,6 @@ func (f *mockBackend) ListVolumeGroups(context.Context, []string) ([]VolumeGroup
 	return nil, nil
 }
 
-func init() {
-	SetEscalationCommand("")
-}
-
 func TestCreateAndRemoveSnapshot(t *testing.T) {
 	orig := checkPrivs
 	checkPrivs = func() error { return nil }

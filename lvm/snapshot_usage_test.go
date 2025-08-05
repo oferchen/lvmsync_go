@@ -24,10 +24,6 @@ func (f *usageBackend) ListVolumeGroups(context.Context, []string) ([]VolumeGrou
 	return nil, nil
 }
 
-func init() {
-	SetEscalationCommand("")
-}
-
 func TestGetSnapshotUsage(t *testing.T) {
 	orig := checkPrivs
 	checkPrivs = func() error { return nil }

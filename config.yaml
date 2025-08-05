@@ -40,6 +40,6 @@ volume_group: "vg0"                    # Source volume group. Auto-selected by f
 target_volume_group: ""                # Volume group name of the target LVM volume
 source_vgs: []                         # Candidate source VGs for auto-selection
 target_vgs: []                         # Candidate target VGs for auto-selection
-lvm_escalation: "sudo -n"              # Command used to escalate privileges for LVM commands
+lvm_escalation: "sudo -n"              # Command used to re-execute the program with elevated privileges when required
 progress: true                         # Enable progress display during transfer
 block_size: "4K"                       # Block size for LVM operations

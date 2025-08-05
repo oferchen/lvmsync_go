@@ -13,14 +13,6 @@ func TestGetSnapshotDevicePath(t *testing.T) {
 	}
 }
 
-func TestSetGetEscalationCommand(t *testing.T) {
-	t.Cleanup(func() { SetEscalationCommand("") })
-	SetEscalationCommand("sudo")
-	if GetEscalationCommand() != "sudo" {
-		t.Fatalf("expected sudo, got %s", GetEscalationCommand())
-	}
-}
-
 func TestParseSnapshotSize(t *testing.T) {
 	tmpFile := filepath.Join(t.TempDir(), "vol")
 	if err := os.WriteFile(tmpFile, make([]byte, 1024*1024), 0644); err != nil {
