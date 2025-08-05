@@ -271,7 +271,15 @@ func SetSysBlockPath(path string) {
 	sysBlockPath = path
 }
 
-func GetVolumeAttributes(volumePath string) (map[string]string, error) {
+type VolumeAttributes struct {
+	Major     int
+	Minor     int
+	Size      uint64
+	ReadOnly  bool
+	Removable bool
+}
+
+func GetVolumeAttributes(volumePath string) (*VolumeAttributes, error) {
 	devName := filepath.Base(volumePath)
 	sysfsPath := filepath.Join(sysBlockPath, devName)
 
@@ -279,22 +287,59 @@ func GetVolumeAttributes(volumePath string) (map[string]string, error) {
 		return nil, fmt.Errorf("device %s not found in sysfs: %w", devName, err)
 	}
 
-	attributes := make(map[string]string)
+	attrs := &VolumeAttributes{}
 
-	attrFiles := []string{"dev", "size", "ro", "removable"}
-	for _, attr := range attrFiles {
-		data, err := os.ReadFile(filepath.Join(sysfsPath, attr))
-		if err != nil {
-			zap.L().Warn("Failed to read attribute",
-				zap.String("device", devName),
-				zap.String("attribute", attr),
-				zap.Error(err))
-			continue
+	// dev: major:minor
+	if data, err := os.ReadFile(filepath.Join(sysfsPath, "dev")); err == nil {
+		parts := strings.Split(strings.TrimSpace(string(data)), ":")
+		if len(parts) == 2 {
+			if major, err := strconv.Atoi(parts[0]); err == nil {
+				attrs.Major = major
+			}
+			if minor, err := strconv.Atoi(parts[1]); err == nil {
+				attrs.Minor = minor
+			}
 		}
-		attributes[attr] = strings.TrimSpace(string(data))
+	} else {
+		zap.L().Warn("Failed to read attribute",
+			zap.String("device", devName),
+			zap.String("attribute", "dev"),
+			zap.Error(err))
 	}
 
-	return attributes, nil
+	// size
+	if data, err := os.ReadFile(filepath.Join(sysfsPath, "size")); err == nil {
+		if size, err := strconv.ParseUint(strings.TrimSpace(string(data)), 10, 64); err == nil {
+			attrs.Size = size
+		}
+	} else {
+		zap.L().Warn("Failed to read attribute",
+			zap.String("device", devName),
+			zap.String("attribute", "size"),
+			zap.Error(err))
+	}
+
+	// read-only flag
+	if data, err := os.ReadFile(filepath.Join(sysfsPath, "ro")); err == nil {
+		attrs.ReadOnly = strings.TrimSpace(string(data)) == "1"
+	} else {
+		zap.L().Warn("Failed to read attribute",
+			zap.String("device", devName),
+			zap.String("attribute", "ro"),
+			zap.Error(err))
+	}
+
+	// removable flag
+	if data, err := os.ReadFile(filepath.Join(sysfsPath, "removable")); err == nil {
+		attrs.Removable = strings.TrimSpace(string(data)) == "1"
+	} else {
+		zap.L().Warn("Failed to read attribute",
+			zap.String("device", devName),
+			zap.String("attribute", "removable"),
+			zap.Error(err))
+	}
+
+	return attrs, nil
 }
 
 func ParseSnapshotSize(sizeStr, volumePath string) (uint64, error) {

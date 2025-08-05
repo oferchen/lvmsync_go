@@ -99,9 +99,9 @@ func TestGetVolumeAttributes(t *testing.T) {
 		t.Fatalf("GetVolumeAttributes failed: %v", err)
 	}
 
-	for k, v := range attrs {
-		if got[k] != v {
-			t.Fatalf("attribute %s = %q, want %q", k, got[k], v)
-		}
+	expected := VolumeAttributes{Major: 8, Minor: 1, Size: 2048, ReadOnly: false, Removable: true}
+
+	if *got != expected {
+		t.Fatalf("got %+v, want %+v", *got, expected)
 	}
 }
