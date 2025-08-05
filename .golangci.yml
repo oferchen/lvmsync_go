@@ -7,12 +7,11 @@ run:
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0
-  skip-dirs:
-    - vendor
-    - .git
-  skip-files:
-    - ".*_gen.go"
-    - ".*_test.go"
+  exclude:
+    - path: ^vendor/
+    - path: ^\.git/
+    - path: .*_gen\.go
+    - path: .*_test\.go
 
 linters:
   enable:
