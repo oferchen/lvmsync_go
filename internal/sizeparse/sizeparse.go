@@ -27,7 +27,7 @@ func Parse(input string) (float64, bool, error) {
 	idx := 0
 	for ; idx < len(s); idx++ {
 		r := rune(s[idx])
-		if !(unicode.IsDigit(r) || r == '.') {
+		if !unicode.IsDigit(r) && r != '.' {
 			break
 		}
 	}

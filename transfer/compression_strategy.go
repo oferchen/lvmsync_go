@@ -44,7 +44,7 @@ type pooledLz4Writer struct {
 
 func (w *pooledLz4Writer) Close() error {
 	err := w.Writer.Close()
-	w.Writer.Reset(nil)
+	w.Reset(nil)
 	lz4WriterPool.Put(w.entry)
 	return err
 }
@@ -100,7 +100,7 @@ type pooledLz4Reader struct {
 }
 
 func (r *pooledLz4Reader) Close() error {
-	r.Reader.Reset(nil)
+	r.Reset(nil)
 	lz4ReaderPool.Put(r.entry)
 	return nil
 }
@@ -155,7 +155,7 @@ type pooledZstdWriter struct {
 
 func (w *pooledZstdWriter) Close() error {
 	err := w.Encoder.Close()
-	w.Encoder.Reset(nil)
+	w.Reset(nil)
 	zstdEncoderPool.Put(w.entry)
 	return err
 }
@@ -244,7 +244,7 @@ type nopWriteCloser struct {
 func (nopWriteCloser) Close() error { return nil }
 
 func (r *pooledZstdReader) Close() error {
-	r.Decoder.Reset(nil)
+	r.Reset(nil)
 	zstdDecoderPool.Put(r.entry)
 	return nil
 }
