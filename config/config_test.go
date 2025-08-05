@@ -14,13 +14,14 @@ import (
 type fakeBackend struct {
 	free uint64
 	err  error
+	vgs  []lvm.VolumeGroup
 }
 
 func (f *fakeBackend) CreateSnapshot(string, string, string) error    { return nil }
 func (f *fakeBackend) RemoveSnapshot(string) error                    { return nil }
 func (f *fakeBackend) GetSnapshotUsage(string) (float64, error)       { return 0, nil }
 func (f *fakeBackend) GetVolumeGroupFreeSpace(string) (uint64, error) { return f.free, f.err }
-func (f *fakeBackend) ListVolumeGroups() ([]lvm.VolumeGroup, error)   { return nil, nil }
+func (f *fakeBackend) ListVolumeGroups() ([]lvm.VolumeGroup, error)   { return f.vgs, nil }
 
 func TestDefaultConfigCompress(t *testing.T) {
 	cfg := DefaultConfig()

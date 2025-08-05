@@ -30,23 +30,23 @@ func TestSelectVolumeGroupByFreeSpace(t *testing.T) {
 	restore := SetBackend(fb)
 	defer restore()
 
-	vg, free, err := SelectVolumeGroupByFreeSpace(nil)
+	vg, err := SelectVolumeGroupByFreeSpace(nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if vg != "vg1" || free != 200 {
-		t.Fatalf("expected vg1 with 200, got %s with %d", vg, free)
+	if vg.Name != "vg1" || vg.Free != 200 {
+		t.Fatalf("expected vg1 with 200, got %s with %d", vg.Name, vg.Free)
 	}
 
-	vg, free, err = SelectVolumeGroupByFreeSpace([]string{"vg0"})
+	vg, err = SelectVolumeGroupByFreeSpace([]string{"vg0"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if vg != "vg0" || free != 100 {
-		t.Fatalf("expected vg0 with 100, got %s with %d", vg, free)
+	if vg.Name != "vg0" || vg.Free != 100 {
+		t.Fatalf("expected vg0 with 100, got %s with %d", vg.Name, vg.Free)
 	}
 
-	if _, _, err := SelectVolumeGroupByFreeSpace([]string{"vg2"}); err == nil {
+	if _, err := SelectVolumeGroupByFreeSpace([]string{"vg2"}); err == nil {
 		t.Fatalf("expected error for unknown vg")
 	}
 }
