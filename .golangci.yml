@@ -4,7 +4,7 @@ run:
   timeout: 3m
 
 output:
-  format: colored-line-number
+  formats: colored-line-number
   print-issued-lines: true
   sort-results: true
 
