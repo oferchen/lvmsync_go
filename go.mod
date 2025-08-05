@@ -17,10 +17,10 @@ require (
 	golang.org/x/time v0.12.0
 )
 
+replace github.com/dpeckett/lvm2 => ./stubs/github.com/dpeckett/lvm2
+
 require (
 	github.com/bits-and-blooms/bitset v1.10.0 // indirect
-	github.com/dpeckett/args v0.3.0 // indirect
-	github.com/fatih/structs v1.1.0 // indirect
 	github.com/fsnotify/fsnotify v1.8.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.2.1 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.3 // indirect
