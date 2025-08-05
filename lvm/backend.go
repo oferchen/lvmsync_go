@@ -4,7 +4,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"os/exec"
+	"os"
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -61,12 +62,29 @@ func newLVMBackend() lvmBackend {
 }
 
 func (b *lvm2Backend) CreateSnapshot(ctx context.Context, lvPath, snapshotName, size string) error {
+	trimmed := strings.TrimPrefix(lvPath, "/dev/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 2 {
+		return fmt.Errorf("invalid LV path: %s", lvPath)
+	}
+	vgName, lvName := parts[0], parts[1]
+
 	opts := lvm2.CreateLVOptions{
 		Name:     snapshotName,
-		VGName:   lvPath,
+		VGName:   vgName,
 		Size:     size,
 		Snapshot: true,
 	}
+
+	val := reflect.ValueOf(&opts).Elem()
+	field := val.FieldByName("LVName")
+	if !field.IsValid() {
+		return fmt.Errorf("lvm2.CreateLVOptions missing LVName field")
+	}
+	if field.CanSet() {
+		field.SetString(lvName)
+	}
+
 	return b.client.CreateLogicalVolume(ctx, opts)
 }
 
