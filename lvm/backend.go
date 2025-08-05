@@ -15,7 +15,7 @@ type lvmBackend interface {
 	RemoveSnapshot(ctx context.Context, snapshotPath string) error
 	GetSnapshotUsage(ctx context.Context, snapshotPath string) (float64, error)
 	GetVolumeGroupFreeSpace(ctx context.Context, vgName string) (uint64, error)
-	ListVolumeGroups(ctx context.Context) ([]VolumeGroup, error)
+	ListVolumeGroups(ctx context.Context, candidates []string) ([]VolumeGroup, error)
 }
 
 type lvm2Backend struct {
@@ -125,8 +125,12 @@ func (b *lvm2Backend) GetVolumeGroupFreeSpace(ctx context.Context, vgName string
 	return free, nil
 }
 
-func (b *lvm2Backend) ListVolumeGroups(ctx context.Context) ([]VolumeGroup, error) {
-	vgs, err := b.client.ListVolumeGroups(ctx, nil)
+func (b *lvm2Backend) ListVolumeGroups(ctx context.Context, candidates []string) ([]VolumeGroup, error) {
+	var opts *lvm2.ListVGOptions
+	if len(candidates) > 0 {
+		opts = &lvm2.ListVGOptions{Names: candidates}
+	}
+	vgs, err := b.client.ListVolumeGroups(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
