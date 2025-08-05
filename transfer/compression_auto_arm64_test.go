@@ -6,7 +6,6 @@ import (
 	"io"
 	"testing"
 
-	zstd "github.com/klauspost/compress/zstd"
 	"github.com/klauspost/cpuid/v2"
 	"github.com/pierrec/lz4/v4"
 	compressiondetect "lvmsync_go/internal/compressiondetect"
@@ -24,7 +23,7 @@ func TestNewCompressionWriterAutoARM64(t *testing.T) {
 		if err != nil {
 			t.Fatalf("NewCompressionWriter with ASIMD: %v", err)
 		}
-		if _, ok := w.(*zstd.Encoder); !ok {
+		if _, ok := w.(*pooledZstdWriter); !ok {
 			t.Fatalf("expected zstd writer when ASIMD is present")
 		}
 		w.Close()
@@ -48,7 +47,7 @@ func TestNewCompressionWriterAutoARM64(t *testing.T) {
 				t.Fatalf("expected lz4 writer when benchmark prefers lz4")
 			}
 		case compressionZSTD:
-			if _, ok := w.(*zstd.Encoder); !ok {
+			if _, ok := w.(*pooledZstdWriter); !ok {
 				t.Fatalf("expected zstd writer when benchmark prefers zstd")
 			}
 		}

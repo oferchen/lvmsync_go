@@ -3,6 +3,7 @@ package transfer
 import (
 	"fmt"
 	"io"
+	"sync"
 
 	zstd "github.com/klauspost/compress/zstd"
 	"github.com/pierrec/lz4/v4"
@@ -46,19 +47,75 @@ func (lz4Strategy) NewReader(src io.Reader) (io.ReadCloser, error) {
 
 type zstdStrategy struct{}
 
+var (
+	zstdEncoderPool sync.Pool
+	zstdDecoderPool sync.Pool
+)
+
+type pooledZstdEncoder struct {
+	enc         *zstd.Encoder
+	level       int
+	concurrency int
+}
+
+type pooledZstdWriter struct {
+	*zstd.Encoder
+	entry *pooledZstdEncoder
+}
+
+func (w *pooledZstdWriter) Close() error {
+	err := w.Encoder.Close()
+	w.Encoder.Reset(nil)
+	zstdEncoderPool.Put(w.entry)
+	return err
+}
+
 func (zstdStrategy) NewWriter(dst io.Writer, level int, concurrency int) (io.WriteCloser, error) {
 	if level < 1 || level > 22 {
 		return nil, fmt.Errorf("invalid zstd compression level: %d", level)
 	}
-	encLevel := zstd.EncoderLevelFromZstd(level)
-	opts := []zstd.EOption{zstd.WithEncoderLevel(encLevel), zstd.WithEncoderConcurrency(concurrency)}
-	return zstd.NewWriter(dst, opts...)
+
+	entryAny := zstdEncoderPool.Get()
+	var entry *pooledZstdEncoder
+	if entryAny == nil {
+		entry = &pooledZstdEncoder{}
+	} else {
+		entry = entryAny.(*pooledZstdEncoder)
+	}
+
+	if entry.enc == nil || entry.level != level || entry.concurrency != concurrency {
+		encLevel := zstd.EncoderLevelFromZstd(level)
+		opts := []zstd.EOption{zstd.WithEncoderLevel(encLevel), zstd.WithEncoderConcurrency(concurrency)}
+		enc, err := zstd.NewWriter(dst, opts...)
+		if err != nil {
+			zstdEncoderPool.Put(entry)
+			return nil, err
+		}
+		entry.enc = enc
+		entry.level = level
+		entry.concurrency = concurrency
+	} else {
+		entry.enc.Reset(dst)
+	}
+
+	return &pooledZstdWriter{Encoder: entry.enc, entry: entry}, nil
 }
 
 func (zstdStrategy) NewReader(src io.Reader) (io.ReadCloser, error) {
-	decoder, err := zstd.NewReader(src)
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize zstd decoder: %w", err)
+	entryAny := zstdDecoderPool.Get()
+	var decoder *zstd.Decoder
+	if entryAny == nil {
+		dec, err := zstd.NewReader(src)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize zstd decoder: %w", err)
+		}
+		decoder = dec
+	} else {
+		decoder = entryAny.(*zstd.Decoder)
+		if err := decoder.Reset(src); err != nil {
+			zstdDecoderPool.Put(decoder)
+			return nil, fmt.Errorf("failed to reset zstd decoder: %w", err)
+		}
 	}
 	return &zstdReadCloser{Decoder: decoder}, nil
 }
@@ -80,5 +137,7 @@ type zstdReadCloser struct {
 }
 
 func (z *zstdReadCloser) Close() error {
-	return z.Decoder.Close()
+	z.Decoder.Reset(nil)
+	zstdDecoderPool.Put(z.Decoder)
+	return nil
 }
