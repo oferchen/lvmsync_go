@@ -7,7 +7,6 @@ import (
 	"hash/maphash"
 	"io"
 	"os"
-	"runtime"
 	"sync"
 	"unsafe"
 
@@ -55,29 +54,19 @@ var rollingHashPool = sync.Pool{
 	New: func() any { return new(maphash.Hash) },
 }
 
-// detectBestStrategy selects the fastest deduplication strategy for the current
-// CPU. Checksum-based deduplication is preferred when hardware SHA
-// acceleration is available; otherwise a rolling hash is used.
+// detectBestStrategy selects the fastest deduplication strategy for the
+// current CPU. Checksum-based deduplication is preferred when SIMD
+// instructions such as AVX or SSE4.2 are available; otherwise a rolling hash
+// is used.
 var detectBestStrategy = func() string {
-	if hasHardwareSHA() {
+	if supportsChecksumAcceleration() {
 		return "checksum"
 	}
 	return "rolling_hash"
 }
 
-func hasHardwareSHA() bool {
-	switch runtime.GOARCH {
-	case "amd64":
-		return true
-	case "arm64":
-		return cpu.ARM64.HasSHA2
-	case "arm":
-		return cpu.ARM.HasSHA2
-	case "s390x":
-		return cpu.S390X.HasSHA256
-	default:
-		return false
-	}
+func supportsChecksumAcceleration() bool {
+	return cpu.X86.HasAVX2 || cpu.X86.HasAVX || cpu.X86.HasSSE42
 }
 
 func NewDeduplicationStrategy(cfg *config.Config) DeduplicationStrategy {
