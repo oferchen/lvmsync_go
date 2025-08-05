@@ -208,6 +208,7 @@ func main() {
 		zap.String("dedup_strategy", cfg.DedupStrategy),
 		zap.String("compress", cfg.Compress),
 		zap.Int("compress_level", cfg.CompressLevel),
+		zap.Int("compress_concurrency", cfg.CompressConcurrency),
 		zap.String("snapshot_size", cfg.SnapshotSize),
 		zap.String("volume_group", cfg.VolumeGroup),
 		zap.String("target_volume_group", cfg.TargetVolumeGroup),

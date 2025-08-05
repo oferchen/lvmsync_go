@@ -21,7 +21,7 @@ func TestNewCompressionWriterAutoARM64(t *testing.T) {
 		cpuid.CPU.Enable(cpuid.ASIMD)
 		detectOnce = sync.Once{}
 		detected = ""
-		w, err := NewCompressionWriter(io.Discard, "auto", 1)
+		w, err := NewCompressionWriter(io.Discard, "auto", 1, 1)
 		if err != nil {
 			t.Fatalf("NewCompressionWriter with ASIMD: %v", err)
 		}
@@ -40,7 +40,7 @@ func TestNewCompressionWriterAutoARM64(t *testing.T) {
 		if algo == compressionLZ4 {
 			lvl = int(lz4.Level1)
 		}
-		w, err := NewCompressionWriter(io.Discard, "auto", lvl)
+		w, err := NewCompressionWriter(io.Discard, "auto", lvl, 1)
 		if err != nil {
 			t.Fatalf("NewCompressionWriter without ASIMD: %v", err)
 		}

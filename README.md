@@ -118,6 +118,7 @@ The tool supports both local and remote transfers, as well as an "apply mode" fo
 |--------|-------------|---------|
 | `--compress` | Compression type (options: `"none"`, `"lz4"`, `"zstd"`, `"auto"`) | `"lz4"` |
 | `--compress_level` | Compression level for Zstd (ignored for LZ4) | `3` |
+| `--compress_concurrency` | Number of goroutines used for compression (`0` to use all cores) | `0` |
 
 #### LVM Options
 
@@ -239,6 +240,7 @@ remote_post_script: ""                  # Remote script to run after finishing t
 # Compression Options:
 compress: "lz4"                         # Compression type (options: "none", "lz4", "zstd", "auto")
 compress_level: 3                       # Compression level for zstd (ignored for lz4)
+compress_concurrency: 0                # Number of goroutines for compression (0 to use all cores)
 
 # LVM Options:
 skip_snapshot_creation: false           # Skip automatic snapshot creation
