@@ -29,6 +29,7 @@ jobs:
       VALIDATE_YAML: true
       VALIDATE_JSON: true
       VALIDATE_MARKDOWN: true
+      VALIDATE_MARKDOWN_PRETTIER: true
       VALIDATE_BASH: true
       VALIDATE_EDITORCONFIG: true
       VALIDATE_GITHUB_ACTIONS: true
