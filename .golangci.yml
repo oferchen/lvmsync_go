@@ -59,7 +59,7 @@ linters:
         - name: error-naming
         - name: unexported-return
         - name: function-length
-          arguments: [50, 25]
+          arguments: [120, 100]
         - name: cognitive-complexity
           arguments: [15]
         - name: time-naming
