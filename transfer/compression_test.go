@@ -86,29 +86,30 @@ func TestLZ4CompressionLevels(t *testing.T) {
 }
 
 func TestNewCompressionWriterLevel(t *testing.T) {
-	t.Run("zstdValid", func(t *testing.T) {
-		if _, err := NewCompressionWriter(io.Discard, compressionZSTD, 3, 1); err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-	})
+	tests := []struct {
+		name    string
+		algo    string
+		level   int
+		wantErr bool
+	}{
+		{"zstdValid", compressionZSTD, 3, false},
+		{"zstdInvalid", compressionZSTD, 100, true},
+		{"lz4Valid", compressionLZ4, int(lz4.Level3), false},
+		{"lz4Invalid", compressionLZ4, 3, true},
+	}
 
-	t.Run("zstdInvalid", func(t *testing.T) {
-		if _, err := NewCompressionWriter(io.Discard, compressionZSTD, 100, 1); err == nil {
-			t.Fatalf("expected error")
+	for _, tt := range tests {
+		_, err := NewCompressionWriter(io.Discard, tt.algo, tt.level, 1)
+		if tt.wantErr {
+			if err == nil {
+				t.Fatalf("%s: expected error", tt.name)
+			}
+		} else {
+			if err != nil {
+				t.Fatalf("%s: unexpected error: %v", tt.name, err)
+			}
 		}
-	})
-
-	t.Run("lz4Valid", func(t *testing.T) {
-		if _, err := NewCompressionWriter(io.Discard, compressionLZ4, int(lz4.Level3), 1); err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-	})
-
-	t.Run("lz4Invalid", func(t *testing.T) {
-		if _, err := NewCompressionWriter(io.Discard, compressionLZ4, 3, 1); err == nil {
-			t.Fatalf("expected error")
-		}
-	})
+	}
 }
 
 func TestLZ4WriterPoolReuse(t *testing.T) {
