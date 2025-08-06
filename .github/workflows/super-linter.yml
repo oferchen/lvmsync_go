@@ -8,7 +8,7 @@ on:
     branches: [main, master]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   super-linter:
@@ -23,41 +23,38 @@ jobs:
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       DEFAULT_BRANCH: main
-
       VALIDATE_ALL_CODEBASE: true
-      # VALIDATE_GO: true
-      # VALIDATE_YAML: true
-      # VALIDATE_JSON: true
-      # VALIDATE_MARKDOWN: true
-      # VALIDATE_MARKDOWN_PRETTIER: true
-      # VALIDATE_BASH: true
-      # VALIDATE_EDITORCONFIG: true
-      # VALIDATE_GITHUB_ACTIONS: true
-      # VALIDATE_DOCKERFILE_HADOLINT: true
-      # VALIDATE_CHECKOV: true
 
       GO_LINTER: golangci-lint
       GO_LINT_FLAGS: ./...
       GO_VERSION: ${{ matrix.go-version }}
 
+      FIX_GO_GOFMT: true
+      FIX_GO_IMPORTS: true
+      FIX_YAML_PRETTIER: true
       FIX_MARKDOWN: true
       FIX_MARKDOWN_PRETTIER: true
-      FIX_YAML_PRETTIER: true
 
-      DOCKERFILE_HADOLINT_FILE_NAME: .hadolint.yaml
+      IGNORE_GITIGNORED_FILES: true
 
     steps:
-      - name: Checkout code
+      - name: Checkout code (safe depth)
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 0
+          persist-credentials: false
 
       - name: Set up Go ${{ matrix.go-version }}
         uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go-version }}
 
-      - name: Install build dependencies (LVM2 support for CGO)
+      - name: Hardened Git identity
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Install LVM2 build dependencies (CGO)
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y \
@@ -65,7 +62,7 @@ jobs:
             uuid-dev libaio-dev liblvm2-dev \
             libselinux-dev libsepol-dev git curl
 
-      - name: Build LVM2 (if needed)
+      - name: Build LVM2 from source (if missing)
         run: |
           if [ ! -f /usr/include/lvm2cmd.h ]; then
             git clone --depth=1 https://sourceware.org/git/lvm2.git
@@ -86,5 +83,34 @@ jobs:
             rm -rf lvm2
           fi
 
-      - name: Run Super-Linter
+      - name: Run Super-Linter with auto-fix
         uses: super-linter/super-linter@v8.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VALIDATE_ALL_CODEBASE: true
+          FIX_GO_GOFMT: true
+          FIX_GO_IMPORTS: true
+          FIX_YAML_PRETTIER: true
+          FIX_MARKDOWN: true
+          FIX_MARKDOWN_PRETTIER: true
+          IGNORE_GITIGNORED_FILES: true
+          DEFAULT_BRANCH: main
+          GO_LINTER: golangci-lint
+          GO_LINT_FLAGS: ./...
+          GO_VERSION: ${{ matrix.go-version }}
+
+      - name: Detect and safely push autofixes (if any)
+        run: |
+          if ! git diff --quiet; then
+            git add -u
+            if ! git diff --cached --quiet; then
+              commit_msg="chore: auto-fix lint issues [super-linter]"
+              echo "Detected changes. Committing with message: '$commit_msg'"
+              git commit -m "$commit_msg"
+              git push origin HEAD:${{ github.ref_name }}
+            else
+              echo "No staged changes to commit."
+            fi
+          else
+            echo "No working directory changes detected."
+          fi
