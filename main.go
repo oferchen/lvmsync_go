@@ -104,7 +104,15 @@ func runRemoteDump(snapshotDevice, originDevice, dest string) (err error) {
 	if err != nil {
 		return fmt.Errorf("failed to create SSH client: %w", err)
 	}
-	defer client.Close()
+	defer func() {
+		if err2 := client.Close(); err2 != nil && !errors.Is(err2, io.EOF) {
+			if err == nil {
+				err = fmt.Errorf("failed to close SSH client: %w", err2)
+			} else {
+				err = fmt.Errorf("%v; failed to close SSH client: %w", err, err2)
+			}
+		}
+	}()
 	remote.SetLogger(zap.L())
 
 	if cfg.RemotePreScript != "" {
@@ -131,7 +139,15 @@ func runRemoteDump(snapshotDevice, originDevice, dest string) (err error) {
 	if err != nil {
 		return fmt.Errorf("failed to create SSH session: %w", err)
 	}
-	defer session.Close()
+	defer func() {
+		if err2 := session.Close(); err2 != nil && !errors.Is(err2, io.EOF) {
+			if err == nil {
+				err = fmt.Errorf("failed to close SSH session: %w", err2)
+			} else {
+				err = fmt.Errorf("%v; failed to close SSH session: %w", err, err2)
+			}
+		}
+	}()
 
 	stdoutPipe, err := session.StdoutPipe()
 	if err != nil {
@@ -157,7 +173,12 @@ func runRemoteDump(snapshotDevice, originDevice, dest string) (err error) {
 
 	streamErr := executeDump(cfg, snapshotDevice, originDevice, remoteStdin)
 
-	remoteStdin.Close()
+	if err2 := remoteStdin.Close(); err2 != nil && !errors.Is(err2, io.EOF) {
+		if streamErr != nil {
+			return fmt.Errorf("%v; failed to close remote stdin: %w", streamErr, err2)
+		}
+		return fmt.Errorf("failed to close remote stdin: %w", err2)
+	}
 	if streamErr != nil {
 		return fmt.Errorf("error during dumpChanges: %w", streamErr)
 	}
@@ -175,7 +196,7 @@ func runRemoteDump(snapshotDevice, originDevice, dest string) (err error) {
 	return nil
 }
 
-func handleSignals(signals <-chan os.Signal, snapshotPath *string) {
+func handleSignals(signals <-chan os.Signal, snapshotPath *string, errCh chan<- error) {
 	sig := <-signals
 	zap.L().Info("Received signal, aborting", zap.String("signal", sig.String()))
 	if !cfg.SkipSnapshotCreation && *snapshotPath != "" && *snapshotPath != pflag.Arg(0) {
@@ -185,31 +206,27 @@ func handleSignals(signals <-chan os.Signal, snapshotPath *string) {
 			zap.L().Info("Snapshot removed on shutdown", zap.String("snapshot", *snapshotPath))
 		}
 	}
-	os.Exit(1)
+	errCh <- fmt.Errorf("received signal: %s", sig)
 }
 
-func main() {
+func run() error {
 	var err error
 	cfg, err = config.LoadConfig()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Configuration error: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("configuration error: %w", err)
 	}
 
 	if err := privesc.EnsureRoot(cfg.LVMEscalation); err != nil {
-		fmt.Fprintf(os.Stderr, "Privilege escalation error: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("privilege escalation error: %w", err)
 	}
 
 	if err := cfg.Validate(); err != nil {
-		fmt.Fprintf(os.Stderr, "Configuration validation error: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("configuration validation error: %w", err)
 	}
 
 	logger, err := zap.NewProduction()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Logger initialization error: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("logger initialization error: %w", err)
 	}
 	zap.ReplaceGlobals(logger)
 	defer syncLogger(logger)
@@ -232,20 +249,20 @@ func main() {
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
 	var snapshotPath string
-
-	go handleSignals(signals, &snapshotPath)
+	sigErrCh := make(chan error, 1)
+	go handleSignals(signals, &snapshotPath, sigErrCh)
 
 	if cfg.ApplyMode != "" {
 		if err := runApplyMode(cfg.ApplyMode); err != nil {
-			logger.Fatal("Apply operation failed", zap.Error(err))
+			return fmt.Errorf("apply operation failed: %w", err)
 		}
-		return
+		return nil
 	}
 
 	args := pflag.Args()
 	if (cfg.StdoutMode && len(args) < 1) || (!cfg.StdoutMode && len(args) < 2) {
 		pflag.Usage()
-		os.Exit(1)
+		return fmt.Errorf("invalid arguments")
 	}
 	originalVolume := args[0]
 	destPath := ""
@@ -255,13 +272,13 @@ func main() {
 
 	snapshotBytes, err := lvm.ParseSnapshotSize(cfg.SnapshotSize, originalVolume)
 	if err != nil {
-		logger.Fatal("Failed to parse snapshot size", zap.Error(err))
+		return fmt.Errorf("failed to parse snapshot size: %w", err)
 	}
 
 	if cfg.VolumeGroup == "" {
 		vg, err := lvm.GetVolumeGroupName(originalVolume)
 		if err != nil {
-			logger.Fatal("Failed to determine source volume group", zap.Error(err))
+			return fmt.Errorf("failed to determine source volume group: %w", err)
 		}
 		cfg.VolumeGroup = vg
 		logger.Info("Using source volume group", zap.String("volume_group", cfg.VolumeGroup))
@@ -270,11 +287,11 @@ func main() {
 	if cfg.TargetVolumeGroup == "" && len(cfg.TargetVGCandidates) > 0 {
 		lvSize, err := lvm.GetVolumeSize(originalVolume)
 		if err != nil {
-			logger.Fatal("Failed to determine volume size", zap.Error(err))
+			return fmt.Errorf("failed to determine volume size: %w", err)
 		}
 		vg, err := lvm.SelectVolumeGroupForSize(context.Background(), cfg.TargetVGCandidates, lvSize)
 		if err != nil {
-			logger.Fatal("Failed to select target volume group", zap.Error(err))
+			return fmt.Errorf("failed to select target volume group: %w", err)
 		}
 		cfg.TargetVolumeGroup = vg.Name
 		logger.Info("Selected target volume group", zap.String("target_volume_group", cfg.TargetVolumeGroup))
@@ -283,22 +300,21 @@ func main() {
 	if !cfg.SkipDiskCheck {
 		freeSpace, err := lvm.CheckDiskSpace("/")
 		if err != nil {
-			logger.Fatal("Disk space check failed", zap.Error(err))
+			return fmt.Errorf("disk space check failed: %w", err)
 		}
 		if freeSpace < snapshotBytes {
-			logger.Fatal("Insufficient disk space for snapshot",
-				zap.Uint64("free", freeSpace),
-				zap.Uint64("required", snapshotBytes))
+			return fmt.Errorf("insufficient disk space for snapshot: free %d required %d", freeSpace, snapshotBytes)
 		}
 		logger.Info("Disk space check passed", zap.Uint64("free", freeSpace))
 	}
 
 	snapshotPath = originalVolume
+	monitorErrCh := make(chan error, 1)
 	if !cfg.SkipSnapshotCreation {
 		snapshotName := fmt.Sprintf("snap-%d", time.Now().Unix())
 		err = lvm.CreateSnapshot(context.Background(), originalVolume, snapshotName, strconv.FormatUint(snapshotBytes, 10))
 		if err != nil {
-			logger.Fatal("Snapshot creation failed", zap.Error(err))
+			return fmt.Errorf("snapshot creation failed: %w", err)
 		}
 		snapshotPath = lvm.GetSnapshotDevicePath(snapshotName, cfg.VolumeGroup)
 		logger.Info("Snapshot created", zap.String("snapshot", snapshotPath))
@@ -307,14 +323,32 @@ func main() {
 		go func() {
 			if err := lvm.MonitorSnapshot(monitorCtx, snapshotPath, 80.0, 10*time.Second); err != nil && !errors.Is(err, context.Canceled) {
 				zap.L().Error("Snapshot monitor error", zap.Error(err))
-				os.Exit(1)
+				monitorErrCh <- err
 			}
 		}()
 		defer cancel()
 	}
 
-	if err := runClientMode(snapshotPath, destPath); err != nil {
-		logger.Fatal("Copy operation failed", zap.Error(err))
+	clientErrCh := make(chan error, 1)
+	go func() {
+		clientErrCh <- runClientMode(snapshotPath, destPath)
+	}()
+
+	select {
+	case err := <-clientErrCh:
+		if err != nil {
+			return fmt.Errorf("copy operation failed: %w", err)
+		}
+	case err := <-sigErrCh:
+		return err
+	}
+
+	select {
+	case err := <-monitorErrCh:
+		if err != nil {
+			return fmt.Errorf("snapshot monitor error: %w", err)
+		}
+	default:
 	}
 
 	if !cfg.SkipSnapshotCreation {
@@ -324,5 +358,13 @@ func main() {
 		} else {
 			logger.Info("Snapshot removed", zap.String("snapshot", snapshotPath))
 		}
+	}
+	return nil
+}
+
+func main() {
+	if err := run(); err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
 	}
 }
