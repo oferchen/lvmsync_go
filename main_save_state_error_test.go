@@ -13,7 +13,11 @@ import (
 )
 
 func TestRunClientModeLogsSaveStateError(t *testing.T) {
-	cfg = config.DefaultConfig()
+	var err error
+	cfg, err = config.DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig returned error: %v", err)
+	}
 	cfg.StdoutMode = true
 	cfg.DedupStrategy = "checksum"
 	cfg.DedupStateFile = filepath.Join(t.TempDir(), "missing", "state")

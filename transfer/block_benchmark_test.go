@@ -30,7 +30,10 @@ func prepareTestFile(size int) (*os.File, func(), error) {
 }
 
 func BenchmarkReadBlockWithRetriesEphemeral(b *testing.B) {
-	cfg := config.DefaultConfig()
+	cfg, err := config.DefaultConfig()
+	if err != nil {
+		b.Fatal(err)
+	}
 	cfg.ZeroCopy = true
 	fileSize := cfg.BlockSize * b.N
 	f, cleanup, err := prepareTestFile(fileSize)
@@ -49,7 +52,10 @@ func BenchmarkReadBlockWithRetriesEphemeral(b *testing.B) {
 }
 
 func BenchmarkReadBlockWithRetriesPersistent(b *testing.B) {
-	cfg := config.DefaultConfig()
+	cfg, err := config.DefaultConfig()
+	if err != nil {
+		b.Fatal(err)
+	}
 	cfg.ZeroCopy = true
 	fileSize := cfg.BlockSize * b.N
 	f, cleanup, err := prepareTestFile(fileSize)
