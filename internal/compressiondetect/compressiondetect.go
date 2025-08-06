@@ -96,7 +96,9 @@ func benchZSTD(sample []byte) time.Duration {
 	}
 	start := time.Now()
 	if _, err := zw.Write(sample); err != nil {
-		zw.Close()
+		if err := zw.Close(); err != nil {
+			return time.Hour
+		}
 		return time.Hour
 	}
 	if err := zw.Close(); err != nil {
