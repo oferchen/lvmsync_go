@@ -89,26 +89,38 @@ func (c *Chunker) NextChunk(r io.Reader) (Chunk, error) {
 		size++
 		// update rolling hash
 		h = (h << 1) + gear[b[0]]
-		// update entropy window
-		out := c.window[0]
-		copy(c.window[0:63], c.window[1:])
-		c.window[63] = b[0]
-		counts[out]--
-		counts[b[0]]++
-
-		// choose mask based on entropy
-		mask := c.maskNormal
-		if entropy(counts[:]) < 4.0 {
-			mask = c.maskLow
-		} else if entropy(counts[:]) > 7.0 {
-			mask = c.maskHigh
-		}
+		// update entropy window and determine mask
+		e := c.updateEntropy(b[0], &counts)
+		mask := c.selectMask(e)
 
 		if size >= c.Min && h&mask == 0 {
 			break
 		}
 	}
 	return Chunk{Offset: offset, Length: size, Data: buf[:size]}, nil
+}
+
+// updateEntropy updates the rolling entropy window with the new byte and
+// returns the current entropy.
+func (c *Chunker) updateEntropy(b byte, counts *[256]int) float64 {
+	out := c.window[0]
+	copy(c.window[:63], c.window[1:])
+	c.window[63] = b
+	counts[out]--
+	counts[b]++
+	return entropy(counts[:])
+}
+
+// selectMask chooses the appropriate mask based on the entropy value.
+func (c *Chunker) selectMask(e float64) uint64 {
+	switch {
+	case e < 4.0:
+		return c.maskLow
+	case e > 7.0:
+		return c.maskHigh
+	default:
+		return c.maskNormal
+	}
 }
 
 // gear table taken from FastCDC reference implementation.
