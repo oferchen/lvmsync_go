@@ -1,10 +1,11 @@
+---
 name: Lint Code Base
 
-on:
+'on':
   push:
-    branches: [ "main", "master" ]
+    branches: ["main", "master"]
   pull_request:
-    branches: [ "main", "master" ]
+    branches: ["main", "master"]
 
 jobs:
   run-lint:

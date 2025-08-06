@@ -189,6 +189,7 @@ lvmsync --skip_disk_check=false --snapshot_size "25%" --volume_group "vg_data" -
 ```
 
 In this example, LVMSync will:
+
 - Validate that the volume group `vg_data` exists.
 - Create a snapshot of `/dev/vg_data/original` sized at 25% of the original volume.
         - Automatically re-exec with `sudo -n` if not running as root.
@@ -255,6 +256,7 @@ LVMSync installs signal handlers for SIGINT and SIGTERM. If an interruption occu
 ## Configuration Validation
 
 Before starting, LVMSync validates key configuration parameters:
+
 - Verifies that the specified volume groups exist.
 - Ensures the escalation command is available if not running as root.
 
@@ -267,7 +269,6 @@ LVMSync is written in Go by Ofer Chen, inspired by [mpalmer/lvmsync](https://git
 ## Contributing
 
 Contributions are welcome. Please follow the project's coding guidelines, include appropriate logging and error handling, and update documentation as needed.
-
 
 ## Development
 
