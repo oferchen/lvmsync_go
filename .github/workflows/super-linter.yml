@@ -1,6 +1,4 @@
 # This workflow runs Go and multi-language linters on the codebase.
-# Complies with Checkov CKV2_GHA_1 by defining explicit top-level permissions.
-
 name: Lint Code Base
 
 on:
@@ -9,7 +7,6 @@ on:
   pull_request:
     branches: ["main", "master"]
 
-# ✅ Top-level permissions restricted to read-only
 permissions:
   contents: read
 
@@ -33,7 +30,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Go ${{ matrix.go-version }}
+      - name: Set up Go ${{ matrix.go-version }}
         uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go-version }}
@@ -69,7 +66,7 @@ jobs:
             cd ..
             rm -rf lvm2
           else
-            echo "lvm2cmd.h already present, skipping build"
+            echo "✅ lvm2cmd.h already present, skipping build"
           fi
 
       - name: Ensure Go module is initialized
@@ -80,29 +77,32 @@ jobs:
           fi
           go mod tidy
 
-      - name: Run golangci-lint
+      - name: Run golangci-lint (full module scan)
         uses: golangci/golangci-lint-action@v8.0.0
         with:
           version: v2.3.1
-          args: ./...
+          args: --timeout=3m ./...
 
-      - name: Run Super-Linter (non-Go)
+      - name: Run Super-Linter (non-Go validation only)
         uses: super-linter/super-linter@v8.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DEFAULT_BRANCH: main
           VALIDATE_ALL_CODEBASE: true
 
-          # Selective language validation
+          # Exclude Go (already handled above)
           # VALIDATE_GO: false
+
+          # Enable core validators
           # VALIDATE_YAML: true
           # VALIDATE_JSON: true
           # VALIDATE_MARKDOWN: true
           # VALIDATE_BASH: true
           # VALIDATE_EDITORCONFIG: true
           # VALIDATE_GITHUB_ACTIONS: true
+          # VALIDATE_DOCKERFILE_HADOLINT: true
+          # VALIDATE_CHECKOV: true
 
-          # Enable fixers where safe
           FIX_MARKDOWN: true
           FIX_MARKDOWN_PRETTIER: true
           FIX_YAML_PRETTIER: true
