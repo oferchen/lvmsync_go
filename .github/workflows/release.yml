@@ -1,23 +1,38 @@
+# This workflow builds and publishes a new release when a tag is pushed.
+# It uses GoReleaser to build and release binaries, and Docker to publish images.
+# It conforms to Checkov CKV2_GHA_1 by avoiding implicit write-all permissions.
+
 name: "Release a tag"
+
 on:
   push:
     tags:
-      - v*
+      - v*  # Triggers on version tags like v1.2.3
+
+# ✅ Explicit top-level minimal permissions
+permissions:
+  contents: read
 
 jobs:
   release:
+    name: Create and publish release
     runs-on: ubuntu-latest
+
+    # ✅ Job-level permission escalation: only this job can publish content
+    permissions:
+      contents: write  # Needed by GoReleaser to create GitHub releases
+
     env:
-      # https://github.com/actions/setup-go#supported-version-syntax
-      # ex:
-      # - 1.18beta1 -> 1.18.0-beta.1
-      # - 1.18rc1 -> 1.18.0-rc.1
       GO_VERSION: '1.24.5'
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout source code
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: actions/setup-go@v5
+
+      - name: Set up Go ${{ env.GO_VERSION }}
+        uses: actions/setup-go@v5.5.0
         with:
           go-version: ${{ env.GO_VERSION }}
 
@@ -31,17 +46,17 @@ jobs:
             libselinux-dev libsepol-dev \
             git curl
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+      - name: Set up QEMU for cross-compilation
+        uses: docker/setup-qemu-action@v3.0.0
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v3.0.0
 
-      - name: Login do docker.io
+      - name: Login to DockerHub
         run: docker login -u golangci -p ${{ secrets.GOLANGCI_LINT_DOCKER_TOKEN }}
 
-      - name: Create release
-        uses: goreleaser/goreleaser-action@v6
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6.0.0
         with:
           version: latest
           args: release --clean --timeout=90m
