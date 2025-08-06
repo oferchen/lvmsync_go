@@ -1,15 +1,15 @@
 # This workflow builds and publishes a new release when a tag is pushed.
-# It uses GoReleaser to build and release binaries, and Docker to publish images.
-# It conforms to Checkov CKV2_GHA_1 by avoiding implicit write-all permissions.
+# It uses GoReleaser to release binaries and Docker multi-arch images.
+# Docker image publishing is conditional per repository.
+# Conforms to Checkov CKV2_GHA_1.
 
 name: "Release a tag"
 
 on:
   push:
     tags:
-      - v*  # Triggers on version tags like v1.2.3
+      - v*  # Trigger on version tags like v1.2.3
 
-# ✅ Explicit top-level minimal permissions
 permissions:
   contents: read
 
@@ -18,9 +18,8 @@ jobs:
     name: Create and publish release
     runs-on: ubuntu-latest
 
-    # ✅ Job-level permission escalation: only this job can publish content
     permissions:
-      contents: write  # Needed by GoReleaser to create GitHub releases
+      contents: write  # Required to create GitHub release
 
     env:
       GO_VERSION: '1.24.5'
@@ -52,8 +51,23 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3.0.0
 
-      - name: Login to DockerHub
-        run: docker login -u golangci -p ${{ secrets.GOLANGCI_LINT_DOCKER_TOKEN }}
+      - name: Conditionally allow Docker push
+        run: |
+          if [[ "${{ github.repository }}" == "oferchen/lvmsync_go" ]]; then
+            echo "SKIP_DOCKER_PUSH=false" >> $GITHUB_ENV
+          else
+            echo "SKIP_DOCKER_PUSH=true" >> $GITHUB_ENV
+          fi
+
+      - name: Docker login to DockerHub
+        if: env.SKIP_DOCKER_PUSH == 'false'
+        run: |
+          echo "${{ secrets.GOLANGCI_LINT_DOCKER_TOKEN }}" | docker login -u golangci --password-stdin
+
+      - name: Docker login to GHCR (optional)
+        if: env.SKIP_DOCKER_PUSH == 'false'
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6.0.0
@@ -62,3 +76,4 @@ jobs:
           args: release --clean --timeout=90m
         env:
           GITHUB_TOKEN: ${{ secrets.GOLANGCI_LINT_TOKEN }}
+          SKIP_DOCKER_PUSH: ${{ env.SKIP_DOCKER_PUSH }}
