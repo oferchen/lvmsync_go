@@ -22,7 +22,7 @@ func TestSendKeepAlive(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to dial: %v", err)
 	}
-	defer client.Close()
+	defer client.Close() //nolint:errcheck
 
 	if err := sendKeepAlive(client, "host"); err != nil {
 		t.Fatalf("sendKeepAlive error: %v", err)
@@ -50,7 +50,9 @@ func TestStartKeepAlive(t *testing.T) {
 	}()
 
 	time.Sleep(30 * time.Millisecond)
-	client.Close()
+	if err := client.Close(); err != nil {
+		t.Fatalf("client.Close error: %v", err)
+	}
 
 	select {
 	case <-done:
@@ -93,7 +95,9 @@ func TestNewSSHClient(t *testing.T) {
 		t.Fatalf("NewSSHClient error: %v", err)
 	}
 	time.Sleep(20 * time.Millisecond)
-	client.Close()
+	if err := client.Close(); err != nil {
+		t.Fatalf("client.Close error: %v", err)
+	}
 
 	if len(server.GlobalRequests()) == 0 {
 		t.Fatalf("expected keepalive requests, got none")
