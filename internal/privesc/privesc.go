@@ -20,7 +20,7 @@ func EnsureRoot(escalationCmd string) error {
 		return fmt.Errorf("root privileges required")
 	}
 	parts := strings.Fields(escalationCmd)
-	argv := append(parts, os.Args...)
+	argv := append(append([]string{}, parts...), os.Args...)
 	if err := unix.Exec(parts[0], argv, os.Environ()); err != nil {
 		return fmt.Errorf("failed to exec %s: %w", parts[0], err)
 	}
