@@ -9,13 +9,19 @@ on:
 jobs:
   run-lint:
     runs-on: ubuntu-latest
+
+    env:
+      GO111MODULE: "on"
+      CGO_ENABLED: "1"
+      CGO_CFLAGS: "-I/usr/include"
+
     steps:
-      - name: Checkout code
+      - name: Checkout source
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Install build dependencies
+      - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -25,42 +31,45 @@ jobs:
             libselinux-dev libsepol-dev \
             git curl
 
-      - name: Clone and build LVM2 with lvm2cmd.h
+      - name: Build LVM2 from source (only if needed)
         run: |
-          git clone https://sourceware.org/git/lvm2.git
-          cd lvm2
-          ./configure \
-            --prefix=/usr \
-            --enable-cmdlib \
-            --enable-pkgconfig \
-            --disable-selinux \
-            --disable-readline \
-            --disable-udev_sync \
-            --disable-udev_rules \
-            --disable-nls \
-            --disable-dmeventd
-          make -j$(nproc)
-          sudo make install
+          if [ ! -f /usr/include/lvm2cmd.h ]; then
+            echo "🔧 lvm2cmd.h not found, building LVM2 from source"
+            git clone --depth=1 https://sourceware.org/git/lvm2.git
+            cd lvm2
+            ./configure \
+              --prefix=/usr \
+              --enable-cmdlib \
+              --enable-pkgconfig \
+              --disable-selinux \
+              --disable-readline \
+              --disable-udev_sync \
+              --disable-udev_rules \
+              --disable-nls \
+              --disable-dmeventd
+            make -j"$(nproc)"
+            sudo make install
+            cd ..
+            rm -rf lvm2
+          else
+            echo "lvm2cmd.h already present, skipping build"
+          fi
 
-      - name: Verify required headers
-        run: test -f /usr/include/lvm2cmd.h || { echo "Missing lvm2cmd.h!"; exit 1; }
-
-      - name: Install Go mod dependencies
+      - name: Ensure Go module is initialized
         run: |
-          rm -f go.mod go.sum
-          go mod init lvmsync_go
+          if [ ! -f go.mod ]; then
+            echo "Initializing go.mod"
+            go mod init lvmsync_go
+          fi
           go mod tidy
 
-      - name: Golangci-lint
+      - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v8.0.0
         with:
-          version: latest
+          version: v2.3.1
           args: ./...
-        env:
-          CGO_ENABLED: '1'
-          CGO_CFLAGS: '-I/usr/include'
 
-      - name: Super-Linter
+      - name: Run Super-Linter (non-Go)
         uses: super-linter/super-linter@v8.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
