@@ -43,14 +43,20 @@ func (f *fakeBackend) ListVolumeGroups(_ context.Context, candidates []string) (
 }
 
 func TestDefaultConfigCompress(t *testing.T) {
-	cfg := DefaultConfig()
+	cfg, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig returned error: %v", err)
+	}
 	if cfg.Compress != "auto" {
 		t.Fatalf("expected default Compress to be 'auto', got %q", cfg.Compress)
 	}
 }
 
 func TestDefaultConfigBlockSize(t *testing.T) {
-	cfg := DefaultConfig()
+	cfg, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig returned error: %v", err)
+	}
 	if cfg.BlockSize != 0 || cfg.BlockSizeRaw != "auto" {
 		t.Fatalf("expected default block size auto, got %d (%s)", cfg.BlockSize, cfg.BlockSizeRaw)
 	}
@@ -177,7 +183,11 @@ func TestBuildBlockSize(t *testing.T) {
 	t.Run("auto", func(t *testing.T) {
 		v := viper.New()
 		v.Set("block_size", "auto")
-		cb := &ConfigBuilder{v: v, defaults: DefaultConfig()}
+		defaults, err := DefaultConfig()
+		if err != nil {
+			t.Fatalf("DefaultConfig returned error: %v", err)
+		}
+		cb := &ConfigBuilder{v: v, defaults: defaults}
 		cfg, err := cb.Build()
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -190,7 +200,11 @@ func TestBuildBlockSize(t *testing.T) {
 	t.Run("numeric", func(t *testing.T) {
 		v := viper.New()
 		v.Set("block_size", "8KB")
-		cb := &ConfigBuilder{v: v, defaults: DefaultConfig()}
+		defaults, err := DefaultConfig()
+		if err != nil {
+			t.Fatalf("DefaultConfig returned error: %v", err)
+		}
+		cb := &ConfigBuilder{v: v, defaults: defaults}
 		cfg, err := cb.Build()
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -206,7 +220,11 @@ func TestCompressLevelValidation(t *testing.T) {
 		v := viper.New()
 		v.Set("compress", "zstd")
 		v.Set("compress_level", 3)
-		cb := &ConfigBuilder{v: v, defaults: DefaultConfig()}
+		defaults, err := DefaultConfig()
+		if err != nil {
+			t.Fatalf("DefaultConfig returned error: %v", err)
+		}
+		cb := &ConfigBuilder{v: v, defaults: defaults}
 		if _, err := cb.Build(); err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
@@ -216,7 +234,11 @@ func TestCompressLevelValidation(t *testing.T) {
 		v := viper.New()
 		v.Set("compress", "zstd")
 		v.Set("compress_level", 100)
-		cb := &ConfigBuilder{v: v, defaults: DefaultConfig()}
+		defaults, err := DefaultConfig()
+		if err != nil {
+			t.Fatalf("DefaultConfig returned error: %v", err)
+		}
+		cb := &ConfigBuilder{v: v, defaults: defaults}
 		if _, err := cb.Build(); err == nil {
 			t.Fatalf("expected error")
 		}
@@ -230,7 +252,11 @@ func TestCompressLevelValidation(t *testing.T) {
 		} else {
 			v.Set("compress_level", int(lz4.Level3))
 		}
-		cb := &ConfigBuilder{v: v, defaults: DefaultConfig()}
+		defaults, err := DefaultConfig()
+		if err != nil {
+			t.Fatalf("DefaultConfig returned error: %v", err)
+		}
+		cb := &ConfigBuilder{v: v, defaults: defaults}
 		if _, err := cb.Build(); err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
@@ -244,7 +270,11 @@ func TestCompressLevelValidation(t *testing.T) {
 		} else {
 			v.Set("compress_level", 3)
 		}
-		cb := &ConfigBuilder{v: v, defaults: DefaultConfig()}
+		defaults, err := DefaultConfig()
+		if err != nil {
+			t.Fatalf("DefaultConfig returned error: %v", err)
+		}
+		cb := &ConfigBuilder{v: v, defaults: defaults}
 		if _, err := cb.Build(); err == nil {
 			t.Fatalf("expected error")
 		}
@@ -254,7 +284,11 @@ func TestCompressLevelValidation(t *testing.T) {
 		v := viper.New()
 		v.Set("compress", "lz4")
 		v.Set("compress_level", int(lz4.Level3))
-		cb := &ConfigBuilder{v: v, defaults: DefaultConfig()}
+		defaults, err := DefaultConfig()
+		if err != nil {
+			t.Fatalf("DefaultConfig returned error: %v", err)
+		}
+		cb := &ConfigBuilder{v: v, defaults: defaults}
 		if _, err := cb.Build(); err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
@@ -264,7 +298,11 @@ func TestCompressLevelValidation(t *testing.T) {
 		v := viper.New()
 		v.Set("compress", "lz4")
 		v.Set("compress_level", 3)
-		cb := &ConfigBuilder{v: v, defaults: DefaultConfig()}
+		defaults, err := DefaultConfig()
+		if err != nil {
+			t.Fatalf("DefaultConfig returned error: %v", err)
+		}
+		cb := &ConfigBuilder{v: v, defaults: defaults}
 		if _, err := cb.Build(); err == nil {
 			t.Fatalf("expected error")
 		}
@@ -274,7 +312,11 @@ func TestCompressLevelValidation(t *testing.T) {
 func TestCompressConcurrency(t *testing.T) {
 	t.Run("defaultPositive", func(t *testing.T) {
 		v := viper.New()
-		cb := &ConfigBuilder{v: v, defaults: DefaultConfig()}
+		defaults, err := DefaultConfig()
+		if err != nil {
+			t.Fatalf("DefaultConfig returned error: %v", err)
+		}
+		cb := &ConfigBuilder{v: v, defaults: defaults}
 		cfg, err := cb.Build()
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -287,7 +329,11 @@ func TestCompressConcurrency(t *testing.T) {
 	t.Run("override", func(t *testing.T) {
 		v := viper.New()
 		v.Set("compress_concurrency", 8)
-		cb := &ConfigBuilder{v: v, defaults: DefaultConfig()}
+		defaults, err := DefaultConfig()
+		if err != nil {
+			t.Fatalf("DefaultConfig returned error: %v", err)
+		}
+		cb := &ConfigBuilder{v: v, defaults: defaults}
 		cfg, err := cb.Build()
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)

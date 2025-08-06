@@ -9,7 +9,11 @@ import (
 )
 
 func TestRunClientModeStdout(t *testing.T) {
-	cfg = config.DefaultConfig()
+	var err error
+	cfg, err = config.DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig returned error: %v", err)
+	}
 	cfg.StdoutMode = true
 	cfg.DedupStrategy = "none"
 	cfg.Parallel = 1

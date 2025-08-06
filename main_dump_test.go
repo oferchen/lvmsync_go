@@ -9,7 +9,10 @@ import (
 )
 
 func TestExecuteDumpSequential(t *testing.T) {
-	cfg := config.DefaultConfig()
+	cfg, err := config.DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig returned error: %v", err)
+	}
 	cfg.DedupStrategy = "none"
 	cfg.Parallel = 1
 
@@ -30,7 +33,10 @@ func TestExecuteDumpSequential(t *testing.T) {
 }
 
 func TestExecuteDumpParallel(t *testing.T) {
-	cfg := config.DefaultConfig()
+	cfg, err := config.DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig returned error: %v", err)
+	}
 	cfg.Parallel = 2
 
 	called := false
@@ -50,7 +56,10 @@ func TestExecuteDumpParallel(t *testing.T) {
 }
 
 func TestExecuteDumpWithDedup(t *testing.T) {
-	cfg := config.DefaultConfig()
+	cfg, err := config.DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig returned error: %v", err)
+	}
 	cfg.DedupStrategy = "checksum"
 
 	called := false
