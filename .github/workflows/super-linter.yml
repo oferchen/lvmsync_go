@@ -25,16 +25,16 @@ jobs:
       DEFAULT_BRANCH: main
 
       VALIDATE_ALL_CODEBASE: true
-      VALIDATE_GO: true
-      VALIDATE_YAML: true
-      VALIDATE_JSON: true
-      VALIDATE_MARKDOWN: true
-      VALIDATE_MARKDOWN_PRETTIER: true
-      VALIDATE_BASH: true
-      VALIDATE_EDITORCONFIG: true
-      VALIDATE_GITHUB_ACTIONS: true
-      VALIDATE_DOCKERFILE_HADOLINT: true
-      VALIDATE_CHECKOV: true
+      # VALIDATE_GO: true
+      # VALIDATE_YAML: true
+      # VALIDATE_JSON: true
+      # VALIDATE_MARKDOWN: true
+      # VALIDATE_MARKDOWN_PRETTIER: true
+      # VALIDATE_BASH: true
+      # VALIDATE_EDITORCONFIG: true
+      # VALIDATE_GITHUB_ACTIONS: true
+      # VALIDATE_DOCKERFILE_HADOLINT: true
+      # VALIDATE_CHECKOV: true
 
       GO_LINTER: golangci-lint
       GO_LINT_FLAGS: ./...
