@@ -98,7 +98,11 @@ func TestGetVolumeSizeCachesFD(t *testing.T) {
 	if !ok {
 		t.Fatalf("file descriptor not cached")
 	}
-	fd := elem.Value.(*fdCacheEntry).fd
+	entry, ok := elem.Value.(*fdCacheEntry)
+	if !ok {
+		t.Fatalf("invalid cache entry type")
+	}
+	fd := entry.fd
 
 	size, err = GetVolumeSize(tmpFile)
 	if err != nil {
@@ -109,7 +113,11 @@ func TestGetVolumeSizeCachesFD(t *testing.T) {
 	}
 
 	elem2, ok := deviceFDCache.fds[tmpFile]
-	if !ok || elem2.Value.(*fdCacheEntry).fd != fd {
+	if !ok {
+		t.Fatalf("file descriptor not reused")
+	}
+	entry2, ok := elem2.Value.(*fdCacheEntry)
+	if !ok || entry2.fd != fd {
 		t.Fatalf("file descriptor not reused")
 	}
 

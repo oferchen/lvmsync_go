@@ -46,6 +46,7 @@ func newMockSSHServer(t *testing.T, handler func(string) int) *mockSSHServer {
 	return srv
 }
 
+//nolint:revive // complexity okay for test server
 func (s *mockSSHServer) serve(config *ssh.ServerConfig) {
 	for {
 		conn, err := s.listener.Accept()
@@ -81,7 +82,9 @@ func (s *mockSSHServer) handleChannel(ch ssh.Channel, in <-chan *ssh.Request) {
 			var payload struct {
 				Command string `ssh:"command"`
 			}
-			ssh.Unmarshal(req.Payload, &payload)
+			if err := ssh.Unmarshal(req.Payload, &payload); err != nil {
+				return
+			}
 			s.mu.Lock()
 			s.commands = append(s.commands, payload.Command)
 			s.mu.Unlock()
@@ -94,7 +97,9 @@ func (s *mockSSHServer) handleChannel(ch ssh.Channel, in <-chan *ssh.Request) {
 	}
 }
 
-func (s *mockSSHServer) Close() { s.listener.Close() /*nolint:errcheck*/ }
+func (s *mockSSHServer) Close() {
+	s.listener.Close() //nolint:errcheck
+}
 
 func (s *mockSSHServer) Commands() []string {
 	s.mu.Lock()
@@ -115,7 +120,9 @@ func createTempKey(t *testing.T) string {
 	if _, err := f.Write(keyPEM); err != nil {
 		t.Fatalf("write key: %v", err)
 	}
-	f.Close()
+	if err := f.Close(); err != nil {
+		t.Fatalf("close key: %v", err)
+	}
 	return f.Name()
 }
 
@@ -125,7 +132,10 @@ func TestRemotePostScriptRunsOnError(t *testing.T) {
 	defer server.Close()
 
 	host, portStr, _ := strings.Cut(server.addr, ":")
-	port, _ := strconv.Atoi(portStr)
+	port, errConv := strconv.Atoi(portStr)
+	if errConv != nil {
+		t.Fatalf("Atoi: %v", errConv)
+	}
 
 	var err error
 	cfg, err = config.DefaultConfig()
@@ -172,7 +182,10 @@ func TestRemotePostScriptNotRunIfPreScriptFails(t *testing.T) {
 	defer server.Close()
 
 	host, portStr, _ := strings.Cut(server.addr, ":")
-	port, _ := strconv.Atoi(portStr)
+	port, errConv := strconv.Atoi(portStr)
+	if errConv != nil {
+		t.Fatalf("Atoi: %v", errConv)
+	}
 
 	var err error
 	cfg, err = config.DefaultConfig()

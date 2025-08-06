@@ -7,6 +7,7 @@ import (
 	"testing"
 )
 
+//nolint:revive // test uses table-driven complexity
 func TestReadMetadataHeader(t *testing.T) {
 	valid := make([]byte, 16)
 	binary.LittleEndian.PutUint32(valid[0:4], 0x70416e53)
@@ -70,7 +71,9 @@ func TestReadMetadataHeader(t *testing.T) {
 			if _, err := tmpFile.Write(tt.header); err != nil {
 				t.Fatalf("failed to write header: %v", err)
 			}
-			tmpFile.Close()
+			if err := tmpFile.Close(); err != nil {
+				t.Fatalf("close: %v", err)
+			}
 
 			size, err := ReadMetadataHeader(tmpFile.Name())
 			if tt.errSub != "" {

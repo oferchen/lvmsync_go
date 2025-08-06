@@ -42,6 +42,7 @@ func newMockSSHServer(t *testing.T, handler func(string) int) *mockSSHServer {
 	return srv
 }
 
+//nolint:revive // complexity acceptable for test server
 func (s *mockSSHServer) serve(config *ssh.ServerConfig) {
 	for {
 		conn, err := s.listener.Accept()
@@ -80,7 +81,9 @@ func (s *mockSSHServer) handleChannel(ch ssh.Channel, in <-chan *ssh.Request) {
 			var payload struct {
 				Command string `ssh:"command"`
 			}
-			ssh.Unmarshal(req.Payload, &payload)
+			if err := ssh.Unmarshal(req.Payload, &payload); err != nil {
+				return
+			}
 			s.mu.Lock()
 			s.commands = append(s.commands, payload.Command)
 			s.mu.Unlock()

@@ -23,13 +23,17 @@ func TestGetDifferences(t *testing.T) {
 		buf := make([]byte, 16)
 		binary.LittleEndian.PutUint64(buf[0:8], origin)
 		binary.LittleEndian.PutUint64(buf[8:16], snap)
-		tmpFile.Write(buf)
+		if _, err := tmpFile.Write(buf); err != nil {
+			t.Fatalf("write entry: %v", err)
+		}
 	}
 
 	writeEntry(2, 1)
 	writeEntry(4, 2)
 	writeEntry(0, 0)
-	tmpFile.Close()
+	if err := tmpFile.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
 
 	ranges, err := GetDifferences(tmpFile.Name(), chunkSize)
 	if err != nil {

@@ -68,7 +68,9 @@ func (s *SSHManager) CloseAll() {
 	defer s.mu.Unlock()
 
 	for addr, client := range s.clients {
-		client.Close()
+		if err := client.Close(); err != nil {
+			_ = err // ignore close error
+		}
 		delete(s.clients, addr)
 	}
 }

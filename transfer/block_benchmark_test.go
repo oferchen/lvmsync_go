@@ -68,8 +68,16 @@ func BenchmarkReadBlockWithRetriesPersistent(b *testing.B) {
 	if err := syscall.Pipe(pipeFds[:]); err != nil {
 		b.Fatal(err)
 	}
-	defer syscall.Close(pipeFds[0])
-	defer syscall.Close(pipeFds[1])
+	defer func() {
+		if err := syscall.Close(pipeFds[0]); err != nil {
+			b.Fatalf("close pipe0: %v", err)
+		}
+	}()
+	defer func() {
+		if err := syscall.Close(pipeFds[1]); err != nil {
+			b.Fatalf("close pipe1: %v", err)
+		}
+	}()
 
 	atomic.StoreInt64(&PipeCreationCount, 0)
 	for i := 0; i < b.N; i++ {

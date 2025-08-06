@@ -52,6 +52,8 @@ func NewChunker(min, avg, max int) *Chunker {
 // returns io.EOF when no more data is available. The returned chunk's
 // Data slice is owned by the caller and will be reused by the chunker on
 // subsequent calls; copy it if persistence is required.
+//
+//nolint:revive // algorithmic complexity required for chunking
 func (c *Chunker) NextChunk(r io.Reader) (Chunk, error) {
 	buf := make([]byte, c.Max)
 	n, err := io.ReadFull(r, buf[:c.Min])

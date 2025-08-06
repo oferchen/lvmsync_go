@@ -2,6 +2,7 @@
 package remote
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -63,7 +64,9 @@ func (s *SSHSession) Wait() error {
 }
 
 func (s *SSHSession) Close() {
-	s.Session.Close()
+	if err := s.Session.Close(); err != nil && !errors.Is(err, io.EOF) {
+		Logger.Warn("session close error", zap.Error(err))
+	}
 }
 
 func RunSSHCommand(host, user, keyPath, hostKeyPath string, port int, command string, timeout time.Duration) error {
@@ -81,7 +84,11 @@ func RunSSHCommand(host, user, keyPath, hostKeyPath string, port int, command st
 	if err != nil {
 		return fmt.Errorf("failed to establish SSH connection: %w", err)
 	}
-	defer client.Close()
+	defer func() {
+		if err := client.Close(); err != nil {
+			Logger.Warn("client close error", zap.Error(err))
+		}
+	}()
 
 	session, err := NewSSHSession(client)
 	if err != nil {

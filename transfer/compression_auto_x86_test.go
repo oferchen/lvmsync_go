@@ -27,7 +27,9 @@ func TestNewCompressionWriterAutoX86Features(t *testing.T) {
 		if _, ok := w.(*pooledZstdWriter); !ok {
 			t.Fatalf("expected zstd writer when %s is present", feat.String())
 		}
-		w.Close()
+		if err := w.Close(); err != nil {
+			t.Fatalf("close: %v", err)
+		}
 	}
 }
 
@@ -46,7 +48,9 @@ func TestNewCompressionWriterAutoX86CPUMetrics(t *testing.T) {
 	if _, ok := w.(*pooledZstdWriter); !ok {
 		t.Fatalf("expected zstd writer when cores and cache are large")
 	}
-	w.Close()
+	if err := w.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
 }
 
 func TestNewCompressionWriterAutoX86Fallback(t *testing.T) {
@@ -76,5 +80,7 @@ func TestNewCompressionWriterAutoX86Fallback(t *testing.T) {
 			t.Fatalf("expected zstd writer when benchmark prefers zstd")
 		}
 	}
-	w.Close()
+	if err := w.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
 }

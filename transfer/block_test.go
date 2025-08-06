@@ -80,8 +80,16 @@ func TestReadBlockWithRetriesPipeHandling(t *testing.T) {
 	if err := syscall.Pipe(fds[:]); err != nil {
 		t.Fatalf("pipe: %v", err)
 	}
-	defer syscall.Close(fds[0])
-	defer syscall.Close(fds[1])
+	defer func() {
+		if err := syscall.Close(fds[0]); err != nil {
+			t.Logf("close fd0: %v", err)
+		}
+	}()
+	defer func() {
+		if err := syscall.Close(fds[1]); err != nil {
+			t.Logf("close fd1: %v", err)
+		}
+	}()
 
 	atomic.StoreInt64(&PipeCreationCount, 0)
 	buf, err = ReadBlockWithRetries(cfg, tmp, 0, true, fds)

@@ -2,6 +2,7 @@
 package remote
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -113,7 +114,11 @@ func ValidateRemoteCommand(client *ssh.Client, remoteCmd string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create SSH session for validation: %w", err)
 	}
-	defer session.Close()
+	defer func() {
+		if err := session.Close(); err != nil && !errors.Is(err, io.EOF) {
+			Logger.Warn("session close error", zap.Error(err))
+		}
+	}()
 	session.Stdout = io.Discard
 	session.Stderr = io.Discard
 	if err := session.Run(fmt.Sprintf("%s --version", cmd)); err != nil {
@@ -133,7 +138,11 @@ func RunRemoteScript(client *ssh.Client, script string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create SSH session for script: %w", err)
 	}
-	defer session.Close()
+	defer func() {
+		if err := session.Close(); err != nil && !errors.Is(err, io.EOF) {
+			Logger.Warn("session close error", zap.Error(err))
+		}
+	}()
 	Logger.Info("Running remote script", zap.String("script", script))
 	return session.Run(script)
 }

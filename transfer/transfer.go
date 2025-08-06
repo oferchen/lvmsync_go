@@ -146,6 +146,7 @@ func finalizeProgress(cfg *config.Config) {
 	}
 }
 
+//nolint:revive // orchestrating dump logic adds complexity
 func dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer, dedup DeduplicationStrategy, handshake string) error {
 	if cfg.BlockSize == 0 {
 		bs, err := blocksize.Detect(source)
@@ -189,8 +190,16 @@ func dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer,
 		if err := syscall.Pipe(pipeFds[:]); err != nil {
 			return fmt.Errorf("failed to create pipe: %w", err)
 		}
-		defer syscall.Close(pipeFds[0])
-		defer syscall.Close(pipeFds[1])
+		defer func() {
+			if err := syscall.Close(pipeFds[0]); err != nil {
+				Logger.Warn("close pipe", zap.Int("fd", pipeFds[0]), zap.Error(err))
+			}
+		}()
+		defer func() {
+			if err := syscall.Close(pipeFds[1]); err != nil {
+				Logger.Warn("close pipe", zap.Int("fd", pipeFds[1]), zap.Error(err))
+			}
+		}()
 	} else {
 		pipeFds[0], pipeFds[1] = -1, -1
 	}
@@ -251,6 +260,7 @@ func prepareParallelHandshake(cfg *config.Config) string {
 	return strings.Join(htokens, " ")
 }
 
+//nolint:revive // complex but clear processing loop
 func processParallelResults(cfg *config.Config, results <-chan *BlockResult, bufOut *bufio.Writer, checksum ChecksumStrategy, totalDataSize int64, startTime time.Time) (int64, error) {
 	headerSize := 12
 	if cfg.VerifyChecksum {
@@ -318,6 +328,7 @@ func worker(cfg *config.Config, srcFile *os.File, tasks <-chan BlockTask, result
 	}
 }
 
+//nolint:revive // complexity necessary for transfer logic
 func DumpChangesParallel(cfg *config.Config, snapshot, source string, out io.Writer) error {
 	if cfg.ZeroCopy {
 		Logger.Warn("ZeroCopy mode enabled, falling back to sequential execution")
@@ -436,6 +447,7 @@ func readAndValidateHandshake(bufReader *bufio.Reader, dedup DeduplicationStrate
 	return hs, nil
 }
 
+//nolint:revive // core apply logic is inherently complex
 func applyBlocks(cfg *config.Config, reader *bufio.Reader, destFile *os.File, dedup DeduplicationStrategy, verify bool, checksum ChecksumStrategy) (int64, error) {
 	var totalBytes int64
 	headerLen := 12

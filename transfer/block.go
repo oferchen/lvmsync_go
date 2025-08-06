@@ -54,6 +54,7 @@ func ReadBlock(src *os.File, offset int64, size int) ([]byte, error) {
 	return buf, nil
 }
 
+//nolint:revive // high complexity is acceptable for this low-level function
 func ReadBlockWithRetries(cfg *config.Config, src *os.File, offset int64, useZeroCopy bool, pipeFds [2]int) ([]byte, error) {
 	blockSize := cfg.BlockSize
 	maxRetries := cfg.MaxRetries
@@ -65,15 +66,27 @@ func ReadBlockWithRetries(cfg *config.Config, src *os.File, offset int64, useZer
 				return nil, err
 			}
 			atomic.AddInt64(&PipeCreationCount, 1)
-			defer syscall.Close(pipeFds[0])
-			defer syscall.Close(pipeFds[1])
+			defer func() {
+				if err := syscall.Close(pipeFds[0]); err != nil {
+					Logger.Warn("close pipe", zap.Int("fd", pipeFds[0]), zap.Error(err))
+				}
+			}()
+			defer func() {
+				if err := syscall.Close(pipeFds[1]); err != nil {
+					Logger.Warn("close pipe", zap.Int("fd", pipeFds[1]), zap.Error(err))
+				}
+			}()
 		}
 
 		r, w, err := os.Pipe()
 		if err != nil {
 			return nil, err
 		}
-		defer r.Close()
+		defer func() {
+			if err := r.Close(); err != nil {
+				Logger.Warn("pipe read close", zap.Error(err))
+			}
+		}()
 
 		for attempt := 0; attempt < maxRetries; attempt++ {
 			err = ZeroCopyTransfer(src, w, offset, int64(blockSize), pipeFds)
@@ -89,7 +102,9 @@ func ReadBlockWithRetries(cfg *config.Config, src *os.File, offset int64, useZer
 
 			time.Sleep(100 * time.Millisecond)
 		}
-		w.Close()
+		if errClose := w.Close(); errClose != nil {
+			return nil, errClose
+		}
 
 		if err != nil {
 			return nil, err

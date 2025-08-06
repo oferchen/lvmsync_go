@@ -50,7 +50,11 @@ func (b *golvmBackend) withLV(path, mode string, fn func(*golvm.LvObject) error)
 	if err != nil {
 		return err
 	}
-	defer func() { _ = vg.Close() }()
+	defer func() {
+		if err := vg.Close(); err != nil {
+			zap.L().Warn("failed to close volume group", zap.Error(err))
+		}
+	}()
 	lv, err := vg.LvFromName(lvName)
 	if err != nil {
 		return err
@@ -97,7 +101,11 @@ func (b *golvmBackend) GetVolumeGroupFreeSpace(ctx context.Context, vgName strin
 	if err != nil {
 		return 0, err
 	}
-	defer func() { _ = vg.Close() }()
+	defer func() {
+		if err := vg.Close(); err != nil {
+			zap.L().Warn("failed to close volume group", zap.Error(err))
+		}
+	}()
 	return vg.GetFreeSize(), nil
 }
 
