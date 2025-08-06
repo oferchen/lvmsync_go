@@ -26,14 +26,14 @@ linters-settings:
     check-type-assertions: true
     check-blank: true
     exclude-functions:
-      - "(*os.File).Close"
-      - "signal.Stop"
-      - "os.Remove"
-      - "fmt.Fprintf"
+      - "(*os.File).Close"         # cleanup-safe
+      - "signal.Stop"             # common post-defer
+      - "os.Remove"               # used in temp cleanup
+      - "fmt.Fprintf"             # output not critical
       - "fmt.Fprint"
       - "fmt.Fprintln"
-      - "io.Copy"
-      - "(*bytes.Buffer).Write"
+      - "io.Copy"                 # verified by downstream
+      - "(*bytes.Buffer).Write"   # buffer-based processing
       - "(*bytes.Buffer).ReadFrom"
 
   gocritic:
