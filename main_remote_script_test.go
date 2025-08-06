@@ -60,7 +60,7 @@ func (s *mockSSHServer) serve(config *ssh.ServerConfig) {
 			go ssh.DiscardRequests(reqs)
 			for newCh := range chans {
 				if newCh.ChannelType() != "session" {
-					newCh.Reject(ssh.UnknownChannelType, "unknown channel type")
+					newCh.Reject(ssh.UnknownChannelType, "unknown channel type") //nolint:errcheck
 					continue
 				}
 				ch, requests, err := newCh.Accept()
@@ -69,13 +69,13 @@ func (s *mockSSHServer) serve(config *ssh.ServerConfig) {
 				}
 				go s.handleChannel(ch, requests)
 			}
-			serverConn.Close()
+			serverConn.Close() //nolint:errcheck
 		}(conn)
 	}
 }
 
 func (s *mockSSHServer) handleChannel(ch ssh.Channel, in <-chan *ssh.Request) {
-	defer ch.Close()
+	defer ch.Close() //nolint:errcheck
 	for req := range in {
 		if req.Type == "exec" {
 			var payload struct {
@@ -86,14 +86,15 @@ func (s *mockSSHServer) handleChannel(ch ssh.Channel, in <-chan *ssh.Request) {
 			s.commands = append(s.commands, payload.Command)
 			s.mu.Unlock()
 			status := s.handler(payload.Command)
-			req.Reply(true, nil)
-			ch.SendRequest("exit-status", false, ssh.Marshal(struct{ Status uint32 }{uint32(status)}))
+			req.Reply(true, nil) //nolint:errcheck
+			exitPayload := struct{ Status uint32 }{uint32(status)}
+			ch.SendRequest("exit-status", false, ssh.Marshal(exitPayload)) //nolint:errcheck
 			return
 		}
 	}
 }
 
-func (s *mockSSHServer) Close() { s.listener.Close() }
+func (s *mockSSHServer) Close() { s.listener.Close() /*nolint:errcheck*/ }
 
 func (s *mockSSHServer) Commands() []string {
 	s.mu.Lock()

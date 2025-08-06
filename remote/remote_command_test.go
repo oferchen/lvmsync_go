@@ -59,7 +59,7 @@ func (s *mockSSHServer) serve(config *ssh.ServerConfig) {
 			go s.handleRequests(reqs)
 			for newCh := range chans {
 				if newCh.ChannelType() != "session" {
-					newCh.Reject(ssh.UnknownChannelType, "unknown channel type")
+					newCh.Reject(ssh.UnknownChannelType, "unknown channel type") //nolint:errcheck
 					continue
 				}
 				ch, requests, err := newCh.Accept()
@@ -68,13 +68,13 @@ func (s *mockSSHServer) serve(config *ssh.ServerConfig) {
 				}
 				go s.handleChannel(ch, requests)
 			}
-			serverConn.Close()
+			serverConn.Close() //nolint:errcheck
 		}(conn)
 	}
 }
 
 func (s *mockSSHServer) handleChannel(ch ssh.Channel, in <-chan *ssh.Request) {
-	defer ch.Close()
+	defer ch.Close() //nolint:errcheck
 	for req := range in {
 		if req.Type == "exec" {
 			var payload struct {
@@ -85,8 +85,9 @@ func (s *mockSSHServer) handleChannel(ch ssh.Channel, in <-chan *ssh.Request) {
 			s.commands = append(s.commands, payload.Command)
 			s.mu.Unlock()
 			status := s.handler(payload.Command)
-			req.Reply(true, nil)
-			ch.SendRequest("exit-status", false, ssh.Marshal(struct{ Status uint32 }{uint32(status)}))
+			req.Reply(true, nil) //nolint:errcheck
+			exitPayload := struct{ Status uint32 }{uint32(status)}
+			ch.SendRequest("exit-status", false, ssh.Marshal(exitPayload)) //nolint:errcheck
 			return
 		}
 	}
@@ -97,12 +98,12 @@ func (s *mockSSHServer) handleRequests(in <-chan *ssh.Request) {
 		s.mu.Lock()
 		s.globalReqs = append(s.globalReqs, req.Type)
 		s.mu.Unlock()
-		req.Reply(true, nil)
+		req.Reply(true, nil) //nolint:errcheck
 	}
 }
 
 func (s *mockSSHServer) Close() {
-	s.listener.Close()
+	s.listener.Close() //nolint:errcheck
 }
 
 func (s *mockSSHServer) Commands() []string {
@@ -140,7 +141,7 @@ func TestValidateRemoteCommand(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to dial: %v", err)
 	}
-	defer client.Close()
+	defer client.Close() //nolint:errcheck
 
 	if err := ValidateRemoteCommand(client, "echo"); err != nil {
 		t.Fatalf("expected success, got %v", err)
@@ -159,7 +160,7 @@ func TestRunRemoteScript(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to dial: %v", err)
 	}
-	defer client.Close()
+	defer client.Close() //nolint:errcheck
 
 	core, observed := observer.New(zap.InfoLevel)
 	logger := zap.New(core)

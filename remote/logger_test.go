@@ -14,7 +14,7 @@ func TestRunRemoteScriptNoLogger(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to dial: %v", err)
 	}
-	defer client.Close()
+	defer client.Close() //nolint:errcheck
 
 	SetLogger(nil)
 
@@ -32,7 +32,7 @@ func TestSendKeepAliveNoLogger(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to dial: %v", err)
 	}
-	defer client.Close()
+	defer client.Close() //nolint:errcheck
 
 	SetLogger(nil)
 
