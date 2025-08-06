@@ -39,7 +39,9 @@ type Handshake struct {
 // WriteHandshake without the trailing newline.
 func (h Handshake) String() string {
 	var sb strings.Builder
-	_ = WriteHandshake(&sb, h) // Writing to strings.Builder never fails.
+	if err := WriteHandshake(&sb, h); err != nil {
+		return ""
+	}
 	return strings.TrimSpace(sb.String())
 }
 
