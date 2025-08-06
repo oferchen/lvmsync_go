@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 
+	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
 )
 
@@ -56,7 +57,9 @@ func (c *fdCache) getFD(devicePath string) (int, error) {
 	if c.order.Len() >= c.size {
 		if back := c.order.Back(); back != nil {
 			entry := back.Value.(*fdCacheEntry)
-			unix.Close(entry.fd)
+			if err := unix.Close(entry.fd); err != nil {
+				zap.L().Warn("failed to close fd", zap.String("path", entry.path), zap.Error(err))
+			}
 			delete(c.fds, entry.path)
 			c.order.Remove(back)
 		}
@@ -74,7 +77,9 @@ func (c *fdCache) Close() {
 
 	for _, elem := range c.fds {
 		entry := elem.Value.(*fdCacheEntry)
-		unix.Close(entry.fd)
+		if err := unix.Close(entry.fd); err != nil {
+			zap.L().Warn("failed to close fd", zap.String("path", entry.path), zap.Error(err))
+		}
 	}
 	c.fds = make(map[string]*list.Element, c.size)
 	c.order.Init()
