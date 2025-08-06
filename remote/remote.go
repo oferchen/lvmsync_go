@@ -16,6 +16,33 @@ import (
 )
 
 func NewSSHClient(host, user, keyPath string, port int, knownHostsPath string, verify bool, timeout, keepAliveInterval time.Duration, retries int) (*ssh.Client, error) {
+	authMethods, err := selectAuthMethods(keyPath)
+	if err != nil {
+		return nil, err
+	}
+	hostKeyCallback, err := setupHostKeyCallback(verify, knownHostsPath)
+	if err != nil {
+		return nil, err
+	}
+
+	config := &ssh.ClientConfig{
+		User:            user,
+		Auth:            authMethods,
+		HostKeyCallback: hostKeyCallback,
+		Timeout:         timeout,
+	}
+	addr := fmt.Sprintf("%s:%d", host, port)
+	client, err := dialWithRetry(addr, config, host, port, retries)
+	if err != nil {
+		return nil, err
+	}
+
+	go startKeepAlive(client, host, keepAliveInterval)
+
+	return client, nil
+}
+
+func selectAuthMethods(keyPath string) ([]ssh.AuthMethod, error) {
 	var authMethods []ssh.AuthMethod
 	if keyPath != "" {
 		key, err := os.ReadFile(keyPath)
@@ -40,29 +67,27 @@ func NewSSHClient(host, user, keyPath string, port int, knownHostsPath string, v
 	if len(authMethods) == 0 {
 		return nil, fmt.Errorf("no SSH authentication methods configured")
 	}
-	var hostKeyCallback ssh.HostKeyCallback
+	return authMethods, nil
+}
+
+func setupHostKeyCallback(verify bool, knownHostsPath string) (ssh.HostKeyCallback, error) {
 	if verify {
-		var err error
-		hostKeyCallback, err = knownhosts.New(knownHostsPath)
+		hostKeyCallback, err := knownhosts.New(knownHostsPath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create knownhosts callback: %w", err)
 		}
-	} else {
-		hostKeyCallback = ssh.InsecureIgnoreHostKey()
+		return hostKeyCallback, nil
 	}
-	config := &ssh.ClientConfig{
-		User:            user,
-		Auth:            authMethods,
-		HostKeyCallback: hostKeyCallback,
-		Timeout:         timeout,
-	}
-	addr := fmt.Sprintf("%s:%d", host, port)
+	return ssh.InsecureIgnoreHostKey(), nil
+}
+
+func dialWithRetry(addr string, config *ssh.ClientConfig, host string, port, retries int) (*ssh.Client, error) {
 	var client *ssh.Client
 	var err error
 	for attempt := 0; attempt <= retries; attempt++ {
 		client, err = ssh.Dial("tcp", addr, config)
 		if err == nil {
-			break
+			return client, nil
 		}
 		Logger.Warn("SSH dial failed",
 			zap.String("host", host),
@@ -74,14 +99,8 @@ func NewSSHClient(host, user, keyPath string, port int, knownHostsPath string, v
 			time.Sleep(backoff)
 		}
 	}
-	if err != nil {
-		Logger.Error("Unable to establish SSH connection", zap.String("host", host), zap.Int("port", port), zap.Error(err))
-		return nil, fmt.Errorf("failed to dial SSH after %d attempts: %w", retries+1, err)
-	}
-
-	go startKeepAlive(client, host, keepAliveInterval)
-
-	return client, nil
+	Logger.Error("Unable to establish SSH connection", zap.String("host", host), zap.Int("port", port), zap.Error(err))
+	return nil, fmt.Errorf("failed to dial SSH after %d attempts: %w", retries+1, err)
 }
 
 func ValidateRemoteCommand(client *ssh.Client, remoteCmd string) error {
