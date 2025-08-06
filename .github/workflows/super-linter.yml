@@ -110,4 +110,4 @@ jobs:
           FIX_MARKDOWN_PRETTIER: true
           FIX_YAML_PRETTIER: true
 
-          DOCKERFILE_HADOLINT_FILE_NAME: .github/linters/.hadolint.yaml
+          DOCKERFILE_HADOLINT_FILE_NAME: .hadolint.yaml
