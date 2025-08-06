@@ -17,8 +17,8 @@ type fdCacheEntry struct {
 	fd   int
 }
 
-// fdCache provides a simple LRU cache for file descriptors.
-type fdCache struct {
+// FDCache provides a simple LRU cache for file descriptors.
+type FDCache struct {
 	fds   map[string]*list.Element
 	order *list.List
 	mutex sync.Mutex
@@ -26,11 +26,11 @@ type fdCache struct {
 }
 
 // NewFDCache returns an initialized file descriptor cache with the given capacity.
-func NewFDCache(size int) *fdCache {
+func NewFDCache(size int) *FDCache {
 	if size <= 0 {
 		size = fdCacheSize
 	}
-	return &fdCache{
+	return &FDCache{
 		fds:   make(map[string]*list.Element, size),
 		order: list.New(),
 		size:  size,
@@ -40,7 +40,7 @@ func NewFDCache(size int) *fdCache {
 // getFD retrieves an open file descriptor for the specified device path.
 // It reuses descriptors when possible and evicts the least recently used entry
 // when the cache reaches its capacity.
-func (c *fdCache) getFD(devicePath string) (int, error) {
+func (c *FDCache) getFD(devicePath string) (int, error) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -71,7 +71,7 @@ func (c *fdCache) getFD(devicePath string) (int, error) {
 }
 
 // Close releases all cached file descriptors and resets the cache state.
-func (c *fdCache) Close() {
+func (c *FDCache) Close() {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 

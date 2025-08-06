@@ -9,7 +9,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func TestFdCacheEvictionOrder(t *testing.T) {
+func TestFDCacheEvictionOrder(t *testing.T) {
 	cache := NewFDCache(fdCacheSize)
 
 	tmpDir := t.TempDir()
@@ -53,7 +53,7 @@ func TestFdCacheEvictionOrder(t *testing.T) {
 	cache.Close()
 }
 
-func TestFdCacheCloseClosesAll(t *testing.T) {
+func TestFDCacheCloseClosesAll(t *testing.T) {
 	cache := NewFDCache(fdCacheSize)
 	tmpDir := t.TempDir()
 	var fds []int
