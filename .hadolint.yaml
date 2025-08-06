@@ -1,0 +1,3 @@
+#.hadolint.yaml
+ignored:
+  - DL3018
