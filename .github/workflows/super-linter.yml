@@ -85,13 +85,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-          VALIDATE_GO: false
-          VALIDATE_YAML: true
-          VALIDATE_JSON: true
-          VALIDATE_MARKDOWN: true
-          VALIDATE_BASH: true
-          VALIDATE_EDITORCONFIG: true
-          VALIDATE_GITHUB_ACTIONS: true
+          # VALIDATE_GO: false
+          # VALIDATE_YAML: true
+          # VALIDATE_JSON: true
+          # VALIDATE_MARKDOWN: true
+          # VALIDATE_BASH: true
+          # VALIDATE_EDITORCONFIG: true
+          # VALIDATE_GITHUB_ACTIONS: true
 
           FIX_MARKDOWN: true
           FIX_MARKDOWN_PRETTIER: true
