@@ -8,7 +8,11 @@ import (
 
 func TestApplyFlagTriggersApplyMode(t *testing.T) {
 	// Setup configuration with apply file
-	cfg = config.DefaultConfig()
+	var err error
+	cfg, err = config.DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig returned error: %v", err)
+	}
 	cfg.ApplyMode = "dumpfile"
 	dest := "/dev/null"
 

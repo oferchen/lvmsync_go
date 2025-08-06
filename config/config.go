@@ -180,8 +180,11 @@ func (cb *ConfigBuilder) parseBlockSize() (int, string, error) {
 	return int(u), raw, nil
 }
 
-func DefaultConfig() *Config {
-	homeDir, _ := os.UserHomeDir()
+func DefaultConfig() (*Config, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user home directory: %w", err)
+	}
 	return &Config{
 		ApplyMode:            "",
 		StdoutMode:           false,
@@ -220,11 +223,14 @@ func DefaultConfig() *Config {
 		DedupStateFile:       filepath.Join(homeDir, ".lvmsync_dedup"),
 		BloomEntries:         1000000,
 		BloomFpRate:          0.01,
-	}
+	}, nil
 }
 
 func LoadConfig() (*Config, error) {
-	defaultCfg := DefaultConfig()
+	defaultCfg, err := DefaultConfig()
+	if err != nil {
+		return nil, err
+	}
 
 	generalFlags = pflag.NewFlagSet("General Options", pflag.ExitOnError)
 	sshFlags = pflag.NewFlagSet("SSH Options", pflag.ExitOnError)

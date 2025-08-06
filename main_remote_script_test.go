@@ -126,7 +126,11 @@ func TestRemotePostScriptRunsOnError(t *testing.T) {
 	host, portStr, _ := strings.Cut(server.addr, ":")
 	port, _ := strconv.Atoi(portStr)
 
-	cfg = config.DefaultConfig()
+	var err error
+	cfg, err = config.DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig returned error: %v", err)
+	}
 	cfg.RemotePreScript = "pre-script"
 	cfg.RemotePostScript = "post-script"
 	cfg.SSHUser = "test"
@@ -142,7 +146,7 @@ func TestRemotePostScriptRunsOnError(t *testing.T) {
 	defer func() { dumpChangesSequential = original }()
 
 	dest := host + ":/dev/null"
-	err := runClientMode("/dev/snap", dest)
+	err = runClientMode("/dev/snap", dest)
 	if err == nil || !strings.Contains(err.Error(), "dumpChanges") {
 		t.Fatalf("expected dumpChanges error, got %v", err)
 	}
@@ -169,7 +173,11 @@ func TestRemotePostScriptNotRunIfPreScriptFails(t *testing.T) {
 	host, portStr, _ := strings.Cut(server.addr, ":")
 	port, _ := strconv.Atoi(portStr)
 
-	cfg = config.DefaultConfig()
+	var err error
+	cfg, err = config.DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig returned error: %v", err)
+	}
 	cfg.RemotePreScript = "fail-pre"
 	cfg.RemotePostScript = "post-script"
 	cfg.SSHUser = "test"
@@ -179,7 +187,7 @@ func TestRemotePostScriptNotRunIfPreScriptFails(t *testing.T) {
 	cfg.LVMSyncPath = "lvmsync"
 
 	dest := host + ":/dev/null"
-	err := runClientMode("/dev/snap", dest)
+	err = runClientMode("/dev/snap", dest)
 	if err == nil {
 		t.Fatalf("expected error from pre-script")
 	}
