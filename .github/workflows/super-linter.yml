@@ -1,18 +1,18 @@
-# .github/workflows/super-linter.yml
+# super-linter.yml
 name: Lint Code Base
 
 on:
   push:
-    branches: ["main", "master"]
+    branches: [main, master]
   pull_request:
-    branches: ["main", "master"]
+    branches: [main, master]
 
 permissions:
   contents: read
 
 jobs:
   golangci-lint:
-    name: golangci-lint Go ${{ matrix.go-version }}
+    name: GoLint ${{ matrix.go-version }}
     runs-on: ubuntu-latest
 
     strategy:
@@ -26,25 +26,23 @@ jobs:
       CGO_CFLAGS: "-I/usr/include"
 
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1
 
-      - name: Set up Go ${{ matrix.go-version }}
+      - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go-version }}
 
-      - name: Install system dependencies
+      - name: Install build dependencies
         run: |
-          sudo apt-get update
+          sudo apt-get update -qq
           sudo apt-get install -y \
-            autoconf automake libtool pkg-config \
-            build-essential libdevmapper-dev libreadline-dev \
+            libdevmapper-dev libreadline-dev \
             uuid-dev libaio-dev liblvm2-dev \
-            libselinux-dev libsepol-dev \
-            git curl
+            libselinux-dev libsepol-dev git curl
 
       - name: Build LVM2 (if needed)
         run: |
@@ -67,26 +65,26 @@ jobs:
             rm -rf lvm2
           fi
 
-      - name: Ensure Go module initialized
+      - name: Ensure Go module
         run: |
           test -f go.mod || go mod init lvmsync_go
           go mod tidy
 
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v8.0.0
+        uses: golangci/golangci-lint-action@v8
         with:
           version: v2.3.1
           args: --timeout=3m ./...
 
   super-linter:
-    name: super-linter (multi-language)
+    name: Super-Linter (non-Go)
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: Run Super-Linter
         uses: super-linter/super-linter@v8.0.0
@@ -95,20 +93,21 @@ jobs:
           DEFAULT_BRANCH: main
           VALIDATE_ALL_CODEBASE: true
 
-          # GO handled by golangci-lint job
+          # GO handled by golangci-lint
           VALIDATE_GO: false
 
-          # Enable additional linters
-          # VALIDATE_YAML: true
-          # VALIDATE_JSON: true
-          # VALIDATE_MARKDOWN: true
-          # VALIDATE_BASH: true
-          # VALIDATE_EDITORCONFIG: true
-          # VALIDATE_GITHUB_ACTIONS: true
-          # VALIDATE_DOCKERFILE_HADOLINT: true
-          # VALIDATE_CHECKOV: true
+          # Enable specific linters as needed
+          VALIDATE_YAML: true
+          VALIDATE_JSON: true
+          VALIDATE_MARKDOWN: true
+          VALIDATE_BASH: true
+          VALIDATE_EDITORCONFIG: true
+          VALIDATE_GITHUB_ACTIONS: true
+          VALIDATE_DOCKERFILE_HADOLINT: true
+          VALIDATE_CHECKOV: true
 
-          # Enable safe automatic formatting
           FIX_MARKDOWN: true
           FIX_MARKDOWN_PRETTIER: true
           FIX_YAML_PRETTIER: true
+
+          DOCKERFILE_HADOLINT_FILE_NAME: .github/linters/.hadolint.yaml
