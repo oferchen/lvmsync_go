@@ -40,9 +40,13 @@ func LoadConfig(path string, args []string) (Config, error) {
 	flags.Uint64("ram_bytes", uint64(1<<30), "RAM budget for Bloom filter")
 	flags.Uint64("volume_size", 0, "size of the volume being processed")
 	flags.String("hash_key", "", "optional hex encoded key for BLAKE3")
-	_ = flags.Parse(args)
+	if err := flags.Parse(args); err != nil {
+		return Config{}, err
+	}
 
-	v.BindPFlags(flags)
+	if err := v.BindPFlags(flags); err != nil {
+		return Config{}, err
+	}
 	v.SetEnvPrefix("LVMSYNC")
 	v.AutomaticEnv()
 
