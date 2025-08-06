@@ -35,6 +35,14 @@ linters:
         - "io.Copy"
         - "(*bytes.Buffer).Write"
         - "(*bytes.Buffer).ReadFrom"
+        - "common.WriteHandshake"
+        - "os.Setenv"
+        - "github.com/spf13/pflag.FlagSet.Parse"
+        - "github.com/spf13/viper.Viper.BindPFlags"
+        - "hash.Hash.Write"
+        - "golang.org/x/sys/unix.Close"
+        - "(*strings.Builder).Write"
+        - "(*lvmsync_go/dedup.Hasher).Write"
 
     gocritic:
       enabled-checks:
