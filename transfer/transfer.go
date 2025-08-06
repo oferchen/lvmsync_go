@@ -93,6 +93,59 @@ func cleanupOutput(buf *bufio.Writer, w io.WriteCloser) {
 	}
 }
 
+func composeHandshake(cfg *config.Config, mode string) common.Handshake {
+	hs := common.Handshake{Compress: cfg.Compress}
+	switch mode {
+	case "checksum":
+		hs.Checksum = true
+	case "checksum-dedup":
+		hs.Checksum = true
+		hs.ChecksumDedup = true
+	}
+	return hs
+}
+
+func iterateBlocks(cfg *config.Config, ranges []Range, srcFile *os.File, bufOut *bufio.Writer, dedup DeduplicationStrategy, pipeFds [2]int) (int64, int, error) {
+	var totalBytes int64
+	skippedBlocks := 0
+	var header [12]byte
+	for _, r := range ranges {
+		data, err := ReadBlockWithRetries(cfg, srcFile, r.Start, cfg.ZeroCopy, pipeFds)
+		if err != nil {
+			return totalBytes, skippedBlocks, fmt.Errorf("error reading block at offset %d: %w", r.Start, err)
+		}
+		if dedup != nil {
+			if !dedup.ShouldTransfer(r.Start, data) {
+				skippedBlocks++
+				putBlockBuffer(data)
+				continue
+			}
+			dedup.RecordTransfer(r.Start, data)
+		}
+
+		binary.BigEndian.PutUint64(header[0:8], uint64(r.Start))
+		binary.BigEndian.PutUint32(header[8:12], uint32(cfg.BlockSize))
+		if _, err := bufOut.Write(header[:]); err != nil {
+			putBlockBuffer(data)
+			return totalBytes, skippedBlocks, fmt.Errorf("failed to write header: %w", err)
+		}
+		if _, err := bufOut.Write(data); err != nil {
+			putBlockBuffer(data)
+			return totalBytes, skippedBlocks, fmt.Errorf("failed to write block data: %w", err)
+		}
+		putBlockBuffer(data)
+
+		totalBytes += int64(cfg.BlockSize)
+	}
+	return totalBytes, skippedBlocks, nil
+}
+
+func finalizeProgress(cfg *config.Config) {
+	if cfg.Progress {
+		fmt.Fprintln(os.Stderr, "")
+	}
+}
+
 func dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer, dedup DeduplicationStrategy, handshake string) error {
 	if cfg.BlockSize == 0 {
 		bs, err := blocksize.Detect(source)
@@ -115,19 +168,7 @@ func dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer,
 	}
 	Logger.Info("Changed blocks determined", zap.Int("blockCount", len(ranges)))
 
-	// Compose protocol handshake using the shared helper to ensure
-	// consistent formatting between sender and receiver. This mirrors the
-	// textual negotiation style employed by rsync while remaining easy to
-	// extend with additional capability tokens.
-	hs := common.Handshake{Compress: cfg.Compress}
-	switch handshake {
-	case "checksum":
-		hs.Checksum = true
-	case "checksum-dedup":
-		hs.Checksum = true
-		hs.ChecksumDedup = true
-	}
-	if err := common.WriteHandshake(out, hs); err != nil {
+	if err := common.WriteHandshake(out, composeHandshake(cfg, handshake)); err != nil {
 		return err
 	}
 
@@ -155,41 +196,11 @@ func dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer,
 	}
 
 	startTime := time.Now()
-	var totalBytesTransferred int64
-	skippedBlocks := 0
-
-	var header [12]byte
-	for _, r := range ranges {
-		data, err := ReadBlockWithRetries(cfg, srcFile, r.Start, cfg.ZeroCopy, pipeFds)
-		if err != nil {
-			return fmt.Errorf("error reading block at offset %d: %w", r.Start, err)
-		}
-		if dedup != nil {
-			if !dedup.ShouldTransfer(r.Start, data) {
-				skippedBlocks++
-				putBlockBuffer(data)
-				continue
-			}
-			dedup.RecordTransfer(r.Start, data)
-		}
-
-		binary.BigEndian.PutUint64(header[0:8], uint64(r.Start))
-		binary.BigEndian.PutUint32(header[8:12], uint32(cfg.BlockSize))
-		if _, err := bufOut.Write(header[:]); err != nil {
-			return fmt.Errorf("failed to write header: %w", err)
-		}
-		if _, err := bufOut.Write(data); err != nil {
-			putBlockBuffer(data)
-			return fmt.Errorf("failed to write block data: %w", err)
-		}
-		putBlockBuffer(data)
-
-		totalBytesTransferred += int64(cfg.BlockSize)
+	totalBytesTransferred, skippedBlocks, err := iterateBlocks(cfg, ranges, srcFile, bufOut, dedup, pipeFds)
+	if err != nil {
+		return err
 	}
-
-	if cfg.Progress {
-		fmt.Fprintln(os.Stderr, "")
-	}
+	finalizeProgress(cfg)
 
 	elapsed := time.Since(startTime).Seconds()
 	Logger.Info("Sequential transfer complete",
@@ -229,6 +240,68 @@ func DumpChanges(cfg *config.Config, snapshot, source string, out io.Writer) err
 	}
 	Logger.Info("Deduplication disabled, performing full block transfer")
 	return DumpChangesSequential(cfg, snapshot, source, out)
+}
+
+func prepareParallelHandshake(cfg *config.Config) string {
+	htokens := []string{common.ProtocolVersion}
+	if cfg.VerifyChecksum {
+		htokens = append(htokens, "checksum")
+	}
+	htokens = append(htokens, "compress:"+cfg.Compress)
+	return strings.Join(htokens, " ")
+}
+
+func processParallelResults(cfg *config.Config, results <-chan *BlockResult, bufOut *bufio.Writer, checksum ChecksumStrategy, totalDataSize int64, startTime time.Time) (int64, error) {
+	headerSize := 12
+	if cfg.VerifyChecksum {
+		headerSize += checksum.Size()
+	}
+	header := make([]byte, headerSize)
+	var totalBytesTransferred int64
+	for res := range results {
+		if res.Err != nil {
+			return totalBytesTransferred, fmt.Errorf("error in block %d: %w", res.Index, res.Err)
+		}
+
+		binary.BigEndian.PutUint64(header[0:8], res.Offset)
+		binary.BigEndian.PutUint32(header[8:12], res.Size)
+		n := 12
+		if cfg.VerifyChecksum {
+			sum := checksum.Compute(res.Data)
+			copy(header[12:], sum)
+			n += checksum.Size()
+		}
+
+		if _, err := bufOut.Write(header[:n]); err != nil {
+			return totalBytesTransferred, fmt.Errorf("failed to write header: %w", err)
+		}
+		if _, err := bufOut.Write(res.Data); err != nil {
+			putBlockBuffer(res.Data)
+			return totalBytesTransferred, fmt.Errorf("failed to write data: %w", err)
+		}
+		putBlockBuffer(res.Data)
+
+		totalBytesTransferred += int64(res.Size)
+
+		if cfg.ResumeState != "" {
+			err := os.WriteFile(cfg.ResumeState, []byte(fmt.Sprintf("%d", res.Index+1)), 0644)
+			if err != nil {
+				Logger.Warn("Failed to update resume state", zap.Error(err))
+			}
+		}
+
+		if cfg.Progress {
+			progressPercent := float64(totalBytesTransferred) / float64(totalDataSize) * 100.0
+			fmt.Fprintf(os.Stderr, "\rProgress: %.2f%%", progressPercent)
+		}
+
+		if cfg.Verbose > 0 && res.Index > 0 && res.Index%100 == 0 {
+			elapsed := time.Since(startTime).Seconds()
+			speed := float64(totalBytesTransferred) / elapsed / 1048576.0
+			Logger.Debug("Parallel dump progress", zap.Int("block", res.Index+1), zap.Float64("MB/s", speed))
+		}
+	}
+	return totalBytesTransferred, nil
 }
 
 func worker(cfg *config.Config, srcFile *os.File, tasks <-chan BlockTask, results chan<- *BlockResult) {
@@ -279,19 +352,13 @@ func DumpChangesParallel(cfg *config.Config, snapshot, source string, out io.Wri
 		totalDataSize += (r.End - r.Start + 1)
 	}
 
-	htokens := []string{common.ProtocolVersion}
-	if cfg.VerifyChecksum {
-		htokens = append(htokens, "checksum")
-	}
-	htokens = append(htokens, "compress:"+cfg.Compress)
-	fmt.Fprintln(out, strings.Join(htokens, " "))
+	fmt.Fprintln(out, prepareParallelHandshake(cfg))
 
-	limitedOut := WrapRateLimitedWriter(out, cfg.SpeedLimit)
-	compWriter, err := NewCompressionWriter(limitedOut, cfg.Compress, cfg.CompressLevel, cfg.CompressConcurrency)
+	compWriter, bufOut, err := prepareOutputWriter(out, cfg)
 	if err != nil {
-		return fmt.Errorf("failed to create compression writer: %w", err)
+		return err
 	}
-	bufOut := bufio.NewWriter(compWriter)
+	defer cleanupOutput(bufOut, compWriter)
 
 	srcFile, err := os.Open(source)
 	if err != nil {
@@ -335,64 +402,12 @@ func DumpChangesParallel(cfg *config.Config, snapshot, source string, out io.Wri
 	go finalizeResults(&wg, results)
 
 	startTime := time.Now()
-	var totalBytesTransferred int64
-
 	checksum := GetChecksumStrategy(cfg.ChecksumAlgorithm)
-	headerSize := 12
-	if cfg.VerifyChecksum {
-		headerSize += checksum.Size()
+	totalBytesTransferred, err := processParallelResults(cfg, results, bufOut, checksum, totalDataSize, startTime)
+	if err != nil {
+		return err
 	}
-	header := make([]byte, headerSize)
-	for res := range results {
-		if res.Err != nil {
-			return fmt.Errorf("error in block %d: %w", res.Index, res.Err)
-		}
-
-		binary.BigEndian.PutUint64(header[0:8], res.Offset)
-		binary.BigEndian.PutUint32(header[8:12], res.Size)
-		n := 12
-		if cfg.VerifyChecksum {
-			sum := checksum.Compute(res.Data)
-			copy(header[12:], sum)
-			n += checksum.Size()
-		}
-
-		if _, err := bufOut.Write(header[:n]); err != nil {
-			return fmt.Errorf("failed to write header: %w", err)
-		}
-		if _, err := bufOut.Write(res.Data); err != nil {
-			putBlockBuffer(res.Data)
-			return fmt.Errorf("failed to write data: %w", err)
-		}
-		putBlockBuffer(res.Data)
-
-		totalBytesTransferred += int64(res.Size)
-
-		if cfg.ResumeState != "" {
-			err := os.WriteFile(cfg.ResumeState, []byte(fmt.Sprintf("%d", res.Index+1)), 0644)
-			if err != nil {
-				Logger.Warn("Failed to update resume state", zap.Error(err))
-			}
-		}
-
-		if cfg.Progress {
-			progressPercent := float64(totalBytesTransferred) / float64(totalDataSize) * 100.0
-			fmt.Fprintf(os.Stderr, "\rProgress: %.2f%%", progressPercent)
-		}
-
-		if cfg.Verbose > 0 && res.Index > 0 && res.Index%100 == 0 {
-			elapsed := time.Since(startTime).Seconds()
-			speed := float64(totalBytesTransferred) / elapsed / 1048576.0
-			Logger.Debug("Parallel dump progress", zap.Int("block", res.Index+1), zap.Float64("MB/s", speed))
-		}
-	}
-
-	if cfg.Progress {
-		fmt.Fprintln(os.Stderr, "")
-	}
-
-	bufOut.Flush()
-	compWriter.Close()
+	finalizeProgress(cfg)
 
 	elapsed := time.Since(startTime).Seconds()
 	Logger.Info("Parallel transfer complete",
@@ -407,18 +422,88 @@ func finalizeResults(wg *sync.WaitGroup, results chan<- *BlockResult) {
 	close(results)
 }
 
-func processDumpDataCore(cfg *config.Config, in io.Reader, destPath string, dedup DeduplicationStrategy, verify bool) error {
-	bufReader := bufio.NewReader(in)
+func readAndValidateHandshake(bufReader *bufio.Reader, dedup DeduplicationStrategy, verify bool) (common.Handshake, error) {
 	hs, err := common.ReadHandshake(bufReader)
 	if err != nil {
-		return fmt.Errorf("failed to read protocol handshake: %w", err)
+		return common.Handshake{}, fmt.Errorf("failed to read protocol handshake: %w", err)
 	}
-
 	if verify && !hs.Checksum {
-		return fmt.Errorf("unexpected protocol handshake: %s", hs.String())
+		return hs, fmt.Errorf("unexpected protocol handshake: %s", hs.String())
 	}
 	if dedup != nil && !hs.ChecksumDedup {
-		return fmt.Errorf("unexpected protocol handshake: %s", hs.String())
+		return hs, fmt.Errorf("unexpected protocol handshake: %s", hs.String())
+	}
+	return hs, nil
+}
+
+func applyBlocks(cfg *config.Config, reader *bufio.Reader, destFile *os.File, dedup DeduplicationStrategy, verify bool, checksum ChecksumStrategy) (int64, error) {
+	var totalBytes int64
+	headerLen := 12
+	if verify {
+		headerLen += checksum.Size()
+	}
+	headerBuf := make([]byte, headerLen)
+	for {
+		_, err := io.ReadFull(reader, headerBuf)
+		if err == io.EOF || err == io.ErrUnexpectedEOF {
+			break
+		}
+		if err != nil {
+			return totalBytes, fmt.Errorf("failed to read chunk header: %w", err)
+		}
+
+		offset := binary.BigEndian.Uint64(headerBuf[0:8])
+		chunkSize := binary.BigEndian.Uint32(headerBuf[8:12])
+
+		var transmittedSum []byte
+		if verify {
+			transmittedSum = make([]byte, checksum.Size())
+			copy(transmittedSum, headerBuf[12:])
+		}
+
+		data := getBlockBuffer(int(chunkSize))
+		if _, err := io.ReadFull(reader, data); err != nil {
+			putBlockBuffer(data)
+			return totalBytes, fmt.Errorf("failed to read chunk data: %w", err)
+		}
+
+		if verify {
+			computed := checksum.Compute(data)
+			if !bytes.Equal(transmittedSum, computed) {
+				putBlockBuffer(data)
+				return totalBytes, fmt.Errorf("checksum mismatch at offset %d", offset)
+			}
+		}
+
+		if dedup != nil {
+			if !dedup.ShouldTransfer(int64(offset), data) {
+				putBlockBuffer(data)
+				continue
+			}
+			dedup.RecordTransfer(int64(offset), data)
+		}
+
+		if _, err := destFile.Seek(int64(offset), io.SeekStart); err != nil {
+			Logger.Warn("Seek error", zap.Uint64("offset", offset), zap.Error(err))
+			putBlockBuffer(data)
+			continue
+		}
+		if _, err := destFile.Write(data); err != nil {
+			putBlockBuffer(data)
+			return totalBytes, fmt.Errorf("failed to write data at offset %d: %w", offset, err)
+		}
+		putBlockBuffer(data)
+
+		totalBytes += int64(chunkSize)
+	}
+	return totalBytes, nil
+}
+
+func processDumpDataCore(cfg *config.Config, in io.Reader, destPath string, dedup DeduplicationStrategy, verify bool) error {
+	bufReader := bufio.NewReader(in)
+	hs, err := readAndValidateHandshake(bufReader, dedup, verify)
+	if err != nil {
+		return err
 	}
 
 	decReader, err := NewDecompressionReader(bufReader, hs.Compress, cfg.CompressConcurrency)
@@ -440,64 +525,10 @@ func processDumpDataCore(cfg *config.Config, in io.Reader, destPath string, dedu
 	defer destFile.Close()
 
 	startTime := time.Now()
-	var totalBytes int64
 	checksum := GetChecksumStrategy(cfg.ChecksumAlgorithm)
-	headerLen := 12
-	if verify {
-		headerLen += checksum.Size()
-	}
-	headerBuf := make([]byte, headerLen)
-
-	for {
-		_, err := io.ReadFull(reader, headerBuf)
-		if err == io.EOF || err == io.ErrUnexpectedEOF {
-			break
-		}
-		if err != nil {
-			return fmt.Errorf("failed to read chunk header: %w", err)
-		}
-
-		offset := binary.BigEndian.Uint64(headerBuf[0:8])
-		chunkSize := binary.BigEndian.Uint32(headerBuf[8:12])
-
-		var transmittedSum []byte
-		if verify {
-			transmittedSum = make([]byte, checksum.Size())
-			copy(transmittedSum, headerBuf[12:])
-		}
-
-		data := getBlockBuffer(int(chunkSize))
-		if _, err := io.ReadFull(reader, data); err != nil {
-			putBlockBuffer(data)
-			return fmt.Errorf("failed to read chunk data: %w", err)
-		}
-
-		if verify {
-			computed := checksum.Compute(data)
-			if !bytes.Equal(transmittedSum, computed) {
-				return fmt.Errorf("checksum mismatch at offset %d", offset)
-			}
-		}
-
-		if dedup != nil {
-			if !dedup.ShouldTransfer(int64(offset), data) {
-				putBlockBuffer(data)
-				continue
-			}
-			dedup.RecordTransfer(int64(offset), data)
-		}
-
-		if _, err := destFile.Seek(int64(offset), io.SeekStart); err != nil {
-			Logger.Warn("Seek error", zap.Uint64("offset", offset), zap.Error(err))
-			continue
-		}
-		if _, err := destFile.Write(data); err != nil {
-			putBlockBuffer(data)
-			return fmt.Errorf("failed to write data at offset %d: %w", offset, err)
-		}
-		putBlockBuffer(data)
-
-		totalBytes += int64(chunkSize)
+	totalBytes, err := applyBlocks(cfg, reader, destFile, dedup, verify, checksum)
+	if err != nil {
+		return err
 	}
 
 	elapsed := time.Since(startTime).Seconds()
