@@ -21,37 +21,37 @@ linters:
     - bodyclose
     - misspell
 
-linters-settings:
-  errcheck:
-    check-type-assertions: true
-    check-blank: true
-    exclude-functions:
-      - "(*os.File).Close"         # cleanup-safe
-      - "signal.Stop"             # common post-defer
-      - "os.Remove"               # used in temp cleanup
-      - "fmt.Fprintf"             # output not critical
-      - "fmt.Fprint"
-      - "fmt.Fprintln"
-      - "io.Copy"                 # verified by downstream
-      - "(*bytes.Buffer).Write"   # buffer-based processing
-      - "(*bytes.Buffer).ReadFrom"
+  settings:
+    errcheck:
+      check-type-assertions: true
+      check-blank: true
+      exclude-functions:
+        - "(*os.File).Close"
+        - "signal.Stop"
+        - "os.Remove"
+        - "fmt.Fprintf"
+        - "fmt.Fprint"
+        - "fmt.Fprintln"
+        - "io.Copy"
+        - "(*bytes.Buffer).Write"
+        - "(*bytes.Buffer).ReadFrom"
 
-  gocritic:
-    enabled-checks:
-      - rangeValCopy
-      - appendCombine
+    gocritic:
+      enabled-checks:
+        - rangeValCopy
+        - appendCombine
 
-  revive:
-    severity: warning
-    rules:
-      - name: indent-error-flow
-      - name: empty-block
-      - name: blank-imports
-      - name: var-naming
-      - name: error-naming
-      - name: unexported-return
-      - name: function-length
-        arguments: [50, 25]
-      - name: cognitive-complexity
-        arguments: [15]
-      - name: time-naming
+    revive:
+      severity: warning
+      rules:
+        - name: indent-error-flow
+        - name: empty-block
+        - name: blank-imports
+        - name: var-naming
+        - name: error-naming
+        - name: unexported-return
+        - name: function-length
+          arguments: [50, 25]
+        - name: cognitive-complexity
+          arguments: [15]
+        - name: time-naming
