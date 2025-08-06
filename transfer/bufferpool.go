@@ -9,16 +9,17 @@ func getPool(size int) *sync.Pool {
 		return p.(*sync.Pool)
 	}
 	p := &sync.Pool{New: func() interface{} {
-		return make([]byte, size)
+		buf := make([]byte, size)
+		return &buf
 	}}
 	actual, _ := bufferPools.LoadOrStore(size, p)
 	return actual.(*sync.Pool)
 }
 
 func getBlockBuffer(size int) []byte {
-	return getPool(size).Get().([]byte)
+	return *getPool(size).Get().(*[]byte)
 }
 
 func putBlockBuffer(buf []byte) {
-	getPool(len(buf)).Put(buf)
+	getPool(len(buf)).Put(&buf)
 }
