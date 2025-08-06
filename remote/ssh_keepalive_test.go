@@ -78,7 +78,9 @@ func createTempKey(t *testing.T) string {
 	if _, err := f.Write(keyPEM); err != nil {
 		t.Fatalf("write key: %v", err)
 	}
-	f.Close()
+	if err := f.Close(); err != nil {
+		t.Fatalf("close key: %v", err)
+	}
 	return f.Name()
 }
 
@@ -86,8 +88,14 @@ func TestNewSSHClient(t *testing.T) {
 	server := newMockSSHServer(t, func(cmd string) int { return 0 })
 	defer server.Close()
 
-	host, portStr, _ := net.SplitHostPort(server.addr)
-	port, _ := strconv.Atoi(portStr)
+	host, portStr, errSplit := net.SplitHostPort(server.addr)
+	if errSplit != nil {
+		t.Fatalf("SplitHostPort: %v", errSplit)
+	}
+	port, errConv := strconv.Atoi(portStr)
+	if errConv != nil {
+		t.Fatalf("Atoi: %v", errConv)
+	}
 
 	keyPath := createTempKey(t)
 	client, err := NewSSHClient(host, "test", keyPath, port, "", false, time.Second, 10*time.Millisecond, 0)
@@ -114,8 +122,14 @@ func TestSSHManager(t *testing.T) {
 		t.Fatalf("NewSSHManager error: %v", err)
 	}
 
-	host, portStr, _ := net.SplitHostPort(server.addr)
-	port, _ := strconv.Atoi(portStr)
+	host, portStr, errSplit := net.SplitHostPort(server.addr)
+	if errSplit != nil {
+		t.Fatalf("SplitHostPort: %v", errSplit)
+	}
+	port, errConv := strconv.Atoi(portStr)
+	if errConv != nil {
+		t.Fatalf("Atoi: %v", errConv)
+	}
 
 	client1, err := mgr.GetClient(host, port)
 	if err != nil {

@@ -107,6 +107,7 @@ func setupSSHClient(destHost string) (*ssh.Client, error) {
 	return client, nil
 }
 
+//nolint:revive // high-level orchestration inherently complex
 func executeRemoteCommand(client *ssh.Client, destDevice, snapshotDevice, originDevice string) (err error) {
 	if err := remote.ValidateRemoteCommand(client, cfg.LVMSyncPath); err != nil {
 		return fmt.Errorf("remote command validation failed: %w", err)
@@ -173,6 +174,7 @@ func executeRemoteCommand(client *ssh.Client, destDevice, snapshotDevice, origin
 	return nil
 }
 
+//nolint:revive // network orchestration requires complexity
 func runRemoteDump(snapshotDevice, originDevice, dest string) (err error) {
 	parts := strings.SplitN(dest, ":", 2)
 	destHost, destDevice := parts[0], parts[1]
@@ -261,6 +263,7 @@ func configure() (*zap.Logger, error) {
 	return logger, nil
 }
 
+//nolint:revive // snapshot preparation involves multiple steps
 func prepareSnapshot(originalVolume string, logger *zap.Logger) (string, chan error, func(), error) {
 	snapshotBytes, err := lvm.ParseSnapshotSize(cfg.SnapshotSize, originalVolume)
 	if err != nil {

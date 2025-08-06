@@ -6,18 +6,31 @@ var bufferPools sync.Map
 
 func getPool(size int) *sync.Pool {
 	if p, ok := bufferPools.Load(size); ok {
-		return p.(*sync.Pool)
+		if pool, ok := p.(*sync.Pool); ok {
+			return pool
+		}
 	}
 	p := &sync.Pool{New: func() interface{} {
 		buf := make([]byte, size)
 		return &buf
 	}}
 	actual, _ := bufferPools.LoadOrStore(size, p)
-	return actual.(*sync.Pool)
+	pool, ok := actual.(*sync.Pool)
+	if !ok {
+		return p
+	}
+	return pool
 }
 
 func getBlockBuffer(size int) []byte {
-	return *getPool(size).Get().(*[]byte)
+	pool := getPool(size)
+	bufAny := pool.Get()
+	bufPtr, ok := bufAny.(*[]byte)
+	if !ok {
+		b := make([]byte, size)
+		return b
+	}
+	return *bufPtr
 }
 
 func putBlockBuffer(buf []byte) {

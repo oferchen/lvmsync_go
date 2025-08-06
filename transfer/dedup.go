@@ -138,7 +138,11 @@ func (c *ChecksumDedup) SaveState() error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			zap.L().Warn("failed to close state file", zap.Error(err))
+		}
+	}()
 
 	size := c.strategy.Size()
 	for offset, hash := range c.hashes {
@@ -163,7 +167,11 @@ func (c *ChecksumDedup) loadState() error {
 		}
 		return err
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			zap.L().Warn("failed to close state file", zap.Error(err))
+		}
+	}()
 
 	size := c.strategy.Size()
 	for {
@@ -184,7 +192,11 @@ func (c *ChecksumDedup) loadState() error {
 }
 
 func (r *RollingHashDedup) computeHash(data []byte) uint64 {
-	h := rollingHashPool.Get().(*maphash.Hash)
+	hAny := rollingHashPool.Get()
+	h, ok := hAny.(*maphash.Hash)
+	if !ok {
+		panic("unexpected type from rollingHashPool")
+	}
 	h.Reset()
 	h.SetSeed(r.seed)
 	h.Write(data)
@@ -219,7 +231,11 @@ func (r *RollingHashDedup) SaveState() error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			zap.L().Warn("failed to close state file", zap.Error(err))
+		}
+	}()
 
 	seedArr := *(*[2]uint64)(unsafe.Pointer(&r.seed))
 	if err := binary.Write(file, binary.LittleEndian, seedArr); err != nil {
@@ -237,6 +253,7 @@ func (r *RollingHashDedup) SaveState() error {
 	return nil
 }
 
+//nolint:revive // complex state loading
 func (r *RollingHashDedup) loadState() error {
 	file, err := os.Open(r.stateFile)
 	if err != nil {
@@ -245,7 +262,11 @@ func (r *RollingHashDedup) loadState() error {
 		}
 		return err
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			zap.L().Warn("failed to close state file", zap.Error(err))
+		}
+	}()
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -302,7 +323,11 @@ func (b *BloomFilterDedup) SaveState() error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			zap.L().Warn("failed to close state file", zap.Error(err))
+		}
+	}()
 
 	_, err = b.filter.WriteTo(file)
 	return err
@@ -316,7 +341,11 @@ func (b *BloomFilterDedup) loadState() error {
 		}
 		return err
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			zap.L().Warn("failed to close state file", zap.Error(err))
+		}
+	}()
 
 	b.mu.Lock()
 	defer b.mu.Unlock()

@@ -63,7 +63,11 @@ func (lz4Strategy) NewWriter(dst io.Writer, level int, concurrency int) (io.Writ
 	if entryAny == nil {
 		entry = &pooledLz4WriterEntry{}
 	} else {
-		entry = entryAny.(*pooledLz4WriterEntry)
+		var ok bool
+		entry, ok = entryAny.(*pooledLz4WriterEntry)
+		if !ok {
+			return nil, fmt.Errorf("invalid lz4 writer entry type")
+		}
 	}
 
 	if entry.w == nil {
@@ -111,7 +115,11 @@ func (lz4Strategy) NewReader(src io.Reader, concurrency int) (io.ReadCloser, err
 	if entryAny == nil {
 		entry = &pooledLz4ReaderEntry{}
 	} else {
-		entry = entryAny.(*pooledLz4ReaderEntry)
+		var ok bool
+		entry, ok = entryAny.(*pooledLz4ReaderEntry)
+		if !ok {
+			return nil, fmt.Errorf("invalid lz4 reader entry type")
+		}
 	}
 
 	if entry.r == nil {
@@ -170,7 +178,11 @@ func (zstdStrategy) NewWriter(dst io.Writer, level int, concurrency int) (io.Wri
 	if entryAny == nil {
 		entry = &pooledZstdEncoder{}
 	} else {
-		entry = entryAny.(*pooledZstdEncoder)
+		var ok bool
+		entry, ok = entryAny.(*pooledZstdEncoder)
+		if !ok {
+			return nil, fmt.Errorf("invalid zstd encoder entry type")
+		}
 	}
 
 	if entry.enc == nil || entry.level != level || entry.concurrency != concurrency {
@@ -207,7 +219,11 @@ func (zstdStrategy) NewReader(src io.Reader, concurrency int) (io.ReadCloser, er
 	if entryAny == nil {
 		entry = &pooledZstdDecoder{}
 	} else {
-		entry = entryAny.(*pooledZstdDecoder)
+		var ok bool
+		entry, ok = entryAny.(*pooledZstdDecoder)
+		if !ok {
+			return nil, fmt.Errorf("invalid zstd decoder entry type")
+		}
 	}
 
 	if entry.dec == nil || entry.concurrency != concurrency {
@@ -244,7 +260,10 @@ type nopWriteCloser struct {
 func (nopWriteCloser) Close() error { return nil }
 
 func (r *pooledZstdReader) Close() error {
-	r.Reset(nil)
+	if err := r.Reset(nil); err != nil {
+		zstdDecoderPool.Put(r.entry)
+		return err
+	}
 	zstdDecoderPool.Put(r.entry)
 	return nil
 }

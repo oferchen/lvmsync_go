@@ -46,7 +46,11 @@ func (c *FDCache) getFD(devicePath string) (int, error) {
 
 	if elem, ok := c.fds[devicePath]; ok {
 		c.order.MoveToFront(elem)
-		return elem.Value.(*fdCacheEntry).fd, nil
+		entry, ok := elem.Value.(*fdCacheEntry)
+		if !ok {
+			return -1, fmt.Errorf("invalid cache entry type")
+		}
+		return entry.fd, nil
 	}
 
 	fd, err := unix.Open(devicePath, unix.O_RDONLY|unix.O_NONBLOCK, 0)
@@ -56,11 +60,12 @@ func (c *FDCache) getFD(devicePath string) (int, error) {
 
 	if c.order.Len() >= c.size {
 		if back := c.order.Back(); back != nil {
-			entry := back.Value.(*fdCacheEntry)
-			if err := unix.Close(entry.fd); err != nil {
-				zap.L().Warn("failed to close fd", zap.String("path", entry.path), zap.Error(err))
+			if entry, ok := back.Value.(*fdCacheEntry); ok {
+				if err := unix.Close(entry.fd); err != nil {
+					zap.L().Warn("failed to close fd", zap.String("path", entry.path), zap.Error(err))
+				}
+				delete(c.fds, entry.path)
 			}
-			delete(c.fds, entry.path)
 			c.order.Remove(back)
 		}
 	}
@@ -76,7 +81,10 @@ func (c *FDCache) Close() {
 	defer c.mutex.Unlock()
 
 	for _, elem := range c.fds {
-		entry := elem.Value.(*fdCacheEntry)
+		entry, ok := elem.Value.(*fdCacheEntry)
+		if !ok {
+			continue
+		}
 		if err := unix.Close(entry.fd); err != nil {
 			zap.L().Warn("failed to close fd", zap.String("path", entry.path), zap.Error(err))
 		}

@@ -112,6 +112,7 @@ func TestNewCompressionWriterLevel(t *testing.T) {
 	}
 }
 
+//nolint:revive // complex reuse test
 func TestLZ4WriterPoolReuse(t *testing.T) {
 	data1 := []byte("first payload")
 	data2 := []byte("second payload")
@@ -128,7 +129,10 @@ func TestLZ4WriterPoolReuse(t *testing.T) {
 		t.Fatalf("close1: %v", err)
 	}
 
-	pw1 := w1.(*pooledLz4Writer)
+	pw1, ok := w1.(*pooledLz4Writer)
+	if !ok {
+		t.Fatalf("expected *pooledLz4Writer")
+	}
 	writerPtr := pw1.Writer
 
 	r1, err := NewDecompressionReader(&buf, compressionLZ4, 1)
@@ -158,7 +162,10 @@ func TestLZ4WriterPoolReuse(t *testing.T) {
 		t.Fatalf("close2: %v", err)
 	}
 
-	pw2 := w2.(*pooledLz4Writer)
+	pw2, ok := w2.(*pooledLz4Writer)
+	if !ok {
+		t.Fatalf("expected *pooledLz4Writer")
+	}
 	if pw2.Writer != writerPtr {
 		t.Fatalf("writer was not reused")
 	}
@@ -179,6 +186,7 @@ func TestLZ4WriterPoolReuse(t *testing.T) {
 	}
 }
 
+//nolint:revive // complex reuse test
 func TestLZ4ReaderPoolReuse(t *testing.T) {
 	data1 := []byte("alpha")
 	data2 := []byte("beta")
@@ -214,7 +222,10 @@ func TestLZ4ReaderPoolReuse(t *testing.T) {
 		t.Fatalf("mismatch1")
 	}
 
-	pr1 := r1.(*pooledLz4Reader)
+	pr1, ok := r1.(*pooledLz4Reader)
+	if !ok {
+		t.Fatalf("expected *pooledLz4Reader")
+	}
 	readerPtr := pr1.Reader
 
 	buf2 := bytes.NewBuffer(compress(data2))
@@ -222,7 +233,8 @@ func TestLZ4ReaderPoolReuse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new reader2: %v", err)
 	}
-	if r2.(*pooledLz4Reader).Reader != readerPtr {
+	pr2, ok := r2.(*pooledLz4Reader)
+	if !ok || pr2.Reader != readerPtr {
 		t.Fatalf("reader was not reused")
 	}
 	out2, err := io.ReadAll(r2)

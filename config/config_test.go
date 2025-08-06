@@ -69,6 +69,7 @@ func TestHumanBlockSize(t *testing.T) {
 	}
 }
 
+//nolint:revive // complex test cases handled in subtests
 func TestParseBytesOrFallback(t *testing.T) {
 	t.Run("valid", func(t *testing.T) {
 		v := viper.New()
@@ -215,6 +216,7 @@ func TestBuildBlockSize(t *testing.T) {
 	})
 }
 
+//nolint:revive // complex validation scenarios
 func TestCompressLevelValidation(t *testing.T) {
 	t.Run("zstdValid", func(t *testing.T) {
 		v := viper.New()

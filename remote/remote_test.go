@@ -15,7 +15,9 @@ func TestNewSSHManagerInvalidKey(t *testing.T) {
 }
 
 func TestNewSSHManagerNoAgent(t *testing.T) {
-	os.Unsetenv("SSH_AUTH_SOCK")
+	if err := os.Unsetenv("SSH_AUTH_SOCK"); err != nil {
+		t.Fatalf("Unsetenv: %v", err)
+	}
 	_, err := NewSSHManager("root", "", time.Second, "", false)
 	if err == nil {
 		t.Fatal("expected error when SSH_AUTH_SOCK not set")
@@ -24,10 +26,14 @@ func TestNewSSHManagerNoAgent(t *testing.T) {
 
 func TestNewSSHClientNoAuth(t *testing.T) {
 	oldSock := os.Getenv("SSH_AUTH_SOCK")
-	os.Unsetenv("SSH_AUTH_SOCK")
+	if err := os.Unsetenv("SSH_AUTH_SOCK"); err != nil {
+		t.Fatalf("Unsetenv: %v", err)
+	}
 	defer func() {
 		if oldSock != "" {
-			os.Setenv("SSH_AUTH_SOCK", oldSock)
+			if err := os.Setenv("SSH_AUTH_SOCK", oldSock); err != nil {
+				t.Fatalf("Setenv: %v", err)
+			}
 		}
 	}()
 
