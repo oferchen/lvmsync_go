@@ -1,5 +1,7 @@
-# This workflow will build a golang project
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
+# This workflow builds and tests a Golang project with LVM2 integration.
+# It complies with Checkov rule CKV2_GHA_1 by avoiding implicit write-all permissions.
+# Go versions 1.21 through 1.24 are tested in matrix strategy.
+# For more info: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
 
 name: Go
 
@@ -8,6 +10,10 @@ on:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+
+# Explicitly define minimal top-level permissions
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -21,7 +27,8 @@ jobs:
       CGO_CFLAGS: "-I/usr/include"
 
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
     - name: Install build dependencies
       run: |
@@ -47,10 +54,10 @@ jobs:
           --disable-udev_rules \
           --disable-nls \
           --disable-dmeventd
-        make -j$(nproc)
+        make -j"$(nproc)"
         sudo make install
 
-    - name: Verify required headers
+    - name: Verify required LVM2 headers
       run: |
         test -f /usr/include/lvm2cmd.h || { echo "Missing lvm2cmd.h!"; exit 1; }
 
@@ -59,8 +66,18 @@ jobs:
       with:
         go-version: ${{ matrix.go-version }}
 
-    - name: Build
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ matrix.go-version }}-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-${{ matrix.go-version }}-
+
+    - name: Build project
       run: go build -v ./...
 
-    - name: Test
-      run: go test -v ./...
+    - name: Run tests
+      run: go test -v -race -cover ./...
