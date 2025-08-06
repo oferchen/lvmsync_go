@@ -1,10 +1,11 @@
+---
 name: Lint Code Base
 
-on:
+'on':
   push:
-    branches: [ "main", "master" ]
+    branches: ["main", "master"]
   pull_request:
-    branches: [ "main", "master" ]
+    branches: ["main", "master"]
 
 jobs:
   run-lint:
@@ -92,6 +93,4 @@ jobs:
           VALIDATE_CPP: true
           FIX_YAML_PRETTIER: true
           VALIDATE_ALL_CODEBASE: false
-          VALIDATE_CHECKOV: false
-          VALIDATE_JSCPD: false
           DEFAULT_BRANCH: "main"
