@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	golvm "github.com/nak3/go-lvm"
+	"go.uber.org/zap"
 	"lvmsync_go/internal/sizeparse"
 )
 
@@ -49,7 +50,7 @@ func (b *golvmBackend) withLV(path, mode string, fn func(*golvm.LvObject) error)
 	if err != nil {
 		return err
 	}
-	defer vg.Close()
+	defer func() { _ = vg.Close() }()
 	lv, err := vg.LvFromName(lvName)
 	if err != nil {
 		return err
@@ -96,7 +97,7 @@ func (b *golvmBackend) GetVolumeGroupFreeSpace(ctx context.Context, vgName strin
 	if err != nil {
 		return 0, err
 	}
-	defer vg.Close()
+	defer func() { _ = vg.Close() }()
 	return vg.GetFreeSize(), nil
 }
 
@@ -118,7 +119,9 @@ func (b *golvmBackend) ListVolumeGroups(ctx context.Context, candidates []string
 			return nil, err
 		}
 		free := vg.GetFreeSize()
-		vg.Close()
+		if err := vg.Close(); err != nil {
+			zap.L().Error("failed to close volume group", zap.String("name", name), zap.Error(err))
+		}
 		res = append(res, VolumeGroup{Name: name, Free: free})
 	}
 	return res, nil
