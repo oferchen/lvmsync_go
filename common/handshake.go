@@ -1,4 +1,4 @@
-package common
+package common //nolint:revive // package name is established API
 
 import (
 	"bufio"
