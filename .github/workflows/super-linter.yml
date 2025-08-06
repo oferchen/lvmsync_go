@@ -81,7 +81,6 @@ jobs:
   super-linter:
     name: super-linter (multi-language)
     runs-on: ubuntu-latest
-    needs: []
 
     steps:
       - name: Checkout code
