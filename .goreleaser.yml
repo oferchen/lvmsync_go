@@ -1,5 +1,3 @@
-# .goreleaser.yml
-
 version: '1'
 
 builds:
@@ -18,7 +16,6 @@ builds:
       - CGO_CFLAGS=-I/usr/include
     ldflags:
       - -s -w -X main.version={{ .Env.GORELEASER_CURRENT_TAG }}
-    # Ensure reproducibility and deterministic output
     asmflags:
       - all=-trimpath={{ .ProjectDir }}
     gcflags:
@@ -44,6 +41,22 @@ changelog:
     exclude:
       - '^docs:'
       - '^test:'
+
+dockers:
+  - image_templates:
+      - "docker.io/yourorg/lvmsync_go:{{ .Version }}"
+      - "docker.io/yourorg/lvmsync_go:latest"
+      - "ghcr.io/yourorg/lvmsync_go:{{ .Version }}"
+      - "ghcr.io/yourorg/lvmsync_go:latest"
+    dockerfile: ./Dockerfile
+    use: buildx
+    goos: linux
+    goarch:
+      - amd64
+      - arm64
+    build_flag_templates:
+      - "--platform=linux/{{ .Arch }}"
+    skip_push: {{ eq (env "SKIP_DOCKER_PUSH") "true" }}
 
 release:
   github:
