@@ -22,13 +22,16 @@ import (
 	"go.uber.org/zap"
 )
 
+// Logger holds the package-wide zap.Logger used for progress and error reporting.
 var Logger *zap.Logger
 var workerWG *sync.WaitGroup
 
+// SetLogger assigns Logger for package-wide logging and overrides any existing logger.
 func SetLogger(logger *zap.Logger) {
 	Logger = logger
 }
 
+// ChecksumState stores block checksums and the algorithm used for deduplication.
 type ChecksumState struct {
 	Checksums map[uint64][]byte
 	Strategy  string
@@ -252,6 +255,7 @@ func dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer,
 	return nil
 }
 
+// DumpChangesSequential streams changed blocks from snapshot to out sequentially and saves dedup state if enabled.
 func DumpChangesSequential(cfg *config.Config, snapshot, source string, out io.Writer) error {
 	dedup := NewDeduplicationStrategy(cfg)
 	if dedup != nil {
@@ -264,10 +268,12 @@ func DumpChangesSequential(cfg *config.Config, snapshot, source string, out io.W
 	return dumpChangesCore(cfg, snapshot, source, out, dedup, "")
 }
 
+// DumpChangesWithDeduplication transfers changed blocks using the provided dedup strategy and a checksum-dedup handshake, updating the strategy's state.
 func DumpChangesWithDeduplication(cfg *config.Config, snapshot, source string, out io.Writer, dedup DeduplicationStrategy) error {
 	return dumpChangesCore(cfg, snapshot, source, out, dedup, "checksum-dedup")
 }
 
+// DumpChanges chooses an appropriate transfer mode and persists dedup state when a strategy is configured.
 func DumpChanges(cfg *config.Config, snapshot, source string, out io.Writer) error {
 	dedup := NewDeduplicationStrategy(cfg)
 	if dedup != nil {
@@ -359,6 +365,8 @@ func worker(cfg *config.Config, srcFile *os.File, tasks <-chan BlockTask, result
 		}
 	}
 }
+
+// DumpChangesParallel transfers changed blocks using multiple goroutines and updates resume state as blocks complete.
 
 //nolint:revive // complexity necessary for transfer logic
 func DumpChangesParallel(cfg *config.Config, snapshot, source string, out io.Writer) error {
@@ -586,14 +594,17 @@ func processDumpDataCore(cfg *config.Config, in io.Reader, destPath string, dedu
 	return nil
 }
 
+// ProcessDumpDataWithDeduplication applies a dump stream to destPath using the given dedup strategy without checksum verification, updating the strategy's state.
 func ProcessDumpDataWithDeduplication(cfg *config.Config, in io.Reader, destPath string, dedup DeduplicationStrategy) error {
 	return processDumpDataCore(cfg, in, destPath, dedup, false)
 }
 
+// ProcessDumpData applies a dump stream to destPath with checksum verification for each block before writing.
 func ProcessDumpData(cfg *config.Config, in io.Reader, destPath string) error {
 	return processDumpDataCore(cfg, in, destPath, nil, true)
 }
 
+// RunApply reads a dump file or stdin and writes the data to destDevice, optionally leveraging deduplication and saving its state.
 func RunApply(cfg *config.Config, applyFile, destDevice string) error {
 	var in io.Reader
 	if applyFile == "-" {
