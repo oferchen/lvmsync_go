@@ -85,8 +85,8 @@ func RunSSHCommand(host, user, keyPath, hostKeyPath string, port int, command st
 		return fmt.Errorf("failed to establish SSH connection: %w", err)
 	}
 	defer func() {
-		if err := client.Close(); err != nil {
-			Logger.Warn("client close error", zap.Error(err))
+		if closeErr := client.Close(); closeErr != nil {
+			Logger.Warn("client close error", zap.Error(closeErr))
 		}
 	}()
 

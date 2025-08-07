@@ -306,12 +306,12 @@ func LoadConfig() (*Config, error) {
 	v.SetEnvKeyReplacer(strings.NewReplacer("_", "."))
 	v.SetEnvPrefix("LVMSYNC")
 
-	if err := v.BindPFlags(pflag.CommandLine); err != nil {
+	if err = v.BindPFlags(pflag.CommandLine); err != nil {
 		return nil, err
 	}
 	if cfgFile := v.GetString("config"); cfgFile != "" {
 		v.SetConfigFile(cfgFile)
-		if err := v.ReadInConfig(); err != nil {
+		if err = v.ReadInConfig(); err != nil {
 			return nil, fmt.Errorf("error reading config file %q: %w", cfgFile, err)
 		}
 	}
