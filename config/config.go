@@ -84,27 +84,27 @@ func (c *Config) HumanBlockSize() string {
 	return sizeparse.FormatBytes(uint64(c.BlockSize))
 }
 
-type ConfigBuilder struct {
+type Builder struct {
 	v        *viper.Viper
 	defaults *Config
 }
 
-func (cb *ConfigBuilder) Build() (*Config, error) {
+func (b *Builder) Build() (*Config, error) {
 	var conf Config
-	if err := cb.v.Unmarshal(&conf); err != nil {
+	if err := b.v.Unmarshal(&conf); err != nil {
 		return nil, fmt.Errorf("error unmarshaling config: %w", err)
 	}
 
-	bs, raw, err := cb.parseBlockSize()
+	bs, raw, err := b.parseBlockSize()
 	if err != nil {
 		return nil, err
 	}
 	conf.BlockSize = bs
 	conf.BlockSizeRaw = raw
 	if conf.ChecksumAlgorithm == "" {
-		conf.ChecksumAlgorithm = cb.defaults.ChecksumAlgorithm
+		conf.ChecksumAlgorithm = b.defaults.ChecksumAlgorithm
 	}
-	sl, err := cb.parseBytesOrFallback("speed", cb.defaults.Speed)
+	sl, err := b.parseBytesOrFallback("speed", b.defaults.Speed)
 	if err != nil {
 		return nil, err
 	}
@@ -145,8 +145,8 @@ func (cb *ConfigBuilder) Build() (*Config, error) {
 	return &conf, nil
 }
 
-func (cb *ConfigBuilder) parseBytesOrFallback(key, fallback string) (int, error) {
-	raw := strings.ReplaceAll(cb.v.GetString(key), " ", "")
+func (b *Builder) parseBytesOrFallback(key, fallback string) (int, error) {
+	raw := strings.ReplaceAll(b.v.GetString(key), " ", "")
 	if raw == "" {
 		raw = fallback
 	}
@@ -161,10 +161,10 @@ func (cb *ConfigBuilder) parseBytesOrFallback(key, fallback string) (int, error)
 	return int(u), nil
 }
 
-func (cb *ConfigBuilder) parseBlockSize() (int, string, error) {
-	raw := strings.ReplaceAll(strings.TrimSpace(cb.v.GetString("block_size")), " ", "")
+func (b *Builder) parseBlockSize() (int, string, error) {
+	raw := strings.ReplaceAll(strings.TrimSpace(b.v.GetString("block_size")), " ", "")
 	if raw == "" {
-		raw = cb.defaults.BlockSizeRaw
+		raw = b.defaults.BlockSizeRaw
 	}
 	if strings.EqualFold(raw, "auto") {
 		return 0, raw, nil
@@ -316,7 +316,7 @@ func LoadConfig() (*Config, error) {
 		}
 	}
 
-	builder := &ConfigBuilder{
+	builder := &Builder{
 		v:        v,
 		defaults: defaultCfg,
 	}
