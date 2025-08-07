@@ -10,7 +10,9 @@ import (
 func TestHasher(t *testing.T) {
 	h := NewHasher(nil)
 	msg := []byte("hello world")
-	h.Write(msg)
+	if _, err := h.Write(msg); err != nil {
+		t.Fatalf("write failed: %v", err)
+	}
 	sum := h.Sum256()
 	expected := "d74981efa70a0c880b8d8c1985d075dbcbf679b99a5f9914e5aaf96b831a9e24"
 	if hex.EncodeToString(sum[:]) != expected {
@@ -19,7 +21,9 @@ func TestHasher(t *testing.T) {
 
 	key := []byte("0123456789abcdef0123456789abcdef")
 	h = NewHasher(key)
-	h.Write(msg)
+	if _, err := h.Write(msg); err != nil {
+		t.Fatalf("write failed: %v", err)
+	}
 	sum2 := h.Sum256()
 	if bytes.Equal(sum[:], sum2[:]) {
 		t.Fatalf("keyed hash should differ")
