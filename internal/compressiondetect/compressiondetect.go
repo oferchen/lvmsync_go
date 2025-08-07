@@ -2,9 +2,9 @@ package compressiondetect
 
 import (
 	"bytes"
+	"crypto/rand"
 	"fmt"
 	"io"
-	"math/rand"
 	"runtime"
 	"sync"
 	"time"
@@ -50,8 +50,7 @@ func DetectOptimalCompression() string {
 func BenchmarkCompression() string {
 	sample := make([]byte, 1<<16) // 64KB sample block
 	copy(sample[:1<<15], bytes.Repeat([]byte("a"), 1<<15))
-	prng := rand.New(rand.NewSource(0))
-	if _, err := prng.Read(sample[1<<15:]); err != nil {
+	if _, err := rand.Read(sample[1<<15:]); err != nil {
 		return "lz4"
 	}
 
