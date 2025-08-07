@@ -4,13 +4,18 @@ import (
 	"testing"
 
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/knownhosts"
 )
 
 func TestRunRemoteScriptNoLogger(t *testing.T) {
 	server := newMockSSHServer(t, func(cmd string) int { return 0 })
 	defer server.Close()
-
-	client, err := ssh.Dial("tcp", server.addr, &ssh.ClientConfig{User: "test", HostKeyCallback: ssh.InsecureIgnoreHostKey()})
+	knownHosts := createKnownHostsFile(t, server)
+	hostKeyCallback, err := knownhosts.New(knownHosts)
+	if err != nil {
+		t.Fatalf("knownhosts.New: %v", err)
+	}
+	client, err := ssh.Dial("tcp", server.addr, &ssh.ClientConfig{User: "test", HostKeyCallback: hostKeyCallback})
 	if err != nil {
 		t.Fatalf("failed to dial: %v", err)
 	}
@@ -27,8 +32,12 @@ func TestRunRemoteScriptNoLogger(t *testing.T) {
 func TestSendKeepAliveNoLogger(t *testing.T) {
 	server := newMockSSHServer(t, func(cmd string) int { return 0 })
 	defer server.Close()
-
-	client, err := ssh.Dial("tcp", server.addr, &ssh.ClientConfig{User: "test", HostKeyCallback: ssh.InsecureIgnoreHostKey()})
+	knownHosts := createKnownHostsFile(t, server)
+	hostKeyCallback, err := knownhosts.New(knownHosts)
+	if err != nil {
+		t.Fatalf("knownhosts.New: %v", err)
+	}
+	client, err := ssh.Dial("tcp", server.addr, &ssh.ClientConfig{User: "test", HostKeyCallback: hostKeyCallback})
 	if err != nil {
 		t.Fatalf("failed to dial: %v", err)
 	}

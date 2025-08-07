@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/knownhosts"
 )
 
 type mockSSHServer struct {
@@ -20,6 +21,7 @@ type mockSSHServer struct {
 	commands   []string
 	globalReqs []string
 	connCount  int
+	publicKey  ssh.PublicKey
 }
 
 func newMockSSHServer(t *testing.T, handler func(string) int) *mockSSHServer {
@@ -37,7 +39,7 @@ func newMockSSHServer(t *testing.T, handler func(string) int) *mockSSHServer {
 	if err != nil {
 		t.Fatalf("failed to listen: %v", err)
 	}
-	srv := &mockSSHServer{addr: listener.Addr().String(), listener: listener, handler: handler}
+	srv := &mockSSHServer{addr: listener.Addr().String(), listener: listener, handler: handler, publicKey: signer.PublicKey()}
 	go srv.serve(config)
 	return srv
 }
@@ -139,8 +141,12 @@ func TestValidateRemoteCommand(t *testing.T) {
 		}
 	})
 	defer server.Close()
-
-	client, err := ssh.Dial("tcp", server.addr, &ssh.ClientConfig{User: "test", HostKeyCallback: ssh.InsecureIgnoreHostKey()})
+	knownHosts := createKnownHostsFile(t, server)
+	hostKeyCallback, err := knownhosts.New(knownHosts)
+	if err != nil {
+		t.Fatalf("knownhosts.New: %v", err)
+	}
+	client, err := ssh.Dial("tcp", server.addr, &ssh.ClientConfig{User: "test", HostKeyCallback: hostKeyCallback})
 	if err != nil {
 		t.Fatalf("failed to dial: %v", err)
 	}
@@ -158,8 +164,12 @@ func TestValidateRemoteCommand(t *testing.T) {
 func TestRunRemoteScript(t *testing.T) {
 	server := newMockSSHServer(t, func(cmd string) int { return 0 })
 	defer server.Close()
-
-	client, err := ssh.Dial("tcp", server.addr, &ssh.ClientConfig{User: "test", HostKeyCallback: ssh.InsecureIgnoreHostKey()})
+	knownHosts := createKnownHostsFile(t, server)
+	hostKeyCallback, err := knownhosts.New(knownHosts)
+	if err != nil {
+		t.Fatalf("knownhosts.New: %v", err)
+	}
+	client, err := ssh.Dial("tcp", server.addr, &ssh.ClientConfig{User: "test", HostKeyCallback: hostKeyCallback})
 	if err != nil {
 		t.Fatalf("failed to dial: %v", err)
 	}

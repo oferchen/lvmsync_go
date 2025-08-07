@@ -79,7 +79,9 @@ func setupHostKeyCallback(verify bool, knownHostsPath string) (ssh.HostKeyCallba
 		}
 		return hostKeyCallback, nil
 	}
-	return ssh.InsecureIgnoreHostKey(), nil
+	return func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+		return nil
+	}, nil
 }
 
 func dialWithRetry(addr string, config *ssh.ClientConfig, host string, port, retries int) (*ssh.Client, error) {
