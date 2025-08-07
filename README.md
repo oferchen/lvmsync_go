@@ -45,15 +45,37 @@ This structure allows individual packages to be developed and tested in isolatio
 - LVM2 with development headers (`liblvm2-dev`) and device-mapper development files (`libdevmapper-dev`)
 - SSH client & server (for remote transfers)
 
+### Installing LVM2 Development Headers
+
+CGO uses `pkg-config` to locate the LVM2 and device-mapper libraries. Install the development headers and
+`pkg-config` package on your system:
+
+```sh
+# Debian/Ubuntu
+sudo apt install -y lvm2 liblvm2-dev libdevmapper-dev pkg-config
+
+# RHEL/CentOS
+sudo yum install -y lvm2-devel device-mapper-devel pkgconfig
+```
+
+If the `.pc` files are installed in a non-standard location, set `PKG_CONFIG_PATH` so that `pkg-config` can
+find them.
+
 ### Build
 
-Clone the repository and build the binary using Go modules:
+Clone the repository and build the binary using Go modules with CGO enabled:
 
 ```sh
 git clone https://github.com/oferchen/lvmsync_go.git
 cd lvmsync_go
 go mod tidy
-go build -o lvmsync .
+CGO_ENABLED=1 go build -o lvmsync .
+```
+
+To build on systems without LVM2, disable CGO. This uses stub implementations and omits LVM features:
+
+```sh
+CGO_ENABLED=0 go build -o lvmsync .
 ```
 
 ## Usage
