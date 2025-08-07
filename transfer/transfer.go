@@ -34,19 +34,29 @@ type ChecksumState struct {
 	Strategy  string
 }
 
-func LoadChecksumState(filename string) (*ChecksumState, error) {
-	file, err := os.Open(filename)
+func LoadChecksumState(filename string) (state *ChecksumState, err error) {
+	var file *os.File
+	file, err = os.Open(filename)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return &ChecksumState{Checksums: make(map[uint64][]byte), Strategy: "sha256"}, nil
 		}
 		return nil, fmt.Errorf("open checksum state: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			if Logger != nil {
+				Logger.Warn("Failed to close checksum state file", zap.Error(closeErr))
+			}
+			if err == nil {
+				err = fmt.Errorf("close checksum state: %w", closeErr)
+			}
+		}
+	}()
 
-	state := &ChecksumState{}
+	state = &ChecksumState{}
 	decoder := gob.NewDecoder(file)
-	if err := decoder.Decode(state); err != nil {
+	if err = decoder.Decode(state); err != nil {
 		return nil, fmt.Errorf("decode checksum state: %w", err)
 	}
 
@@ -59,19 +69,34 @@ func LoadChecksumState(filename string) (*ChecksumState, error) {
 	return state, nil
 }
 
-func SaveChecksumState(filename string, state *ChecksumState) error {
-	file, err := os.Create(filename)
+func SaveChecksumState(filename string, state *ChecksumState) (err error) {
+	var file *os.File
+	file, err = os.Create(filename)
 	if err != nil {
 		return fmt.Errorf("create checksum state: %w", err)
 	}
-	if err := file.Chmod(0o600); err != nil {
-		file.Close()
+	if err = file.Chmod(0o600); err != nil {
+		if closeErr := file.Close(); closeErr != nil {
+			if Logger != nil {
+				Logger.Warn("Failed to close checksum state file", zap.Error(closeErr))
+			}
+			return fmt.Errorf("chmod checksum state: %v; close checksum state: %w", err, closeErr)
+		}
 		return fmt.Errorf("chmod checksum state: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			if Logger != nil {
+				Logger.Warn("Failed to close checksum state file", zap.Error(closeErr))
+			}
+			if err == nil {
+				err = fmt.Errorf("close checksum state: %w", closeErr)
+			}
+		}
+	}()
 
 	encoder := gob.NewEncoder(file)
-	if err := encoder.Encode(state); err != nil {
+	if err = encoder.Encode(state); err != nil {
 		return fmt.Errorf("encode checksum state: %w", err)
 	}
 	return nil
