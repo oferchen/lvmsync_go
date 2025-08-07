@@ -74,8 +74,8 @@ func TestParseBytesOrFallback(t *testing.T) {
 	t.Run("valid", func(t *testing.T) {
 		v := viper.New()
 		v.Set("block_size", "1KB")
-		cb := &ConfigBuilder{v: v}
-		got, err := cb.parseBytesOrFallback("block_size", "4KB")
+		b := &Builder{v: v}
+		got, err := b.parseBytesOrFallback("block_size", "4KB")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -86,8 +86,8 @@ func TestParseBytesOrFallback(t *testing.T) {
 
 	t.Run("fallback", func(t *testing.T) {
 		v := viper.New()
-		cb := &ConfigBuilder{v: v}
-		got, err := cb.parseBytesOrFallback("block_size", "2KB")
+		b := &Builder{v: v}
+		got, err := b.parseBytesOrFallback("block_size", "2KB")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -99,8 +99,8 @@ func TestParseBytesOrFallback(t *testing.T) {
 	t.Run("invalid", func(t *testing.T) {
 		v := viper.New()
 		v.Set("block_size", "notbytes")
-		cb := &ConfigBuilder{v: v}
-		if _, err := cb.parseBytesOrFallback("block_size", "4KB"); err == nil {
+		b := &Builder{v: v}
+		if _, err := b.parseBytesOrFallback("block_size", "4KB"); err == nil {
 			t.Fatalf("expected error")
 		}
 	})
@@ -108,8 +108,8 @@ func TestParseBytesOrFallback(t *testing.T) {
 	t.Run("nearMaxInt", func(t *testing.T) {
 		v := viper.New()
 		v.Set("block_size", fmt.Sprintf("%d", uint64(math.MaxInt-1023)))
-		cb := &ConfigBuilder{v: v}
-		got, err := cb.parseBytesOrFallback("block_size", "4KB")
+		b := &Builder{v: v}
+		got, err := b.parseBytesOrFallback("block_size", "4KB")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -121,8 +121,8 @@ func TestParseBytesOrFallback(t *testing.T) {
 	t.Run("overflow", func(t *testing.T) {
 		v := viper.New()
 		v.Set("block_size", fmt.Sprintf("%d", uint64(math.MaxInt)+1))
-		cb := &ConfigBuilder{v: v}
-		if _, err := cb.parseBytesOrFallback("block_size", "4KB"); err == nil {
+		b := &Builder{v: v}
+		if _, err := b.parseBytesOrFallback("block_size", "4KB"); err == nil {
 			t.Fatalf("expected error")
 		}
 	})
@@ -188,8 +188,8 @@ func TestBuildBlockSize(t *testing.T) {
 		if err != nil {
 			t.Fatalf("DefaultConfig returned error: %v", err)
 		}
-		cb := &ConfigBuilder{v: v, defaults: defaults}
-		cfg, err := cb.Build()
+		b := &Builder{v: v, defaults: defaults}
+		cfg, err := b.Build()
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -205,8 +205,8 @@ func TestBuildBlockSize(t *testing.T) {
 		if err != nil {
 			t.Fatalf("DefaultConfig returned error: %v", err)
 		}
-		cb := &ConfigBuilder{v: v, defaults: defaults}
-		cfg, err := cb.Build()
+		b := &Builder{v: v, defaults: defaults}
+		cfg, err := b.Build()
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -226,8 +226,8 @@ func TestCompressLevelValidation(t *testing.T) {
 		if err != nil {
 			t.Fatalf("DefaultConfig returned error: %v", err)
 		}
-		cb := &ConfigBuilder{v: v, defaults: defaults}
-		if _, err := cb.Build(); err != nil {
+		b := &Builder{v: v, defaults: defaults}
+		if _, err := b.Build(); err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
 	})
@@ -240,8 +240,8 @@ func TestCompressLevelValidation(t *testing.T) {
 		if err != nil {
 			t.Fatalf("DefaultConfig returned error: %v", err)
 		}
-		cb := &ConfigBuilder{v: v, defaults: defaults}
-		if _, err := cb.Build(); err == nil {
+		b := &Builder{v: v, defaults: defaults}
+		if _, err := b.Build(); err == nil {
 			t.Fatalf("expected error")
 		}
 	})
@@ -258,8 +258,8 @@ func TestCompressLevelValidation(t *testing.T) {
 		if err != nil {
 			t.Fatalf("DefaultConfig returned error: %v", err)
 		}
-		cb := &ConfigBuilder{v: v, defaults: defaults}
-		if _, err := cb.Build(); err != nil {
+		b := &Builder{v: v, defaults: defaults}
+		if _, err := b.Build(); err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
 	})
@@ -276,8 +276,8 @@ func TestCompressLevelValidation(t *testing.T) {
 		if err != nil {
 			t.Fatalf("DefaultConfig returned error: %v", err)
 		}
-		cb := &ConfigBuilder{v: v, defaults: defaults}
-		if _, err := cb.Build(); err == nil {
+		b := &Builder{v: v, defaults: defaults}
+		if _, err := b.Build(); err == nil {
 			t.Fatalf("expected error")
 		}
 	})
@@ -290,8 +290,8 @@ func TestCompressLevelValidation(t *testing.T) {
 		if err != nil {
 			t.Fatalf("DefaultConfig returned error: %v", err)
 		}
-		cb := &ConfigBuilder{v: v, defaults: defaults}
-		if _, err := cb.Build(); err != nil {
+		b := &Builder{v: v, defaults: defaults}
+		if _, err := b.Build(); err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
 	})
@@ -304,8 +304,8 @@ func TestCompressLevelValidation(t *testing.T) {
 		if err != nil {
 			t.Fatalf("DefaultConfig returned error: %v", err)
 		}
-		cb := &ConfigBuilder{v: v, defaults: defaults}
-		if _, err := cb.Build(); err == nil {
+		b := &Builder{v: v, defaults: defaults}
+		if _, err := b.Build(); err == nil {
 			t.Fatalf("expected error")
 		}
 	})
@@ -318,8 +318,8 @@ func TestCompressConcurrency(t *testing.T) {
 		if err != nil {
 			t.Fatalf("DefaultConfig returned error: %v", err)
 		}
-		cb := &ConfigBuilder{v: v, defaults: defaults}
-		cfg, err := cb.Build()
+		b := &Builder{v: v, defaults: defaults}
+		cfg, err := b.Build()
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -335,8 +335,8 @@ func TestCompressConcurrency(t *testing.T) {
 		if err != nil {
 			t.Fatalf("DefaultConfig returned error: %v", err)
 		}
-		cb := &ConfigBuilder{v: v, defaults: defaults}
-		cfg, err := cb.Build()
+		b := &Builder{v: v, defaults: defaults}
+		cfg, err := b.Build()
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
