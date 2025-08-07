@@ -155,5 +155,17 @@ func sshAgentAuth() (ssh.AuthMethod, error) {
 		return nil, fmt.Errorf("failed to connect to SSH agent: %w", err)
 	}
 
-	return ssh.PublicKeysCallback(agent.NewClient(conn).Signers), nil
+	agentClient := agent.NewClient(conn)
+	defer func() {
+		if err := conn.Close(); err != nil {
+			Logger.Warn("ssh agent connection close error", zap.Error(err))
+		}
+	}()
+
+	signers, err := agentClient.Signers()
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve signers from SSH agent: %w", err)
+	}
+
+	return ssh.PublicKeys(signers...), nil
 }
