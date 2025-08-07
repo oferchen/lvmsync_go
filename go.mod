@@ -4,7 +4,6 @@ go 1.24.5
 
 require (
 	github.com/bits-and-blooms/bloom/v3 v3.7.0
-	github.com/dswarbrick/devmapper v0.0.0-20180105234447-48f6140a67ea
 	github.com/klauspost/compress v1.18.0
 	github.com/klauspost/cpuid/v2 v2.2.7
 	github.com/pierrec/lz4/v4 v4.1.22
