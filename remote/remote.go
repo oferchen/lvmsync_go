@@ -66,9 +66,12 @@ func selectAuthMethods(keyPath string) ([]ssh.AuthMethod, error) {
 			if err == nil {
 				agentClient := agent.NewClient(conn)
 				authMethods = append(authMethods, ssh.PublicKeysCallback(func() ([]ssh.Signer, error) {
-					signers, err := agentClient.Signers()
-					_ = conn.Close()
-					return signers, err
+					defer func() {
+						if cerr := conn.Close(); cerr != nil {
+							Logger.Warn("ssh agent connection close error", zap.Error(cerr))
+						}
+					}()
+					return agentClient.Signers()
 				}))
 			}
 		}
