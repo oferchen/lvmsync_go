@@ -43,6 +43,7 @@ This structure allows individual packages to be developed and tested in isolatio
 - Go 1.18+
 - 64-bit Linux (x86_64) on AMD EPYC or Intel Xeon processors
 - LVM2 with development headers (`liblvm2-dev`) and device-mapper development files (`libdevmapper-dev`)
+  - A recent LVM2 release providing the modern `liblvm` API (e.g., 2.03.21+) is required.
 - SSH client & server (for remote transfers)
 
 ### Installing LVM2 Development Headers
