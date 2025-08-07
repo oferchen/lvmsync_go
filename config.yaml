@@ -7,6 +7,14 @@ zerocopy: false                        # Enable zero-copy transfers (only in seq
 max_retries: 3                         # Maximum number of retries per block
 resume: ""                             # Path to resume state file
 
+# gRPC Options
+grpc_port: 8443                        # gRPC port to listen on
+tls_cert: ""                          # TLS certificate file
+tls_key: ""                           # TLS key file
+ca_cert: ""                           # CA certificate file
+allow_insecure: true                  # Allow running without TLS
+sudo_path: "/usr/bin/sudo"           # Path to sudo executable
+
 # Deduplication Options
 dedup_strategy: "none"                   # Strategy: "none", "auto", "checksum", "rolling_hash", or "bloom" (use "none" to disable)
 dedup_state_file: "~/.lvmsync_dedup"    # Path to deduplication state file

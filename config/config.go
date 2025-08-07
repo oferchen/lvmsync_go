@@ -30,6 +30,7 @@ var (
 	dedupFlags       *pflag.FlagSet
 	compressionFlags *pflag.FlagSet
 	lvmFlags         *pflag.FlagSet
+	grpcFlags        *pflag.FlagSet
 )
 
 var getEuid = os.Geteuid
@@ -75,6 +76,12 @@ type Config struct {
 	DedupStateFile       string   `mapstructure:"dedup_state_file"`
 	BloomEntries         int      `mapstructure:"bloom_entries"`
 	BloomFpRate          float64  `mapstructure:"bloom_fp_rate"`
+	GRPCPort             int      `mapstructure:"grpc_port"`
+	TLSCert              string   `mapstructure:"tls_cert"`
+	TLSKey               string   `mapstructure:"tls_key"`
+	CACert               string   `mapstructure:"ca_cert"`
+	AllowInsecure        bool     `mapstructure:"allow_insecure"`
+	SudoPath             string   `mapstructure:"sudo_path"`
 }
 
 func (c *Config) HumanBlockSize() string {
@@ -93,6 +100,16 @@ func (b *Builder) Build() (*Config, error) {
 	var conf Config
 	if err := b.v.Unmarshal(&conf); err != nil {
 		return nil, fmt.Errorf("error unmarshaling config: %w", err)
+	}
+
+	if !b.v.IsSet("allow_insecure") {
+		conf.AllowInsecure = b.defaults.AllowInsecure
+	}
+	if conf.GRPCPort == 0 {
+		conf.GRPCPort = b.defaults.GRPCPort
+	}
+	if conf.SudoPath == "" {
+		conf.SudoPath = b.defaults.SudoPath
 	}
 
 	bs, raw, err := b.parseBlockSize()
@@ -136,9 +153,26 @@ func (b *Builder) Build() (*Config, error) {
 		lvl := lz4.CompressionLevel(conf.CompressLevel)
 		switch lvl {
 		case lz4.Fast, lz4.Level1, lz4.Level2, lz4.Level3, lz4.Level4, lz4.Level5, lz4.Level6, lz4.Level7, lz4.Level8, lz4.Level9:
-		// valid
+			// valid
 		default:
 			return nil, fmt.Errorf("invalid lz4 compression level: %d", conf.CompressLevel)
+		}
+	}
+
+	if !conf.AllowInsecure {
+		if conf.TLSCert == "" || conf.TLSKey == "" {
+			return nil, fmt.Errorf("tls_cert and tls_key must be specified unless allow_insecure is set")
+		}
+		if _, err := os.Stat(conf.TLSCert); err != nil {
+			return nil, fmt.Errorf("tls_cert: %w", err)
+		}
+		if _, err := os.Stat(conf.TLSKey); err != nil {
+			return nil, fmt.Errorf("tls_key: %w", err)
+		}
+		if conf.CACert != "" {
+			if _, err := os.Stat(conf.CACert); err != nil {
+				return nil, fmt.Errorf("ca_cert: %w", err)
+			}
 		}
 	}
 
@@ -223,6 +257,12 @@ func DefaultConfig() (*Config, error) {
 		DedupStateFile:       filepath.Join(homeDir, ".lvmsync_dedup"),
 		BloomEntries:         1000000,
 		BloomFpRate:          0.01,
+		GRPCPort:             8443,
+		TLSCert:              "",
+		TLSKey:               "",
+		CACert:               "",
+		AllowInsecure:        true,
+		SudoPath:             "/usr/bin/sudo",
 	}, nil
 }
 
@@ -238,6 +278,7 @@ func LoadConfig() (*Config, error) {
 	dedupFlags = pflag.NewFlagSet("Deduplication Options", pflag.ExitOnError)
 	compressionFlags = pflag.NewFlagSet("Compression Options", pflag.ExitOnError)
 	lvmFlags = pflag.NewFlagSet("LVM Options", pflag.ExitOnError)
+	grpcFlags = pflag.NewFlagSet("gRPC Options", pflag.ExitOnError)
 
 	// General Options
 	generalFlags.String("config", "", "Path to config YAML file")
@@ -288,6 +329,14 @@ func LoadConfig() (*Config, error) {
 	lvmFlags.String("target_volume_group", defaultCfg.TargetVolumeGroup, "Volume group name of the target LVM volume")
 	lvmFlags.StringSlice("target_vgs", defaultCfg.TargetVGCandidates, "Candidate target volume groups for auto-selection")
 
+	// gRPC Options
+	grpcFlags.Int("grpc_port", defaultCfg.GRPCPort, "gRPC port to listen on")
+	grpcFlags.String("tls_cert", defaultCfg.TLSCert, "TLS certificate file")
+	grpcFlags.String("tls_key", defaultCfg.TLSKey, "TLS key file")
+	grpcFlags.String("ca_cert", defaultCfg.CACert, "CA certificate file")
+	grpcFlags.Bool("allow_insecure", defaultCfg.AllowInsecure, "Allow insecure (no TLS)")
+	grpcFlags.String("sudo_path", defaultCfg.SudoPath, "Path to sudo executable")
+
 	// Register flags and set usage
 	pflag.CommandLine.AddFlagSet(generalFlags)
 	pflag.CommandLine.AddFlagSet(sshFlags)
@@ -295,6 +344,7 @@ func LoadConfig() (*Config, error) {
 	pflag.CommandLine.AddFlagSet(dedupFlags)
 	pflag.CommandLine.AddFlagSet(compressionFlags)
 	pflag.CommandLine.AddFlagSet(lvmFlags)
+	pflag.CommandLine.AddFlagSet(grpcFlags)
 	pflag.Usage = printUsage
 	pflag.Parse()
 
@@ -392,4 +442,6 @@ func printUsage() {
 	compressionFlags.PrintDefaults()
 	fmt.Fprintf(os.Stderr, "\nLVM Options:\n")
 	lvmFlags.PrintDefaults()
+	fmt.Fprintf(os.Stderr, "\ngRPC Options:\n")
+	grpcFlags.PrintDefaults()
 }
