@@ -62,6 +62,22 @@ func TestAuthInterceptor(t *testing.T) {
 			t.Fatalf("expected unauthenticated, got %v", err)
 		}
 	})
+
+	t.Run("missing peer", func(t *testing.T) {
+		_, err := interceptor(context.Background(), nil, &grpc.UnaryServerInfo{}, handler)
+		if status.Code(err) != codes.Unauthenticated {
+			t.Fatalf("expected unauthenticated, got %v", err)
+		}
+	})
+
+	t.Run("missing TLS info", func(t *testing.T) {
+		p := &peer.Peer{}
+		ctx := peer.NewContext(context.Background(), p)
+		_, err := interceptor(ctx, nil, &grpc.UnaryServerInfo{}, handler)
+		if status.Code(err) != codes.Unauthenticated {
+			t.Fatalf("expected unauthenticated, got %v", err)
+		}
+	})
 }
 
 func pkixName(cn string) pkix.Name {
