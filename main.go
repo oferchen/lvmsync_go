@@ -88,12 +88,21 @@ func runClientMode(snapshotDevice, dest string) (err error) {
 	return runLocalDump(snapshotDevice, originDevice, dest)
 }
 
-func runLocalDump(snapshotDevice, originDevice, dest string) error {
+func runLocalDump(snapshotDevice, originDevice, dest string) (err error) {
 	destFile, err := os.OpenFile(dest, os.O_RDWR, 0)
 	if err != nil {
 		return fmt.Errorf("failed to open destination device %s: %w", dest, err)
 	}
-	defer destFile.Close()
+	defer func() {
+		if closeErr := destFile.Close(); closeErr != nil {
+			zap.L().Warn("Failed to close destination device", zap.Error(closeErr))
+			if err == nil {
+				err = fmt.Errorf("close destination device: %w", closeErr)
+			} else {
+				err = fmt.Errorf("%v; close destination device: %w", err, closeErr)
+			}
+		}
+	}()
 	limitedOut := transfer.WrapRateLimitedWriter(destFile, cfg.SpeedLimit)
 	return executeDump(cfg, snapshotDevice, originDevice, limitedOut)
 }

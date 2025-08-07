@@ -42,10 +42,9 @@ func ReadBlock(src *os.File, offset int64, size int) ([]byte, error) {
 	return buf, nil
 }
 
-func ReadBlockWithRetries(cfg *config.Config, src *os.File, offset int64, useZeroCopy bool, pipeFds [2]int) ([]byte, error) {
+func ReadBlockWithRetries(cfg *config.Config, src *os.File, offset int64, useZeroCopy bool, pipeFds [2]int) (data []byte, err error) {
 	blockSize := cfg.BlockSize
 	maxRetries := cfg.MaxRetries
-	var data []byte
 
 	if useZeroCopy {
 		if pipeFds[0] == -1 && pipeFds[1] == -1 {
@@ -61,7 +60,18 @@ func ReadBlockWithRetries(cfg *config.Config, src *os.File, offset int64, useZer
 		if err != nil {
 			return nil, err
 		}
-		defer r.Close()
+		defer func() {
+			if closeErr := r.Close(); closeErr != nil {
+				if Logger != nil {
+					Logger.Warn("Failed to close pipe reader", zap.Error(closeErr))
+				}
+				if err == nil {
+					err = fmt.Errorf("close pipe reader: %w", closeErr)
+				} else {
+					err = fmt.Errorf("%v; close pipe reader: %w", err, closeErr)
+				}
+			}
+		}()
 
 		for attempt := 0; attempt < maxRetries; attempt++ {
 			err = ZeroCopyTransfer(src, w, offset, int64(blockSize), pipeFds)
