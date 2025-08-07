@@ -2,6 +2,11 @@
 
 package cgo
 
+import "errors"
+
+// ErrUnsupported is returned when CGO support is unavailable.
+var ErrUnsupported = errors.New("lvm unsupported")
+
 // VolumeGroup represents a volume group with its free space in bytes.
 type VolumeGroup struct {
 	Name string
@@ -23,8 +28,22 @@ type DM struct{}
 // New returns a stub DM implementation.
 func New() LVM { return &DM{} }
 
-func (d *DM) CreateSnapshot(lvPath, snapshotName string, sizeBytes uint64) error { return nil }
-func (d *DM) RemoveLV(lvPath string) error                                       { return nil }
-func (d *DM) SnapshotUsage(lvPath string) (float64, error)                       { return 0, nil }
-func (d *DM) VGFree(vgName string) (uint64, error)                               { return 0, nil }
-func (d *DM) ListVGs() ([]VolumeGroup, error)                                    { return []VolumeGroup{}, nil }
+func (d *DM) CreateSnapshot(lvPath, snapshotName string, sizeBytes uint64) error {
+	return ErrUnsupported
+}
+
+func (d *DM) RemoveLV(lvPath string) error {
+	return ErrUnsupported
+}
+
+func (d *DM) SnapshotUsage(lvPath string) (float64, error) {
+	return 0, ErrUnsupported
+}
+
+func (d *DM) VGFree(vgName string) (uint64, error) {
+	return 0, ErrUnsupported
+}
+
+func (d *DM) ListVGs() ([]VolumeGroup, error) {
+	return nil, ErrUnsupported
+}
