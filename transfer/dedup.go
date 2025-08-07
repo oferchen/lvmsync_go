@@ -60,9 +60,9 @@ var rollingHashPool = sync.Pool{
 // is used.
 var detectBestStrategy = func() string {
 	if supportsChecksumAcceleration() {
-		return "checksum"
+		return StrategyChecksum
 	}
-	return "rolling_hash"
+	return StrategyRollingHash
 }
 
 func supportsChecksumAcceleration() bool {
@@ -71,14 +71,14 @@ func supportsChecksumAcceleration() bool {
 
 func NewDeduplicationStrategy(cfg *config.Config) DeduplicationStrategy {
 	strategy := cfg.DedupStrategy
-	if strategy == "auto" {
+	if strategy == StrategyAuto {
 		strategy = detectBestStrategy()
 		cfg.DedupStrategy = strategy
 	}
 	switch strategy {
 	case "none":
 		return nil
-	case "rolling_hash":
+	case StrategyRollingHash:
 		d := &RollingHashDedup{
 			stateFile: cfg.DedupStateFile,
 			hashes:    make(map[int64]uint64),
