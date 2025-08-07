@@ -87,7 +87,11 @@ func (m *mockAgent) GetStatus(ctx context.Context, volume, requester string) (st
 func newClient(t *testing.T, cfg Config, agent lvmagent.Agent, creds credentials.TransportCredentials) (proto.ReplicationClient, func()) {
 	lis := bufconn.Listen(bufSize)
 	srv := New(cfg, agent)
-	go func() { _ = srv.Serve(lis) }()
+	go func() {
+		if err := srv.Serve(lis); err != nil && !errors.Is(err, grpc.ErrServerStopped) {
+			t.Errorf("srv.Serve: %v", err)
+		}
+	}()
 	dialer := func(context.Context, string) (net.Conn, error) { return lis.Dial() }
 	conn, err := grpc.DialContext(context.Background(), "bufnet", grpc.WithContextDialer(dialer), grpc.WithTransportCredentials(creds))
 	if err != nil {
