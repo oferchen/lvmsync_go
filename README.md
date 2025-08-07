@@ -79,6 +79,14 @@ To build on systems without LVM2, disable CGO. This uses stub implementations an
 CGO_ENABLED=0 go build -o lvmsync .
 ```
 
+### Makefile
+
+```sh
+make proto   # generate gRPC code
+make build   # build binaries
+make test    # run tests
+```
+
 ## Usage
 
 ### Basic Syntax
