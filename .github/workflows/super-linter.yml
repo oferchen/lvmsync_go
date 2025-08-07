@@ -121,3 +121,5 @@ jobs:
             fi
           else
             echo "No working directory changes detected."
+          fi
+          
