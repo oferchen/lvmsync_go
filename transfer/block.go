@@ -37,7 +37,7 @@ func ZeroCopyTransfer(src *os.File, dst *os.File, offset int64, length int64, pi
 		if err != nil {
 			return fmt.Errorf("splice write failed: %w", err)
 		}
-		remaining -= int64(n)
+		remaining -= n
 	}
 	return nil
 }
