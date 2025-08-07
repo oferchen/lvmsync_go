@@ -17,7 +17,7 @@ const (
 // No shared state is kept between decompression readers.
 
 func NewCompressionWriter(dst io.Writer, compress string, level int, concurrency int) (io.WriteCloser, error) {
-	if compress == "auto" {
+	if compress == StrategyAuto {
 		compress = compressiondetect.DetectOptimalCompression()
 	}
 
