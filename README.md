@@ -10,7 +10,7 @@ LVMSync is a high-performance incremental data replication tool for LVM snapshot
 - **Rate-Limiting**: Control bandwidth usage during transfers.
 - **Compression**: Supports LZ4 and Zstd (with configurable compression levels and an auto mode based on CPU features).
 - **Checksum Verification**: Ensures data integrity using SHA-256 or BLAKE3.
-- **Native LVM2 Integration**: Uses Go bindings to `liblvm` instead of shelling out.
+- **Native LVM2 Integration**: Uses Go bindings to `liblvm2cmd` instead of shelling out.
 - **Deduplication Strategies**: Detect unchanged blocks using checksum, rolling hash, or Bloom filter with persistent state.
 - **Remote Execution via SSH**: Replicates data over SSH with support for pre/post-scripts.
 - **Resume Support**: Ability to resume interrupted transfers.
@@ -42,8 +42,8 @@ This structure allows individual packages to be developed and tested in isolatio
 
 - Go 1.18+
 - 64-bit Linux (x86_64) on AMD EPYC or Intel Xeon processors
-- LVM2 with development headers (`liblvm2-dev`) and device-mapper development files (`libdevmapper-dev`)
-  - A recent LVM2 release providing the modern `liblvm` API (e.g., 2.03.21+) is required.
+- LVM2 with development headers providing `liblvm2cmd` (`liblvm2-dev`)
+  - A recent LVM2 release providing the modern `liblvm2cmd` API (e.g., 2.03.21+) is required.
 - SSH client & server (for remote transfers)
 
 ### Installing LVM2 Development Headers
@@ -53,10 +53,10 @@ CGO uses `pkg-config` to locate the LVM2 and device-mapper libraries. Install th
 
 ```sh
 # Debian/Ubuntu
-sudo apt install -y lvm2 liblvm2-dev libdevmapper-dev pkg-config
+sudo apt install -y lvm2 liblvm2-dev pkg-config
 
 # RHEL/CentOS
-sudo yum install -y lvm2-devel device-mapper-devel pkgconfig
+sudo yum install -y lvm2-devel pkgconfig
 ```
 
 If the `.pc` files are installed in a non-standard location, set `PKG_CONFIG_PATH` so that `pkg-config` can
