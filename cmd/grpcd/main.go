@@ -20,7 +20,12 @@ func main() {
 		os.Exit(1)
 	}
 	zap.ReplaceGlobals(logger)
-	defer func() { _ = logger.Sync() }()
+	defer func() {
+		if err := logger.Sync(); err != nil {
+			fmt.Fprintf(os.Stderr, "failed to sync logger: %v\n", err)
+			os.Exit(1)
+		}
+	}()
 
 	port := getEnvInt("GRPC_PORT", 8443)
 	tlsCert := getEnv("TLS_CERT", "")
