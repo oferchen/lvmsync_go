@@ -37,6 +37,7 @@ jobs:
       FIX_MARKDOWN_PRETTIER: true
 
       DOCKERFILE_HADOLINT_FILE_NAME: .hadolint.yaml
+      DOCKERFILE_HADOLINT_CONFIG_FILE: .hadolint.yaml
       IGNORE_GENERATED_FILES: true
       IGNORE_GITIGNORED_FILES: true
 
@@ -98,6 +99,7 @@ jobs:
           FIX_MARKDOWN: true
           FIX_MARKDOWN_PRETTIER: true
           DOCKERFILE_HADOLINT_FILE_NAME: .hadolint.yaml
+          DOCKERFILE_HADOLINT_CONFIG_FILE: .hadolint.yaml
           IGNORE_GENERATED_FILES: true
           IGNORE_GITIGNORED_FILES: true
           DEFAULT_BRANCH: main
