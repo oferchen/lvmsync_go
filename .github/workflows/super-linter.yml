@@ -95,6 +95,8 @@ jobs:
           FIX_YAML_PRETTIER: true
           FIX_MARKDOWN: true
           FIX_MARKDOWN_PRETTIER: true
+          DOCKERFILE_HADOLINT_FILE_NAME: .hadolint.yaml
+          IGNORE_GENERATED_FILES: true
           IGNORE_GITIGNORED_FILES: true
           DEFAULT_BRANCH: main
           GO_LINTER: golangci-lint
