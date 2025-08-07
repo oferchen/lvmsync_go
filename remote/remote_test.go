@@ -8,7 +8,8 @@ import (
 )
 
 func TestNewSSHManagerInvalidKey(t *testing.T) {
-	_, err := NewSSHManager("root", "no_such_key", time.Second, "", false)
+	knownHosts := createEmptyKnownHosts(t)
+	_, err := NewSSHManager("root", "no_such_key", time.Second, knownHosts, true)
 	if err == nil {
 		t.Fatal("expected error for missing key")
 	}
@@ -18,7 +19,8 @@ func TestNewSSHManagerNoAgent(t *testing.T) {
 	if err := os.Unsetenv("SSH_AUTH_SOCK"); err != nil {
 		t.Fatalf("Unsetenv: %v", err)
 	}
-	_, err := NewSSHManager("root", "", time.Second, "", false)
+	knownHosts := createEmptyKnownHosts(t)
+	_, err := NewSSHManager("root", "", time.Second, knownHosts, true)
 	if err == nil {
 		t.Fatal("expected error when SSH_AUTH_SOCK not set")
 	}
@@ -37,7 +39,8 @@ func TestNewSSHClientNoAuth(t *testing.T) {
 		}
 	}()
 
-	_, err := NewSSHClient("localhost", "root", "", 22, "", false, time.Second, time.Second, 0)
+	knownHosts := createEmptyKnownHosts(t)
+	_, err := NewSSHClient("localhost", "root", "", 22, knownHosts, true, time.Second, time.Second, 0)
 	if err == nil || !strings.Contains(err.Error(), "no SSH authentication methods configured") {
 		t.Fatalf("expected error for missing auth methods, got %v", err)
 	}

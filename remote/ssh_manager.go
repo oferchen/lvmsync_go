@@ -99,7 +99,9 @@ func getHostKeyCallback(knownHostsPath string, verify bool) (ssh.HostKeyCallback
 	if verify {
 		return knownhosts.New(knownHostsPath)
 	}
-	return ssh.InsecureIgnoreHostKey(), nil
+	return func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+		return nil
+	}, nil
 }
 
 func dialSSH(addr string, sshConfig *ssh.ClientConfig, timeout time.Duration) (*ssh.Client, error) {

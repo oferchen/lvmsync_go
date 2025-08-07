@@ -12,13 +12,18 @@ import (
 	"time"
 
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/knownhosts"
 )
 
 func TestSendKeepAlive(t *testing.T) {
 	server := newMockSSHServer(t, func(cmd string) int { return 0 })
 	defer server.Close()
-
-	client, err := ssh.Dial("tcp", server.addr, &ssh.ClientConfig{User: "test", HostKeyCallback: ssh.InsecureIgnoreHostKey()})
+	knownHosts := createKnownHostsFile(t, server)
+	hostKeyCallback, err := knownhosts.New(knownHosts)
+	if err != nil {
+		t.Fatalf("knownhosts.New: %v", err)
+	}
+	client, err := ssh.Dial("tcp", server.addr, &ssh.ClientConfig{User: "test", HostKeyCallback: hostKeyCallback})
 	if err != nil {
 		t.Fatalf("failed to dial: %v", err)
 	}
@@ -37,8 +42,12 @@ func TestSendKeepAlive(t *testing.T) {
 func TestStartKeepAlive(t *testing.T) {
 	server := newMockSSHServer(t, func(cmd string) int { return 0 })
 	defer server.Close()
-
-	client, err := ssh.Dial("tcp", server.addr, &ssh.ClientConfig{User: "test", HostKeyCallback: ssh.InsecureIgnoreHostKey()})
+	knownHosts := createKnownHostsFile(t, server)
+	hostKeyCallback, err := knownhosts.New(knownHosts)
+	if err != nil {
+		t.Fatalf("knownhosts.New: %v", err)
+	}
+	client, err := ssh.Dial("tcp", server.addr, &ssh.ClientConfig{User: "test", HostKeyCallback: hostKeyCallback})
 	if err != nil {
 		t.Fatalf("failed to dial: %v", err)
 	}
@@ -98,7 +107,8 @@ func TestNewSSHClient(t *testing.T) {
 	}
 
 	keyPath := createTempKey(t)
-	client, err := NewSSHClient(host, "test", keyPath, port, "", false, time.Second, 10*time.Millisecond, 0)
+	knownHosts := createKnownHostsFile(t, server)
+	client, err := NewSSHClient(host, "test", keyPath, port, knownHosts, true, time.Second, 10*time.Millisecond, 0)
 	if err != nil {
 		t.Fatalf("NewSSHClient error: %v", err)
 	}
@@ -117,7 +127,8 @@ func TestSSHManager(t *testing.T) {
 	defer server.Close()
 
 	keyPath := createTempKey(t)
-	mgr, err := NewSSHManager("test", keyPath, time.Second, "", false)
+	knownHosts := createKnownHostsFile(t, server)
+	mgr, err := NewSSHManager("test", keyPath, time.Second, knownHosts, true)
 	if err != nil {
 		t.Fatalf("NewSSHManager error: %v", err)
 	}
