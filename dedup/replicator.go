@@ -28,7 +28,9 @@ func (r *Replicator) Process(src io.Reader) (Manifest, error) {
 			break
 		}
 		r.Hasher.Reset()
-		r.Hasher.Write(chunk.Data)
+		if _, err := r.Hasher.Write(chunk.Data); err != nil {
+			return Manifest{}, err
+		}
 		hash := r.Hasher.Sum256()
 		if !r.Bloom.TestAndAdd(hash[:]) {
 			if _, err := r.Writer.Write(chunk.Data); err != nil {
