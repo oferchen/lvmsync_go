@@ -13,6 +13,12 @@ import (
 	"golang.org/x/crypto/ssh/knownhosts"
 )
 
+// SSHManager maintains SSH client connections for reuse and ensures
+// consistent host key verification.
+//
+// It caches established connections keyed by host and port so that
+// subsequent requests to the same destination reuse existing sessions.
+// The manager is safe for concurrent use.
 type SSHManager struct {
 	mu        sync.Mutex
 	clients   map[string]*ssh.Client
@@ -20,13 +26,17 @@ type SSHManager struct {
 	timeout   time.Duration
 }
 
-func NewSSHManager(user, keyPath string, timeout time.Duration, knownHostsPath string, verify bool) (*SSHManager, error) {
+// NewSSHManager initializes an SSHManager for the provided user. The keyPath
+// specifies a private key to use for authentication; if empty, the SSH agent
+// will be consulted. All host keys are verified against the provided
+// knownHostsPath. The timeout applies to establishing new connections.
+func NewSSHManager(user, keyPath string, timeout time.Duration, knownHostsPath string) (*SSHManager, error) {
 	authMethods, err := getSSHAuthMethods(keyPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize authentication: %w", err)
 	}
 
-	hostKeyCallback, err := getHostKeyCallback(knownHostsPath, verify)
+	hostKeyCallback, err := getHostKeyCallback(knownHostsPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to set up host key verification: %w", err)
 	}
@@ -45,6 +55,9 @@ func NewSSHManager(user, keyPath string, timeout time.Duration, knownHostsPath s
 	}, nil
 }
 
+// GetClient returns an SSH client connected to the specified host and port.
+// If a connection already exists it is reused; otherwise a new connection is
+// established.
 func (s *SSHManager) GetClient(host string, port int) (*ssh.Client, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -63,6 +76,7 @@ func (s *SSHManager) GetClient(host string, port int) (*ssh.Client, error) {
 	return client, nil
 }
 
+// CloseAll terminates all managed SSH client connections and clears the cache.
 func (s *SSHManager) CloseAll() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -95,13 +109,10 @@ func getSSHAuthMethods(keyPath string) ([]ssh.AuthMethod, error) {
 	return authMethods, nil
 }
 
-func getHostKeyCallback(knownHostsPath string, verify bool) (ssh.HostKeyCallback, error) {
-	if verify {
-		return knownhosts.New(knownHostsPath)
-	}
-	return func(hostname string, remote net.Addr, key ssh.PublicKey) error {
-		return nil
-	}, nil
+// getHostKeyCallback returns a HostKeyCallback that verifies remote hosts
+// against the known hosts file at knownHostsPath.
+func getHostKeyCallback(knownHostsPath string) (ssh.HostKeyCallback, error) {
+	return knownhosts.New(knownHostsPath)
 }
 
 func dialSSH(addr string, sshConfig *ssh.ClientConfig, timeout time.Duration) (*ssh.Client, error) {
