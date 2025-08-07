@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	grpcserver "lvmsync_go/grpc/server"
+	lvmagent "lvmsync_go/internal/lvm"
 
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
@@ -41,7 +42,8 @@ func main() {
 		AllowInsecure: allowInsecure,
 	}
 
-	srv := grpcserver.New(cfg, nil)
+	agent := lvmagent.NewSudoAgent("", nil)
+	srv := grpcserver.New(cfg, agent)
 
 	lis, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
 	if err != nil {
