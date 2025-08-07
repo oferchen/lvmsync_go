@@ -4,6 +4,7 @@ package transfer
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"hash/maphash"
 	"io"
 	"os"
@@ -18,15 +19,27 @@ import (
 )
 
 var createStateFile = func(name string) (io.WriteCloser, error) {
-	return os.Create(name)
+	f, err := os.Create(name)
+	if err != nil {
+		return nil, fmt.Errorf("create state file: %w", err)
+	}
+	if err := f.Chmod(0o600); err != nil {
+		f.Close()
+		return nil, fmt.Errorf("chmod state file: %w", err)
+	}
+	return f, nil
 }
 
+// DeduplicationStrategy defines a block deduplication algorithm.
+// Implementations decide if a block should be transferred and persist their state.
 type DeduplicationStrategy interface {
 	ShouldTransfer(offset int64, data []byte) bool
 	RecordTransfer(offset int64, data []byte)
 	SaveState() error
 }
 
+// ChecksumDedup stores block checksums for deduplication.
+// It persists hash data to a state file on disk.
 type ChecksumDedup struct {
 	stateFile string
 	hashes    map[int64][]byte
@@ -34,6 +47,8 @@ type ChecksumDedup struct {
 	strategy  ChecksumStrategy
 }
 
+// BloomFilterDedup uses a Bloom filter to track transferred blocks.
+// It balances memory usage and false-positive rate.
 type BloomFilterDedup struct {
 	filter    *bloom.BloomFilter
 	stateFile string
@@ -43,6 +58,8 @@ type BloomFilterDedup struct {
 	strategy  ChecksumStrategy
 }
 
+// RollingHashDedup computes a rolling hash for block comparison.
+// It is optimized for CPUs without SIMD support.
 type RollingHashDedup struct {
 	stateFile string
 	hashes    map[int64]uint64
@@ -69,6 +86,9 @@ func supportsChecksumAcceleration() bool {
 	return cpu.X86.HasAVX2 || cpu.X86.HasAVX || cpu.X86.HasSSE42
 }
 
+// NewDeduplicationStrategy returns a deduplication strategy based on cfg.
+// When cfg.DedupStrategy is auto, it selects the best available algorithm
+// and updates cfg accordingly.
 func NewDeduplicationStrategy(cfg *config.Config) DeduplicationStrategy {
 	strategy := cfg.DedupStrategy
 	if strategy == StrategyAuto {

@@ -40,14 +40,14 @@ func LoadChecksumState(filename string) (*ChecksumState, error) {
 		if os.IsNotExist(err) {
 			return &ChecksumState{Checksums: make(map[uint64][]byte), Strategy: "sha256"}, nil
 		}
-		return nil, err
+		return nil, fmt.Errorf("open checksum state: %w", err)
 	}
 	defer file.Close()
 
 	state := &ChecksumState{}
 	decoder := gob.NewDecoder(file)
 	if err := decoder.Decode(state); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("decode checksum state: %w", err)
 	}
 
 	if state.Checksums == nil {
@@ -62,12 +62,19 @@ func LoadChecksumState(filename string) (*ChecksumState, error) {
 func SaveChecksumState(filename string, state *ChecksumState) error {
 	file, err := os.Create(filename)
 	if err != nil {
-		return err
+		return fmt.Errorf("create checksum state: %w", err)
+	}
+	if err := file.Chmod(0o600); err != nil {
+		file.Close()
+		return fmt.Errorf("chmod checksum state: %w", err)
 	}
 	defer file.Close()
 
 	encoder := gob.NewEncoder(file)
-	return encoder.Encode(state)
+	if err := encoder.Encode(state); err != nil {
+		return fmt.Errorf("encode checksum state: %w", err)
+	}
+	return nil
 }
 
 func prepareOutputWriter(out io.Writer, cfg *config.Config) (io.WriteCloser, *bufio.Writer, error) {

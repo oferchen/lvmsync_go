@@ -38,7 +38,7 @@ func TestBLAKE3_512Checksum(t *testing.T) {
 func TestUnsupportedAlgorithmDefaultsToSHA256(t *testing.T) {
 	data := []byte("verify default")
 	want := sha256.Sum256(data)
-	got := GetChecksumStrategy("md5").Compute(data)
+	got := GetChecksumStrategy("unsupported").Compute(data)
 	if !bytes.Equal(got, want[:]) {
 		t.Fatalf("default checksum mismatch: got %x, want %x", got, want)
 	}
