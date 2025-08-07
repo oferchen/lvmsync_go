@@ -25,4 +25,8 @@ func TestStubReturnsErrUnsupported(t *testing.T) {
 	if _, err := dm.ListVGs(); !errors.Is(err, ErrUnsupported) {
 		t.Fatalf("ListVGs error = %v, want ErrUnsupported", err)
 	}
+
+	if _, err := Open(); !errors.Is(err, ErrUnsupported) {
+		t.Fatalf("Open error = %v, want ErrUnsupported", err)
+	}
 }
