@@ -1,0 +1,12 @@
+[Unit]
+Description=LVMSync gRPC daemon
+
+[Service]
+User=lvmsync
+ExecStart=/usr/bin/lvmsync_grpcd --config /etc/lvmsync.yaml
+Restart=on-failure
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
