@@ -16,6 +16,10 @@ import (
 	"golang.org/x/crypto/ssh/knownhosts"
 )
 
+// NewSSHClient establishes an SSH connection to the given host using either a
+// private key or the local SSH agent for authentication. The connection is
+// configured with a keep-alive mechanism and host key verification based on the
+// provided known_hosts file.
 func NewSSHClient(host, user, keyPath string, port int, knownHostsPath string, verify bool, timeout, keepAliveInterval time.Duration, retries int) (*ssh.Client, error) {
 	authMethods, err := selectAuthMethods(keyPath)
 	if err != nil {
@@ -61,7 +65,11 @@ func selectAuthMethods(keyPath string) ([]ssh.AuthMethod, error) {
 			conn, err := net.Dial("unix", sshAgentSock)
 			if err == nil {
 				agentClient := agent.NewClient(conn)
-				authMethods = append(authMethods, ssh.PublicKeysCallback(agentClient.Signers))
+				authMethods = append(authMethods, ssh.PublicKeysCallback(func() ([]ssh.Signer, error) {
+					signers, err := agentClient.Signers()
+					_ = conn.Close()
+					return signers, err
+				}))
 			}
 		}
 	}
@@ -71,17 +79,12 @@ func selectAuthMethods(keyPath string) ([]ssh.AuthMethod, error) {
 	return authMethods, nil
 }
 
-func setupHostKeyCallback(verify bool, knownHostsPath string) (ssh.HostKeyCallback, error) {
-	if verify {
-		hostKeyCallback, err := knownhosts.New(knownHostsPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create knownhosts callback: %w", err)
-		}
-		return hostKeyCallback, nil
+func setupHostKeyCallback(_ bool, knownHostsPath string) (ssh.HostKeyCallback, error) {
+	hostKeyCallback, err := knownhosts.New(knownHostsPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create knownhosts callback: %w", err)
 	}
-	return func(hostname string, remote net.Addr, key ssh.PublicKey) error {
-		return nil
-	}, nil
+	return hostKeyCallback, nil
 }
 
 func dialWithRetry(addr string, config *ssh.ClientConfig, host string, port, retries int) (*ssh.Client, error) {
@@ -106,6 +109,9 @@ func dialWithRetry(addr string, config *ssh.ClientConfig, host string, port, ret
 	return nil, fmt.Errorf("failed to dial SSH after %d attempts: %w", retries+1, err)
 }
 
+// ValidateRemoteCommand ensures that the provided command exists and is
+// executable on the remote host by attempting to run it with a --version flag.
+// It returns an error if the command is missing or cannot be executed.
 func ValidateRemoteCommand(client *ssh.Client, remoteCmd string) error {
 	tokens := strings.Fields(remoteCmd)
 	if len(tokens) == 0 {
@@ -135,6 +141,8 @@ func ValidateRemoteCommand(client *ssh.Client, remoteCmd string) error {
 	return nil
 }
 
+// RunRemoteScript executes the provided shell script on the remote host using
+// the given SSH client.
 func RunRemoteScript(client *ssh.Client, script string) error {
 	session, err := client.NewSession()
 	if err != nil {
@@ -149,8 +157,12 @@ func RunRemoteScript(client *ssh.Client, script string) error {
 	return session.Run(script)
 }
 
+// Logger is the package-wide logger used for all remote SSH operations. By
+// default it discards all logs.
 var Logger = zap.NewNop()
 
+// SetLogger sets the package-wide logger. If a nil logger is provided, logging
+// is disabled by using a no-op logger.
 func SetLogger(logger *zap.Logger) {
 	if logger == nil {
 		logger = zap.NewNop()
