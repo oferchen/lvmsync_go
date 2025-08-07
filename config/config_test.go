@@ -6,6 +6,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/pierrec/lz4/v4"
@@ -124,6 +125,122 @@ func TestParseBytesOrFallback(t *testing.T) {
 		b := &Builder{v: v}
 		if _, err := b.parseBytesOrFallback("block_size", "4KB"); err == nil {
 			t.Fatalf("expected error")
+		}
+	})
+}
+
+func TestBuilderApplyDefaults(t *testing.T) {
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig returned error: %v", err)
+	}
+	v := viper.New()
+	b := &Builder{v: v, defaults: defaults}
+	var conf Config
+	if err := b.applyDefaults(&conf); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if conf.AllowInsecure != defaults.AllowInsecure {
+		t.Fatalf("expected AllowInsecure %v", defaults.AllowInsecure)
+	}
+	if conf.GRPCPort != defaults.GRPCPort {
+		t.Fatalf("expected GRPCPort %d, got %d", defaults.GRPCPort, conf.GRPCPort)
+	}
+	if conf.BlockSize != 0 || conf.BlockSizeRaw != "auto" {
+		t.Fatalf("expected auto block size, got %d/%s", conf.BlockSize, conf.BlockSizeRaw)
+	}
+	if conf.CompressConcurrency != runtime.GOMAXPROCS(0) {
+		t.Fatalf("expected default compress concurrency, got %d", conf.CompressConcurrency)
+	}
+
+	t.Run("invalidBlockSize", func(t *testing.T) {
+		v := viper.New()
+		v.Set("block_size", "bad")
+		b := &Builder{v: v, defaults: defaults}
+		if err := b.applyDefaults(&conf); err == nil {
+			t.Fatalf("expected error")
+		}
+	})
+}
+
+func TestBuilderValidateCompression(t *testing.T) {
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig returned error: %v", err)
+	}
+	b := &Builder{defaults: defaults}
+
+	t.Run("zstdValid", func(t *testing.T) {
+		conf := &Config{Compress: "zstd", CompressLevel: 3}
+		if err := b.validateCompression(conf); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("zstdInvalid", func(t *testing.T) {
+		conf := &Config{Compress: "zstd", CompressLevel: 100}
+		if err := b.validateCompression(conf); err == nil {
+			t.Fatalf("expected error")
+		}
+	})
+
+	t.Run("auto", func(t *testing.T) {
+		conf := &Config{Compress: "auto"}
+		if compressiondetect.DetectOptimalCompression() == "zstd" {
+			conf.CompressLevel = 3
+		} else {
+			conf.CompressLevel = int(lz4.Level3)
+		}
+		if err := b.validateCompression(conf); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+}
+
+func TestBuilderFinalizeConfig(t *testing.T) {
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig returned error: %v", err)
+	}
+	b := &Builder{defaults: defaults}
+
+	t.Run("validInsecure", func(t *testing.T) {
+		conf := &Config{AllowInsecure: true, ChecksumAlgorithm: "sha256"}
+		if err := b.finalizeConfig(conf); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if conf.ChecksumAlgorithm != "sha256" {
+			t.Fatalf("expected checksum algorithm normalized")
+		}
+	})
+
+	t.Run("invalidAlgorithm", func(t *testing.T) {
+		conf := &Config{AllowInsecure: true, ChecksumAlgorithm: "md5"}
+		if err := b.finalizeConfig(conf); err == nil {
+			t.Fatalf("expected error")
+		}
+	})
+
+	t.Run("missingTLS", func(t *testing.T) {
+		conf := &Config{AllowInsecure: false, ChecksumAlgorithm: "sha256"}
+		if err := b.finalizeConfig(conf); err == nil {
+			t.Fatalf("expected error")
+		}
+	})
+
+	t.Run("validTLS", func(t *testing.T) {
+		dir := t.TempDir()
+		cert := filepath.Join(dir, "cert.pem")
+		key := filepath.Join(dir, "key.pem")
+		if err := os.WriteFile(cert, []byte("cert"), 0o644); err != nil {
+			t.Fatalf("write cert: %v", err)
+		}
+		if err := os.WriteFile(key, []byte("key"), 0o644); err != nil {
+			t.Fatalf("write key: %v", err)
+		}
+		conf := &Config{AllowInsecure: false, TLSCert: cert, TLSKey: key, ChecksumAlgorithm: "sha256"}
+		if err := b.finalizeConfig(conf); err != nil {
+			t.Fatalf("unexpected error: %v", err)
 		}
 	})
 }

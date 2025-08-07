@@ -102,6 +102,20 @@ func (b *Builder) Build() (*Config, error) {
 		return nil, fmt.Errorf("error unmarshaling config: %w", err)
 	}
 
+	if err := b.applyDefaults(&conf); err != nil {
+		return nil, err
+	}
+	if err := b.validateCompression(&conf); err != nil {
+		return nil, err
+	}
+	if err := b.finalizeConfig(&conf); err != nil {
+		return nil, err
+	}
+
+	return &conf, nil
+}
+
+func (b *Builder) applyDefaults(conf *Config) error {
 	if !b.v.IsSet("allow_insecure") {
 		conf.AllowInsecure = b.defaults.AllowInsecure
 	}
@@ -114,7 +128,7 @@ func (b *Builder) Build() (*Config, error) {
 
 	bs, raw, err := b.parseBlockSize()
 	if err != nil {
-		return nil, err
+		return err
 	}
 	conf.BlockSize = bs
 	conf.BlockSizeRaw = raw
@@ -123,23 +137,17 @@ func (b *Builder) Build() (*Config, error) {
 	}
 	sl, err := b.parseBytesOrFallback("speed", b.defaults.Speed)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	conf.SpeedLimit = sl
-
-	algo := strings.ToLower(conf.ChecksumAlgorithm)
-	switch algo {
-	case "sha256", "blake3", "blake3-512":
-		conf.ChecksumAlgorithm = algo
-	default:
-		return nil, fmt.Errorf("unsupported checksum algorithm: %s", conf.ChecksumAlgorithm)
-	}
 
 	if conf.CompressConcurrency <= 0 {
 		conf.CompressConcurrency = runtime.GOMAXPROCS(0)
 	}
+	return nil
+}
 
-	// Validate compression levels based on the resolved compression algorithm.
+func (b *Builder) validateCompression(conf *Config) error {
 	resolved := conf.Compress
 	if resolved == "auto" {
 		resolved = compressiondetect.DetectOptimalCompression()
@@ -147,7 +155,7 @@ func (b *Builder) Build() (*Config, error) {
 	switch resolved {
 	case "zstd":
 		if conf.CompressLevel < 1 || conf.CompressLevel > 22 {
-			return nil, fmt.Errorf("invalid zstd compression level: %d", conf.CompressLevel)
+			return fmt.Errorf("invalid zstd compression level: %d", conf.CompressLevel)
 		}
 	case "lz4":
 		lvl := lz4.CompressionLevel(conf.CompressLevel)
@@ -155,28 +163,38 @@ func (b *Builder) Build() (*Config, error) {
 		case lz4.Fast, lz4.Level1, lz4.Level2, lz4.Level3, lz4.Level4, lz4.Level5, lz4.Level6, lz4.Level7, lz4.Level8, lz4.Level9:
 			// valid
 		default:
-			return nil, fmt.Errorf("invalid lz4 compression level: %d", conf.CompressLevel)
+			return fmt.Errorf("invalid lz4 compression level: %d", conf.CompressLevel)
 		}
+	}
+	return nil
+}
+
+func (b *Builder) finalizeConfig(conf *Config) error {
+	algo := strings.ToLower(conf.ChecksumAlgorithm)
+	switch algo {
+	case "sha256", "blake3", "blake3-512":
+		conf.ChecksumAlgorithm = algo
+	default:
+		return fmt.Errorf("unsupported checksum algorithm: %s", conf.ChecksumAlgorithm)
 	}
 
 	if !conf.AllowInsecure {
 		if conf.TLSCert == "" || conf.TLSKey == "" {
-			return nil, fmt.Errorf("tls_cert and tls_key must be specified unless allow_insecure is set")
+			return fmt.Errorf("tls_cert and tls_key must be specified unless allow_insecure is set")
 		}
 		if _, err := os.Stat(conf.TLSCert); err != nil {
-			return nil, fmt.Errorf("tls_cert: %w", err)
+			return fmt.Errorf("tls_cert: %w", err)
 		}
 		if _, err := os.Stat(conf.TLSKey); err != nil {
-			return nil, fmt.Errorf("tls_key: %w", err)
+			return fmt.Errorf("tls_key: %w", err)
 		}
 		if conf.CACert != "" {
 			if _, err := os.Stat(conf.CACert); err != nil {
-				return nil, fmt.Errorf("ca_cert: %w", err)
+				return fmt.Errorf("ca_cert: %w", err)
 			}
 		}
 	}
-
-	return &conf, nil
+	return nil
 }
 
 func (b *Builder) parseBytesOrFallback(key, fallback string) (int, error) {
