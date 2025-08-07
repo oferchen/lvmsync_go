@@ -94,23 +94,24 @@ func benchZSTD(sample []byte) time.Duration {
 		return time.Hour
 	}
 	start := time.Now()
-	if _, err := zw.Write(sample); err != nil {
-		if err := zw.Close(); err != nil {
+	if _, err = zw.Write(sample); err != nil {
+		if closeErr := zw.Close(); closeErr != nil {
 			return time.Hour
 		}
 		return time.Hour
 	}
-	if err := zw.Close(); err != nil {
+	if err = zw.Close(); err != nil {
 		return time.Hour
 	}
 	compDur := time.Since(start)
 
-	zr, err := zstd.NewReader(bytes.NewReader(buf.Bytes()))
+	var zr *zstd.Decoder
+	zr, err = zstd.NewReader(bytes.NewReader(buf.Bytes()))
 	if err != nil {
 		return time.Hour
 	}
 	decStart := time.Now()
-	if _, err := io.Copy(io.Discard, zr); err != nil {
+	if _, err = io.Copy(io.Discard, zr); err != nil {
 		zr.Close()
 		return time.Hour
 	}

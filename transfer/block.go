@@ -67,13 +67,13 @@ func ReadBlockWithRetries(cfg *config.Config, src *os.File, offset int64, useZer
 			}
 			atomic.AddInt64(&PipeCreationCount, 1)
 			defer func() {
-				if err := syscall.Close(pipeFds[0]); err != nil {
-					Logger.Warn("close pipe", zap.Int("fd", pipeFds[0]), zap.Error(err))
+				if closeErr := syscall.Close(pipeFds[0]); closeErr != nil {
+					Logger.Warn("close pipe", zap.Int("fd", pipeFds[0]), zap.Error(closeErr))
 				}
 			}()
 			defer func() {
-				if err := syscall.Close(pipeFds[1]); err != nil {
-					Logger.Warn("close pipe", zap.Int("fd", pipeFds[1]), zap.Error(err))
+				if closeErr := syscall.Close(pipeFds[1]); closeErr != nil {
+					Logger.Warn("close pipe", zap.Int("fd", pipeFds[1]), zap.Error(closeErr))
 				}
 			}()
 		}
@@ -83,8 +83,8 @@ func ReadBlockWithRetries(cfg *config.Config, src *os.File, offset int64, useZer
 			return nil, err
 		}
 		defer func() {
-			if err := r.Close(); err != nil {
-				Logger.Warn("pipe read close", zap.Error(err))
+			if closeErr := r.Close(); closeErr != nil {
+				Logger.Warn("pipe read close", zap.Error(closeErr))
 			}
 		}()
 

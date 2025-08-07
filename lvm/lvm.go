@@ -271,10 +271,12 @@ func GetVolumeAttributes(volumePath string) (*VolumeAttributes, error) {
 	if data, err := os.ReadFile(filepath.Join(sysfsPath, "dev")); err == nil {
 		parts := strings.Split(strings.TrimSpace(string(data)), ":")
 		if len(parts) == 2 {
-			if major, err := strconv.Atoi(parts[0]); err == nil {
+			major, convErr := strconv.Atoi(parts[0])
+			if convErr == nil {
 				attrs.Major = major
 			}
-			if minor, err := strconv.Atoi(parts[1]); err == nil {
+			minor, convErr := strconv.Atoi(parts[1])
+			if convErr == nil {
 				attrs.Minor = minor
 			}
 		}

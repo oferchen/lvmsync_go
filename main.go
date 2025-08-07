@@ -168,7 +168,7 @@ func waitForRemoteCompletion(session *ssh.Session, stdoutErrCh, stderrErrCh <-ch
 
 //nolint:revive // high-level orchestration inherently complex
 func executeRemoteCommand(client *ssh.Client, destDevice, snapshotDevice, originDevice string) (err error) {
-	if err := remote.ValidateRemoteCommand(client, cfg.LVMSyncPath); err != nil {
+	if err = remote.ValidateRemoteCommand(client, cfg.LVMSyncPath); err != nil {
 		return fmt.Errorf("remote command validation failed: %w", err)
 	}
 
@@ -186,11 +186,11 @@ func executeRemoteCommand(client *ssh.Client, destDevice, snapshotDevice, origin
 	remoteCmd := fmt.Sprintf("%s --apply - %s", cfg.LVMSyncPath, destDevice)
 	zap.L().Info("Starting remote apply command", zap.String("command", remoteCmd))
 
-	if err := session.Start(remoteCmd); err != nil {
+	if err = session.Start(remoteCmd); err != nil {
 		return fmt.Errorf("failed to start remote command: %w", err)
 	}
 
-	if err := streamToRemote(remoteStdin, snapshotDevice, originDevice); err != nil {
+	if err = streamToRemote(remoteStdin, snapshotDevice, originDevice); err != nil {
 		return err
 	}
 
@@ -216,7 +216,7 @@ func runRemoteDump(snapshotDevice, originDevice, dest string) (err error) {
 	}()
 
 	if cfg.RemotePreScript != "" {
-		if err := remote.RunRemoteScript(client, cfg.RemotePreScript); err != nil {
+		if err = remote.RunRemoteScript(client, cfg.RemotePreScript); err != nil {
 			return fmt.Errorf("remote pre-script failed: %w", err)
 		}
 	}
@@ -255,11 +255,11 @@ func configure() (*zap.Logger, error) {
 		return nil, fmt.Errorf("configuration error: %w", err)
 	}
 
-	if err := privesc.EnsureRoot(cfg.LVMEscalation); err != nil {
+	if err = privesc.EnsureRoot(cfg.LVMEscalation); err != nil {
 		return nil, fmt.Errorf("privilege escalation error: %w", err)
 	}
 
-	if err := cfg.Validate(); err != nil {
+	if err = cfg.Validate(); err != nil {
 		return nil, fmt.Errorf("configuration validation error: %w", err)
 	}
 
@@ -432,7 +432,7 @@ func run() error {
 	go handleSignals(signals, &snapshotPath, sigErrCh)
 
 	if cfg.ApplyMode != "" {
-		if err := runApplyMode(cfg.ApplyMode); err != nil {
+		if err = runApplyMode(cfg.ApplyMode); err != nil {
 			return fmt.Errorf("apply operation failed: %w", err)
 		}
 		return nil

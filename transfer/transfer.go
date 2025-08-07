@@ -176,7 +176,7 @@ func dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer,
 	}
 	Logger.Info("Changed blocks determined", zap.Int("blockCount", len(ranges)))
 
-	if err := common.WriteHandshake(out, composeHandshake(cfg, handshake)); err != nil {
+	if err = common.WriteHandshake(out, composeHandshake(cfg, handshake)); err != nil {
 		return err
 	}
 
@@ -194,17 +194,17 @@ func dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer,
 
 	var pipeFds [2]int
 	if cfg.ZeroCopy {
-		if err := syscall.Pipe(pipeFds[:]); err != nil {
+		if err = syscall.Pipe(pipeFds[:]); err != nil {
 			return fmt.Errorf("failed to create pipe: %w", err)
 		}
 		defer func() {
-			if err := syscall.Close(pipeFds[0]); err != nil {
-				Logger.Warn("close pipe", zap.Int("fd", pipeFds[0]), zap.Error(err))
+			if closeErr := syscall.Close(pipeFds[0]); closeErr != nil {
+				Logger.Warn("close pipe", zap.Int("fd", pipeFds[0]), zap.Error(closeErr))
 			}
 		}()
 		defer func() {
-			if err := syscall.Close(pipeFds[1]); err != nil {
-				Logger.Warn("close pipe", zap.Int("fd", pipeFds[1]), zap.Error(err))
+			if closeErr := syscall.Close(pipeFds[1]); closeErr != nil {
+				Logger.Warn("close pipe", zap.Int("fd", pipeFds[1]), zap.Error(closeErr))
 			}
 		}()
 	} else {
@@ -394,9 +394,12 @@ func DumpChangesParallel(cfg *config.Config, snapshot, source string, out io.Wri
 	resumeStart := 0
 
 	if cfg.ResumeState != "" {
-		data, err := os.ReadFile(cfg.ResumeState)
+		var data []byte
+		data, err = os.ReadFile(cfg.ResumeState)
 		if err == nil {
-			if val, err := strconv.Atoi(strings.TrimSpace(string(data))); err == nil {
+			var val int
+			val, err = strconv.Atoi(strings.TrimSpace(string(data)))
+			if err == nil {
 				resumeStart = val
 				Logger.Info("Resuming from block", zap.Int("resumeStart", resumeStart))
 			}
@@ -530,8 +533,8 @@ func processDumpDataCore(cfg *config.Config, in io.Reader, destPath string, dedu
 		return fmt.Errorf("failed to create decompression reader: %w", err)
 	}
 	defer func() {
-		if err := decReader.Close(); err != nil && Logger != nil {
-			Logger.Warn("Failed to close decompression reader", zap.Error(err))
+		if closeErr := decReader.Close(); closeErr != nil && Logger != nil {
+			Logger.Warn("Failed to close decompression reader", zap.Error(closeErr))
 		}
 	}()
 

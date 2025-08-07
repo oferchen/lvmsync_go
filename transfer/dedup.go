@@ -159,8 +159,8 @@ func (c *ChecksumDedup) SaveState() error {
 		return err
 	}
 	defer func() {
-		if err := file.Close(); err != nil {
-			zap.L().Warn("failed to close state file", zap.Error(err))
+		if closeErr := file.Close(); closeErr != nil {
+			zap.L().Warn("failed to close state file", zap.Error(closeErr))
 		}
 	}()
 
@@ -188,8 +188,8 @@ func (c *ChecksumDedup) loadState() error {
 		return err
 	}
 	defer func() {
-		if err := file.Close(); err != nil {
-			zap.L().Warn("failed to close state file", zap.Error(err))
+		if closeErr := file.Close(); closeErr != nil {
+			zap.L().Warn("failed to close state file", zap.Error(closeErr))
 		}
 	}()
 
@@ -344,8 +344,8 @@ func (b *BloomFilterDedup) SaveState() error {
 		return err
 	}
 	defer func() {
-		if err := file.Close(); err != nil {
-			zap.L().Warn("failed to close state file", zap.Error(err))
+		if closeErr := file.Close(); closeErr != nil {
+			zap.L().Warn("failed to close state file", zap.Error(closeErr))
 		}
 	}()
 
@@ -362,8 +362,8 @@ func (b *BloomFilterDedup) loadState() error {
 		return err
 	}
 	defer func() {
-		if err := file.Close(); err != nil {
-			zap.L().Warn("failed to close state file", zap.Error(err))
+		if closeErr := file.Close(); closeErr != nil {
+			zap.L().Warn("failed to close state file", zap.Error(closeErr))
 		}
 	}()
 
