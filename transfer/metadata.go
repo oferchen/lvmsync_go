@@ -17,12 +17,20 @@ func SetMapperDir(dir string) {
 	mapperDir = dir
 }
 
-func ReadMetadataHeader(metadataPath string) (int64, error) {
+func ReadMetadataHeader(metadataPath string) (chunkSize int64, err error) {
 	file, err := os.Open(metadataPath)
 	if err != nil {
 		return 0, err
 	}
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			if err == nil {
+				err = fmt.Errorf("close metadata file: %w", closeErr)
+			} else {
+				err = fmt.Errorf("%v; close metadata file: %w", err, closeErr)
+			}
+		}
+	}()
 
 	buf := make([]byte, 16)
 	if _, err := io.ReadFull(file, buf); err != nil {
@@ -47,22 +55,29 @@ func ReadMetadataHeader(metadataPath string) (int64, error) {
 	return int64(chunk) * 512, nil
 }
 
-func GetDifferences(metadataPath string, chunkSize int64) ([]Range, error) {
+func GetDifferences(metadataPath string, chunkSize int64) (ranges []Range, err error) {
 	file, err := os.Open(metadataPath)
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			if err == nil {
+				err = fmt.Errorf("close metadata file: %w", closeErr)
+			} else {
+				err = fmt.Errorf("%v; close metadata file: %w", err, closeErr)
+			}
+		}
+	}()
 
-	if _, err := file.Seek(chunkSize, io.SeekStart); err != nil {
+	if _, err = file.Seek(chunkSize, io.SeekStart); err != nil {
 		return nil, err
 	}
 
-	var ranges []Range
 	buf := make([]byte, 16)
 
 	for {
-		_, err := io.ReadFull(file, buf)
+		_, err = io.ReadFull(file, buf)
 		if err != nil {
 			if err == io.EOF || err == io.ErrUnexpectedEOF {
 				break

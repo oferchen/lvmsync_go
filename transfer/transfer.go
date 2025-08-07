@@ -252,7 +252,7 @@ func logSequentialSummary(bytes int64, skipped int, start time.Time) {
 		zap.Float64("MB/s", float64(bytes)/elapsed/1048576.0))
 }
 
-func dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer, dedup DeduplicationStrategy, handshake string) error {
+func dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer, dedup DeduplicationStrategy, handshake string) (err error) {
 	if err := detectBlockSize(cfg, source); err != nil {
 		return err
 	}
@@ -273,7 +273,18 @@ func dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer,
 	if err != nil {
 		return err
 	}
-	defer srcFile.Close()
+	defer func() {
+		if closeErr := srcFile.Close(); closeErr != nil {
+			if Logger != nil {
+				Logger.Warn("Failed to close source file", zap.Error(closeErr))
+			}
+			if err == nil {
+				err = fmt.Errorf("close source file: %w", closeErr)
+			} else {
+				err = fmt.Errorf("%v; close source file: %w", err, closeErr)
+			}
+		}
+	}()
 
 	pipeFds, cleanupPipe, err := setupPipe(cfg)
 	if err != nil {
@@ -282,7 +293,9 @@ func dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer,
 	defer cleanupPipe()
 
 	startTime := time.Now()
-	totalBytesTransferred, skippedBlocks, err := iterateBlocks(cfg, ranges, srcFile, bufOut, dedup, pipeFds)
+	var totalBytesTransferred int64
+	var skippedBlocks int
+	totalBytesTransferred, skippedBlocks, err = iterateBlocks(cfg, ranges, srcFile, bufOut, dedup, pipeFds)
 	if err != nil {
 		return err
 	}
@@ -483,7 +496,7 @@ func logParallelSummary(bytes int64, start time.Time) {
 		zap.Float64("MB/s", float64(bytes)/elapsed/1048576.0))
 }
 
-func DumpChangesParallel(cfg *config.Config, snapshot, source string, out io.Writer) error {
+func DumpChangesParallel(cfg *config.Config, snapshot, source string, out io.Writer) (err error) {
 	if cfg.ZeroCopy {
 		Logger.Warn("ZeroCopy mode enabled, falling back to sequential execution")
 		return DumpChangesSequential(cfg, snapshot, source, out)
@@ -514,14 +527,26 @@ func DumpChangesParallel(cfg *config.Config, snapshot, source string, out io.Wri
 	if err != nil {
 		return err
 	}
-	defer srcFile.Close()
+	defer func() {
+		if closeErr := srcFile.Close(); closeErr != nil {
+			if Logger != nil {
+				Logger.Warn("Failed to close source file", zap.Error(closeErr))
+			}
+			if err == nil {
+				err = fmt.Errorf("close source file: %w", closeErr)
+			} else {
+				err = fmt.Errorf("%v; close source file: %w", err, closeErr)
+			}
+		}
+	}()
 
 	resumeStart := readResumeStart(cfg)
 	results := startParallelWorkers(cfg, srcFile, ranges, resumeStart)
 
 	startTime := time.Now()
 	checksum := GetChecksumStrategy(cfg.ChecksumAlgorithm)
-	totalBytesTransferred, err := processParallelResults(cfg, results, bufOut, checksum, totalDataSize, startTime)
+	var totalBytesTransferred int64
+	totalBytesTransferred, err = processParallelResults(cfg, results, bufOut, checksum, totalDataSize, startTime)
 	if err != nil {
 		return err
 	}
@@ -652,9 +677,10 @@ func applyBlocks(cfg *config.Config, reader *bufio.Reader, destFile *os.File, de
 	return totalBytes, nil
 }
 
-func processDumpDataCore(cfg *config.Config, in io.Reader, destPath string, dedup DeduplicationStrategy, verify bool) error {
+func processDumpDataCore(cfg *config.Config, in io.Reader, destPath string, dedup DeduplicationStrategy, verify bool) (err error) {
 	bufReader := bufio.NewReader(in)
-	hs, err := readAndValidateHandshake(bufReader, dedup, verify)
+	var hs common.Handshake
+	hs, err = readAndValidateHandshake(bufReader, dedup, verify)
 	if err != nil {
 		return err
 	}
@@ -675,11 +701,23 @@ func processDumpDataCore(cfg *config.Config, in io.Reader, destPath string, dedu
 	if err != nil {
 		return fmt.Errorf("failed to open destination device %s: %w", destPath, err)
 	}
-	defer destFile.Close()
+	defer func() {
+		if closeErr := destFile.Close(); closeErr != nil {
+			if Logger != nil {
+				Logger.Warn("Failed to close destination device", zap.Error(closeErr))
+			}
+			if err == nil {
+				err = fmt.Errorf("close destination device: %w", closeErr)
+			} else {
+				err = fmt.Errorf("%v; close destination device: %w", err, closeErr)
+			}
+		}
+	}()
 
 	startTime := time.Now()
 	checksum := GetChecksumStrategy(cfg.ChecksumAlgorithm)
-	totalBytes, err := applyBlocks(cfg, reader, destFile, dedup, verify, checksum)
+	var totalBytes int64
+	totalBytes, err = applyBlocks(cfg, reader, destFile, dedup, verify, checksum)
 	if err != nil {
 		return err
 	}
@@ -703,16 +741,28 @@ func ProcessDumpData(cfg *config.Config, in io.Reader, destPath string) error {
 }
 
 // RunApply reads a dump file or stdin and writes the data to destDevice, optionally leveraging deduplication and saving its state.
-func RunApply(cfg *config.Config, applyFile, destDevice string) error {
+func RunApply(cfg *config.Config, applyFile, destDevice string) (err error) {
 	var in io.Reader
 	if applyFile == "-" {
 		in = os.Stdin
 	} else {
-		f, err := os.Open(applyFile)
+		var f *os.File
+		f, err = os.Open(applyFile)
 		if err != nil {
 			return fmt.Errorf("failed to open apply file %s: %w", applyFile, err)
 		}
-		defer f.Close()
+		defer func() {
+			if closeErr := f.Close(); closeErr != nil {
+				if Logger != nil {
+					Logger.Warn("Failed to close apply file", zap.Error(closeErr))
+				}
+				if err == nil {
+					err = fmt.Errorf("close apply file: %w", closeErr)
+				} else {
+					err = fmt.Errorf("%v; close apply file: %w", err, closeErr)
+				}
+			}
+		}()
 		in = f
 	}
 
@@ -720,8 +770,8 @@ func RunApply(cfg *config.Config, applyFile, destDevice string) error {
 	if dedup != nil {
 		Logger.Info("Applying deduplication during restore", zap.String("strategy", cfg.DedupStrategy))
 		defer func() {
-			if err := dedup.SaveState(); err != nil {
-				Logger.Error("Failed to save dedup state", zap.Error(err))
+			if err2 := dedup.SaveState(); err2 != nil {
+				Logger.Error("Failed to save dedup state", zap.Error(err2))
 			}
 		}()
 		return ProcessDumpDataWithDeduplication(cfg, in, destDevice, dedup)
