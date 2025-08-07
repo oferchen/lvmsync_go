@@ -155,6 +155,17 @@ The tool supports both local and remote transfers, as well as an "apply mode" fo
 | `--target_vgs` | Candidate target volume groups for auto-selection | `[]` |
 | `--lvm_escalation` | Command used to re-execute the program with elevated privileges when not running as root (e.g., `"sudo -n"`) | `"sudo -n"` |
 
+#### gRPC Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--grpc_port` | gRPC port to listen on | `8443` |
+| `--tls_cert` | TLS certificate file | `""` |
+| `--tls_key` | TLS key file | `""` |
+| `--ca_cert` | CA certificate file | `""` |
+| `--allow_insecure` | Allow insecure (disable TLS) | `true` |
+| `--sudo_path` | Path to sudo executable | `/usr/bin/sudo` |
+
 ### Examples
 
 #### Local Transfer

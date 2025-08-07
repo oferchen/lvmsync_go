@@ -345,3 +345,49 @@ func TestCompressConcurrency(t *testing.T) {
 		}
 	})
 }
+
+func TestTLSFileValidation(t *testing.T) {
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig returned error: %v", err)
+	}
+
+	t.Run("insecure", func(t *testing.T) {
+		v := viper.New()
+		v.Set("allow_insecure", true)
+		b := &Builder{v: v, defaults: defaults}
+		if _, err := b.Build(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("missingFiles", func(t *testing.T) {
+		v := viper.New()
+		v.Set("allow_insecure", false)
+		b := &Builder{v: v, defaults: defaults}
+		if _, err := b.Build(); err == nil {
+			t.Fatalf("expected error")
+		}
+	})
+
+	t.Run("validFiles", func(t *testing.T) {
+		dir := t.TempDir()
+		cert := filepath.Join(dir, "cert.pem")
+		key := filepath.Join(dir, "key.pem")
+		ca := filepath.Join(dir, "ca.pem")
+		for _, f := range []string{cert, key, ca} {
+			if err := os.WriteFile(f, []byte("dummy"), 0o644); err != nil {
+				t.Fatalf("write file: %v", err)
+			}
+		}
+		v := viper.New()
+		v.Set("allow_insecure", false)
+		v.Set("tls_cert", cert)
+		v.Set("tls_key", key)
+		v.Set("ca_cert", ca)
+		b := &Builder{v: v, defaults: defaults}
+		if _, err := b.Build(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+}
