@@ -5,6 +5,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"fmt"
 	"io"
 	"net"
 	"os"
@@ -14,16 +15,18 @@ import (
 	"testing"
 
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/knownhosts"
 	"lvmsync_go/config"
 )
 
 // mockSSHServer is copied from remote package tests for use in integration tests.
 type mockSSHServer struct {
-	addr     string
-	listener net.Listener
-	handler  func(string) int
-	mu       sync.Mutex
-	commands []string
+	addr      string
+	listener  net.Listener
+	handler   func(string) int
+	mu        sync.Mutex
+	commands  []string
+	publicKey ssh.PublicKey
 }
 
 func newMockSSHServer(t *testing.T, handler func(string) int) *mockSSHServer {
@@ -41,7 +44,7 @@ func newMockSSHServer(t *testing.T, handler func(string) int) *mockSSHServer {
 	if err != nil {
 		t.Fatalf("failed to listen: %v", err)
 	}
-	srv := &mockSSHServer{addr: listener.Addr().String(), listener: listener, handler: handler}
+	srv := &mockSSHServer{addr: listener.Addr().String(), listener: listener, handler: handler, publicKey: signer.PublicKey()}
 	go srv.serve(config)
 	return srv
 }
@@ -107,6 +110,26 @@ func (s *mockSSHServer) Commands() []string {
 	return append([]string(nil), s.commands...)
 }
 
+func createKnownHostsFile(t *testing.T, server *mockSSHServer) string {
+	t.Helper()
+	host, portStr, err := net.SplitHostPort(server.addr)
+	if err != nil {
+		t.Fatalf("SplitHostPort: %v", err)
+	}
+	line := knownhosts.Line([]string{fmt.Sprintf("[%s]:%s", host, portStr)}, server.publicKey)
+	f, err := os.CreateTemp(t.TempDir(), "known_hosts")
+	if err != nil {
+		t.Fatalf("CreateTemp: %v", err)
+	}
+	if _, err := f.WriteString(line + "\n"); err != nil {
+		t.Fatalf("WriteString: %v", err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	return f.Name()
+}
+
 func createTempKey(t *testing.T) string {
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
@@ -147,7 +170,8 @@ func TestRemotePostScriptRunsOnError(t *testing.T) {
 	cfg.SSHUser = "test"
 	cfg.SSHPort = port
 	cfg.SSHKeyPath = createTempKey(t)
-	cfg.StrictHostKeyCheck = false
+	cfg.KnownHosts = createKnownHostsFile(t, server)
+	cfg.StrictHostKeyCheck = true
 	cfg.LVMSyncPath = "lvmsync"
 
 	original := dumpChangesSequential
@@ -197,7 +221,8 @@ func TestRemotePostScriptNotRunIfPreScriptFails(t *testing.T) {
 	cfg.SSHUser = "test"
 	cfg.SSHPort = port
 	cfg.SSHKeyPath = createTempKey(t)
-	cfg.StrictHostKeyCheck = false
+	cfg.KnownHosts = createKnownHostsFile(t, server)
+	cfg.StrictHostKeyCheck = true
 	cfg.LVMSyncPath = "lvmsync"
 
 	dest := host + ":/dev/null"
