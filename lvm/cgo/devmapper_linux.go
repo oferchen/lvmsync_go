@@ -74,7 +74,6 @@ import "C"
 import (
 	"fmt"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"unsafe"
 )
@@ -83,6 +82,116 @@ import (
 type VolumeGroup struct {
 	Name string
 	Free uint64
+}
+
+// Conn represents an initialized liblvm handle.
+type Conn struct {
+	lvm C.lvm_t
+}
+
+// Open initializes a new liblvm connection.
+func Open() (*Conn, error) {
+	dmVersion()
+	lvm := C.cgo_lvm_init()
+	if lvm == nil {
+		return nil, fmt.Errorf("lvm_init failed")
+	}
+	return &Conn{lvm: lvm}, nil
+}
+
+// Close releases the underlying liblvm handle.
+func (c *Conn) Close() {
+	if c.lvm != nil {
+		C.cgo_lvm_quit(c.lvm)
+		c.lvm = nil
+	}
+}
+
+// VG represents an opened volume group.
+type VG struct {
+	conn *Conn
+	vg   C.vg_t
+	name string
+}
+
+// OpenVG opens the named volume group.
+func (c *Conn) OpenVG(name string) (*VG, error) {
+	cName := C.CString(name)
+	defer C.free(unsafe.Pointer(cName))
+	vg := C.cgo_vg_open(c.lvm, cName)
+	if vg == nil {
+		return nil, fmt.Errorf("vg open failed")
+	}
+	return &VG{conn: c, vg: vg, name: name}, nil
+}
+
+// Close releases the volume group handle.
+func (v *VG) Close() error {
+	if v.vg == nil {
+		return nil
+	}
+	if C.cgo_vg_close(v.vg) != 0 {
+		return fmt.Errorf("vg close failed")
+	}
+	v.vg = nil
+	return nil
+}
+
+// FreeBytes returns free space in bytes for the volume group.
+func (v *VG) FreeBytes() uint64 { return uint64(C.cgo_vg_free(v.vg)) }
+
+// CreateSnapshot creates a snapshot of origin with the given name and size.
+func (v *VG) CreateSnapshot(origin, snapshot string, size uint64) error {
+	corigin := C.CString(origin)
+	csnap := C.CString(snapshot)
+	defer C.free(unsafe.Pointer(corigin))
+	defer C.free(unsafe.Pointer(csnap))
+	if ret := C.cgo_lv_create(v.vg, corigin, csnap, C.uint64_t(size)); ret != 0 {
+		return fmt.Errorf("lvcreate failed: %d", int(ret))
+	}
+	return nil
+}
+
+// RemoveLV removes the logical volume with the given name.
+func (v *VG) RemoveLV(name string) error {
+	cname := C.CString(name)
+	defer C.free(unsafe.Pointer(cname))
+	if ret := C.cgo_lv_remove(v.vg, cname); ret != 0 {
+		return fmt.Errorf("lvremove failed: %d", int(ret))
+	}
+	return nil
+}
+
+// SnapshotUsage returns the data usage percentage of the snapshot.
+func (v *VG) SnapshotUsage(name string) (float64, error) {
+	cname := C.CString(name)
+	defer C.free(unsafe.Pointer(cname))
+	var val C.double
+	if C.cgo_snapshot_percent(v.vg, cname, &val) != 0 {
+		return 0, fmt.Errorf("get snapshot usage failed")
+	}
+	return float64(val), nil
+}
+
+// ListVolumeGroups returns all available volume groups.
+func (c *Conn) ListVolumeGroups() ([]VolumeGroup, error) {
+	list := C.cgo_list_vgs(c.lvm)
+	var vgs []VolumeGroup
+	for item := list; item != nil; item = item.next {
+		name := C.cgo_list_item_str(item)
+		if name == nil {
+			continue
+		}
+		vgName := C.GoString(name)
+		vg, err := c.OpenVG(vgName)
+		if err != nil {
+			continue
+		}
+		free := vg.FreeBytes()
+		vg.Close()
+		vgs = append(vgs, VolumeGroup{Name: vgName, Free: free})
+	}
+	return vgs, nil
 }
 
 // LVM provides access to LVM operations via device-mapper.
@@ -111,136 +220,88 @@ func dmVersion() string {
 
 // CreateSnapshot creates a snapshot of the logical volume at lvPath.
 func (d *DM) CreateSnapshot(lvPath, snapshotName string, sizeBytes uint64) error {
-	dmVersion()
 	vgName, lvName := filepath.Split(lvPath)
 	vgName = strings.Trim(vgName, "/")
 
-	clvm := C.cgo_lvm_init()
-	if clvm == nil {
-		return fmt.Errorf("lvm_init failed")
+	conn, err := Open()
+	if err != nil {
+		return err
 	}
-	defer C.cgo_lvm_quit(clvm)
+	defer conn.Close()
 
-	cvg := C.cgo_vg_open(clvm, C.CString(vgName))
-	if cvg == nil {
-		return fmt.Errorf("vg open failed")
+	vg, err := conn.OpenVG(vgName)
+	if err != nil {
+		return err
 	}
-	defer C.cgo_vg_close(cvg)
+	defer vg.Close()
 
-	origin := C.CString(lvName)
-	snap := C.CString(snapshotName)
-	defer C.free(unsafe.Pointer(origin))
-	defer C.free(unsafe.Pointer(snap))
-
-	ret := C.cgo_lv_create(cvg, origin, snap, C.uint64_t(sizeBytes))
-	if ret != 0 {
-		return fmt.Errorf("lvcreate failed: %d", int(ret))
-	}
-	return nil
+	return vg.CreateSnapshot(lvName, snapshotName, sizeBytes)
 }
 
 // RemoveLV removes the logical volume identified by lvPath.
 func (d *DM) RemoveLV(lvPath string) error {
-	dmVersion()
 	vgName, lvName := filepath.Split(lvPath)
 	vgName = strings.Trim(vgName, "/")
 
-	clvm := C.cgo_lvm_init()
-	if clvm == nil {
-		return fmt.Errorf("lvm_init failed")
+	conn, err := Open()
+	if err != nil {
+		return err
 	}
-	defer C.cgo_lvm_quit(clvm)
+	defer conn.Close()
 
-	cvg := C.cgo_vg_open(clvm, C.CString(vgName))
-	if cvg == nil {
-		return fmt.Errorf("vg open failed")
+	vg, err := conn.OpenVG(vgName)
+	if err != nil {
+		return err
 	}
-	defer C.cgo_vg_close(cvg)
+	defer vg.Close()
 
-	name := C.CString(lvName)
-	defer C.free(unsafe.Pointer(name))
-
-	ret := C.cgo_lv_remove(cvg, name)
-	if ret != 0 {
-		return fmt.Errorf("lvremove failed: %d", int(ret))
-	}
-	return nil
+	return vg.RemoveLV(lvName)
 }
 
 // SnapshotUsage returns the data usage percentage of the snapshot at lvPath.
 func (d *DM) SnapshotUsage(lvPath string) (float64, error) {
-	dmVersion()
 	vgName, lvName := filepath.Split(lvPath)
 	vgName = strings.Trim(vgName, "/")
 
-	clvm := C.cgo_lvm_init()
-	if clvm == nil {
-		return 0, fmt.Errorf("lvm_init failed")
+	conn, err := Open()
+	if err != nil {
+		return 0, err
 	}
-	defer C.cgo_lvm_quit(clvm)
+	defer conn.Close()
 
-	cvg := C.cgo_vg_open(clvm, C.CString(vgName))
-	if cvg == nil {
-		return 0, fmt.Errorf("vg open failed")
+	vg, err := conn.OpenVG(vgName)
+	if err != nil {
+		return 0, err
 	}
-	defer C.cgo_vg_close(cvg)
+	defer vg.Close()
 
-	name := C.CString(lvName)
-	defer C.free(unsafe.Pointer(name))
-
-	var val C.double
-	if C.cgo_snapshot_percent(cvg, name, &val) != 0 {
-		return 0, fmt.Errorf("get snapshot usage failed")
-	}
-	return float64(val), nil
+	return vg.SnapshotUsage(lvName)
 }
 
 // VGFree returns the free space of the specified volume group in bytes.
 func (d *DM) VGFree(vgName string) (uint64, error) {
-	dmVersion()
-	cName := C.CString(vgName)
-	defer C.free(unsafe.Pointer(cName))
-
-	clvm := C.cgo_lvm_init()
-	if clvm == nil {
-		return 0, fmt.Errorf("lvm_init failed")
+	conn, err := Open()
+	if err != nil {
+		return 0, err
 	}
-	defer C.cgo_lvm_quit(clvm)
+	defer conn.Close()
 
-	cvg := C.cgo_vg_open(clvm, cName)
-	if cvg == nil {
-		return 0, fmt.Errorf("vg open failed")
+	vg, err := conn.OpenVG(vgName)
+	if err != nil {
+		return 0, err
 	}
-	defer C.cgo_vg_close(cvg)
+	defer vg.Close()
 
-	free := C.cgo_vg_free(cvg)
-	return uint64(free), nil
+	return vg.FreeBytes(), nil
 }
 
 // ListVGs returns all available volume groups.
 func (d *DM) ListVGs() ([]VolumeGroup, error) {
-	dmVersion()
-	clvm := C.cgo_lvm_init()
-	if clvm == nil {
-		return nil, fmt.Errorf("lvm_init failed")
+	conn, err := Open()
+	if err != nil {
+		return nil, err
 	}
-	defer C.cgo_lvm_quit(clvm)
+	defer conn.Close()
 
-	list := C.cgo_list_vgs(clvm)
-	var vgs []VolumeGroup
-	for item := list; item != nil; item = item.next {
-		name := C.cgo_list_item_str(item)
-		if name == nil {
-			continue
-		}
-		vgName := C.GoString(name)
-		cvg := C.cgo_vg_open(clvm, C.CString(vgName))
-		if cvg == nil {
-			continue
-		}
-		free := C.cgo_vg_free(cvg)
-		C.cgo_vg_close(cvg)
-		vgs = append(vgs, VolumeGroup{Name: vgName, Free: uint64(free)})
-	}
-	return vgs, nil
+	return conn.ListVolumeGroups()
 }
