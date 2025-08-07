@@ -128,7 +128,7 @@ func TestSSHManager(t *testing.T) {
 
 	keyPath := createTempKey(t)
 	knownHosts := createKnownHostsFile(t, server)
-	mgr, err := NewSSHManager("test", keyPath, time.Second, knownHosts, true)
+	mgr, err := NewSSHManager("test", keyPath, time.Second, knownHosts)
 	if err != nil {
 		t.Fatalf("NewSSHManager error: %v", err)
 	}

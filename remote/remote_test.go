@@ -9,7 +9,7 @@ import (
 
 func TestNewSSHManagerInvalidKey(t *testing.T) {
 	knownHosts := createEmptyKnownHosts(t)
-	_, err := NewSSHManager("root", "no_such_key", time.Second, knownHosts, true)
+	_, err := NewSSHManager("root", "no_such_key", time.Second, knownHosts)
 	if err == nil {
 		t.Fatal("expected error for missing key")
 	}
@@ -20,7 +20,7 @@ func TestNewSSHManagerNoAgent(t *testing.T) {
 		t.Fatalf("Unsetenv: %v", err)
 	}
 	knownHosts := createEmptyKnownHosts(t)
-	_, err := NewSSHManager("root", "", time.Second, knownHosts, true)
+	_, err := NewSSHManager("root", "", time.Second, knownHosts)
 	if err == nil {
 		t.Fatal("expected error when SSH_AUTH_SOCK not set")
 	}
