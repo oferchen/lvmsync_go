@@ -156,7 +156,9 @@ func TestSSHManager(t *testing.T) {
 	}
 	waitForConnectionCount(t, server, 1)
 
-	mgr.CloseAll()
+	if err := mgr.CloseAll(); err != nil {
+		t.Fatalf("CloseAll error: %v", err)
+	}
 
 	client3, err := mgr.GetClient(host, port)
 	if err != nil {
@@ -167,7 +169,9 @@ func TestSSHManager(t *testing.T) {
 	}
 	waitForConnectionCount(t, server, 2)
 
-	mgr.CloseAll()
+	if err := mgr.CloseAll(); err != nil {
+		t.Fatalf("CloseAll error: %v", err)
+	}
 }
 
 func waitForConnectionCount(t *testing.T, server *mockSSHServer, expected int) {
