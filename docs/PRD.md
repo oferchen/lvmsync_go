@@ -23,7 +23,7 @@ LVMSync provides high-performance block-level replication for LVM snapshots on 6
 - Prefer explicit error handling; log contextual details using `zap`.
 - Keep functions small and focused; avoid side effects where possible.
 - Favor Go standard library functionality; introduce external dependencies only when well supported and necessary.
-- Interact with LVM using maintained Go bindings to `liblvm` instead of shelling out.
+- Interact with LVM using maintained Go bindings to `liblvm2cmd` instead of shelling out.
 - Protect concurrent access to shared state with mutexes.
 - Maintain backward compatibility for CLI flags when adding new features.
 
