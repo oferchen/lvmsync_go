@@ -107,6 +107,65 @@ func setupSSHClient(destHost string) (*ssh.Client, error) {
 	return client, nil
 }
 
+func closeSession(session *ssh.Session, errp *error) {
+	if err2 := session.Close(); err2 != nil && !errors.Is(err2, io.EOF) {
+		if *errp == nil {
+			*errp = fmt.Errorf("failed to close SSH session: %w", err2)
+		} else {
+			*errp = fmt.Errorf("%v; failed to close SSH session: %w", *errp, err2)
+		}
+	}
+}
+
+func setupSessionStreams(session *ssh.Session) (io.WriteCloser, <-chan error, <-chan error, error) {
+	stdoutPipe, err := session.StdoutPipe()
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to get stdout pipe: %w", err)
+	}
+	stderrPipe, err := session.StderrPipe()
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to get stderr pipe: %w", err)
+	}
+	stdoutErrCh := copyPipeAsync(os.Stdout, stdoutPipe)
+	stderrErrCh := copyPipeAsync(os.Stderr, stderrPipe)
+
+	remoteStdin, err := session.StdinPipe()
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to get remote stdin: %w", err)
+	}
+
+	return remoteStdin, stdoutErrCh, stderrErrCh, nil
+}
+
+func streamToRemote(remoteStdin io.WriteCloser, snapshotDevice, originDevice string) error {
+	streamErr := executeDump(cfg, snapshotDevice, originDevice, remoteStdin)
+
+	if err := remoteStdin.Close(); err != nil && !errors.Is(err, io.EOF) {
+		if streamErr != nil {
+			return fmt.Errorf("%v; failed to close remote stdin: %w", streamErr, err)
+		}
+		return fmt.Errorf("failed to close remote stdin: %w", err)
+	}
+	if streamErr != nil {
+		return fmt.Errorf("error during dumpChanges: %w", streamErr)
+	}
+
+	return nil
+}
+
+func waitForRemoteCompletion(session *ssh.Session, stdoutErrCh, stderrErrCh <-chan error) error {
+	if err := session.Wait(); err != nil {
+		return fmt.Errorf("remote command error: %w", err)
+	}
+	if err := <-stdoutErrCh; err != nil {
+		return fmt.Errorf("stdout copy error: %w", err)
+	}
+	if err := <-stderrErrCh; err != nil {
+		return fmt.Errorf("stderr copy error: %w", err)
+	}
+	return nil
+}
+
 //nolint:revive // high-level orchestration inherently complex
 func executeRemoteCommand(client *ssh.Client, destDevice, snapshotDevice, originDevice string) (err error) {
 	if err := remote.ValidateRemoteCommand(client, cfg.LVMSyncPath); err != nil {
@@ -117,61 +176,25 @@ func executeRemoteCommand(client *ssh.Client, destDevice, snapshotDevice, origin
 	if err != nil {
 		return fmt.Errorf("failed to create SSH session: %w", err)
 	}
-	defer func() {
-		if err2 := session.Close(); err2 != nil && !errors.Is(err2, io.EOF) {
-			if err == nil {
-				err = fmt.Errorf("failed to close SSH session: %w", err2)
-			} else {
-				err = fmt.Errorf("%v; failed to close SSH session: %w", err, err2)
-			}
-		}
-	}()
+	defer closeSession(session, &err)
 
-	stdoutPipe, err := session.StdoutPipe()
+	remoteStdin, stdoutErrCh, stderrErrCh, err := setupSessionStreams(session)
 	if err != nil {
-		return fmt.Errorf("failed to get stdout pipe: %w", err)
+		return err
 	}
-	stderrPipe, err := session.StderrPipe()
-	if err != nil {
-		return fmt.Errorf("failed to get stderr pipe: %w", err)
-	}
-	stdoutErrCh := copyPipeAsync(os.Stdout, stdoutPipe)
-	stderrErrCh := copyPipeAsync(os.Stderr, stderrPipe)
 
 	remoteCmd := fmt.Sprintf("%s --apply - %s", cfg.LVMSyncPath, destDevice)
 	zap.L().Info("Starting remote apply command", zap.String("command", remoteCmd))
 
-	remoteStdin, err := session.StdinPipe()
-	if err != nil {
-		return fmt.Errorf("failed to get remote stdin: %w", err)
-	}
 	if err := session.Start(remoteCmd); err != nil {
 		return fmt.Errorf("failed to start remote command: %w", err)
 	}
 
-	streamErr := executeDump(cfg, snapshotDevice, originDevice, remoteStdin)
-
-	if err2 := remoteStdin.Close(); err2 != nil && !errors.Is(err2, io.EOF) {
-		if streamErr != nil {
-			return fmt.Errorf("%v; failed to close remote stdin: %w", streamErr, err2)
-		}
-		return fmt.Errorf("failed to close remote stdin: %w", err2)
-	}
-	if streamErr != nil {
-		return fmt.Errorf("error during dumpChanges: %w", streamErr)
+	if err := streamToRemote(remoteStdin, snapshotDevice, originDevice); err != nil {
+		return err
 	}
 
-	if err := session.Wait(); err != nil {
-		return fmt.Errorf("remote command error: %w", err)
-	}
-
-	if err := <-stdoutErrCh; err != nil {
-		return fmt.Errorf("stdout copy error: %w", err)
-	}
-	if err := <-stderrErrCh; err != nil {
-		return fmt.Errorf("stderr copy error: %w", err)
-	}
-	return nil
+	return waitForRemoteCompletion(session, stdoutErrCh, stderrErrCh)
 }
 
 //nolint:revive // network orchestration requires complexity
@@ -263,17 +286,19 @@ func configure() (*zap.Logger, error) {
 	return logger, nil
 }
 
-//nolint:revive // snapshot preparation involves multiple steps
-func prepareSnapshot(originalVolume string, logger *zap.Logger) (string, chan error, func(), error) {
+func calculateSnapshotSize(originalVolume string) (uint64, error) {
 	snapshotBytes, err := lvm.ParseSnapshotSize(cfg.SnapshotSize, originalVolume)
 	if err != nil {
-		return "", nil, nil, fmt.Errorf("failed to parse snapshot size: %w", err)
+		return 0, fmt.Errorf("failed to parse snapshot size: %w", err)
 	}
+	return snapshotBytes, nil
+}
 
+func ensureVolumeGroups(originalVolume string, logger *zap.Logger) error {
 	if cfg.VolumeGroup == "" {
 		vg, err := lvm.GetVolumeGroupName(originalVolume)
 		if err != nil {
-			return "", nil, nil, fmt.Errorf("failed to determine source volume group: %w", err)
+			return fmt.Errorf("failed to determine source volume group: %w", err)
 		}
 		cfg.VolumeGroup = vg
 		logger.Info("Using source volume group", zap.String("volume_group", cfg.VolumeGroup))
@@ -282,60 +307,86 @@ func prepareSnapshot(originalVolume string, logger *zap.Logger) (string, chan er
 	if cfg.TargetVolumeGroup == "" && len(cfg.TargetVGCandidates) > 0 {
 		lvSize, err := lvm.GetVolumeSize(originalVolume)
 		if err != nil {
-			return "", nil, nil, fmt.Errorf("failed to determine volume size: %w", err)
+			return fmt.Errorf("failed to determine volume size: %w", err)
 		}
 		vg, err := lvm.SelectVolumeGroupForSize(context.Background(), cfg.TargetVGCandidates, lvSize)
 		if err != nil {
-			return "", nil, nil, fmt.Errorf("failed to select target volume group: %w", err)
+			return fmt.Errorf("failed to select target volume group: %w", err)
 		}
 		cfg.TargetVolumeGroup = vg.Name
 		logger.Info("Selected target volume group", zap.String("target_volume_group", cfg.TargetVolumeGroup))
 	}
+	return nil
+}
 
-	if !cfg.SkipDiskCheck {
-		freeSpace, err := lvm.CheckDiskSpace("/")
-		if err != nil {
-			return "", nil, nil, fmt.Errorf("disk space check failed: %w", err)
-		}
-		if freeSpace < snapshotBytes {
-			return "", nil, nil, fmt.Errorf("insufficient disk space for snapshot: free %d required %d", freeSpace, snapshotBytes)
-		}
-		logger.Info("Disk space check passed", zap.Uint64("free", freeSpace))
+func checkDiskSpaceForSnapshot(snapshotBytes uint64, logger *zap.Logger) error {
+	if cfg.SkipDiskCheck {
+		return nil
 	}
+	freeSpace, err := lvm.CheckDiskSpace("/")
+	if err != nil {
+		return fmt.Errorf("disk space check failed: %w", err)
+	}
+	if freeSpace < snapshotBytes {
+		return fmt.Errorf("insufficient disk space for snapshot: free %d required %d", freeSpace, snapshotBytes)
+	}
+	logger.Info("Disk space check passed", zap.Uint64("free", freeSpace))
+	return nil
+}
 
+func createSnapshotIfNeeded(originalVolume string, snapshotBytes uint64, logger *zap.Logger) (string, chan error, func(), error) {
 	snapshotPath := originalVolume
 	var monitorErrCh chan error
 	cleanup := func() {}
 
-	if !cfg.SkipSnapshotCreation {
-		monitorErrCh = make(chan error, 1)
-		snapshotName := fmt.Sprintf("snap-%d", time.Now().Unix())
-		err = lvm.CreateSnapshot(context.Background(), originalVolume, snapshotName, strconv.FormatUint(snapshotBytes, 10))
-		if err != nil {
-			return "", nil, nil, fmt.Errorf("snapshot creation failed: %w", err)
+	if cfg.SkipSnapshotCreation {
+		return snapshotPath, monitorErrCh, cleanup, nil
+	}
+
+	monitorErrCh = make(chan error, 1)
+	snapshotName := fmt.Sprintf("snap-%d", time.Now().Unix())
+	if err := lvm.CreateSnapshot(context.Background(), originalVolume, snapshotName, strconv.FormatUint(snapshotBytes, 10)); err != nil {
+		return "", nil, nil, fmt.Errorf("snapshot creation failed: %w", err)
+	}
+	snapshotPath = lvm.GetSnapshotDevicePath(snapshotName, cfg.VolumeGroup)
+	logger.Info("Snapshot created", zap.String("snapshot", snapshotPath))
+
+	monitorCtx, cancel := context.WithCancel(context.Background())
+	go func() {
+		if err := lvm.MonitorSnapshot(monitorCtx, snapshotPath, 80.0, 10*time.Second); err != nil && !errors.Is(err, context.Canceled) {
+			zap.L().Error("Snapshot monitor error", zap.Error(err))
+			monitorErrCh <- err
 		}
-		snapshotPath = lvm.GetSnapshotDevicePath(snapshotName, cfg.VolumeGroup)
-		logger.Info("Snapshot created", zap.String("snapshot", snapshotPath))
+	}()
 
-		monitorCtx, cancel := context.WithCancel(context.Background())
-		go func() {
-			if err := lvm.MonitorSnapshot(monitorCtx, snapshotPath, 80.0, 10*time.Second); err != nil && !errors.Is(err, context.Canceled) {
-				zap.L().Error("Snapshot monitor error", zap.Error(err))
-				monitorErrCh <- err
-			}
-		}()
-
-		cleanup = func() {
-			cancel()
-			if err := lvm.RemoveSnapshot(context.Background(), snapshotPath); err != nil {
-				logger.Warn("Failed to remove snapshot", zap.Error(err))
-			} else {
-				logger.Info("Snapshot removed", zap.String("snapshot", snapshotPath))
-			}
+	cleanup = func() {
+		cancel()
+		if err := lvm.RemoveSnapshot(context.Background(), snapshotPath); err != nil {
+			logger.Warn("Failed to remove snapshot", zap.Error(err))
+		} else {
+			logger.Info("Snapshot removed", zap.String("snapshot", snapshotPath))
 		}
 	}
 
 	return snapshotPath, monitorErrCh, cleanup, nil
+}
+
+//nolint:revive // snapshot preparation involves multiple steps
+func prepareSnapshot(originalVolume string, logger *zap.Logger) (string, chan error, func(), error) {
+	snapshotBytes, err := calculateSnapshotSize(originalVolume)
+	if err != nil {
+		return "", nil, nil, err
+	}
+
+	if err := ensureVolumeGroups(originalVolume, logger); err != nil {
+		return "", nil, nil, err
+	}
+
+	if err := checkDiskSpaceForSnapshot(snapshotBytes, logger); err != nil {
+		return "", nil, nil, err
+	}
+
+	return createSnapshotIfNeeded(originalVolume, snapshotBytes, logger)
 }
 
 func executeClient(snapshotPath, destPath string, sigErrCh chan error, monitorErrCh chan error) error {
