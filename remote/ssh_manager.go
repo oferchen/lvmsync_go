@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"go.uber.org/multierr"
+	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 	"golang.org/x/crypto/ssh/knownhosts"
@@ -77,16 +79,21 @@ func (s *SSHManager) GetClient(host string, port int) (*ssh.Client, error) {
 }
 
 // CloseAll terminates all managed SSH client connections and clears the cache.
-func (s *SSHManager) CloseAll() {
+// Any errors encountered while closing clients are logged and aggregated.
+func (s *SSHManager) CloseAll() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	var errs error
 	for addr, client := range s.clients {
 		if err := client.Close(); err != nil {
-			_ = err // ignore close error
+			Logger.Warn("client close error", zap.String("addr", addr), zap.Error(err))
+			errs = multierr.Append(errs, fmt.Errorf("%s: %w", addr, err))
 		}
 		delete(s.clients, addr)
 	}
+
+	return errs
 }
 
 func getSSHAuthMethods(keyPath string) ([]ssh.AuthMethod, error) {
