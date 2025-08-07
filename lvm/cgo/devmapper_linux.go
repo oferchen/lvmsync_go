@@ -1,4 +1,4 @@
-//go:build devmapper
+//go:build linux && cgo
 
 package cgo
 

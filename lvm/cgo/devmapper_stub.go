@@ -1,3 +1,5 @@
+//go:build !linux || !cgo
+
 package cgo
 
 // VolumeGroup represents a volume group with its free space in bytes.
@@ -15,7 +17,7 @@ type LVM interface {
 	ListVGs() ([]VolumeGroup, error)
 }
 
-// DM is a stub implementation used when the devmapper build tag is not enabled.
+// DM is a stub implementation used when CGO is unavailable.
 type DM struct{}
 
 // New returns a stub DM implementation.
