@@ -3,24 +3,79 @@
 package cgo
 
 /*
-#cgo pkg-config: lvm2app devmapper
+#cgo pkg-config: lvm2 devmapper
 #include <stdlib.h>
-#include <lvm2cmd.h>
+#include <stdint.h>
 #include <libdevmapper.h>
+#include <liblvm.h>
 
-extern void goLog(int level, const char *file, int line, int dm_errno, const char *message);
+// Thin wrappers around liblvm2 used by the Go code.  These helpers are
+// intentionally minimal and return raw status codes so that Go can
+// translate them into idiomatic errors.
 
-static void bridge_log(int level, const char *file, int line, int dm_errno, const char *message) {
-    goLog(level, file, line, dm_errno, message);
+static lvm_t cgo_lvm_init() {
+    return lvm_init(NULL);
 }
+
+static void cgo_lvm_quit(lvm_t lvm) {
+    lvm_quit(lvm);
+}
+
+static vg_t cgo_vg_open(lvm_t lvm, const char *name) {
+    return lvm_vg_open(lvm, name, "w", 0);
+}
+
+static int cgo_vg_close(vg_t vg) {
+    return lvm_vg_close(vg);
+}
+
+static int cgo_lv_create(vg_t vg, const char *origin, const char *snap, uint64_t size) {
+    struct lvcreate_params params = {0};
+    params.lv_name = snap;
+    params.origin_name = origin;
+    params.size = size;
+    return lvm_lv_create(vg, &params);
+}
+
+static int cgo_lv_remove(vg_t vg, const char *name) {
+    lv_t lv = lvm_lv_from_name(vg, name);
+    if (!lv) {
+        return -1;
+    }
+    return lvm_lv_remove(lv);
+}
+
+static uint64_t cgo_vg_free(vg_t vg) {
+    return lvm_vg_get_free(vg);
+}
+
+static struct dm_list *cgo_list_vgs(lvm_t lvm) {
+    return lvm_list_vg_names(lvm);
+}
+
+static const char *cgo_list_item_str(struct dm_list *item) {
+    return (const char *)item->data;
+}
+
+static int cgo_snapshot_percent(vg_t vg, const char *name, double *out) {
+    lv_t lv = lvm_lv_from_name(vg, name);
+    if (!lv)
+        return -1;
+    struct lvm_property_value v = lvm_lv_get_property(lv, "data_percent");
+    if (!v.is_valid)
+        return -1;
+    *out = v.value.d;
+    return 0;
+}
+
 */
 import "C"
 
 import (
 	"fmt"
+	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
 	"unsafe"
 )
 
@@ -45,41 +100,6 @@ type DM struct{}
 // New returns a new DM instance.
 func New() LVM { return &DM{} }
 
-var (
-	logMu  sync.Mutex
-	logBuf strings.Builder
-)
-
-//export goLog
-func goLog(level C.int, file *C.char, line C.int, dmErrno C.int, message *C.char) {
-	if level != C.LVM2_LOG_PRINT && level != C.LVM2_LOG_ERROR {
-		return
-	}
-	if message == nil {
-		return
-	}
-	logBuf.WriteString(C.GoString(message))
-	logBuf.WriteByte('\n')
-}
-
-func runLVM(args ...string) (string, error) {
-	cmd := strings.Join(args, " ")
-	ccmd := C.CString(cmd)
-	defer C.free(unsafe.Pointer(ccmd))
-
-	logMu.Lock()
-	logBuf.Reset()
-	C.lvm2_log_fn((C.lvm2_log_fn_t)(unsafe.Pointer(C.bridge_log)))
-	ret := C.lvm2_run(nil, ccmd)
-	out := logBuf.String()
-	logMu.Unlock()
-
-	if ret != C.LVM2_COMMAND_SUCCEEDED {
-		return out, fmt.Errorf("lvm command failed: %s", strings.TrimSpace(out))
-	}
-	return out, nil
-}
-
 // dmVersion calls into libdevmapper to ensure linkage.
 func dmVersion() string {
 	var buf [128]C.char
@@ -92,10 +112,29 @@ func dmVersion() string {
 // CreateSnapshot creates a snapshot of the logical volume at lvPath.
 func (d *DM) CreateSnapshot(lvPath, snapshotName string, sizeBytes uint64) error {
 	dmVersion()
-	size := fmt.Sprintf("%dB", sizeBytes)
-	_, err := runLVM("lvcreate", "--snapshot", "--name", snapshotName, "--size", size, lvPath)
-	if err != nil {
-		return err
+	vgName, lvName := filepath.Split(lvPath)
+	vgName = strings.Trim(vgName, "/")
+
+	clvm := C.cgo_lvm_init()
+	if clvm == nil {
+		return fmt.Errorf("lvm_init failed")
+	}
+	defer C.cgo_lvm_quit(clvm)
+
+	cvg := C.cgo_vg_open(clvm, C.CString(vgName))
+	if cvg == nil {
+		return fmt.Errorf("vg open failed")
+	}
+	defer C.cgo_vg_close(cvg)
+
+	origin := C.CString(lvName)
+	snap := C.CString(snapshotName)
+	defer C.free(unsafe.Pointer(origin))
+	defer C.free(unsafe.Pointer(snap))
+
+	ret := C.cgo_lv_create(cvg, origin, snap, C.uint64_t(sizeBytes))
+	if ret != 0 {
+		return fmt.Errorf("lvcreate failed: %d", int(ret))
 	}
 	return nil
 }
@@ -103,65 +142,105 @@ func (d *DM) CreateSnapshot(lvPath, snapshotName string, sizeBytes uint64) error
 // RemoveLV removes the logical volume identified by lvPath.
 func (d *DM) RemoveLV(lvPath string) error {
 	dmVersion()
-	_, err := runLVM("lvremove", "-f", lvPath)
-	return err
+	vgName, lvName := filepath.Split(lvPath)
+	vgName = strings.Trim(vgName, "/")
+
+	clvm := C.cgo_lvm_init()
+	if clvm == nil {
+		return fmt.Errorf("lvm_init failed")
+	}
+	defer C.cgo_lvm_quit(clvm)
+
+	cvg := C.cgo_vg_open(clvm, C.CString(vgName))
+	if cvg == nil {
+		return fmt.Errorf("vg open failed")
+	}
+	defer C.cgo_vg_close(cvg)
+
+	name := C.CString(lvName)
+	defer C.free(unsafe.Pointer(name))
+
+	ret := C.cgo_lv_remove(cvg, name)
+	if ret != 0 {
+		return fmt.Errorf("lvremove failed: %d", int(ret))
+	}
+	return nil
 }
 
 // SnapshotUsage returns the data usage percentage of the snapshot at lvPath.
 func (d *DM) SnapshotUsage(lvPath string) (float64, error) {
 	dmVersion()
-	out, err := runLVM("lvs", "--noheadings", "--units", "b", "--nosuffix", "-o", "data_percent", lvPath)
-	if err != nil {
-		return 0, err
+	vgName, lvName := filepath.Split(lvPath)
+	vgName = strings.Trim(vgName, "/")
+
+	clvm := C.cgo_lvm_init()
+	if clvm == nil {
+		return 0, fmt.Errorf("lvm_init failed")
 	}
-	fields := strings.Fields(out)
-	if len(fields) == 0 {
-		return 0, fmt.Errorf("unable to parse lvs output: %q", out)
+	defer C.cgo_lvm_quit(clvm)
+
+	cvg := C.cgo_vg_open(clvm, C.CString(vgName))
+	if cvg == nil {
+		return 0, fmt.Errorf("vg open failed")
 	}
-	val, err := strconv.ParseFloat(fields[0], 64)
-	if err != nil {
-		return 0, err
+	defer C.cgo_vg_close(cvg)
+
+	name := C.CString(lvName)
+	defer C.free(unsafe.Pointer(name))
+
+	var val C.double
+	if C.cgo_snapshot_percent(cvg, name, &val) != 0 {
+		return 0, fmt.Errorf("get snapshot usage failed")
 	}
-	return val, nil
+	return float64(val), nil
 }
 
 // VGFree returns the free space of the specified volume group in bytes.
 func (d *DM) VGFree(vgName string) (uint64, error) {
 	dmVersion()
-	out, err := runLVM("vgs", "--noheadings", "--units", "b", "--nosuffix", "-o", "vg_free", vgName)
-	if err != nil {
-		return 0, err
+	cName := C.CString(vgName)
+	defer C.free(unsafe.Pointer(cName))
+
+	clvm := C.cgo_lvm_init()
+	if clvm == nil {
+		return 0, fmt.Errorf("lvm_init failed")
 	}
-	fields := strings.Fields(out)
-	if len(fields) == 0 {
-		return 0, fmt.Errorf("unable to parse vgs output: %q", out)
+	defer C.cgo_lvm_quit(clvm)
+
+	cvg := C.cgo_vg_open(clvm, cName)
+	if cvg == nil {
+		return 0, fmt.Errorf("vg open failed")
 	}
-	val, err := strconv.ParseUint(fields[0], 10, 64)
-	if err != nil {
-		return 0, err
-	}
-	return val, nil
+	defer C.cgo_vg_close(cvg)
+
+	free := C.cgo_vg_free(cvg)
+	return uint64(free), nil
 }
 
 // ListVGs returns all available volume groups.
 func (d *DM) ListVGs() ([]VolumeGroup, error) {
 	dmVersion()
-	out, err := runLVM("vgs", "--noheadings", "--units", "b", "--nosuffix", "-o", "vg_name,vg_free")
-	if err != nil {
-		return nil, err
+	clvm := C.cgo_lvm_init()
+	if clvm == nil {
+		return nil, fmt.Errorf("lvm_init failed")
 	}
+	defer C.cgo_lvm_quit(clvm)
+
+	list := C.cgo_list_vgs(clvm)
 	var vgs []VolumeGroup
-	lines := strings.Split(strings.TrimSpace(out), "\n")
-	for _, line := range lines {
-		fields := strings.Fields(line)
-		if len(fields) < 2 {
+	for item := list; item != nil; item = item.next {
+		name := C.cgo_list_item_str(item)
+		if name == nil {
 			continue
 		}
-		free, err := strconv.ParseUint(fields[1], 10, 64)
-		if err != nil {
+		vgName := C.GoString(name)
+		cvg := C.cgo_vg_open(clvm, C.CString(vgName))
+		if cvg == nil {
 			continue
 		}
-		vgs = append(vgs, VolumeGroup{Name: fields[0], Free: free})
+		free := C.cgo_vg_free(cvg)
+		C.cgo_vg_close(cvg)
+		vgs = append(vgs, VolumeGroup{Name: vgName, Free: uint64(free)})
 	}
 	return vgs, nil
 }
