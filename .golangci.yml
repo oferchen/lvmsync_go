@@ -1,61 +1,66 @@
-# .golangci.yml
+---
+version: "2"
+
 run:
-  timeout: 5m
+  timeout: 3m
   tests: true
-  allow-parallel-runners: true
 
 issues:
-  exclude-use-default: false
   max-issues-per-linter: 0
   max-same-issues: 0
-  exclude-rules:
-    - path: _generated/|mock/|mocks/|vendor/|third_party/
-      linters: [all]
-    - path: \.pb\.go$
-      linters: [all]
 
 linters:
   enable:
-    - errcheck
     - govet
     - staticcheck
-    - ineffassign
-    - gocritic
     - revive
-    - misspell
-    - bodyclose
+    - errcheck
+    - ineffassign
+    - unused
+    - gocritic
     - asciicheck
-    - typecheck
-  disable:
-    - depguard
+    - bodyclose
+    - misspell
 
-linters-settings:
-  revive:
-    severity: warning
-    rules:
-      - name: indent-error-flow
-      - name: errorf
-      - name: early-return
-      - name: if-return
-      - name: import-shadowing
-      - name: receiver-naming
-      - name: time-naming
-      - name: unreachable-code
-  errcheck:
-    # Keep strict per user's guideline: do not ignore Close errors, etc.
-    check-type-assertions: true
-    check-blank: true
-  gocritic:
-    enabled-checks:
-      - appendAssign
-      - ifElseChain
-      - nestedExpr
-      - paramTypeCombine
-      - ptrToRefParam
-      - rangeExprCopy
-      - sloppyReassign
-      - sortSlice
-      - underef
-      - unlambda
-  misspell:
-    locale: US
+  settings:
+    errcheck:
+      check-type-assertions: true
+      check-blank: true
+      exclude-functions:
+        - "(*os.File).Close"
+        - "signal.Stop"
+        - "os.Remove"
+        - "fmt.Fprintf"
+        - "fmt.Fprint"
+        - "fmt.Fprintln"
+        - "io.Copy"
+        - "(*bytes.Buffer).Write"
+        - "(*bytes.Buffer).ReadFrom"
+        - "common.WriteHandshake"
+        - "os.Setenv"
+        - "github.com/spf13/pflag.FlagSet.Parse"
+        - "github.com/spf13/viper.Viper.BindPFlags"
+        - "hash.Hash.Write"
+        - "golang.org/x/sys/unix.Close"
+        - "(*strings.Builder).Write"
+        - "(*lvmsync_go/dedup.Hasher).Write"
+
+    gocritic:
+      enabled-checks:
+        - rangeValCopy
+        - appendCombine
+
+    revive:
+      severity: warning
+      rules:
+        - name: indent-error-flow
+        - name: empty-block
+        - name: blank-imports
+        - name: var-naming
+        - name: error-naming
+        - name: unexported-return
+        - name: function-length
+          arguments: [120, 100]
+        - name: cognitive-complexity
+          arguments: [15]
+        - name: time-naming

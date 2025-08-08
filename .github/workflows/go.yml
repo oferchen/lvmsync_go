@@ -1,58 +1,83 @@
-# .github/workflows/go.yml
-name: Go Build & Test
+# This workflow builds and tests a Golang project with LVM2 integration.
+# It complies with Checkov rule CKV2_GHA_1 by avoiding implicit write-all permissions.
+# Go versions 1.21 through 1.24 are tested in matrix strategy.
+# For more info: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
+
+name: Go
 
 on:
   push:
-    branches: [main, master]
+    branches: [ "main" ]
   pull_request:
-    branches: [main, master]
+    branches: [ "main" ]
 
+# Explicitly define minimal top-level permissions
 permissions:
   contents: read
 
-concurrency:
-  group: go-ci-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
-  build-test:
-    name: Go ${{ matrix.go }} on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
+  build:
+    runs-on: ubuntu-latest
     strategy:
-      fail-fast: false
       matrix:
-        go: [1.21, 1.22, 1.23, 1.24]
-        os: [ubuntu-latest]
+        go-version: [1.21, 1.22, 1.23, 1.24]
     env:
-      CGO_ENABLED: "1"  # required for LVM/cgo integration on Linux
+      GO111MODULE: "on"
+      CGO_ENABLED: "1"
+      CGO_CFLAGS: "-I/usr/include"
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ matrix.go }}
-          check-latest: true
+    - name: Install build dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          autoconf automake libtool pkg-config \
+          build-essential libdevmapper-dev libreadline-dev \
+          uuid-dev libaio-dev \
+          libselinux-dev libsepol-dev \
+          git curl
 
-      - name: Cache Go modules
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ matrix.go }}-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-${{ matrix.go }}-
+    - name: Clone and build LVM2 with lvm2cmd.h
+      run: |
+        git clone https://sourceware.org/git/lvm2.git
+        cd lvm2
+        ./configure \
+          --prefix=/usr \
+          --enable-cmdlib \
+          --enable-pkgconfig \
+          --disable-selinux \
+          --disable-readline \
+          --disable-udev_sync \
+          --disable-udev_rules \
+          --disable-nls \
+          --disable-dmeventd
+        make -j"$(nproc)"
+        sudo make install
 
-      - name: Go tidy
-        run: go mod tidy
+    - name: Verify required LVM2 headers
+      run: |
+        test -f /usr/include/lvm2cmd.h || { echo "Missing lvm2cmd.h!"; exit 1; }
 
-      - name: Build
-        run: go build ./...
+    - name: Set up Go
+      uses: actions/setup-go@v5.5.0
+      with:
+        go-version: ${{ matrix.go-version }}
 
-      - name: Unit tests (race)
-        run: go test -race ./...
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ matrix.go-version }}-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-${{ matrix.go-version }}-
+
+    - name: Build project
+      run: go build -v ./...
+
+    - name: Run tests
+      run: go test -v -race -cover ./...
