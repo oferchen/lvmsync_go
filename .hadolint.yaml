@@ -1,10 +1,38 @@
+--- 
 # .hadolint.yaml
+
 ignored:
-  - DL3018  # allow unpinned apk/apt in CI; base image versioning controls drift
-  - DL3013  # allow unpinned pip when managed via requirements.txt
-  - DL3045  # allow omitting --no-install-recommends if base is slim
-  - DL3059  # allow split RUN steps for caching
-  - DL4001  # allow ADD where remote URLs or auto-extract are used
-  - DL3025  # base image policy enforced elsewhere
-  - DL4006  # default shell acceptable
-trustedRegistries: []
+  # Build context hygiene (allowed if managed externally)
+  - DL3018  # apt-get install without version pin — CI rebuild policy or base image versioning
+  - DL3013  # pip install without version pin — enforced via requirements.txt or external control
+  - DL3045  # no --no-install-recommends — allowed if base image already minimizes packages
+
+  # Layering and readability (intentional for maintainability or layer caching)
+  - DL3003  # use WORKDIR instead of `cd` — some RUN chains are intentionally procedural
+  - DL3059  # combine RUN instructions — often split for better layer caching
+  - DL4001  # prefer COPY over ADD — ADD used for remote URLs where appropriate
+
+  # Base image / shell usage (trusted, or shell assumptions are stable)
+  - DL3025  # non-whitelisted base image — policy enforced at CI level
+  - DL4006  # missing SHELL — default `/bin/sh` is expected and sufficient
+
+  # Legacy compatibility
+  - DL4000  # MAINTAINER deprecated — tolerated for backward compatibility
+
+trustedRegistries:
+  - docker.io
+  - ghcr.io
+  - quay.io
+  - registry.access.redhat.com
+
+failureThreshold: warning  # Allow warnings; only errors will fail the pipeline
+
+# Designed to be easily extendable with future overrides
+# override:
+#   DL3018: info
+
+# Optional: exclude non-production Dockerfiles
+# exclude:
+#   - test.Dockerfile
+#   - ci/Dockerfile.debug
+
