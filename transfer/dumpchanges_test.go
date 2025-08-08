@@ -20,66 +20,8 @@ import (
 // helper to create source and metadata files with deterministic ranges
 func createDumpTestFiles(t testing.TB, blockSize int64, changedBlocks []int) (src, snapshot string) {
 	t.Helper()
-	dir := t.TempDir()
-
-	// create source file with distinct block data
-	src = filepath.Join(dir, "src")
-	srcFile, err := os.Create(src)
-	if err != nil {
-		t.Fatalf("failed to create source: %v", err)
-	}
-	blockCount := 0
-	for _, b := range changedBlocks {
-		if b+1 > blockCount {
-			blockCount = b + 1
-		}
-	}
-	if blockCount < len(changedBlocks) {
-		blockCount = len(changedBlocks)
-	}
-	for i := 0; i < blockCount; i++ {
-		data := bytes.Repeat([]byte{byte(i + 1)}, int(blockSize))
-		if _, err = srcFile.Write(data); err != nil {
-			t.Fatalf("failed to write block: %v", err)
-		}
-	}
-	srcFile.Close()
-
-	// create metadata file describing changed blocks
-	meta := filepath.Join(dir, "meta")
-	metaFile, err := os.Create(meta)
-	if err != nil {
-		t.Fatalf("failed to create metadata: %v", err)
-	}
-	if _, err = metaFile.Write(make([]byte, blockSize)); err != nil {
-		t.Fatalf("failed to write metadata header: %v", err)
-	}
-	for _, b := range changedBlocks {
-		buf := make([]byte, 16)
-		binary.LittleEndian.PutUint64(buf[0:8], uint64(b))
-		binary.LittleEndian.PutUint64(buf[8:16], uint64(b+1))
-		if _, err = metaFile.Write(buf); err != nil {
-			t.Fatalf("failed to write metadata entry: %v", err)
-		}
-	}
-	if _, err = metaFile.Write(make([]byte, 16)); err != nil {
-		t.Fatalf("failed to write metadata terminator: %v", err)
-	}
-	metaFile.Close()
-
-	// create symlink for GetMetadataDevice in a temporary mapper directory
-	mapper := t.TempDir()
-	SetMapperDir(mapper)
 	snapshot = "testvg-testlv"
-	link := filepath.Join(mapper, "testvg-testlv-cow")
-	if err = os.Symlink(meta, link); err != nil {
-		t.Fatalf("failed to create metadata symlink: %v", err)
-	}
-	t.Cleanup(func() {
-		os.Remove(link)
-		SetMapperDir("/dev/mapper")
-	})
-
+	_, src = createVolumeFiles(t, snapshot, blockSize, changedBlocks)
 	return src, snapshot
 }
 

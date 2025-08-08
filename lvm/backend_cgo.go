@@ -1,5 +1,3 @@
-//go:build linux && cgo
-
 package lvm
 
 import (
@@ -10,10 +8,12 @@ import (
 	"lvmsync_go/lvm/cgo"
 )
 
+// cgoBackend implements lvmBackend using a cgo.LVM implementation.
 type cgoBackend struct{ lvm cgo.LVM }
 
-func newBackendWithCGO(lvm cgo.LVM) lvmBackend { return &cgoBackend{lvm: lvm} }
+func newBackendWithCGO(l cgo.LVM) lvmBackend { return &cgoBackend{lvm: l} }
 
+// newLVMBackend constructs the default backend.
 func newLVMBackend() lvmBackend { return newBackendWithCGO(cgo.New()) }
 
 func (b *cgoBackend) CreateSnapshot(_ context.Context, lvPath, snapshotName, size string) error {
@@ -24,12 +24,10 @@ func (b *cgoBackend) CreateSnapshot(_ context.Context, lvPath, snapshotName, siz
 	if percent {
 		return fmt.Errorf("percentage sizes not supported")
 	}
-
 	u := uint64(bytes)
 	if bytes < 0 || float64(u) != bytes {
 		return fmt.Errorf("size %q overflows uint64", size)
 	}
-
 	if err := b.lvm.CreateSnapshot(lvPath, snapshotName, u); err != nil {
 		return fmt.Errorf("cgo create snapshot: %w", err)
 	}
@@ -44,7 +42,6 @@ func (b *cgoBackend) RemoveSnapshot(_ context.Context, snapshotPath string) erro
 }
 
 func (b *cgoBackend) GetSnapshotUsage(_ context.Context, snapshotPath string) (float64, error) {
-	// ctx is ignored because the underlying cgo library lacks context support.
 	usage, err := b.lvm.SnapshotUsage(snapshotPath)
 	if err != nil {
 		return 0, fmt.Errorf("cgo snapshot usage: %w", err)
@@ -53,7 +50,6 @@ func (b *cgoBackend) GetSnapshotUsage(_ context.Context, snapshotPath string) (f
 }
 
 func (b *cgoBackend) GetVolumeGroupFreeSpace(_ context.Context, vgName string) (uint64, error) {
-	// ctx is ignored because the underlying cgo library lacks context support.
 	free, err := b.lvm.VGFree(vgName)
 	if err != nil {
 		return 0, fmt.Errorf("cgo vg free space: %w", err)
@@ -62,7 +58,6 @@ func (b *cgoBackend) GetVolumeGroupFreeSpace(_ context.Context, vgName string) (
 }
 
 func (b *cgoBackend) ListVolumeGroups(_ context.Context, candidates []string) ([]VolumeGroup, error) {
-	// ctx is ignored because the underlying cgo library lacks context support.
 	vgs, err := b.lvm.ListVGs()
 	if err != nil {
 		return nil, fmt.Errorf("cgo list volume groups: %w", err)

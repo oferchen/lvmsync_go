@@ -21,65 +21,17 @@ import (
 
 func createTestFiles(t *testing.T, blockSize int64, blockCount int) (srcPath, snapshot, resumePath string) {
 	t.Helper()
-
-	dir := t.TempDir()
-
-	// create source file with distinct block data
-	srcPath = filepath.Join(dir, "src")
-	srcFile, err := os.Create(srcPath)
-	if err != nil {
-		t.Fatalf("failed to create source file: %v", err)
-	}
+	changed := make([]int, blockCount)
 	for i := 0; i < blockCount; i++ {
-		data := bytes.Repeat([]byte{byte(i + 1)}, int(blockSize))
-		if _, err = srcFile.Write(data); err != nil {
-			t.Fatalf("failed to write block: %v", err)
-		}
+		changed[i] = i
 	}
-	srcFile.Close()
-
-	// create metadata file describing changed blocks
-	metaPath := filepath.Join(dir, "meta")
-	metaFile, err := os.Create(metaPath)
-	if err != nil {
-		t.Fatalf("failed to create metadata file: %v", err)
-	}
-	if _, err = metaFile.Write(make([]byte, blockSize)); err != nil {
-		t.Fatalf("failed to write metadata header: %v", err)
-	}
-	for i := 0; i < blockCount; i++ {
-		buf := make([]byte, 16)
-		binary.LittleEndian.PutUint64(buf[0:8], uint64(i))
-		binary.LittleEndian.PutUint64(buf[8:16], uint64(i+1))
-		if _, err = metaFile.Write(buf); err != nil {
-			t.Fatalf("failed to write metadata entry: %v", err)
-		}
-	}
-	if _, err = metaFile.Write(make([]byte, 16)); err != nil {
-		t.Fatalf("failed to write metadata terminator: %v", err)
-	}
-	metaFile.Close()
-
-	// create symlink for GetMetadataDevice in a temporary mapper directory
-	mapper := t.TempDir()
-	SetMapperDir(mapper)
-	linkPath := filepath.Join(mapper, "vg-lv-cow")
-	if err = os.Symlink(metaPath, linkPath); err != nil {
-		t.Fatalf("failed to create metadata symlink: %v", err)
-	}
-	t.Cleanup(func() {
-		os.Remove(linkPath)
-		SetMapperDir("/dev/mapper")
-	})
-
 	snapshot = "vg-lv"
+	dir, srcPath := createVolumeFiles(t, snapshot, blockSize, changed)
 
-	// prepare resume state file skipping first two blocks
 	resumePath = filepath.Join(dir, "resume")
-	if err = os.WriteFile(resumePath, []byte("2"), 0644); err != nil {
+	if err := os.WriteFile(resumePath, []byte("2"), 0644); err != nil {
 		t.Fatalf("failed to write resume state: %v", err)
 	}
-
 	return srcPath, snapshot, resumePath
 }
 
