@@ -89,12 +89,13 @@ func newClient(t *testing.T, cfg Config, agent lvmagent.Agent, creds credentials
 	lis := bufconn.Listen(bufSize)
 	srv := New(cfg, agent)
 	go func(t *testing.T) {
-		if err := srv.Serve(lis); err != nil && !errors.Is(err, grpc.ErrServerStopped) {
+		err := srv.Serve(lis)
+		if err != nil && !errors.Is(err, grpc.ErrServerStopped) {
 			t.Errorf("srv.Serve: %v", err)
 		}
 	}(t)
 	dialer := func(context.Context, string) (net.Conn, error) { return lis.Dial() }
-	conn, err := grpc.DialContext(context.Background(), "bufnet", grpc.WithContextDialer(dialer), grpc.WithTransportCredentials(creds))
+	conn, err := grpc.NewClient("passthrough:///bufnet", grpc.WithContextDialer(dialer), grpc.WithTransportCredentials(creds))
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
@@ -358,13 +359,16 @@ func generateTLS(t *testing.T) (Config, *tls.Config, *tls.Config) {
 	srvCertFile := filepath.Join(dir, "server.pem")
 	srvKeyFile := filepath.Join(dir, "server.key")
 	caFile := filepath.Join(dir, "ca.pem")
-	if err := os.WriteFile(srvCertFile, serverCertPEM, 0600); err != nil {
+	err = os.WriteFile(srvCertFile, serverCertPEM, 0600)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(srvKeyFile, serverKeyPEM, 0600); err != nil {
+	err = os.WriteFile(srvKeyFile, serverKeyPEM, 0600)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(caFile, caPEM, 0600); err != nil {
+	err = os.WriteFile(caFile, caPEM, 0600)
+	if err != nil {
 		t.Fatal(err)
 	}
 
