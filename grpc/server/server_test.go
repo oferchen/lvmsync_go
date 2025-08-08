@@ -100,7 +100,9 @@ func newClient(t *testing.T, cfg Config, agent lvmagent.Agent, creds credentials
 		t.Fatalf("dial: %v", err)
 	}
 	cleanup := func() {
-		conn.Close()
+		if err := conn.Close(); err != nil {
+			t.Errorf("conn.Close: %v", err)
+		}
 		srv.Stop()
 	}
 	return proto.NewReplicationClient(conn), cleanup
@@ -163,6 +165,7 @@ func TestLockVolume(t *testing.T) {
 	}
 }
 
+//revive:disable-next-line:cognitive-complexity
 func TestGetVolumeMetadata(t *testing.T) {
 	tests := []struct {
 		name    string

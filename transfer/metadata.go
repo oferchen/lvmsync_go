@@ -56,6 +56,7 @@ func ReadMetadataHeader(metadataPath string) (chunkSize int64, err error) {
 	return int64(chunk) * 512, nil
 }
 
+//revive:disable-next-line:cognitive-complexity
 func GetDifferences(metadataPath string, chunkSize int64) (ranges []Range, err error) {
 	if chunkSize <= 0 {
 		return nil, fmt.Errorf("invalid chunk size %d", chunkSize)

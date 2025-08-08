@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+//revive:disable-next-line:cognitive-complexity
 func TestAuthInterceptor(t *testing.T) {
 	role := Role{Issuer: "issuer", Subject: "subject"}
 	interceptor := NewAuthInterceptor(role)
@@ -41,7 +42,11 @@ func TestAuthInterceptor(t *testing.T) {
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
-		if resp.(string) != "ok" {
+		str, ok := resp.(string)
+		if !ok {
+			t.Fatalf("unexpected response type %T", resp)
+		}
+		if str != "ok" {
 			t.Fatalf("unexpected response %v", resp)
 		}
 	})

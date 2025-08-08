@@ -303,12 +303,7 @@ func DefaultConfig() (*Config, error) {
 	}, nil
 }
 
-func LoadConfig() (*Config, error) {
-	defaultCfg, err := DefaultConfig()
-	if err != nil {
-		return nil, err
-	}
-
+func initFlagSets(defaultCfg *Config) {
 	generalFlags = pflag.NewFlagSet("General Options", pflag.ExitOnError)
 	sshFlags = pflag.NewFlagSet("SSH Options", pflag.ExitOnError)
 	remoteFlags = pflag.NewFlagSet("Remote Options", pflag.ExitOnError)
@@ -373,7 +368,14 @@ func LoadConfig() (*Config, error) {
 	grpcFlags.String("ca_cert", defaultCfg.CACert, "CA certificate file")
 	grpcFlags.Bool("allow_insecure", defaultCfg.AllowInsecure, "Allow insecure (no TLS)")
 	grpcFlags.String("sudo_path", defaultCfg.SudoPath, "Path to sudo executable")
+}
 
+func LoadConfig() (*Config, error) {
+	defaultCfg, err := DefaultConfig()
+	if err != nil {
+		return nil, err
+	}
+	initFlagSets(defaultCfg)
 	// Register flags and set usage
 	pflag.CommandLine.AddFlagSet(generalFlags)
 	pflag.CommandLine.AddFlagSet(sshFlags)
