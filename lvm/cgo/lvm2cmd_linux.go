@@ -54,20 +54,6 @@ import (
 )
 
 // VolumeGroup represents a volume group with its free space in bytes.
-type VolumeGroup struct {
-	Name string
-	Free uint64
-}
-
-// LVM exposes snapshot and volume group operations.
-type LVM interface {
-	CreateSnapshot(lvPath, snapshotName string, sizeBytes uint64) error
-	RemoveLV(lvPath string) error
-	SnapshotUsage(lvPath string) (float64, error)
-	VGFree(vgName string) (uint64, error)
-	ListVGs() ([]VolumeGroup, error)
-}
-
 // Cmd implements LVM using liblvm2cmd.
 type Cmd struct{}
 
