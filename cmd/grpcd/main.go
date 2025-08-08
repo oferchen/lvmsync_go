@@ -22,7 +22,7 @@ func main() {
 	zap.ReplaceGlobals(logger)
 	defer func() {
 		if err := logger.Sync(); err != nil {
-			fmt.Fprintf(os.Stderr, "failed to sync logger: %v\n", err)
+			logger.Error("failed to sync logger", zap.Error(err))
 			os.Exit(1)
 		}
 	}()
