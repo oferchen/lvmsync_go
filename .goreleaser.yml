@@ -23,10 +23,9 @@ builds:
 
 archives:
   - id: default
-    ids:
+    builds:
       - default
-    formats:
-      - tar.gz
+    format: tar.gz
     name_template: >-
       {{ .ProjectName }}_{{ .Env.GORELEASER_CURRENT_TAG
       }}_{{ .Os }}_{{ .Arch }}
