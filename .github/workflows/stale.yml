@@ -1,35 +1,28 @@
-# This workflow marks issues and PRs as stale after a period of inactivity, then closes them.
-# For full documentation, see: https://github.com/actions/stale
-
-name: Mark stale issues and pull requests
+# .github/workflows/stale.yml
+name: "Close stale issues and PRs"
 
 on:
   schedule:
-    - cron: '18 19 * * *'  # Runs every day at 19:18 UTC
+    - cron: "0 2 * * *"
+  workflow_dispatch:
 
-# ✅ Explicit minimal permissions at the top level for Checkov compliance (CKV2_GHA_1)
 permissions:
-  contents: read
+  issues: write
+  pull-requests: write
 
 jobs:
   stale:
-    name: Mark stale items
     runs-on: ubuntu-latest
-
-    # ✅ Job-level permissions elevated to allow issue/PR labeling and closing
-    permissions:
-      issues: write
-      pull-requests: write
-
     steps:
-      - name: Run stale action
-        uses: actions/stale@v5.0.0  # ✅ Pin to exact version
+      - uses: actions/stale@v9
         with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          stale-issue-message: 'This issue is stale because it has been open with no activity for a while. It will be closed soon if no further activity occurs.'
-          stale-pr-message: 'This pull request is stale because it has had no activity for a while. It will be closed soon if no further activity occurs.'
-          stale-issue-label: 'no-issue-activity'
-          stale-pr-label: 'no-pr-activity'
-          days-before-stale: 30
-          days-before-close: 7
-          operations-per-run: 100
+          stale-issue-message: >
+            This issue has been automatically marked as stale due to inactivity.
+            It will be closed if no further activity occurs.
+          stale-pr-message: >
+            This PR has been automatically marked as stale due to inactivity.
+            It will be closed if no further activity occurs.
+          days-before-stale: 45
+          days-before-close: 14
+          exempt-issue-labels: "pinned,security,roadmap"
+          exempt-pr-labels: "pinned,security,roadmap"
