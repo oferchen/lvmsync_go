@@ -76,6 +76,16 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-go-${{ matrix.go-version }}-
 
+    - name: Verify formatting
+      run: |
+        go install golang.org/x/tools/cmd/goimports@latest
+        fmt_out=$(gofmt -l .)
+        if [ -n "$fmt_out" ]; then
+          echo "Run gofmt on the following files:"; echo "$fmt_out"; exit 1; fi
+        imp_out=$(goimports -l .)
+        if [ -n "$imp_out" ]; then
+          echo "Run goimports on the following files:"; echo "$imp_out"; exit 1; fi
+
     - name: Build project
       run: go build -v ./...
 

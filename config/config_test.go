@@ -11,6 +11,7 @@ import (
 
 	"github.com/pierrec/lz4/v4"
 	"github.com/spf13/viper"
+
 	compressiondetect "lvmsync_go/internal/compressiondetect"
 	"lvmsync_go/lvm"
 )

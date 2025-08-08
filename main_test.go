@@ -1,9 +1,11 @@
 package main
 
 import (
-	"github.com/spf13/pflag"
-	"lvmsync_go/config"
 	"testing"
+
+	"github.com/spf13/pflag"
+
+	"lvmsync_go/config"
 )
 
 func TestApplyFlagTriggersApplyMode(t *testing.T) {

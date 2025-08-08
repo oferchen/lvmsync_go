@@ -8,6 +8,7 @@ import (
 
 	"github.com/klauspost/cpuid/v2"
 	"github.com/pierrec/lz4/v4"
+
 	compressiondetect "lvmsync_go/internal/compressiondetect"
 )
 

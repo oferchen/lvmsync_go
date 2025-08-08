@@ -7,16 +7,17 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
 	"github.com/pierrec/lz4/v4"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+
 	"lvmsync_go/internal/compressiondetect"
 	"lvmsync_go/internal/sizeparse"
 	"lvmsync_go/lvm"
-	"runtime"
 )
 
 var SupportedCompression = []string{"none", "lz4", "zstd", "auto"}
