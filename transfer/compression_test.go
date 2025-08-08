@@ -8,6 +8,39 @@ import (
 	"github.com/pierrec/lz4/v4"
 )
 
+func compressData(t *testing.T, data []byte, algo string, level int) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	w, err := NewCompressionWriter(&buf, algo, level, 1)
+	if err != nil {
+		t.Fatalf("writer for %s: %v", algo, err)
+	}
+	if _, err := w.Write(data); err != nil {
+		t.Fatalf("write %s: %v", algo, err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatalf("close %s: %v", algo, err)
+	}
+	return buf.Bytes()
+}
+
+func decompressData(t *testing.T, compressed []byte, algo string) []byte {
+	t.Helper()
+	buf := bytes.NewBuffer(compressed)
+	r, err := NewDecompressionReader(buf, algo, 1)
+	if err != nil {
+		t.Fatalf("reader for %s: %v", algo, err)
+	}
+	out, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatalf("read %s: %v", algo, err)
+	}
+	if err := r.Close(); err != nil {
+		t.Fatalf("close %s: %v", algo, err)
+	}
+	return out
+}
+
 func TestCompressionRoundTrip(t *testing.T) {
 	data := []byte("some test data for compression")
 	cases := []struct {
@@ -20,29 +53,8 @@ func TestCompressionRoundTrip(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		var buf bytes.Buffer
-		w, err := NewCompressionWriter(&buf, tc.c, tc.level, 1)
-		if err != nil {
-			t.Fatalf("writer for %s: %v", tc.c, err)
-		}
-		if _, err := w.Write(data); err != nil {
-			t.Fatalf("write %s: %v", tc.c, err)
-		}
-		if err := w.Close(); err != nil {
-			t.Fatalf("close %s: %v", tc.c, err)
-		}
-
-		r, err := NewDecompressionReader(&buf, tc.c, 1)
-		if err != nil {
-			t.Fatalf("reader for %s: %v", tc.c, err)
-		}
-		out, err := io.ReadAll(r)
-		if err != nil {
-			t.Fatalf("read %s: %v", tc.c, err)
-		}
-		if err := r.Close(); err != nil {
-			t.Fatalf("close %s: %v", tc.c, err)
-		}
+		compressed := compressData(t, data, tc.c, tc.level)
+		out := decompressData(t, compressed, tc.c)
 
 		if !bytes.Equal(out, data) {
 			t.Fatalf("roundtrip mismatch for %s", tc.c)
@@ -55,29 +67,8 @@ func TestLZ4CompressionLevels(t *testing.T) {
 	levels := []int{int(lz4.Fast), int(lz4.Level5), int(lz4.Level9)}
 
 	for _, lvl := range levels {
-		var buf bytes.Buffer
-		w, err := NewCompressionWriter(&buf, compressionLZ4, lvl, 1)
-		if err != nil {
-			t.Fatalf("writer for level %d: %v", lvl, err)
-		}
-		if _, err := w.Write(data); err != nil {
-			t.Fatalf("write level %d: %v", lvl, err)
-		}
-		if err := w.Close(); err != nil {
-			t.Fatalf("close level %d: %v", lvl, err)
-		}
-
-		r, err := NewDecompressionReader(&buf, compressionLZ4, 1)
-		if err != nil {
-			t.Fatalf("reader for level %d: %v", lvl, err)
-		}
-		out, err := io.ReadAll(r)
-		if err != nil {
-			t.Fatalf("read level %d: %v", lvl, err)
-		}
-		if err := r.Close(); err != nil {
-			t.Fatalf("close level %d: %v", lvl, err)
-		}
+		compressed := compressData(t, data, compressionLZ4, lvl)
+		out := decompressData(t, compressed, compressionLZ4)
 
 		if !bytes.Equal(out, data) {
 			t.Fatalf("roundtrip mismatch for level %d", lvl)
@@ -135,17 +126,7 @@ func TestLZ4WriterPoolReuse(t *testing.T) {
 	}
 	writerPtr := pw1.Writer
 
-	r1, err := NewDecompressionReader(&buf, compressionLZ4, 1)
-	if err != nil {
-		t.Fatalf("reader1: %v", err)
-	}
-	out1, err := io.ReadAll(r1)
-	if err != nil {
-		t.Fatalf("read1: %v", err)
-	}
-	if err := r1.Close(); err != nil {
-		t.Fatalf("close reader1: %v", err)
-	}
+	out1 := decompressData(t, buf.Bytes(), compressionLZ4)
 	if !bytes.Equal(out1, data1) {
 		t.Fatalf("mismatch1")
 	}
@@ -170,17 +151,7 @@ func TestLZ4WriterPoolReuse(t *testing.T) {
 		t.Fatalf("writer was not reused")
 	}
 
-	r2, err := NewDecompressionReader(&buf, compressionLZ4, 1)
-	if err != nil {
-		t.Fatalf("reader2: %v", err)
-	}
-	out2, err := io.ReadAll(r2)
-	if err != nil {
-		t.Fatalf("read2: %v", err)
-	}
-	if err := r2.Close(); err != nil {
-		t.Fatalf("close reader2: %v", err)
-	}
+	out2 := decompressData(t, buf.Bytes(), compressionLZ4)
 	if !bytes.Equal(out2, data2) {
 		t.Fatalf("mismatch2")
 	}
@@ -191,22 +162,7 @@ func TestLZ4ReaderPoolReuse(t *testing.T) {
 	data1 := []byte("alpha")
 	data2 := []byte("beta")
 
-	compress := func(data []byte) []byte {
-		var b bytes.Buffer
-		w, err := NewCompressionWriter(&b, compressionLZ4, int(lz4.Level3), 1)
-		if err != nil {
-			t.Fatalf("compress writer: %v", err)
-		}
-		if _, err := w.Write(data); err != nil {
-			t.Fatalf("compress write: %v", err)
-		}
-		if err := w.Close(); err != nil {
-			t.Fatalf("compress close: %v", err)
-		}
-		return b.Bytes()
-	}
-
-	buf1 := bytes.NewBuffer(compress(data1))
+	buf1 := bytes.NewBuffer(compressData(t, data1, compressionLZ4, int(lz4.Level3)))
 	r1, err := NewDecompressionReader(buf1, compressionLZ4, 1)
 	if err != nil {
 		t.Fatalf("new reader1: %v", err)
@@ -228,7 +184,7 @@ func TestLZ4ReaderPoolReuse(t *testing.T) {
 	}
 	readerPtr := pr1.Reader
 
-	buf2 := bytes.NewBuffer(compress(data2))
+	buf2 := bytes.NewBuffer(compressData(t, data2, compressionLZ4, int(lz4.Level3)))
 	r2, err := NewDecompressionReader(buf2, compressionLZ4, 1)
 	if err != nil {
 		t.Fatalf("new reader2: %v", err)
