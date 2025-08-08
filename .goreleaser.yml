@@ -1,4 +1,4 @@
-version: 1
+version: 2
 
 builds:
   - id: default
@@ -51,15 +51,11 @@ dockers:
     dockerfile: ./Dockerfile
     use: buildx
     goos: linux
-    goarch:
-      - amd64
-      - arm64
     build_flag_templates:
       - "--platform=linux/{{ .Arch }}"
-    skip_push: {{ eq (env "SKIP_DOCKER_PUSH") "true" }}
+    skip_push: '{{ eq (env "SKIP_DOCKER_PUSH") "true" }}'
 
 release:
-  github:
-    draft: false
-    prerelease: false
-    name_template: '{{ .Env.GORELEASER_CURRENT_TAG }}'
+  draft: false
+  prerelease: false
+  name_template: '{{ .Env.GORELEASER_CURRENT_TAG }}'
