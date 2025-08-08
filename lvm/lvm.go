@@ -46,7 +46,7 @@ func SetPrivilegeChecker(fn func() error) func() {
 }
 
 // backend is used to execute LVM operations. It can be overridden for tests.
-var backend lvmBackend = newLVMBackend()
+var backend = newLVMBackend()
 
 // SetBackend overrides the LVM backend. It returns a restore function to reset the original behavior.
 func SetBackend(b lvmBackend) func() {
