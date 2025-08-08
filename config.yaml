@@ -1,52 +1,76 @@
+---
 # config.yaml - LVMSync default configuration
 
-apply: ""                              # Apply mode: read change dump from file ('-' for STDIN) and apply to destination device
-stdout: false                          # Write change dump to STDOUT
-parallel: 4                            # Number of concurrent workers
-zerocopy: false                        # Enable zero-copy transfers (only in sequential mode)
-max_retries: 3                         # Maximum number of retries per block
-resume: ""                             # Path to resume state file
+# Apply mode: read change dump from file ('-' for STDIN)
+# and apply to destination device
+apply: ""
+stdout: false  # Write change dump to STDOUT
+parallel: 4  # Number of concurrent workers
+# Enable zero-copy transfers (only in sequential mode)
+zerocopy: false
+max_retries: 3  # Maximum number of retries per block
+resume: ""  # Path to resume state file
 
 # gRPC Options
-grpc_port: 8443                        # gRPC port to listen on
-tls_cert: ""                          # TLS certificate file
-tls_key: ""                           # TLS key file
-ca_cert: ""                           # CA certificate file
-allow_insecure: true                  # Allow running without TLS
-sudo_path: "/usr/bin/sudo"           # Path to sudo executable
+grpc_port: 8443  # gRPC port to listen on
+tls_cert: ""  # TLS certificate file
+tls_key: ""  # TLS key file
+ca_cert: ""  # CA certificate file
+allow_insecure: true  # Allow running without TLS
+sudo_path: "/usr/bin/sudo"  # Path to sudo executable
 
 # Deduplication Options
-dedup_strategy: "none"                   # Strategy: "none", "auto", "checksum", "rolling_hash", or "bloom" (use "none" to disable)
-dedup_state_file: "~/.lvmsync_dedup"    # Path to deduplication state file
-bloom_entries: 1000000                  # Estimated number of entries for bloom filter
-bloom_fp_rate: 0.01                     # False positive rate for bloom filter
+# Strategy: "none", "auto", "checksum", "rolling_hash", or "bloom"
+# (use "none" to disable)
+dedup_strategy: "none"
+dedup_state_file: "~/.lvmsync_dedup"  # Path to deduplication state file
+# Estimated number of entries for bloom filter
+bloom_entries: 1000000
+bloom_fp_rate: 0.01  # False positive rate for bloom filter
 
-ssh_user: "root"                       # SSH username
-ssh_key: ""                            # Path to SSH private key or use SSH agent
-ssh_port: 22                           # SSH port
+ssh_user: "root"  # SSH username
+# Path to SSH private key or use SSH agent
+ssh_key: ""
+ssh_port: 22  # SSH port
 known_hosts: "/root/.ssh/known_hosts"  # Path to known_hosts file
-strict_host_key_checking: true         # Enable SSH StrictHostKeyChecking
+strict_host_key_checking: true  # Enable SSH StrictHostKeyChecking
 
-lvmsync_path: "lvmsync"                  # Remote command to run (e.g. "lvmsync", "sudo lvmsync", etc.)
+# Remote command to run (e.g. "lvmsync", "sudo lvmsync", etc.)
+lvmsync_path: "lvmsync"
 
-remote_pre_script: ""                  # Remote script to run before starting transfer
-remote_post_script: ""                 # Remote script to run after finishing transfer
+# Remote script to run before starting transfer
+remote_pre_script: ""
+# Remote script to run after finishing transfer
+remote_post_script: ""
 
-compress: "auto"                       # Compression method (options: "none", "lz4", "zstd", "auto")
-compress_level: 3                      # Compression level for zstd (ignored for lz4)
-compress_concurrency: 0               # Number of goroutines for compression (0 to use all cores)
-speed: "100MB"                         # Speed limit (e.g. "100MB")
-verify_checksum: false                 # Enable checksum verification for data integrity
-checksum_algorithm: sha256             # Checksum algorithm (options: sha256, blake3, blake3-512)
-verbose: 0                             # Verbosity level (0 = silent, higher numbers = more verbose)
+# Compression method (options: "none", "lz4", "zstd", "auto")
+compress: "auto"
+# Compression level for zstd (ignored for lz4)
+compress_level: 3
+# Number of goroutines for compression (0 to use all cores)
+compress_concurrency: 0
+speed: "100MB"  # Speed limit (e.g. "100MB")
+# Enable checksum verification for data integrity
+verify_checksum: false
+# Checksum algorithm (options: sha256, blake3, blake3-512)
+checksum_algorithm: sha256
+verbose: 0  # Verbosity level (0 = silent, higher numbers = more verbose)
 
 # LVM Options:
-skip_snapshot_creation: false          # Skip automatic snapshot creation
-skip_disk_check: false                 # Skip disk space check before snapshot creation
-snapshot_size: "20%"                   # Snapshot size as an absolute value (e.g. "20G") or as a percentage (e.g. "20%")
-volume_group: ""                      # Source volume group. Derived from the source path when empty
-target_volume_group: ""                # Volume group name of the target LVM volume
-target_vgs: []                         # Candidate target VGs for auto-selection
-lvm_escalation: "sudo -n"              # Command used to re-execute the program with elevated privileges when required
-progress: true                         # Enable progress display during transfer
-block_size: "auto"                     # Block size for LVM operations ('auto' or 0 for automatic detection)
+skip_snapshot_creation: false  # Skip automatic snapshot creation
+# Skip disk space check before snapshot creation
+skip_disk_check: false
+# Snapshot size as an absolute value (e.g. "20G")
+# or as a percentage (e.g. "20%")
+snapshot_size: "20%"
+# Source volume group. Derived from the source path when empty
+volume_group: ""
+# Volume group name of the target LVM volume
+target_volume_group: ""
+target_vgs: []  # Candidate target VGs for auto-selection
+# Command used to re-execute the program with elevated privileges
+# when required
+lvm_escalation: "sudo -n"
+progress: true  # Enable progress display during transfer
+# Block size for LVM operations ('auto' or 0 for automatic detection)
+block_size: "auto"
