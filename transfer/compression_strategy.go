@@ -50,10 +50,10 @@ func (w *pooledLz4Writer) Close() error {
 }
 
 func (lz4Strategy) NewWriter(dst io.Writer, level int, concurrency int) (io.WriteCloser, error) {
-	lvl := lz4.CompressionLevel(level)
-	switch lvl {
-	case lz4.Fast, lz4.Level1, lz4.Level2, lz4.Level3, lz4.Level4, lz4.Level5, lz4.Level6, lz4.Level7, lz4.Level8, lz4.Level9:
-		// valid
+	var lvl lz4.CompressionLevel
+	switch level {
+	case int(lz4.Fast), int(lz4.Level1), int(lz4.Level2), int(lz4.Level3), int(lz4.Level4), int(lz4.Level5), int(lz4.Level6), int(lz4.Level7), int(lz4.Level8), int(lz4.Level9):
+		lvl = lz4.CompressionLevel(level)
 	default:
 		return nil, fmt.Errorf("invalid lz4 compression level: %d", level)
 	}

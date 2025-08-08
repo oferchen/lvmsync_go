@@ -75,3 +75,17 @@ func TestGetDifferencesOverflow(t *testing.T) {
 		t.Fatalf("expected overflow error")
 	}
 }
+
+func TestGetDifferencesInvalidChunkSize(t *testing.T) {
+	tmpFile := newTempFile(t, "meta_invalid")
+	defer os.Remove(tmpFile.Name())
+	if err := tmpFile.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+
+	for _, cs := range []int64{0, -1} {
+		if _, err := GetDifferences(tmpFile.Name(), cs); err == nil {
+			t.Fatalf("expected error for chunk size %d", cs)
+		}
+	}
+}

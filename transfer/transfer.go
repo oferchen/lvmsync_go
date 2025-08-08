@@ -602,6 +602,9 @@ func readBlockHeader(reader *bufio.Reader, headerBuf []byte, verify bool, checks
 	}
 
 	offset := binary.BigEndian.Uint64(headerBuf[0:8])
+	if offset > math.MaxInt64 {
+		return 0, 0, nil, fmt.Errorf("offset %d overflows int64", offset)
+	}
 	chunkSize := binary.BigEndian.Uint32(headerBuf[8:12])
 
 	var transmittedSum []byte
@@ -637,6 +640,9 @@ func verifyChecksum(verify bool, checksum ChecksumStrategy, data, transmitted []
 }
 
 func writeData(destFile *os.File, offset uint64, data []byte) error {
+	if offset > math.MaxInt64 {
+		return fmt.Errorf("offset %d overflows int64", offset)
+	}
 	if _, err := destFile.Seek(int64(offset), io.SeekStart); err != nil {
 		Logger.Warn("Seek error", zap.Uint64("offset", offset), zap.Error(err))
 		return nil
