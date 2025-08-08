@@ -10,7 +10,7 @@ import (
 )
 
 func TestRunRemoteScriptNoLogger(t *testing.T) {
-	server := remotetest.NewMockSSHServer(t, func(cmd string) int { return 0 })
+	server := remotetest.NewMockSSHServer(t, func(_ string) int { return 0 }) // cmd is unused
 	defer server.Close()
 	knownHosts := remotetest.CreateKnownHostsFile(t, server)
 	hostKeyCallback, hostKeyErr := knownhosts.New(knownHosts)
@@ -32,7 +32,7 @@ func TestRunRemoteScriptNoLogger(t *testing.T) {
 }
 
 func TestSendKeepAliveNoLogger(t *testing.T) {
-	server := remotetest.NewMockSSHServer(t, func(cmd string) int { return 0 })
+	server := remotetest.NewMockSSHServer(t, func(_ string) int { return 0 }) // cmd is unused
 	defer server.Close()
 	knownHosts := remotetest.CreateKnownHostsFile(t, server)
 	hostKeyCallback, hostKeyErr := knownhosts.New(knownHosts)

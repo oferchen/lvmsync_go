@@ -16,11 +16,13 @@ type CompressionStrategy interface {
 
 type noneStrategy struct{}
 
-func (noneStrategy) NewWriter(dst io.Writer, level int, concurrency int) (io.WriteCloser, error) {
+func (noneStrategy) NewWriter(dst io.Writer, _ int, _ int) (io.WriteCloser, error) {
+	// level and concurrency are ignored for the none strategy.
 	return nopWriteCloser{dst}, nil
 }
 
-func (noneStrategy) NewReader(src io.Reader, concurrency int) (io.ReadCloser, error) {
+func (noneStrategy) NewReader(src io.Reader, _ int) (io.ReadCloser, error) {
+	// concurrency is ignored for the none strategy.
 	return io.NopCloser(src), nil
 }
 

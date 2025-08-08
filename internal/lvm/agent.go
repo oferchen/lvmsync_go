@@ -76,7 +76,8 @@ func (s *sudoAgent) SendMetadata(_ context.Context, _ VolumeMetadata) error {
 	return nil
 }
 
-func (s *sudoAgent) StartTransferSession(_ context.Context, volume, requester string) error {
+func (s *sudoAgent) StartTransferSession(_ context.Context, _ string, _ string) error {
+	// volume and requester are ignored until LVM operations are implemented.
 	if err := s.ensureRoot(); err != nil {
 		return err
 	}
@@ -84,7 +85,8 @@ func (s *sudoAgent) StartTransferSession(_ context.Context, volume, requester st
 	return nil
 }
 
-func (s *sudoAgent) FinalizeSync(_ context.Context, volume, requester string) error {
+func (s *sudoAgent) FinalizeSync(_ context.Context, _ string, _ string) error {
+	// volume and requester are ignored until LVM operations are implemented.
 	if err := s.ensureRoot(); err != nil {
 		return err
 	}
@@ -92,7 +94,8 @@ func (s *sudoAgent) FinalizeSync(_ context.Context, volume, requester string) er
 	return nil
 }
 
-func (s *sudoAgent) GetStatus(_ context.Context, volume, requester string) (string, error) {
+func (s *sudoAgent) GetStatus(_ context.Context, _ string, _ string) (string, error) {
+	// volume and requester are ignored until LVM operations are implemented.
 	if err := s.ensureRoot(); err != nil {
 		return "", err
 	}

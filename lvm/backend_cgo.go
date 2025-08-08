@@ -43,7 +43,8 @@ func (b *cgoBackend) RemoveSnapshot(_ context.Context, snapshotPath string) erro
 	return nil
 }
 
-func (b *cgoBackend) GetSnapshotUsage(ctx context.Context, snapshotPath string) (float64, error) {
+func (b *cgoBackend) GetSnapshotUsage(_ context.Context, snapshotPath string) (float64, error) {
+	// ctx is ignored because the underlying cgo library lacks context support.
 	usage, err := b.lvm.SnapshotUsage(snapshotPath)
 	if err != nil {
 		return 0, fmt.Errorf("cgo snapshot usage: %w", err)
@@ -51,7 +52,8 @@ func (b *cgoBackend) GetSnapshotUsage(ctx context.Context, snapshotPath string) 
 	return usage, nil
 }
 
-func (b *cgoBackend) GetVolumeGroupFreeSpace(ctx context.Context, vgName string) (uint64, error) {
+func (b *cgoBackend) GetVolumeGroupFreeSpace(_ context.Context, vgName string) (uint64, error) {
+	// ctx is ignored because the underlying cgo library lacks context support.
 	free, err := b.lvm.VGFree(vgName)
 	if err != nil {
 		return 0, fmt.Errorf("cgo vg free space: %w", err)
@@ -59,7 +61,8 @@ func (b *cgoBackend) GetVolumeGroupFreeSpace(ctx context.Context, vgName string)
 	return free, nil
 }
 
-func (b *cgoBackend) ListVolumeGroups(ctx context.Context, candidates []string) ([]VolumeGroup, error) {
+func (b *cgoBackend) ListVolumeGroups(_ context.Context, candidates []string) ([]VolumeGroup, error) {
+	// ctx is ignored because the underlying cgo library lacks context support.
 	vgs, err := b.lvm.ListVGs()
 	if err != nil {
 		return nil, fmt.Errorf("cgo list volume groups: %w", err)

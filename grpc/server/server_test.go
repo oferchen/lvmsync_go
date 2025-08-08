@@ -151,7 +151,7 @@ func TestLockVolume(t *testing.T) {
 		msg   string
 	}{
 		{"success", &mockAgent{}, true, ""},
-		{"lock held", &mockAgent{lock: func(ctx context.Context, v, r string) error { return errors.New("already locked") }}, false, "already locked"},
+		{"lock held", &mockAgent{lock: func(_ context.Context, _, _ string) error { return errors.New("already locked") }}, false, "already locked"}, // parameters unused
 		{"no agent", nil, false, "agent not configured"},
 	}
 	for _, tt := range tests {
@@ -169,10 +169,12 @@ func TestGetVolumeMetadata(t *testing.T) {
 		agent   lvmagent.Agent
 		wantErr bool
 	}{
-		{"success", &mockAgent{getMeta: func(ctx context.Context, v string) (lvmagent.VolumeMetadata, error) {
+		{"success", &mockAgent{getMeta: func(_ context.Context, v string) (lvmagent.VolumeMetadata, error) {
+			// ctx is unused.
 			return lvmagent.VolumeMetadata{VolumeName: v, SizeBytes: 1, ChunkSize: 2}, nil
 		}}, false},
-		{"agent error", &mockAgent{getMeta: func(ctx context.Context, v string) (lvmagent.VolumeMetadata, error) {
+		{"agent error", &mockAgent{getMeta: func(_ context.Context, _ string) (lvmagent.VolumeMetadata, error) {
+			// parameters are unused in this mock.
 			return lvmagent.VolumeMetadata{}, errors.New("fail")
 		}}, true},
 		{"no agent", nil, true},
@@ -209,7 +211,7 @@ func TestSendVolumeMetadata(t *testing.T) {
 		msg   string
 	}{
 		{"success", &mockAgent{}, true, ""},
-		{"agent error", &mockAgent{sendMeta: func(ctx context.Context, md lvmagent.VolumeMetadata) error { return errors.New("checksum mismatch") }}, false, "checksum mismatch"},
+		{"agent error", &mockAgent{sendMeta: func(_ context.Context, _ lvmagent.VolumeMetadata) error { return errors.New("checksum mismatch") }}, false, "checksum mismatch"}, // parameters unused
 		{"no agent", nil, false, "agent not configured"},
 	}
 	for _, tt := range tests {
@@ -229,7 +231,7 @@ func TestStartTransferSession(t *testing.T) {
 		msg   string
 	}{
 		{"success", &mockAgent{}, true, ""},
-		{"agent error", &mockAgent{startSess: func(ctx context.Context, v, r string) error { return errors.New("session failed") }}, false, "session failed"},
+		{"agent error", &mockAgent{startSess: func(_ context.Context, _, _ string) error { return errors.New("session failed") }}, false, "session failed"}, // parameters unused
 		{"no agent", nil, false, "agent not configured"},
 	}
 	for _, tt := range tests {
@@ -248,9 +250,9 @@ func TestFinalizeSync(t *testing.T) {
 		ok    bool
 		msg   string
 	}{
-		{"success", &mockAgent{finalize: func(ctx context.Context, v, r string) error { return nil }, unlock: func(ctx context.Context, v, r string) error { return nil }}, true, ""},
-		{"finalize error", &mockAgent{finalize: func(ctx context.Context, v, r string) error { return errors.New("sync fail") }}, false, "sync fail"},
-		{"unlock error", &mockAgent{finalize: func(ctx context.Context, v, r string) error { return nil }, unlock: func(ctx context.Context, v, r string) error { return errors.New("unlock fail") }}, false, "unlock fail"},
+		{"success", &mockAgent{finalize: func(_ context.Context, _, _ string) error { return nil }, unlock: func(_ context.Context, _, _ string) error { return nil }}, true, ""},                                        // parameters unused
+		{"finalize error", &mockAgent{finalize: func(_ context.Context, _, _ string) error { return errors.New("sync fail") }}, false, "sync fail"},                                                                      // parameters unused
+		{"unlock error", &mockAgent{finalize: func(_ context.Context, _, _ string) error { return nil }, unlock: func(_ context.Context, _, _ string) error { return errors.New("unlock fail") }}, false, "unlock fail"}, // parameters unused
 		{"no agent", nil, false, "agent not configured"},
 	}
 	for _, tt := range tests {
@@ -269,8 +271,8 @@ func TestGetStatus(t *testing.T) {
 		ok    bool
 		msg   string
 	}{
-		{"success", &mockAgent{status: func(ctx context.Context, v, r string) (string, error) { return "ok", nil }}, true, "ok"},
-		{"agent error", &mockAgent{status: func(ctx context.Context, v, r string) (string, error) { return "", errors.New("bad") }}, false, "bad"},
+		{"success", &mockAgent{status: func(_ context.Context, _, _ string) (string, error) { return "ok", nil }}, true, "ok"},                   // parameters unused
+		{"agent error", &mockAgent{status: func(_ context.Context, _, _ string) (string, error) { return "", errors.New("bad") }}, false, "bad"}, // parameters unused
 		{"no agent", nil, false, "agent not configured"},
 	}
 	for _, tt := range tests {

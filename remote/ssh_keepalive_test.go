@@ -8,7 +8,7 @@ import (
 )
 
 func TestSendKeepAlive(t *testing.T) {
-	server, client := newSSHServerClient(t, func(cmd string) int { return 0 })
+	server, client := newSSHServerClient(t, func(_ string) int { return 0 }) // cmd is unused
 
 	if err := sendKeepAlive(client, "host"); err != nil {
 		t.Fatalf("sendKeepAlive error: %v", err)
@@ -21,7 +21,7 @@ func TestSendKeepAlive(t *testing.T) {
 }
 
 func TestStartKeepAlive(t *testing.T) {
-	server, client := newSSHServerClient(t, func(cmd string) int { return 0 })
+	server, client := newSSHServerClient(t, func(_ string) int { return 0 }) // cmd is unused
 
 	done := make(chan struct{})
 	go func() {
@@ -46,7 +46,7 @@ func TestStartKeepAlive(t *testing.T) {
 }
 
 func TestNewSSHClient(t *testing.T) {
-	server, host, port, knownHosts := newSSHServer(t, func(cmd string) int { return 0 })
+	server, host, port, knownHosts := newSSHServer(t, func(_ string) int { return 0 }) // cmd is unused
 	keyPath := remotetest.CreateTempKey(t)
 	client, err := NewSSHClient(host, "test", keyPath, port, knownHosts, true, time.Second, 10*time.Millisecond, 0)
 	if err != nil {
@@ -63,7 +63,7 @@ func TestNewSSHClient(t *testing.T) {
 }
 
 func TestSSHManager(t *testing.T) {
-	server, host, port, knownHosts := newSSHServer(t, func(cmd string) int { return 0 })
+	server, host, port, knownHosts := newSSHServer(t, func(_ string) int { return 0 }) // cmd is unused
 	keyPath := remotetest.CreateTempKey(t)
 	mgr, err := NewSSHManager("test", keyPath, time.Second, knownHosts)
 	if err != nil {

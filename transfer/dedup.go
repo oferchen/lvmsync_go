@@ -321,7 +321,8 @@ func (r *RollingHashDedup) loadState() error {
 	return nil
 }
 
-func (b *BloomFilterDedup) ShouldTransfer(offset int64, data []byte) bool {
+func (b *BloomFilterDedup) ShouldTransfer(_ int64, data []byte) bool {
+	// offset is ignored because the Bloom filter only tracks data hashes.
 	sum := b.strategy.Compute(data)
 	b.mu.RLock()
 	ok := !b.filter.Test(sum)
@@ -329,7 +330,8 @@ func (b *BloomFilterDedup) ShouldTransfer(offset int64, data []byte) bool {
 	return ok
 }
 
-func (b *BloomFilterDedup) RecordTransfer(offset int64, data []byte) {
+func (b *BloomFilterDedup) RecordTransfer(_ int64, data []byte) {
+	// offset is ignored because the Bloom filter only tracks data hashes.
 	b.mu.Lock()
 	b.filter.Add(b.strategy.Compute(data))
 	b.mu.Unlock()
