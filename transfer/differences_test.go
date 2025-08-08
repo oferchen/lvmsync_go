@@ -2,6 +2,7 @@ package transfer
 
 import (
 	"encoding/binary"
+	"math"
 	"os"
 	"testing"
 )
@@ -49,5 +50,34 @@ func TestGetDifferences(t *testing.T) {
 	}
 	if ranges[1].Start != 4*chunkSize || ranges[1].End != (4+1)*chunkSize-1 {
 		t.Fatalf("unexpected second range: %+v", ranges[1])
+	}
+}
+
+func TestGetDifferencesOverflow(t *testing.T) {
+	tmpFile, err := os.CreateTemp(t.TempDir(), "meta_overflow")
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	defer os.Remove(tmpFile.Name())
+
+	chunkSize := int64(4096)
+
+	if _, err := tmpFile.Write(make([]byte, chunkSize)); err != nil {
+		t.Fatalf("failed to write header: %v", err)
+	}
+
+	buf := make([]byte, 16)
+	origin := uint64(math.MaxInt64)/uint64(chunkSize) + 1
+	binary.LittleEndian.PutUint64(buf[0:8], origin)
+	binary.LittleEndian.PutUint64(buf[8:16], 1)
+	if _, err := tmpFile.Write(buf); err != nil {
+		t.Fatalf("write entry: %v", err)
+	}
+	if err := tmpFile.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+
+	if _, err := GetDifferences(tmpFile.Name(), chunkSize); err == nil {
+		t.Fatalf("expected overflow error")
 	}
 }
