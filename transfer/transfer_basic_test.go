@@ -63,3 +63,10 @@ func TestNewDeduplicationStrategy(t *testing.T) {
 		t.Fatal("expected checksum strategy for auto")
 	}
 }
+
+func TestNewDeduplicationStrategyInvalidBloomEntries(t *testing.T) {
+	cfg := &config.Config{DedupStrategy: "bloom", BloomEntries: -1, BloomFpRate: 0.05}
+	if NewDeduplicationStrategy(cfg) != nil {
+		t.Fatal("expected nil strategy for invalid bloom entries")
+	}
+}
