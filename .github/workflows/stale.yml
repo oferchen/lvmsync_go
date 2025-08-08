@@ -1,4 +1,6 @@
-# This workflow marks issues and PRs as stale after a period of inactivity, then closes them.
+---
+# This workflow marks issues and PRs as stale after a period of inactivity,
+# then closes them.
 # For full documentation, see: https://github.com/actions/stale
 
 name: Mark stale issues and pull requests
@@ -7,7 +9,8 @@ on:
   schedule:
     - cron: '18 19 * * *'  # Runs every day at 19:18 UTC
 
-# ✅ Explicit minimal permissions at the top level for Checkov compliance (CKV2_GHA_1)
+# ✅ Explicit minimal permissions at the top level for Checkov
+# compliance (CKV2_GHA_1)
 permissions:
   contents: read
 
@@ -26,8 +29,12 @@ jobs:
         uses: actions/stale@v5.0.0  # ✅ Pin to exact version
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
-          stale-issue-message: 'This issue is stale because it has been open with no activity for a while. It will be closed soon if no further activity occurs.'
-          stale-pr-message: 'This pull request is stale because it has had no activity for a while. It will be closed soon if no further activity occurs.'
+          stale-issue-message: >-
+            This issue is stale because it has been open with no activity for a
+            while. It will be closed soon if no further activity occurs.
+          stale-pr-message: >-
+            This pull request is stale because it has had no activity for a
+            while. It will be closed soon if no further activity occurs.
           stale-issue-label: 'no-issue-activity'
           stale-pr-label: 'no-pr-activity'
           days-before-stale: 30

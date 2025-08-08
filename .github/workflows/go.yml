@@ -1,7 +1,11 @@
+---
 # This workflow builds and tests a Golang project with LVM2 integration.
-# It complies with Checkov rule CKV2_GHA_1 by avoiding implicit write-all permissions.
+# It complies with Checkov rule CKV2_GHA_1 by avoiding implicit
+# write-all permissions.
 # Go versions 1.21 through 1.24 are tested in matrix strategy.
-# For more info: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
+# For more info:
+# https://docs.github.com/en/actions/automating-builds-and-tests/
+# building-and-testing-go
 
 name: Go
 
@@ -27,67 +31,78 @@ jobs:
       CGO_CFLAGS: "-I/usr/include"
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Install build dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y \
-          autoconf automake libtool pkg-config \
-          build-essential libdevmapper-dev libreadline-dev \
-          uuid-dev libaio-dev \
-          libselinux-dev libsepol-dev \
-          git curl
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            autoconf automake libtool pkg-config \
+            build-essential libdevmapper-dev libreadline-dev \
+            uuid-dev libaio-dev \
+            libselinux-dev libsepol-dev \
+            git curl
 
-    - name: Clone and build LVM2 with lvm2cmd.h
-      run: |
-        git clone https://sourceware.org/git/lvm2.git
-        cd lvm2
-        ./configure \
-          --prefix=/usr \
-          --enable-cmdlib \
-          --enable-pkgconfig \
-          --disable-selinux \
-          --disable-readline \
-          --disable-udev_sync \
-          --disable-udev_rules \
-          --disable-nls \
-          --disable-dmeventd
-        make -j"$(nproc)"
-        sudo make install
+      - name: Clone and build LVM2 with lvm2cmd.h
+        run: |
+          git clone https://sourceware.org/git/lvm2.git
+          cd lvm2
+          ./configure \
+            --prefix=/usr \
+            --enable-cmdlib \
+            --enable-pkgconfig \
+            --disable-selinux \
+            --disable-readline \
+            --disable-udev_sync \
+            --disable-udev_rules \
+            --disable-nls \
+            --disable-dmeventd
+          make -j"$(nproc)"
+          sudo make install
 
-    - name: Verify required LVM2 headers
-      run: |
-        test -f /usr/include/lvm2cmd.h || { echo "Missing lvm2cmd.h!"; exit 1; }
+      - name: Verify required LVM2 headers
+        run: |
+          test -f /usr/include/lvm2cmd.h || {
+            echo "Missing lvm2cmd.h!";
+            exit 1;
+          }
 
-    - name: Set up Go
-      uses: actions/setup-go@v5.5.0
-      with:
-        go-version: ${{ matrix.go-version }}
+      - name: Set up Go
+        uses: actions/setup-go@v5.5.0
+        with:
+          go-version: ${{ matrix.go-version }}
 
-    - name: Cache Go modules
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cache/go-build
-          ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ matrix.go-version }}-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-go-${{ matrix.go-version }}-
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: >-
+            ${{ runner.os }}-go-${{ matrix.go-version }}-${{
+            hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-${{ matrix.go-version }}-
 
-    - name: Verify formatting
-      run: |
-        go install golang.org/x/tools/cmd/goimports@latest
-        fmt_out=$(gofmt -l .)
-        if [ -n "$fmt_out" ]; then
-          echo "Run gofmt on the following files:"; echo "$fmt_out"; exit 1; fi
-        imp_out=$(goimports -l .)
-        if [ -n "$imp_out" ]; then
-          echo "Run goimports on the following files:"; echo "$imp_out"; exit 1; fi
+      - name: Verify formatting
+        run: |
+          go install golang.org/x/tools/cmd/goimports@latest
+          fmt_out=$(gofmt -l .)
+          if [ -n "$fmt_out" ]; then
+            echo "Run gofmt on the following files:"
+            echo "$fmt_out"
+            exit 1
+          fi
+          imp_out=$(goimports -l .)
+          if [ -n "$imp_out" ]; then
+            echo "Run goimports on the following files:"
+            echo "$imp_out"
+            exit 1
+          fi
 
-    - name: Build project
-      run: go build -v ./...
+      - name: Build project
+        run: go build -v ./...
 
-    - name: Run tests
-      run: go test -v -race -cover ./...
+      - name: Run tests
+        run: go test -v -race -cover ./...
