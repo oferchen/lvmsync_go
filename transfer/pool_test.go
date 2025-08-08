@@ -15,7 +15,7 @@ func BenchmarkReadBlockWithPool(b *testing.B) {
 	}
 	defer os.Remove(f.Name())
 	data := make([]byte, cfg.BlockSize)
-	if _, err := f.Write(data); err != nil {
+	if _, err = f.Write(data); err != nil {
 		b.Fatal(err)
 	}
 	f.Close()
@@ -44,7 +44,7 @@ func BenchmarkReadBlockWithMake(b *testing.B) {
 	}
 	defer os.Remove(f.Name())
 	data := make([]byte, cfg.BlockSize)
-	if _, err := f.Write(data); err != nil {
+	if _, err = f.Write(data); err != nil {
 		b.Fatal(err)
 	}
 	f.Close()
@@ -58,7 +58,7 @@ func BenchmarkReadBlockWithMake(b *testing.B) {
 	b.ResetTimer()
 	buf := make([]byte, cfg.BlockSize)
 	for i := 0; i < b.N; i++ {
-		if _, err := f.ReadAt(buf, 0); err != nil {
+		if _, err = f.ReadAt(buf, 0); err != nil {
 			b.Fatal(err)
 		}
 		buf = make([]byte, cfg.BlockSize)

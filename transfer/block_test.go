@@ -70,17 +70,17 @@ func TestReadBlockWithRetriesPipeHandling(t *testing.T) {
 	putBlockBuffer(buf)
 
 	fds := [2]int{}
-	if err := syscall.Pipe(fds[:]); err != nil {
+	if err = syscall.Pipe(fds[:]); err != nil {
 		t.Fatalf("pipe: %v", err)
 	}
 	defer func() {
-		if err := syscall.Close(fds[0]); err != nil {
-			t.Logf("close fd0: %v", err)
+		if closeErr := syscall.Close(fds[0]); closeErr != nil {
+			t.Logf("close fd0: %v", closeErr)
 		}
 	}()
 	defer func() {
-		if err := syscall.Close(fds[1]); err != nil {
-			t.Logf("close fd1: %v", err)
+		if closeErr := syscall.Close(fds[1]); closeErr != nil {
+			t.Logf("close fd1: %v", closeErr)
 		}
 	}()
 

@@ -39,7 +39,7 @@ func createDumpTestFiles(t testing.TB, blockSize int64, changedBlocks []int) (sr
 	}
 	for i := 0; i < blockCount; i++ {
 		data := bytes.Repeat([]byte{byte(i + 1)}, int(blockSize))
-		if _, err := srcFile.Write(data); err != nil {
+		if _, err = srcFile.Write(data); err != nil {
 			t.Fatalf("failed to write block: %v", err)
 		}
 	}
@@ -51,18 +51,18 @@ func createDumpTestFiles(t testing.TB, blockSize int64, changedBlocks []int) (sr
 	if err != nil {
 		t.Fatalf("failed to create metadata: %v", err)
 	}
-	if _, err := metaFile.Write(make([]byte, blockSize)); err != nil {
+	if _, err = metaFile.Write(make([]byte, blockSize)); err != nil {
 		t.Fatalf("failed to write metadata header: %v", err)
 	}
 	for _, b := range changedBlocks {
 		buf := make([]byte, 16)
 		binary.LittleEndian.PutUint64(buf[0:8], uint64(b))
 		binary.LittleEndian.PutUint64(buf[8:16], uint64(b+1))
-		if _, err := metaFile.Write(buf); err != nil {
+		if _, err = metaFile.Write(buf); err != nil {
 			t.Fatalf("failed to write metadata entry: %v", err)
 		}
 	}
-	if _, err := metaFile.Write(make([]byte, 16)); err != nil {
+	if _, err = metaFile.Write(make([]byte, 16)); err != nil {
 		t.Fatalf("failed to write metadata terminator: %v", err)
 	}
 	metaFile.Close()
@@ -72,7 +72,7 @@ func createDumpTestFiles(t testing.TB, blockSize int64, changedBlocks []int) (sr
 	SetMapperDir(mapper)
 	snapshot = "testvg-testlv"
 	link := filepath.Join(mapper, "testvg-testlv-cow")
-	if err := os.Symlink(meta, link); err != nil {
+	if err = os.Symlink(meta, link); err != nil {
 		t.Fatalf("failed to create metadata symlink: %v", err)
 	}
 	t.Cleanup(func() {
@@ -195,13 +195,13 @@ func TestProcessDumpDataAutoDecompression(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create dest: %v", err)
 	}
-	if err := destFile.Truncate(info.Size()); err != nil {
+	if err = destFile.Truncate(info.Size()); err != nil {
 		t.Fatalf("truncate dest: %v", err)
 	}
 	destFile.Close()
 
 	cfgProcess := &config.Config{BlockSize: int(blockSize), Compress: "none", MaxRetries: 1}
-	if err := ProcessDumpData(cfgProcess, bytes.NewReader(data), dest); err != nil {
+	if err = ProcessDumpData(cfgProcess, bytes.NewReader(data), dest); err != nil {
 		t.Fatalf("ProcessDumpData failed: %v", err)
 	}
 
@@ -210,7 +210,7 @@ func TestProcessDumpDataAutoDecompression(t *testing.T) {
 		t.Fatalf("open dest: %v", err)
 	}
 	got := make([]byte, blockSize)
-	if _, err := outFile.ReadAt(got, 0); err != nil {
+	if _, err = outFile.ReadAt(got, 0); err != nil {
 		t.Fatalf("read dest: %v", err)
 	}
 	outFile.Close()
