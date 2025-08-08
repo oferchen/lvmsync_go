@@ -388,7 +388,7 @@ func TestCompressLevelValidation(t *testing.T) {
 		if compressiondetect.DetectOptimalCompression() == "zstd" {
 			v.Set("compress_level", 100)
 		} else {
-			v.Set("compress_level", 3)
+			v.Set("compress_level", int(lz4.Level9)+1)
 		}
 		defaults, err := DefaultConfig()
 		if err != nil {
@@ -417,7 +417,7 @@ func TestCompressLevelValidation(t *testing.T) {
 	t.Run("lz4Invalid", func(t *testing.T) {
 		v := viper.New()
 		v.Set("compress", "lz4")
-		v.Set("compress_level", 3)
+		v.Set("compress_level", int(lz4.Level9)+1)
 		defaults, err := DefaultConfig()
 		if err != nil {
 			t.Fatalf("DefaultConfig returned error: %v", err)

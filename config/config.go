@@ -180,13 +180,10 @@ func (b *Builder) validateCompression(conf *Config) error {
 			return fmt.Errorf("invalid zstd compression level: %d", conf.CompressLevel)
 		}
 	case "lz4":
-		lvl := lz4.CompressionLevel(conf.CompressLevel)
-		switch lvl {
-		case lz4.Fast, lz4.Level1, lz4.Level2, lz4.Level3, lz4.Level4, lz4.Level5, lz4.Level6, lz4.Level7, lz4.Level8, lz4.Level9:
-			// valid
-		default:
+		if conf.CompressLevel < int(lz4.Fast) || conf.CompressLevel > int(lz4.Level9) {
 			return fmt.Errorf("invalid lz4 compression level: %d", conf.CompressLevel)
 		}
+		_ = lz4.CompressionLevel(conf.CompressLevel)
 	}
 	return nil
 }
