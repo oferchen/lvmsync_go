@@ -2,6 +2,8 @@ package transfer
 
 import (
 	"bufio"
+	"bytes"
+	"encoding/binary"
 	"io"
 	"math"
 	"os"
@@ -47,5 +49,40 @@ func TestSaveResumeStatePermissions(t *testing.T) {
 	}
 	if info.Mode().Perm() != 0o600 {
 		t.Fatalf("expected permissions 600, got %v", info.Mode().Perm())
+	}
+}
+
+func TestReadBlockHeaderOffsetBoundary(t *testing.T) {
+	header := make([]byte, 12)
+	offset := uint64(math.MaxInt64)
+	binary.BigEndian.PutUint64(header[0:8], offset)
+	binary.BigEndian.PutUint32(header[8:12], 1)
+	reader := bufio.NewReader(bytes.NewReader(header))
+	gotOffset, gotSize, _, err := readBlockHeader(reader, make([]byte, 12), false, nil)
+	if err != nil {
+		t.Fatalf("readBlockHeader returned error: %v", err)
+	}
+	if gotOffset != offset || gotSize != 1 {
+		t.Fatalf("unexpected header values %d %d", gotOffset, gotSize)
+	}
+}
+
+func TestReadBlockHeaderOffsetOverflow(t *testing.T) {
+	header := make([]byte, 12)
+	offset := uint64(math.MaxInt64) + 1
+	binary.BigEndian.PutUint64(header[0:8], offset)
+	binary.BigEndian.PutUint32(header[8:12], 1)
+	reader := bufio.NewReader(bytes.NewReader(header))
+	if _, _, _, err := readBlockHeader(reader, make([]byte, 12), false, nil); err == nil {
+		t.Fatalf("expected overflow error")
+	}
+}
+
+func TestWriteDataOffsetOverflow(t *testing.T) {
+	dest := newTempFile(t, "dest")
+	defer dest.Close()
+	err := writeData(dest, uint64(math.MaxInt64)+1, []byte("data"))
+	if err == nil || !strings.Contains(err.Error(), "overflows int64") {
+		t.Fatalf("expected overflow error, got %v", err)
 	}
 }

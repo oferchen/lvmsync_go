@@ -57,6 +57,10 @@ func ReadMetadataHeader(metadataPath string) (chunkSize int64, err error) {
 }
 
 func GetDifferences(metadataPath string, chunkSize int64) (ranges []Range, err error) {
+	if chunkSize <= 0 {
+		return nil, fmt.Errorf("invalid chunk size %d", chunkSize)
+	}
+
 	file, err := os.Open(metadataPath)
 	if err != nil {
 		return nil, err
