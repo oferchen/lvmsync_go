@@ -4,6 +4,7 @@ version: "2"
 run:
   timeout: 3m
   tests: true
+  workdir: .
 
 issues:
   max-issues-per-linter: 0
