@@ -16,7 +16,7 @@ func newBackendWithCGO(lvm cgo.LVM) lvmBackend { return &cgoBackend{lvm: lvm} }
 
 func newLVMBackend() lvmBackend { return newBackendWithCGO(cgo.New()) }
 
-func (b *cgoBackend) CreateSnapshot(ctx context.Context, lvPath, snapshotName, size string) error {
+func (b *cgoBackend) CreateSnapshot(_ context.Context, lvPath, snapshotName, size string) error {
 	bytes, percent, err := sizeparse.Parse(size)
 	if err != nil {
 		return fmt.Errorf("parse size %q: %w", size, err)
@@ -36,7 +36,7 @@ func (b *cgoBackend) CreateSnapshot(ctx context.Context, lvPath, snapshotName, s
 	return nil
 }
 
-func (b *cgoBackend) RemoveSnapshot(ctx context.Context, snapshotPath string) error {
+func (b *cgoBackend) RemoveSnapshot(_ context.Context, snapshotPath string) error {
 	if err := b.lvm.RemoveLV(snapshotPath); err != nil {
 		return fmt.Errorf("cgo remove snapshot: %w", err)
 	}

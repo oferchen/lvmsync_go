@@ -44,7 +44,7 @@ func (s *sudoAgent) ensureRoot() error {
 	return privesc.EnsureRoot(cmd)
 }
 
-func (s *sudoAgent) Lock(_ context.Context, volume, requester string) error {
+func (s *sudoAgent) Lock(_ context.Context, _, _ string) error {
 	if err := s.ensureRoot(); err != nil {
 		return err
 	}
@@ -52,7 +52,7 @@ func (s *sudoAgent) Lock(_ context.Context, volume, requester string) error {
 	return nil
 }
 
-func (s *sudoAgent) Unlock(_ context.Context, volume, requester string) error {
+func (s *sudoAgent) Unlock(_ context.Context, _, _ string) error {
 	if err := s.ensureRoot(); err != nil {
 		return err
 	}
@@ -60,7 +60,7 @@ func (s *sudoAgent) Unlock(_ context.Context, volume, requester string) error {
 	return nil
 }
 
-func (s *sudoAgent) GetMetadata(_ context.Context, volume string) (VolumeMetadata, error) {
+func (s *sudoAgent) GetMetadata(_ context.Context, _ string) (VolumeMetadata, error) {
 	if err := s.ensureRoot(); err != nil {
 		return VolumeMetadata{}, err
 	}
@@ -68,7 +68,7 @@ func (s *sudoAgent) GetMetadata(_ context.Context, volume string) (VolumeMetadat
 	return VolumeMetadata{}, nil
 }
 
-func (s *sudoAgent) SendMetadata(_ context.Context, md VolumeMetadata) error {
+func (s *sudoAgent) SendMetadata(_ context.Context, _ VolumeMetadata) error {
 	if err := s.ensureRoot(); err != nil {
 		return err
 	}
