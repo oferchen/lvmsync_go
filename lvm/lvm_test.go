@@ -83,7 +83,7 @@ func TestGetVolumeSize(t *testing.T) {
 			t.Fatalf("failed to create temp volume: %v", err)
 		}
 		defer f.Close()
-		if err := f.Truncate(int64(5 * 1024 * 1024 * 1024)); err != nil {
+		if err = f.Truncate(int64(5 * 1024 * 1024 * 1024)); err != nil {
 			t.Fatalf("truncate failed: %v", err)
 		}
 

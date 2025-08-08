@@ -84,7 +84,7 @@ func TestSSHManager(t *testing.T) {
 	}
 	waitForConnectionCount(t, server, 1)
 
-	if err := mgr.CloseAll(); err != nil {
+	if err = mgr.CloseAll(); err != nil {
 		t.Fatalf("CloseAll error: %v", err)
 	}
 
@@ -97,7 +97,7 @@ func TestSSHManager(t *testing.T) {
 	}
 	waitForConnectionCount(t, server, 2)
 
-	if err := mgr.CloseAll(); err != nil {
+	if err = mgr.CloseAll(); err != nil {
 		t.Fatalf("CloseAll error: %v", err)
 	}
 }

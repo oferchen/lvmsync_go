@@ -267,7 +267,7 @@ func logSequentialSummary(bytes int64, skipped int, start time.Time) {
 }
 
 func dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer, dedup DeduplicationStrategy, handshake string) (err error) {
-	if err := detectBlockSize(cfg, source); err != nil {
+	if err = detectBlockSize(cfg, source); err != nil {
 		return err
 	}
 	Logger.Info("Using block size", zap.Int("blockSize", cfg.BlockSize))
@@ -520,7 +520,7 @@ func DumpChangesParallel(cfg *config.Config, snapshot, source string, out io.Wri
 		return DumpChangesSequential(cfg, snapshot, source, out)
 	}
 
-	if err := detectBlockSize(cfg, source); err != nil {
+	if err = detectBlockSize(cfg, source); err != nil {
 		return err
 	}
 
@@ -531,7 +531,7 @@ func DumpChangesParallel(cfg *config.Config, snapshot, source string, out io.Wri
 	}
 
 	totalDataSize := calculateTotalDataSize(ranges)
-	if err := writeParallelHandshake(cfg, out); err != nil {
+	if err = writeParallelHandshake(cfg, out); err != nil {
 		return err
 	}
 

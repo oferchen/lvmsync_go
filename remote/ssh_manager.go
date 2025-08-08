@@ -157,8 +157,8 @@ func sshAgentAuth() (ssh.AuthMethod, error) {
 
 	agentClient := agent.NewClient(conn)
 	defer func() {
-		if err := conn.Close(); err != nil {
-			Logger.Warn("ssh agent connection close error", zap.Error(err))
+		if closeErr := conn.Close(); closeErr != nil {
+			Logger.Warn("ssh agent connection close error", zap.Error(closeErr))
 		}
 	}()
 

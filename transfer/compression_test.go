@@ -113,10 +113,10 @@ func TestLZ4WriterPoolReuse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new writer: %v", err)
 	}
-	if _, err := w1.Write(data1); err != nil {
+	if _, err = w1.Write(data1); err != nil {
 		t.Fatalf("write1: %v", err)
 	}
-	if err := w1.Close(); err != nil {
+	if err = w1.Close(); err != nil {
 		t.Fatalf("close1: %v", err)
 	}
 
@@ -136,10 +136,10 @@ func TestLZ4WriterPoolReuse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new writer2: %v", err)
 	}
-	if _, err := w2.Write(data2); err != nil {
+	if _, err = w2.Write(data2); err != nil {
 		t.Fatalf("write2: %v", err)
 	}
-	if err := w2.Close(); err != nil {
+	if err = w2.Close(); err != nil {
 		t.Fatalf("close2: %v", err)
 	}
 
@@ -171,7 +171,7 @@ func TestLZ4ReaderPoolReuse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read1: %v", err)
 	}
-	if err := r1.Close(); err != nil {
+	if err = r1.Close(); err != nil {
 		t.Fatalf("close1: %v", err)
 	}
 	if !bytes.Equal(out1, data1) {
@@ -197,7 +197,7 @@ func TestLZ4ReaderPoolReuse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read2: %v", err)
 	}
-	if err := r2.Close(); err != nil {
+	if err = r2.Close(); err != nil {
 		t.Fatalf("close2: %v", err)
 	}
 	if !bytes.Equal(out2, data2) {

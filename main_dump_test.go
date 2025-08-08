@@ -9,12 +9,12 @@ import (
 )
 
 func TestExecuteDumpSequential(t *testing.T) {
-	cfg, cfgErr := config.DefaultConfig()
+	cfg2, cfgErr := config.DefaultConfig()
 	if cfgErr != nil {
 		t.Fatalf("DefaultConfig returned error: %v", cfgErr)
 	}
-	cfg.DedupStrategy = "none"
-	cfg.Parallel = 1
+	cfg2.DedupStrategy = "none"
+	cfg2.Parallel = 1
 
 	called := false
 	original := dumpChangesSequential
@@ -24,7 +24,7 @@ func TestExecuteDumpSequential(t *testing.T) {
 	}
 	defer func() { dumpChangesSequential = original }()
 
-	if execErr := executeDump(cfg, "snap", "orig", io.Discard); execErr != nil {
+	if execErr := executeDump(cfg2, "snap", "orig", io.Discard); execErr != nil {
 		t.Fatalf("executeDump returned error: %v", execErr)
 	}
 	if !called {
@@ -33,11 +33,11 @@ func TestExecuteDumpSequential(t *testing.T) {
 }
 
 func TestExecuteDumpParallel(t *testing.T) {
-	cfg, cfgErr := config.DefaultConfig()
+	cfg2, cfgErr := config.DefaultConfig()
 	if cfgErr != nil {
 		t.Fatalf("DefaultConfig returned error: %v", cfgErr)
 	}
-	cfg.Parallel = 2
+	cfg2.Parallel = 2
 
 	called := false
 	original := dumpChangesParallel
@@ -47,7 +47,7 @@ func TestExecuteDumpParallel(t *testing.T) {
 	}
 	defer func() { dumpChangesParallel = original }()
 
-	if execErr := executeDump(cfg, "snap", "orig", io.Discard); execErr != nil {
+	if execErr := executeDump(cfg2, "snap", "orig", io.Discard); execErr != nil {
 		t.Fatalf("executeDump returned error: %v", execErr)
 	}
 	if !called {
@@ -56,11 +56,11 @@ func TestExecuteDumpParallel(t *testing.T) {
 }
 
 func TestExecuteDumpWithDedup(t *testing.T) {
-	cfg, cfgErr := config.DefaultConfig()
+	cfg2, cfgErr := config.DefaultConfig()
 	if cfgErr != nil {
 		t.Fatalf("DefaultConfig returned error: %v", cfgErr)
 	}
-	cfg.DedupStrategy = "checksum"
+	cfg2.DedupStrategy = "checksum"
 
 	called := false
 	original := dumpChangesWithDeduplication
@@ -73,7 +73,7 @@ func TestExecuteDumpWithDedup(t *testing.T) {
 	}
 	defer func() { dumpChangesWithDeduplication = original }()
 
-	if execErr := executeDump(cfg, "snap", "orig", io.Discard); execErr != nil {
+	if execErr := executeDump(cfg2, "snap", "orig", io.Discard); execErr != nil {
 		t.Fatalf("executeDump returned error: %v", execErr)
 	}
 	if !called {

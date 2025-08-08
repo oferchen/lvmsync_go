@@ -23,8 +23,8 @@ func TestRunClientModeStdout(t *testing.T) {
 
 	originalFunc := dumpChangesSequential
 	dumpChangesSequential = func(c *config.Config, snapshot, source string, out io.Writer) error {
-		_, err := out.Write([]byte(expected))
-		return err
+		_, writeErr := out.Write([]byte(expected))
+		return writeErr
 	}
 	defer func() { dumpChangesSequential = originalFunc }()
 
@@ -35,7 +35,7 @@ func TestRunClientModeStdout(t *testing.T) {
 	oldStdout := os.Stdout
 	os.Stdout = w
 
-	if err := runClientMode("/dev/snap", ""); err != nil {
+	if err = runClientMode("/dev/snap", ""); err != nil {
 		t.Fatalf("runClientMode returned error: %v", err)
 	}
 
