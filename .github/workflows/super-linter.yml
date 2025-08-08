@@ -1,5 +1,4 @@
 # .github/workflows/super-linter.yml
-
 name: Lint Code Base
 
 on:
@@ -9,117 +8,59 @@ on:
     branches: [main, master]
 
 permissions:
-  contents: write
+  contents: read
+  checks: write
+  statuses: write
+  pull-requests: write
+
+concurrency:
+  group: super-linter-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   super-linter:
-    name: Super-Linter (Go ${{ matrix.go-version }})
+    name: Super-Linter (Go ${{ matrix.go }})
     runs-on: ubuntu-latest
-
     strategy:
       fail-fast: false
       matrix:
-        go-version: [1.21, 1.22, 1.23, 1.24]
+        go: [1.21, 1.22, 1.23, 1.24]
 
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       DEFAULT_BRANCH: main
       VALIDATE_ALL_CODEBASE: true
-
-      GO_LINTER: golangci-lint
-      GO_LINT_FLAGS: ./...
-      GO_VERSION: ${{ matrix.go-version }}
-      FIX_GO_GOFMT: true
-      FIX_GO_IMPORTS: true
-
-      FIX_YAML_PRETTIER: true
-      FIX_MARKDOWN: true
-      FIX_MARKDOWN_PRETTIER: true
-
-      DOCKERFILE_HADOLINT_FILE_NAME: .hadolint.yaml
-      DOCKERFILE_HADOLINT_CONFIG_FILE: .hadolint.yaml
-      IGNORE_GENERATED_FILES: true
       IGNORE_GITIGNORED_FILES: true
+      IGNORE_GENERATED_FILES: true
+      FILTER_REGEX_EXCLUDE: |
+        (^|/)vendor/|(^|/)third_party/|(^|\.)git/|(^|/)dist/|(^|/)bin/|(^|/)coverage/|(^|/)docs/_site/|(^|/)node_modules/|\.pb\.go$
+      # Go
+      GO_LINTER: golangci-lint
+      GO_VERSION: ${{ matrix.go }}
+      # Optional: use compact output with annotations
+      GO_LINT_FLAGS: "--out-format=github-actions ./..."
+      # Markdown / YAML / Dockerfile configs
+      MARKDOWN_CONFIG_FILE: .markdownlint.yml
+      YAML_CONFIG_FILE: ""
+      DOCKERFILE_HADOLINT_FILE_NAME: .hadolint.yaml
 
     steps:
-      - name: Checkout Code
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          persist-credentials: false
 
-      - name: Set Up Go ${{ matrix.go-version }}
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ matrix.go-version }}
-
-      - name: Configure Git Identity
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Install CGO Build Dependencies (LVM2)
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y \
-            libdevmapper-dev libreadline-dev \
-            uuid-dev libaio-dev liblvm2-dev \
-            libselinux-dev libsepol-dev \
-            git curl
-
-      - name: Build and Install LVM2 from Source (if missing)
-        run: |
-          if [ ! -f /usr/include/lvm2cmd.h ]; then
-            git clone --depth=1 https://sourceware.org/git/lvm2.git
-            pushd lvm2
-            ./configure \
-              --prefix=/usr \
-              --enable-cmdlib \
-              --enable-pkgconfig \
-              --disable-selinux \
-              --disable-readline \
-              --disable-udev_sync \
-              --disable-udev_rules \
-              --disable-nls \
-              --disable-dmeventd
-            make -j"$(nproc)"
-            sudo make install
-            popd
-            rm -rf lvm2
-          fi
-
-      - name: Run Super-Linter with Auto-Fix
-        uses: super-linter/super-linter@v8.0.0
+      - name: Super-Linter
+        uses: github/super-linter/slim@v6
         env:
+          VALIDATE_ALL_CODEBASE: ${{ env.VALIDATE_ALL_CODEBASE }}
+          DEFAULT_BRANCH: ${{ env.DEFAULT_BRANCH }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VALIDATE_ALL_CODEBASE: true
-          FIX_GO_GOFMT: true
-          FIX_GO_IMPORTS: true
-          FIX_YAML_PRETTIER: true
-          FIX_MARKDOWN: true
-          FIX_MARKDOWN_PRETTIER: true
-          DOCKERFILE_HADOLINT_FILE_NAME: .hadolint.yaml
-          DOCKERFILE_HADOLINT_CONFIG_FILE: .hadolint.yaml
-          IGNORE_GENERATED_FILES: true
-          IGNORE_GITIGNORED_FILES: true
-          DEFAULT_BRANCH: main
-          GO_LINTER: golangci-lint
-          GO_LINT_FLAGS: ./...
-          GO_VERSION: ${{ matrix.go-version }}
-
-      - name: Auto-Commit and Push Fixes (if needed)
-        run: |
-          if ! git diff --quiet; then
-            git add -u
-            if ! git diff --cached --quiet; then
-              commit_msg="chore: auto-fix lint issues [super-linter]"
-              echo "Detected changes. Committing with message: '$commit_msg'"
-              git commit -m "$commit_msg"
-              git push origin HEAD:${{ github.ref_name }}
-            else
-              echo "No staged changes to commit."
-            fi
-          else
-            echo "No working directory changes detected."
-          fi
-          
+          IGNORE_GITIGNORED_FILES: ${{ env.IGNORE_GITIGNORED_FILES }}
+          IGNORE_GENERATED_FILES: ${{ env.IGNORE_GENERATED_FILES }}
+          FILTER_REGEX_EXCLUDE: ${{ env.FILTER_REGEX_EXCLUDE }}
+          GO_LINTER: ${{ env.GO_LINTER }}
+          GO_LINT_FLAGS: ${{ env.GO_LINT_FLAGS }}
+          GO_VERSION: ${{ env.GO_VERSION }}
+          MARKDOWN_CONFIG_FILE: ${{ env.MARKDOWN_CONFIG_FILE }}
+          DOCKERFILE_HADOLINT_FILE_NAME: ${{ env.DOCKERFILE_HADOLINT_FILE_NAME }}

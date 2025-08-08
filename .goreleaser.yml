@@ -1,65 +1,51 @@
-version: 1
+# .goreleaser.yml
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
 
 builds:
-  - id: default
-    main: ./main.go
-    binary: lvmsync_go
+  - id: lvmsync_go
+    env:
+      - CGO_ENABLED=1
     goos:
       - linux
-      - darwin
     goarch:
       - amd64
-      - arm64
-    env:
-      - GO111MODULE=on
-      - CGO_ENABLED=1
-      - CGO_CFLAGS=-I/usr/include
-    ldflags:
-      - -s -w -X main.version={{ .Env.GORELEASER_CURRENT_TAG }}
-    asmflags:
-      - all=-trimpath={{ .ProjectDir }}
     gcflags:
-      - all=-trimpath={{ .ProjectDir }}
+      - all=-d=stripdebug=true
+    ldflags:
+      - -s -w -buildid= -extldflags "-static"
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+    mod_timestamp: "{{ .CommitDate }}"
+    flags:
+      - -trimpath
 
 archives:
-  - id: default
-    builds:
-      - default
-    format: tar.gz
-    name_template: '{{ .ProjectName }}_{{ .Env.GORELEASER_CURRENT_TAG }}_{{ .Os }}_{{ .Arch }}'
+  - format: tar.gz
     files:
-      - LICENSE
-      - README.md
-
-checksum:
-  name_template: 'checksums.txt'
+      - LICENSE*
+      - README*
+      - CHANGELOG*
+      - "examples/**"
 
 changelog:
-  use: git
-  sort: desc
+  sort: asc
+  use: github
   filters:
     exclude:
       - '^docs:'
       - '^test:'
+      - '^chore:'
+      - '^ci:'
 
-dockers:
-  - image_templates:
-      - "docker.io/yourorg/lvmsync_go:{{ .Version }}"
-      - "docker.io/yourorg/lvmsync_go:latest"
-      - "ghcr.io/yourorg/lvmsync_go:{{ .Version }}"
-      - "ghcr.io/yourorg/lvmsync_go:latest"
-    dockerfile: ./Dockerfile
-    use: buildx
-    goos: linux
-    goarch:
-      - amd64
-      - arm64
-    build_flag_templates:
-      - "--platform=linux/{{ .Arch }}"
-    skip_push: {{ eq (env "SKIP_DOCKER_PUSH") "true" }}
+checksum:
+  name_template: "checksums.txt"
 
-release:
-  github:
-    draft: false
-    prerelease: false
-    name_template: '{{ .Env.GORELEASER_CURRENT_TAG }}'
+signs:
+  - artifacts: checksum
+    cmd: gpg
+    args: ["--batch","--yes","--armor","--detach-sign","--output","${signature}","${artifact}"]
