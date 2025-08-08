@@ -30,6 +30,19 @@ var createStateFile = func(name string) (io.WriteCloser, error) {
 	return f, nil
 }
 
+func saveStateFile(path string, write func(io.Writer) error) error {
+	file, err := createStateFile(path)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			zap.L().Warn("failed to close state file", zap.Error(closeErr))
+		}
+	}()
+	return write(file)
+}
+
 // DeduplicationStrategy defines a block deduplication algorithm.
 // Implementations decide if a block should be transferred and persist their state.
 type DeduplicationStrategy interface {
@@ -153,30 +166,21 @@ func (c *ChecksumDedup) RecordTransfer(offset int64, data []byte) {
 func (c *ChecksumDedup) SaveState() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-
-	file, err := createStateFile(c.stateFile)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if closeErr := file.Close(); closeErr != nil {
-			zap.L().Warn("failed to close state file", zap.Error(closeErr))
+	return saveStateFile(c.stateFile, func(file io.Writer) error {
+		size := c.strategy.Size()
+		for offset, hash := range c.hashes {
+			if err := binary.Write(file, binary.LittleEndian, offset); err != nil {
+				return err
+			}
+			if len(hash) != size {
+				continue
+			}
+			if _, err := file.Write(hash); err != nil {
+				return err
+			}
 		}
-	}()
-
-	size := c.strategy.Size()
-	for offset, hash := range c.hashes {
-		if err := binary.Write(file, binary.LittleEndian, offset); err != nil {
-			return err
-		}
-		if len(hash) != size {
-			continue
-		}
-		if _, err := file.Write(hash); err != nil {
-			return err
-		}
-	}
-	return nil
+		return nil
+	})
 }
 
 func (c *ChecksumDedup) loadState() error {
@@ -246,31 +250,21 @@ func (r *RollingHashDedup) RecordTransfer(offset int64, data []byte) {
 func (r *RollingHashDedup) SaveState() error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-
-	file, err := createStateFile(r.stateFile)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := file.Close(); err != nil {
-			zap.L().Warn("failed to close state file", zap.Error(err))
-		}
-	}()
-
-	seedArr := *(*[2]uint64)(unsafe.Pointer(&r.seed))
-	if err := binary.Write(file, binary.LittleEndian, seedArr); err != nil {
-		return err
-	}
-
-	for offset, hash := range r.hashes {
-		if err := binary.Write(file, binary.LittleEndian, offset); err != nil {
+	return saveStateFile(r.stateFile, func(file io.Writer) error {
+		seedArr := *(*[2]uint64)(unsafe.Pointer(&r.seed))
+		if err := binary.Write(file, binary.LittleEndian, seedArr); err != nil {
 			return err
 		}
-		if err := binary.Write(file, binary.LittleEndian, hash); err != nil {
-			return err
+		for offset, hash := range r.hashes {
+			if err := binary.Write(file, binary.LittleEndian, offset); err != nil {
+				return err
+			}
+			if err := binary.Write(file, binary.LittleEndian, hash); err != nil {
+				return err
+			}
 		}
-	}
-	return nil
+		return nil
+	})
 }
 
 //nolint:revive // complex state loading
@@ -338,19 +332,10 @@ func (b *BloomFilterDedup) RecordTransfer(offset int64, data []byte) {
 func (b *BloomFilterDedup) SaveState() error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-
-	file, err := createStateFile(b.stateFile)
-	if err != nil {
+	return saveStateFile(b.stateFile, func(file io.Writer) error {
+		_, err := b.filter.WriteTo(file)
 		return err
-	}
-	defer func() {
-		if closeErr := file.Close(); closeErr != nil {
-			zap.L().Warn("failed to close state file", zap.Error(closeErr))
-		}
-	}()
-
-	_, err = b.filter.WriteTo(file)
-	return err
+	})
 }
 
 func (b *BloomFilterDedup) loadState() error {

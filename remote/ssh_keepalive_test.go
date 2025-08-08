@@ -1,29 +1,26 @@
 package remote
 
 import (
-	"crypto/rand"
-	"crypto/rsa"
-	"crypto/x509"
-	"encoding/pem"
 	"net"
-	"os"
 	"strconv"
 	"testing"
 	"time"
 
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
+
+	remotetest "lvmsync_go/remote/testutil"
 )
 
 func TestSendKeepAlive(t *testing.T) {
-	server := newMockSSHServer(t, func(cmd string) int { return 0 })
+	server := remotetest.NewMockSSHServer(t, func(cmd string) int { return 0 })
 	defer server.Close()
-	knownHosts := createKnownHostsFile(t, server)
+	knownHosts := remotetest.CreateKnownHostsFile(t, server)
 	hostKeyCallback, err := knownhosts.New(knownHosts)
 	if err != nil {
 		t.Fatalf("knownhosts.New: %v", err)
 	}
-	client, err := ssh.Dial("tcp", server.addr, &ssh.ClientConfig{User: "test", HostKeyCallback: hostKeyCallback})
+	client, err := ssh.Dial("tcp", server.Addr, &ssh.ClientConfig{User: "test", HostKeyCallback: hostKeyCallback})
 	if err != nil {
 		t.Fatalf("failed to dial: %v", err)
 	}
@@ -40,14 +37,14 @@ func TestSendKeepAlive(t *testing.T) {
 }
 
 func TestStartKeepAlive(t *testing.T) {
-	server := newMockSSHServer(t, func(cmd string) int { return 0 })
+	server := remotetest.NewMockSSHServer(t, func(cmd string) int { return 0 })
 	defer server.Close()
-	knownHosts := createKnownHostsFile(t, server)
+	knownHosts := remotetest.CreateKnownHostsFile(t, server)
 	hostKeyCallback, err := knownhosts.New(knownHosts)
 	if err != nil {
 		t.Fatalf("knownhosts.New: %v", err)
 	}
-	client, err := ssh.Dial("tcp", server.addr, &ssh.ClientConfig{User: "test", HostKeyCallback: hostKeyCallback})
+	client, err := ssh.Dial("tcp", server.Addr, &ssh.ClientConfig{User: "test", HostKeyCallback: hostKeyCallback})
 	if err != nil {
 		t.Fatalf("failed to dial: %v", err)
 	}
@@ -74,30 +71,11 @@ func TestStartKeepAlive(t *testing.T) {
 	}
 }
 
-func createTempKey(t *testing.T) string {
-	key, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatalf("generate key: %v", err)
-	}
-	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)})
-	f, err := os.CreateTemp(t.TempDir(), "id_rsa")
-	if err != nil {
-		t.Fatalf("temp file: %v", err)
-	}
-	if _, err := f.Write(keyPEM); err != nil {
-		t.Fatalf("write key: %v", err)
-	}
-	if err := f.Close(); err != nil {
-		t.Fatalf("close key: %v", err)
-	}
-	return f.Name()
-}
-
 func TestNewSSHClient(t *testing.T) {
-	server := newMockSSHServer(t, func(cmd string) int { return 0 })
+	server := remotetest.NewMockSSHServer(t, func(cmd string) int { return 0 })
 	defer server.Close()
 
-	host, portStr, errSplit := net.SplitHostPort(server.addr)
+	host, portStr, errSplit := net.SplitHostPort(server.Addr)
 	if errSplit != nil {
 		t.Fatalf("SplitHostPort: %v", errSplit)
 	}
@@ -106,8 +84,8 @@ func TestNewSSHClient(t *testing.T) {
 		t.Fatalf("Atoi: %v", errConv)
 	}
 
-	keyPath := createTempKey(t)
-	knownHosts := createKnownHostsFile(t, server)
+	keyPath := remotetest.CreateTempKey(t)
+	knownHosts := remotetest.CreateKnownHostsFile(t, server)
 	client, err := NewSSHClient(host, "test", keyPath, port, knownHosts, true, time.Second, 10*time.Millisecond, 0)
 	if err != nil {
 		t.Fatalf("NewSSHClient error: %v", err)
@@ -123,17 +101,17 @@ func TestNewSSHClient(t *testing.T) {
 }
 
 func TestSSHManager(t *testing.T) {
-	server := newMockSSHServer(t, func(cmd string) int { return 0 })
+	server := remotetest.NewMockSSHServer(t, func(cmd string) int { return 0 })
 	defer server.Close()
 
-	keyPath := createTempKey(t)
-	knownHosts := createKnownHostsFile(t, server)
+	keyPath := remotetest.CreateTempKey(t)
+	knownHosts := remotetest.CreateKnownHostsFile(t, server)
 	mgr, err := NewSSHManager("test", keyPath, time.Second, knownHosts)
 	if err != nil {
 		t.Fatalf("NewSSHManager error: %v", err)
 	}
 
-	host, portStr, errSplit := net.SplitHostPort(server.addr)
+	host, portStr, errSplit := net.SplitHostPort(server.Addr)
 	if errSplit != nil {
 		t.Fatalf("SplitHostPort: %v", errSplit)
 	}
@@ -174,7 +152,7 @@ func TestSSHManager(t *testing.T) {
 	}
 }
 
-func waitForConnectionCount(t *testing.T, server *mockSSHServer, expected int) {
+func waitForConnectionCount(t *testing.T, server *remotetest.MockSSHServer, expected int) {
 	t.Helper()
 	deadline := time.Now().Add(200 * time.Millisecond)
 	for time.Now().Before(deadline) {

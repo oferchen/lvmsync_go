@@ -105,12 +105,16 @@ func newClient(t *testing.T, cfg Config, agent lvmagent.Agent, creds credentials
 	return proto.NewReplicationClient(conn), cleanup
 }
 
+func newInsecureClient(t *testing.T, agent lvmagent.Agent) (proto.ReplicationClient, func()) {
+	return newClient(t, Config{AllowInsecure: true}, agent, insecure.NewCredentials())
+}
+
 func ctxWithRole(role string) context.Context {
 	return metadata.NewOutgoingContext(context.Background(), metadata.Pairs("role", role))
 }
 
 func TestAuthorizeInterceptor(t *testing.T) {
-	client, cleanup := newClient(t, Config{AllowInsecure: true}, nil, insecure.NewCredentials())
+	client, cleanup := newInsecureClient(t, nil)
 	defer cleanup()
 
 	if _, err := client.Ping(ctxWithRole("replicator"), &proto.Empty{}); err != nil {
@@ -125,241 +129,172 @@ func TestAuthorizeInterceptor(t *testing.T) {
 }
 
 func TestLockVolume(t *testing.T) {
-	t.Run("success", func(t *testing.T) {
-		agent := &mockAgent{}
-		client, cleanup := newClient(t, Config{AllowInsecure: true}, agent, insecure.NewCredentials())
-		defer cleanup()
-		resp, err := client.LockVolume(ctxWithRole("replicator"), &proto.LockRequest{VolumeName: "vol", Requester: "req"})
-		if err != nil {
-			t.Fatalf("call failed: %v", err)
-		}
-		if !resp.GetOk() {
-			t.Fatalf("expected ok response")
-		}
-	})
-	t.Run("lock held", func(t *testing.T) {
-		agent := &mockAgent{lock: func(ctx context.Context, v, r string) error { return errors.New("already locked") }}
-		client, cleanup := newClient(t, Config{AllowInsecure: true}, agent, insecure.NewCredentials())
-		defer cleanup()
-		resp, err := client.LockVolume(ctxWithRole("replicator"), &proto.LockRequest{VolumeName: "vol", Requester: "req"})
-		if err != nil {
-			t.Fatalf("call failed: %v", err)
-		}
-		if resp.GetOk() || resp.GetMessage() != "already locked" {
-			t.Fatalf("unexpected response %#v", resp)
-		}
-	})
-	t.Run("no agent", func(t *testing.T) {
-		client, cleanup := newClient(t, Config{AllowInsecure: true}, nil, insecure.NewCredentials())
-		defer cleanup()
-		resp, err := client.LockVolume(ctxWithRole("replicator"), &proto.LockRequest{VolumeName: "vol", Requester: "req"})
-		if err != nil {
-			t.Fatalf("call failed: %v", err)
-		}
-		if resp.GetOk() || resp.GetMessage() != "agent not configured" {
-			t.Fatalf("unexpected response %#v", resp)
-		}
-	})
+	tests := []struct {
+		name  string
+		agent lvmagent.Agent
+		ok    bool
+		msg   string
+	}{
+		{"success", &mockAgent{}, true, ""},
+		{"lock held", &mockAgent{lock: func(ctx context.Context, v, r string) error { return errors.New("already locked") }}, false, "already locked"},
+		{"no agent", nil, false, "agent not configured"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client, cleanup := newInsecureClient(t, tt.agent)
+			defer cleanup()
+			resp, err := client.LockVolume(ctxWithRole("replicator"), &proto.LockRequest{VolumeName: "vol", Requester: "req"})
+			if err != nil {
+				t.Fatalf("call failed: %v", err)
+			}
+			if resp.GetOk() != tt.ok || resp.GetMessage() != tt.msg {
+				t.Fatalf("unexpected response %#v", resp)
+			}
+		})
+	}
 }
 
 func TestGetVolumeMetadata(t *testing.T) {
-	t.Run("success", func(t *testing.T) {
-		agent := &mockAgent{getMeta: func(ctx context.Context, v string) (lvmagent.VolumeMetadata, error) {
+	tests := []struct {
+		name    string
+		agent   lvmagent.Agent
+		wantErr bool
+	}{
+		{"success", &mockAgent{getMeta: func(ctx context.Context, v string) (lvmagent.VolumeMetadata, error) {
 			return lvmagent.VolumeMetadata{VolumeName: v, SizeBytes: 1, ChunkSize: 2}, nil
-		}}
-		client, cleanup := newClient(t, Config{AllowInsecure: true}, agent, insecure.NewCredentials())
-		defer cleanup()
-		resp, err := client.GetVolumeMetadata(ctxWithRole("replicator"), &proto.LockRequest{VolumeName: "vol"})
-		if err != nil {
-			t.Fatalf("call failed: %v", err)
-		}
-		if resp.GetVolumeName() != "vol" || resp.GetSizeBytes() != 1 || resp.GetChunkSize() != 2 {
-			t.Fatalf("unexpected response %#v", resp)
-		}
-	})
-	t.Run("agent error", func(t *testing.T) {
-		agent := &mockAgent{getMeta: func(ctx context.Context, v string) (lvmagent.VolumeMetadata, error) {
+		}}, false},
+		{"agent error", &mockAgent{getMeta: func(ctx context.Context, v string) (lvmagent.VolumeMetadata, error) {
 			return lvmagent.VolumeMetadata{}, errors.New("fail")
-		}}
-		client, cleanup := newClient(t, Config{AllowInsecure: true}, agent, insecure.NewCredentials())
-		defer cleanup()
-		_, err := client.GetVolumeMetadata(ctxWithRole("replicator"), &proto.LockRequest{VolumeName: "vol"})
-		if status.Code(err) == codes.OK {
-			t.Fatalf("expected error")
-		}
-	})
-	t.Run("no agent", func(t *testing.T) {
-		client, cleanup := newClient(t, Config{AllowInsecure: true}, nil, insecure.NewCredentials())
-		defer cleanup()
-		_, err := client.GetVolumeMetadata(ctxWithRole("replicator"), &proto.LockRequest{VolumeName: "vol"})
-		if status.Code(err) != codes.FailedPrecondition {
-			t.Fatalf("expected failed precondition, got %v", err)
-		}
-	})
+		}}, true},
+		{"no agent", nil, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client, cleanup := newInsecureClient(t, tt.agent)
+			defer cleanup()
+			resp, err := client.GetVolumeMetadata(ctxWithRole("replicator"), &proto.LockRequest{VolumeName: "vol"})
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("expected error")
+				}
+				if tt.agent == nil && status.Code(err) != codes.FailedPrecondition {
+					t.Fatalf("expected failed precondition, got %v", err)
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("call failed: %v", err)
+				}
+				if resp.GetVolumeName() != "vol" || resp.GetSizeBytes() != 1 || resp.GetChunkSize() != 2 {
+					t.Fatalf("unexpected response %#v", resp)
+				}
+			}
+		})
+	}
 }
 
 func TestSendVolumeMetadata(t *testing.T) {
-	t.Run("success", func(t *testing.T) {
-		agent := &mockAgent{}
-		client, cleanup := newClient(t, Config{AllowInsecure: true}, agent, insecure.NewCredentials())
-		defer cleanup()
-		resp, err := client.SendVolumeMetadata(ctxWithRole("replicator"), &proto.VolumeMetadata{VolumeName: "vol"})
-		if err != nil {
-			t.Fatalf("call failed: %v", err)
-		}
-		if !resp.GetOk() {
-			t.Fatalf("expected ok")
-		}
-	})
-	t.Run("agent error", func(t *testing.T) {
-		agent := &mockAgent{sendMeta: func(ctx context.Context, md lvmagent.VolumeMetadata) error { return errors.New("checksum mismatch") }}
-		client, cleanup := newClient(t, Config{AllowInsecure: true}, agent, insecure.NewCredentials())
-		defer cleanup()
-		resp, err := client.SendVolumeMetadata(ctxWithRole("replicator"), &proto.VolumeMetadata{VolumeName: "vol"})
-		if err != nil {
-			t.Fatalf("call failed: %v", err)
-		}
-		if resp.GetOk() || resp.GetMessage() != "checksum mismatch" {
-			t.Fatalf("unexpected response %#v", resp)
-		}
-	})
-	t.Run("no agent", func(t *testing.T) {
-		client, cleanup := newClient(t, Config{AllowInsecure: true}, nil, insecure.NewCredentials())
-		defer cleanup()
-		resp, err := client.SendVolumeMetadata(ctxWithRole("replicator"), &proto.VolumeMetadata{VolumeName: "vol"})
-		if err != nil {
-			t.Fatalf("call failed: %v", err)
-		}
-		if resp.GetOk() || resp.GetMessage() != "agent not configured" {
-			t.Fatalf("unexpected response %#v", resp)
-		}
-	})
+	tests := []struct {
+		name  string
+		agent lvmagent.Agent
+		ok    bool
+		msg   string
+	}{
+		{"success", &mockAgent{}, true, ""},
+		{"agent error", &mockAgent{sendMeta: func(ctx context.Context, md lvmagent.VolumeMetadata) error { return errors.New("checksum mismatch") }}, false, "checksum mismatch"},
+		{"no agent", nil, false, "agent not configured"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client, cleanup := newInsecureClient(t, tt.agent)
+			defer cleanup()
+			resp, err := client.SendVolumeMetadata(ctxWithRole("replicator"), &proto.VolumeMetadata{VolumeName: "vol"})
+			if err != nil {
+				t.Fatalf("call failed: %v", err)
+			}
+			if resp.GetOk() != tt.ok || resp.GetMessage() != tt.msg {
+				t.Fatalf("unexpected response %#v", resp)
+			}
+		})
+	}
 }
 
 func TestStartTransferSession(t *testing.T) {
-	t.Run("success", func(t *testing.T) {
-		agent := &mockAgent{}
-		client, cleanup := newClient(t, Config{AllowInsecure: true}, agent, insecure.NewCredentials())
-		defer cleanup()
-		resp, err := client.StartTransferSession(ctxWithRole("replicator"), &proto.LockRequest{VolumeName: "vol", Requester: "req"})
-		if err != nil {
-			t.Fatalf("call failed: %v", err)
-		}
-		if !resp.GetOk() {
-			t.Fatalf("expected ok")
-		}
-	})
-	t.Run("agent error", func(t *testing.T) {
-		agent := &mockAgent{startSess: func(ctx context.Context, v, r string) error { return errors.New("session failed") }}
-		client, cleanup := newClient(t, Config{AllowInsecure: true}, agent, insecure.NewCredentials())
-		defer cleanup()
-		resp, err := client.StartTransferSession(ctxWithRole("replicator"), &proto.LockRequest{VolumeName: "vol", Requester: "req"})
-		if err != nil {
-			t.Fatalf("call failed: %v", err)
-		}
-		if resp.GetOk() || resp.GetMessage() != "session failed" {
-			t.Fatalf("unexpected response %#v", resp)
-		}
-	})
-	t.Run("no agent", func(t *testing.T) {
-		client, cleanup := newClient(t, Config{AllowInsecure: true}, nil, insecure.NewCredentials())
-		defer cleanup()
-		resp, err := client.StartTransferSession(ctxWithRole("replicator"), &proto.LockRequest{VolumeName: "vol", Requester: "req"})
-		if err != nil {
-			t.Fatalf("call failed: %v", err)
-		}
-		if resp.GetOk() || resp.GetMessage() != "agent not configured" {
-			t.Fatalf("unexpected response %#v", resp)
-		}
-	})
+	tests := []struct {
+		name  string
+		agent lvmagent.Agent
+		ok    bool
+		msg   string
+	}{
+		{"success", &mockAgent{}, true, ""},
+		{"agent error", &mockAgent{startSess: func(ctx context.Context, v, r string) error { return errors.New("session failed") }}, false, "session failed"},
+		{"no agent", nil, false, "agent not configured"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client, cleanup := newInsecureClient(t, tt.agent)
+			defer cleanup()
+			resp, err := client.StartTransferSession(ctxWithRole("replicator"), &proto.LockRequest{VolumeName: "vol", Requester: "req"})
+			if err != nil {
+				t.Fatalf("call failed: %v", err)
+			}
+			if resp.GetOk() != tt.ok || resp.GetMessage() != tt.msg {
+				t.Fatalf("unexpected response %#v", resp)
+			}
+		})
+	}
 }
 
 func TestFinalizeSync(t *testing.T) {
-	t.Run("success", func(t *testing.T) {
-		agent := &mockAgent{finalize: func(ctx context.Context, v, r string) error { return nil }, unlock: func(ctx context.Context, v, r string) error { return nil }}
-		client, cleanup := newClient(t, Config{AllowInsecure: true}, agent, insecure.NewCredentials())
-		defer cleanup()
-		resp, err := client.FinalizeSync(ctxWithRole("replicator"), &proto.LockRequest{VolumeName: "vol", Requester: "req"})
-		if err != nil {
-			t.Fatalf("call failed: %v", err)
-		}
-		if !resp.GetOk() {
-			t.Fatalf("expected ok")
-		}
-	})
-	t.Run("finalize error", func(t *testing.T) {
-		agent := &mockAgent{finalize: func(ctx context.Context, v, r string) error { return errors.New("sync fail") }}
-		client, cleanup := newClient(t, Config{AllowInsecure: true}, agent, insecure.NewCredentials())
-		defer cleanup()
-		resp, err := client.FinalizeSync(ctxWithRole("replicator"), &proto.LockRequest{VolumeName: "vol", Requester: "req"})
-		if err != nil {
-			t.Fatalf("call failed: %v", err)
-		}
-		if resp.GetOk() || resp.GetMessage() != "sync fail" {
-			t.Fatalf("unexpected response %#v", resp)
-		}
-	})
-	t.Run("unlock error", func(t *testing.T) {
-		agent := &mockAgent{finalize: func(ctx context.Context, v, r string) error { return nil }, unlock: func(ctx context.Context, v, r string) error { return errors.New("unlock fail") }}
-		client, cleanup := newClient(t, Config{AllowInsecure: true}, agent, insecure.NewCredentials())
-		defer cleanup()
-		resp, err := client.FinalizeSync(ctxWithRole("replicator"), &proto.LockRequest{VolumeName: "vol", Requester: "req"})
-		if err != nil {
-			t.Fatalf("call failed: %v", err)
-		}
-		if resp.GetOk() || resp.GetMessage() != "unlock fail" {
-			t.Fatalf("unexpected response %#v", resp)
-		}
-	})
-	t.Run("no agent", func(t *testing.T) {
-		client, cleanup := newClient(t, Config{AllowInsecure: true}, nil, insecure.NewCredentials())
-		defer cleanup()
-		resp, err := client.FinalizeSync(ctxWithRole("replicator"), &proto.LockRequest{VolumeName: "vol", Requester: "req"})
-		if err != nil {
-			t.Fatalf("call failed: %v", err)
-		}
-		if resp.GetOk() || resp.GetMessage() != "agent not configured" {
-			t.Fatalf("unexpected response %#v", resp)
-		}
-	})
+	tests := []struct {
+		name  string
+		agent lvmagent.Agent
+		ok    bool
+		msg   string
+	}{
+		{"success", &mockAgent{finalize: func(ctx context.Context, v, r string) error { return nil }, unlock: func(ctx context.Context, v, r string) error { return nil }}, true, ""},
+		{"finalize error", &mockAgent{finalize: func(ctx context.Context, v, r string) error { return errors.New("sync fail") }}, false, "sync fail"},
+		{"unlock error", &mockAgent{finalize: func(ctx context.Context, v, r string) error { return nil }, unlock: func(ctx context.Context, v, r string) error { return errors.New("unlock fail") }}, false, "unlock fail"},
+		{"no agent", nil, false, "agent not configured"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client, cleanup := newInsecureClient(t, tt.agent)
+			defer cleanup()
+			resp, err := client.FinalizeSync(ctxWithRole("replicator"), &proto.LockRequest{VolumeName: "vol", Requester: "req"})
+			if err != nil {
+				t.Fatalf("call failed: %v", err)
+			}
+			if resp.GetOk() != tt.ok || resp.GetMessage() != tt.msg {
+				t.Fatalf("unexpected response %#v", resp)
+			}
+		})
+	}
 }
 
 func TestGetStatus(t *testing.T) {
-	t.Run("success", func(t *testing.T) {
-		agent := &mockAgent{status: func(ctx context.Context, v, r string) (string, error) { return "ok", nil }}
-		client, cleanup := newClient(t, Config{AllowInsecure: true}, agent, insecure.NewCredentials())
-		defer cleanup()
-		resp, err := client.GetStatus(ctxWithRole("replicator"), &proto.LockRequest{VolumeName: "vol", Requester: "req"})
-		if err != nil {
-			t.Fatalf("call failed: %v", err)
-		}
-		if !resp.GetOk() || resp.GetMessage() != "ok" {
-			t.Fatalf("unexpected response %#v", resp)
-		}
-	})
-	t.Run("agent error", func(t *testing.T) {
-		agent := &mockAgent{status: func(ctx context.Context, v, r string) (string, error) { return "", errors.New("bad") }}
-		client, cleanup := newClient(t, Config{AllowInsecure: true}, agent, insecure.NewCredentials())
-		defer cleanup()
-		resp, err := client.GetStatus(ctxWithRole("replicator"), &proto.LockRequest{VolumeName: "vol", Requester: "req"})
-		if err != nil {
-			t.Fatalf("call failed: %v", err)
-		}
-		if resp.GetOk() || resp.GetMessage() != "bad" {
-			t.Fatalf("unexpected response %#v", resp)
-		}
-	})
-	t.Run("no agent", func(t *testing.T) {
-		client, cleanup := newClient(t, Config{AllowInsecure: true}, nil, insecure.NewCredentials())
-		defer cleanup()
-		resp, err := client.GetStatus(ctxWithRole("replicator"), &proto.LockRequest{VolumeName: "vol", Requester: "req"})
-		if err != nil {
-			t.Fatalf("call failed: %v", err)
-		}
-		if resp.GetOk() || resp.GetMessage() != "agent not configured" {
-			t.Fatalf("unexpected response %#v", resp)
-		}
-	})
+	tests := []struct {
+		name  string
+		agent lvmagent.Agent
+		ok    bool
+		msg   string
+	}{
+		{"success", &mockAgent{status: func(ctx context.Context, v, r string) (string, error) { return "ok", nil }}, true, "ok"},
+		{"agent error", &mockAgent{status: func(ctx context.Context, v, r string) (string, error) { return "", errors.New("bad") }}, false, "bad"},
+		{"no agent", nil, false, "agent not configured"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client, cleanup := newInsecureClient(t, tt.agent)
+			defer cleanup()
+			resp, err := client.GetStatus(ctxWithRole("replicator"), &proto.LockRequest{VolumeName: "vol", Requester: "req"})
+			if err != nil {
+				t.Fatalf("call failed: %v", err)
+			}
+			if resp.GetOk() != tt.ok || resp.GetMessage() != tt.msg {
+				t.Fatalf("unexpected response %#v", resp)
+			}
+		})
+	}
 }
 
 func generateTLS(t *testing.T) (Config, *tls.Config, *tls.Config) {

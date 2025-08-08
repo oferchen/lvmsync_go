@@ -5,17 +5,19 @@ import (
 
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
+
+	remotetest "lvmsync_go/remote/testutil"
 )
 
 func TestRunRemoteScriptNoLogger(t *testing.T) {
-	server := newMockSSHServer(t, func(cmd string) int { return 0 })
+	server := remotetest.NewMockSSHServer(t, func(cmd string) int { return 0 })
 	defer server.Close()
-	knownHosts := createKnownHostsFile(t, server)
+	knownHosts := remotetest.CreateKnownHostsFile(t, server)
 	hostKeyCallback, hostKeyErr := knownhosts.New(knownHosts)
 	if hostKeyErr != nil {
 		t.Fatalf("knownhosts.New: %v", hostKeyErr)
 	}
-	client, dialErr := ssh.Dial("tcp", server.addr, &ssh.ClientConfig{User: "test", HostKeyCallback: hostKeyCallback})
+	client, dialErr := ssh.Dial("tcp", server.Addr, &ssh.ClientConfig{User: "test", HostKeyCallback: hostKeyCallback})
 	if dialErr != nil {
 		t.Fatalf("failed to dial: %v", dialErr)
 	}
@@ -30,14 +32,14 @@ func TestRunRemoteScriptNoLogger(t *testing.T) {
 }
 
 func TestSendKeepAliveNoLogger(t *testing.T) {
-	server := newMockSSHServer(t, func(cmd string) int { return 0 })
+	server := remotetest.NewMockSSHServer(t, func(cmd string) int { return 0 })
 	defer server.Close()
-	knownHosts := createKnownHostsFile(t, server)
+	knownHosts := remotetest.CreateKnownHostsFile(t, server)
 	hostKeyCallback, hostKeyErr := knownhosts.New(knownHosts)
 	if hostKeyErr != nil {
 		t.Fatalf("knownhosts.New: %v", hostKeyErr)
 	}
-	client, dialErr := ssh.Dial("tcp", server.addr, &ssh.ClientConfig{User: "test", HostKeyCallback: hostKeyCallback})
+	client, dialErr := ssh.Dial("tcp", server.Addr, &ssh.ClientConfig{User: "test", HostKeyCallback: hostKeyCallback})
 	if dialErr != nil {
 		t.Fatalf("failed to dial: %v", dialErr)
 	}
