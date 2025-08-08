@@ -8,6 +8,7 @@ import (
 	"encoding/gob"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -145,6 +146,12 @@ func iterateBlocks(cfg *config.Config, ranges []Range, srcFile *os.File, bufOut 
 	skippedBlocks := 0
 	var header [12]byte
 	for _, r := range ranges {
+		if r.Start < 0 || uint64(r.Start) > math.MaxUint64 {
+			return totalBytes, skippedBlocks, fmt.Errorf("block offset %d out of range", r.Start)
+		}
+		if cfg.BlockSize < 0 || uint64(cfg.BlockSize) > math.MaxUint32 {
+			return totalBytes, skippedBlocks, fmt.Errorf("block size %d out of range", cfg.BlockSize)
+		}
 		data, err := ReadBlockWithRetries(cfg, srcFile, r.Start, cfg.ZeroCopy, pipeFds)
 		if err != nil {
 			return totalBytes, skippedBlocks, fmt.Errorf("error reading block at offset %d: %w", r.Start, err)
@@ -421,6 +428,14 @@ func processParallelResults(cfg *config.Config, results <-chan *BlockResult, buf
 func worker(cfg *config.Config, srcFile *os.File, tasks <-chan BlockTask, results chan<- *BlockResult) {
 	defer workerWG.Done()
 	for task := range tasks {
+		if task.R.Start < 0 || uint64(task.R.Start) > math.MaxUint64 {
+			results <- &BlockResult{Index: task.Index, Err: fmt.Errorf("block offset %d out of range", task.R.Start)}
+			continue
+		}
+		if cfg.BlockSize < 0 || uint64(cfg.BlockSize) > math.MaxUint32 {
+			results <- &BlockResult{Index: task.Index, Err: fmt.Errorf("block size %d out of range", cfg.BlockSize)}
+			continue
+		}
 		data, err := ReadBlockWithRetries(cfg, srcFile, task.R.Start, false, [2]int{-1, -1})
 		results <- &BlockResult{
 			Index:  task.Index,
