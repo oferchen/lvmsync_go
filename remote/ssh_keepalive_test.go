@@ -1,30 +1,14 @@
 package remote
 
 import (
-	"net"
-	"strconv"
 	"testing"
 	"time"
-
-	"golang.org/x/crypto/ssh"
-	"golang.org/x/crypto/ssh/knownhosts"
 
 	remotetest "lvmsync_go/remote/testutil"
 )
 
 func TestSendKeepAlive(t *testing.T) {
-	server := remotetest.NewMockSSHServer(t, func(cmd string) int { return 0 })
-	defer server.Close()
-	knownHosts := remotetest.CreateKnownHostsFile(t, server)
-	hostKeyCallback, err := knownhosts.New(knownHosts)
-	if err != nil {
-		t.Fatalf("knownhosts.New: %v", err)
-	}
-	client, err := ssh.Dial("tcp", server.Addr, &ssh.ClientConfig{User: "test", HostKeyCallback: hostKeyCallback})
-	if err != nil {
-		t.Fatalf("failed to dial: %v", err)
-	}
-	defer client.Close() //nolint:errcheck
+	server, client := newSSHServerClient(t, func(cmd string) int { return 0 })
 
 	if err := sendKeepAlive(client, "host"); err != nil {
 		t.Fatalf("sendKeepAlive error: %v", err)
@@ -37,17 +21,7 @@ func TestSendKeepAlive(t *testing.T) {
 }
 
 func TestStartKeepAlive(t *testing.T) {
-	server := remotetest.NewMockSSHServer(t, func(cmd string) int { return 0 })
-	defer server.Close()
-	knownHosts := remotetest.CreateKnownHostsFile(t, server)
-	hostKeyCallback, err := knownhosts.New(knownHosts)
-	if err != nil {
-		t.Fatalf("knownhosts.New: %v", err)
-	}
-	client, err := ssh.Dial("tcp", server.Addr, &ssh.ClientConfig{User: "test", HostKeyCallback: hostKeyCallback})
-	if err != nil {
-		t.Fatalf("failed to dial: %v", err)
-	}
+	server, client := newSSHServerClient(t, func(cmd string) int { return 0 })
 
 	done := make(chan struct{})
 	go func() {
@@ -72,20 +46,8 @@ func TestStartKeepAlive(t *testing.T) {
 }
 
 func TestNewSSHClient(t *testing.T) {
-	server := remotetest.NewMockSSHServer(t, func(cmd string) int { return 0 })
-	defer server.Close()
-
-	host, portStr, errSplit := net.SplitHostPort(server.Addr)
-	if errSplit != nil {
-		t.Fatalf("SplitHostPort: %v", errSplit)
-	}
-	port, errConv := strconv.Atoi(portStr)
-	if errConv != nil {
-		t.Fatalf("Atoi: %v", errConv)
-	}
-
+	server, host, port, knownHosts := newSSHServer(t, func(cmd string) int { return 0 })
 	keyPath := remotetest.CreateTempKey(t)
-	knownHosts := remotetest.CreateKnownHostsFile(t, server)
 	client, err := NewSSHClient(host, "test", keyPath, port, knownHosts, true, time.Second, 10*time.Millisecond, 0)
 	if err != nil {
 		t.Fatalf("NewSSHClient error: %v", err)
@@ -101,23 +63,11 @@ func TestNewSSHClient(t *testing.T) {
 }
 
 func TestSSHManager(t *testing.T) {
-	server := remotetest.NewMockSSHServer(t, func(cmd string) int { return 0 })
-	defer server.Close()
-
+	server, host, port, knownHosts := newSSHServer(t, func(cmd string) int { return 0 })
 	keyPath := remotetest.CreateTempKey(t)
-	knownHosts := remotetest.CreateKnownHostsFile(t, server)
 	mgr, err := NewSSHManager("test", keyPath, time.Second, knownHosts)
 	if err != nil {
 		t.Fatalf("NewSSHManager error: %v", err)
-	}
-
-	host, portStr, errSplit := net.SplitHostPort(server.Addr)
-	if errSplit != nil {
-		t.Fatalf("SplitHostPort: %v", errSplit)
-	}
-	port, errConv := strconv.Atoi(portStr)
-	if errConv != nil {
-		t.Fatalf("Atoi: %v", errConv)
 	}
 
 	client1, err := mgr.GetClient(host, port)

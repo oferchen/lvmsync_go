@@ -8,10 +8,7 @@ import (
 )
 
 func TestGetDifferences(t *testing.T) {
-	tmpFile, err := os.CreateTemp(t.TempDir(), "meta")
-	if err != nil {
-		t.Fatalf("failed to create temp file: %v", err)
-	}
+	tmpFile := newTempFile(t, "meta")
 	defer os.Remove(tmpFile.Name())
 
 	chunkSize := int64(4096)
@@ -54,10 +51,7 @@ func TestGetDifferences(t *testing.T) {
 }
 
 func TestGetDifferencesOverflow(t *testing.T) {
-	tmpFile, err := os.CreateTemp(t.TempDir(), "meta_overflow")
-	if err != nil {
-		t.Fatalf("failed to create temp file: %v", err)
-	}
+	tmpFile := newTempFile(t, "meta_overflow")
 	defer os.Remove(tmpFile.Name())
 
 	chunkSize := int64(4096)

@@ -2,7 +2,6 @@ package transfer
 
 import (
 	"encoding/binary"
-	"os"
 	"strings"
 	"testing"
 )
@@ -64,10 +63,7 @@ func TestReadMetadataHeader(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tmpFile, err := os.CreateTemp(t.TempDir(), "meta")
-			if err != nil {
-				t.Fatalf("failed to create temp file: %v", err)
-			}
+			tmpFile := newTempFile(t, "meta")
 			if _, err := tmpFile.Write(tt.header); err != nil {
 				t.Fatalf("failed to write header: %v", err)
 			}
