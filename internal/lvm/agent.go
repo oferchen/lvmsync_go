@@ -16,13 +16,13 @@ type VolumeMetadata struct {
 
 // Agent defines methods for performing privileged LVM operations.
 type Agent interface {
-	Lock(ctx context.Context, volume, requester string) error
-	Unlock(ctx context.Context, volume, requester string) error
-	GetMetadata(ctx context.Context, volume string) (VolumeMetadata, error)
-	SendMetadata(ctx context.Context, md VolumeMetadata) error
-	StartTransferSession(ctx context.Context, volume, requester string) error
-	FinalizeSync(ctx context.Context, volume, requester string) error
-	GetStatus(ctx context.Context, volume, requester string) (string, error)
+	Lock(_ context.Context, volume, requester string) error
+	Unlock(_ context.Context, volume, requester string) error
+	GetMetadata(_ context.Context, volume string) (VolumeMetadata, error)
+	SendMetadata(_ context.Context, md VolumeMetadata) error
+	StartTransferSession(_ context.Context, volume, requester string) error
+	FinalizeSync(_ context.Context, volume, requester string) error
+	GetStatus(_ context.Context, volume, requester string) (string, error)
 }
 
 // sudoAgent ensures root privileges via sudo before invoking LVM commands.
@@ -44,7 +44,7 @@ func (s *sudoAgent) ensureRoot() error {
 	return privesc.EnsureRoot(cmd)
 }
 
-func (s *sudoAgent) Lock(ctx context.Context, volume, requester string) error {
+func (s *sudoAgent) Lock(_ context.Context, volume, requester string) error {
 	if err := s.ensureRoot(); err != nil {
 		return err
 	}
@@ -52,7 +52,7 @@ func (s *sudoAgent) Lock(ctx context.Context, volume, requester string) error {
 	return nil
 }
 
-func (s *sudoAgent) Unlock(ctx context.Context, volume, requester string) error {
+func (s *sudoAgent) Unlock(_ context.Context, volume, requester string) error {
 	if err := s.ensureRoot(); err != nil {
 		return err
 	}
@@ -60,7 +60,7 @@ func (s *sudoAgent) Unlock(ctx context.Context, volume, requester string) error 
 	return nil
 }
 
-func (s *sudoAgent) GetMetadata(ctx context.Context, volume string) (VolumeMetadata, error) {
+func (s *sudoAgent) GetMetadata(_ context.Context, volume string) (VolumeMetadata, error) {
 	if err := s.ensureRoot(); err != nil {
 		return VolumeMetadata{}, err
 	}
@@ -68,7 +68,7 @@ func (s *sudoAgent) GetMetadata(ctx context.Context, volume string) (VolumeMetad
 	return VolumeMetadata{}, nil
 }
 
-func (s *sudoAgent) SendMetadata(ctx context.Context, md VolumeMetadata) error {
+func (s *sudoAgent) SendMetadata(_ context.Context, md VolumeMetadata) error {
 	if err := s.ensureRoot(); err != nil {
 		return err
 	}
@@ -76,7 +76,7 @@ func (s *sudoAgent) SendMetadata(ctx context.Context, md VolumeMetadata) error {
 	return nil
 }
 
-func (s *sudoAgent) StartTransferSession(ctx context.Context, volume, requester string) error {
+func (s *sudoAgent) StartTransferSession(_ context.Context, volume, requester string) error {
 	if err := s.ensureRoot(); err != nil {
 		return err
 	}
@@ -84,7 +84,7 @@ func (s *sudoAgent) StartTransferSession(ctx context.Context, volume, requester 
 	return nil
 }
 
-func (s *sudoAgent) FinalizeSync(ctx context.Context, volume, requester string) error {
+func (s *sudoAgent) FinalizeSync(_ context.Context, volume, requester string) error {
 	if err := s.ensureRoot(); err != nil {
 		return err
 	}
@@ -92,7 +92,7 @@ func (s *sudoAgent) FinalizeSync(ctx context.Context, volume, requester string) 
 	return nil
 }
 
-func (s *sudoAgent) GetStatus(ctx context.Context, volume, requester string) (string, error) {
+func (s *sudoAgent) GetStatus(_ context.Context, volume, requester string) (string, error) {
 	if err := s.ensureRoot(); err != nil {
 		return "", err
 	}
