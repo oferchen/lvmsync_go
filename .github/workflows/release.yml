@@ -1,3 +1,4 @@
+---
 # This workflow builds and publishes a new release when a tag is pushed.
 # It uses GoReleaser to release binaries and Docker multi-arch images.
 
@@ -60,12 +61,14 @@ jobs:
       - name: Docker login to DockerHub
         if: env.SKIP_DOCKER_PUSH == 'false'
         run: |
-          echo "${{ secrets.GOLANGCI_LINT_DOCKER_TOKEN }}" | docker login -u "golangci" --password-stdin
+          echo "${{ secrets.GOLANGCI_LINT_DOCKER_TOKEN }}" | \
+            docker login -u "golangci" --password-stdin
 
       - name: Docker login to GHCR (optional)
         if: env.SKIP_DOCKER_PUSH == 'false'
         run: |
-          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          echo "${{ secrets.GITHUB_TOKEN }}" | \
+            docker login ghcr.io -u "${{ github.actor }}" --password-stdin
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6.0.0
