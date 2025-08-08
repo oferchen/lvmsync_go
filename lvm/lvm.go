@@ -157,6 +157,10 @@ func CheckDiskSpace(mountPoint string) (uint64, error) {
 		return 0, fmt.Errorf("failed to get disk stats for %q: %w", mountPoint, err)
 	}
 
+	if stat.Bsize < 0 {
+		return 0, fmt.Errorf("negative block size for %q: %d", mountPoint, stat.Bsize)
+	}
+
 	available := stat.Bavail * uint64(stat.Bsize)
 	zap.L().Debug("Disk space check",
 		zap.String("mount_point", mountPoint),
@@ -187,7 +191,11 @@ func GetVolumeSize(volumePath string) (uint64, error) {
 			if statErr != nil {
 				return 0, fmt.Errorf("stat failed on %q: %w", volumePath, statErr)
 			}
-			size = uint64(info.Size())
+			s := info.Size()
+			if s < 0 {
+				return 0, fmt.Errorf("size of %q is negative: %d", volumePath, s)
+			}
+			size = uint64(s)
 		} else {
 			return 0, fmt.Errorf("ioctl BLKGETSIZE64 failed on %q: %w", volumePath, err)
 		}
