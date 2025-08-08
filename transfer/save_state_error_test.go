@@ -23,8 +23,8 @@ func TestDumpChangesLogsSaveStateError(t *testing.T) {
 
 	cfg := &config.Config{BlockSize: int(blockSize), Compress: "none", DedupStrategy: "checksum", DedupStateFile: filepath.Join(t.TempDir(), "missing", "state"), MaxRetries: 1}
 	var buf bytes.Buffer
-	if err := DumpChanges(cfg, snapshot, src, &buf); err != nil {
-		t.Fatalf("DumpChanges failed: %v", err)
+	if dumpErr := DumpChanges(cfg, snapshot, src, &buf); dumpErr != nil {
+		t.Fatalf("DumpChanges failed: %v", dumpErr)
 	}
 	logs := observed.FilterMessage("Failed to save dedup state").All()
 	if len(logs) != 1 {
