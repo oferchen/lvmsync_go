@@ -89,18 +89,15 @@ func FormatBlockSize(blockSize int) (string, error) {
 	if blockSize < 0 {
 		return "", fmt.Errorf("block size %d cannot be negative", blockSize)
 	}
-	if uint64(blockSize) > math.MaxUint64 {
-		return "", fmt.Errorf("block size %d overflows uint64", blockSize)
+	if blockSize > math.MaxInt {
+		return "", fmt.Errorf("block size %d overflows int", blockSize)
 	}
 	return sizeparse.FormatBytes(uint64(blockSize)), nil
 }
 
 func LZ4Level(level int) (uint32, error) {
-	if level < 0 {
-		return 0, fmt.Errorf("lz4 level %d cannot be negative", level)
-	}
-	if uint64(level) > math.MaxUint32 {
-		return 0, fmt.Errorf("lz4 level %d overflows uint32", level)
+	if level < 0 || level > int(math.MaxUint32) {
+		return 0, fmt.Errorf("lz4 level %d out of range", level)
 	}
 	return uint32(level), nil
 }
