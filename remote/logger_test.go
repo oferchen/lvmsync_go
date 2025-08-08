@@ -11,21 +11,21 @@ func TestRunRemoteScriptNoLogger(t *testing.T) {
 	server := newMockSSHServer(t, func(cmd string) int { return 0 })
 	defer server.Close()
 	knownHosts := createKnownHostsFile(t, server)
-	hostKeyCallback, err := knownhosts.New(knownHosts)
-	if err != nil {
-		t.Fatalf("knownhosts.New: %v", err)
+	hostKeyCallback, hostKeyErr := knownhosts.New(knownHosts)
+	if hostKeyErr != nil {
+		t.Fatalf("knownhosts.New: %v", hostKeyErr)
 	}
-	client, err := ssh.Dial("tcp", server.addr, &ssh.ClientConfig{User: "test", HostKeyCallback: hostKeyCallback})
-	if err != nil {
-		t.Fatalf("failed to dial: %v", err)
+	client, dialErr := ssh.Dial("tcp", server.addr, &ssh.ClientConfig{User: "test", HostKeyCallback: hostKeyCallback})
+	if dialErr != nil {
+		t.Fatalf("failed to dial: %v", dialErr)
 	}
 	defer client.Close() //nolint:errcheck
 
 	SetLogger(nil)
 
 	script := "echo hi"
-	if err := RunRemoteScript(client, script); err != nil {
-		t.Fatalf("RunRemoteScript error: %v", err)
+	if scriptErr := RunRemoteScript(client, script); scriptErr != nil {
+		t.Fatalf("RunRemoteScript error: %v", scriptErr)
 	}
 }
 
@@ -33,19 +33,19 @@ func TestSendKeepAliveNoLogger(t *testing.T) {
 	server := newMockSSHServer(t, func(cmd string) int { return 0 })
 	defer server.Close()
 	knownHosts := createKnownHostsFile(t, server)
-	hostKeyCallback, err := knownhosts.New(knownHosts)
-	if err != nil {
-		t.Fatalf("knownhosts.New: %v", err)
+	hostKeyCallback, hostKeyErr := knownhosts.New(knownHosts)
+	if hostKeyErr != nil {
+		t.Fatalf("knownhosts.New: %v", hostKeyErr)
 	}
-	client, err := ssh.Dial("tcp", server.addr, &ssh.ClientConfig{User: "test", HostKeyCallback: hostKeyCallback})
-	if err != nil {
-		t.Fatalf("failed to dial: %v", err)
+	client, dialErr := ssh.Dial("tcp", server.addr, &ssh.ClientConfig{User: "test", HostKeyCallback: hostKeyCallback})
+	if dialErr != nil {
+		t.Fatalf("failed to dial: %v", dialErr)
 	}
 	defer client.Close() //nolint:errcheck
 
 	SetLogger(nil)
 
-	if err := sendKeepAlive(client, "host"); err != nil {
-		t.Fatalf("sendKeepAlive error: %v", err)
+	if keepErr := sendKeepAlive(client, "host"); keepErr != nil {
+		t.Fatalf("sendKeepAlive error: %v", keepErr)
 	}
 }

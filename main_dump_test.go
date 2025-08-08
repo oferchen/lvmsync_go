@@ -9,9 +9,9 @@ import (
 )
 
 func TestExecuteDumpSequential(t *testing.T) {
-	cfg, err := config.DefaultConfig()
-	if err != nil {
-		t.Fatalf("DefaultConfig returned error: %v", err)
+	cfg, cfgErr := config.DefaultConfig()
+	if cfgErr != nil {
+		t.Fatalf("DefaultConfig returned error: %v", cfgErr)
 	}
 	cfg.DedupStrategy = "none"
 	cfg.Parallel = 1
@@ -24,8 +24,8 @@ func TestExecuteDumpSequential(t *testing.T) {
 	}
 	defer func() { dumpChangesSequential = original }()
 
-	if err := executeDump(cfg, "snap", "orig", io.Discard); err != nil {
-		t.Fatalf("executeDump returned error: %v", err)
+	if execErr := executeDump(cfg, "snap", "orig", io.Discard); execErr != nil {
+		t.Fatalf("executeDump returned error: %v", execErr)
 	}
 	if !called {
 		t.Fatalf("dumpChangesSequential was not called")
@@ -33,9 +33,9 @@ func TestExecuteDumpSequential(t *testing.T) {
 }
 
 func TestExecuteDumpParallel(t *testing.T) {
-	cfg, err := config.DefaultConfig()
-	if err != nil {
-		t.Fatalf("DefaultConfig returned error: %v", err)
+	cfg, cfgErr := config.DefaultConfig()
+	if cfgErr != nil {
+		t.Fatalf("DefaultConfig returned error: %v", cfgErr)
 	}
 	cfg.Parallel = 2
 
@@ -47,8 +47,8 @@ func TestExecuteDumpParallel(t *testing.T) {
 	}
 	defer func() { dumpChangesParallel = original }()
 
-	if err := executeDump(cfg, "snap", "orig", io.Discard); err != nil {
-		t.Fatalf("executeDump returned error: %v", err)
+	if execErr := executeDump(cfg, "snap", "orig", io.Discard); execErr != nil {
+		t.Fatalf("executeDump returned error: %v", execErr)
 	}
 	if !called {
 		t.Fatalf("dumpChangesParallel was not called")
@@ -56,9 +56,9 @@ func TestExecuteDumpParallel(t *testing.T) {
 }
 
 func TestExecuteDumpWithDedup(t *testing.T) {
-	cfg, err := config.DefaultConfig()
-	if err != nil {
-		t.Fatalf("DefaultConfig returned error: %v", err)
+	cfg, cfgErr := config.DefaultConfig()
+	if cfgErr != nil {
+		t.Fatalf("DefaultConfig returned error: %v", cfgErr)
 	}
 	cfg.DedupStrategy = "checksum"
 
@@ -73,8 +73,8 @@ func TestExecuteDumpWithDedup(t *testing.T) {
 	}
 	defer func() { dumpChangesWithDeduplication = original }()
 
-	if err := executeDump(cfg, "snap", "orig", io.Discard); err != nil {
-		t.Fatalf("executeDump returned error: %v", err)
+	if execErr := executeDump(cfg, "snap", "orig", io.Discard); execErr != nil {
+		t.Fatalf("executeDump returned error: %v", execErr)
 	}
 	if !called {
 		t.Fatalf("dumpChangesWithDeduplication was not called")

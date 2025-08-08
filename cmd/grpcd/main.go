@@ -13,19 +13,19 @@ import (
 	"go.uber.org/zap"
 )
 
+var (
+	newZapProduction = zap.NewProduction
+	exitFunc         = os.Exit
+)
+
 func main() {
-	logger, err := zap.NewProduction()
+	logger, err := newZapProduction()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to init logger: %v\n", err)
-		os.Exit(1)
+		exitFunc(1)
 	}
 	zap.ReplaceGlobals(logger)
-	defer func() {
-		if err := logger.Sync(); err != nil {
-			logger.Error("failed to sync logger", zap.Error(err))
-			os.Exit(1)
-		}
-	}()
+	defer syncAndExit(logger)
 
 	port := getEnvInt("GRPC_PORT", 8443)
 	tlsCert := getEnv("TLS_CERT", "")
@@ -50,14 +50,21 @@ func main() {
 	agent := lvmagent.NewSudoAgent("", nil)
 	srv := grpcserver.New(cfg, agent)
 
-	lis, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
-	if err != nil {
-		zap.L().Fatal("listen", zap.Error(err))
+	lis, listenErr := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
+	if listenErr != nil {
+		zap.L().Fatal("listen", zap.Error(listenErr))
 	}
 
 	zap.L().Info("gRPC server listening", zap.Int("port", port))
-	if err := srv.Serve(lis); err != nil {
-		zap.L().Fatal("serve", zap.Error(err))
+	if serveErr := srv.Serve(lis); serveErr != nil {
+		zap.L().Fatal("serve", zap.Error(serveErr))
+	}
+}
+
+func syncAndExit(logger *zap.Logger) {
+	if syncErr := logger.Sync(); syncErr != nil {
+		logger.Error("failed to sync logger", zap.Error(syncErr))
+		exitFunc(1)
 	}
 }
 
