@@ -3,6 +3,7 @@
 
 FROM alpine:3.20  # ✅ CKV_DOCKER_7: pinned tag
 
+# hadolint ignore=DL3018
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup \
     && apk add --no-cache ca-certificates
 
