@@ -9,13 +9,14 @@ import (
 func ParseBytes(s string) (uint64, error) {
 	s = strings.TrimSpace(s)
 	mult := uint64(1)
-	if strings.HasSuffix(s, "K") {
+	switch {
+	case strings.HasSuffix(s, "K"):
 		mult = 1024
 		s = strings.TrimSuffix(s, "K")
-	} else if strings.HasSuffix(s, "M") {
+	case strings.HasSuffix(s, "M"):
 		mult = 1024 * 1024
 		s = strings.TrimSuffix(s, "M")
-	} else if strings.HasSuffix(s, "G") {
+	case strings.HasSuffix(s, "G"):
 		mult = 1024 * 1024 * 1024
 		s = strings.TrimSuffix(s, "G")
 	}
