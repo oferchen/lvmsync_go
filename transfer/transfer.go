@@ -73,6 +73,7 @@ func LoadChecksumState(filename string) (state *ChecksumState, err error) {
 	return state, nil
 }
 
+//revive:disable-next-line:cognitive-complexity
 func SaveChecksumState(filename string, state *ChecksumState) (err error) {
 	var file *os.File
 	file, err = os.Create(filename)
@@ -653,6 +654,22 @@ func writeData(destFile *os.File, offset uint64, data []byte) error {
 	return nil
 }
 
+func processBlock(destFile *os.File, dedup DeduplicationStrategy, verify bool, checksum ChecksumStrategy, offset uint64, transmitted []byte, data []byte) (bool, error) {
+	if err := verifyChecksum(verify, checksum, data, transmitted, offset); err != nil {
+		return false, err
+	}
+	if dedup != nil {
+		if !dedup.ShouldTransfer(int64(offset), data) {
+			return false, nil
+		}
+		dedup.RecordTransfer(int64(offset), data)
+	}
+	if err := writeData(destFile, offset, data); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 func applyBlocks(cfg *config.Config, reader *bufio.Reader, destFile *os.File, dedup DeduplicationStrategy, verify bool, checksum ChecksumStrategy) (int64, error) {
 	var totalBytes int64
 	headerLen := 12
@@ -676,27 +693,14 @@ func applyBlocks(cfg *config.Config, reader *bufio.Reader, destFile *os.File, de
 		if err != nil {
 			return totalBytes, err
 		}
-
-		if err := verifyChecksum(verify, checksum, data, transmittedSum, offset); err != nil {
-			putBlockBuffer(data)
-			return totalBytes, err
-		}
-
-		if dedup != nil {
-			if !dedup.ShouldTransfer(int64(offset), data) {
-				putBlockBuffer(data)
-				continue
-			}
-			dedup.RecordTransfer(int64(offset), data)
-		}
-
-		if err := writeData(destFile, offset, data); err != nil {
-			putBlockBuffer(data)
-			return totalBytes, err
-		}
+		written, err := processBlock(destFile, dedup, verify, checksum, offset, transmittedSum, data)
 		putBlockBuffer(data)
-
-		totalBytes += int64(chunkSize)
+		if err != nil {
+			return totalBytes, err
+		}
+		if written {
+			totalBytes += int64(chunkSize)
+		}
 	}
 	return totalBytes, nil
 }
@@ -764,42 +768,48 @@ func ProcessDumpData(cfg *config.Config, in io.Reader, destPath string) error {
 	return processDumpDataCore(cfg, in, destPath, nil, true)
 }
 
-// RunApply reads a dump file or stdin and writes the data to destDevice, optionally leveraging deduplication and saving its state.
-func RunApply(cfg *config.Config, applyFile, destDevice string) (err error) {
-	var in io.Reader
+func openApplyReader(applyFile string) (io.ReadCloser, error) {
 	if applyFile == "-" {
-		in = os.Stdin
-	} else {
-		var f *os.File
-		f, err = os.Open(applyFile)
-		if err != nil {
-			return fmt.Errorf("failed to open apply file %s: %w", applyFile, err)
-		}
-		defer func() {
-			if closeErr := f.Close(); closeErr != nil {
-				if Logger != nil {
-					Logger.Warn("Failed to close apply file", zap.Error(closeErr))
-				}
-				if err == nil {
-					err = fmt.Errorf("close apply file: %w", closeErr)
-				} else {
-					err = fmt.Errorf("%v; close apply file: %w", err, closeErr)
-				}
-			}
-		}()
-		in = f
+		return io.NopCloser(os.Stdin), nil
 	}
+	f, err := os.Open(applyFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open apply file %s: %w", applyFile, err)
+	}
+	return f, nil
+}
 
+func applyData(cfg *config.Config, in io.Reader, destDevice string) error {
 	dedup := NewDeduplicationStrategy(cfg)
 	if dedup != nil {
 		Logger.Info("Applying deduplication during restore", zap.String("strategy", cfg.DedupStrategy))
 		defer func() {
-			if err2 := dedup.SaveState(); err2 != nil {
-				Logger.Error("Failed to save dedup state", zap.Error(err2))
+			if err := dedup.SaveState(); err != nil {
+				Logger.Error("Failed to save dedup state", zap.Error(err))
 			}
 		}()
 		return ProcessDumpDataWithDeduplication(cfg, in, destDevice, dedup)
 	}
-
 	return ProcessDumpData(cfg, in, destDevice)
+}
+
+// RunApply reads a dump file or stdin and writes the data to destDevice.
+func RunApply(cfg *config.Config, applyFile, destDevice string) (err error) {
+	rc, err := openApplyReader(applyFile)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if closeErr := rc.Close(); closeErr != nil {
+			if Logger != nil {
+				Logger.Warn("Failed to close apply file", zap.Error(closeErr))
+			}
+			if err == nil {
+				err = fmt.Errorf("close apply file: %w", closeErr)
+			} else {
+				err = fmt.Errorf("%v; close apply file: %w", err, closeErr)
+			}
+		}
+	}()
+	return applyData(cfg, rc, destDevice)
 }

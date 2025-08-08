@@ -47,6 +47,7 @@ func NewSSHClient(host, user, keyPath string, port int, knownHostsPath string, v
 	return client, nil
 }
 
+//revive:disable-next-line:cognitive-complexity
 func selectAuthMethods(keyPath string) ([]ssh.AuthMethod, error) {
 	var authMethods []ssh.AuthMethod
 	if keyPath != "" {

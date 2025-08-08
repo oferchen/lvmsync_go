@@ -62,6 +62,7 @@ func ReadBlockWithRetries(cfg *config.Config, src *os.File, offset int64, useZer
 	return retryRead(cfg, src, offset)
 }
 
+//revive:disable-next-line:cognitive-complexity
 func readWithZeroCopy(cfg *config.Config, src *os.File, offset int64, pipeFds [2]int) ([]byte, error) {
 	blockSize := cfg.BlockSize
 	maxRetries := cfg.MaxRetries
