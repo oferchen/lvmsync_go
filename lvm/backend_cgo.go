@@ -24,7 +24,13 @@ func (b *cgoBackend) CreateSnapshot(ctx context.Context, lvPath, snapshotName, s
 	if percent {
 		return fmt.Errorf("percentage sizes not supported")
 	}
-	if err := b.lvm.CreateSnapshot(lvPath, snapshotName, uint64(bytes)); err != nil {
+
+	u := uint64(bytes)
+	if bytes < 0 || float64(u) != bytes {
+		return fmt.Errorf("size %q overflows uint64", size)
+	}
+
+	if err := b.lvm.CreateSnapshot(lvPath, snapshotName, u); err != nil {
 		return fmt.Errorf("cgo create snapshot: %w", err)
 	}
 	return nil
