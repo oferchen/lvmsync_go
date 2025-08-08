@@ -141,6 +141,16 @@ func composeHandshake(cfg *config.Config, mode string) common.Handshake {
 	return hs
 }
 
+func validateOffsetAndSize(offset int64, size int) error {
+	if offset < 0 {
+		return fmt.Errorf("invalid offset %d: must be non-negative", offset)
+	}
+	if size < 0 || size > int(math.MaxUint32) {
+		return fmt.Errorf("invalid block size %d: must be between 0 and %d", size, uint32(math.MaxUint32))
+	}
+	return nil
+}
+
 func iterateBlocks(cfg *config.Config, ranges []Range, srcFile *os.File, bufOut *bufio.Writer, dedup DeduplicationStrategy, pipeFds [2]int) (int64, int, error) {
 	var totalBytes int64
 	skippedBlocks := 0
@@ -381,7 +391,7 @@ func saveResumeState(cfg *config.Config, index int) {
 	if cfg.ResumeState == "" {
 		return
 	}
-	err := os.WriteFile(cfg.ResumeState, []byte(fmt.Sprintf("%d", index+1)), 0644)
+	err := os.WriteFile(cfg.ResumeState, []byte(fmt.Sprintf("%d", index+1)), 0o600)
 	if err != nil {
 		Logger.Warn("Failed to update resume state", zap.Error(err))
 	}
