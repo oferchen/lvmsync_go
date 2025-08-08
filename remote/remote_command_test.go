@@ -5,14 +5,10 @@ import (
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
-	"golang.org/x/crypto/ssh"
-	"golang.org/x/crypto/ssh/knownhosts"
-
-	remotetest "lvmsync_go/remote/testutil"
 )
 
 func TestValidateRemoteCommand(t *testing.T) {
-	server := remotetest.NewMockSSHServer(t, func(cmd string) int {
+	_, client := newSSHServerClient(t, func(cmd string) int {
 		switch cmd {
 		case "echo --version":
 			return 0
@@ -22,17 +18,6 @@ func TestValidateRemoteCommand(t *testing.T) {
 			return 0
 		}
 	})
-	defer server.Close()
-	knownHosts := remotetest.CreateKnownHostsFile(t, server)
-	hostKeyCallback, err := knownhosts.New(knownHosts)
-	if err != nil {
-		t.Fatalf("knownhosts.New: %v", err)
-	}
-	client, err := ssh.Dial("tcp", server.Addr, &ssh.ClientConfig{User: "test", HostKeyCallback: hostKeyCallback})
-	if err != nil {
-		t.Fatalf("failed to dial: %v", err)
-	}
-	defer client.Close() //nolint:errcheck
 
 	if err := ValidateRemoteCommand(client, "echo"); err != nil {
 		t.Fatalf("expected success, got %v", err)
@@ -43,18 +28,7 @@ func TestValidateRemoteCommand(t *testing.T) {
 }
 
 func TestRunRemoteScript(t *testing.T) {
-	server := remotetest.NewMockSSHServer(t, func(cmd string) int { return 0 })
-	defer server.Close()
-	knownHosts := remotetest.CreateKnownHostsFile(t, server)
-	hostKeyCallback, err := knownhosts.New(knownHosts)
-	if err != nil {
-		t.Fatalf("knownhosts.New: %v", err)
-	}
-	client, err := ssh.Dial("tcp", server.Addr, &ssh.ClientConfig{User: "test", HostKeyCallback: hostKeyCallback})
-	if err != nil {
-		t.Fatalf("failed to dial: %v", err)
-	}
-	defer client.Close() //nolint:errcheck
+	server, client := newSSHServerClient(t, func(cmd string) int { return 0 })
 
 	core, observed := observer.New(zap.InfoLevel)
 	logger := zap.New(core)

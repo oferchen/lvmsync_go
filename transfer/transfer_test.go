@@ -13,30 +13,24 @@ import (
 )
 
 func TestIterateBlocksOversizedOffset(t *testing.T) {
-	src, err := os.CreateTemp(t.TempDir(), "src")
-	if err != nil {
-		t.Fatalf("create temp file: %v", err)
-	}
+	src := newTempFile(t, "src")
 	defer src.Close()
 
 	cfg := &config.Config{BlockSize: 4096}
 	bufOut := bufio.NewWriter(io.Discard)
-	_, _, err = iterateBlocks(cfg, []Range{{Start: -1, End: 0}}, src, bufOut, nil, [2]int{-1, -1})
+	_, _, err := iterateBlocks(cfg, []Range{{Start: -1, End: 0}}, src, bufOut, nil, [2]int{-1, -1})
 	if err == nil || !strings.Contains(err.Error(), "offset") {
 		t.Fatalf("expected offset error, got %v", err)
 	}
 }
 
 func TestIterateBlocksOversizedBlockSize(t *testing.T) {
-	src, err := os.CreateTemp(t.TempDir(), "src")
-	if err != nil {
-		t.Fatalf("create temp file: %v", err)
-	}
+	src := newTempFile(t, "src")
 	defer src.Close()
 
 	cfg := &config.Config{BlockSize: int(math.MaxUint32) + 1}
 	bufOut := bufio.NewWriter(io.Discard)
-	_, _, err = iterateBlocks(cfg, []Range{{Start: 0, End: 0}}, src, bufOut, nil, [2]int{-1, -1})
+	_, _, err := iterateBlocks(cfg, []Range{{Start: 0, End: 0}}, src, bufOut, nil, [2]int{-1, -1})
 	if err == nil || !strings.Contains(err.Error(), "block size") {
 		t.Fatalf("expected block size error, got %v", err)
 	}

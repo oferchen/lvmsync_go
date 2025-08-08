@@ -114,6 +114,20 @@ func ctxWithRole(role string) context.Context {
 	return metadata.NewOutgoingContext(context.Background(), metadata.Pairs("role", role))
 }
 
+// runStatusTest executes an RPC returning a StatusResponse and verifies ok/message fields.
+func runStatusTest(t *testing.T, agent lvmagent.Agent, ok bool, msg string, call func(proto.ReplicationClient) (*proto.StatusResponse, error)) {
+	t.Helper()
+	client, cleanup := newInsecureClient(t, agent)
+	defer cleanup()
+	resp, err := call(client)
+	if err != nil {
+		t.Fatalf("call failed: %v", err)
+	}
+	if resp.GetOk() != ok || resp.GetMessage() != msg {
+		t.Fatalf("unexpected response %#v", resp)
+	}
+}
+
 func TestAuthorizeInterceptor(t *testing.T) {
 	client, cleanup := newInsecureClient(t, nil)
 	defer cleanup()
@@ -142,15 +156,9 @@ func TestLockVolume(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			client, cleanup := newInsecureClient(t, tt.agent)
-			defer cleanup()
-			resp, err := client.LockVolume(ctxWithRole("replicator"), &proto.LockRequest{VolumeName: "vol", Requester: "req"})
-			if err != nil {
-				t.Fatalf("call failed: %v", err)
-			}
-			if resp.GetOk() != tt.ok || resp.GetMessage() != tt.msg {
-				t.Fatalf("unexpected response %#v", resp)
-			}
+			runStatusTest(t, tt.agent, tt.ok, tt.msg, func(client proto.ReplicationClient) (*proto.StatusResponse, error) {
+				return client.LockVolume(ctxWithRole("replicator"), &proto.LockRequest{VolumeName: "vol", Requester: "req"})
+			})
 		})
 	}
 }
@@ -206,15 +214,9 @@ func TestSendVolumeMetadata(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			client, cleanup := newInsecureClient(t, tt.agent)
-			defer cleanup()
-			resp, err := client.SendVolumeMetadata(ctxWithRole("replicator"), &proto.VolumeMetadata{VolumeName: "vol"})
-			if err != nil {
-				t.Fatalf("call failed: %v", err)
-			}
-			if resp.GetOk() != tt.ok || resp.GetMessage() != tt.msg {
-				t.Fatalf("unexpected response %#v", resp)
-			}
+			runStatusTest(t, tt.agent, tt.ok, tt.msg, func(client proto.ReplicationClient) (*proto.StatusResponse, error) {
+				return client.SendVolumeMetadata(ctxWithRole("replicator"), &proto.VolumeMetadata{VolumeName: "vol"})
+			})
 		})
 	}
 }
@@ -232,15 +234,9 @@ func TestStartTransferSession(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			client, cleanup := newInsecureClient(t, tt.agent)
-			defer cleanup()
-			resp, err := client.StartTransferSession(ctxWithRole("replicator"), &proto.LockRequest{VolumeName: "vol", Requester: "req"})
-			if err != nil {
-				t.Fatalf("call failed: %v", err)
-			}
-			if resp.GetOk() != tt.ok || resp.GetMessage() != tt.msg {
-				t.Fatalf("unexpected response %#v", resp)
-			}
+			runStatusTest(t, tt.agent, tt.ok, tt.msg, func(client proto.ReplicationClient) (*proto.StatusResponse, error) {
+				return client.StartTransferSession(ctxWithRole("replicator"), &proto.LockRequest{VolumeName: "vol", Requester: "req"})
+			})
 		})
 	}
 }
@@ -259,15 +255,9 @@ func TestFinalizeSync(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			client, cleanup := newInsecureClient(t, tt.agent)
-			defer cleanup()
-			resp, err := client.FinalizeSync(ctxWithRole("replicator"), &proto.LockRequest{VolumeName: "vol", Requester: "req"})
-			if err != nil {
-				t.Fatalf("call failed: %v", err)
-			}
-			if resp.GetOk() != tt.ok || resp.GetMessage() != tt.msg {
-				t.Fatalf("unexpected response %#v", resp)
-			}
+			runStatusTest(t, tt.agent, tt.ok, tt.msg, func(client proto.ReplicationClient) (*proto.StatusResponse, error) {
+				return client.FinalizeSync(ctxWithRole("replicator"), &proto.LockRequest{VolumeName: "vol", Requester: "req"})
+			})
 		})
 	}
 }
@@ -285,15 +275,9 @@ func TestGetStatus(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			client, cleanup := newInsecureClient(t, tt.agent)
-			defer cleanup()
-			resp, err := client.GetStatus(ctxWithRole("replicator"), &proto.LockRequest{VolumeName: "vol", Requester: "req"})
-			if err != nil {
-				t.Fatalf("call failed: %v", err)
-			}
-			if resp.GetOk() != tt.ok || resp.GetMessage() != tt.msg {
-				t.Fatalf("unexpected response %#v", resp)
-			}
+			runStatusTest(t, tt.agent, tt.ok, tt.msg, func(client proto.ReplicationClient) (*proto.StatusResponse, error) {
+				return client.GetStatus(ctxWithRole("replicator"), &proto.LockRequest{VolumeName: "vol", Requester: "req"})
+			})
 		})
 	}
 }

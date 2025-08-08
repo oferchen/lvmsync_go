@@ -2,7 +2,6 @@ package transfer
 
 import (
 	"bytes"
-	"os"
 	"sync/atomic"
 	"syscall"
 	"testing"
@@ -20,10 +19,7 @@ func TestReadBlockWithRetriesTransientFailure(t *testing.T) {
 	data := []byte{1, 2, 3, 4}
 	cfg := &config.Config{BlockSize: blockSize, MaxRetries: 3}
 
-	tmp, err := os.CreateTemp(t.TempDir(), "block")
-	if err != nil {
-		t.Fatalf("temp file: %v", err)
-	}
+	tmp := newTempFile(t, "block")
 	defer tmp.Close()
 
 	go func() {
@@ -54,10 +50,7 @@ func TestReadBlockWithRetriesPipeHandling(t *testing.T) {
 	data := []byte{1, 2, 3, 4}
 	cfg := &config.Config{BlockSize: blockSize, MaxRetries: 1}
 
-	tmp, err := os.CreateTemp(t.TempDir(), "block")
-	if err != nil {
-		t.Fatalf("temp file: %v", err)
-	}
+	tmp := newTempFile(t, "block")
 	defer tmp.Close()
 	if _, err := tmp.WriteAt(data, 0); err != nil {
 		t.Fatalf("write: %v", err)
