@@ -131,9 +131,9 @@ func cleanupOutput(buf *bufio.Writer, w io.WriteCloser) {
 func composeHandshake(cfg *config.Config, mode string) common.Handshake {
 	hs := common.Handshake{Compress: cfg.Compress}
 	switch mode {
-	case "checksum":
+	case StrategyChecksum:
 		hs.Checksum = true
-	case "checksum-dedup":
+	case StrategyChecksum + "-dedup":
 		hs.Checksum = true
 		hs.ChecksumDedup = true
 	}
@@ -342,7 +342,7 @@ func DumpChanges(cfg *config.Config, snapshot, source string, out io.Writer) err
 func prepareParallelHandshake(cfg *config.Config) string {
 	htokens := []string{common.ProtocolVersion}
 	if cfg.VerifyChecksum {
-		htokens = append(htokens, "checksum")
+		htokens = append(htokens, StrategyChecksum)
 	}
 	htokens = append(htokens, "compress:"+cfg.Compress)
 	return strings.Join(htokens, " ")
