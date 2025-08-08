@@ -1,4 +1,5 @@
- # .slsa-goreleaser.yml
+---
+# .slsa-goreleaser.yml
 version: 1
 build:
   GOOS: linux

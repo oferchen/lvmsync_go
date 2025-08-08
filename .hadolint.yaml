@@ -1,14 +1,18 @@
---- 
+---
 # .hadolint.yaml
 
 ignored:
   # Build context hygiene (allowed if managed externally)
-  - DL3018  # apt-get install without version pin — CI rebuild policy or base image versioning
-  - DL3013  # pip install without version pin — enforced via requirements.txt or external control
-  - DL3045  # no --no-install-recommends — allowed if base image already minimizes packages
+  - DL3018  # apt-get install without version pin —
+  # CI rebuild policy or base image versioning
+  - DL3013  # pip install without version pin —
+  # enforced via requirements.txt or external control
+  - DL3045  # no --no-install-recommends —
+  # allowed if base image already minimizes packages
 
   # Layering and readability (intentional for maintainability or layer caching)
-  - DL3003  # use WORKDIR instead of `cd` — some RUN chains are intentionally procedural
+  - DL3003  # use WORKDIR instead of `cd` —
+  # some RUN chains are intentionally procedural
   - DL3059  # combine RUN instructions — often split for better layer caching
   - DL4001  # prefer COPY over ADD — ADD used for remote URLs where appropriate
 
@@ -35,4 +39,3 @@ failureThreshold: warning  # Allow warnings; only errors will fail the pipeline
 # exclude:
 #   - test.Dockerfile
 #   - ci/Dockerfile.debug
-
