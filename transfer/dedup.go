@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"hash/maphash"
 	"io"
+	"math"
 	"os"
 	"sync"
 	"unsafe"
@@ -122,10 +123,15 @@ func NewDeduplicationStrategy(cfg *config.Config) DeduplicationStrategy {
 		}
 		return d
 	case "bloom":
+		if cfg.BloomEntries < 0 || uint64(cfg.BloomEntries) > uint64(math.MaxUint) {
+			zap.L().Warn("invalid bloom entries", zap.Int("entries", cfg.BloomEntries))
+			return nil
+		}
+		entries := uint(cfg.BloomEntries)
 		d := &BloomFilterDedup{
-			filter:    bloom.NewWithEstimates(uint(cfg.BloomEntries), cfg.BloomFpRate),
+			filter:    bloom.NewWithEstimates(entries, cfg.BloomFpRate),
 			stateFile: cfg.DedupStateFile,
-			entries:   uint(cfg.BloomEntries),
+			entries:   entries,
 			fpRate:    cfg.BloomFpRate,
 			strategy:  GetChecksumStrategy(cfg.ChecksumAlgorithm),
 		}
