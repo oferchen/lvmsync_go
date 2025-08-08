@@ -20,7 +20,8 @@ message StatusResponse {
   string message = 2;
 }
 
-message Empty {}
+message Empty {
+}
 
 service Replication {
   rpc LockVolume(LockRequest) returns (StatusResponse);
