@@ -42,6 +42,7 @@ func TestParseSnapshotSize(t *testing.T) {
 		{"absolute", "1M", 1000000, false},
 		{"invalidPercent", "150%", 0, true},
 		{"invalidValue", "abc", 0, true},
+		{"negative", "-1", 0, true},
 	}
 
 	for _, tt := range tests {

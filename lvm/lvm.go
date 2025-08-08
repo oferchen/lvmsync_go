@@ -323,7 +323,11 @@ func ParseSnapshotSize(sizeStr, volumePath string) (uint64, error) {
 			return 0, fmt.Errorf("failed to get volume size for %q: %w", volumePath, err)
 		}
 
-		parsedSize := uint64(float64(volSize) * (val / 100.0))
+		res := float64(volSize) * (val / 100.0)
+		parsedSize := uint64(res)
+		if res < 0 || float64(parsedSize) != res {
+			return 0, fmt.Errorf("snapshot size %q overflows uint64", sizeStr)
+		}
 
 		zap.L().Debug("Parsed snapshot size from percentage",
 			zap.String("input", sizeStr),
@@ -333,6 +337,9 @@ func ParseSnapshotSize(sizeStr, volumePath string) (uint64, error) {
 	}
 
 	parsedSize := uint64(val)
+	if val < 0 || float64(parsedSize) != val {
+		return 0, fmt.Errorf("snapshot size %q overflows uint64", sizeStr)
+	}
 
 	zap.L().Debug("Parsed snapshot size",
 		zap.String("input", sizeStr),
