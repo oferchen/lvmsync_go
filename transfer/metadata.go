@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -92,10 +93,20 @@ func GetDifferences(metadataPath string, chunkSize int64) (ranges []Range, err e
 			break
 		}
 
-		start := int64(originOffset) * chunkSize
-		end := (int64(originOffset)+1)*chunkSize - 1
+		chunkSizeU := uint64(chunkSize)
+		maxInt := uint64(math.MaxInt64)
 
-		ranges = append(ranges, Range{Start: start, End: end})
+		if originOffset > maxInt/chunkSizeU {
+			return nil, fmt.Errorf("range start overflows int64")
+		}
+		if originOffset >= (maxInt+1)/chunkSizeU {
+			return nil, fmt.Errorf("range end overflows int64")
+		}
+
+		start := originOffset * chunkSizeU
+		end := (originOffset+1)*chunkSizeU - 1
+
+		ranges = append(ranges, Range{Start: int64(start), End: int64(end)})
 	}
 
 	return ranges, nil
