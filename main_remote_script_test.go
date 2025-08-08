@@ -13,7 +13,7 @@ import (
 
 // Test that remote post script executes even when dumpChanges fails
 func TestRemotePostScriptRunsOnError(t *testing.T) {
-	server := remotetest.NewMockSSHServer(t, func(cmd string) int { return 0 })
+	server := remotetest.NewMockSSHServer(t, func(_ string) int { return 0 }) // cmd is unused
 	defer server.Close()
 
 	host, portStr, err := net.SplitHostPort(server.Addr)

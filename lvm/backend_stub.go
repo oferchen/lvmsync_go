@@ -16,7 +16,8 @@ func newBackendWithCGO(lvm cgo.LVM) lvmBackend { return &cgoBackend{lvm: lvm} }
 
 func newLVMBackend() lvmBackend { return newBackendWithCGO(cgo.New()) }
 
-func (b *cgoBackend) CreateSnapshot(ctx context.Context, lvPath, snapshotName, size string) error {
+func (b *cgoBackend) CreateSnapshot(_ context.Context, lvPath, snapshotName, size string) error {
+	// ctx is ignored because the stub backend does not support cancellation.
 	bytes, percent, err := sizeparse.Parse(size)
 	if err != nil {
 		return fmt.Errorf("parse size %q: %w", size, err)
@@ -36,14 +37,16 @@ func (b *cgoBackend) CreateSnapshot(ctx context.Context, lvPath, snapshotName, s
 	return nil
 }
 
-func (b *cgoBackend) RemoveSnapshot(ctx context.Context, snapshotPath string) error {
+func (b *cgoBackend) RemoveSnapshot(_ context.Context, snapshotPath string) error {
+	// ctx is ignored because the stub backend does not support cancellation.
 	if err := b.lvm.RemoveLV(snapshotPath); err != nil {
 		return fmt.Errorf("cgo remove snapshot: %w", err)
 	}
 	return nil
 }
 
-func (b *cgoBackend) GetSnapshotUsage(ctx context.Context, snapshotPath string) (float64, error) {
+func (b *cgoBackend) GetSnapshotUsage(_ context.Context, snapshotPath string) (float64, error) {
+	// ctx is ignored because the stub backend does not support cancellation.
 	usage, err := b.lvm.SnapshotUsage(snapshotPath)
 	if err != nil {
 		return 0, fmt.Errorf("cgo snapshot usage: %w", err)
@@ -51,7 +54,8 @@ func (b *cgoBackend) GetSnapshotUsage(ctx context.Context, snapshotPath string) 
 	return usage, nil
 }
 
-func (b *cgoBackend) GetVolumeGroupFreeSpace(ctx context.Context, vgName string) (uint64, error) {
+func (b *cgoBackend) GetVolumeGroupFreeSpace(_ context.Context, vgName string) (uint64, error) {
+	// ctx is ignored because the stub backend does not support cancellation.
 	free, err := b.lvm.VGFree(vgName)
 	if err != nil {
 		return 0, fmt.Errorf("cgo vg free space: %w", err)
@@ -59,7 +63,8 @@ func (b *cgoBackend) GetVolumeGroupFreeSpace(ctx context.Context, vgName string)
 	return free, nil
 }
 
-func (b *cgoBackend) ListVolumeGroups(ctx context.Context, candidates []string) ([]VolumeGroup, error) {
+func (b *cgoBackend) ListVolumeGroups(_ context.Context, candidates []string) ([]VolumeGroup, error) {
+	// ctx is ignored because the stub backend does not support cancellation.
 	vgs, err := b.lvm.ListVGs()
 	if err != nil {
 		return nil, fmt.Errorf("cgo list volume groups: %w", err)

@@ -27,7 +27,8 @@ func TestAuthInterceptor(t *testing.T) {
 		return peer.NewContext(context.Background(), p)
 	}
 
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+	handler := func(_ context.Context, _ interface{}) (interface{}, error) {
+		// ctx and req are unused in this test handler.
 		return "ok", nil
 	}
 

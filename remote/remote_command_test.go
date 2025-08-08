@@ -28,7 +28,7 @@ func TestValidateRemoteCommand(t *testing.T) {
 }
 
 func TestRunRemoteScript(t *testing.T) {
-	server, client := newSSHServerClient(t, func(cmd string) int { return 0 })
+	server, client := newSSHServerClient(t, func(_ string) int { return 0 }) // cmd is unused
 
 	core, observed := observer.New(zap.InfoLevel)
 	logger := zap.New(core)
