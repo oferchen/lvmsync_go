@@ -28,13 +28,13 @@ type Chunker struct {
 }
 
 // NewChunker returns a new chunker configured with the provided
-// min/avg/max chunk sizes. All sizes are in bytes. The mask values are
+// minimum, average, and maximum chunk sizes. All sizes are in bytes. The mask values are
 // derived from the average size.
-func NewChunker(min, avg, max int) *Chunker {
-	c := &Chunker{Min: min, Avg: avg, Max: max}
+func NewChunker(minSize, avgSize, maxSize int) *Chunker {
+	c := &Chunker{Min: minSize, Avg: avgSize, Max: maxSize}
 	// derive masks for different entropy levels. The mask controls the
 	// probability of finding a boundary. Higher mask -> larger chunks.
-	bits := uint64(math.Log2(float64(avg)))
+	bits := uint64(math.Log2(float64(avgSize)))
 	if bits < 1 {
 		bits = 1
 	}

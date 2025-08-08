@@ -45,17 +45,17 @@ func MaxChunks(ramBytes uint64, fpRate float64) uint64 {
 // AdaptiveAvgChunk computes the average chunk size based on volume size,
 // available RAM and false positive rate. The size is clamped between the
 // provided minimum and maximum values.
-func AdaptiveAvgChunk(volumeSize, ramBytes uint64, fpRate float64, min, max uint64) (avg uint64, maxChunks uint64) {
+func AdaptiveAvgChunk(volumeSize, ramBytes uint64, fpRate float64, minSize, maxSize uint64) (avg uint64, maxChunks uint64) {
 	maxChunks = MaxChunks(ramBytes, fpRate)
 	if maxChunks == 0 {
 		maxChunks = 1
 	}
 	avg = volumeSize / maxChunks
-	if avg < min {
-		avg = min
+	if avg < minSize {
+		avg = minSize
 	}
-	if avg > max {
-		avg = max
+	if avg > maxSize {
+		avg = maxSize
 	}
 	return
 }
