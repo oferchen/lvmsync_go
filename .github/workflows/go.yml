@@ -9,11 +9,11 @@
 
 name: Go
 
-on:
+'on':
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 # Explicitly define minimal top-level permissions
 permissions:
