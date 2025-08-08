@@ -93,6 +93,9 @@ func (s *MockSSHServer) handleChannel(ch ssh.Channel, in <-chan *ssh.Request) {
 			s.commands = append(s.commands, payload.Command)
 			s.mu.Unlock()
 			status := s.handler(payload.Command)
+			if status < 0 || status > 255 {
+				status = 255
+			}
 			req.Reply(true, nil) //nolint:errcheck
 			exitPayload := struct{ Status uint32 }{uint32(status)}
 			ch.SendRequest("exit-status", false, ssh.Marshal(exitPayload)) //nolint:errcheck
