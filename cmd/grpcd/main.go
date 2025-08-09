@@ -43,7 +43,7 @@ func main() {
 		AllowInsecure: v.GetBool("allow-insecure"),
 	}
 
-	agent := lvmagent.NewSudoAgent("", nil)
+	agent := lvmagent.NewSudoAgent("", nil, nil)
 	srv, srvErr := grpcserver.New(cfg, agent)
 	if srvErr != nil {
 		zap.L().Fatal("init gRPC server", zap.Error(srvErr))

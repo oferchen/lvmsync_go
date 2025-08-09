@@ -41,22 +41,26 @@ type lvmAPI interface {
 
 // sudoAgent ensures root privileges via sudo before invoking LVM commands.
 type sudoAgent struct {
-	sudoPath string
-	lvm      lvmAPI
+	sudoPath   string
+	lvm        lvmAPI
+	ensureRoot func() error
 }
 
 // NewSudoAgent returns an Agent implementation that escalates privileges using sudo.
-func NewSudoAgent(sudoPath string, l lvmlib.API) Agent {
+// An optional ensureRoot function can be provided (primarily for tests). When nil,
+// privesc.EnsureRoot is used with the configured sudo path.
+func NewSudoAgent(sudoPath string, l lvmlib.API, ensureRoot func() error) Agent {
 	api, _ := l.(lvmAPI)
-	return &sudoAgent{sudoPath: sudoPath, lvm: api}
-}
-
-func (s *sudoAgent) ensureRoot() error {
-	cmd := s.sudoPath
-	if cmd == "" {
-		cmd = "sudo -n"
+	if ensureRoot == nil {
+		ensureRoot = func() error {
+			cmd := sudoPath
+			if cmd == "" {
+				cmd = "sudo -n"
+			}
+			return privesc.EnsureRoot(cmd)
+		}
 	}
-	return privesc.EnsureRoot(cmd)
+	return &sudoAgent{sudoPath: sudoPath, lvm: api, ensureRoot: ensureRoot}
 }
 
 func (s *sudoAgent) Lock(ctx context.Context, volume, requester string) error {
