@@ -3,8 +3,16 @@ package lvm
 import (
 	"context"
 	"errors"
+	"os/exec"
 	"testing"
 )
+
+func requireSudo(t *testing.T) {
+	t.Helper()
+	if _, err := exec.LookPath("sudo"); err != nil {
+		t.Skip("sudo not available")
+	}
+}
 
 type mockLVM struct {
 	lockErr         error
@@ -48,6 +56,7 @@ func (m *mockLVM) GetStatus(_ context.Context, _, _ string) (string, error) {
 }
 
 func TestSudoAgentLock(t *testing.T) {
+	requireSudo(t)
 	ctx := context.Background()
 	mock := &mockLVM{}
 	a := NewSudoAgent("", mock)
@@ -61,6 +70,7 @@ func TestSudoAgentLock(t *testing.T) {
 }
 
 func TestSudoAgentUnlock(t *testing.T) {
+	requireSudo(t)
 	ctx := context.Background()
 	mock := &mockLVM{}
 	a := NewSudoAgent("", mock)
@@ -74,6 +84,7 @@ func TestSudoAgentUnlock(t *testing.T) {
 }
 
 func TestSudoAgentGetMetadata(t *testing.T) {
+	requireSudo(t)
 	ctx := context.Background()
 	expected := VolumeMetadata{VolumeName: "vol", SizeBytes: 1, ChunkSize: 2}
 	mock := &mockLVM{md: expected}
@@ -92,6 +103,7 @@ func TestSudoAgentGetMetadata(t *testing.T) {
 }
 
 func TestSudoAgentSendMetadata(t *testing.T) {
+	requireSudo(t)
 	ctx := context.Background()
 	mock := &mockLVM{}
 	a := NewSudoAgent("", mock)
@@ -109,6 +121,7 @@ func TestSudoAgentSendMetadata(t *testing.T) {
 }
 
 func TestSudoAgentStartTransferSession(t *testing.T) {
+	requireSudo(t)
 	ctx := context.Background()
 	mock := &mockLVM{}
 	a := NewSudoAgent("", mock)
@@ -122,6 +135,7 @@ func TestSudoAgentStartTransferSession(t *testing.T) {
 }
 
 func TestSudoAgentFinalizeSync(t *testing.T) {
+	requireSudo(t)
 	ctx := context.Background()
 	mock := &mockLVM{}
 	a := NewSudoAgent("", mock)
@@ -135,6 +149,7 @@ func TestSudoAgentFinalizeSync(t *testing.T) {
 }
 
 func TestSudoAgentGetStatus(t *testing.T) {
+	requireSudo(t)
 	ctx := context.Background()
 	mock := &mockLVM{status: "ok"}
 	a := NewSudoAgent("", mock)
