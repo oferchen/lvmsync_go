@@ -5,18 +5,19 @@ import (
 	"io"
 	"sync"
 
-	zstd "github.com/klauspost/compress/zstd"
 	"github.com/pierrec/lz4/v4"
+
+	zstd "github.com/klauspost/compress/zstd"
 )
 
 type CompressionStrategy interface {
-	NewWriter(dst io.Writer, level int, concurrency int) (io.WriteCloser, error)
+	NewWriter(dst io.Writer, level, concurrency int) (io.WriteCloser, error)
 	NewReader(src io.Reader, concurrency int) (io.ReadCloser, error)
 }
 
 type noneStrategy struct{}
 
-func (noneStrategy) NewWriter(dst io.Writer, _ int, _ int) (io.WriteCloser, error) {
+func (noneStrategy) NewWriter(dst io.Writer, _, _ int) (io.WriteCloser, error) {
 	// level and concurrency are ignored for the none strategy.
 	return nopWriteCloser{dst}, nil
 }
@@ -51,7 +52,7 @@ func (w *pooledLz4Writer) Close() error {
 	return err
 }
 
-func (lz4Strategy) NewWriter(dst io.Writer, level int, concurrency int) (io.WriteCloser, error) {
+func (lz4Strategy) NewWriter(dst io.Writer, level, concurrency int) (io.WriteCloser, error) {
 	var lvl lz4.CompressionLevel
 	switch level {
 	case int(lz4.Fast), int(lz4.Level1), int(lz4.Level2), int(lz4.Level3), int(lz4.Level4), int(lz4.Level5), int(lz4.Level6), int(lz4.Level7), int(lz4.Level8), int(lz4.Level9):
@@ -170,7 +171,7 @@ func (w *pooledZstdWriter) Close() error {
 	return err
 }
 
-func (zstdStrategy) NewWriter(dst io.Writer, level int, concurrency int) (io.WriteCloser, error) {
+func (zstdStrategy) NewWriter(dst io.Writer, level, concurrency int) (io.WriteCloser, error) {
 	if level < 1 || level > 22 {
 		return nil, fmt.Errorf("invalid zstd compression level: %d", level)
 	}

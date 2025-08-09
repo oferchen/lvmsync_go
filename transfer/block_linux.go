@@ -10,7 +10,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func ZeroCopyTransfer(src *os.File, dst *os.File, offset int64, length int64, pipeFds [2]int) error {
+func ZeroCopyTransfer(src, dst *os.File, offset, length int64, pipeFds [2]int) error {
 	remaining := length
 	off := offset
 	for remaining > 0 {

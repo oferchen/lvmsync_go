@@ -9,9 +9,10 @@ import (
 	"sync"
 	"time"
 
-	zstd "github.com/klauspost/compress/zstd"
 	"github.com/klauspost/cpuid/v2"
 	"github.com/pierrec/lz4/v4"
+
+	zstd "github.com/klauspost/compress/zstd"
 )
 
 var (

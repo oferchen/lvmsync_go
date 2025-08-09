@@ -3,9 +3,9 @@ package transfer
 import (
 	"time"
 
-	"lvmsync_go/config"
-
 	"go.uber.org/zap"
+
+	"lvmsync_go/config"
 )
 
 func finalizeProgress(cfg *config.Config) {

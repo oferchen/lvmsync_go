@@ -8,9 +8,9 @@ import (
 	"syscall"
 	"time"
 
-	"lvmsync_go/config"
-
 	"go.uber.org/zap"
+
+	"lvmsync_go/config"
 )
 
 // PipeCreationCount tracks the number of pipes created by ReadBlockWithRetries

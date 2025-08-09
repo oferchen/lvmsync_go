@@ -20,7 +20,7 @@ type Role struct {
 // NewAuthInterceptor returns a grpc.UnaryServerInterceptor that enforces
 // client certificate issuer and subject to match the provided role.
 func NewAuthInterceptor(role Role) grpc.UnaryServerInterceptor {
-	return func(ctx context.Context, req interface{}, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	return func(ctx context.Context, req any, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
 		p, ok := peer.FromContext(ctx)
 		if !ok {
 			return nil, status.Error(codes.Unauthenticated, "missing peer info")

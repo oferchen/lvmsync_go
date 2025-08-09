@@ -1,4 +1,4 @@
-package snapshot
+package client
 
 import (
 	"context"
@@ -24,9 +24,9 @@ var (
 	removeSnapshot           = lvm.RemoveSnapshot
 )
 
-// Prepare sets up a snapshot for the given original volume. It returns the snapshot path,
+// PrepareSnapshot sets up a snapshot for the given original volume. It returns the snapshot path,
 // an optional monitor error channel, a cleanup function, and any error encountered.
-func Prepare(cfg *config.Config, originalVolume string, logger *zap.Logger) (string, chan error, func(), error) {
+func PrepareSnapshot(cfg *config.Config, originalVolume string, logger *zap.Logger) (string, chan error, func(), error) {
 	snapshotBytes, err := calculateSnapshotSize(cfg, originalVolume)
 	if err != nil {
 		return "", nil, nil, err
@@ -111,7 +111,7 @@ func createSnapshotIfNeeded(cfg *config.Config, originalVolume string, snapshotB
 	monitorCtx, cancel := context.WithCancel(context.Background())
 	go func() {
 		if err := monitorSnapshot(monitorCtx, snapshotPath, 80.0, 10*time.Second); err != nil && err != context.Canceled {
-			zap.L().Error("Snapshot monitor error", zap.Error(err))
+			logger.Error("Snapshot monitor error", zap.Error(err))
 			monitorErrCh <- err
 		}
 	}()

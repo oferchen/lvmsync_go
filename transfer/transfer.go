@@ -16,16 +16,18 @@ import (
 	"syscall"
 	"time"
 
+	"go.uber.org/zap"
+
 	"lvmsync_go/common"
 	"lvmsync_go/config"
 	"lvmsync_go/internal/blocksize"
-
-	"go.uber.org/zap"
 )
 
 // Logger holds the package-wide zap.Logger used for progress and error reporting.
-var Logger *zap.Logger
-var workerWG *sync.WaitGroup
+var (
+	Logger   *zap.Logger
+	workerWG *sync.WaitGroup
+)
 
 // SetLogger assigns Logger for package-wide logging and overrides any existing logger.
 func SetLogger(logger *zap.Logger) {
@@ -437,7 +439,7 @@ func writeData(destFile *os.File, offset uint64, data []byte) error {
 	return nil
 }
 
-func processBlock(destFile *os.File, dedup DeduplicationStrategy, verify bool, checksum ChecksumStrategy, offset uint64, transmitted []byte, data []byte) (bool, error) {
+func processBlock(destFile *os.File, dedup DeduplicationStrategy, verify bool, checksum ChecksumStrategy, offset uint64, transmitted, data []byte) (bool, error) {
 	if offset > math.MaxInt64 {
 		return false, fmt.Errorf("offset %d overflows int64", offset)
 	}
