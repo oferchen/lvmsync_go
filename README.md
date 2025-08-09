@@ -24,6 +24,7 @@ LVMSync is a high-performance incremental data replication tool for LVM snapshot
   - Automatic privilege escalation (defaulting to `sudo -n`).
   - Snapshot health monitoring that fails fast if usage exceeds a threshold.
 - **Graceful Shutdown**: Signal handling ensures snapshots are cleaned up on interruption.
+- **Flexible Configuration**: Flags, environment variables, or `config.yaml`. See [Configuration](#configuration).
 - **Configuration Validation**: Checks key parameters (e.g., volume group existence, escalation command) before starting operations.
 
 ## Architecture
@@ -44,6 +45,78 @@ This structure allows individual packages to be developed and tested in isolatio
 LVMSync emits structured logs using [zap](https://github.com/uber-go/zap). Errors are logged with
 structured fields instead of being written to stderr, and the logger is flushed on shutdown to
 ensure all entries are persisted.
+
+## Configuration
+
+LVMSync uses [`pflag`](https://github.com/spf13/pflag) and [`viper`](https://github.com/spf13/viper) to accept options from
+flags, environment variables, and a YAML file.
+
+### Flag groups
+
+Flags are grouped in the CLI help:
+
+- **General Options** – worker counts, speed limits, progress controls.
+- **SSH Options** – credentials and connection settings.
+- **Remote Options** – remote hooks and lvmsync path.
+- **Deduplication Options** – dedup strategy and state storage.
+- **Compression Options** – algorithm and level tuning.
+- **LVM Options** – snapshot management and privilege escalation.
+- **gRPC Options** – parameters for the optional gRPC daemon.
+
+### Precedence and environment variables
+
+Values are resolved in the following order (highest first):
+
+1. Command-line flags
+2. `LVMSYNC_*` environment variables
+3. `config.yaml`
+4. Built-in defaults
+
+Environment variables use the flag name in uppercase with underscores, e.g.:
+
+```sh
+export LVMSYNC_PARALLEL=8
+export LVMSYNC_SSH_USER=backup
+```
+
+### `config.yaml` example
+
+```yaml
+parallel: 4               # General Options
+ssh_user: backup          # SSH Options
+remote_pre_script: pre.sh # Remote Options
+dedup_strategy: bloom     # Deduplication Options
+compress: zstd            # Compression Options
+snapshot_size: 20%        # LVM Options
+grpc_port: 8443           # gRPC Options
+```
+
+Use `--config` to point to a different file.
+
+### Invocation examples
+
+With flags:
+
+```sh
+lvmsync --parallel 8 --snapshot_size 10% /dev/vg0/snap0 /mnt/backup
+```
+
+With environment variables:
+
+```sh
+LVMSYNC_PARALLEL=8 LVMSYNC_SNAPSHOT_SIZE=10% lvmsync /dev/vg0/snap0 /mnt/backup
+```
+
+With a config file:
+
+```sh
+lvmsync --config config.yaml /dev/vg0/snap0 /mnt/backup
+```
+
+### Logging and progress
+
+Logs are emitted with [zap](https://github.com/uber-go/zap) to stderr. Progress updates are also written to stderr when
+`--progress` is enabled (default). Disable them with `--progress=false`.
 
 ## Installation
 
@@ -427,61 +500,6 @@ tls-cert: cert.pem
 ```
 
 Use `--config` to provide an alternate config file path.
-
-## Configuration File (`config.yaml`)
-
-You can supply configuration via a YAML file. Below is an example configuration file covering all options:
-
-```yaml
-# config.yaml - LVMSync default configuration
-
-config: "" # Optional: specify an alternative configuration file path
-
-apply: "" # Apply mode: read change dump from file ('-' for STDIN) and apply to destination device
-stdout: false # Write change dump to STDOUT
-parallel: 4 # Number of concurrent workers
-zerocopy: false # Enable zero-copy transfers (only in sequential mode)
-max_retries: 3 # Maximum number of retries per block
-resume: "" # Path to resume state file
-speed: "100MB" # Transfer speed limit (e.g., "100MB")
-verbose: 0 # Verbosity level
-verify_checksum: false # Enable checksum verification
-progress: true # Show progress percentage during the transfer
-
-# Deduplication Options:
-dedup_strategy: "none" # Strategy: "none", "auto", "checksum", "rolling_hash", or "bloom" (use "none" to disable)
-dedup_state_file: "~/.lvmsync_dedup" # Path to deduplication state file
-bloom_entries: 1000000 # Estimated number of entries for bloom filter
-bloom_fp_rate: 0.01 # False positive rate for bloom filter
-
-# SSH Options:
-ssh_user: "root" # SSH username
-ssh_key: "" # Path to SSH private key or use SSH agent
-ssh_port: 22 # SSH port
-known_hosts: "~/.ssh/known_hosts" # Path to known_hosts file
-stricthostkeychecking: true # Enable SSH StrictHostKeyChecking
-
-# Remote Options:
-lvmsync_path: "lvmsync" # Remote command to run
-remote_pre_script: "" # Remote script to run before starting transfer
-remote_post_script: "" # Remote script to run after finishing transfer
-
-# Compression Options:
-compress: "auto" # Compression type (options: "none", "lz4", "zstd", "auto")
-compress_level: 3 # Compression level for zstd (ignored for lz4)
-compress_concurrency: 0 # Number of goroutines for compression (0 to use all cores)
-
-# LVM Options:
-skip_snapshot_creation: false # Skip automatic snapshot creation
-skip_disk_check: false # Skip disk space check before snapshot creation
-snapshot_size: "20%" # Snapshot size as an absolute value (e.g., "20G") or as a percentage (e.g., "20%")
-volume_group: "" # Source volume group. Derived from the source path when empty
-target_volume_group: "" # Volume group name of the target LVM volume
-target_vgs: [] # Candidate target VGs for auto-selection
-lvm_escalation: "sudo -n" # Command used to re-execute the program with elevated privileges when needed
-```
-
-LVMSync installs signal handlers for SIGINT and SIGTERM. If an interruption occurs, the tool will attempt to remove any created snapshot before exiting, ensuring no orphaned snapshots remain.
 
 ## Configuration Validation
 
