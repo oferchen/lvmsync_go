@@ -4,6 +4,7 @@ package config
 import (
 	"context"
 	"fmt"
+	"io"
 	"math"
 	"os"
 	"path/filepath"
@@ -400,15 +401,39 @@ func initFlagSets(defaultCfg *Config) {
 	grpcFlags = initGRPCFlags(defaultCfg)
 }
 
+func printFlagSetUsage(out io.Writer, fs *pflag.FlagSet) {
+	if fs == nil {
+		return
+	}
+	fmt.Fprintln(out, fs.Name()+":")
+	fs.SetOutput(out)
+	fs.PrintDefaults()
+	fmt.Fprintln(out)
+}
+
 func registerFlags(defaultCfg *Config) {
 	initFlagSets(defaultCfg)
-	pflag.CommandLine.AddFlagSet(generalFlags)
-	pflag.CommandLine.AddFlagSet(sshFlags)
-	pflag.CommandLine.AddFlagSet(remoteFlags)
-	pflag.CommandLine.AddFlagSet(dedupFlags)
-	pflag.CommandLine.AddFlagSet(compressionFlags)
-	pflag.CommandLine.AddFlagSet(lvmFlags)
-	pflag.CommandLine.AddFlagSet(grpcFlags)
+	flagSets := []*pflag.FlagSet{
+		generalFlags,
+		sshFlags,
+		remoteFlags,
+		dedupFlags,
+		compressionFlags,
+		lvmFlags,
+		grpcFlags,
+	}
+	for _, fs := range flagSets {
+		pflag.CommandLine.AddFlagSet(fs)
+	}
+	pflag.CommandLine.Usage = func() {
+		out := pflag.CommandLine.Output()
+		fmt.Fprintln(out, "Usage of", os.Args[0]+":")
+		fmt.Fprintln(out)
+		for _, fs := range flagSets {
+			printFlagSetUsage(out, fs)
+		}
+	}
+	pflag.Usage = pflag.CommandLine.Usage
 }
 
 func buildViper() (*viper.Viper, error) {
