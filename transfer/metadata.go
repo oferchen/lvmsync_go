@@ -99,19 +99,18 @@ func GetDifferences(metadataPath string, chunkSize int64) (ranges []Range, err e
 		}
 
 		chunkSizeU := uint64(chunkSize)
-		maxInt := uint64(math.MaxInt64)
 
-		if originOffset > maxInt/chunkSizeU {
-			return nil, fmt.Errorf("range start overflows int64")
-		}
-		if originOffset >= (maxInt+1)/chunkSizeU {
-			return nil, fmt.Errorf("range end overflows int64")
+		if originOffset > math.MaxUint64/chunkSizeU {
+			return nil, fmt.Errorf("range start overflows uint64")
 		}
 
 		start := originOffset * chunkSizeU
-		end := (originOffset+1)*chunkSizeU - 1
+		end := start + chunkSizeU - 1
+		if end < start {
+			return nil, fmt.Errorf("range end overflows uint64")
+		}
 
-		ranges = append(ranges, Range{Start: int64(start), End: int64(end)})
+		ranges = append(ranges, Range{Start: start, End: end})
 	}
 
 	return ranges, nil

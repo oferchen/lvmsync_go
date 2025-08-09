@@ -142,9 +142,9 @@ func composeHandshake(cfg *config.Config, mode string) common.Handshake {
 	return hs
 }
 
-func validateOffsetAndSize(offset int64, size int) error {
-	if offset < 0 {
-		return fmt.Errorf("invalid offset %d: must be non-negative", offset)
+func validateOffsetAndSize(offset uint64, size int) error {
+	if offset > math.MaxInt64 {
+		return fmt.Errorf("offset %d overflows int64", offset)
 	}
 	if size < 0 || size > int(math.MaxUint32) {
 		return fmt.Errorf("invalid block size %d: must be between 0 and %d", size, uint32(math.MaxUint32))
@@ -160,20 +160,20 @@ func iterateBlocks(cfg *config.Config, ranges []Range, srcFile *os.File, bufOut 
 		if err := validateOffsetAndSize(r.Start, cfg.BlockSize); err != nil {
 			return totalBytes, skippedBlocks, err
 		}
-		data, err := ReadBlockWithRetries(cfg, srcFile, r.Start, cfg.ZeroCopy, pipeFds)
+		data, err := ReadBlockWithRetries(cfg, srcFile, int64(r.Start), cfg.ZeroCopy, pipeFds)
 		if err != nil {
 			return totalBytes, skippedBlocks, fmt.Errorf("error reading block at offset %d: %w", r.Start, err)
 		}
 		if dedup != nil {
-			if !dedup.ShouldTransfer(r.Start, data) {
+			if !dedup.ShouldTransfer(int64(r.Start), data) {
 				skippedBlocks++
 				putBlockBuffer(data)
 				continue
 			}
-			dedup.RecordTransfer(r.Start, data)
+			dedup.RecordTransfer(int64(r.Start), data)
 		}
 
-		binary.BigEndian.PutUint64(header[0:8], uint64(r.Start))
+		binary.BigEndian.PutUint64(header[0:8], r.Start)
 		binary.BigEndian.PutUint32(header[8:12], uint32(cfg.BlockSize))
 		if _, err := bufOut.Write(header[:]); err != nil {
 			putBlockBuffer(data)
@@ -440,10 +440,10 @@ func worker(cfg *config.Config, srcFile *os.File, tasks <-chan BlockTask, result
 			results <- &BlockResult{Index: task.Index, Err: err}
 			continue
 		}
-		data, err := ReadBlockWithRetries(cfg, srcFile, task.R.Start, false, [2]int{-1, -1})
+		data, err := ReadBlockWithRetries(cfg, srcFile, int64(task.R.Start), false, [2]int{-1, -1})
 		results <- &BlockResult{
 			Index:  task.Index,
-			Offset: uint64(task.R.Start),
+			Offset: task.R.Start,
 			Size:   uint32(cfg.BlockSize),
 			Data:   data,
 			Err:    err,
@@ -454,11 +454,17 @@ func worker(cfg *config.Config, srcFile *os.File, tasks <-chan BlockTask, result
 // DumpChangesParallel transfers changed blocks using multiple goroutines and updates resume state as blocks complete.
 
 func calculateTotalDataSize(ranges []Range) int64 {
-	var total int64
+	var total uint64
 	for _, r := range ranges {
-		total += (r.End - r.Start + 1)
+		if r.End < r.Start {
+			continue
+		}
+		total += r.End - r.Start + 1
 	}
-	return total
+	if total > uint64(math.MaxInt64) {
+		return math.MaxInt64
+	}
+	return int64(total)
 }
 
 func writeParallelHandshake(cfg *config.Config, out io.Writer) error {
