@@ -37,6 +37,10 @@ LVMSync is organized into modular packages to keep concerns separated:
 - `remote` – wraps SSH functionality for running commands on remote hosts and coordinating transfers.
 - `config` – parses and validates configuration files and CLI options.
 - `common` and `internal` – shared helpers and internal utilities such as multi-error handling.
+- `cmd/lvmsync` – CLI orchestrator broken into focused subpackages:
+  - `snapshot` for snapshot preparation
+  - `signals` for signal handling and cleanup
+  - `transfer` for client transfer execution
 
 This structure allows individual packages to be developed and tested in isolation.
 
