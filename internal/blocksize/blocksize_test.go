@@ -81,3 +81,36 @@ func TestDetectFallback(t *testing.T) {
 		t.Fatalf("expected 4096, got %d", size)
 	}
 }
+
+func TestDetectQueuePath(t *testing.T) {
+	if os.Geteuid() != 0 {
+		t.Skip("requires root")
+	}
+	devDir := t.TempDir()
+	devPath := filepath.Join(devDir, "ram0")
+	dev := unix.Mkdev(1, 0)
+	if err := unix.Mknod(devPath, unix.S_IFBLK|0600, int(dev)); err != nil {
+		t.Skipf("mknod: %v", err)
+	}
+
+	old := sysDevBlock
+	sysDir := t.TempDir()
+	sysDevBlock = sysDir
+	defer func() { sysDevBlock = old }()
+
+	queueDir := filepath.Join(sysDir, "1:0", "queue")
+	if err := os.MkdirAll(queueDir, 0755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(queueDir, "logical_block_size"), []byte("8192\n"), 0644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	size, err := Detect(devPath)
+	if err != nil {
+		t.Fatalf("Detect error: %v", err)
+	}
+	if size != 8192 {
+		t.Fatalf("expected 8192, got %d", size)
+	}
+}
