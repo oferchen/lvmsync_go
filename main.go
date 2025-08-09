@@ -49,6 +49,7 @@ var (
 	dumpChangesSequential        = transfer.DumpChangesSequential
 	dumpChangesParallel          = transfer.DumpChangesParallel
 	dumpChangesWithDeduplication = transfer.DumpChangesWithDeduplication
+	newSSHClient                 = remote.NewSSHClient
 )
 
 func runApplyMode(applyFile string) error {
@@ -100,7 +101,7 @@ func runLocalDump(snapshotDevice, originDevice, dest string) (err error) {
 }
 
 func setupSSHClient(destHost string) (*ssh.Client, error) {
-	client, err := remote.NewSSHClient(destHost, cfg.SSHUser, cfg.SSHKeyPath, cfg.SSHPort, cfg.KnownHosts, cfg.StrictHostKeyCheck, cfg.SSHTimeout, cfg.SSHKeepAliveInterval, cfg.MaxRetries)
+	client, err := newSSHClient(destHost, cfg.SSHUser, cfg.SSHKeyPath, cfg.SSHPort, cfg.KnownHosts, cfg.StrictHostKeyCheck, cfg.SSHTimeout, cfg.SSHKeepAliveInterval, cfg.MaxRetries)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create SSH client: %w", err)
 	}
@@ -118,7 +119,13 @@ func closeSession(session *ssh.Session, errp *error) {
 	}
 }
 
-func setupSessionStreams(session *ssh.Session) (io.WriteCloser, <-chan error, <-chan error, error) {
+type pipeSession interface {
+	StdoutPipe() (io.Reader, error)
+	StderrPipe() (io.Reader, error)
+	StdinPipe() (io.WriteCloser, error)
+}
+
+func setupSessionStreams(session pipeSession) (io.WriteCloser, <-chan error, <-chan error, error) {
 	stdoutPipe, err := session.StdoutPipe()
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to get stdout pipe: %w", err)
@@ -154,7 +161,11 @@ func streamToRemote(remoteStdin io.WriteCloser, snapshotDevice, originDevice str
 	return nil
 }
 
-func waitForRemoteCompletion(session *ssh.Session, stdoutErrCh, stderrErrCh <-chan error) error {
+type waitSession interface {
+	Wait() error
+}
+
+func waitForRemoteCompletion(session waitSession, stdoutErrCh, stderrErrCh <-chan error) error {
 	if err := session.Wait(); err != nil {
 		return fmt.Errorf("remote command error: %w", err)
 	}
