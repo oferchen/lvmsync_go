@@ -24,6 +24,14 @@ var (
 	removeSnapshot           = lvm.RemoveSnapshot
 )
 
+// SetParseSnapshotSizeForTest overrides the parseSnapshotSize helper for tests
+// and returns a function to restore the original behavior.
+func SetParseSnapshotSizeForTest(f func(string, string) (uint64, error)) func() {
+	orig := parseSnapshotSize
+	parseSnapshotSize = f
+	return func() { parseSnapshotSize = orig }
+}
+
 // PrepareSnapshot sets up a snapshot for the given original volume. It returns the snapshot path,
 // an optional monitor error channel, a cleanup function, and any error encountered.
 func PrepareSnapshot(cfg *config.Config, originalVolume string, logger *zap.Logger) (string, chan error, func(), error) {
