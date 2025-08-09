@@ -36,11 +36,14 @@ LVMSync is organized into modular packages to keep concerns separated:
   - Internally split into focused modules: `progress.go`, `handshake.go`, and `block_writer.go` for clearer responsibilities.
 - `remote` – wraps SSH functionality for running commands on remote hosts and coordinating transfers.
 - `config` – parses and validates configuration files and CLI options.
+- `dedup` – houses Bloom filter helpers, chunking logic, and other deduplication utilities.
+- `grpc` – provides the gRPC server and authentication helpers used by the remote daemon.
 - `common` and `internal` – shared helpers and internal utilities such as multi-error handling.
 - `cmd/lvmsync` – CLI orchestrator broken into focused subpackages:
   - `snapshot` for snapshot preparation
   - `signals` for signal handling and cleanup
   - `transfer` for client transfer execution
+- `cmd/grpcd` – standalone gRPC daemon exposing LVMSync operations remotely.
 
 This structure allows individual packages to be developed and tested in isolation.
 
@@ -50,6 +53,21 @@ LVMSync emits structured logs using [zap](https://github.com/uber-go/zap). Error
 structured fields instead of being written to stderr, and the logger is flushed on shutdown to
 ensure all entries are persisted. When `--progress` is enabled, progress updates are emitted as
 structured log entries, allowing external tooling to track transfer completion.
+
+```go
+logger, _ := zap.NewProduction()
+defer logger.Sync()
+start := time.Now()
+
+logger.Info("snapshot complete",
+    zap.String("source_path", src),
+    zap.String("dest_path", dst),
+    zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+)
+```
+
+Field keys use `snake_case` and include units where appropriate, and `Sync()` is deferred to flush
+buffers on exit.
 
 ## Configuration
 
@@ -71,6 +89,31 @@ Flags are grouped in the CLI help:
 Internally, each group is set up through a dedicated helper such as
 `initGeneralFlags`, `initSSHFlags`, or `initCompressionFlags`, keeping flag
 definitions focused and easy to maintain.
+
+```go
+func initConfig() *viper.Viper {
+    v := viper.New()
+
+    general := pflag.NewFlagSet("general", pflag.ExitOnError)
+    general.Bool("progress", true, "show progress")
+
+    lvm := pflag.NewFlagSet("lvm", pflag.ExitOnError)
+    lvm.String("volume_group", "", "target volume group")
+
+    pflag.CommandLine.AddFlagSet(general)
+    pflag.CommandLine.AddFlagSet(lvm)
+
+    v.BindPFlags(pflag.CommandLine)
+    v.SetEnvPrefix("LVMSYNC")
+    v.AutomaticEnv()
+    v.SetConfigName("config")
+    v.AddConfigPath(".")
+    return v
+}
+```
+
+This groups related flags once and lets Viper merge values from flags, `LVMSYNC_*` variables, and the
+`config.yaml` file.
 
 The overall loading flow works in three stages:
 
@@ -95,6 +138,10 @@ Environment variables use the flag name in uppercase with underscores, e.g.:
 export LVMSYNC_PARALLEL=8
 export LVMSYNC_SSH_USER=backup
 ```
+
+If `config.yaml` sets `parallel: 4` and the environment contains
+`LVMSYNC_PARALLEL=8`, running `lvmsync --parallel 16` will use `parallel=16`
+because flags override environment variables, which override the config file.
 
 ### Option reference
 
