@@ -1,0 +1,43 @@
+---
+# .github/workflows/go-cache-purge.yml
+name: Purge Go & Actions Caches
+
+on:
+  schedule:
+    - cron: "0 3 * * *"    # Daily at 03:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write            # needed to delete Actions caches via API/gh
+
+jobs:
+  purge-caches:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Go (stable)
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+
+      - name: Show Go cache locations (diagnostic)
+        run: |
+          echo "GOCACHE=$(go env GOCACHE)"
+          echo "GOMODCACHE=$(go env GOMODCACHE)"
+          echo "GOPATH=$(go env GOPATH)"
+
+      - name: Purge Go build/module/test/fuzz caches
+        run: |
+          set -euo pipefail
+          go clean -cache -modcache -testcache -fuzzcache
+          echo "✅ Go caches flushed"
+
+      - name: Purge GitHub Actions dependency caches (all keys)
+        env:
+          GH_TOKEN: ${{ github.token }}   # gh uses this for auth
+        run: |
+          set -euo pipefail
+          gh --version
+          # Delete ALL caches for this repo; succeed even if none exist
+          gh cache delete --all --succeed-on-no-caches --repo "${GITHUB_REPOSITORY}"
+          echo "🧹 Actions caches deleted (if any)"
