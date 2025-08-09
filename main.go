@@ -50,6 +50,7 @@ var (
 	dumpChangesParallel          = transfer.DumpChangesParallel
 	dumpChangesWithDeduplication = transfer.DumpChangesWithDeduplication
 	newSSHClient                 = remote.NewSSHClient
+	openFile                     = os.OpenFile
 )
 
 func runApplyMode(applyFile string) error {
@@ -91,7 +92,7 @@ func runClientMode(snapshotDevice, dest string) (err error) {
 }
 
 func runLocalDump(snapshotDevice, originDevice, dest string) (err error) {
-	destFile, err := os.OpenFile(dest, os.O_RDWR, 0)
+	destFile, err := openFile(dest, os.O_RDWR, 0)
 	if err != nil {
 		return fmt.Errorf("failed to open destination device %s: %w", dest, err)
 	}
