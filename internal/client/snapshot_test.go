@@ -1,10 +1,11 @@
-package client
+package client_test
 
 import (
 	"testing"
 
 	"go.uber.org/zap"
 	"lvmsync_go/config"
+	"lvmsync_go/internal/client"
 )
 
 func TestPrepareSkipSnapshot(t *testing.T) {
@@ -17,12 +18,11 @@ func TestPrepareSkipSnapshot(t *testing.T) {
 	cfg.VolumeGroup = "vg"
 	cfg.TargetVolumeGroup = "vg2"
 
-	origParse := parseSnapshotSize
-	parseSnapshotSize = func(string, string) (uint64, error) { return 1, nil }
-	defer func() { parseSnapshotSize = origParse }()
+	restore := client.SetParseSnapshotSizeForTest(func(string, string) (uint64, error) { return 1, nil })
+	defer restore()
 
 	logger := zap.NewNop()
-	snap, monitorCh, cleanup, err := PrepareSnapshot(cfg, "/dev/vg/orig", logger)
+	snap, monitorCh, cleanup, err := client.PrepareSnapshot(cfg, "/dev/vg/orig", logger)
 	if err != nil {
 		t.Fatalf("Prepare returned error: %v", err)
 	}
