@@ -523,8 +523,12 @@ Contributions are welcome. Please follow the project's coding guidelines, includ
 
 ### Development Setup
 
-The Super-Linter workflow validates the entire repository and runs `golangci-lint run ./...` from the repository root.
-Run the same command locally to mirror CI:
+The Super-Linter workflow validates the entire repository.
+
+### Linting
+
+The `.golangci.yml` config uses standard Go formatters such as `gci`, `gofmt`, `gofumpt`, `goimports`, and `golines`. A misconfigured `swaggo` formatter entry was removed.
+Run the linter locally to mirror CI:
 
 ```sh
 golangci-lint run ./...
