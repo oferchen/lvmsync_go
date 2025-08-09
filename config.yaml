@@ -67,7 +67,7 @@ snapshot_size: "20%"
 volume_group: ""
 # Volume group name of the target LVM volume
 target_volume_group: ""
-target_vgs: []  # Candidate target VGs for auto-selection
+target_vgs: [ ]  # Candidate target VGs for auto-selection
 # Command used to re-execute the program with elevated privileges
 # when required
 lvm_escalation: "sudo -n"
