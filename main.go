@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"lvmsync_go/common"
 	"lvmsync_go/config"
 	"lvmsync_go/internal/privesc"
 	"lvmsync_go/lvm"
@@ -93,16 +94,7 @@ func runLocalDump(snapshotDevice, originDevice, dest string) (err error) {
 	if err != nil {
 		return fmt.Errorf("failed to open destination device %s: %w", dest, err)
 	}
-	defer func() {
-		if closeErr := destFile.Close(); closeErr != nil {
-			zap.L().Warn("Failed to close destination device", zap.Error(closeErr))
-			if err == nil {
-				err = fmt.Errorf("close destination device: %w", closeErr)
-			} else {
-				err = fmt.Errorf("%v; close destination device: %w", err, closeErr)
-			}
-		}
-	}()
+	defer common.CloseWithErr(destFile, &err, "close destination device")
 	limitedOut := transfer.WrapRateLimitedWriter(destFile, cfg.SpeedLimit)
 	return executeDump(cfg, snapshotDevice, originDevice, limitedOut)
 }

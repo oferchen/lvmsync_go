@@ -47,16 +47,7 @@ func LoadChecksumState(filename string) (state *ChecksumState, err error) {
 		}
 		return nil, fmt.Errorf("open checksum state: %w", err)
 	}
-	defer func() {
-		if closeErr := file.Close(); closeErr != nil {
-			if Logger != nil {
-				Logger.Warn("Failed to close checksum state file", zap.Error(closeErr))
-			}
-			if err == nil {
-				err = fmt.Errorf("close checksum state: %w", closeErr)
-			}
-		}
-	}()
+	defer common.CloseWithErr(file, &err, "close checksum state file")
 
 	state = &ChecksumState{}
 	decoder := gob.NewDecoder(file)
@@ -89,16 +80,7 @@ func SaveChecksumState(filename string, state *ChecksumState) (err error) {
 		}
 		return fmt.Errorf("chmod checksum state: %w", err)
 	}
-	defer func() {
-		if closeErr := file.Close(); closeErr != nil {
-			if Logger != nil {
-				Logger.Warn("Failed to close checksum state file", zap.Error(closeErr))
-			}
-			if err == nil {
-				err = fmt.Errorf("close checksum state: %w", closeErr)
-			}
-		}
-	}()
+	defer common.CloseWithErr(file, &err, "close checksum state file")
 
 	encoder := gob.NewEncoder(file)
 	if err = encoder.Encode(state); err != nil {
@@ -288,18 +270,7 @@ func dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer,
 	if err != nil {
 		return err
 	}
-	defer func() {
-		if closeErr := srcFile.Close(); closeErr != nil {
-			if Logger != nil {
-				Logger.Warn("Failed to close source file", zap.Error(closeErr))
-			}
-			if err == nil {
-				err = fmt.Errorf("close source file: %w", closeErr)
-			} else {
-				err = fmt.Errorf("%v; close source file: %w", err, closeErr)
-			}
-		}
-	}()
+	defer common.CloseWithErr(srcFile, &err, "close source file")
 
 	pipeFds, cleanupPipe, err := setupPipe(cfg)
 	if err != nil {
@@ -552,18 +523,7 @@ func DumpChangesParallel(cfg *config.Config, snapshot, source string, out io.Wri
 	if err != nil {
 		return err
 	}
-	defer func() {
-		if closeErr := srcFile.Close(); closeErr != nil {
-			if Logger != nil {
-				Logger.Warn("Failed to close source file", zap.Error(closeErr))
-			}
-			if err == nil {
-				err = fmt.Errorf("close source file: %w", closeErr)
-			} else {
-				err = fmt.Errorf("%v; close source file: %w", err, closeErr)
-			}
-		}
-	}()
+	defer common.CloseWithErr(srcFile, &err, "close source file")
 
 	resumeStart := readResumeStart(cfg)
 	results := startParallelWorkers(cfg, srcFile, ranges, resumeStart)
@@ -735,18 +695,7 @@ func processDumpDataCore(cfg *config.Config, in io.Reader, destPath string, dedu
 	if err != nil {
 		return fmt.Errorf("failed to open destination device %s: %w", destPath, err)
 	}
-	defer func() {
-		if closeErr := destFile.Close(); closeErr != nil {
-			if Logger != nil {
-				Logger.Warn("Failed to close destination device", zap.Error(closeErr))
-			}
-			if err == nil {
-				err = fmt.Errorf("close destination device: %w", closeErr)
-			} else {
-				err = fmt.Errorf("%v; close destination device: %w", err, closeErr)
-			}
-		}
-	}()
+	defer common.CloseWithErr(destFile, &err, "close destination device")
 
 	startTime := time.Now()
 	checksum := GetChecksumStrategy(cfg.ChecksumAlgorithm)
@@ -805,17 +754,6 @@ func RunApply(cfg *config.Config, applyFile, destDevice string) (err error) {
 	if err != nil {
 		return err
 	}
-	defer func() {
-		if closeErr := rc.Close(); closeErr != nil {
-			if Logger != nil {
-				Logger.Warn("Failed to close apply file", zap.Error(closeErr))
-			}
-			if err == nil {
-				err = fmt.Errorf("close apply file: %w", closeErr)
-			} else {
-				err = fmt.Errorf("%v; close apply file: %w", err, closeErr)
-			}
-		}
-	}()
+	defer common.CloseWithErr(rc, &err, "close apply file")
 	return applyData(cfg, rc, destDevice)
 }

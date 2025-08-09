@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"lvmsync_go/common"
 	"lvmsync_go/config"
 
 	"go.uber.org/zap"
@@ -60,18 +61,7 @@ func ReadBlockWithRetries(cfg *config.Config, src *os.File, offset int64, useZer
 		if err != nil {
 			return nil, err
 		}
-		defer func() {
-			if closeErr := r.Close(); closeErr != nil {
-				if Logger != nil {
-					Logger.Warn("Failed to close pipe reader", zap.Error(closeErr))
-				}
-				if err == nil {
-					err = fmt.Errorf("close pipe reader: %w", closeErr)
-				} else {
-					err = fmt.Errorf("%v; close pipe reader: %w", err, closeErr)
-				}
-			}
-		}()
+		defer common.CloseWithErr(r, &err, "close pipe reader")
 
 		for attempt := 0; attempt < maxRetries; attempt++ {
 			err = ZeroCopyTransfer(src, w, offset, int64(blockSize), pipeFds)
