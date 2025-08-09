@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"lvmsync_go/common"
 )
 
 var mapperDir = "/dev/mapper"
@@ -23,15 +25,7 @@ func ReadMetadataHeader(metadataPath string) (chunkSize int64, err error) {
 	if err != nil {
 		return 0, err
 	}
-	defer func() {
-		if closeErr := file.Close(); closeErr != nil {
-			if err == nil {
-				err = fmt.Errorf("close metadata file: %w", closeErr)
-			} else {
-				err = fmt.Errorf("%v; close metadata file: %w", err, closeErr)
-			}
-		}
-	}()
+	defer common.CloseWithErr(file, &err, "close metadata file")
 
 	buf := make([]byte, 16)
 	if _, err := io.ReadFull(file, buf); err != nil {
@@ -66,15 +60,7 @@ func GetDifferences(metadataPath string, chunkSize int64) (ranges []Range, err e
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		if closeErr := file.Close(); closeErr != nil {
-			if err == nil {
-				err = fmt.Errorf("close metadata file: %w", closeErr)
-			} else {
-				err = fmt.Errorf("%v; close metadata file: %w", err, closeErr)
-			}
-		}
-	}()
+	defer common.CloseWithErr(file, &err, "close metadata file")
 
 	if _, err = file.Seek(chunkSize, io.SeekStart); err != nil {
 		return nil, err
