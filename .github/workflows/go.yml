@@ -86,7 +86,7 @@ jobs:
             ${{ runner.os }}-go-${{ matrix.go-version }}-
 
       - name: Verify formatting
-        run: |
+        'run': |
           go install golang.org/x/tools/cmd/goimports@latest
           fmt_out=$(gofmt -l .)
           if [ -n "$fmt_out" ]; then
@@ -102,18 +102,18 @@ jobs:
           fi
 
       - name: Install golangci-lint
-        run: |
+        'run': |
           curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | \
             sh -s -- -b $(go env GOPATH)/bin
 
       - name: Run golangci-lint
-        run: |
+        'run': |
           for dir in . internal/multierr; do
             (cd "$dir" && golangci-lint run ./...)
           done
 
       - name: Build project
-        run: go build -v ./...
+        'run': go build -v ./...
 
       - name: Run tests
-        run: go test -v -race -cover ./...
+        'run': go test -v -race -cover ./...
