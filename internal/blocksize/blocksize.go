@@ -10,6 +10,8 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+var sysDevBlock = "/sys/dev/block"
+
 // Detect determines an optimal block size for the given block device.
 // It inspects sysfs queue attributes in the following order of preference:
 //  1. optimal_io_size
@@ -31,7 +33,7 @@ func Detect(devicePath string) (int, error) {
 			return 0, fmt.Errorf("stat %s: %w", devicePath, err)
 		}
 	}
-	queuePath := filepath.Join("/sys/dev/block", fmt.Sprintf("%d:%d/queue", unix.Major(uint64(stat.Rdev)), unix.Minor(uint64(stat.Rdev))))
+	queuePath := filepath.Join(sysDevBlock, fmt.Sprintf("%d:%d/queue", unix.Major(stat.Rdev), unix.Minor(stat.Rdev)))
 	return readPreferredSize(queuePath)
 }
 
