@@ -20,6 +20,7 @@ func reportProgress(cfg *config.Config, transferred, total int64, index int, sta
 	}
 	if cfg.Progress {
 		progressPercent := float64(transferred) / float64(total) * 100.0
+
 		Logger.Info("transfer progress", zap.Float64("progress_percent", progressPercent))
 	}
 	if cfg.Verbose > 0 && index > 0 && index%100 == 0 {
