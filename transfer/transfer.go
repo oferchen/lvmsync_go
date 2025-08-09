@@ -124,14 +124,14 @@ func composeHandshake(cfg *config.Config, mode string) common.Handshake {
 	return hs
 }
 
-func validateOffsetAndSize(offset uint64, size int) error {
+func validateOffsetAndSize(offset uint64, size int) (int64, uint32, error) {
 	if offset > math.MaxInt64 {
-		return fmt.Errorf("offset %d overflows int64", offset)
+		return 0, 0, fmt.Errorf("offset %d overflows int64", offset)
 	}
 	if size < 0 || size > int(math.MaxUint32) {
-		return fmt.Errorf("invalid block size %d: must be between 0 and %d", size, uint32(math.MaxUint32))
+		return 0, 0, fmt.Errorf("invalid block size %d: must be between 0 and %d", size, uint32(math.MaxUint32))
 	}
-	return nil
+	return int64(offset), uint32(size), nil
 }
 
 func iterateBlocks(cfg *config.Config, ranges []Range, srcFile *os.File, bufOut *bufio.Writer, dedup DeduplicationStrategy, pipeFds [2]int) (int64, int, error) {
@@ -139,24 +139,25 @@ func iterateBlocks(cfg *config.Config, ranges []Range, srcFile *os.File, bufOut 
 	skippedBlocks := 0
 	var header [12]byte
 	for _, r := range ranges {
-		if err := validateOffsetAndSize(r.Start, cfg.BlockSize); err != nil {
+		offset, blockSize, err := validateOffsetAndSize(r.Start, cfg.BlockSize)
+		if err != nil {
 			return totalBytes, skippedBlocks, err
 		}
-		data, err := ReadBlockWithRetries(cfg, srcFile, int64(r.Start), cfg.ZeroCopy, pipeFds)
+		data, err := ReadBlockWithRetries(cfg, srcFile, offset, cfg.ZeroCopy, pipeFds)
 		if err != nil {
 			return totalBytes, skippedBlocks, fmt.Errorf("error reading block at offset %d: %w", r.Start, err)
 		}
 		if dedup != nil {
-			if !dedup.ShouldTransfer(int64(r.Start), data) {
+			if !dedup.ShouldTransfer(offset, data) {
 				skippedBlocks++
 				putBlockBuffer(data)
 				continue
 			}
-			dedup.RecordTransfer(int64(r.Start), data)
+			dedup.RecordTransfer(offset, data)
 		}
 
 		binary.BigEndian.PutUint64(header[0:8], r.Start)
-		binary.BigEndian.PutUint32(header[8:12], uint32(cfg.BlockSize))
+		binary.BigEndian.PutUint32(header[8:12], blockSize)
 		if _, err := bufOut.Write(header[:]); err != nil {
 			putBlockBuffer(data)
 			return totalBytes, skippedBlocks, fmt.Errorf("failed to write header: %w", err)
@@ -167,7 +168,7 @@ func iterateBlocks(cfg *config.Config, ranges []Range, srcFile *os.File, bufOut 
 		}
 		putBlockBuffer(data)
 
-		totalBytes += int64(cfg.BlockSize)
+		totalBytes += int64(blockSize)
 	}
 	return totalBytes, skippedBlocks, nil
 }
@@ -210,7 +211,11 @@ func prepareRanges(cfg *config.Config, snapshot, source string) ([]Range, error)
 	}
 	Logger.Info("Using block size", zap.Int("blockSize", cfg.BlockSize))
 
-	ranges, err := gatherChangedRanges(snapshot, int64(cfg.BlockSize))
+	_, blockSize, err := validateOffsetAndSize(0, cfg.BlockSize)
+	if err != nil {
+		return nil, err
+	}
+	ranges, err := gatherChangedRanges(snapshot, int64(blockSize))
 	if err != nil {
 		return nil, err
 	}
@@ -420,15 +425,16 @@ func processParallelResults(cfg *config.Config, results <-chan *BlockResult, buf
 func worker(cfg *config.Config, srcFile *os.File, tasks <-chan BlockTask, results chan<- *BlockResult) {
 	defer workerWG.Done()
 	for task := range tasks {
-		if err := validateOffsetAndSize(task.R.Start, cfg.BlockSize); err != nil {
+		offset, blockSize, err := validateOffsetAndSize(task.R.Start, cfg.BlockSize)
+		if err != nil {
 			results <- &BlockResult{Index: task.Index, Err: err}
 			continue
 		}
-		data, err := ReadBlockWithRetries(cfg, srcFile, int64(task.R.Start), false, [2]int{-1, -1})
+		data, err := ReadBlockWithRetries(cfg, srcFile, offset, false, [2]int{-1, -1})
 		results <- &BlockResult{
 			Index:  task.Index,
 			Offset: task.R.Start,
-			Size:   uint32(cfg.BlockSize),
+			Size:   blockSize,
 			Data:   data,
 			Err:    err,
 		}
@@ -629,14 +635,18 @@ func writeData(destFile *os.File, offset uint64, data []byte) error {
 }
 
 func processBlock(destFile *os.File, dedup DeduplicationStrategy, verify bool, checksum ChecksumStrategy, offset uint64, transmitted []byte, data []byte) (bool, error) {
+	if offset > math.MaxInt64 {
+		return false, fmt.Errorf("offset %d overflows int64", offset)
+	}
 	if err := verifyChecksum(verify, checksum, data, transmitted, offset); err != nil {
 		return false, err
 	}
 	if dedup != nil {
-		if !dedup.ShouldTransfer(int64(offset), data) {
+		intOffset := int64(offset)
+		if !dedup.ShouldTransfer(intOffset, data) {
 			return false, nil
 		}
-		dedup.RecordTransfer(int64(offset), data)
+		dedup.RecordTransfer(intOffset, data)
 	}
 	if err := writeData(destFile, offset, data); err != nil {
 		return false, err
