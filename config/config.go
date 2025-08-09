@@ -20,8 +20,15 @@ import (
 	"lvmsync_go/lvm"
 )
 
-var SupportedCompression = []string{"none", "lz4", "zstd", "auto"}
-var SupportedDedupStrategies = []string{"none", "auto", "checksum", "rolling_hash", "bloom"}
+const (
+	// Auto represents automatic detection behavior for configurable values.
+	Auto = "auto"
+	// Zstd represents the Zstandard compression algorithm.
+	Zstd = "zstd"
+)
+
+var SupportedCompression = []string{"none", "lz4", Zstd, Auto}
+var SupportedDedupStrategies = []string{"none", Auto, "checksum", "rolling_hash", "bloom"}
 var SupportedChecksumAlgorithms = []string{"sha256", "blake3", "blake3-512"}
 
 var (
@@ -104,7 +111,7 @@ func LZ4Level(level int) (uint32, error) {
 
 func (c *Config) HumanBlockSize() string {
 	if c.BlockSize == 0 {
-		return "auto"
+		return Auto
 	}
 	bs, err := FormatBlockSize(c.BlockSize)
 	if err != nil {
@@ -171,11 +178,11 @@ func (b *Builder) applyDefaults(conf *Config) error {
 
 func (b *Builder) validateCompression(conf *Config) error {
 	resolved := conf.Compress
-	if resolved == "auto" {
+	if resolved == Auto {
 		resolved = compressiondetect.DetectOptimalCompression()
 	}
 	switch resolved {
-	case "zstd":
+	case Zstd:
 		if conf.CompressLevel < 1 || conf.CompressLevel > 22 {
 			return fmt.Errorf("invalid zstd compression level: %d", conf.CompressLevel)
 		}
@@ -237,7 +244,7 @@ func (b *Builder) parseBlockSize() (int, string, error) {
 	if raw == "" {
 		raw = b.defaults.BlockSizeRaw
 	}
-	if strings.EqualFold(raw, "auto") {
+	if strings.EqualFold(raw, Auto) {
 		return 0, raw, nil
 	}
 	val, isPercent, err := sizeparse.Parse(raw)
@@ -273,7 +280,7 @@ func DefaultConfig() (*Config, error) {
 		LVMSyncPath:          "lvmsync",
 		RemotePreScript:      "",
 		RemotePostScript:     "",
-		Compress:             "auto",
+		Compress:             Auto,
 		CompressLevel:        3,
 		CompressConcurrency:  runtime.GOMAXPROCS(0),
 		Speed:                "100MB",
@@ -289,7 +296,7 @@ func DefaultConfig() (*Config, error) {
 		LVMEscalation:        "sudo -n",
 		Progress:             true,
 		BlockSize:            0,
-		BlockSizeRaw:         "auto",
+		BlockSizeRaw:         Auto,
 		DedupStrategy:        "none",
 		DedupStateFile:       filepath.Join(homeDir, ".lvmsync_dedup"),
 		BloomEntries:         1000000,
