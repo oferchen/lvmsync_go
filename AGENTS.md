@@ -120,3 +120,4 @@ LVMSYNC_SOURCE=/dev/vg0/snap1
 - [ ] Review CLI argument parsing: prefer `pflag`, bind flags to `viper`, and group related options into reusable `FlagSet`s.
 - [ ] Keep modules single-purpose; maintain the `transfer` package decomposition (`progress.go`, `handshake.go`, `block_writer.go`).
 - [ ] Document gRPC daemon configuration sources (flags, env vars, config file) and precedence.
+- [ ] Keep the README configuration section in sync with CLI flags and environment variables.
