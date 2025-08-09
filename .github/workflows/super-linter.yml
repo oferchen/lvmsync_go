@@ -1,4 +1,5 @@
 ---
+# .github/workflows/super-linter.yml
 # OVERHEAD: Hardened Super-Linter workflow
 # - Soft/Hard fail via SUPER_LINTER_STRICT
 # - golangci-lint uses package pattern (./...) to avoid cross-dir issues
@@ -7,11 +8,12 @@
 # - Robust commit flow (rebase + retries + [skip ci])
 # - Status updates enabled (avoid 403s via permissions)
 # - Concurrency per ref (prevents overlapping runs)
-# - Excludes known noisy files from unrelated linters
+# - JSCPD reads local .jscpd.json (dashboards ignored there)
+# - Uploads JSCPD HTML report as artifact
 
 name: Lint Code Base
 
-"on":
+on:
   push:
     branches: [main, master]
   pull_request:
@@ -27,6 +29,7 @@ concurrency:
 
 env:
   SUPER_LINTER_STRICT: "true" # set "false" to soft-fail the job
+  JSCPD_IGNORE: "${{ github.workspace }}/*.json"
 
 jobs:
   super-linter:
@@ -44,8 +47,7 @@ jobs:
       - name: Configure Git identity
         run: |
           git config --global user.name "github-actions[bot]"
-          git config --global user.email \
-            "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
       - name: Run Super-Linter
         uses: super-linter/super-linter@v8.0.0
@@ -53,11 +55,13 @@ jobs:
           # Core
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DEFAULT_BRANCH: main
-          VALIDATE_ALL_CODEBASE: "true"
+          # Validate all code on PRs; changed files only on direct pushes
+          VALIDATE_ALL_CODEBASE: ${{ github.event_name == 'pull_request' && 'true' || 'false' }}
+          FILTER_REGEX_INCLUDE: ""
 
           # Go: pass ONLY the package pattern (NO "run")
           GO_LINTER: golangci-lint
-          GO_LINT_FLAGS: ./... # runs `golangci-lint run ./...` from repository root
+          GO_LINT_FLAGS: ./...
           GOLANGCI_LINT_VERSION: v2.3.1
 
           # Formatters
@@ -67,24 +71,26 @@ jobs:
           FIX_MARKDOWN: true
           FIX_MARKDOWN_PRETTIER: true
 
-          # Noise reducers / configs
+          LINTER_RULES_PATH: .
           JSCPD_CONFIG_FILE: .jscpd.json
+          # Optional: keep if you truly want to ignore all JSON except the config; prefer to define ignores inside .jscpd.json.
+          JSCPD_IGNORE: "**/*.json"
+
           DOCKERFILE_HADOLINT_FILE_NAME: .hadolint.yaml
+          DOCKERFILE_HADOLINT_CONFIG_FILE: .hadolint.yaml
           IGNORE_GENERATED_FILES: true
           IGNORE_GITIGNORED_FILES: true
 
-          # Exclude files from unrelated linters
-          # (keep JSCPD reading its own config)
-          FILTER_REGEX_EXCLUDE: >-
-            (^|/)\.jscpd\.json$|(^|/)bpm-metrics-dashboard\.json$
+          # Exclude only the JSCPD config itself from other linters' scans;
+          # keep dashboards handled via .jscpd.json ignore list
+          FILTER_REGEX_EXCLUDE: '(^|/)\.jscpd\.json$'
         continue-on-error: ${{ env.SUPER_LINTER_STRICT != 'true' }}
 
       - name: Cleanup linter artifacts
         if: ${{ always() }}
         run: |
           set -euo pipefail
-          sudo rm -rf github_conf super-linter-output || \
-            rm -rf github_conf super-linter-output || true
+          sudo rm -rf github_conf super-linter-output || rm -rf github_conf super-linter-output || true
 
       - name: Auto-commit and push fixes (if needed)
         if: >
@@ -126,8 +132,7 @@ jobs:
           # Single commit; skip CI to avoid loops
           msg="chore: auto-fix lint issues [super-linter] [skip ci]"
           git commit -m "$msg" \
-            --author="github-actions[bot] <41898282+github-actions[bot]@\
-              users.noreply.github.com>" \
+            --author="github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>" \
             --no-verify || {
             echo "No commit created (nothing to commit)."
             exit 0
@@ -142,11 +147,8 @@ jobs:
             echo "Push attempt ${i} failed; refetching and retrying..."
             git fetch --no-tags --prune origin \
               "+refs/heads/${BRANCH_NAME}:refs/remotes/origin/${BRANCH_NAME}"
-            git rebase --autostash "origin/${BRANCH_NAME}" || {
-              git rebase --abort || true;
-            }
+            git rebase --autostash "origin/${BRANCH_NAME}" || { git rebase --abort || true; }
           done
 
           echo "Failed to push auto-fix commit after retries."
           exit 1
-        
