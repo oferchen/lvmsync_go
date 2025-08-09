@@ -7,6 +7,15 @@ import (
 	"time"
 )
 
+func TestExecuteSuccess(t *testing.T) {
+	runClient := func(string, string) error { return nil }
+	sigCh := make(chan error, 1)
+	monitorCh := make(chan error, 1)
+	if err := Execute(runClient, "snap", "dest", sigCh, monitorCh); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestExecuteRunError(t *testing.T) {
 	runClient := func(string, string) error { return errors.New("run") }
 	sigCh := make(chan error, 1)
