@@ -1,6 +1,7 @@
 package config
 
 import (
+	"bytes"
 	"io"
 	"os"
 	"path/filepath"
@@ -99,39 +100,21 @@ func TestBuildViperPrecedence(t *testing.T) {
 	})
 }
 
-func TestUsageIncludesFlagGroups(t *testing.T) {
+func TestUsageOutput(t *testing.T) {
+	resetFlags(nil)
 	cfg, err := DefaultConfig()
 	if err != nil {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
-	initFlagSets(cfg)
-
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("pipe: %v", err)
-	}
-	old := os.Stderr
-	os.Stderr = w
-	printUsage()
-	w.Close()
-	os.Stderr = old
-	out, err := io.ReadAll(r)
-	if err != nil {
-		t.Fatalf("read: %v", err)
-	}
-	s := string(out)
-	headings := []string{
-		"General Options:",
-		"SSH Options:",
-		"Remote Options:",
-		"Deduplication Options:",
-		"Compression Options:",
-		"LVM Options:",
-		"gRPC Options:",
-	}
-	for _, h := range headings {
-		if !strings.Contains(s, h) {
-			t.Fatalf("usage missing %q", h)
+	registerFlags(cfg)
+	buf := &bytes.Buffer{}
+	pflag.CommandLine.SetOutput(buf)
+	pflag.Usage()
+	out := buf.String()
+	wants := []string{"--config", "--ssh_user", "--grpc_port"}
+	for _, w := range wants {
+		if !strings.Contains(out, w) {
+			t.Fatalf("usage missing %q", w)
 		}
 	}
 }
