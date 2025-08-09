@@ -51,6 +51,8 @@ var (
 	dumpChangesWithDeduplication = transfer.DumpChangesWithDeduplication
 	newSSHClient                 = remote.NewSSHClient
 	openFile                     = os.OpenFile
+	runFunc                      = run
+	exitFunc                     = os.Exit
 )
 
 func runApplyMode(applyFile string) error {
@@ -473,8 +475,10 @@ func run() error {
 }
 
 func main() {
-	if err := run(); err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		os.Exit(1)
+	if err := runFunc(); err != nil {
+		logger := zap.L()
+		logger.Error("run failed", zap.Error(err))
+		syncLogger(logger)
+		exitFunc(1)
 	}
 }
