@@ -70,17 +70,20 @@ func (s *SSHSession) Close() {
 }
 
 func RunSSHCommand(host, user, keyPath, hostKeyPath string, port int, command string, timeout time.Duration) error {
-	publicKey, err := loadHostPublicKeyMust(hostKeyPath)
+	publicKey, err := readHostPublicKey(hostKeyPath)
 	if err != nil {
 		return fmt.Errorf("failed to load host public key: %w", err)
 	}
+	signer, err := readPrivateKey(keyPath)
+	if err != nil {
+		return fmt.Errorf("failed to load private key: %w", err)
+	}
 	client, err := dialSSH(fmt.Sprintf("%s:%d", host, port), &ssh.ClientConfig{
 		User:            user,
-		Auth:            []ssh.AuthMethod{ssh.PublicKeys(loadPrivateKeyMust(keyPath))},
+		Auth:            []ssh.AuthMethod{ssh.PublicKeys(signer)},
 		HostKeyCallback: ssh.FixedHostKey(publicKey),
 		Timeout:         timeout,
 	}, timeout)
-
 	if err != nil {
 		return fmt.Errorf("failed to establish SSH connection: %w", err)
 	}
@@ -111,29 +114,27 @@ func RunSSHCommand(host, user, keyPath, hostKeyPath string, port int, command st
 	return nil
 }
 
-func loadPrivateKeyMust(keyPath string) ssh.Signer {
+func readPrivateKey(keyPath string) (ssh.Signer, error) {
 	key, err := os.ReadFile(keyPath)
 	if err != nil {
-		Logger.Fatal("Failed to read SSH private key", zap.String("keyPath", keyPath), zap.Error(err))
+		return nil, fmt.Errorf("read SSH private key: %w", err)
 	}
 	signer, err := ssh.ParsePrivateKey(key)
 	if err != nil {
-		Logger.Fatal("Failed to parse SSH private key", zap.String("keyPath", keyPath), zap.Error(err))
+		return nil, fmt.Errorf("parse SSH private key: %w", err)
 	}
-	return signer
+	return signer, nil
 }
 
-// loadHostPublicKeyMust loads the allowed host public key from the given path and parses it.
-func loadHostPublicKeyMust(keyPath string) (ssh.PublicKey, error) {
+// readHostPublicKey loads the allowed host public key from the given path and parses it.
+func readHostPublicKey(keyPath string) (ssh.PublicKey, error) {
 	key, err := os.ReadFile(keyPath)
 	if err != nil {
-		zap.L().Fatal("Failed to read SSH host public key", zap.String("keyPath", keyPath), zap.Error(err))
-		return nil, err
+		return nil, fmt.Errorf("read SSH host public key: %w", err)
 	}
 	publicKey, err := ssh.ParsePublicKey(key)
 	if err != nil {
-		zap.L().Fatal("Failed to parse SSH host public key", zap.String("keyPath", keyPath), zap.Error(err))
-		return nil, err
+		return nil, fmt.Errorf("parse SSH host public key: %w", err)
 	}
 	return publicKey, nil
 }

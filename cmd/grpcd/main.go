@@ -8,12 +8,12 @@ import (
 	"os"
 	"strings"
 
-	grpcserver "lvmsync_go/grpc/server"
-	lvmagent "lvmsync_go/internal/lvm"
-
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
+
+	grpcserver "lvmsync_go/grpc/server"
+	lvmagent "lvmsync_go/internal/lvm"
 )
 
 var (
@@ -44,7 +44,10 @@ func main() {
 	}
 
 	agent := lvmagent.NewSudoAgent("", nil)
-	srv := grpcserver.New(cfg, agent)
+	srv, srvErr := grpcserver.New(cfg, agent)
+	if srvErr != nil {
+		zap.L().Fatal("init gRPC server", zap.Error(srvErr))
+	}
 
 	port := v.GetInt("grpc-port")
 	lis, listenErr := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))

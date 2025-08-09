@@ -87,7 +87,10 @@ func (m *mockAgent) GetStatus(ctx context.Context, volume, requester string) (st
 func newClient(t *testing.T, cfg Config, agent lvmagent.Agent, creds credentials.TransportCredentials) (proto.ReplicationClient, func()) {
 	t.Helper()
 	lis := bufconn.Listen(bufSize)
-	srv := New(cfg, agent)
+	srv, err := New(cfg, agent)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
 	go func(t *testing.T) {
 		err := srv.Serve(lis)
 		if err != nil && !errors.Is(err, grpc.ErrServerStopped) {
@@ -361,6 +364,34 @@ func TestMTLSValidation(t *testing.T) {
 		client, cleanup := newClient(t, cfg, nil, credentials.NewTLS(bad))
 		defer cleanup()
 		if _, err := client.Ping(ctxWithRole("replicator"), &proto.Empty{}); err == nil {
+			t.Fatalf("expected error")
+		}
+	})
+}
+
+func TestNewTLSFailures(t *testing.T) {
+	t.Run("missing key pair", func(t *testing.T) {
+		if _, err := New(Config{TLSCert: "nope", TLSKey: "nope", CACert: "nope"}, nil); err == nil {
+			t.Fatalf("expected error")
+		}
+	})
+
+	t.Run("missing CA", func(t *testing.T) {
+		cfg, _, _ := generateTLS(t)
+		cfg.CACert = "nope"
+		if _, err := New(cfg, nil); err == nil {
+			t.Fatalf("expected error")
+		}
+	})
+
+	t.Run("invalid CA", func(t *testing.T) {
+		cfg, _, _ := generateTLS(t)
+		badCA := filepath.Join(t.TempDir(), "bad.pem")
+		if err := os.WriteFile(badCA, []byte("invalid"), 0600); err != nil {
+			t.Fatalf("WriteFile: %v", err)
+		}
+		cfg.CACert = badCA
+		if _, err := New(cfg, nil); err == nil {
 			t.Fatalf("expected error")
 		}
 	})

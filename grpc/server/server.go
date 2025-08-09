@@ -4,17 +4,17 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"os"
 
-	lvmagent "lvmsync_go/internal/lvm"
-	"lvmsync_go/proto"
-
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+
+	lvmagent "lvmsync_go/internal/lvm"
+	"lvmsync_go/proto"
 )
 
 type Config struct {
@@ -24,7 +24,7 @@ type Config struct {
 	AllowInsecure bool
 }
 
-func New(conf Config, a lvmagent.Agent) *grpc.Server {
+func New(conf Config, a lvmagent.Agent) (*grpc.Server, error) {
 	opts := []grpc.ServerOption{
 		grpc.UnaryInterceptor(authorizeInterceptor),
 	}
@@ -32,15 +32,15 @@ func New(conf Config, a lvmagent.Agent) *grpc.Server {
 	if !conf.AllowInsecure {
 		cert, err := tls.LoadX509KeyPair(conf.TLSCert, conf.TLSKey)
 		if err != nil {
-			zap.L().Fatal("load TLS key pair", zap.Error(err))
+			return nil, fmt.Errorf("load TLS key pair: %w", err)
 		}
 		caPEM, err := os.ReadFile(conf.CACert)
 		if err != nil {
-			zap.L().Fatal("read CA cert", zap.Error(err))
+			return nil, fmt.Errorf("read CA cert: %w", err)
 		}
 		pool := x509.NewCertPool()
 		if !pool.AppendCertsFromPEM(caPEM) {
-			zap.L().Fatal("invalid CA cert")
+			return nil, fmt.Errorf("invalid CA cert")
 		}
 		tlsCfg := &tls.Config{
 			Certificates: []tls.Certificate{cert},
@@ -53,10 +53,10 @@ func New(conf Config, a lvmagent.Agent) *grpc.Server {
 
 	srv := grpc.NewServer(opts...)
 	proto.RegisterReplicationServer(srv, &replicationServer{agent: a})
-	return srv
+	return srv, nil
 }
 
-func authorizeInterceptor(ctx context.Context, req interface{}, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+func authorizeInterceptor(ctx context.Context, req any, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		return nil, status.Error(codes.PermissionDenied, "missing metadata")
