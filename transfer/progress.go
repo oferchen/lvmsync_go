@@ -1,8 +1,6 @@
 package transfer
 
 import (
-	"fmt"
-	"os"
 	"time"
 
 	"lvmsync_go/config"
@@ -10,16 +8,12 @@ import (
 	"go.uber.org/zap"
 )
 
-func finalizeProgress(cfg *config.Config) {
-	if cfg.Progress {
-		fmt.Fprintln(os.Stderr, "")
-	}
-}
+func finalizeProgress(cfg *config.Config) {}
 
 func reportProgress(cfg *config.Config, transferred, total int64, index int, start time.Time) {
 	if cfg.Progress {
 		progressPercent := float64(transferred) / float64(total) * 100.0
-		fmt.Fprintf(os.Stderr, "\rProgress: %.2f%%", progressPercent)
+		Logger.Info("Progress", zap.Float64("percent", progressPercent))
 	}
 	if cfg.Verbose > 0 && index > 0 && index%100 == 0 {
 		elapsed := time.Since(start).Seconds()
