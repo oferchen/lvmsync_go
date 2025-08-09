@@ -630,6 +630,18 @@ LVMSync is written in Go by Ofer Chen, inspired by [mpalmer/lvmsync](https://git
 
 Contributions are welcome. Please follow the project's coding guidelines, include appropriate logging and error handling, and update documentation as needed.
 
+### Single-Responsibility Functions
+
+Keep functions and packages focused on a single task to simplify maintenance and testing. Break up large components when behavior grows to preserve clarity.
+
+### Dependency Injection
+
+Decouple modules by injecting dependencies through interfaces or constructor parameters. This approach makes components easier to test and swap during refactoring.
+
+### Test Coverage
+
+Every change should include unit tests. Run `go test -cover ./...` to ensure coverage remains high and regressions are caught early.
+
 ## Development
 
 ### Development Setup

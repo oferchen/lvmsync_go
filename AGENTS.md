@@ -141,3 +141,6 @@ LVMSYNC_SOURCE=/dev/vg0/snap1
 - [ ] Add a dedicated unit test for every new function.
 - [ ] Enforce modular, single-responsibility design across packages.
 - [ ] Document each new CLI flag, environment variable, and configuration option in `README.md`.
+- [ ] Refactor `main.go` into smaller modules.
+- [ ] Verify configuration precedence.
+- [ ] Document feature changes in `README.md`.
