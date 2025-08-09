@@ -3,9 +3,9 @@ package client_test
 import (
 	"testing"
 
-	"go.uber.org/zap"
 	"lvmsync_go/config"
 	"lvmsync_go/internal/client"
+	"go.uber.org/zap"
 )
 
 func TestPrepareSkipSnapshot(t *testing.T) {
