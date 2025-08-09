@@ -14,13 +14,13 @@ import (
 	"lvmsync_go/config"
 )
 
-func TestIterateBlocksOversizedOffset(t *testing.T) {
+func TestIterateBlocksOffsetOverflow(t *testing.T) {
 	src := newTempFile(t, "src")
 	defer src.Close()
 
 	cfg := &config.Config{BlockSize: 4096}
 	bufOut := bufio.NewWriter(io.Discard)
-	_, _, err := iterateBlocks(cfg, []Range{{Start: -1, End: 0}}, src, bufOut, nil, [2]int{-1, -1})
+	_, _, err := iterateBlocks(cfg, []Range{{Start: math.MaxUint64, End: math.MaxUint64}}, src, bufOut, nil, [2]int{-1, -1})
 	if err == nil || !strings.Contains(err.Error(), "offset") {
 		t.Fatalf("expected offset error, got %v", err)
 	}
@@ -69,7 +69,7 @@ func TestReadBlockHeaderOffsetBoundary(t *testing.T) {
 
 func TestReadBlockHeaderOffsetOverflow(t *testing.T) {
 	header := make([]byte, 12)
-	offset := uint64(math.MaxInt64) + 1
+	offset := uint64(math.MaxUint64)
 	binary.BigEndian.PutUint64(header[0:8], offset)
 	binary.BigEndian.PutUint32(header[8:12], 1)
 	reader := bufio.NewReader(bytes.NewReader(header))
@@ -81,7 +81,7 @@ func TestReadBlockHeaderOffsetOverflow(t *testing.T) {
 func TestWriteDataOffsetOverflow(t *testing.T) {
 	dest := newTempFile(t, "dest")
 	defer dest.Close()
-	err := writeData(dest, uint64(math.MaxInt64)+1, []byte("data"))
+	err := writeData(dest, math.MaxUint64, []byte("data"))
 	if err == nil || !strings.Contains(err.Error(), "overflows int64") {
 		t.Fatalf("expected overflow error, got %v", err)
 	}

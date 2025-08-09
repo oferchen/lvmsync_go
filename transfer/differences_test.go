@@ -42,10 +42,10 @@ func TestGetDifferences(t *testing.T) {
 		t.Fatalf("expected 2 ranges, got %d", len(ranges))
 	}
 
-	if ranges[0].Start != 2*chunkSize || ranges[0].End != (2+1)*chunkSize-1 {
+	if ranges[0].Start != uint64(2)*uint64(chunkSize) || ranges[0].End != (uint64(2)+1)*uint64(chunkSize)-1 {
 		t.Fatalf("unexpected first range: %+v", ranges[0])
 	}
-	if ranges[1].Start != 4*chunkSize || ranges[1].End != (4+1)*chunkSize-1 {
+	if ranges[1].Start != uint64(4)*uint64(chunkSize) || ranges[1].End != (uint64(4)+1)*uint64(chunkSize)-1 {
 		t.Fatalf("unexpected second range: %+v", ranges[1])
 	}
 }
@@ -61,7 +61,7 @@ func TestGetDifferencesOverflow(t *testing.T) {
 	}
 
 	buf := make([]byte, 16)
-	origin := uint64(math.MaxInt64)/uint64(chunkSize) + 1
+	origin := math.MaxUint64/uint64(chunkSize) + 1
 	binary.LittleEndian.PutUint64(buf[0:8], origin)
 	binary.LittleEndian.PutUint64(buf[8:16], 1)
 	if _, err := tmpFile.Write(buf); err != nil {

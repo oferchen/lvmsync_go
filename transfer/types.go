@@ -2,8 +2,8 @@
 package transfer
 
 type Range struct {
-	Start int64
-	End   int64
+	Start uint64
+	End   uint64
 }
 
 type BlockTask struct {
