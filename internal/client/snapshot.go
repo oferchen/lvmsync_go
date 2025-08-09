@@ -32,6 +32,38 @@ func SetParseSnapshotSizeForTest(f func(string, string) (uint64, error)) func() 
 	return func() { parseSnapshotSize = orig }
 }
 
+// SetCreateSnapshotForTest overrides the createSnapshot helper for tests and
+// returns a function to restore the original behavior.
+func SetCreateSnapshotForTest(f func(context.Context, string, string, string) error) func() {
+	orig := createSnapshot
+	createSnapshot = f
+	return func() { createSnapshot = orig }
+}
+
+// SetGetSnapshotDevicePathForTest overrides the getSnapshotDevicePath helper
+// for tests and returns a function to restore the original behavior.
+func SetGetSnapshotDevicePathForTest(f func(string, string) string) func() {
+	orig := getSnapshotDevicePath
+	getSnapshotDevicePath = f
+	return func() { getSnapshotDevicePath = orig }
+}
+
+// SetMonitorSnapshotForTest overrides the monitorSnapshot helper for tests and
+// returns a function to restore the original behavior.
+func SetMonitorSnapshotForTest(f func(context.Context, string, float64, time.Duration) error) func() {
+	orig := monitorSnapshot
+	monitorSnapshot = f
+	return func() { monitorSnapshot = orig }
+}
+
+// SetRemoveSnapshotForTest overrides the removeSnapshot helper for tests and
+// returns a function to restore the original behavior.
+func SetRemoveSnapshotForTest(f func(context.Context, string) error) func() {
+	orig := removeSnapshot
+	removeSnapshot = f
+	return func() { removeSnapshot = orig }
+}
+
 // PrepareSnapshot sets up a snapshot for the given original volume. It returns the snapshot path,
 // an optional monitor error channel, a cleanup function, and any error encountered.
 func PrepareSnapshot(cfg *config.Config, originalVolume string, logger *zap.Logger) (string, chan error, func(), error) {
