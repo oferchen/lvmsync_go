@@ -11,7 +11,7 @@
 # - JSCPD reads local .jscpd.json (dashboards ignored there)
 # - Uploads JSCPD HTML report as artifact
 
-name: Lint Code Base
+name: Super-Linter
 
 on:
   push:

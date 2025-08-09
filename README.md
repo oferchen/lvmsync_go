@@ -1,4 +1,6 @@
 # LVMSync
+[![Build Status](https://github.com/oferchen/lvmsync_go/actions/workflows/go.yml/badge.svg?branch=main)](https://github.com/oferchen/lvmsync_go/actions/workflows/go.yml)
+[![Build Status](https://github.com/oferchen/lvmsync_go/actions/workflows/super-linter.yml/badge.svg?branch=main)](https://github.com/oferchen/lvmsync_go/actions/workflows/super-linter.yml)
 
 LVMSync is a high-performance incremental data replication tool for LVM snapshots. It efficiently transfers only changed blocks using metadata from snapshot COW (Copy-On-Write) devices and communicates with LVM through native Go bindings rather than shell commands.
 
@@ -190,11 +192,11 @@ The tool supports both local and remote transfers, as well as an "apply mode" fo
 
 | Option             | Description                  | Default         |
 | ------------------ | ---------------------------- | --------------- |
-| `--grpc_port`      | gRPC port to listen on       | `8443`          |
-| `--tls_cert`       | TLS certificate file         | `""`            |
-| `--tls_key`        | TLS key file                 | `""`            |
-| `--ca_cert`        | CA certificate file          | `""`            |
-| `--allow_insecure` | Allow insecure (disable TLS) | `true`          |
+| `--grpc-port`      | gRPC port to listen on       | `8443`          |
+| `--tls-cert`       | TLS certificate file         | `""`            |
+| `--tls-key`        | TLS key file                 | `""`            |
+| `--ca-cert`        | CA certificate file          | `""`            |
+| `--allow-insecure` | Allow insecure (disable TLS) | `false`         |
 | `--sudo_path`      | Path to sudo executable      | `/usr/bin/sudo` |
 
 ### Examples
@@ -403,23 +405,28 @@ volume_group: vg_data
 
 #### gRPC
 
+`lvmsync-grpcd` accepts configuration via flags, environment variables prefixed with `LVMSYNC_GRPC_`, or a YAML file. Values are resolved in the following order: flags override environment variables, which override the config file.
+
 CLI:
 
 ```sh
-lvmsync-grpcd --grpc_port 9443
+lvmsync-grpcd --grpc-port 9443 --tls-cert cert.pem
 ```
 
 Environment:
 
 ```sh
-LVMSYNC_GRPC_PORT=9443 lvmsync-grpcd
+LVMSYNC_GRPC_GRPC_PORT=9443 LVMSYNC_GRPC_TLS_CERT=cert.pem lvmsync-grpcd
 ```
 
-YAML:
+YAML (`grpcd.yaml`):
 
 ```yaml
-grpc_port: 9443
+grpc-port: 9443
+tls-cert: cert.pem
 ```
+
+Use `--config` to provide an alternate config file path.
 
 ## Configuration File (`config.yaml`)
 
