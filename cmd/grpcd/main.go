@@ -1,15 +1,17 @@
 package main
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
-	"strconv"
 
 	grpcserver "lvmsync_go/grpc/server"
 	lvmagent "lvmsync_go/internal/lvm"
 
 	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
 
@@ -21,35 +23,29 @@ var (
 func main() {
 	logger, err := newZapProduction()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to init logger: %v\n", err)
+		zap.NewNop().Error("init logger", zap.Error(err))
 		exitFunc(1)
 	}
 	zap.ReplaceGlobals(logger)
 	defer syncAndExit(logger)
 
-	port := getEnvInt("GRPC_PORT", 8443)
-	tlsCert := getEnv("TLS_CERT", "")
-	tlsKey := getEnv("TLS_KEY", "")
-	caCert := getEnv("CA_CERT", "")
-	allowInsecure := getEnvBool("ALLOW_INSECURE", false)
-
-	pflag.IntVar(&port, "grpc-port", port, "gRPC port to listen on")
-	pflag.StringVar(&tlsCert, "tls-cert", tlsCert, "TLS certificate file")
-	pflag.StringVar(&tlsKey, "tls-key", tlsKey, "TLS key file")
-	pflag.StringVar(&caCert, "ca-cert", caCert, "CA certificate file")
-	pflag.BoolVar(&allowInsecure, "allow-insecure", allowInsecure, "allow insecure (no TLS)")
-	pflag.Parse()
+	v, err := initConfig(os.Args[1:])
+	if err != nil {
+		zap.L().Error("init config", zap.Error(err))
+		exitFunc(1)
+	}
 
 	cfg := grpcserver.Config{
-		TLSCert:       tlsCert,
-		TLSKey:        tlsKey,
-		CACert:        caCert,
-		AllowInsecure: allowInsecure,
+		TLSCert:       v.GetString("tls-cert"),
+		TLSKey:        v.GetString("tls-key"),
+		CACert:        v.GetString("ca-cert"),
+		AllowInsecure: v.GetBool("allow-insecure"),
 	}
 
 	agent := lvmagent.NewSudoAgent("", nil)
 	srv := grpcserver.New(cfg, agent)
 
+	port := v.GetInt("grpc-port")
 	lis, listenErr := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
 	if listenErr != nil {
 		zap.L().Fatal("listen", zap.Error(listenErr))
@@ -68,27 +64,46 @@ func syncAndExit(logger *zap.Logger) {
 	}
 }
 
-func getEnv(key, def string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return def
-}
+func initConfig(args []string) (*viper.Viper, error) {
+	tlsFlags := pflag.NewFlagSet("tls", pflag.ContinueOnError)
+	tlsFlags.String("tls-cert", "", "TLS certificate file")
+	tlsFlags.String("tls-key", "", "TLS key file")
+	tlsFlags.String("ca-cert", "", "CA certificate file")
+	tlsFlags.Bool("allow-insecure", false, "allow insecure (no TLS)")
 
-func getEnvInt(key string, def int) int {
-	if v := os.Getenv(key); v != "" {
-		if i, err := strconv.Atoi(v); err == nil {
-			return i
+	netFlags := pflag.NewFlagSet("network", pflag.ContinueOnError)
+	netFlags.Int("grpc-port", 8443, "gRPC port to listen on")
+
+	fs := pflag.NewFlagSet("grpcd", pflag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	fs.AddFlagSet(netFlags)
+	fs.AddFlagSet(tlsFlags)
+	fs.String("config", "", "configuration file")
+
+	if err := fs.Parse(args); err != nil {
+		return nil, err
+	}
+
+	v := viper.New()
+	if err := v.BindPFlags(fs); err != nil {
+		return nil, err
+	}
+	v.SetEnvPrefix("LVMSYNC_GRPC")
+	v.AutomaticEnv()
+
+	if cfgFile := v.GetString("config"); cfgFile != "" {
+		v.SetConfigFile(cfgFile)
+	} else {
+		v.SetConfigName("grpcd")
+		v.AddConfigPath(".")
+	}
+
+	if err := v.ReadInConfig(); err != nil {
+		var cfgNotFound viper.ConfigFileNotFoundError
+		if !errors.As(err, &cfgNotFound) {
+			return nil, err
 		}
 	}
-	return def
-}
 
-func getEnvBool(key string, def bool) bool {
-	if v := os.Getenv(key); v != "" {
-		if b, err := strconv.ParseBool(v); err == nil {
-			return b
-		}
-	}
-	return def
+	return v, nil
 }

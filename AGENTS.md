@@ -118,3 +118,4 @@ LVMSYNC_SOURCE=/dev/vg0/snap1
   ```
 
 - [ ] Review CLI argument parsing: prefer `pflag`, bind flags to `viper`, and group related options into reusable `FlagSet`s.
+- [ ] Document gRPC daemon configuration sources (flags, env vars, config file) and precedence.
