@@ -125,3 +125,6 @@ jobs:
 
       - name: Run tests
         'run': go test -v -race -cover ./...
+
+      - name: Report config coverage
+        'run': go test -cover ./config
