@@ -49,8 +49,8 @@ func TestDefaultConfigCompress(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DefaultConfig returned error: %v", err)
 	}
-	if cfg.Compress != "auto" {
-		t.Fatalf("expected default Compress to be 'auto', got %q", cfg.Compress)
+	if cfg.Compress != Auto {
+		t.Fatalf("expected default Compress to be %q, got %q", Auto, cfg.Compress)
 	}
 }
 
@@ -59,15 +59,15 @@ func TestDefaultConfigBlockSize(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DefaultConfig returned error: %v", err)
 	}
-	if cfg.BlockSize != 0 || cfg.BlockSizeRaw != "auto" {
-		t.Fatalf("expected default block size auto, got %d (%s)", cfg.BlockSize, cfg.BlockSizeRaw)
+	if cfg.BlockSize != 0 || cfg.BlockSizeRaw != Auto {
+		t.Fatalf("expected default block size %s, got %d (%s)", Auto, cfg.BlockSize, cfg.BlockSizeRaw)
 	}
 }
 
 func TestHumanBlockSize(t *testing.T) {
 	c := &Config{BlockSize: 0}
-	if c.HumanBlockSize() != "auto" {
-		t.Fatalf("expected auto, got %s", c.HumanBlockSize())
+	if c.HumanBlockSize() != Auto {
+		t.Fatalf("expected %s, got %s", Auto, c.HumanBlockSize())
 	}
 }
 
@@ -147,8 +147,8 @@ func TestBuilderApplyDefaults(t *testing.T) {
 	if conf.GRPCPort != defaults.GRPCPort {
 		t.Fatalf("expected GRPCPort %d, got %d", defaults.GRPCPort, conf.GRPCPort)
 	}
-	if conf.BlockSize != 0 || conf.BlockSizeRaw != "auto" {
-		t.Fatalf("expected auto block size, got %d/%s", conf.BlockSize, conf.BlockSizeRaw)
+	if conf.BlockSize != 0 || conf.BlockSizeRaw != Auto {
+		t.Fatalf("expected %s block size, got %d/%s", Auto, conf.BlockSize, conf.BlockSizeRaw)
 	}
 	if conf.CompressConcurrency != runtime.GOMAXPROCS(0) {
 		t.Fatalf("expected default compress concurrency, got %d", conf.CompressConcurrency)
@@ -171,23 +171,23 @@ func TestBuilderValidateCompression(t *testing.T) {
 	}
 	b := &Builder{defaults: defaults}
 
-	t.Run("zstdValid", func(t *testing.T) {
-		conf := &Config{Compress: "zstd", CompressLevel: 3}
+	t.Run(Zstd+"Valid", func(t *testing.T) {
+		conf := &Config{Compress: Zstd, CompressLevel: 3}
 		if err := b.validateCompression(conf); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})
 
-	t.Run("zstdInvalid", func(t *testing.T) {
-		conf := &Config{Compress: "zstd", CompressLevel: 100}
+	t.Run(Zstd+"Invalid", func(t *testing.T) {
+		conf := &Config{Compress: Zstd, CompressLevel: 100}
 		if err := b.validateCompression(conf); err == nil {
 			t.Fatalf("expected error")
 		}
 	})
 
-	t.Run("auto", func(t *testing.T) {
-		conf := &Config{Compress: "auto"}
-		if compressiondetect.DetectOptimalCompression() == "zstd" {
+	t.Run(Auto, func(t *testing.T) {
+		conf := &Config{Compress: Auto}
+		if compressiondetect.DetectOptimalCompression() == Zstd {
 			conf.CompressLevel = 3
 		} else {
 			conf.CompressLevel = int(lz4.Level3)
@@ -299,9 +299,9 @@ func TestValidateEscalationCommandPath(t *testing.T) {
 }
 
 func TestBuildBlockSize(t *testing.T) {
-	t.Run("auto", func(t *testing.T) {
+	t.Run(Auto, func(t *testing.T) {
 		v := viper.New()
-		v.Set("block_size", "auto")
+		v.Set("block_size", Auto)
 		defaults, err := DefaultConfig()
 		if err != nil {
 			t.Fatalf("DefaultConfig returned error: %v", err)
@@ -311,8 +311,8 @@ func TestBuildBlockSize(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if cfg.BlockSize != 0 || cfg.BlockSizeRaw != "auto" {
-			t.Fatalf("expected auto block size, got %d (%s)", cfg.BlockSize, cfg.BlockSizeRaw)
+		if cfg.BlockSize != 0 || cfg.BlockSizeRaw != Auto {
+			t.Fatalf("expected %s block size, got %d (%s)", Auto, cfg.BlockSize, cfg.BlockSizeRaw)
 		}
 	})
 
@@ -336,9 +336,9 @@ func TestBuildBlockSize(t *testing.T) {
 
 //nolint:revive // complex validation scenarios
 func TestCompressLevelValidation(t *testing.T) {
-	t.Run("zstdValid", func(t *testing.T) {
+	t.Run(Zstd+"Valid", func(t *testing.T) {
 		v := viper.New()
-		v.Set("compress", "zstd")
+		v.Set("compress", Zstd)
 		v.Set("compress_level", 3)
 		defaults, err := DefaultConfig()
 		if err != nil {
@@ -350,9 +350,9 @@ func TestCompressLevelValidation(t *testing.T) {
 		}
 	})
 
-	t.Run("zstdInvalid", func(t *testing.T) {
+	t.Run(Zstd+"Invalid", func(t *testing.T) {
 		v := viper.New()
-		v.Set("compress", "zstd")
+		v.Set("compress", Zstd)
 		v.Set("compress_level", 100)
 		defaults, err := DefaultConfig()
 		if err != nil {
@@ -364,10 +364,10 @@ func TestCompressLevelValidation(t *testing.T) {
 		}
 	})
 
-	t.Run("autoValid", func(t *testing.T) {
+	t.Run(Auto+"Valid", func(t *testing.T) {
 		v := viper.New()
-		v.Set("compress", "auto")
-		if compressiondetect.DetectOptimalCompression() == "zstd" {
+		v.Set("compress", Auto)
+		if compressiondetect.DetectOptimalCompression() == Zstd {
 			v.Set("compress_level", 3)
 		} else {
 			v.Set("compress_level", int(lz4.Level3))
@@ -382,10 +382,10 @@ func TestCompressLevelValidation(t *testing.T) {
 		}
 	})
 
-	t.Run("autoInvalid", func(t *testing.T) {
+	t.Run(Auto+"Invalid", func(t *testing.T) {
 		v := viper.New()
-		v.Set("compress", "auto")
-		if compressiondetect.DetectOptimalCompression() == "zstd" {
+		v.Set("compress", Auto)
+		if compressiondetect.DetectOptimalCompression() == Zstd {
 			v.Set("compress_level", 100)
 		} else {
 			v.Set("compress_level", int(lz4.Level9)+1)
