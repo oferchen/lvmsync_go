@@ -8,14 +8,13 @@ This project follows the [Conventional Commits](https://www.conventionalcommits.
 
 Commit messages should be structured as:
 
-```
+```text
 type(scope): subject
 ```
 
 Use a short, imperative subject line and include a scope when helpful. Examples:
 
-```
+```text
 feat(lvm): add volume snapshot support
 chore(ci): update lint configuration
 ```
-
