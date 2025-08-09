@@ -33,7 +33,8 @@ func Detect(devicePath string) (int, error) {
 			return 0, fmt.Errorf("stat %s: %w", devicePath, err)
 		}
 	}
-	queuePath := filepath.Join(sysDevBlock, fmt.Sprintf("%d:%d/queue", unix.Major(stat.Rdev), unix.Minor(stat.Rdev)))
+	rdev := uint64(stat.Rdev)
+	queuePath := filepath.Join(sysDevBlock, fmt.Sprintf("%d:%d/queue", unix.Major(rdev), unix.Minor(rdev)))
 	return readPreferredSize(queuePath)
 }
 
