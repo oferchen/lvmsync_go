@@ -100,3 +100,21 @@ LVMSYNC_SOURCE=/dev/vg0/snap1
 
 - Follow the guidelines in `CONTRIBUTING.md`.
 - Commit messages must follow the Conventional Commits format: `type(scope): description`.
+
+## TODO
+
+- [ ] Audit logging: ensure `zap` is used with `snake_case` fields, include units, and call `logger.Sync()` before exit.
+- [ ] Remove stray `fmt.Print*` calls in favor of structured logs.
+- [ ] Expand unit test coverage and run coverage reports.
+
+  ```sh
+  go test -cover ./...
+  ```
+
+- [ ] Run lint checks to keep style and correctness issues from creeping in.
+
+  ```sh
+  golangci-lint run
+  ```
+
+- [ ] Review CLI argument parsing: prefer `pflag`, bind flags to `viper`, and group related options into reusable `FlagSet`s.
