@@ -36,6 +36,12 @@ LVMSync is organized into modular packages to keep concerns separated:
 
 This structure allows individual packages to be developed and tested in isolation.
 
+## Logging
+
+LVMSync emits structured logs using [zap](https://github.com/uber-go/zap). Errors are logged with
+structured fields instead of being written to stderr, and the logger is flushed on shutdown to
+ensure all entries are persisted.
+
 ## Installation
 
 ### Requirements
