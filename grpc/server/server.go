@@ -75,14 +75,31 @@ type replicationServer struct {
 	agent lvmagent.Agent
 }
 
-func (s *replicationServer) LockVolume(ctx context.Context, req *proto.LockRequest) (*proto.StatusResponse, error) {
+func (s *replicationServer) agentAction(fn func(lvmagent.Agent) error) *proto.StatusResponse {
 	if s.agent == nil {
-		return &proto.StatusResponse{Ok: false, Message: "agent not configured"}, nil
+		return &proto.StatusResponse{Ok: false, Message: "agent not configured"}
 	}
-	if err := s.agent.Lock(ctx, req.GetVolumeName(), req.GetRequester()); err != nil {
-		return &proto.StatusResponse{Ok: false, Message: err.Error()}, nil
+	if err := fn(s.agent); err != nil {
+		return &proto.StatusResponse{Ok: false, Message: err.Error()}
 	}
-	return &proto.StatusResponse{Ok: true}, nil
+	return &proto.StatusResponse{Ok: true}
+}
+
+func (s *replicationServer) agentStatus(fn func(lvmagent.Agent) (string, error)) *proto.StatusResponse {
+	if s.agent == nil {
+		return &proto.StatusResponse{Ok: false, Message: "agent not configured"}
+	}
+	msg, err := fn(s.agent)
+	if err != nil {
+		return &proto.StatusResponse{Ok: false, Message: err.Error()}
+	}
+	return &proto.StatusResponse{Ok: true, Message: msg}
+}
+
+func (s *replicationServer) LockVolume(ctx context.Context, req *proto.LockRequest) (*proto.StatusResponse, error) {
+	return s.agentAction(func(a lvmagent.Agent) error {
+		return a.Lock(ctx, req.GetVolumeName(), req.GetRequester())
+	}), nil
 }
 
 func (s *replicationServer) GetVolumeMetadata(ctx context.Context, req *proto.LockRequest) (*proto.VolumeMetadata, error) {
@@ -97,48 +114,30 @@ func (s *replicationServer) GetVolumeMetadata(ctx context.Context, req *proto.Lo
 }
 
 func (s *replicationServer) SendVolumeMetadata(ctx context.Context, md *proto.VolumeMetadata) (*proto.StatusResponse, error) {
-	if s.agent == nil {
-		return &proto.StatusResponse{Ok: false, Message: "agent not configured"}, nil
-	}
-	err := s.agent.SendMetadata(ctx, lvmagent.VolumeMetadata{VolumeName: md.GetVolumeName(), SizeBytes: md.GetSizeBytes(), ChunkSize: md.GetChunkSize()})
-	if err != nil {
-		return &proto.StatusResponse{Ok: false, Message: err.Error()}, nil
-	}
-	return &proto.StatusResponse{Ok: true}, nil
+	return s.agentAction(func(a lvmagent.Agent) error {
+		return a.SendMetadata(ctx, lvmagent.VolumeMetadata{VolumeName: md.GetVolumeName(), SizeBytes: md.GetSizeBytes(), ChunkSize: md.GetChunkSize()})
+	}), nil
 }
 
 func (s *replicationServer) StartTransferSession(ctx context.Context, req *proto.LockRequest) (*proto.StatusResponse, error) {
-	if s.agent == nil {
-		return &proto.StatusResponse{Ok: false, Message: "agent not configured"}, nil
-	}
-	if err := s.agent.StartTransferSession(ctx, req.GetVolumeName(), req.GetRequester()); err != nil {
-		return &proto.StatusResponse{Ok: false, Message: err.Error()}, nil
-	}
-	return &proto.StatusResponse{Ok: true}, nil
+	return s.agentAction(func(a lvmagent.Agent) error {
+		return a.StartTransferSession(ctx, req.GetVolumeName(), req.GetRequester())
+	}), nil
 }
 
 func (s *replicationServer) FinalizeSync(ctx context.Context, req *proto.LockRequest) (*proto.StatusResponse, error) {
-	if s.agent == nil {
-		return &proto.StatusResponse{Ok: false, Message: "agent not configured"}, nil
-	}
-	if err := s.agent.FinalizeSync(ctx, req.GetVolumeName(), req.GetRequester()); err != nil {
-		return &proto.StatusResponse{Ok: false, Message: err.Error()}, nil
-	}
-	if err := s.agent.Unlock(ctx, req.GetVolumeName(), req.GetRequester()); err != nil {
-		return &proto.StatusResponse{Ok: false, Message: err.Error()}, nil
-	}
-	return &proto.StatusResponse{Ok: true}, nil
+	return s.agentAction(func(a lvmagent.Agent) error {
+		if err := a.FinalizeSync(ctx, req.GetVolumeName(), req.GetRequester()); err != nil {
+			return err
+		}
+		return a.Unlock(ctx, req.GetVolumeName(), req.GetRequester())
+	}), nil
 }
 
 func (s *replicationServer) GetStatus(ctx context.Context, req *proto.LockRequest) (*proto.StatusResponse, error) {
-	if s.agent == nil {
-		return &proto.StatusResponse{Ok: false, Message: "agent not configured"}, nil
-	}
-	msg, err := s.agent.GetStatus(ctx, req.GetVolumeName(), req.GetRequester())
-	if err != nil {
-		return &proto.StatusResponse{Ok: false, Message: err.Error()}, nil
-	}
-	return &proto.StatusResponse{Ok: true, Message: msg}, nil
+	return s.agentStatus(func(a lvmagent.Agent) (string, error) {
+		return a.GetStatus(ctx, req.GetVolumeName(), req.GetRequester())
+	}), nil
 }
 
 func (s *replicationServer) Ping(_ context.Context, _ *proto.Empty) (*proto.StatusResponse, error) {

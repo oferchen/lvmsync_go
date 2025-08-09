@@ -204,6 +204,19 @@ func gatherChangedRanges(snapshot string, blockSize int64) ([]Range, error) {
 	return ranges, nil
 }
 
+func prepareRanges(cfg *config.Config, snapshot, source string) ([]Range, error) {
+	if err := detectBlockSize(cfg, source); err != nil {
+		return nil, err
+	}
+	Logger.Info("Using block size", zap.Int("blockSize", cfg.BlockSize))
+
+	ranges, err := gatherChangedRanges(snapshot, int64(cfg.BlockSize))
+	if err != nil {
+		return nil, err
+	}
+	return ranges, nil
+}
+
 func setupOutput(cfg *config.Config, out io.Writer, handshake string) (io.WriteCloser, *bufio.Writer, error) {
 	if err := common.WriteHandshake(out, composeHandshake(cfg, handshake)); err != nil {
 		return nil, nil, err
@@ -250,12 +263,7 @@ func logSequentialSummary(bytes int64, skipped int, start time.Time) {
 }
 
 func dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer, dedup DeduplicationStrategy, handshake string) (err error) {
-	if err = detectBlockSize(cfg, source); err != nil {
-		return err
-	}
-	Logger.Info("Using block size", zap.Int("blockSize", cfg.BlockSize))
-
-	ranges, err := gatherChangedRanges(snapshot, int64(cfg.BlockSize))
+	ranges, err := prepareRanges(cfg, snapshot, source)
 	if err != nil {
 		return err
 	}
@@ -291,15 +299,24 @@ func dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer,
 	return nil
 }
 
-// DumpChangesSequential streams changed blocks from snapshot to out sequentially and saves dedup state if enabled.
-func DumpChangesSequential(cfg *config.Config, snapshot, source string, out io.Writer) error {
+func setupDedup(cfg *config.Config) (DeduplicationStrategy, func()) {
 	dedup := NewDeduplicationStrategy(cfg)
+	cleanup := func() {}
 	if dedup != nil {
-		defer func() {
+		cleanup = func() {
 			if err := dedup.SaveState(); err != nil {
 				Logger.Error("Failed to save dedup state", zap.Error(err))
 			}
-		}()
+		}
+	}
+	return dedup, cleanup
+}
+
+// DumpChangesSequential streams changed blocks from snapshot to out sequentially and saves dedup state if enabled.
+func DumpChangesSequential(cfg *config.Config, snapshot, source string, out io.Writer) error {
+	dedup, cleanup := setupDedup(cfg)
+	if dedup != nil {
+		defer cleanup()
 	}
 	return dumpChangesCore(cfg, snapshot, source, out, dedup, "")
 }
@@ -311,13 +328,9 @@ func DumpChangesWithDeduplication(cfg *config.Config, snapshot, source string, o
 
 // DumpChanges chooses an appropriate transfer mode and persists dedup state when a strategy is configured.
 func DumpChanges(cfg *config.Config, snapshot, source string, out io.Writer) error {
-	dedup := NewDeduplicationStrategy(cfg)
+	dedup, cleanup := setupDedup(cfg)
 	if dedup != nil {
-		defer func() {
-			if err := dedup.SaveState(); err != nil {
-				Logger.Error("Failed to save dedup state", zap.Error(err))
-			}
-		}()
+		defer cleanup()
 		Logger.Info("Deduplication enabled", zap.String("strategy", cfg.DedupStrategy))
 		return DumpChangesWithDeduplication(cfg, snapshot, source, out, dedup)
 	}
@@ -498,12 +511,7 @@ func DumpChangesParallel(cfg *config.Config, snapshot, source string, out io.Wri
 		return DumpChangesSequential(cfg, snapshot, source, out)
 	}
 
-	if err = detectBlockSize(cfg, source); err != nil {
-		return err
-	}
-
-	Logger.Info("Using block size", zap.Int("blockSize", cfg.BlockSize))
-	ranges, err := gatherChangedRanges(snapshot, int64(cfg.BlockSize))
+	ranges, err := prepareRanges(cfg, snapshot, source)
 	if err != nil {
 		return err
 	}
