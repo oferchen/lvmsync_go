@@ -73,7 +73,6 @@ LVMSYNC_SOURCE=/dev/vg0/snap1
 
 ## Testing and Linting
 
-- Provide unit tests for every new function.
 - Ensure [`golangci-lint`](https://golangci-lint.run/) v2 passes before submitting changes.
 
 ### Coverage
@@ -81,6 +80,21 @@ LVMSYNC_SOURCE=/dev/vg0/snap1
 - Run `go test -cover ./...` to generate coverage statistics.
 - For a file `coverage.out`, view details with `go tool cover -func=coverage.out`.
 - Enforce a minimum threshold by failing the build when the total coverage is below the desired percentage.
+
+## Unit Tests
+
+- Add a dedicated unit test for every new function.
+- Cover both successful and failing paths to verify correctness.
+
+## Modularity and Single Responsibility
+
+- Keep packages and functions focused on a single task.
+- Break up large files or components when functionality grows.
+
+## Configuration Documentation
+
+- Document every CLI flag, environment variable, and configuration option in `README.md`.
+- Update examples and default values to match new options.
 
 ## Release Workflow
 
@@ -124,3 +138,6 @@ LVMSYNC_SOURCE=/dev/vg0/snap1
 - [ ] Keep `README` configuration documentation current with code changes.
 - [ ] Track decomposition of large files like `transfer/transfer.go`.
 - [ ] Ensure progress logging uses `zap` exclusively.
+- [ ] Add a dedicated unit test for every new function.
+- [ ] Enforce modular, single-responsibility design across packages.
+- [ ] Document each new CLI flag, environment variable, and configuration option in `README.md`.
