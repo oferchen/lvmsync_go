@@ -21,7 +21,6 @@ linters:
 
   # Enable specific linter.
   enable:
-    - arangolint
     - asasalint
     - asciicheck
     - bidichk
@@ -37,7 +36,6 @@ linters:
     - dupl
     - dupword
     - durationcheck
-    - embeddedstructfieldcheck
     - err113
     - errcheck
     - errchkjson
@@ -92,7 +90,6 @@ linters:
     - nilnil
     - nlreturn
     - noctx
-    - noinlineerr
     - nolintlint
     - nonamedreturns
     - nosprintfhostport
@@ -115,7 +112,6 @@ linters:
     - testableexamples
     - testifylint
     - testpackage
-    - thelper
     - tparallel
     - unconvert
     - unparam
@@ -127,12 +123,10 @@ linters:
     - whitespace
     - wrapcheck
     - wsl
-    - wsl_v5
     - zerologlint
 
   # Disable specific linters.
   disable:
-    - arangolint
     - asasalint
     - asciicheck
     - bidichk
@@ -148,7 +142,6 @@ linters:
     - dupl
     - dupword
     - durationcheck
-    - embeddedstructfieldcheck
     - err113
     - errcheck
     - errchkjson
@@ -203,7 +196,6 @@ linters:
     - nilnil
     - nlreturn
     - noctx
-    - noinlineerr
     - nolintlint
     - nonamedreturns
     - nosprintfhostport
@@ -226,7 +218,6 @@ linters:
     - testableexamples
     - testifylint
     - testpackage
-    - thelper
     - tparallel
     - unconvert
     - unparam
@@ -238,7 +229,6 @@ linters:
     - whitespace
     - wrapcheck
     - wsl
-    - wsl_v5
     - zerologlint
 
   # All available settings of specific linters.
@@ -391,11 +381,6 @@ linters:
       # Default: []
       ignore:
         - "0C0C"
-
-    embeddedstructfieldcheck:
-      # Checks that sync.Mutex and sync.RWMutex are not used as embedded fields.
-      # Default: false
-      forbid-mutex: true
 
     errcheck:
       # Report about not checking of errors in type assertions: `a := b.(MyStruct)`.
@@ -3606,48 +3591,6 @@ linters:
         - example
         - main
 
-    thelper:
-      test:
-        # Check *testing.T is first param (or after context.Context) of helper function.
-        # Default: true
-        first: false
-        # Check *testing.T param has name t.
-        # Default: true
-        name: false
-        # Check t.Helper() begins helper function.
-        # Default: true
-        begin: false
-      benchmark:
-        # Check *testing.B is first param (or after context.Context) of helper function.
-        # Default: true
-        first: false
-        # Check *testing.B param has name b.
-        # Default: true
-        name: false
-        # Check b.Helper() begins helper function.
-        # Default: true
-        begin: false
-      tb:
-        # Check *testing.TB is first param (or after context.Context) of helper function.
-        # Default: true
-        first: false
-        # Check *testing.TB param has name tb.
-        # Default: true
-        name: false
-        # Check tb.Helper() begins helper function.
-        # Default: true
-        begin: false
-      fuzz:
-        # Check *testing.F is first param (or after context.Context) of helper function.
-        # Default: true
-        first: false
-        # Check *testing.F param has name f.
-        # Default: true
-        name: false
-        # Check f.Helper() begins helper function.
-        # Default: true
-        begin: false
-
     usestdlibvars:
       # Suggest the use of http.MethodXX.
       # Default: true
@@ -3930,117 +3873,6 @@ linters:
       # Default: false
       force-short-decl-cuddling: true
 
-    wsl_v5:
-      # Allow cuddling a variable if it's used first in the immediate following block,
-      # even if the statement with the block doesn't use the variable.
-      # https://github.com/bombsimon/wsl/tree/main?tab=readme-ov-file#configuration
-      # Default: true
-      allow-first-in-block: false
-
-      # Same as above,
-      # but allows cuddling if the variable is used anywhere in the following (or nested) block.
-      # https://github.com/bombsimon/wsl/tree/main?tab=readme-ov-file#configuration
-      # Default: false
-      allow-whole-block: true
-
-      # If a block contains more than this number of lines,
-      # the branch statement needs to be separated by whitespace.
-      # https://github.com/bombsimon/wsl/tree/main?tab=readme-ov-file#configuration
-      # Default: 2
-      branch-max-lines: 4
-
-      # If set to a non-negative number,
-      # case blocks need to end with whitespace if exceeding this number
-      # https://github.com/bombsimon/wsl/tree/main?tab=readme-ov-file#configuration
-      # Default: 0
-      case-max-lines: 2
-
-      # Default checks to use.
-      # Can be `all`, `none`, `default` or empty.
-      # https://github.com/bombsimon/wsl/tree/main?tab=readme-ov-file#checks-and-configuration
-      # Default: ""
-      default: all
-
-      # Enabled checks.
-      # Will be additive to any presets.
-      # https://github.com/bombsimon/wsl/tree/main?tab=readme-ov-file#checks-and-configuration
-      # Default: []
-      enable:
-        - assign
-        - branch
-        - decl
-        - defer
-        - expr
-        - for
-        - go
-        - if
-        - inc-dec
-        - label
-        - range
-        - return
-        - select
-        - send
-        - switch
-        - type-switch
-        - append
-        - assign-exclusive
-        - assign-expr
-        - err
-        - leading-whitespace
-        - trailing-whitespace
-
-      # Disable checks.
-      # Will be subtractive to any preset.
-      # https://github.com/bombsimon/wsl/tree/main?tab=readme-ov-file#checks-and-configuration
-      # Default: []
-      disable:
-        - assign
-        - branch
-        - decl
-        - defer
-        - expr
-        - for
-        - go
-        - if
-        - inc-dec
-        - label
-        - range
-        - return
-        - select
-        - send
-        - switch
-        - type-switch
-        - append
-        - assign-exclusive
-        - assign-expr
-        - err
-        - leading-whitespace
-        - trailing-whitespace
-
-    # The custom section can be used to define linter plugins to be loaded at runtime.
-    # See README documentation for more info.
-    custom:
-      # Each custom linter should have a unique name.
-      example:
-        # The plugin type.
-        # It can be `goplugin` or `module`.
-        # Default: goplugin
-        type: module
-        # The path to the plugin *.so. Can be absolute or local.
-        # Required for each custom linter.
-        path: /path/to/example.so
-        # The description of the linter.
-        # Optional.
-        description: This is an example usage of a plugin linter.
-        # Intended to point to the repo location of the linter.
-        # Optional.
-        original-url: github.com/golangci/example-linter
-        # Plugins settings/configuration.
-        # Only work with plugin based on `linterdb.PluginConstructor`.
-        # Optional.
-        settings:
-          foo: bar
-
   # Defines a set of rules to ignore issues.
   # It does not skip the analysis, and so does not ignore "typecheck" errors.
   exclusions:
@@ -4120,7 +3952,6 @@ formatters:
     - gofumpt
     - goimports
     - golines
-    - swaggo
 
   # Formatters settings.
   settings:
