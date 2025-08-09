@@ -111,7 +111,15 @@ func TestUsageOutput(t *testing.T) {
 	pflag.CommandLine.SetOutput(buf)
 	pflag.Usage()
 	out := buf.String()
-	wants := []string{"--config", "--ssh_user", "--grpc_port"}
+	wants := []string{
+		"General Options:", "--config",
+		"SSH Options:", "--ssh_user",
+		"Remote Options:", "--lvmsync_path",
+		"Deduplication Options:", "--dedup_strategy",
+		"Compression Options:", "--compress",
+		"LVM Options:", "--skip_snapshot_creation",
+		"gRPC Options:", "--grpc_port",
+	}
 	for _, w := range wants {
 		if !strings.Contains(out, w) {
 			t.Fatalf("usage missing %q", w)
