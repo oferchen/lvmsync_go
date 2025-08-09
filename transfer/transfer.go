@@ -123,7 +123,7 @@ func detectBlockSize(cfg *config.Config, source string) error {
 		return fmt.Errorf("auto-detect block size: %w", err)
 	}
 	cfg.BlockSize = bs
-	Logger.Info("Auto-detected block size", zap.Int("blockSize", cfg.BlockSize))
+	Logger.Info("Auto-detected block size", zap.Int("block_size_bytes", cfg.BlockSize))
 	return nil
 }
 
@@ -136,7 +136,7 @@ func gatherChangedRanges(snapshot string, blockSize int64) ([]Range, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error getting differences: %w", err)
 	}
-	Logger.Info("Changed blocks determined", zap.Int("blockCount", len(ranges)))
+	Logger.Info("Changed blocks determined", zap.Int("block_count", len(ranges)))
 	return ranges, nil
 }
 
@@ -144,7 +144,7 @@ func prepareRanges(cfg *config.Config, snapshot, source string) ([]Range, error)
 	if err := detectBlockSize(cfg, source); err != nil {
 		return nil, err
 	}
-	Logger.Info("Using block size", zap.Int("blockSize", cfg.BlockSize))
+	Logger.Info("Using block size", zap.Int("block_size_bytes", cfg.BlockSize))
 
 	_, blockSize, err := validateOffsetAndSize(0, cfg.BlockSize)
 	if err != nil {
@@ -303,7 +303,7 @@ func readResumeStart(cfg *config.Config) int {
 	if err != nil {
 		return 0
 	}
-	Logger.Info("Resuming from block", zap.Int("resumeStart", val))
+	Logger.Info("Resuming from block", zap.Int("resume_start_block", val))
 	return val
 }
 
