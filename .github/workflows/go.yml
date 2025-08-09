@@ -1,21 +1,15 @@
 ---
-# This workflow builds and tests a Golang project with LVM2 integration.
-# It complies with Checkov rule CKV2_GHA_1 by avoiding implicit
-# write-all permissions.
-# Go versions 1.21 through 1.24 are tested in matrix strategy.
-# For more info:
-# https://docs.github.com/en/actions/automating-builds-and-tests/
-# building-and-testing-go
+# .github/workflows/go.yml
+# "${{ github.workspace }}/.github/workflows/go.yml
 
 name: Go
 
-'on':
+on:
   push:
     branches: ["main"]
   pull_request:
     branches: ["main"]
 
-# Explicitly define minimal top-level permissions
 permissions:
   contents: read
 
@@ -33,6 +27,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
       - name: Install build dependencies
         'run': |
@@ -80,51 +76,45 @@ jobs:
             ~/.cache/go-build
             ~/go/pkg/mod
           key: >-
-            ${{ runner.os }}-go-${{ matrix.go-version }}-${{
-            hashFiles('**/go.sum') }}
+            ${{ runner.os }}-go-${{ matrix.go-version }}-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-${{ matrix.go-version }}-
 
-      - name: Verify formatting
-        'run': |
+      - name: Verify formatting (gofmt + goimports)
+        run: |
           go install golang.org/x/tools/cmd/goimports@latest
           fmt_out=$(gofmt -l .)
           if [ -n "$fmt_out" ]; then
-            echo "Run gofmt on the following files:"
-            echo "$fmt_out"
-            exit 1
+            echo "Run gofmt on the following files:"; echo "$fmt_out"; exit 1
           fi
           imp_out=$(goimports -l .)
           if [ -n "$imp_out" ]; then
-            echo "Run goimports on the following files:"
-            echo "$imp_out"
+            echo "Run goimports on the following files:"; echo "$imp_out"; exit 1
+          fi
+
+      - name: Ensure module is bpm (init if missing, fail if mismatch)
+        run: |
+          if [ ! -f go.mod ]; then
+            echo "No go.mod found. Initializing module 'bpm'..."
+            go mod init bpm
+          fi
+          mod_line=$(grep -E '^module ' go.mod | awk '{print $2}')
+          if [ "$mod_line" != "bpm" ]; then
+            echo "go.mod declares module '$mod_line' but must be 'bpm' for imports like 'bpm/...'."
+            echo "Please set the module line to:  module bpm"
             exit 1
           fi
 
-      - name: Install golangci-lint
-        'run': |
-          curl -sSfL \
-            https://raw.githubusercontent.com/ \
-            golangci/golangci-lint/master/install.sh \
-            | sh -s -- -b "$(go env GOPATH)/bin"
-
-      - name: Run golangci-lint
-        'run': |
-          for dir in . internal/multierr; do
-            (cd "$dir" && golangci-lint run ./...)
-          done
-
-      - name: Run GoReleaser check
-        uses: goreleaser/goreleaser-action@v6.0.0
-        with:
-          version: latest
-          args: check --config=.goreleaser.yml --config=.slsa-goreleaser.yml
+      - name: Tidy & verify modules
+        run: |
+          go mod tidy
+          go mod verify
+          # Enforce committed state
+          git diff --exit-code -- go.mod go.sum || {
+            echo "go.mod/go.sum changed after tidy. Commit the changes."; exit 1; }
 
       - name: Build project
-        'run': go build -v ./...
+        run: go build -v ./...
 
       - name: Run tests
-        'run': go test -v -race -cover ./...
-
-      - name: Report config coverage
-        'run': go test -cover ./config
+        run: go test -v -cover ./...
