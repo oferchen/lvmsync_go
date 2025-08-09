@@ -44,7 +44,8 @@ This structure allows individual packages to be developed and tested in isolatio
 
 LVMSync emits structured logs using [zap](https://github.com/uber-go/zap). Errors are logged with
 structured fields instead of being written to stderr, and the logger is flushed on shutdown to
-ensure all entries are persisted.
+ensure all entries are persisted. When `--progress` is enabled, progress updates are emitted as
+structured log entries, allowing external tooling to track transfer completion.
 
 ## Configuration
 
