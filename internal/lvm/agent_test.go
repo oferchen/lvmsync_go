@@ -50,7 +50,7 @@ func (m *mockLVM) GetStatus(_ context.Context, _, _ string) (string, error) {
 func TestSudoAgentLock(t *testing.T) {
 	ctx := context.Background()
 	mock := &mockLVM{}
-	a := NewSudoAgent("", mock)
+	a := NewSudoAgent("", mock, func() error { return nil })
 	if err := a.Lock(ctx, "vol", "req"); err != nil {
 		t.Fatalf("lock failed: %v", err)
 	}
@@ -63,7 +63,7 @@ func TestSudoAgentLock(t *testing.T) {
 func TestSudoAgentUnlock(t *testing.T) {
 	ctx := context.Background()
 	mock := &mockLVM{}
-	a := NewSudoAgent("", mock)
+	a := NewSudoAgent("", mock, func() error { return nil })
 	if err := a.Unlock(ctx, "vol", "req"); err != nil {
 		t.Fatalf("unlock failed: %v", err)
 	}
@@ -77,7 +77,7 @@ func TestSudoAgentGetMetadata(t *testing.T) {
 	ctx := context.Background()
 	expected := VolumeMetadata{VolumeName: "vol", SizeBytes: 1, ChunkSize: 2}
 	mock := &mockLVM{md: expected}
-	a := NewSudoAgent("", mock)
+	a := NewSudoAgent("", mock, func() error { return nil })
 	md, err := a.GetMetadata(ctx, "vol")
 	if err != nil {
 		t.Fatalf("get metadata failed: %v", err)
@@ -94,7 +94,7 @@ func TestSudoAgentGetMetadata(t *testing.T) {
 func TestSudoAgentSendMetadata(t *testing.T) {
 	ctx := context.Background()
 	mock := &mockLVM{}
-	a := NewSudoAgent("", mock)
+	a := NewSudoAgent("", mock, func() error { return nil })
 	md := VolumeMetadata{VolumeName: "vol"}
 	if err := a.SendMetadata(ctx, md); err != nil {
 		t.Fatalf("send metadata failed: %v", err)
@@ -111,7 +111,7 @@ func TestSudoAgentSendMetadata(t *testing.T) {
 func TestSudoAgentStartTransferSession(t *testing.T) {
 	ctx := context.Background()
 	mock := &mockLVM{}
-	a := NewSudoAgent("", mock)
+	a := NewSudoAgent("", mock, func() error { return nil })
 	if err := a.StartTransferSession(ctx, "vol", "req"); err != nil {
 		t.Fatalf("start transfer failed: %v", err)
 	}
@@ -124,7 +124,7 @@ func TestSudoAgentStartTransferSession(t *testing.T) {
 func TestSudoAgentFinalizeSync(t *testing.T) {
 	ctx := context.Background()
 	mock := &mockLVM{}
-	a := NewSudoAgent("", mock)
+	a := NewSudoAgent("", mock, func() error { return nil })
 	if err := a.FinalizeSync(ctx, "vol", "req"); err != nil {
 		t.Fatalf("finalize sync failed: %v", err)
 	}
@@ -137,7 +137,7 @@ func TestSudoAgentFinalizeSync(t *testing.T) {
 func TestSudoAgentGetStatus(t *testing.T) {
 	ctx := context.Background()
 	mock := &mockLVM{status: "ok"}
-	a := NewSudoAgent("", mock)
+	a := NewSudoAgent("", mock, func() error { return nil })
 	status, err := a.GetStatus(ctx, "vol", "req")
 	if err != nil {
 		t.Fatalf("get status failed: %v", err)
