@@ -310,71 +310,92 @@ func DefaultConfig() (*Config, error) {
 	}, nil
 }
 
+func initGeneralFlags(cfg *Config) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("General Options", pflag.ExitOnError)
+	fs.String("config", "", "Path to config YAML file")
+	fs.String("apply", cfg.ApplyMode, "Apply mode: read change dump from file ('-' for STDIN) and apply to destination device")
+	fs.Bool("stdout", cfg.StdoutMode, "Write change dump to STDOUT")
+	fs.Int("parallel", cfg.Parallel, "Number of concurrent workers")
+	fs.Bool("zerocopy", cfg.ZeroCopy, "Enable zero-copy transfers")
+	fs.Int("max_retries", cfg.MaxRetries, "Maximum number of retries per block")
+	fs.String("resume", cfg.ResumeState, "Path to resume state file")
+	fs.String("speed", cfg.Speed, "Transfer speed limit")
+	fs.String("block_size", cfg.BlockSizeRaw, "Block size for data transfer; specify 'auto' or 0 for automatic detection")
+	fs.CountP("verbose", "v", "Verbosity level")
+	fs.Bool("verify_checksum", cfg.VerifyChecksum, "Enable checksum verification")
+	fs.String("checksum_algorithm", cfg.ChecksumAlgorithm, fmt.Sprintf("Checksum algorithm: %v", SupportedChecksumAlgorithms))
+	fs.Bool("progress", cfg.Progress, "Show progress during transfer")
+	return fs
+}
+
+func initSSHFlags(cfg *Config) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("SSH Options", pflag.ExitOnError)
+	fs.String("ssh_user", cfg.SSHUser, "SSH username")
+	fs.String("ssh_key", cfg.SSHKeyPath, "Path to SSH private key or use agent")
+	fs.Int("ssh_port", cfg.SSHPort, "SSH port")
+	fs.Duration("ssh_timeout", cfg.SSHTimeout, "SSH connection timeout")
+	fs.Duration("ssh_keepalive", cfg.SSHKeepAliveInterval, "SSH keepalive interval")
+	fs.String("known_hosts", cfg.KnownHosts, "Path to known_hosts file")
+	fs.Bool("stricthostkeychecking", cfg.StrictHostKeyCheck, "Enable SSH StrictHostKeyChecking")
+	return fs
+}
+
+func initRemoteFlags(cfg *Config) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("Remote Options", pflag.ExitOnError)
+	fs.String("lvmsync_path", cfg.LVMSyncPath, "Remote command to run")
+	fs.String("remote_pre_script", cfg.RemotePreScript, "Remote script to run before transfer")
+	fs.String("remote_post_script", cfg.RemotePostScript, "Remote script to run after transfer")
+	return fs
+}
+
+func initDedupFlags(cfg *Config) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("Deduplication Options", pflag.ExitOnError)
+	fs.String("dedup_strategy", cfg.DedupStrategy, fmt.Sprintf("Deduplication strategy: %v", SupportedDedupStrategies))
+	fs.String("dedup_state_file", cfg.DedupStateFile, "Path to deduplication state file")
+	fs.Int("bloom_entries", cfg.BloomEntries, "Estimated number of entries for bloom filter")
+	fs.Float64("bloom_fp_rate", cfg.BloomFpRate, "False positive rate for bloom filter")
+	return fs
+}
+
+func initCompressionFlags(cfg *Config) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("Compression Options", pflag.ExitOnError)
+	fs.String("compress", cfg.Compress, fmt.Sprintf("Compression type, options: %v", SupportedCompression))
+	fs.Int("compress_level", cfg.CompressLevel, "Compression level. LZ4 accepts lz4.Fast or lz4.Level1..lz4.Level9; ZSTD accepts 1-22")
+	fs.Int("compress_concurrency", cfg.CompressConcurrency, "Compression concurrency (0 to use GOMAXPROCS)")
+	return fs
+}
+
+func initLVMFlags(cfg *Config) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("LVM Options", pflag.ExitOnError)
+	fs.Bool("skip_snapshot_creation", cfg.SkipSnapshotCreation, "Skip automatic snapshot creation")
+	fs.Bool("skip_disk_check", cfg.SkipDiskCheck, "Skip disk space check before snapshot creation")
+	fs.String("snapshot_size", cfg.SnapshotSize, "Snapshot size (e.g., '20G' or '20%')")
+	fs.String("lvm_escalation", cfg.LVMEscalation, "Command used to escalate privileges for LVM commands")
+	fs.String("volume_group", cfg.VolumeGroup, "Source volume group; derived from the source device path when empty")
+	fs.String("target_volume_group", cfg.TargetVolumeGroup, "Volume group name of the target LVM volume")
+	fs.StringSlice("target_vgs", cfg.TargetVGCandidates, "Candidate target volume groups for auto-selection")
+	return fs
+}
+
+func initGRPCFlags(cfg *Config) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("gRPC Options", pflag.ExitOnError)
+	fs.Int("grpc_port", cfg.GRPCPort, "gRPC port to listen on")
+	fs.String("tls_cert", cfg.TLSCert, "TLS certificate file")
+	fs.String("tls_key", cfg.TLSKey, "TLS key file")
+	fs.String("ca_cert", cfg.CACert, "CA certificate file")
+	fs.Bool("allow_insecure", cfg.AllowInsecure, "Allow insecure (no TLS)")
+	fs.String("sudo_path", cfg.SudoPath, "Path to sudo executable")
+	return fs
+}
+
 func initFlagSets(defaultCfg *Config) {
-	generalFlags = pflag.NewFlagSet("General Options", pflag.ExitOnError)
-	sshFlags = pflag.NewFlagSet("SSH Options", pflag.ExitOnError)
-	remoteFlags = pflag.NewFlagSet("Remote Options", pflag.ExitOnError)
-	dedupFlags = pflag.NewFlagSet("Deduplication Options", pflag.ExitOnError)
-	compressionFlags = pflag.NewFlagSet("Compression Options", pflag.ExitOnError)
-	lvmFlags = pflag.NewFlagSet("LVM Options", pflag.ExitOnError)
-	grpcFlags = pflag.NewFlagSet("gRPC Options", pflag.ExitOnError)
-
-	// General Options
-	generalFlags.String("config", "", "Path to config YAML file")
-	generalFlags.String("apply", defaultCfg.ApplyMode, "Apply mode: read change dump from file ('-' for STDIN) and apply to destination device")
-	generalFlags.Bool("stdout", defaultCfg.StdoutMode, "Write change dump to STDOUT")
-	generalFlags.Int("parallel", defaultCfg.Parallel, "Number of concurrent workers")
-	generalFlags.Bool("zerocopy", defaultCfg.ZeroCopy, "Enable zero-copy transfers")
-	generalFlags.Int("max_retries", defaultCfg.MaxRetries, "Maximum number of retries per block")
-	generalFlags.String("resume", defaultCfg.ResumeState, "Path to resume state file")
-	generalFlags.String("speed", defaultCfg.Speed, "Transfer speed limit")
-	generalFlags.String("block_size", defaultCfg.BlockSizeRaw, "Block size for data transfer; specify 'auto' or 0 for automatic detection")
-	generalFlags.CountP("verbose", "v", "Verbosity level")
-	generalFlags.Bool("verify_checksum", defaultCfg.VerifyChecksum, "Enable checksum verification")
-	generalFlags.String("checksum_algorithm", defaultCfg.ChecksumAlgorithm, fmt.Sprintf("Checksum algorithm: %v", SupportedChecksumAlgorithms))
-	generalFlags.Bool("progress", defaultCfg.Progress, "Show progress during transfer")
-
-	// SSH Options
-	sshFlags.String("ssh_user", defaultCfg.SSHUser, "SSH username")
-	sshFlags.String("ssh_key", defaultCfg.SSHKeyPath, "Path to SSH private key or use agent")
-	sshFlags.Int("ssh_port", defaultCfg.SSHPort, "SSH port")
-	sshFlags.Duration("ssh_timeout", defaultCfg.SSHTimeout, "SSH connection timeout")
-	sshFlags.Duration("ssh_keepalive", defaultCfg.SSHKeepAliveInterval, "SSH keepalive interval")
-	sshFlags.String("known_hosts", defaultCfg.KnownHosts, "Path to known_hosts file")
-	sshFlags.Bool("stricthostkeychecking", defaultCfg.StrictHostKeyCheck, "Enable SSH StrictHostKeyChecking")
-
-	// Remote Options
-	remoteFlags.String("lvmsync_path", defaultCfg.LVMSyncPath, "Remote command to run")
-	remoteFlags.String("remote_pre_script", defaultCfg.RemotePreScript, "Remote script to run before transfer")
-	remoteFlags.String("remote_post_script", defaultCfg.RemotePostScript, "Remote script to run after transfer")
-
-	// Deduplication Options
-	dedupFlags.String("dedup_strategy", defaultCfg.DedupStrategy, fmt.Sprintf("Deduplication strategy: %v", SupportedDedupStrategies))
-	dedupFlags.String("dedup_state_file", defaultCfg.DedupStateFile, "Path to deduplication state file")
-	dedupFlags.Int("bloom_entries", defaultCfg.BloomEntries, "Estimated number of entries for bloom filter")
-	dedupFlags.Float64("bloom_fp_rate", defaultCfg.BloomFpRate, "False positive rate for bloom filter")
-
-	// Compression Options
-	compressionFlags.String("compress", defaultCfg.Compress, fmt.Sprintf("Compression type, options: %v", SupportedCompression))
-	compressionFlags.Int("compress_level", defaultCfg.CompressLevel, "Compression level. LZ4 accepts lz4.Fast or lz4.Level1..lz4.Level9; ZSTD accepts 1-22")
-	compressionFlags.Int("compress_concurrency", defaultCfg.CompressConcurrency, "Compression concurrency (0 to use GOMAXPROCS)")
-
-	// LVM Options
-	lvmFlags.Bool("skip_snapshot_creation", defaultCfg.SkipSnapshotCreation, "Skip automatic snapshot creation")
-	lvmFlags.Bool("skip_disk_check", defaultCfg.SkipDiskCheck, "Skip disk space check before snapshot creation")
-	lvmFlags.String("snapshot_size", defaultCfg.SnapshotSize, "Snapshot size (e.g., '20G' or '20%')")
-	lvmFlags.String("lvm_escalation", defaultCfg.LVMEscalation, "Command used to escalate privileges for LVM commands")
-	lvmFlags.String("volume_group", defaultCfg.VolumeGroup, "Source volume group; derived from the source device path when empty")
-	lvmFlags.String("target_volume_group", defaultCfg.TargetVolumeGroup, "Volume group name of the target LVM volume")
-	lvmFlags.StringSlice("target_vgs", defaultCfg.TargetVGCandidates, "Candidate target volume groups for auto-selection")
-
-	// gRPC Options
-	grpcFlags.Int("grpc_port", defaultCfg.GRPCPort, "gRPC port to listen on")
-	grpcFlags.String("tls_cert", defaultCfg.TLSCert, "TLS certificate file")
-	grpcFlags.String("tls_key", defaultCfg.TLSKey, "TLS key file")
-	grpcFlags.String("ca_cert", defaultCfg.CACert, "CA certificate file")
-	grpcFlags.Bool("allow_insecure", defaultCfg.AllowInsecure, "Allow insecure (no TLS)")
-	grpcFlags.String("sudo_path", defaultCfg.SudoPath, "Path to sudo executable")
+	generalFlags = initGeneralFlags(defaultCfg)
+	sshFlags = initSSHFlags(defaultCfg)
+	remoteFlags = initRemoteFlags(defaultCfg)
+	dedupFlags = initDedupFlags(defaultCfg)
+	compressionFlags = initCompressionFlags(defaultCfg)
+	lvmFlags = initLVMFlags(defaultCfg)
+	grpcFlags = initGRPCFlags(defaultCfg)
 }
 
 func LoadConfig() (*Config, error) {

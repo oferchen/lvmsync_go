@@ -64,6 +64,10 @@ Flags are grouped in the CLI help:
 - **LVM Options** – snapshot management and privilege escalation.
 - **gRPC Options** – parameters for the optional gRPC daemon.
 
+Internally, each group is set up through a dedicated helper such as
+`initGeneralFlags`, `initSSHFlags`, or `initCompressionFlags`, keeping flag
+definitions focused and easy to maintain.
+
 ### Precedence and environment variables
 
 Values are resolved in the following order (highest first):

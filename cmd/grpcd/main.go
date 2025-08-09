@@ -6,6 +6,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"strings"
 
 	grpcserver "lvmsync_go/grpc/server"
 	lvmagent "lvmsync_go/internal/lvm"
@@ -89,6 +90,7 @@ func initConfig(args []string) (*viper.Viper, error) {
 		return nil, err
 	}
 	v.SetEnvPrefix("LVMSYNC_GRPC")
+	v.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	v.AutomaticEnv()
 
 	if cfgFile := v.GetString("config"); cfgFile != "" {
