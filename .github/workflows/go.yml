@@ -21,46 +21,14 @@ jobs:
         go-version: [1.24]
     env:
       GO111MODULE: "on"
-      CGO_ENABLED: "1"
+      CGO_ENABLED: "0"
       CGO_CFLAGS: "-I/usr/include"
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Install build dependencies
-        'run': |
-          sudo apt-get update
-          sudo apt-get install -y \
-            autoconf automake libtool pkg-config \
-            build-essential libdevmapper-dev libreadline-dev \
-            uuid-dev libaio-dev \
-            libselinux-dev libsepol-dev \
-            git curl
-
-      - name: Clone and build LVM2 with lvm2cmd.h
-        run: |
-          git clone https://sourceware.org/git/lvm2.git
-          cd lvm2
-          ./configure \
-            --prefix=/usr \
-            --enable-cmdlib \
-            --enable-pkgconfig \
-            --disable-selinux \
-            --disable-readline \
-            --disable-udev_sync \
-            --disable-udev_rules \
-            --disable-nls \
-            --disable-dmeventd
-          make -j"$(nproc)"
-          sudo make install
-
-      - name: Verify required LVM2 headers
-        run: |
-          test -f /usr/include/lvm2cmd.h || {
-            echo "Missing lvm2cmd.h!";
-            exit 1;
-          }
+        with:
+          fetch-depth: 1
 
       - name: Set up Go
         uses: actions/setup-go@v5.5.0
