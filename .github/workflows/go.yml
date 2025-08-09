@@ -21,7 +21,7 @@ jobs:
         go-version: [1.24]
     env:
       GO111MODULE: "on"
-      CGO_ENABLED: "0"
+      CGO_ENABLED: "1"
       CGO_CFLAGS: "-I/usr/include"
 
     steps:
@@ -58,16 +58,16 @@ jobs:
             echo "Run goimports on the following files:"; echo "$imp_out"; exit 1
           fi
 
-      - name: Ensure module is bpm (init if missing, fail if mismatch)
+      - name: Ensure module is lvmsync_go (init if missing, fail if mismatch)
         run: |
           if [ ! -f go.mod ]; then
-            echo "No go.mod found. Initializing module 'bpm'..."
-            go mod init bpm
+            echo "No go.mod found. Initializing module 'lvmsync_go'..."
+            go mod init lvmsync_go
           fi
           mod_line=$(grep -E '^module ' go.mod | awk '{print $2}')
-          if [ "$mod_line" != "bpm" ]; then
-            echo "go.mod declares module '$mod_line' but must be 'bpm' for imports like 'bpm/...'."
-            echo "Please set the module line to:  module bpm"
+          if [ "$mod_line" != "lvmsync_go" ]; then
+            echo "go.mod declares module '$mod_line' but must be 'lvmsync_go' for imports like 'lvmsync_go/...'."
+            echo "Please set the module line to:  module lvmsync_go"
             exit 1
           fi
 
