@@ -76,7 +76,9 @@ The overall loading flow works in three stages:
 
 ### Precedence and environment variables
 
-Values are resolved in the following order (highest first):
+LVMSync uses [`pflag`](https://github.com/spf13/pflag) and [`viper`](https://github.com/spf13/viper) so every option can be
+set via flags, environment variables, or the `config.yaml` file. Values are resolved with the following precedence (highest
+first):
 
 1. Command-line flags
 2. `LVMSYNC_*` environment variables
@@ -89,6 +91,54 @@ Environment variables use the flag name in uppercase with underscores, e.g.:
 export LVMSYNC_PARALLEL=8
 export LVMSYNC_SSH_USER=backup
 ```
+
+### Option reference
+
+| Flag | Environment variable | Config key | Description |
+|------|----------------------|------------|-------------|
+| `--config` | `LVMSYNC_CONFIG` | `config` | Path to config YAML file |
+| `--apply` | `LVMSYNC_APPLY` | `apply` | Apply mode: read change dump from file ('-' for STDIN) and apply to destination device |
+| `--stdout` | `LVMSYNC_STDOUT` | `stdout` | Write change dump to STDOUT |
+| `--parallel` | `LVMSYNC_PARALLEL` | `parallel` | Number of concurrent workers |
+| `--zerocopy` | `LVMSYNC_ZEROCOPY` | `zerocopy` | Enable zero-copy transfers |
+| `--max_retries` | `LVMSYNC_MAX_RETRIES` | `max_retries` | Maximum number of retries per block |
+| `--resume` | `LVMSYNC_RESUME` | `resume` | Path to resume state file |
+| `--speed` | `LVMSYNC_SPEED` | `speed` | Transfer speed limit |
+| `--block_size` | `LVMSYNC_BLOCK_SIZE` | `block_size` | Block size for data transfer; specify 'auto' or 0 for automatic detection |
+| `--verbose` | `LVMSYNC_VERBOSE` | `verbose` | Verbosity level |
+| `--verify_checksum` | `LVMSYNC_VERIFY_CHECKSUM` | `verify_checksum` | Enable checksum verification |
+| `--checksum_algorithm` | `LVMSYNC_CHECKSUM_ALGORITHM` | `checksum_algorithm` | Checksum algorithm: `sha256`, `blake3`, or `blake3-512` |
+| `--progress` | `LVMSYNC_PROGRESS` | `progress` | Show progress during transfer |
+| `--ssh_user` | `LVMSYNC_SSH_USER` | `ssh_user` | SSH username |
+| `--ssh_key` | `LVMSYNC_SSH_KEY` | `ssh_key` | Path to SSH private key or use agent |
+| `--ssh_port` | `LVMSYNC_SSH_PORT` | `ssh_port` | SSH port |
+| `--ssh_timeout` | `LVMSYNC_SSH_TIMEOUT` | `ssh_timeout` | SSH connection timeout |
+| `--ssh_keepalive` | `LVMSYNC_SSH_KEEPALIVE` | `ssh_keepalive` | SSH keepalive interval |
+| `--known_hosts` | `LVMSYNC_KNOWN_HOSTS` | `known_hosts` | Path to known_hosts file |
+| `--stricthostkeychecking` | `LVMSYNC_STRICTHOSTKEYCHECKING` | `strict_host_key_checking` | Enable SSH StrictHostKeyChecking |
+| `--lvmsync_path` | `LVMSYNC_LVMSYNC_PATH` | `lvmsync_path` | Remote command to run |
+| `--remote_pre_script` | `LVMSYNC_REMOTE_PRE_SCRIPT` | `remote_pre_script` | Remote script to run before transfer |
+| `--remote_post_script` | `LVMSYNC_REMOTE_POST_SCRIPT` | `remote_post_script` | Remote script to run after transfer |
+| `--dedup_strategy` | `LVMSYNC_DEDUP_STRATEGY` | `dedup_strategy` | Deduplication strategy: `none`, `auto`, `checksum`, `rolling_hash`, or `bloom` |
+| `--dedup_state_file` | `LVMSYNC_DEDUP_STATE_FILE` | `dedup_state_file` | Path to deduplication state file |
+| `--bloom_entries` | `LVMSYNC_BLOOM_ENTRIES` | `bloom_entries` | Estimated number of entries for bloom filter |
+| `--bloom_fp_rate` | `LVMSYNC_BLOOM_FP_RATE` | `bloom_fp_rate` | False positive rate for bloom filter |
+| `--compress` | `LVMSYNC_COMPRESS` | `compress` | Compression type: `none`, `lz4`, `zstd`, or `auto` |
+| `--compress_level` | `LVMSYNC_COMPRESS_LEVEL` | `compress_level` | Compression level. LZ4 accepts `lz4.Fast` or `lz4.Level1..lz4.Level9`; Zstd accepts `1-22` |
+| `--compress_concurrency` | `LVMSYNC_COMPRESS_CONCURRENCY` | `compress_concurrency` | Compression concurrency (0 to use `GOMAXPROCS`) |
+| `--skip_snapshot_creation` | `LVMSYNC_SKIP_SNAPSHOT_CREATION` | `skip_snapshot_creation` | Skip automatic snapshot creation |
+| `--skip_disk_check` | `LVMSYNC_SKIP_DISK_CHECK` | `skip_disk_check` | Skip disk space check before snapshot creation |
+| `--snapshot_size` | `LVMSYNC_SNAPSHOT_SIZE` | `snapshot_size` | Snapshot size (e.g., `20G` or `20%`) |
+| `--lvm_escalation` | `LVMSYNC_LVM_ESCALATION` | `lvm_escalation` | Command used to escalate privileges for LVM commands |
+| `--volume_group` | `LVMSYNC_VOLUME_GROUP` | `volume_group` | Source volume group; derived from the source device path when empty |
+| `--target_volume_group` | `LVMSYNC_TARGET_VOLUME_GROUP` | `target_volume_group` | Volume group name of the target LVM volume |
+| `--target_vgs` | `LVMSYNC_TARGET_VGS` | `target_vgs` | Candidate target volume groups for auto-selection |
+| `--grpc_port` | `LVMSYNC_GRPC_PORT` | `grpc_port` | gRPC port to listen on |
+| `--tls_cert` | `LVMSYNC_TLS_CERT` | `tls_cert` | TLS certificate file |
+| `--tls_key` | `LVMSYNC_TLS_KEY` | `tls_key` | TLS key file |
+| `--ca_cert` | `LVMSYNC_CA_CERT` | `ca_cert` | CA certificate file |
+| `--allow_insecure` | `LVMSYNC_ALLOW_INSECURE` | `allow_insecure` | Allow insecure (no TLS) |
+| `--sudo_path` | `LVMSYNC_SUDO_PATH` | `sudo_path` | Path to sudo executable |
 
 ### `config.yaml` example
 
