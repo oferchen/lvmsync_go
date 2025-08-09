@@ -500,9 +500,10 @@ To run the tests and static checks locally:
 go fmt ./...
 go vet ./...
 go test ./...
+go test -cover ./config
 ```
 
-The same steps run in GitHub Actions under `.github/workflows/go.yml`.
+The last command generates a coverage report for the `config` package. The same steps run in GitHub Actions under `.github/workflows/go.yml`.
 
 ## License
 
