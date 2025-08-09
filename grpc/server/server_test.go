@@ -130,6 +130,23 @@ func runStatusTest(t *testing.T, agent lvmagent.Agent, ok bool, msg string, call
 	}
 }
 
+type testCase struct {
+	name  string
+	agent lvmagent.Agent
+	ok    bool
+	msg   string
+}
+
+// runAgentTest executes an RPC for each test case and validates its StatusResponse.
+func runAgentTest(t *testing.T, cases []testCase, call func(proto.ReplicationClient) (*proto.StatusResponse, error)) {
+	t.Helper()
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			runStatusTest(t, tc.agent, tc.ok, tc.msg, call)
+		})
+	}
+}
+
 func TestAuthorizeInterceptor(t *testing.T) {
 	client, cleanup := newInsecureClient(t, nil)
 	defer cleanup()
@@ -146,23 +163,14 @@ func TestAuthorizeInterceptor(t *testing.T) {
 }
 
 func TestLockVolume(t *testing.T) {
-	tests := []struct {
-		name  string
-		agent lvmagent.Agent
-		ok    bool
-		msg   string
-	}{
+	cases := []testCase{
 		{"success", &mockAgent{}, true, ""},
 		{"lock held", &mockAgent{lock: func(_ context.Context, _, _ string) error { return errors.New("already locked") }}, false, "already locked"}, // parameters unused
 		{"no agent", nil, false, "agent not configured"},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			runStatusTest(t, tt.agent, tt.ok, tt.msg, func(client proto.ReplicationClient) (*proto.StatusResponse, error) {
-				return client.LockVolume(ctxWithRole("replicator"), &proto.LockRequest{VolumeName: "vol", Requester: "req"})
-			})
-		})
-	}
+	runAgentTest(t, cases, func(client proto.ReplicationClient) (*proto.StatusResponse, error) {
+		return client.LockVolume(ctxWithRole("replicator"), &proto.LockRequest{VolumeName: "vol", Requester: "req"})
+	})
 }
 
 //revive:disable-next-line:cognitive-complexity
@@ -207,84 +215,48 @@ func TestGetVolumeMetadata(t *testing.T) {
 }
 
 func TestSendVolumeMetadata(t *testing.T) {
-	tests := []struct {
-		name  string
-		agent lvmagent.Agent
-		ok    bool
-		msg   string
-	}{
+	cases := []testCase{
 		{"success", &mockAgent{}, true, ""},
 		{"agent error", &mockAgent{sendMeta: func(_ context.Context, _ lvmagent.VolumeMetadata) error { return errors.New("checksum mismatch") }}, false, "checksum mismatch"}, // parameters unused
 		{"no agent", nil, false, "agent not configured"},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			runStatusTest(t, tt.agent, tt.ok, tt.msg, func(client proto.ReplicationClient) (*proto.StatusResponse, error) {
-				return client.SendVolumeMetadata(ctxWithRole("replicator"), &proto.VolumeMetadata{VolumeName: "vol"})
-			})
-		})
-	}
+	runAgentTest(t, cases, func(client proto.ReplicationClient) (*proto.StatusResponse, error) {
+		return client.SendVolumeMetadata(ctxWithRole("replicator"), &proto.VolumeMetadata{VolumeName: "vol"})
+	})
 }
 
 func TestStartTransferSession(t *testing.T) {
-	tests := []struct {
-		name  string
-		agent lvmagent.Agent
-		ok    bool
-		msg   string
-	}{
+	cases := []testCase{
 		{"success", &mockAgent{}, true, ""},
 		{"agent error", &mockAgent{startSess: func(_ context.Context, _, _ string) error { return errors.New("session failed") }}, false, "session failed"}, // parameters unused
 		{"no agent", nil, false, "agent not configured"},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			runStatusTest(t, tt.agent, tt.ok, tt.msg, func(client proto.ReplicationClient) (*proto.StatusResponse, error) {
-				return client.StartTransferSession(ctxWithRole("replicator"), &proto.LockRequest{VolumeName: "vol", Requester: "req"})
-			})
-		})
-	}
+	runAgentTest(t, cases, func(client proto.ReplicationClient) (*proto.StatusResponse, error) {
+		return client.StartTransferSession(ctxWithRole("replicator"), &proto.LockRequest{VolumeName: "vol", Requester: "req"})
+	})
 }
 
 func TestFinalizeSync(t *testing.T) {
-	tests := []struct {
-		name  string
-		agent lvmagent.Agent
-		ok    bool
-		msg   string
-	}{
+	cases := []testCase{
 		{"success", &mockAgent{finalize: func(_ context.Context, _, _ string) error { return nil }, unlock: func(_ context.Context, _, _ string) error { return nil }}, true, ""},                                        // parameters unused
 		{"finalize error", &mockAgent{finalize: func(_ context.Context, _, _ string) error { return errors.New("sync fail") }}, false, "sync fail"},                                                                      // parameters unused
 		{"unlock error", &mockAgent{finalize: func(_ context.Context, _, _ string) error { return nil }, unlock: func(_ context.Context, _, _ string) error { return errors.New("unlock fail") }}, false, "unlock fail"}, // parameters unused
 		{"no agent", nil, false, "agent not configured"},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			runStatusTest(t, tt.agent, tt.ok, tt.msg, func(client proto.ReplicationClient) (*proto.StatusResponse, error) {
-				return client.FinalizeSync(ctxWithRole("replicator"), &proto.LockRequest{VolumeName: "vol", Requester: "req"})
-			})
-		})
-	}
+	runAgentTest(t, cases, func(client proto.ReplicationClient) (*proto.StatusResponse, error) {
+		return client.FinalizeSync(ctxWithRole("replicator"), &proto.LockRequest{VolumeName: "vol", Requester: "req"})
+	})
 }
 
 func TestGetStatus(t *testing.T) {
-	tests := []struct {
-		name  string
-		agent lvmagent.Agent
-		ok    bool
-		msg   string
-	}{
+	cases := []testCase{
 		{"success", &mockAgent{status: func(_ context.Context, _, _ string) (string, error) { return "ok", nil }}, true, "ok"},                   // parameters unused
 		{"agent error", &mockAgent{status: func(_ context.Context, _, _ string) (string, error) { return "", errors.New("bad") }}, false, "bad"}, // parameters unused
 		{"no agent", nil, false, "agent not configured"},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			runStatusTest(t, tt.agent, tt.ok, tt.msg, func(client proto.ReplicationClient) (*proto.StatusResponse, error) {
-				return client.GetStatus(ctxWithRole("replicator"), &proto.LockRequest{VolumeName: "vol", Requester: "req"})
-			})
-		})
-	}
+	runAgentTest(t, cases, func(client proto.ReplicationClient) (*proto.StatusResponse, error) {
+		return client.GetStatus(ctxWithRole("replicator"), &proto.LockRequest{VolumeName: "vol", Requester: "req"})
+	})
 }
 
 func generateTLS(t *testing.T) (Config, *tls.Config, *tls.Config) {
