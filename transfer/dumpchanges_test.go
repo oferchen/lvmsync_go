@@ -15,6 +15,7 @@ import (
 	"lvmsync_go/config"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 // helper to create source and metadata files with deterministic ranges
@@ -103,6 +104,23 @@ func TestDumpChangesWithDeduplication(t *testing.T) {
 	expected := []int64{1 * blockSize}
 	if !reflect.DeepEqual(offsets, expected) {
 		t.Fatalf("unexpected offsets %v, want %v", offsets, expected)
+	}
+}
+
+func TestDumpChangesParallelProgress(t *testing.T) {
+	core, logs := observer.New(zap.InfoLevel)
+	SetLogger(zap.New(core))
+	blockSize := int64(1024)
+	changed := []int{0}
+	src, snapshot := createDumpTestFiles(t, blockSize, changed)
+
+	cfg := &config.Config{BlockSize: int(blockSize), Compress: "none", Parallel: 1, MaxRetries: 1, Progress: true}
+	var buf bytes.Buffer
+	if err := DumpChangesParallel(cfg, snapshot, src, &buf); err != nil {
+		t.Fatalf("DumpChangesParallel failed: %v", err)
+	}
+	if logs.FilterMessage("transfer progress").Len() == 0 {
+		t.Fatalf("expected progress log, got %d entries", logs.Len())
 	}
 }
 

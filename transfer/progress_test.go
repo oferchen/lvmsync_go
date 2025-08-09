@@ -15,8 +15,8 @@ func TestFinalizeProgress(t *testing.T) {
 	Logger = zap.New(core)
 	cfg := &config.Config{Progress: true}
 	finalizeProgress(cfg)
-	if logs.Len() != 0 {
-		t.Fatalf("expected no logs, got %d", logs.Len())
+	if logs.FilterMessage("progress complete").Len() != 1 {
+		t.Fatalf("expected progress completion log, got %d", logs.FilterMessage("progress complete").Len())
 	}
 }
 
@@ -25,8 +25,8 @@ func TestReportProgress(t *testing.T) {
 	Logger = zap.New(core)
 	cfg := &config.Config{Progress: true}
 	reportProgress(cfg, 50, 100, 1, time.Now())
-	if logs.Len() == 0 {
-		t.Fatal("expected progress log entry")
+	if logs.FilterMessage("transfer progress").Len() == 0 {
+		t.Fatal("expected progress log")
 	}
 }
 

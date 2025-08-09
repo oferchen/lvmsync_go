@@ -218,6 +218,9 @@ func dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer,
 	finalizeProgress(cfg)
 
 	logSequentialSummary(totalBytesTransferred, skippedBlocks, startTime)
+	if Logger != nil {
+		_ = Logger.Sync()
+	}
 	return nil
 }
 
@@ -367,6 +370,9 @@ func DumpChangesParallel(cfg *config.Config, snapshot, source string, out io.Wri
 	}
 	finalizeProgress(cfg)
 	logParallelSummary(totalBytesTransferred, startTime)
+	if Logger != nil {
+		_ = Logger.Sync()
+	}
 	return nil
 }
 
