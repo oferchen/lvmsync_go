@@ -68,6 +68,12 @@ Internally, each group is set up through a dedicated helper such as
 `initGeneralFlags`, `initSSHFlags`, or `initCompressionFlags`, keeping flag
 definitions focused and easy to maintain.
 
+The overall loading flow works in three stages:
+
+1. `registerFlags()` adds all flag groups to the command line.
+2. `buildViper()` binds flags, `LVMSYNC_*` environment variables, and an optional `config.yaml` into a single configuration source.
+3. `LoadConfig()` merges those values with built-in defaults and validates the result.
+
 ### Precedence and environment variables
 
 Values are resolved in the following order (highest first):

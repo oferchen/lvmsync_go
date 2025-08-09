@@ -27,41 +27,74 @@ func writeTempConfig(t *testing.T, content string) string {
 	return path
 }
 
-func TestLoadConfigPrecedence(t *testing.T) {
+func TestRegisterFlags(t *testing.T) {
+	resetFlags(nil)
+	cfg, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	registerFlags(cfg)
+	names := []string{"parallel", "ssh_user", "grpc_port"}
+	for _, name := range names {
+		if f := pflag.CommandLine.Lookup(name); f == nil {
+			t.Fatalf("missing %s flag", name)
+		}
+	}
+}
+
+func TestBuildViperPrecedence(t *testing.T) {
 	cfgPath := writeTempConfig(t, "parallel: 1\n")
 
 	t.Run("config_overrides_defaults", func(t *testing.T) {
 		resetFlags([]string{"--config", cfgPath})
-		c, err := LoadConfig()
+		cfg, err := DefaultConfig()
 		if err != nil {
-			t.Fatalf("LoadConfig: %v", err)
+			t.Fatalf("DefaultConfig: %v", err)
 		}
-		if c.Parallel != 1 {
-			t.Fatalf("expected parallel 1, got %d", c.Parallel)
+		registerFlags(cfg)
+		pflag.Parse()
+		v, err := buildViper()
+		if err != nil {
+			t.Fatalf("buildViper: %v", err)
+		}
+		if got := v.GetInt("parallel"); got != 1 {
+			t.Fatalf("expected parallel 1, got %d", got)
 		}
 	})
 
 	t.Run("env_overrides_config", func(t *testing.T) {
 		resetFlags([]string{"--config", cfgPath})
 		t.Setenv("LVMSYNC.PARALLEL", "2")
-		c, err := LoadConfig()
+		cfg, err := DefaultConfig()
 		if err != nil {
-			t.Fatalf("LoadConfig: %v", err)
+			t.Fatalf("DefaultConfig: %v", err)
 		}
-		if c.Parallel != 2 {
-			t.Fatalf("expected parallel 2, got %d", c.Parallel)
+		registerFlags(cfg)
+		pflag.Parse()
+		v, err := buildViper()
+		if err != nil {
+			t.Fatalf("buildViper: %v", err)
+		}
+		if got := v.GetInt("parallel"); got != 2 {
+			t.Fatalf("expected parallel 2, got %d", got)
 		}
 	})
 
 	t.Run("flags_override_env", func(t *testing.T) {
 		resetFlags([]string{"--config", cfgPath, "--parallel", "3"})
 		t.Setenv("LVMSYNC.PARALLEL", "2")
-		c, err := LoadConfig()
+		cfg, err := DefaultConfig()
 		if err != nil {
-			t.Fatalf("LoadConfig: %v", err)
+			t.Fatalf("DefaultConfig: %v", err)
 		}
-		if c.Parallel != 3 {
-			t.Fatalf("expected parallel 3, got %d", c.Parallel)
+		registerFlags(cfg)
+		pflag.Parse()
+		v, err := buildViper()
+		if err != nil {
+			t.Fatalf("buildViper: %v", err)
+		}
+		if got := v.GetInt("parallel"); got != 3 {
+			t.Fatalf("expected parallel 3, got %d", got)
 		}
 	})
 }

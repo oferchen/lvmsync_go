@@ -27,9 +27,11 @@ const (
 	Zstd = "zstd"
 )
 
-var SupportedCompression = []string{"none", "lz4", Zstd, Auto}
-var SupportedDedupStrategies = []string{"none", Auto, "checksum", "rolling_hash", "bloom"}
-var SupportedChecksumAlgorithms = []string{"sha256", "blake3", "blake3-512"}
+var (
+	SupportedCompression        = []string{"none", "lz4", Zstd, Auto}
+	SupportedDedupStrategies    = []string{"none", Auto, "checksum", "rolling_hash", "bloom"}
+	SupportedChecksumAlgorithms = []string{"sha256", "blake3", "blake3-512"}
+)
 
 var (
 	generalFlags     *pflag.FlagSet
@@ -398,13 +400,8 @@ func initFlagSets(defaultCfg *Config) {
 	grpcFlags = initGRPCFlags(defaultCfg)
 }
 
-func LoadConfig() (*Config, error) {
-	defaultCfg, err := DefaultConfig()
-	if err != nil {
-		return nil, err
-	}
+func registerFlags(defaultCfg *Config) {
 	initFlagSets(defaultCfg)
-	// Register flags and set usage
 	pflag.CommandLine.AddFlagSet(generalFlags)
 	pflag.CommandLine.AddFlagSet(sshFlags)
 	pflag.CommandLine.AddFlagSet(remoteFlags)
@@ -413,8 +410,9 @@ func LoadConfig() (*Config, error) {
 	pflag.CommandLine.AddFlagSet(lvmFlags)
 	pflag.CommandLine.AddFlagSet(grpcFlags)
 	pflag.Usage = printUsage
-	pflag.Parse()
+}
 
+func buildViper() (*viper.Viper, error) {
 	v := viper.New()
 	v.SetConfigName("config")
 	v.SetConfigType("yaml")
@@ -423,14 +421,29 @@ func LoadConfig() (*Config, error) {
 	v.SetEnvKeyReplacer(strings.NewReplacer("_", "."))
 	v.SetEnvPrefix("LVMSYNC")
 
-	if err = v.BindPFlags(pflag.CommandLine); err != nil {
+	if err := v.BindPFlags(pflag.CommandLine); err != nil {
 		return nil, err
 	}
 	if cfgFile := v.GetString("config"); cfgFile != "" {
 		v.SetConfigFile(cfgFile)
-		if err = v.ReadInConfig(); err != nil {
+		if err := v.ReadInConfig(); err != nil {
 			return nil, fmt.Errorf("error reading config file %q: %w", cfgFile, err)
 		}
+	}
+	return v, nil
+}
+
+func LoadConfig() (*Config, error) {
+	defaultCfg, err := DefaultConfig()
+	if err != nil {
+		return nil, err
+	}
+	registerFlags(defaultCfg)
+	pflag.Parse()
+
+	v, err := buildViper()
+	if err != nil {
+		return nil, err
 	}
 
 	builder := &Builder{
@@ -444,6 +457,7 @@ func LoadConfig() (*Config, error) {
 
 	return conf, nil
 }
+
 func (c *Config) Validate() error {
 	if c.VolumeGroup != "" {
 		if _, err := lvm.GetVolumeGroupFreeSpace(context.Background(), c.VolumeGroup); err != nil {
@@ -473,7 +487,7 @@ func findInPath(name string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		if info.IsDir() || info.Mode().Perm()&0111 == 0 {
+		if info.IsDir() || info.Mode().Perm()&0o111 == 0 {
 			return "", fmt.Errorf("%s is not executable", name)
 		}
 		return name, nil
@@ -488,7 +502,7 @@ func findInPath(name string) (string, error) {
 		if err != nil {
 			continue
 		}
-		if !info.IsDir() && info.Mode().Perm()&0111 != 0 {
+		if !info.IsDir() && info.Mode().Perm()&0o111 != 0 {
 			return full, nil
 		}
 	}
