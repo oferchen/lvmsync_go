@@ -15,7 +15,7 @@ type vgBackend struct {
 func (f *vgBackend) CreateSnapshot(context.Context, string, string, string) error { return nil }
 func (f *vgBackend) RemoveSnapshot(context.Context, string) error                 { return nil }
 func (f *vgBackend) GetSnapshotUsage(context.Context, string) (float64, error)    { return 0, nil }
-func (f *vgBackend) GetVolumeGroupFreeSpace(ctx context.Context, name string) (uint64, error) {
+func (f *vgBackend) GetVolumeGroupFreeSpace(_ context.Context, name string) (uint64, error) {
 	for _, vg := range f.vgs {
 		if vg.Name == name {
 			return vg.Free, nil
