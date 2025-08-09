@@ -2,6 +2,7 @@ package lvm
 
 import (
 	"context"
+	"errors"
 
 	"lvmsync_go/internal/privesc"
 	lvmlib "lvmsync_go/lvm"
@@ -25,15 +26,29 @@ type Agent interface {
 	GetStatus(_ context.Context, volume, requester string) (string, error)
 }
 
+// lvmAPI defines the subset of methods used by the agent. It allows tests to
+// inject a mock implementation while the real implementation can satisfy the
+// interface implicitly.
+type lvmAPI interface {
+	Lock(context.Context, string, string) error
+	Unlock(context.Context, string, string) error
+	GetMetadata(context.Context, string) (VolumeMetadata, error)
+	SendMetadata(context.Context, VolumeMetadata) error
+	StartTransferSession(context.Context, string, string) error
+	FinalizeSync(context.Context, string, string) error
+	GetStatus(context.Context, string, string) (string, error)
+}
+
 // sudoAgent ensures root privileges via sudo before invoking LVM commands.
 type sudoAgent struct {
 	sudoPath string
-	lvm      lvmlib.API
+	lvm      lvmAPI
 }
 
 // NewSudoAgent returns an Agent implementation that escalates privileges using sudo.
 func NewSudoAgent(sudoPath string, l lvmlib.API) Agent {
-	return &sudoAgent{sudoPath: sudoPath, lvm: l}
+	api, _ := l.(lvmAPI)
+	return &sudoAgent{sudoPath: sudoPath, lvm: api}
 }
 
 func (s *sudoAgent) ensureRoot() error {
@@ -44,61 +59,72 @@ func (s *sudoAgent) ensureRoot() error {
 	return privesc.EnsureRoot(cmd)
 }
 
-func (s *sudoAgent) Lock(_ context.Context, _, _ string) error {
+func (s *sudoAgent) Lock(ctx context.Context, volume, requester string) error {
 	if err := s.ensureRoot(); err != nil {
 		return err
 	}
-	// TODO: invoke lvm locking once available
-	return nil
+	if s.lvm == nil {
+		return errors.New("lvm api not provided")
+	}
+	return s.lvm.Lock(ctx, volume, requester)
 }
 
-func (s *sudoAgent) Unlock(_ context.Context, _, _ string) error {
+func (s *sudoAgent) Unlock(ctx context.Context, volume, requester string) error {
 	if err := s.ensureRoot(); err != nil {
 		return err
 	}
-	// TODO: invoke lvm unlock once available
-	return nil
+	if s.lvm == nil {
+		return errors.New("lvm api not provided")
+	}
+	return s.lvm.Unlock(ctx, volume, requester)
 }
 
-func (s *sudoAgent) GetMetadata(_ context.Context, _ string) (VolumeMetadata, error) {
+func (s *sudoAgent) GetMetadata(ctx context.Context, volume string) (VolumeMetadata, error) {
 	if err := s.ensureRoot(); err != nil {
 		return VolumeMetadata{}, err
 	}
-	// TODO: fetch metadata using lvm
-	return VolumeMetadata{}, nil
+	if s.lvm == nil {
+		return VolumeMetadata{}, errors.New("lvm api not provided")
+	}
+	return s.lvm.GetMetadata(ctx, volume)
 }
 
-func (s *sudoAgent) SendMetadata(_ context.Context, _ VolumeMetadata) error {
+func (s *sudoAgent) SendMetadata(ctx context.Context, md VolumeMetadata) error {
 	if err := s.ensureRoot(); err != nil {
 		return err
 	}
-	// TODO: send metadata using lvm
-	return nil
+	if s.lvm == nil {
+		return errors.New("lvm api not provided")
+	}
+	return s.lvm.SendMetadata(ctx, md)
 }
 
-func (s *sudoAgent) StartTransferSession(_ context.Context, _, _ string) error {
-	// volume and requester are ignored until LVM operations are implemented.
+func (s *sudoAgent) StartTransferSession(ctx context.Context, volume, requester string) error {
 	if err := s.ensureRoot(); err != nil {
 		return err
 	}
-	// TODO: start transfer session via lvm
-	return nil
+	if s.lvm == nil {
+		return errors.New("lvm api not provided")
+	}
+	return s.lvm.StartTransferSession(ctx, volume, requester)
 }
 
-func (s *sudoAgent) FinalizeSync(_ context.Context, _, _ string) error {
-	// volume and requester are ignored until LVM operations are implemented.
+func (s *sudoAgent) FinalizeSync(ctx context.Context, volume, requester string) error {
 	if err := s.ensureRoot(); err != nil {
 		return err
 	}
-	// TODO: finalize sync via lvm
-	return nil
+	if s.lvm == nil {
+		return errors.New("lvm api not provided")
+	}
+	return s.lvm.FinalizeSync(ctx, volume, requester)
 }
 
-func (s *sudoAgent) GetStatus(_ context.Context, _, _ string) (string, error) {
-	// volume and requester are ignored until LVM operations are implemented.
+func (s *sudoAgent) GetStatus(ctx context.Context, volume, requester string) (string, error) {
 	if err := s.ensureRoot(); err != nil {
 		return "", err
 	}
-	// TODO: query status via lvm
-	return "", nil
+	if s.lvm == nil {
+		return "", errors.New("lvm api not provided")
+	}
+	return s.lvm.GetStatus(ctx, volume, requester)
 }
