@@ -15,10 +15,9 @@ import (
 	"golang.org/x/crypto/ssh"
 
 	signalspkg "lvmsync_go/cmd/lvmsync/signals"
-	snapshotpkg "lvmsync_go/cmd/lvmsync/snapshot"
-	transferexec "lvmsync_go/cmd/lvmsync/transfer"
 	"lvmsync_go/common"
 	"lvmsync_go/config"
+	clientpkg "lvmsync_go/internal/client"
 	"lvmsync_go/internal/privesc"
 	"lvmsync_go/lvm"
 	"lvmsync_go/remote"
@@ -321,13 +320,13 @@ func run() error {
 	}
 
 	var monitorErrCh chan error
-	snapshotPath, monitorErrCh, cleanup, err := snapshotpkg.Prepare(cfg, originalVolume, logger)
+	snapshotPath, monitorErrCh, cleanup, err := clientpkg.PrepareSnapshot(cfg, originalVolume, logger)
 	if err != nil {
 		return err
 	}
 	defer cleanup()
 
-	return transferexec.Execute(runClientMode, snapshotPath, destPath, sigErrCh, monitorErrCh)
+	return clientpkg.ExecuteClient(runClientMode, snapshotPath, destPath, sigErrCh, monitorErrCh)
 }
 
 func main() {

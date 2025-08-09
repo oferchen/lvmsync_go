@@ -1,4 +1,4 @@
-package snapshot
+package client
 
 import (
 	"testing"
@@ -22,7 +22,7 @@ func TestPrepareSkipSnapshot(t *testing.T) {
 	defer func() { parseSnapshotSize = origParse }()
 
 	logger := zap.NewNop()
-	snap, monitorCh, cleanup, err := Prepare(cfg, "/dev/vg/orig", logger)
+	snap, monitorCh, cleanup, err := PrepareSnapshot(cfg, "/dev/vg/orig", logger)
 	if err != nil {
 		t.Fatalf("Prepare returned error: %v", err)
 	}

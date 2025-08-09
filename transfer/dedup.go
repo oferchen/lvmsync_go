@@ -12,11 +12,11 @@ import (
 	"sync"
 	"unsafe"
 
-	"lvmsync_go/config"
-
 	"github.com/bits-and-blooms/bloom/v3"
 	"go.uber.org/zap"
 	"golang.org/x/sys/cpu"
+
+	"lvmsync_go/config"
 )
 
 var createStateFile = func(name string) (io.WriteCloser, error) {

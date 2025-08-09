@@ -23,7 +23,7 @@ const (
 // `concurrency` is less than or equal to zero, it defaults to the number of
 // logical CPUs. It returns the configured `io.WriteCloser` or an error if the
 // compression type is unsupported.
-func NewCompressionWriter(dst io.Writer, compress string, level int, concurrency int) (io.WriteCloser, error) {
+func NewCompressionWriter(dst io.Writer, compress string, level, concurrency int) (io.WriteCloser, error) {
 	if compress == StrategyAuto {
 		compress = compressiondetect.DetectOptimalCompression()
 	}

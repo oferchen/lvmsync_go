@@ -73,7 +73,7 @@ func prepareResultHeader(cfg *config.Config, checksum ChecksumStrategy, res *Blo
 	return n
 }
 
-func writeResult(bufOut *bufio.Writer, header []byte, data []byte) error {
+func writeResult(bufOut *bufio.Writer, header, data []byte) error {
 	if _, err := bufOut.Write(header); err != nil {
 		return fmt.Errorf("failed to write header: %w", err)
 	}

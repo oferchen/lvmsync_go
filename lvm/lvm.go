@@ -4,7 +4,6 @@ package lvm
 import (
 	"context"
 	"fmt"
-	"lvmsync_go/internal/sizeparse"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -14,6 +13,8 @@ import (
 
 	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
+
+	"lvmsync_go/internal/sizeparse"
 )
 
 const (

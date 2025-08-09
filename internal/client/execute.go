@@ -1,9 +1,9 @@
-package transfer
+package client
 
 import "fmt"
 
-// Execute runs the client transfer logic and handles signal and monitor errors.
-func Execute(runClient func(string, string) error, snapshotPath, destPath string, sigErrCh, monitorErrCh chan error) error {
+// ExecuteClient runs the client transfer logic and handles signal and monitor errors.
+func ExecuteClient(runClient func(string, string) error, snapshotPath, destPath string, sigErrCh, monitorErrCh chan error) error {
 	clientErrCh := make(chan error, 1)
 	go func() {
 		clientErrCh <- runClient(snapshotPath, destPath)

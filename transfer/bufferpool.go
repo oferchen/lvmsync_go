@@ -10,7 +10,7 @@ func getPool(size int) *sync.Pool {
 			return pool
 		}
 	}
-	p := &sync.Pool{New: func() interface{} {
+	p := &sync.Pool{New: func() any {
 		buf := make([]byte, size)
 		return &buf
 	}}
