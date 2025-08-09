@@ -636,7 +636,7 @@ func processBlock(destFile *os.File, dedup DeduplicationStrategy, verify bool, c
 	return true, nil
 }
 
-func applyBlocks(cfg *config.Config, reader *bufio.Reader, destFile *os.File, dedup DeduplicationStrategy, verify bool, checksum ChecksumStrategy) (int64, error) {
+func applyBlocks(reader *bufio.Reader, destFile *os.File, dedup DeduplicationStrategy, verify bool, checksum ChecksumStrategy) (int64, error) {
 	var totalBytes int64
 	headerLen := 12
 	if verify {
@@ -700,7 +700,7 @@ func processDumpDataCore(cfg *config.Config, in io.Reader, destPath string, dedu
 	startTime := time.Now()
 	checksum := GetChecksumStrategy(cfg.ChecksumAlgorithm)
 	var totalBytes int64
-	totalBytes, err = applyBlocks(cfg, reader, destFile, dedup, verify, checksum)
+	totalBytes, err = applyBlocks(reader, destFile, dedup, verify, checksum)
 	if err != nil {
 		return err
 	}
