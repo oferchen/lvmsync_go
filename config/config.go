@@ -409,7 +409,6 @@ func registerFlags(defaultCfg *Config) {
 	pflag.CommandLine.AddFlagSet(compressionFlags)
 	pflag.CommandLine.AddFlagSet(lvmFlags)
 	pflag.CommandLine.AddFlagSet(grpcFlags)
-	pflag.Usage = printUsage
 }
 
 func buildViper() (*viper.Viper, error) {
@@ -507,22 +506,4 @@ func findInPath(name string) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("executable %q not found in $PATH", name)
-}
-
-func printUsage() {
-	fmt.Fprintf(os.Stderr, "Usage: %s [options] <snapshot|lvm device> <destination>\n\n", os.Args[0])
-	fmt.Fprintf(os.Stderr, "General Options:\n")
-	generalFlags.PrintDefaults()
-	fmt.Fprintf(os.Stderr, "\nSSH Options:\n")
-	sshFlags.PrintDefaults()
-	fmt.Fprintf(os.Stderr, "\nRemote Options:\n")
-	remoteFlags.PrintDefaults()
-	fmt.Fprintf(os.Stderr, "\nDeduplication Options:\n")
-	dedupFlags.PrintDefaults()
-	fmt.Fprintf(os.Stderr, "\nCompression Options:\n")
-	compressionFlags.PrintDefaults()
-	fmt.Fprintf(os.Stderr, "\nLVM Options:\n")
-	lvmFlags.PrintDefaults()
-	fmt.Fprintf(os.Stderr, "\ngRPC Options:\n")
-	grpcFlags.PrintDefaults()
 }
