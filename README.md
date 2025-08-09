@@ -494,6 +494,15 @@ Contributions are welcome. Please follow the project's coding guidelines, includ
 
 ## Development
 
+### Development Setup
+
+The Super-Linter workflow validates the entire repository and runs `golangci-lint run ./...` from the repository root.
+Run the same command locally to mirror CI:
+
+```sh
+golangci-lint run ./...
+```
+
 To run the tests and static checks locally:
 
 ```sh

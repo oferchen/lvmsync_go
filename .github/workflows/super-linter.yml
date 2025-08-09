@@ -53,11 +53,11 @@ jobs:
           # Core
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DEFAULT_BRANCH: main
-          VALIDATE_ALL_CODEBASE: true
+          VALIDATE_ALL_CODEBASE: "true"
 
           # Go: pass ONLY the package pattern (NO "run")
           GO_LINTER: golangci-lint
-          GO_LINT_FLAGS: ./...
+          GO_LINT_FLAGS: ./... # runs `golangci-lint run ./...` from repository root
           GOLANGCI_LINT_VERSION: v2.3.1
 
           # Formatters
