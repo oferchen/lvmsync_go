@@ -28,7 +28,7 @@ func Detect(devicePath string) (int, error) {
 	if !ok {
 		return 0, fmt.Errorf("unsupported file info for %s", devicePath)
 	}
-	queuePath := filepath.Join("/sys/dev/block", fmt.Sprintf("%d:%d/queue", unix.Major(uint64(stat.Rdev)), unix.Minor(uint64(stat.Rdev))))
+	queuePath := filepath.Join("/sys/dev/block", fmt.Sprintf("%d:%d/queue", unix.Major(stat.Rdev), unix.Minor(stat.Rdev)))
 	return readPreferredSize(queuePath)
 }
 
