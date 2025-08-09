@@ -1,8 +1,6 @@
 package transfer
 
 import (
-	"io"
-	"os"
 	"testing"
 	"time"
 
@@ -12,33 +10,23 @@ import (
 	"lvmsync_go/config"
 )
 
-func captureStderr(f func()) string {
-	old := os.Stderr
-	r, w, _ := os.Pipe()
-	os.Stderr = w
-	f()
-	w.Close()
-	os.Stderr = old
-	out, _ := io.ReadAll(r)
-	return string(out)
-}
-
 func TestFinalizeProgress(t *testing.T) {
+	core, logs := observer.New(zap.InfoLevel)
+	Logger = zap.New(core)
 	cfg := &config.Config{Progress: true}
-	out := captureStderr(func() { finalizeProgress(cfg) })
-	if out != "\n" {
-		t.Fatalf("expected newline, got %q", out)
+	finalizeProgress(cfg)
+	if logs.FilterMessage("progress complete").Len() != 1 {
+		t.Fatalf("expected progress completion log, got %d", logs.FilterMessage("progress complete").Len())
 	}
 }
 
 func TestReportProgress(t *testing.T) {
-	Logger = zap.NewNop()
+	core, logs := observer.New(zap.InfoLevel)
+	Logger = zap.New(core)
 	cfg := &config.Config{Progress: true}
-	out := captureStderr(func() {
-		reportProgress(cfg, 50, 100, 1, time.Now())
-	})
-	if out == "" {
-		t.Fatal("expected progress output")
+	reportProgress(cfg, 50, 100, 1, time.Now())
+	if logs.FilterMessage("transfer progress").Len() == 0 {
+		t.Fatal("expected progress log")
 	}
 }
 

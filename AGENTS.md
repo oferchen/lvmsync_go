@@ -73,7 +73,7 @@ LVMSYNC_SOURCE=/dev/vg0/snap1
 
 ## Testing and Linting
 
-- Every function should have accompanying unit tests.
+- Provide unit tests for every new function.
 - Ensure [`golangci-lint`](https://golangci-lint.run/) v2 passes before submitting changes.
 
 ### Coverage
@@ -105,7 +105,8 @@ LVMSYNC_SOURCE=/dev/vg0/snap1
 
 - [ ] Audit logging: ensure `zap` is used with `snake_case` fields, include units, and call `logger.Sync()` before exit.
 - [ ] Remove stray `fmt.Print*` calls in favor of structured logs.
-- [ ] Expand unit test coverage for remote execution and client signal handling, and run coverage reports (see `config/loadconfig_test.go`).
+- [ ] Monitor elimination of `fmt.Print*` calls to keep progress logging fully structured.
+- [ ] Expand unit test coverage for remote execution and client signal handling, and run coverage reports.
 
   ```sh
   go test -cover ./...
@@ -120,3 +121,6 @@ LVMSYNC_SOURCE=/dev/vg0/snap1
 - [ ] Review CLI argument parsing: prefer `pflag`, bind flags to `viper`, and group related options into reusable `FlagSet`s.
 - [ ] Keep modules single-purpose; maintain the `transfer` package decomposition (`progress.go`, `handshake.go`, `block_writer.go`).
 - [ ] Document gRPC daemon configuration sources (flags, env vars, config file) and precedence.
+- [ ] Keep `README` configuration documentation current with code changes.
+- [ ] Track decomposition of large files like `transfer/transfer.go`.
+- [ ] Ensure progress logging uses `zap` exclusively.
