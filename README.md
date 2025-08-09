@@ -30,6 +30,7 @@ LVMSync is organized into modular packages to keep concerns separated:
 
 - `lvm` – manages snapshot creation, monitoring, and cleanup.
 - `transfer` – performs block-level synchronization, compression, deduplication, and resume logic.
+  - Internally split into focused modules: `progress.go`, `handshake.go`, and `block_writer.go` for clearer responsibilities.
 - `remote` – wraps SSH functionality for running commands on remote hosts and coordinating transfers.
 - `config` – parses and validates configuration files and CLI options.
 - `common` and `internal` – shared helpers and internal utilities such as multi-error handling.

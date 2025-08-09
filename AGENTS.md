@@ -118,3 +118,4 @@ LVMSYNC_SOURCE=/dev/vg0/snap1
   ```
 
 - [ ] Review CLI argument parsing: prefer `pflag`, bind flags to `viper`, and group related options into reusable `FlagSet`s.
+- [ ] Keep modules single-purpose; maintain the `transfer` package decomposition (`progress.go`, `handshake.go`, `block_writer.go`).
