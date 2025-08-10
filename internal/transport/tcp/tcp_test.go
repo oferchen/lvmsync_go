@@ -12,15 +12,16 @@ import (
 	"lvmsync_go/internal/transport"
 )
 
-func getTCP(t *testing.T) (transport.Sender, transport.Receiver) {
-	t.Helper()
-	f, ok := transport.Get("tcp+tls")
-	if !ok {
+func TestTCPRegistered(t *testing.T) {
+	if _, ok := transport.Get("tcp+tls"); !ok {
 		t.Fatalf("tcp+tls transport not registered")
 	}
-	s, r, err := f(&config.Config{})
+}
+
+func TestTCPSendReceive(t *testing.T) {
+	s, r, err := New(&config.Config{TCPPort: 0})
 	if err != nil {
-		t.Fatalf("factory error: %v", err)
+		t.Fatalf("New: %v", err)
 	}
 	return s, r
 }
@@ -28,11 +29,50 @@ func getTCP(t *testing.T) (transport.Sender, transport.Receiver) {
 func TestTCPSendReceive(t *testing.T) {
 	s, r := getTCP(t)
 	if err := s.Send(context.Background(), bytes.NewReader(nil)); err != nil {
+	defer r.(*tcpReceiver).Close()
+
+	data := []byte("hello world")
+	var buf bytes.Buffer
+	ctx := context.Background()
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if err := r.Receive(ctx, &buf); err != nil {
+			t.Errorf("receive: %v", err)
+		}
+	}()
+	if err := s.Send(ctx, bytes.NewReader(data)); err != nil {
 		t.Fatalf("send: %v", err)
 	}
-	if err := r.Receive(context.Background(), io.Discard); err != nil {
-		t.Fatalf("receive: %v", err)
+	wg.Wait()
+	if !bytes.Equal(buf.Bytes(), data) {
+		t.Fatalf("got %q want %q", buf.Bytes(), data)
 	}
+}
+
+func TestTCPSendError(t *testing.T) {
+	s, r, err := New(&config.Config{TCPPort: 0})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	r.(*tcpReceiver).Close()
+	if err := s.Send(context.Background(), bytes.NewReader([]byte("x"))); err == nil {
+		t.Fatalf("expected error")
+	}
+}
+
+func TestTCPReceiveCanceled(t *testing.T) {
+	_, r, err := New(&config.Config{TCPPort: 0})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := r.Receive(ctx, io.Discard); err == nil {
+		t.Fatalf("expected error")
+	}
+	r.(*tcpReceiver).Close()
 }
 
 func TestTCPContextCancel(t *testing.T) {

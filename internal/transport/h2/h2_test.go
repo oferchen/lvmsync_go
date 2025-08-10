@@ -7,6 +7,7 @@ import (
 	"io"
 	"sync"
 	"testing"
+	"time"
 
 	"lvmsync_go/config"
 	"lvmsync_go/internal/transport"
@@ -16,23 +17,45 @@ func getH2(t *testing.T) (transport.Sender, transport.Receiver) {
 	t.Helper()
 	f, ok := transport.Get("h2")
 	if !ok {
+    		t.Fatalf("h2 can't get transport!")
+	}
+}
+
+func TestH2Registered(t *testing.T) {
+	if _, ok := transport.Get("h2"); !ok {
 		t.Fatalf("h2 transport not registered")
 	}
-	s, r, err := f(&config.Config{})
+}
+
+func TestH2Transfer(t *testing.T) {
+	f, _ := transport.Get("h2")
+	cfg := &config.Config{H2Port: 0}
+	sender, receiver, err := f(cfg)
 	if err != nil {
 		t.Fatalf("factory error: %v", err)
 	}
 	return s, r
 }
 
-func TestH2SendReceive(t *testing.T) {
-	s, r := getH2(t)
-	if err := s.Send(context.Background(), bytes.NewReader(nil)); err != nil {
-		t.Fatalf("send: %v", err)
+
+func TestH2ContextCancel(t *testing.T) {
+	f, _ := transport.Get("h2")
+	cfg := &config.Config{H2Port: 0}
+	sender, receiver, err := f(cfg)
+	if err != nil {
+		t.Fatalf("factory error: %v", err)
 	}
-	if err := r.Receive(context.Background(), io.Discard); err != nil {
-		t.Fatalf("receive: %v", err)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	var buf bytes.Buffer
+	rctx, rcancel := context.WithTimeout(context.Background(), time.Second)
+	errCh := make(chan error, 1)
+	go func() { errCh <- receiver.Receive(rctx, &buf) }()
+	if err := sender.Send(ctx, bytes.NewReader([]byte("cancel"))); err == nil {
+		t.Fatalf("expected error on canceled context")
 	}
+	rcancel()
+	<-errCh
 }
 
 func TestH2ContextCancel(t *testing.T) {

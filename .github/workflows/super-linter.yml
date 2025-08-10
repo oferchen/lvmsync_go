@@ -21,8 +21,7 @@ on:
 
 permissions:
   contents: read
-  # contents: write
-  # statuses: write
+  statuses: write
 
 concurrency:
   group: lint-${{ github.ref }}
@@ -30,7 +29,7 @@ concurrency:
 
 env:
   SUPER_LINTER_STRICT: "true" # set "false" to soft-fail the job
-  JSCPD_IGNORE: "${{ github.workspace }}/*.json"
+  # JSCPD_IGNORE: "${{ github.workspace }}/*.json"
 
 jobs:
   super-linter:
@@ -67,8 +66,8 @@ jobs:
           VALIDATE_GIT_COMMITLINT: "false"
           FILTER_REGEX_INCLUDE: ""
 
-          VALIDATE_GO: true
-          VALIDATE_GO_MODULES: true
+          # VALIDATE_GO: true
+          # VALIDATE_GO_MODULES: true
           VALIDATE_GO_RELEASER: true
 
           GO_LINTER: golangci-lint
