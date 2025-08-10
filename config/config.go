@@ -51,6 +51,7 @@ type Config struct {
 	ConfigFile           string        `mapstructure:"config"`
 	ApplyMode            string        `mapstructure:"apply"`
 	StdoutMode           bool          `mapstructure:"stdout"`
+	Mode                 string        `mapstructure:"mode"`
 	Parallel             int           `mapstructure:"parallel"`
 	ZeroCopy             bool          `mapstructure:"zerocopy"`
 	MaxRetries           int           `mapstructure:"max_retries"`
@@ -67,41 +68,46 @@ type Config struct {
 	RemotePostScript     string        `mapstructure:"remote_post_script"`
 	Compress             string        `mapstructure:"compress"`
 	// For LZ4 use lz4.Fast or lz4.Level1 through lz4.Level9; ZSTD accepts levels 1-22.
-	CompressLevel        int      `mapstructure:"compress_level"`
-	CompressConcurrency  int      `mapstructure:"compress_concurrency"`
-	CompressThreshold    float64  `mapstructure:"compress_threshold"`
-	Speed                string   `mapstructure:"speed"`
-	SpeedLimit           int      `mapstructure:"-"`
-	VerifyChecksum       bool     `mapstructure:"verify_checksum"`
-	ChecksumAlgorithm    string   `mapstructure:"checksum_algorithm"`
-	Verbose              int      `mapstructure:"verbose"`
-	SkipSnapshotCreation bool     `mapstructure:"skip_snapshot_creation"`
-	SkipDiskCheck        bool     `mapstructure:"skip_disk_check"`
-	SnapshotSize         string   `mapstructure:"snapshot_size"`
-	VolumeGroup          string   `mapstructure:"volume_group"`
-	TargetVolumeGroup    string   `mapstructure:"target_volume_group"`
-	TargetVGCandidates   []string `mapstructure:"target_vgs"`
-	LVMEscalation        string   `mapstructure:"lvm_escalation"`
-	Progress             bool     `mapstructure:"progress"`
-	BlockSize            int      `mapstructure:"-"`
-	BlockSizeRaw         string   `mapstructure:"-"`
-	DedupMode            string   `mapstructure:"dedup"`
-	CDCMin               int      `mapstructure:"cdc_min"`
-	CDCAvg               int      `mapstructure:"cdc_avg"`
-	CDCMax               int      `mapstructure:"cdc_max"`
-	DedupStrategy        string   `mapstructure:"dedup_strategy"`
-	DedupStateFile       string   `mapstructure:"dedup_state_file"`
-	BloomEntries         int      `mapstructure:"bloom_entries"`
-	BloomFpRate          float64  `mapstructure:"bloom_fp_rate"`
-	BloomMBits           uint     `mapstructure:"bloom_mbits"`
-	GRPCPort             int      `mapstructure:"grpc_port"`
-	GRPCListen           string   `mapstructure:"grpc_listen"`
-	GRPCConnect          string   `mapstructure:"grpc_connect"`
-	TLSCert              string   `mapstructure:"tls_cert"`
-	TLSKey               string   `mapstructure:"tls_key"`
-	CACert               string   `mapstructure:"ca_cert"`
-	AllowInsecure        bool     `mapstructure:"allow_insecure"`
-	SudoPath             string   `mapstructure:"sudo_path"`
+	CompressLevel         int           `mapstructure:"compress_level"`
+	CompressConcurrency   int           `mapstructure:"compress_concurrency"`
+	CompressThreshold     float64       `mapstructure:"compress_threshold"`
+	Speed                 string        `mapstructure:"speed"`
+	SpeedLimit            int           `mapstructure:"-"`
+	VerifyChecksum        bool          `mapstructure:"verify_checksum"`
+	ChecksumAlgorithm     string        `mapstructure:"checksum_algorithm"`
+	Verbose               int           `mapstructure:"verbose"`
+	SkipSnapshotCreation  bool          `mapstructure:"skip_snapshot_creation"`
+	SkipDiskCheck         bool          `mapstructure:"skip_disk_check"`
+	SnapshotSize          string        `mapstructure:"snapshot_size"`
+	VolumeGroup           string        `mapstructure:"volume_group"`
+	TargetVolumeGroup     string        `mapstructure:"target_volume_group"`
+	TargetVGCandidates    []string      `mapstructure:"target_vgs"`
+	LVMEscalation         string        `mapstructure:"lvm_escalation"`
+	Progress              bool          `mapstructure:"progress"`
+	BlockSize             int           `mapstructure:"-"`
+	BlockSizeRaw          string        `mapstructure:"-"`
+	DedupMode             string        `mapstructure:"dedup"`
+	CDCMin                int           `mapstructure:"cdc_min"`
+	CDCAvg                int           `mapstructure:"cdc_avg"`
+	CDCMax                int           `mapstructure:"cdc_max"`
+	DedupStrategy         string        `mapstructure:"dedup_strategy"`
+	DedupStateFile        string        `mapstructure:"dedup_state_file"`
+	BloomEntries          int           `mapstructure:"bloom_entries"`
+	BloomFpRate           float64       `mapstructure:"bloom_fp_rate"`
+	BloomMBits            uint          `mapstructure:"bloom_mbits"`
+	GRPCPort              int           `mapstructure:"grpc_port"`
+	GRPCListen            string        `mapstructure:"grpc_listen"`
+	GRPCConnect           string        `mapstructure:"grpc_connect"`
+	TLSCert               string        `mapstructure:"tls_cert"`
+	TLSKey                string        `mapstructure:"tls_key"`
+	CACert                string        `mapstructure:"ca_cert"`
+	AllowInsecure         bool          `mapstructure:"allow_insecure"`
+	SudoPath              string        `mapstructure:"sudo_path"`
+	TransportOrder        string        `mapstructure:"transport_order"`
+	ODirect               bool          `mapstructure:"odirect"`
+	SyncInterval          time.Duration `mapstructure:"sync_interval"`
+	CheckpointInterval    time.Duration `mapstructure:"checkpoint_interval"`
+	QUICCongestionControl string        `mapstructure:"quic_cc"`
 }
 
 func FormatBlockSize(blockSize int) (string, error) {
@@ -157,6 +163,9 @@ func (b *Builder) Build() (*Config, error) {
 }
 
 func (b *Builder) applyDefaults(conf *Config) error {
+	if conf.Mode == "" {
+		conf.Mode = b.defaults.Mode
+	}
 	if !b.v.IsSet("allow_insecure") {
 		conf.AllowInsecure = b.defaults.AllowInsecure
 	}
@@ -188,7 +197,37 @@ func (b *Builder) applyDefaults(conf *Config) error {
 	if conf.CompressThreshold <= 0 {
 		conf.CompressThreshold = b.defaults.CompressThreshold
 	}
+	if conf.Mode == "throughput" {
+		b.applyThroughput(conf)
+	}
 	return nil
+}
+
+func (b *Builder) applyThroughput(conf *Config) {
+	if conf.TransportOrder == "" {
+		conf.TransportOrder = "quic,h2,tcp+tls"
+	}
+	if !b.v.IsSet("parallel") {
+		conf.Parallel = 8
+	}
+	if !b.v.IsSet("dedup") {
+		conf.DedupMode = "hybrid"
+	}
+	if !b.v.IsSet("compress") {
+		conf.Compress = Auto
+	}
+	if !b.v.IsSet("odirect") {
+		conf.ODirect = true
+	}
+	if conf.SyncInterval == 0 {
+		conf.SyncInterval = 10 * time.Minute
+	}
+	if conf.CheckpointInterval == 0 {
+		conf.CheckpointInterval = 30 * time.Minute
+	}
+	if conf.QUICCongestionControl == "" {
+		conf.QUICCongestionControl = "bbr"
+	}
 }
 
 func (b *Builder) validateCompression(conf *Config) error {
@@ -282,57 +321,63 @@ func DefaultConfig() (*Config, error) {
 		return nil, fmt.Errorf("failed to get user home directory: %w", err)
 	}
 	return &Config{
-		ApplyMode:            "",
-		StdoutMode:           false,
-		Parallel:             4,
-		ZeroCopy:             false,
-		MaxRetries:           3,
-		ResumeState:          "",
-		SSHUser:              "root",
-		SSHKeyPath:           "",
-		SSHPort:              22,
-		SSHTimeout:           10 * time.Second,
-		SSHKeepAliveInterval: 30 * time.Second,
-		KnownHosts:           filepath.Join(homeDir, ".ssh", "known_hosts"),
-		StrictHostKeyCheck:   true,
-		LVMSyncPath:          "lvmsync",
-		RemotePreScript:      "",
-		RemotePostScript:     "",
-		Compress:             Auto,
-		CompressLevel:        3,
-		CompressConcurrency:  runtime.GOMAXPROCS(0),
-		CompressThreshold:    0.9,
-		Speed:                "100MB",
-		VerifyChecksum:       false,
-		ChecksumAlgorithm:    "sha256",
-		Verbose:              0,
-		SkipSnapshotCreation: false,
-		SkipDiskCheck:        false,
-		SnapshotSize:         "20%",
-		VolumeGroup:          "",
-		TargetVolumeGroup:    "",
-		TargetVGCandidates:   []string{},
-		LVMEscalation:        "sudo -n",
-		Progress:             true,
-		BlockSize:            0,
-		BlockSizeRaw:         Auto,
-		DedupMode:            "fixed",
-		CDCMin:               4 * 1024,
-		CDCAvg:               64 * 1024,
-		CDCMax:               1 * 1024 * 1024,
-		DedupStrategy:        "none",
-		DedupStateFile:       filepath.Join(homeDir, ".lvmsync_dedup"),
-		BloomEntries:         1000000,
-		BloomFpRate:          0.01,
-		BloomMBits:           0,
-		GRPCPort:             8443,
-		GRPCListen:           "",
-		GRPCConnect:          "",
-		TLSCert:              "",
-		TLSKey:               "",
-		CACert:               "",
-		AllowInsecure:        true,
-		SudoPath:             "/usr/bin/sudo",
+		Mode:                  "default",
+		ApplyMode:             "",
+		StdoutMode:            false,
+		Parallel:              4,
+		ZeroCopy:              false,
+		MaxRetries:            3,
+		ResumeState:           "",
+		SSHUser:               "root",
+		SSHKeyPath:            "",
+		SSHPort:               22,
+		SSHTimeout:            10 * time.Second,
+		SSHKeepAliveInterval:  30 * time.Second,
+		KnownHosts:            filepath.Join(homeDir, ".ssh", "known_hosts"),
+		StrictHostKeyCheck:    true,
+		LVMSyncPath:           "lvmsync",
+		RemotePreScript:       "",
+		RemotePostScript:      "",
+		Compress:              Auto,
+		CompressLevel:         3,
+		CompressConcurrency:   runtime.GOMAXPROCS(0),
+		CompressThreshold:     0.9,
+		Speed:                 "100MB",
+		VerifyChecksum:        false,
+		ChecksumAlgorithm:     "sha256",
+		Verbose:               0,
+		SkipSnapshotCreation:  false,
+		SkipDiskCheck:         false,
+		SnapshotSize:          "20%",
+		VolumeGroup:           "",
+		TargetVolumeGroup:     "",
+		TargetVGCandidates:    []string{},
+		LVMEscalation:         "sudo -n",
+		Progress:              true,
+		BlockSize:             0,
+		BlockSizeRaw:          Auto,
+		DedupMode:             "fixed",
+		CDCMin:                4 * 1024,
+		CDCAvg:                64 * 1024,
+		CDCMax:                1 * 1024 * 1024,
+		DedupStrategy:         "none",
+		DedupStateFile:        filepath.Join(homeDir, ".lvmsync_dedup"),
+		BloomEntries:          1000000,
+		BloomFpRate:           0.01,
+		BloomMBits:            0,
+		GRPCPort:              8443,
+		GRPCListen:            "",
+		GRPCConnect:           "",
+		TLSCert:               "",
+		TLSKey:                "",
+		CACert:                "",
+		AllowInsecure:         true,
+		SudoPath:              "/usr/bin/sudo",
+		TransportOrder:        "",
+		ODirect:               false,
+		SyncInterval:          0,
+		CheckpointInterval:    0,
+		QUICCongestionControl: "",
 	}, nil
 }
 
@@ -341,6 +386,7 @@ func initGeneralFlags(cfg *Config) *pflag.FlagSet {
 	fs.String("config", "", "Path to config YAML file")
 	fs.String("apply", cfg.ApplyMode, "Apply mode: read change dump from file ('-' for STDIN) and apply to destination device")
 	fs.Bool("stdout", cfg.StdoutMode, "Write change dump to STDOUT")
+	fs.String("mode", cfg.Mode, "Preset mode: default or throughput")
 	fs.Int("parallel", cfg.Parallel, "Number of concurrent workers")
 	fs.Bool("zerocopy", cfg.ZeroCopy, "Enable zero-copy transfers")
 	fs.Int("max_retries", cfg.MaxRetries, "Maximum number of retries per block")
@@ -351,6 +397,7 @@ func initGeneralFlags(cfg *Config) *pflag.FlagSet {
 	fs.Bool("verify_checksum", cfg.VerifyChecksum, "Enable checksum verification")
 	fs.String("checksum_algorithm", cfg.ChecksumAlgorithm, fmt.Sprintf("Checksum algorithm: %v", SupportedChecksumAlgorithms))
 	fs.Bool("progress", cfg.Progress, "Show progress during transfer")
+	fs.Bool("odirect", cfg.ODirect, "Use O_DIRECT for disk I/O")
 	return fs
 }
 
