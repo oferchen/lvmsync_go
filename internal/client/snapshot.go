@@ -149,9 +149,10 @@ func createSnapshotIfNeeded(cfg *config.Config, originalVolume string, snapshotB
 	logger.Info("Snapshot created", zap.String("snapshot", snapshotPath))
 
 	monitorCtx, cancel := context.WithCancel(context.Background())
+	mon := monitorSnapshot
 	go func() {
 		defer close(monitorErrCh)
-		if err := monitorSnapshot(monitorCtx, snapshotPath, 80.0, 10*time.Second); err != nil && err != context.Canceled {
+		if err := mon(monitorCtx, snapshotPath, 80.0, 10*time.Second); err != nil && err != context.Canceled {
 			logger.Error("Snapshot monitor error", zap.Error(err))
 			select {
 			case monitorErrCh <- err:

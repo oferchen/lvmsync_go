@@ -85,14 +85,10 @@ func AckStream(ctx context.Context, c proto.ReplicationClient, sessionID string)
 	if err != nil {
 		return nil, err
 	}
-	go func() {
-		for {
-			if _, err := stream.Recv(); err != nil {
-				return
-			}
-		}
-	}()
 	if err := stream.Send(&proto.Ack{SessionId: sessionID, Ok: true, Message: "init"}); err != nil {
+		return nil, err
+	}
+	if _, err := stream.Recv(); err != nil {
 		return nil, err
 	}
 	return stream, nil
