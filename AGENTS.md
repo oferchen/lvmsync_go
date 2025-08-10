@@ -193,7 +193,7 @@ lvmsync --compress auto --zstd_level 2 --compress_threshold 0.85
 
 ## TODO
 
-- [ ] Audit logging: ensure `zap` is used with `snake_case` fields, include units, and call `logger.Sync()` before exit.
+- [ ] Audit logging: ensure `zap` is used with `snake_case` fields, include units, and call `logger.Sync()` before exit (block size logs now use `size_bytes`).
 - [ ] Remove stray `fmt.Print*` calls in favor of structured logs.
 - [ ] Monitor elimination of `fmt.Print*` calls to keep progress logging fully structured.
 - [x] Refactor `cmd/grpcd` to defer `syncLogger` for structured log flushing.
