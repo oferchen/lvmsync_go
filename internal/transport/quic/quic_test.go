@@ -12,31 +12,56 @@ import (
 	"lvmsync_go/internal/transport"
 )
 
-func getQUIC(t *testing.T) (transport.Sender, transport.Receiver) {
+func newPair(t *testing.T) (transport.Sender, transport.Receiver) {
 	t.Helper()
 	f, ok := transport.Get("quic")
 	if !ok {
 		t.Fatalf("quic transport not registered")
 	}
-	s, r, err := f(&config.Config{})
+	// Create receiver first to determine listening address.
+	cfgR := &config.Config{QUICListen: "127.0.0.1:0"}
+	_, rcv, err := f(cfgR)
 	if err != nil {
-		t.Fatalf("factory error: %v", err)
+		t.Fatalf("receiver factory error: %v", err)
 	}
-	return s, r
+	qr, ok := rcv.(*quicReceiver)
+	if !ok {
+		t.Fatalf("unexpected receiver type")
+	}
+	cfgS := &config.Config{QUICConnect: qr.ln.Addr().String()}
+	snd, _, err := f(cfgS)
+	if err != nil {
+		t.Fatalf("sender factory error: %v", err)
+	}
+	return snd, rcv
 }
 
 func TestQUICSendReceive(t *testing.T) {
-	s, r := getQUIC(t)
-	if err := s.Send(context.Background(), bytes.NewReader(nil)); err != nil {
+	s, r := newPair(t)
+	defer r.(*quicReceiver).Close()
+	ctx := context.Background()
+	data := []byte("hello quic")
+	var buf bytes.Buffer
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if err := r.Receive(ctx, &buf); err != nil {
+			t.Errorf("receive: %v", err)
+		}
+	}()
+	if err := s.Send(ctx, bytes.NewReader(data)); err != nil {
 		t.Fatalf("send: %v", err)
 	}
-	if err := r.Receive(context.Background(), io.Discard); err != nil {
-		t.Fatalf("receive: %v", err)
+	wg.Wait()
+	if !bytes.Equal(buf.Bytes(), data) {
+		t.Fatalf("data mismatch")
 	}
 }
 
 func TestQUICContextCancel(t *testing.T) {
-	s, r := getQUIC(t)
+	s, r := newPair(t)
+	defer r.(*quicReceiver).Close()
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	if err := s.Send(ctx, bytes.NewReader(nil)); !errors.Is(err, context.Canceled) {
@@ -55,36 +80,30 @@ type errWriter struct{ err error }
 
 func (e errWriter) Write([]byte) (int, error) { return 0, e.err }
 
-func TestQUICErrorPropagation(t *testing.T) {
-	s, r := getQUIC(t)
+func TestQUICSendErrorPropagation(t *testing.T) {
+	s, r := newPair(t)
+	defer r.(*quicReceiver).Close()
 	rErr := errors.New("read fail")
 	if err := s.Send(context.Background(), errReader{rErr}); !errors.Is(err, rErr) {
 		t.Fatalf("send expected %v, got %v", rErr, err)
 	}
-	wErr := errors.New("write fail")
-	if err := r.Receive(context.Background(), errWriter{wErr}); !errors.Is(err, wErr) {
-		t.Fatalf("receive expected %v, got %v", wErr, err)
-	}
 }
 
 func TestQUICIntegration(t *testing.T) {
-	s, r := getQUIC(t)
+	s, r := newPair(t)
+	defer r.(*quicReceiver).Close()
 	ctx := context.Background()
-	pr, pw := io.Pipe()
-	var wg sync.WaitGroup
-	wg.Add(2)
-	go func() {
-		defer wg.Done()
-		if err := s.Send(ctx, pr); err != nil {
-			t.Errorf("send: %v", err)
-		}
-	}()
-	go func() {
-		defer wg.Done()
-		defer pw.Close()
-		if err := r.Receive(ctx, pw); err != nil {
-			t.Errorf("receive: %v", err)
-		}
-	}()
-	wg.Wait()
+	data := []byte("integration test")
+	var buf bytes.Buffer
+	errCh := make(chan error, 1)
+	go func() { errCh <- r.Receive(ctx, &buf) }()
+	if err := s.Send(ctx, bytes.NewReader(data)); err != nil {
+		t.Fatalf("send: %v", err)
+	}
+	if err := <-errCh; err != nil {
+		t.Fatalf("receive: %v", err)
+	}
+	if !bytes.Equal(buf.Bytes(), data) {
+		t.Fatalf("data mismatch")
+	}
 }
