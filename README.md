@@ -369,6 +369,13 @@ lvmsync --config config.yaml /dev/vg0/snap0 /mnt/backup
 
 Transports are pluggable and selected in order using the `--transport` flag. LVMSync tries each transport until one succeeds.
 
+Each transport exposes its own tuning flags:
+
+- `--quic-listen` / `--quic-connect`
+- `--h2-port` for HTTP/2
+- `--tcp-port` for TCP+TLS
+- `--ssh-port` for SSH
+
 CLI:
 
 ```sh
@@ -392,12 +399,15 @@ tcp-port: 9443
 
 Hybrid dedup combines fixed-size and content-defined chunking. Enable it with `--dedup hybrid` and tune the CDC window with `--cdc_min`, `--cdc_avg`, and `--cdc_max`.
 
+The Bloom filter de-duplicates previously seen chunks. Size it with `--bloom_entries` and desired false positive rate via `--bloom_fp_rate`. For an mmap-backed index, `--bloom_mbits` controls the bitmap size in megabits.
+
 Compression samples 8 KiB from each chunk and skips when the estimated ratio exceeds `--compress_threshold`. `--compress auto` selects LZ4 for chunks under 256 KiB and Zstd otherwise.
 
 CLI:
 
 ```sh
 lvmsync --dedup hybrid --cdc_min 4096 --cdc_avg 65536 --cdc_max 1048576 \
+        --bloom_entries 1000000 --bloom_fp_rate 0.01 \
         --compress auto --compress_threshold 0.85 /dev/vg0/snap0 /mnt/backup
 ```
 
@@ -408,6 +418,8 @@ LVMSYNC_DEDUP=hybrid \
 LVMSYNC_CDC_MIN=4096 \
 LVMSYNC_CDC_AVG=65536 \
 LVMSYNC_CDC_MAX=1048576 \
+LVMSYNC_BLOOM_ENTRIES=1000000 \
+LVMSYNC_BLOOM_FP_RATE=0.01 \
 LVMSYNC_COMPRESS=auto \
 LVMSYNC_COMPRESS_THRESHOLD=0.85 \
 lvmsync /dev/vg0/snap0 /mnt/backup
@@ -420,6 +432,8 @@ dedup: hybrid
 cdc_min: 4096
 cdc_avg: 65536
 cdc_max: 1048576
+bloom_entries: 1000000
+bloom_fp_rate: 0.01
 compress: auto
 compress_threshold: 0.85
 ```

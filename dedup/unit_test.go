@@ -80,3 +80,14 @@ func TestFastCDC(t *testing.T) {
 		}
 	}
 }
+
+func TestBloomSizing(t *testing.T) {
+	max := MaxChunks(1<<30, 0.01)
+	if max == 0 {
+		t.Fatalf("expected non-zero max chunks")
+	}
+	avg, chunks := AdaptiveAvgChunk(1<<40, 1<<30, 0.01, 64, 1<<20)
+	if avg < 64 || chunks == 0 {
+		t.Fatalf("unexpected sizing avg=%d chunks=%d", avg, chunks)
+	}
+}

@@ -326,3 +326,16 @@ func TestLZ4ReaderPoolReuse(t *testing.T) {
 		t.Fatalf("mismatch2")
 	}
 }
+
+func BenchmarkCompressChunk(b *testing.B) {
+	data := bytes.Repeat([]byte("a"), 1<<20)
+	for _, algo := range []string{StrategyAuto, compressionLZ4, compressionZSTD} {
+		b.Run(algo, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				if _, _, err := CompressChunk(data, algo, 0, 1, 0.9); err != nil {
+					b.Fatalf("compress chunk: %v", err)
+				}
+			}
+		})
+	}
+}

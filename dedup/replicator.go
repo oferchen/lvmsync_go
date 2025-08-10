@@ -9,8 +9,16 @@ import (
 // Replicator wires together the chunker, hasher and Bloom filter into a
 // forward-only streaming pipeline. Unique chunks are written to the
 // provided writer while all chunks are recorded into the manifest.
+// ChunkSource supplies content-defined chunks from an input reader.
+type ChunkSource interface {
+	NextChunk(r io.Reader) (Chunk, error)
+}
+
+// Replicator wires together the chunker, hasher and Bloom filter into a
+// forward-only streaming pipeline. Unique chunks are written to the
+// provided writer while all chunks are recorded into the manifest.
 type Replicator struct {
-	Chunker  *Chunker
+	Chunker  ChunkSource
 	Hasher   *Hasher
 	Bloom    *Bloom
 	Writer   io.Writer
@@ -18,7 +26,7 @@ type Replicator struct {
 }
 
 // NewReplicator creates a new replicator with the supplied components.
-func NewReplicator(ch *Chunker, h *Hasher, b *Bloom, w io.Writer) *Replicator {
+func NewReplicator(ch ChunkSource, h *Hasher, b *Bloom, w io.Writer) *Replicator {
 	return &Replicator{Chunker: ch, Hasher: h, Bloom: b, Writer: w, Manifest: &Manifest{}}
 }
 
