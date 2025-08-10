@@ -1,6 +1,11 @@
 package quic
 
 import (
+	"bytes"
+	"context"
+	"errors"
+	"io"
+	"sync"
 	"testing"
 
 	"go.uber.org/zap"
@@ -17,7 +22,7 @@ func newPair(t *testing.T) (transport.Sender, transport.Receiver) {
 	}
 	// Create receiver first to determine listening address.
 	cfgR := &config.Config{QUICListen: "127.0.0.1:0"}
-	_, rcv, err := f(cfgR)
+	_, rcv, err := f(cfgR, zap.NewNop())
 	if err != nil {
 		t.Fatalf("receiver factory error: %v", err)
 	}
@@ -26,7 +31,7 @@ func newPair(t *testing.T) (transport.Sender, transport.Receiver) {
 		t.Fatalf("unexpected receiver type")
 	}
 	cfgS := &config.Config{QUICConnect: qr.ln.Addr().String()}
-	snd, _, err := f(cfgS)
+	snd, _, err := f(cfgS, zap.NewNop())
 	if err != nil {
 		t.Fatalf("sender factory error: %v", err)
 	}
@@ -116,4 +121,3 @@ func TestQUICNew(t *testing.T) {
 		t.Fatalf("New: %v", err)
 	}
 }
-
