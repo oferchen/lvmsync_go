@@ -21,7 +21,7 @@ jobs:
       contents: write
 
     env:
-      GO_VERSION: '1.24.5'
+      GO_VERSION: "${{ GO-VERSION }}"
 
     steps:
       - name: Checkout source code
