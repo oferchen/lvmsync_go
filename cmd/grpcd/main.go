@@ -28,7 +28,7 @@ func main() {
 		exitFunc(1)
 	}
 	zap.ReplaceGlobals(logger)
-	defer syncAndExit(logger)
+	defer syncLogger(logger)
 
 	v, err := initConfig(os.Args[1:])
 	if err != nil {
@@ -61,10 +61,10 @@ func main() {
 	}
 }
 
-func syncAndExit(logger *zap.Logger) {
-	if syncErr := logger.Sync(); syncErr != nil {
-		logger.Error("failed to sync logger", zap.Error(syncErr))
-		exitFunc(1)
+// syncLogger flushes any buffered log entries and logs if the sync fails.
+func syncLogger(logger *zap.Logger) {
+	if err := logger.Sync(); err != nil {
+		logger.Error("Logger sync error", zap.Error(err))
 	}
 }
 

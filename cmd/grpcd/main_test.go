@@ -8,30 +8,30 @@ import (
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
-type failCore struct{}
-
-func (failCore) Enabled(zapcore.Level) bool        { return false }
-func (failCore) With([]zapcore.Field) zapcore.Core { return failCore{} }
-func (failCore) Check(zapcore.Entry, *zapcore.CheckedEntry) *zapcore.CheckedEntry {
-	return nil
+type failingSyncCore struct {
+	zapcore.Core
+	err error
 }
-func (failCore) Write(zapcore.Entry, []zapcore.Field) error { return nil }
-func (failCore) Sync() error                                { return errors.New("sync failure") }
 
-func TestSyncAndExitLogsError(t *testing.T) {
-	logger := zap.New(failCore{})
+func (c *failingSyncCore) Sync() error { return c.err }
 
-	oldExit := exitFunc
-	defer func() { exitFunc = oldExit }()
-
-	var code int
-	exitFunc = func(c int) { code = c }
-
-	syncAndExit(logger)
-	if code != 1 {
-		t.Fatalf("expected exit code 1, got %d", code)
+func TestSyncLoggerLogsError(t *testing.T) {
+	syncErr := errors.New("sync failure")
+	core, logs := observer.New(zap.InfoLevel)
+	logger := zap.New(&failingSyncCore{Core: core, err: syncErr})
+	syncLogger(logger)
+	entries := logs.All()
+	if len(entries) != 1 {
+		t.Fatalf("expected one log entry, got %d", len(entries))
+	}
+	if entries[0].Message != "Logger sync error" {
+		t.Fatalf("unexpected log message %q", entries[0].Message)
+	}
+	if got := entries[0].ContextMap()["error"]; got != syncErr.Error() {
+		t.Fatalf("expected error %q, got %v", syncErr.Error(), got)
 	}
 }
 
