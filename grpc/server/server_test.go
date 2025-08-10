@@ -369,47 +369,67 @@ func TestMTLSValidation(t *testing.T) {
 	})
 }
 
-func TestHandshakeSession(t *testing.T) {
+func TestSessionFlow(t *testing.T) {
 	client, cleanup := newInsecureClient(t, nil)
 	defer cleanup()
 	ctx := ctxWithRole("replicator")
-	caps, err := client.ExchangeCapabilities(ctx, &proto.CapabilitySet{Capabilities: []string{"cap"}})
-	if err != nil {
-		t.Fatalf("ExchangeCapabilities: %v", err)
+	hsResp, err := client.Handshake(ctx, &proto.HandshakeRequest{SectorSize: 512, Alignment: 512, MaxConcurrency: 1})
+	if err != nil || !hsResp.GetOk() {
+		t.Fatalf("Handshake: %v", err)
 	}
-	if len(caps.GetCapabilities()) != 1 || caps.GetCapabilities()[0] != "cap" {
-		t.Fatalf("unexpected caps %v", caps.GetCapabilities())
-	}
-	sess, err := client.CreateSession(ctx, &proto.SessionRequest{VolumeName: "vol", DeviceUuid: "dev"})
+	sess, err := client.CreateSession(ctx, &proto.SessionRequest{VolumeName: "vol", DeviceUuid: "dev", ClientCert: dummyCert(t)})
 	if err != nil {
 		t.Fatalf("CreateSession: %v", err)
 	}
-	if len(sess.GetPsk()) == 0 {
-		t.Fatalf("expected psk in session response")
+	if len(sess.GetPsk()) == 0 || len(sess.GetServerCert()) == 0 {
+		t.Fatalf("expected psk and cert in session response")
 	}
 	bmp, err := client.SendResumeBitmap(ctx)
 	if err != nil {
 		t.Fatalf("SendResumeBitmap: %v", err)
 	}
-	if err := bmp.Send(&proto.ResumeBitmap{Bitmap: []byte{1}}); err != nil {
+	if err := bmp.Send(&proto.ResumeBitmap{SessionId: sess.GetSessionId(), Bitmap: []byte{1}}); err != nil {
 		t.Fatalf("bitmap send: %v", err)
 	}
 	if _, err := bmp.CloseAndRecv(); err != nil {
 		t.Fatalf("bitmap close: %v", err)
 	}
-	if _, err := client.Finalize(ctx, sess); err != nil {
+	if _, err := client.Finalize(ctx, &proto.FinalizeRequest{SessionId: sess.GetSessionId()}); err != nil {
 		t.Fatalf("Finalize: %v", err)
 	}
 	ack, err := client.AckStream(ctx)
 	if err != nil {
 		t.Fatalf("AckStream: %v", err)
 	}
-	if err := ack.Send(&proto.StatusResponse{Ok: true, Message: "ping"}); err != nil {
+	if err := ack.Send(&proto.Ack{SessionId: sess.GetSessionId(), Ok: true, Message: "ping"}); err != nil {
 		t.Fatalf("ack send: %v", err)
 	}
 	if _, err := ack.Recv(); err != nil {
 		t.Fatalf("ack recv: %v", err)
 	}
+}
+
+func TestHandshakeFailure(t *testing.T) {
+	client, cleanup := newInsecureClient(t, nil)
+	defer cleanup()
+	ctx := ctxWithRole("replicator")
+	if _, err := client.Handshake(ctx, &proto.HandshakeRequest{}); err == nil {
+		t.Fatalf("expected handshake error")
+	}
+}
+
+func dummyCert(t *testing.T) []byte {
+	t.Helper()
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("GenerateKey: %v", err)
+	}
+	tmpl := &x509.Certificate{SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: "test"}, NotBefore: time.Now(), NotAfter: time.Now().Add(time.Hour)}
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
+	if err != nil {
+		t.Fatalf("CreateCertificate: %v", err)
+	}
+	return der
 }
 
 func TestNewTLSFailures(t *testing.T) {

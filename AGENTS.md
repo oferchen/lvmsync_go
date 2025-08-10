@@ -71,6 +71,14 @@ Environment override:
 LVMSYNC_SOURCE=/dev/vg0/snap1
 ```
 
+## Control Plane Flow
+
+- Clients perform a handshake sending `sector_size`, `alignment`, `max_concurrency`, and dedup/compression support.
+- Sessions exchange ephemeral X.509 certificates and a pre-shared key.
+- Resume bitmaps are streamed with a session ID to continue interrupted transfers.
+- Each session maintains a bidirectional `Ack` stream for pings and acknowledgements.
+- Finalization requests close the session by ID.
+
 ## Testing and Linting
 
 - Ensure [`golangci-lint`](https://golangci-lint.run/) v2 passes before submitting changes.

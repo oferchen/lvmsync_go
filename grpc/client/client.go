@@ -2,10 +2,15 @@ package client
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"fmt"
+	"math/big"
 	"os"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -48,15 +53,34 @@ func Dial(addr string, conf Config, opts ...grpc.DialOption) (*grpc.ClientConn, 
 	return grpc.Dial(addr, opts...)
 }
 
-func Handshake(ctx context.Context, c proto.ReplicationClient, caps []string) ([]string, error) {
-	resp, err := c.ExchangeCapabilities(ctx, &proto.CapabilitySet{Capabilities: caps})
+func Handshake(ctx context.Context, c proto.ReplicationClient, hs *proto.HandshakeRequest) (*proto.HandshakeResponse, error) {
+	return c.Handshake(ctx, hs)
+}
+
+func CreateSession(ctx context.Context, c proto.ReplicationClient, volume, device string) (*proto.SessionResponse, error) {
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		return nil, err
 	}
-	return resp.GetCapabilities(), nil
+	tmpl := &x509.Certificate{SerialNumber: big.NewInt(time.Now().UnixNano()), Subject: pkix.Name{CommonName: volume}, NotBefore: time.Now(), NotAfter: time.Now().Add(time.Hour)}
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.CreateSession(ctx, &proto.SessionRequest{VolumeName: volume, DeviceUuid: device, ClientCert: der})
+	if err != nil {
+		return nil, err
+	}
+	if _, err := x509.ParseCertificate(resp.GetServerCert()); err != nil {
+		return nil, fmt.Errorf("invalid server cert: %w", err)
+	}
+	if len(resp.GetPsk()) == 0 {
+		return nil, fmt.Errorf("missing psk")
+	}
+	return resp, nil
 }
 
-func AckStream(ctx context.Context, c proto.ReplicationClient) (proto.Replication_AckStreamClient, error) {
+func AckStream(ctx context.Context, c proto.ReplicationClient, sessionID string) (proto.Replication_AckStreamClient, error) {
 	stream, err := c.AckStream(ctx)
 	if err != nil {
 		return nil, err
@@ -68,5 +92,8 @@ func AckStream(ctx context.Context, c proto.ReplicationClient) (proto.Replicatio
 			}
 		}
 	}()
+	if err := stream.Send(&proto.Ack{SessionId: sessionID, Ok: true, Message: "init"}); err != nil {
+		return nil, err
+	}
 	return stream, nil
 }
