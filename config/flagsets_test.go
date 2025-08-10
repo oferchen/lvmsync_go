@@ -165,6 +165,8 @@ func TestInitGRPCFlags(t *testing.T) {
 	fs := initGRPCFlags(cfg)
 	cases := []struct{ name, want string }{
 		{"grpc_port", strconv.Itoa(cfg.GRPCPort)},
+		{"grpc_listen", cfg.GRPCListen},
+		{"grpc_connect", cfg.GRPCConnect},
 		{"tls_cert", cfg.TLSCert},
 		{"tls_key", cfg.TLSKey},
 		{"ca_cert", cfg.CACert},

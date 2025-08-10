@@ -2,13 +2,16 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
@@ -17,9 +20,12 @@ import (
 	signalspkg "lvmsync_go/cmd/lvmsync/signals"
 	"lvmsync_go/common"
 	"lvmsync_go/config"
+	grpcclient "lvmsync_go/grpc/client"
+	grpcserver "lvmsync_go/grpc/server"
 	clientpkg "lvmsync_go/internal/client"
 	"lvmsync_go/internal/privesc"
 	"lvmsync_go/lvm"
+	"lvmsync_go/proto"
 	"lvmsync_go/remote"
 	"lvmsync_go/transfer"
 )
@@ -282,6 +288,8 @@ func configure() (*zap.Logger, error) {
 		zap.String("target_volume_group", cfg.TargetVolumeGroup),
 		zap.Bool("stdout_mode", cfg.StdoutMode),
 		zap.String("lvmsync_path", cfg.LVMSyncPath),
+		zap.String("grpc_listen", cfg.GRPCListen),
+		zap.String("grpc_connect", cfg.GRPCConnect),
 	)
 
 	return logger, nil
@@ -294,6 +302,57 @@ func run() error {
 	}
 	defer syncLogger(logger)
 	defer lvm.Cleanup()
+
+	if cfg.GRPCListen != "" {
+		srvCfg := grpcserver.Config{TLSCert: cfg.TLSCert, TLSKey: cfg.TLSKey, CACert: cfg.CACert, AllowInsecure: cfg.AllowInsecure}
+		ln, err := net.Listen("tcp", cfg.GRPCListen)
+		if err != nil {
+			return fmt.Errorf("gRPC listen: %w", err)
+		}
+		srv, err := grpcserver.New(srvCfg, nil)
+		if err != nil {
+			return fmt.Errorf("gRPC server: %w", err)
+		}
+		go func() {
+			if err := srv.Serve(ln); err != nil {
+				zap.L().Error("grpc server", zap.Error(err))
+			}
+		}()
+		defer srv.GracefulStop()
+	}
+
+	if cfg.GRPCConnect != "" {
+		conn, err := grpcclient.Dial(cfg.GRPCConnect, grpcclient.Config{
+			TLSCert:       cfg.TLSCert,
+			TLSKey:        cfg.TLSKey,
+			CACert:        cfg.CACert,
+			AllowInsecure: cfg.AllowInsecure,
+		})
+		if err != nil {
+			return fmt.Errorf("gRPC dial: %w", err)
+		}
+		c := proto.NewReplicationClient(conn)
+		if _, err := grpcclient.Handshake(context.Background(), c, []string{"lvmsync"}); err != nil {
+			conn.Close()
+			return fmt.Errorf("handshake failed: %w", err)
+		}
+		stream, err := grpcclient.AckStream(context.Background(), c)
+		if err != nil {
+			conn.Close()
+			return fmt.Errorf("ack stream: %w", err)
+		}
+		go func() {
+			ticker := time.NewTicker(30 * time.Second)
+			defer ticker.Stop()
+			for range ticker.C {
+				if err := stream.Send(&proto.StatusResponse{Ok: true, Message: "ping"}); err != nil {
+					return
+				}
+			}
+		}()
+		defer stream.CloseSend()
+		defer conn.Close()
+	}
 
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)

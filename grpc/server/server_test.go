@@ -369,6 +369,46 @@ func TestMTLSValidation(t *testing.T) {
 	})
 }
 
+func TestHandshakeSession(t *testing.T) {
+	client, cleanup := newInsecureClient(t, nil)
+	defer cleanup()
+	ctx := ctxWithRole("replicator")
+	caps, err := client.ExchangeCapabilities(ctx, &proto.CapabilitySet{Capabilities: []string{"cap"}})
+	if err != nil {
+		t.Fatalf("ExchangeCapabilities: %v", err)
+	}
+	if len(caps.GetCapabilities()) != 1 || caps.GetCapabilities()[0] != "cap" {
+		t.Fatalf("unexpected caps %v", caps.GetCapabilities())
+	}
+	sess, err := client.CreateSession(ctx, &proto.SessionRequest{VolumeName: "vol"})
+	if err != nil {
+		t.Fatalf("CreateSession: %v", err)
+	}
+	bmp, err := client.SendResumeBitmap(ctx)
+	if err != nil {
+		t.Fatalf("SendResumeBitmap: %v", err)
+	}
+	if err := bmp.Send(&proto.ResumeBitmap{Bitmap: []byte{1}}); err != nil {
+		t.Fatalf("bitmap send: %v", err)
+	}
+	if _, err := bmp.CloseAndRecv(); err != nil {
+		t.Fatalf("bitmap close: %v", err)
+	}
+	if _, err := client.Finalize(ctx, sess); err != nil {
+		t.Fatalf("Finalize: %v", err)
+	}
+	ack, err := client.AckStream(ctx)
+	if err != nil {
+		t.Fatalf("AckStream: %v", err)
+	}
+	if err := ack.Send(&proto.StatusResponse{Ok: true, Message: "ping"}); err != nil {
+		t.Fatalf("ack send: %v", err)
+	}
+	if _, err := ack.Recv(); err != nil {
+		t.Fatalf("ack recv: %v", err)
+	}
+}
+
 func TestNewTLSFailures(t *testing.T) {
 	t.Run("missing key pair", func(t *testing.T) {
 		if _, err := New(Config{TLSCert: "nope", TLSKey: "nope", CACert: "nope"}, nil); err == nil {
