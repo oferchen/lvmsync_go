@@ -1,64 +1,75 @@
-version: 2
+---
+# OVERHEAD: GoReleaser config aligned to Alpine multi-stage Dockerfile.
+# - Single-source name via anchor (&name) reused for build id, binary, and Docker ids.
+# - Docker images are built FROM source inside Dockerfile (no prebuilt ids), so they work on Alpine (musl).
+# - Docker pushes remain conditional on SKIP_DOCKER_PUSH.
+# - Multi-arch images + manifests; GoReleaser passes BIN/BUILD_PATH build args.
+
+project_name: &name bpm
 
 builds:
-  - id: default
-    main: ./main.go
-    binary: lvmsync_go
-    goos:
-      - linux
-      - darwin
-    goarch:
-      - amd64
-      - arm64
-    env:
-      - GO111MODULE=on
-      - CGO_ENABLED=1
-      - CGO_CFLAGS=-I/usr/include
-    ldflags:
-      - -s -w -X main.version={{ .Env.GORELEASER_CURRENT_TAG }}
-    asmflags:
-      - all=-trimpath={{ .ProjectDir }}
-    gcflags:
-      - all=-trimpath={{ .ProjectDir }}
+  - id: *name
+    binary: *name
+    env: [CGO_ENABLED=1]
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
 
 archives:
   - id: default
-    ids:
-      - default
-    formats:
-      - tar.gz
-    name_template: >-
-      {{ .ProjectName }}_{{ .Env.GORELEASER_CURRENT_TAG
-      }}_{{ .Os }}_{{ .Arch }}
-    files:
-      - LICENSE
-      - README.md
+    builds: [*name]
+    name_template: '{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}'
+    format_overrides:
+      - goos: linux
+        format: tar.gz
+      - goos: darwin
+        format: tar.gz
 
 checksum:
-  name_template: 'checksums.txt'
-
-changelog:
-  use: git
-  sort: desc
-  filters:
-    exclude:
-      - '^docs:'
-      - '^test:'
+  name_template: '{{ .ProjectName }}-{{ .Version }}-checksums.txt'
 
 dockers:
-  - image_templates:
-      - "docker.io/yourorg/lvmsync_go:{{ .Version }}"
-      - "docker.io/yourorg/lvmsync_go:latest"
-      - "ghcr.io/yourorg/lvmsync_go:{{ .Version }}"
-      - "ghcr.io/yourorg/lvmsync_go:latest"
-    dockerfile: ./Dockerfile
+  # Build per-arch images from Dockerfile (multi-stage Alpine)
+  - id: *name-amd64
     use: buildx
-    goos: linux
-    build_flag_templates:
-      - "--platform=linux/{{ .Arch }}"
+    dockerfile: Dockerfile
+    platforms: ["linux/amd64"]
+    image_templates:
+      - docker.io/oferchen/{{ .ProjectName }}:{{ .Tag }}-amd64
+      - ghcr.io/oferchen/{{ .ProjectName }}:{{ .Tag }}-amd64
     skip_push: '{{ eq (env "SKIP_DOCKER_PUSH") "true" }}'
+    build_flag_templates:
+      - "--pull"
+      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
+      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--build-arg=BIN={{ .ProjectName }}"
+      - "--build-arg=BUILD_PATH=."
 
-release:
-  draft: false
-  prerelease: false
-  name_template: '{{ .Env.GORELEASER_CURRENT_TAG }}'
+  - id: *name-arm64
+    use: buildx
+    dockerfile: Dockerfile
+    platforms: ["linux/arm64"]
+    image_templates:
+      - docker.io/oferchen/{{ .ProjectName }}:{{ .Tag }}-arm64v8
+      - ghcr.io/oferchen/{{ .ProjectName }}:{{ .Tag }}-arm64v8
+    skip_push: '{{ eq (env "SKIP_DOCKER_PUSH") "true" }}'
+    build_flag_templates:
+      - "--pull"
+      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
+      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--build-arg=BIN={{ .ProjectName }}"
+      - "--build-arg=BUILD_PATH=."
+
+docker_manifests:
+  - name_template: "docker.io/oferchen/{{ .ProjectName }}:{{ .Tag }}"
+    image_templates:
+      - "docker.io/oferchen/{{ .ProjectName }}:{{ .Tag }}-amd64"
+      - "docker.io/oferchen/{{ .ProjectName }}:{{ .Tag }}-arm64v8"
+    skip_push: '{{ eq (env "SKIP_DOCKER_PUSH") "true" }}'
+  - name_template: "ghcr.io/oferchen/{{ .ProjectName }}:{{ .Tag }}"
+    image_templates:
+      - "ghcr.io/oferchen/{{ .ProjectName }}:{{ .Tag }}-amd64"
+      - "ghcr.io/oferchen/{{ .ProjectName }}:{{ .Tag }}-arm64v8"
+    skip_push: '{{ eq (env "SKIP_DOCKER_PUSH") "true" }}'
+  
