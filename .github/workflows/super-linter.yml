@@ -87,8 +87,8 @@ jobs:
           FILTER_REGEX_EXCLUDE: '(^|/)\.jscpd\.json$'
 
           # Go: disable file-mode linter; enable module-aware path
-          VALIDATE_GO: "false"
-          VALIDATE_GO_MODULES: "true"
+          # VALIDATE_GO: "false"
+          # VALIDATE_GO_MODULES: "true"
 
         continue-on-error: ${{ env.SUPER_LINTER_STRICT != 'true' }}
 
