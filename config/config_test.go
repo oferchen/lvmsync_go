@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -572,5 +573,28 @@ func TestDefaultCDCTunables(t *testing.T) {
 	}
 	if cfg.BloomMBits != 0 {
 		t.Fatalf("expected bloom mbits 0, got %d", cfg.BloomMBits)
+	}
+}
+
+func TestLoadConfigPrecedence(t *testing.T) {
+	cfgPath := writeTempConfig(t, "parallel: 1\n")
+	resetFlags([]string{"--config", cfgPath, "--parallel", "3"})
+	t.Setenv("LVMSYNC.PARALLEL", "2")
+
+	conf, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if conf.Parallel != 3 {
+		t.Fatalf("expected parallel 3, got %d", conf.Parallel)
+	}
+}
+
+func TestLoadConfigInvalidPath(t *testing.T) {
+	missing := filepath.Join(t.TempDir(), "missing.yaml")
+	resetFlags([]string{"--config", missing})
+
+	if _, err := LoadConfig(); err == nil || !strings.Contains(err.Error(), "error reading config file") {
+		t.Fatalf("expected config file error, got %v", err)
 	}
 }
