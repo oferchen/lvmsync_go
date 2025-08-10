@@ -73,15 +73,15 @@ structured log entries, allowing external tooling to track transfer completion.
 
 ### Expectations
 
-- Use `zap` for all logging.
+- Use `zap` for all logging and avoid `fmt.Print*` or `log.*` calls.
 - Log field keys in `snake_case` and include units where relevant (for example, `duration_ms`).
-- Always call `logger.Sync()` before exit and log if the sync fails.
+- Always defer `syncLogger(logger)` to flush buffers and log if the sync fails.
 
 The example below demonstrates these conventions:
 
 ```go
 logger, _ := zap.NewProduction()
-defer logger.Sync()
+defer syncLogger(logger)
 start := time.Now()
 
 logger.Info("snapshot complete",
