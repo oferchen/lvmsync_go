@@ -1,0 +1,210 @@
+package app
+
+import (
+	"context"
+	"errors"
+	"net"
+	"os"
+	"os/signal"
+	"testing"
+	"time"
+
+	"go.uber.org/zap"
+	"google.golang.org/grpc"
+
+	"lvmsync_go/config"
+	grpcclient "lvmsync_go/grpc/client"
+	grpcserver "lvmsync_go/grpc/server"
+	lvmlib "lvmsync_go/internal/lvm"
+	"lvmsync_go/proto"
+)
+
+// fake implementations for testing
+
+type fakeListener struct{}
+
+func (f *fakeListener) Accept() (net.Conn, error) { return nil, errors.New("accept not implemented") }
+func (f *fakeListener) Close() error              { return nil }
+func (f *fakeListener) Addr() net.Addr            { return &net.TCPAddr{} }
+
+type fakeServer struct {
+	served  bool
+	stopped bool
+}
+
+func (f *fakeServer) Serve(net.Listener) error { f.served = true; return nil }
+func (f *fakeServer) GracefulStop()            { f.stopped = true }
+
+func TestStartGRPCServerSuccess(t *testing.T) {
+	cfg := &config.Config{GRPCListen: "127.0.0.1:0"}
+	logger := zap.NewNop()
+	origListen := listen
+	origNewServer := newServer
+	defer func() { listen = origListen; newServer = origNewServer }()
+	listen = func(network, addr string) (net.Listener, error) { return &fakeListener{}, nil }
+	srv := &fakeServer{}
+	newServer = func(conf grpcserver.Config, agent lvmlib.Agent) (grpcServer, error) { return srv, nil }
+
+	cleanup, err := StartGRPCServer(cfg, logger)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	time.Sleep(10 * time.Millisecond)
+	if !srv.served {
+		t.Fatalf("server not started")
+	}
+	cleanup()
+	if !srv.stopped {
+		t.Fatalf("server not stopped")
+	}
+}
+
+func TestStartGRPCServerListenError(t *testing.T) {
+	cfg := &config.Config{GRPCListen: "bad"}
+	logger := zap.NewNop()
+	origListen := listen
+	defer func() { listen = origListen }()
+	listen = func(network, addr string) (net.Listener, error) { return nil, errors.New("boom") }
+
+	if _, err := StartGRPCServer(cfg, logger); err == nil {
+		t.Fatalf("expected error")
+	}
+}
+
+// ClientHandshake tests
+
+type fakeConn struct{ closed bool }
+
+func (f *fakeConn) Invoke(context.Context, string, any, any, ...grpc.CallOption) error { return nil }
+func (f *fakeConn) NewStream(context.Context, *grpc.StreamDesc, string, ...grpc.CallOption) (grpc.ClientStream, error) {
+	return nil, nil
+}
+func (f *fakeConn) Close() error { f.closed = true; return nil }
+
+type fakeStream struct{ closed bool }
+
+func (f *fakeStream) Send(*proto.Ack) error { return nil }
+func (f *fakeStream) CloseSend() error      { f.closed = true; return nil }
+
+func TestClientHandshakeSuccess(t *testing.T) {
+	cfg := &config.Config{GRPCConnect: "addr", Parallel: 1}
+	logger := zap.NewNop()
+
+	fc := &fakeConn{}
+	fs := &fakeStream{}
+	origDial := dial
+	origHandshake := handshake
+	origCreateSession := createSession
+	origAckStream := ackStream
+	defer func() {
+		dial = origDial
+		handshake = origHandshake
+		createSession = origCreateSession
+		ackStream = origAckStream
+	}()
+	dial = func(addr string, conf grpcclient.Config) (closeableConn, error) { return fc, nil }
+	handshake = func(context.Context, proto.ReplicationClient, *proto.HandshakeRequest) (*proto.HandshakeResponse, error) {
+		return &proto.HandshakeResponse{}, nil
+	}
+	createSession = func(context.Context, proto.ReplicationClient, string, string) (*proto.SessionResponse, error) {
+		return &proto.SessionResponse{SessionId: "id"}, nil
+	}
+	ackStream = func(context.Context, proto.ReplicationClient, string) (ackStreamClient, error) { return fs, nil }
+
+	cleanup, err := ClientHandshake(cfg, logger)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	cleanup()
+	if !fc.closed || !fs.closed {
+		t.Fatalf("cleanup did not close resources")
+	}
+}
+
+func TestClientHandshakeDialError(t *testing.T) {
+	cfg := &config.Config{GRPCConnect: "addr"}
+	logger := zap.NewNop()
+	origDial := dial
+	defer func() { dial = origDial }()
+	dial = func(string, grpcclient.Config) (closeableConn, error) { return nil, errors.New("dial fail") }
+
+	if _, err := ClientHandshake(cfg, logger); err == nil {
+		t.Fatalf("expected error")
+	}
+}
+
+// SetupSignalHandling tests
+
+func TestSetupSignalHandling(t *testing.T) {
+	cfg := &config.Config{}
+	var path string
+	called := make(chan struct{})
+	origHandle := handleSignals
+	defer func() { handleSignals = origHandle }()
+	handleSignals = func(cfg *config.Config, sigs <-chan os.Signal, p *string, errCh chan<- error) {
+		<-sigs
+		*p = "set"
+		close(called)
+	}
+	signals, sigErrCh := SetupSignalHandling(cfg, &path)
+	signals <- os.Interrupt
+	select {
+	case <-called:
+	case <-time.After(100 * time.Millisecond):
+		t.Fatalf("handler not invoked")
+	}
+	if path != "set" {
+		t.Fatalf("path not set")
+	}
+	select {
+	case err := <-sigErrCh:
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	default:
+	}
+	signal.Stop(signals)
+}
+
+func TestSetupSignalHandlingError(t *testing.T) {
+	cfg := &config.Config{}
+	var path string
+	origHandle := handleSignals
+	defer func() { handleSignals = origHandle }()
+	handleSignals = func(cfg *config.Config, sigs <-chan os.Signal, p *string, errCh chan<- error) {
+		errCh <- errors.New("boom")
+	}
+	_, sigErrCh := SetupSignalHandling(cfg, &path)
+	if err := <-sigErrCh; err == nil {
+		t.Fatalf("expected error")
+	}
+}
+
+// PrepareSnapshot tests
+
+func TestPrepareSnapshot(t *testing.T) {
+	cfg := &config.Config{}
+	logger := zap.NewNop()
+	orig := prepareSnapshot
+	defer func() { prepareSnapshot = orig }()
+	prepareSnapshot = func(c *config.Config, v string, l *zap.Logger) (string, chan error, func(), error) {
+		return "snap", nil, func() {}, nil
+	}
+	snap, ch, cleanup, err := PrepareSnapshot(cfg, "vol", logger)
+	if err != nil || snap != "snap" || ch != nil || cleanup == nil {
+		t.Fatalf("unexpected result")
+	}
+}
+
+func TestPrepareSnapshotError(t *testing.T) {
+	cfg := &config.Config{}
+	logger := zap.NewNop()
+	orig := prepareSnapshot
+	defer func() { prepareSnapshot = orig }()
+	prepareSnapshot = func(c *config.Config, v string, l *zap.Logger) (string, chan error, func(), error) {
+		return "", nil, nil, errors.New("fail")
+	}
+	if _, _, _, err := PrepareSnapshot(cfg, "vol", logger); err == nil {
+		t.Fatalf("expected error")
+	}
+}

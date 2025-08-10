@@ -2,31 +2,24 @@
 package main
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"os"
 	"os/signal"
 	"strings"
-	"syscall"
-	"time"
 
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
 
-	signalspkg "lvmsync_go/cmd/lvmsync/signals"
+	"lvmsync_go/app"
 	"lvmsync_go/common"
 	"lvmsync_go/config"
-	grpcclient "lvmsync_go/grpc/client"
-	grpcserver "lvmsync_go/grpc/server"
 	clientpkg "lvmsync_go/internal/client"
 	"lvmsync_go/internal/privesc"
 	"lvmsync_go/internal/transport"
 	"lvmsync_go/lvm"
-	"lvmsync_go/proto"
 	"lvmsync_go/remote"
 	"lvmsync_go/transfer"
 )
@@ -313,68 +306,21 @@ func run() error {
 		logger.Info("selected transport", zap.String("transport", name))
 	}
 
-	if cfg.GRPCListen != "" {
-		srvCfg := grpcserver.Config{TLSCert: cfg.TLSCert, TLSKey: cfg.TLSKey, CACert: cfg.CACert, AllowInsecure: cfg.AllowInsecure}
-		ln, err := net.Listen("tcp", cfg.GRPCListen)
-		if err != nil {
-			return fmt.Errorf("gRPC listen: %w", err)
-		}
-		srv, err := grpcserver.New(srvCfg, nil)
-		if err != nil {
-			return fmt.Errorf("gRPC server: %w", err)
-		}
-		go func() {
-			if err := srv.Serve(ln); err != nil {
-				zap.L().Error("grpc server", zap.Error(err))
-			}
-		}()
-		defer srv.GracefulStop()
+	cleanupSrv, err := app.StartGRPCServer(cfg, logger)
+	if err != nil {
+		return err
 	}
+	defer cleanupSrv()
 
-	if cfg.GRPCConnect != "" {
-		conn, err := grpcclient.Dial(cfg.GRPCConnect, grpcclient.Config{
-			TLSCert:       cfg.TLSCert,
-			TLSKey:        cfg.TLSKey,
-			CACert:        cfg.CACert,
-			AllowInsecure: cfg.AllowInsecure,
-		})
-		if err != nil {
-			return fmt.Errorf("gRPC dial: %w", err)
-		}
-		c := proto.NewReplicationClient(conn)
-		hs := &proto.HandshakeRequest{SectorSize: 512, Alignment: 512, MaxConcurrency: uint32(cfg.Parallel), DedupSupported: true, CompressionSupported: true}
-		if _, err := grpcclient.Handshake(context.Background(), c, hs); err != nil {
-			conn.Close()
-			return fmt.Errorf("handshake failed: %w", err)
-		}
-		sess, err := grpcclient.CreateSession(context.Background(), c, "vol", "dev")
-		if err != nil {
-			conn.Close()
-			return fmt.Errorf("create session: %w", err)
-		}
-		stream, err := grpcclient.AckStream(context.Background(), c, sess.GetSessionId())
-		if err != nil {
-			conn.Close()
-			return fmt.Errorf("ack stream: %w", err)
-		}
-		go func(id string) {
-			ticker := time.NewTicker(30 * time.Second)
-			defer ticker.Stop()
-			for range ticker.C {
-				if err := stream.Send(&proto.Ack{SessionId: id, Ok: true, Message: "ping"}); err != nil {
-					return
-				}
-			}
-		}(sess.GetSessionId())
-		defer stream.CloseSend()
-		defer conn.Close()
+	cleanupClient, err := app.ClientHandshake(cfg, logger)
+	if err != nil {
+		return err
 	}
+	defer cleanupClient()
 
-	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
 	var snapshotPath string
-	sigErrCh := make(chan error, 1)
-	go signalspkg.Handle(cfg, signals, &snapshotPath, sigErrCh)
+	signals, sigErrCh := app.SetupSignalHandling(cfg, &snapshotPath)
+	defer signal.Stop(signals)
 
 	if cfg.ApplyMode != "" {
 		if err = runApplyMode(cfg.ApplyMode); err != nil {
@@ -395,7 +341,7 @@ func run() error {
 	}
 
 	var monitorErrCh chan error
-	snapshotPath, monitorErrCh, cleanup, err := clientpkg.PrepareSnapshot(cfg, originalVolume, logger)
+	snapshotPath, monitorErrCh, cleanup, err := app.PrepareSnapshot(cfg, originalVolume, logger)
 	if err != nil {
 		return err
 	}
