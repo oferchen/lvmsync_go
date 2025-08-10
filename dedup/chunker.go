@@ -125,6 +125,30 @@ func (c *Chunker) selectMask(e float64) uint64 {
 	}
 }
 
+// FastCDC chunks the entirety of r using the FastCDC algorithm with the
+// provided size targets. It returns all detected chunks.
+func FastCDC(r io.Reader, min, avg, max int) ([]Chunk, error) {
+	ch := NewChunker(min, avg, max)
+	var out []Chunk
+	var offset int64
+	for {
+		c, err := ch.NextChunk(r)
+		if err == io.EOF && c.Length == 0 {
+			break
+		}
+		if err != nil && err != io.EOF {
+			return nil, err
+		}
+		c.Offset = offset
+		offset += int64(c.Length)
+		out = append(out, c)
+		if err == io.EOF {
+			break
+		}
+	}
+	return out, nil
+}
+
 // gear table taken from FastCDC reference implementation.
 var gear = [256]uint64{
 	0x9ae16a3b2f90404f, 0x4f1bbf83b5dc07d3, 0x5c6bfb31e933b7f1, 0x81f69c5e0d6cc818,

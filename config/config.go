@@ -31,6 +31,7 @@ const (
 var (
 	SupportedCompression        = []string{"none", "lz4", Zstd, Auto}
 	SupportedDedupStrategies    = []string{"none", Auto, "checksum", "rolling_hash", "bloom"}
+	SupportedDedupModes         = []string{"fixed", "cdc", "hybrid"}
 	SupportedChecksumAlgorithms = []string{"sha256", "blake3", "blake3-512"}
 )
 
@@ -83,10 +84,15 @@ type Config struct {
 	Progress             bool     `mapstructure:"progress"`
 	BlockSize            int      `mapstructure:"-"`
 	BlockSizeRaw         string   `mapstructure:"-"`
+	DedupMode            string   `mapstructure:"dedup"`
+	CDCMin               int      `mapstructure:"cdc_min"`
+	CDCAvg               int      `mapstructure:"cdc_avg"`
+	CDCMax               int      `mapstructure:"cdc_max"`
 	DedupStrategy        string   `mapstructure:"dedup_strategy"`
 	DedupStateFile       string   `mapstructure:"dedup_state_file"`
 	BloomEntries         int      `mapstructure:"bloom_entries"`
 	BloomFpRate          float64  `mapstructure:"bloom_fp_rate"`
+	BloomMBits           uint     `mapstructure:"bloom_mbits"`
 	GRPCPort             int      `mapstructure:"grpc_port"`
 	TLSCert              string   `mapstructure:"tls_cert"`
 	TLSKey               string   `mapstructure:"tls_key"`
@@ -300,10 +306,15 @@ func DefaultConfig() (*Config, error) {
 		Progress:             true,
 		BlockSize:            0,
 		BlockSizeRaw:         Auto,
+		DedupMode:            "fixed",
+		CDCMin:               4 * 1024,
+		CDCAvg:               64 * 1024,
+		CDCMax:               1 * 1024 * 1024,
 		DedupStrategy:        "none",
 		DedupStateFile:       filepath.Join(homeDir, ".lvmsync_dedup"),
 		BloomEntries:         1000000,
 		BloomFpRate:          0.01,
+		BloomMBits:           0,
 		GRPCPort:             8443,
 		TLSCert:              "",
 		TLSKey:               "",
@@ -353,10 +364,15 @@ func initRemoteFlags(cfg *Config) *pflag.FlagSet {
 
 func initDedupFlags(cfg *Config) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("Deduplication Options", pflag.ExitOnError)
+	fs.String("dedup", cfg.DedupMode, fmt.Sprintf("Deduplication mode: %v", SupportedDedupModes))
+	fs.Int("cdc_min", cfg.CDCMin, "Minimum chunk size for CDC")
+	fs.Int("cdc_avg", cfg.CDCAvg, "Average chunk size for CDC")
+	fs.Int("cdc_max", cfg.CDCMax, "Maximum chunk size for CDC")
 	fs.String("dedup_strategy", cfg.DedupStrategy, fmt.Sprintf("Deduplication strategy: %v", SupportedDedupStrategies))
 	fs.String("dedup_state_file", cfg.DedupStateFile, "Path to deduplication state file")
 	fs.Int("bloom_entries", cfg.BloomEntries, "Estimated number of entries for bloom filter")
 	fs.Float64("bloom_fp_rate", cfg.BloomFpRate, "False positive rate for bloom filter")
+	fs.Uint("bloom_mbits", cfg.BloomMBits, "Bloom filter m bits power")
 	return fs
 }
 

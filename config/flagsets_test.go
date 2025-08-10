@@ -93,10 +93,15 @@ func TestInitDedupFlags(t *testing.T) {
 	}
 	fs := initDedupFlags(cfg)
 	cases := []struct{ name, want string }{
+		{"dedup", cfg.DedupMode},
+		{"cdc_min", strconv.Itoa(cfg.CDCMin)},
+		{"cdc_avg", strconv.Itoa(cfg.CDCAvg)},
+		{"cdc_max", strconv.Itoa(cfg.CDCMax)},
 		{"dedup_strategy", cfg.DedupStrategy},
 		{"dedup_state_file", cfg.DedupStateFile},
 		{"bloom_entries", strconv.Itoa(cfg.BloomEntries)},
 		{"bloom_fp_rate", fmt.Sprint(cfg.BloomFpRate)},
+		{"bloom_mbits", strconv.FormatUint(uint64(cfg.BloomMBits), 10)},
 	}
 	for _, tt := range cases {
 		f := fs.Lookup(tt.name)

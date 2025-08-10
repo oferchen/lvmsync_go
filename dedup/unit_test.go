@@ -58,3 +58,19 @@ func TestChunkerBounds(t *testing.T) {
 		}
 	}
 }
+
+func TestFastCDC(t *testing.T) {
+	data := bytes.Repeat([]byte("a"), 1<<16)
+	chunks, err := FastCDC(bytes.NewReader(data), 64, 128, 256)
+	if err != nil {
+		t.Fatalf("FastCDC failed: %v", err)
+	}
+	if len(chunks) == 0 {
+		t.Fatalf("expected chunks")
+	}
+	for _, c := range chunks {
+		if c.Length < 64 || c.Length > 256 {
+			t.Fatalf("chunk out of bounds %d", c.Length)
+		}
+	}
+}
