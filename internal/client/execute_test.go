@@ -39,6 +39,7 @@ func TestExecuteMonitorError(t *testing.T) {
 	sigCh := make(chan error, 1)
 	monitorCh := make(chan error, 1)
 	monitorCh <- errors.New("monitor")
+	close(monitorCh)
 	err := ExecuteClient(runClient, "snap", "dest", sigCh, monitorCh)
 	if err == nil || !strings.Contains(err.Error(), "snapshot monitor error") {
 		t.Fatalf("expected monitor error, got %v", err)
