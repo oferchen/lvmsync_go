@@ -63,7 +63,7 @@ jobs:
           DEFAULT_BRANCH: main
           # Validate all code on PRs; changed files only on direct pushes
           VALIDATE_ALL_CODEBASE: ${{ github.event_name == 'pull_request' && 'true' || 'false' }}
-          VALIDATE_GIT_COMMITLINT: "false"
+          # VALIDATE_GIT_COMMITLINT: "false"
           FILTER_REGEX_INCLUDE: ""
 
           # VALIDATE_GO: true
