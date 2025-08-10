@@ -19,15 +19,6 @@ import (
 	"lvmsync_go/internal/transport"
 )
 
-var logger = zap.NewNop()
-
-// SetLogger assigns the package-wide logger for QUIC transport.
-func SetLogger(l *zap.Logger) {
-	if l != nil {
-		logger = l
-	}
-}
-
 func init() {
 	transport.Register("quic", New)
 }
@@ -124,7 +115,7 @@ func (r *quicReceiver) Close() error {
 }
 
 // New initializes QUIC sender and receiver according to configuration.
-func New(cfg *config.Config) (transport.Sender, transport.Receiver, error) {
+func New(cfg *config.Config, logger *zap.Logger) (transport.Sender, transport.Receiver, error) {
 	tlsConf := &tls.Config{InsecureSkipVerify: true, NextProtos: []string{"lvmsync"}}
 	quicConf := &q.Config{Allow0RTT: false}
 
@@ -169,11 +160,4 @@ func generateCert() (tls.Certificate, error) {
 	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
 	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)})
 	return tls.X509KeyPair(certPEM, keyPEM)
-
-// New returns no-op QUIC transport implementations.
-func New(cfg *config.Config, logger *zap.Logger) (transport.Sender, transport.Receiver, error) {
-	_ = logger
-	var _ quic.VersionNumber
-	return transport.NopSender{}, transport.NopReceiver{}, nil
-
 }

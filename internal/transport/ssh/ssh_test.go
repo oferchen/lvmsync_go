@@ -191,6 +191,30 @@ func TestSSHRegistered(t *testing.T) {
 	}
 }
 
+func TestSSHNew(t *testing.T) {
+	srv := newMockServer(t, nil)
+	defer srv.Close()
+	_, portStr, err := net.SplitHostPort(srv.addr)
+	if err != nil {
+		t.Fatalf("SplitHostPort: %v", err)
+	}
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		t.Fatalf("Atoi: %v", err)
+	}
+	_, _, err = New(&config.Config{
+		SSHUser:              "test",
+		SSHKeyPath:           remotetest.CreateTempKey(t),
+		SSHPort:              port,
+		SSHTimeout:           time.Second,
+		SSHKeepAliveInterval: time.Second,
+		KnownHosts:           srv.knownHostsFile(t),
+	}, zap.NewNop())
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+}
+
 func TestSSHContextCancel(t *testing.T) {
 	srv := newMockServer(t, nil)
 	defer srv.Close()

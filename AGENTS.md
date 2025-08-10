@@ -207,6 +207,7 @@ lvmsync --compress auto --zstd_level 2 --compress_threshold 0.85
 - [ ] Remove package-wide loggers; transport constructors such as `ssh.New(cfg, logger)` now require an explicit `*zap.Logger` parameter.
 - [ ] Remove stray `fmt.Print*` calls in favor of structured logs.
 - [ ] Monitor elimination of `fmt.Print*` calls to keep progress logging fully structured.
+- [ ] Review QUIC constructor refactor and expand tests for sender/receiver coverage.
 - [x] Refactor `cmd/grpcd` to defer `syncLogger` for structured log flushing.
 - [x] Expand unit test coverage for remote execution and client signal handling, and run coverage reports (transports coverage ≥50%).
 
