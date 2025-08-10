@@ -27,6 +27,16 @@ LVMSync is a high-performance incremental data replication tool for LVM snapshot
 - **Flexible Configuration**: Flags, environment variables, or `config.yaml`. See [Configuration](#configuration).
 - **Configuration Validation**: Checks key parameters (e.g., volume group existence, escalation command) before starting operations.
 
+## Roadmap
+
+- gRPC control plane with mTLS and configurable ports
+- Pluggable data plane: QUIC, HTTP/2, TLS/TCP, SSH
+- Hybrid fixed + CDC deduplication with Bloom filter index
+- Adaptive compression using LZ4 or Zstd with per-chunk sampling
+- Throughput mode presets for high-bandwidth links
+
+See AGENTS.md for contributor tasks and design guidelines.
+
 ## Architecture
 
 LVMSync is organized into modular packages to keep concerns separated:
