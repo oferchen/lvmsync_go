@@ -71,6 +71,14 @@ structured fields instead of being written to stderr, and the logger is flushed 
 ensure all entries are persisted. When `--progress` is enabled, progress updates are emitted as
 structured log entries, allowing external tooling to track transfer completion.
 
+### Expectations
+
+- Use `zap` for all logging.
+- Log field keys in `snake_case` and include units where relevant (for example, `duration_ms`).
+- Always call `logger.Sync()` before exit and log if the sync fails.
+
+The example below demonstrates these conventions:
+
 ```go
 logger, _ := zap.NewProduction()
 defer logger.Sync()
@@ -82,9 +90,6 @@ logger.Info("snapshot complete",
     zap.Int64("duration_ms", time.Since(start).Milliseconds()),
 )
 ```
-
-Field keys use `snake_case` and include units where appropriate, and `Sync()` is deferred to flush
-buffers on exit.
 
 ## Configuration
 
@@ -145,13 +150,23 @@ The overall loading flow works in three stages:
 2. `buildViper()` binds flags, `LVMSYNC_*` environment variables, and an optional `config.yaml` into a single configuration source.
 3. `LoadConfig()` merges those values with built-in defaults and validates the result.
 
+### New and updated flags
+
+Recent refactors added several configuration options:
+
+- `--transport` selects the ordered list of transports to try.
+- `--quic_listen` and `--quic_connect` configure QUIC addresses.
+- `--tcp_port` and `--h2_port` expose TCP+TLS and HTTP/2 endpoints.
+- `--sync_interval` controls how many bytes are written between `fdatasync` calls.
+- `--block_size` sets the transfer block size (use `auto` for detection).
+
 ### I/O tuning
 
 - `--odirect` uses O_DIRECT with block-size aligned buffers.
 - `--sync_interval` sets how many bytes are written between `fdatasync` calls.
 - `--numa_pin` pins worker goroutines to CPUs local to the source device's NUMA node.
 
-### Precedence and environment variables
+### Configuration sources and precedence
 
 LVMSync uses [`pflag`](https://github.com/spf13/pflag) and [`viper`](https://github.com/spf13/viper) so every option can be
 set via flags, environment variables, or the `config.yaml` file. Values are resolved with the following precedence (highest
@@ -169,9 +184,20 @@ export LVMSYNC_PARALLEL=8
 export LVMSYNC_SSH_USER=backup
 ```
 
-If `config.yaml` sets `parallel: 4` and the environment contains
-`LVMSYNC_PARALLEL=8`, running `lvmsync --parallel 16` will use `parallel=16`
+With a `config.yaml` containing:
+
+```yaml
+parallel: 4
+```
+
+running `LVMSYNC_PARALLEL=8 lvmsync --parallel 16` results in `parallel=16`
 because flags override environment variables, which override the config file.
+
+Environment variables for the gRPC daemon use the `LVMSYNC_GRPC_` prefix with dashes converted to underscores, for example:
+
+```sh
+LVMSYNC_GRPC_GRPC_PORT=9443 LVMSYNC_GRPC_TLS_CERT=cert.pem lvmsync-grpcd
+```
 
 ### Option reference
 
@@ -220,6 +246,11 @@ because flags override environment variables, which override the config file.
 | `--volume_group` | `LVMSYNC_VOLUME_GROUP` | `volume_group` | Source volume group; derived from the source device path when empty |
 | `--target_volume_group` | `LVMSYNC_TARGET_VOLUME_GROUP` | `target_volume_group` | Volume group name of the target LVM volume |
 | `--target_vgs` | `LVMSYNC_TARGET_VGS` | `target_vgs` | Candidate target volume groups for auto-selection |
+| `--transport` | `LVMSYNC_TRANSPORT` | `transport` | Ordered transports to try (e.g., `quic,h2,tcp+tls,ssh`) |
+| `--quic_listen` | `LVMSYNC_QUIC_LISTEN` | `quic_listen` | QUIC listen address |
+| `--quic_connect` | `LVMSYNC_QUIC_CONNECT` | `quic_connect` | QUIC connect address |
+| `--tcp_port` | `LVMSYNC_TCP_PORT` | `tcp_port` | TCP+TLS port |
+| `--h2_port` | `LVMSYNC_H2_PORT` | `h2_port` | HTTP/2 TLS port |
 | `--grpc_listen` | `LVMSYNC_GRPC_LISTEN` | `grpc_listen` | gRPC listen address |
 | `--grpc_connect` | `LVMSYNC_GRPC_CONNECT` | `grpc_connect` | gRPC server address to connect to |
 | `--grpc_port` | `LVMSYNC_GRPC_PORT` | `grpc_port` | gRPC port to listen on |
@@ -228,6 +259,32 @@ because flags override environment variables, which override the config file.
 | `--ca_cert` | `LVMSYNC_CA_CERT` | `ca_cert` | CA certificate file |
 | `--allow_insecure` | `LVMSYNC_ALLOW_INSECURE` | `allow_insecure` | Allow insecure (no TLS) |
 | `--sudo_path` | `LVMSYNC_SUDO_PATH` | `sudo_path` | Path to sudo executable |
+
+### Common deployment scenarios
+
+- **Local disk to disk**:
+
+  ```sh
+  lvmsync /dev/vg0/source /dev/vg0/backup
+  ```
+
+- **Remote over SSH**:
+
+  ```sh
+  lvmsync /dev/vg0/source user@backup:/dev/vg1/target --ssh_key ~/.ssh/id_ed25519
+  ```
+
+- **Using the gRPC control plane**:
+
+  ```sh
+  lvmsync --grpc-connect backup:9443 /dev/vg0/source /dev/vg1/target
+  ```
+
+- **Throughput-optimized QUIC transfer**:
+
+  ```sh
+  lvmsync --mode throughput --transport quic --quic-connect host:9000 /dev/vg0/source /dev/vg1/target
+  ```
 
 ## gRPC Control Plane
 

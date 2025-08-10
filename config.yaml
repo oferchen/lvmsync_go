@@ -10,6 +10,7 @@ parallel: 4  # Number of concurrent workers
 zerocopy: false
 max_retries: 3  # Maximum number of retries per block
 resume: ""  # Path to resume state file
+sync_interval: "1GB"  # Bytes between fdatasync calls
 
 # gRPC Options
 grpc_port: 8443  # gRPC port to listen on
@@ -78,3 +79,11 @@ lvm_escalation: "sudo -n"
 progress: true  # Enable progress display during transfer
 # Block size for LVM operations ('auto' or 0 for automatic detection)
 block_size: "auto"
+
+# Transport Options
+transport: "quic,h2,tcp+tls,ssh"  # Ordered transports to try
+quic_listen: ""  # QUIC listen address
+quic_connect: ""  # QUIC connect address
+concurrency: 0  # Stream concurrency (0 to autotune)
+tcp_port: 0  # TCP+TLS port
+h2_port: 0  # HTTP/2 TLS port
