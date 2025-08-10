@@ -1,6 +1,9 @@
 package transfer
 
-import "encoding/json"
+import (
+	"crypto/sha256"
+	"encoding/json"
+)
 
 // Chunk describes a block in the transfer with its BLAKE3 hash.
 type Chunk struct {
@@ -30,4 +33,16 @@ func UnmarshalManifest(b []byte) (Manifest, error) {
 	var m Manifest
 	err := json.Unmarshal(b, &m)
 	return m, err
+}
+
+// Verify recomputes the SHA-256 over the provided raw chunk data and compares
+// it to the manifest's final digest.
+func (m *Manifest) Verify(chunks [][]byte) bool {
+	sha := sha256.New()
+	for _, c := range chunks {
+		sha.Write(c)
+	}
+	var sum [32]byte
+	copy(sum[:], sha.Sum(nil))
+	return sum == m.FinalSHA256
 }

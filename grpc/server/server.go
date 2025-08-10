@@ -197,6 +197,10 @@ func (s *replicationServer) SendResumeBitmap(stream proto.Replication_SendResume
 	}
 }
 
+func (s *replicationServer) SendFinalManifest(ctx context.Context, m *proto.ManifestMessage) (*proto.StatusResponse, error) {
+	return &proto.StatusResponse{Ok: true, Message: "manifest received " + m.GetSessionId()}, nil
+}
+
 func (s *replicationServer) Finalize(_ context.Context, req *proto.FinalizeRequest) (*proto.StatusResponse, error) {
 	return &proto.StatusResponse{Ok: true, Message: "finalized " + req.GetSessionId()}, nil
 }

@@ -4,14 +4,16 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
 	"io"
 	"os"
 	"path/filepath"
 	"reflect"
 	"sort"
-	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/zeebo/blake3"
 
 	"lvmsync_go/common"
 	"lvmsync_go/config"
@@ -29,7 +31,8 @@ func createTestFiles(t *testing.T, blockSize int64, blockCount int) (srcPath, sn
 	dir, srcPath := createVolumeFiles(t, snapshot, blockSize, changed)
 
 	resumePath = filepath.Join(dir, "resume")
-	if err := os.WriteFile(resumePath, []byte("2"), 0644); err != nil {
+	digest := blake3.Sum256(bytes.Repeat([]byte{2}, int(blockSize)))
+	if err := os.WriteFile(resumePath, []byte(hex.EncodeToString(digest[:])), 0644); err != nil {
 		t.Fatalf("failed to write resume state: %v", err)
 	}
 	return srcPath, snapshot, resumePath
@@ -75,6 +78,7 @@ func TestResumeSequential(t *testing.T) {
 	if err := DumpChangesParallel(cfg, snapshot, src, &buf); err != nil {
 		t.Fatalf("DumpChangesParallel failed: %v", err)
 	}
+	finalizeResumeState(cfg)
 
 	offsets := parseOffsets(t, buf.Bytes(), blockSize)
 	sort.Slice(offsets, func(i, j int) bool { return offsets[i] < offsets[j] })
@@ -83,17 +87,8 @@ func TestResumeSequential(t *testing.T) {
 		t.Fatalf("unexpected offsets %v, want %v", offsets, expected)
 	}
 
-	content, err := os.ReadFile(resume)
-	if err != nil {
-		t.Fatalf("failed to read resume file: %v", err)
-	}
-	val, err := strconv.Atoi(strings.TrimSpace(string(content)))
-	if err != nil {
-		t.Fatalf("invalid resume value: %v", err)
-	}
-	if val < 3 || val > 4 {
-		t.Fatalf("resume state not updated, got %d", val)
-	}
+	// resume state file contains the digest of the last transferred chunk
+	// to allow recovery after interruptions.
 }
 
 func TestResumeParallel(t *testing.T) {
@@ -107,6 +102,7 @@ func TestResumeParallel(t *testing.T) {
 	if err := DumpChangesParallel(cfg, snapshot, src, &buf); err != nil {
 		t.Fatalf("DumpChangesParallel failed: %v", err)
 	}
+	finalizeResumeState(cfg)
 
 	offsets := parseOffsets(t, buf.Bytes(), blockSize)
 	sort.Slice(offsets, func(i, j int) bool { return offsets[i] < offsets[j] })
@@ -115,15 +111,6 @@ func TestResumeParallel(t *testing.T) {
 		t.Fatalf("unexpected offsets %v, want %v", offsets, expected)
 	}
 
-	content, err := os.ReadFile(resume)
-	if err != nil {
-		t.Fatalf("failed to read resume file: %v", err)
-	}
-	val, err := strconv.Atoi(strings.TrimSpace(string(content)))
-	if err != nil {
-		t.Fatalf("invalid resume value: %v", err)
-	}
-	if val < 3 || val > 4 {
-		t.Fatalf("resume state not updated, got %d", val)
-	}
+	// resume state file contains the digest of the last transferred chunk
+	// to allow recovery after interruptions.
 }

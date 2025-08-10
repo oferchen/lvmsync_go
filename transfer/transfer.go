@@ -6,16 +6,17 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/gob"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"math"
 	"os"
-	"strconv"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
 
+	"github.com/zeebo/blake3"
 	"go.uber.org/zap"
 
 	"lvmsync_go/common"
@@ -223,6 +224,12 @@ func dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer,
 	}
 	defer cleanupPipe()
 
+	resumeDigest := readResumeDigest(cfg)
+	startIdx := findResumeIndex(cfg, srcFile, ranges, resumeDigest)
+	if startIdx > 0 {
+		ranges = ranges[startIdx:]
+	}
+
 	startTime := time.Now()
 	var totalBytesTransferred int64
 	var skippedBlocks int
@@ -234,6 +241,7 @@ func dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer,
 	finalizeProgress(cfg)
 
 	logSequentialSummary(totalBytesTransferred, skippedBlocks, startTime)
+	finalizeResumeState(cfg)
 	if manifest != nil {
 		if Logger != nil {
 			Logger.Info("final checksum", zap.String("final_sha256", fmt.Sprintf("%x", manifest.FinalSHA256)))
@@ -284,14 +292,90 @@ func DumpChanges(cfg *config.Config, snapshot, source string, out io.Writer) err
 	return DumpChangesSequential(cfg, snapshot, source, out)
 }
 
-func saveResumeState(cfg *config.Config, index int) {
-	if cfg.ResumeState == "" {
-		return
-	}
-	err := os.WriteFile(cfg.ResumeState, []byte(fmt.Sprintf("%d", index+1)), 0o600)
+var (
+	resumeMu    sync.Mutex
+	resumeBytes int64
+	resumeLast  time.Time
+	resumeChunk [32]byte
+)
+
+func writeResumeState(path string, chunk [32]byte) {
+	err := os.WriteFile(path, []byte(hex.EncodeToString(chunk[:])), 0o600)
 	if err != nil {
 		Logger.Warn("Failed to update resume state", zap.Error(err))
 	}
+}
+
+func saveResumeState(cfg *config.Config, chunk [32]byte, size int64) {
+	if cfg.ResumeState == "" {
+		return
+	}
+	resumeMu.Lock()
+	defer resumeMu.Unlock()
+	if resumeLast.IsZero() {
+		resumeLast = time.Now()
+	}
+	resumeBytes += size
+	resumeChunk = chunk
+	if resumeBytes >= 1<<30 || time.Since(resumeLast) >= 10*time.Second {
+		writeResumeState(cfg.ResumeState, resumeChunk)
+		resumeBytes = 0
+		resumeLast = time.Now()
+	}
+}
+
+func finalizeResumeState(cfg *config.Config) {
+	if cfg.ResumeState == "" {
+		return
+	}
+	resumeMu.Lock()
+	defer resumeMu.Unlock()
+	if resumeLast.IsZero() {
+		return
+	}
+	writeResumeState(cfg.ResumeState, resumeChunk)
+	resumeBytes = 0
+}
+
+func readResumeDigest(cfg *config.Config) [32]byte {
+	var out [32]byte
+	if cfg.ResumeState == "" {
+		return out
+	}
+	data, err := os.ReadFile(cfg.ResumeState)
+	if err != nil {
+		return out
+	}
+	b, err := hex.DecodeString(strings.TrimSpace(string(data)))
+	if err != nil || len(b) != 32 {
+		return out
+	}
+	copy(out[:], b)
+	Logger.Info("Resuming from chunk", zap.String("resume_chunk", hex.EncodeToString(out[:])))
+	return out
+}
+
+func findResumeIndex(cfg *config.Config, srcFile *os.File, ranges []Range, digest [32]byte) int {
+	if cfg.ResumeState == "" || digest == [32]byte{} {
+		return 0
+	}
+	for i, r := range ranges {
+		offset, _, err := validateOffsetAndSize(r.Start, cfg.BlockSize)
+		if err != nil {
+			return 0
+		}
+		data, err := ReadBlockWithRetries(cfg, srcFile, offset, cfg.ZeroCopy, [2]int{-1, -1})
+		if err != nil {
+			continue
+		}
+		sum := blake3.Sum256(data)
+		putBlockBuffer(data)
+		if sum == digest {
+			Logger.Info("Resuming after index", zap.Int("resume_index", i+1))
+			return i + 1
+		}
+	}
+	return 0
 }
 
 // DumpChangesParallel transfers changed blocks using multiple goroutines and updates resume state as blocks complete.
@@ -308,22 +392,6 @@ func calculateTotalDataSize(ranges []Range) int64 {
 		return math.MaxInt64
 	}
 	return int64(total)
-}
-
-func readResumeStart(cfg *config.Config) int {
-	if cfg.ResumeState == "" {
-		return 0
-	}
-	data, err := os.ReadFile(cfg.ResumeState)
-	if err != nil {
-		return 0
-	}
-	val, err := strconv.Atoi(strings.TrimSpace(string(data)))
-	if err != nil {
-		return 0
-	}
-	Logger.Info("Resuming from block", zap.Int("resume_start_block", val))
-	return val
 }
 
 func startParallelWorkers(cfg *config.Config, srcFile *os.File, ranges []Range, resumeStart int) <-chan *BlockResult {
@@ -379,18 +447,24 @@ func DumpChangesParallel(cfg *config.Config, snapshot, source string, out io.Wri
 	}
 	defer common.CloseWithErr(srcFile, &err, "close source file")
 
-	resumeStart := readResumeStart(cfg)
+	resumeDigest := readResumeDigest(cfg)
+	resumeStart := findResumeIndex(cfg, srcFile, ranges, resumeDigest)
 	results := startParallelWorkers(cfg, srcFile, ranges, resumeStart)
 
 	startTime := time.Now()
 	checksum := GetChecksumStrategy(cfg.ChecksumAlgorithm)
 	var totalBytesTransferred int64
-	totalBytesTransferred, err = processParallelResults(cfg, results, bufOut, checksum, totalDataSize, startTime)
+	var manifest *Manifest
+	totalBytesTransferred, manifest, err = processParallelResults(cfg, results, bufOut, checksum, totalDataSize, startTime)
 	if err != nil {
 		return err
 	}
 	finalizeProgress(cfg)
 	logParallelSummary(totalBytesTransferred, startTime)
+	finalizeResumeState(cfg)
+	if manifest != nil && Logger != nil {
+		Logger.Info("final checksum", zap.String("final_sha256", fmt.Sprintf("%x", manifest.FinalSHA256)))
+	}
 	if Logger != nil {
 		_ = Logger.Sync()
 	}

@@ -56,6 +56,7 @@ func iterateBlocks(cfg *config.Config, ranges []Range, srcFile *os.File, bufOut 
 				putBlockBuffer(data)
 				return totalBytes, skippedBlocks, manifest, fmt.Errorf("failed to write header: %w", err)
 			}
+			saveResumeState(cfg, [32]byte{}, int64(blockSize))
 			putBlockBuffer(data)
 			totalBytes += int64(blockSize)
 			continue
@@ -73,6 +74,7 @@ func iterateBlocks(cfg *config.Config, ranges []Range, srcFile *os.File, bufOut 
 		sha.Write(data)
 		sum := blake3.Sum256(data)
 		manifest.Append(sum, int64(r.Start), int(blockSize))
+		saveResumeState(cfg, sum, int64(blockSize))
 
 		putBlockBuffer(data)
 
@@ -104,16 +106,18 @@ func writeResult(bufOut *bufio.Writer, header, data []byte) error {
 	return nil
 }
 
-func processParallelResults(cfg *config.Config, results <-chan *BlockResult, bufOut *bufio.Writer, checksum ChecksumStrategy, totalDataSize int64, startTime time.Time) (int64, error) {
+func processParallelResults(cfg *config.Config, results <-chan *BlockResult, bufOut *bufio.Writer, checksum ChecksumStrategy, totalDataSize int64, startTime time.Time) (int64, *Manifest, error) {
 	headerSize := 12
 	if cfg.VerifyChecksum {
 		headerSize += checksum.Size()
 	}
 	header := make([]byte, headerSize)
 	var totalBytesTransferred int64
+	sha := sha256.New()
+	manifest := &Manifest{}
 	for res := range results {
 		if res.Err != nil {
-			return totalBytesTransferred, fmt.Errorf("error in block %d: %w", res.Index, res.Err)
+			return totalBytesTransferred, manifest, fmt.Errorf("error in block %d: %w", res.Index, res.Err)
 		}
 
 		n := prepareResultHeader(cfg, checksum, res, header)
@@ -121,17 +125,22 @@ func processParallelResults(cfg *config.Config, results <-chan *BlockResult, buf
 			if res.Data != nil {
 				putBlockBuffer(res.Data)
 			}
-			return totalBytesTransferred, err
+			return totalBytesTransferred, manifest, err
 		}
 		if res.Data != nil {
+			sha.Write(res.Data)
+			manifest.Append(res.ChunkID, int64(res.Offset), int(res.Size))
+			saveResumeState(cfg, res.ChunkID, int64(res.Size))
 			putBlockBuffer(res.Data)
+		} else {
+			saveResumeState(cfg, res.ChunkID, 0)
 		}
 
 		totalBytesTransferred += int64(res.Size)
-		saveResumeState(cfg, res.Index)
 		reportProgress(cfg, totalBytesTransferred, totalDataSize, res.Index, startTime)
 	}
-	return totalBytesTransferred, nil
+	copy(manifest.FinalSHA256[:], sha.Sum(nil))
+	return totalBytesTransferred, manifest, nil
 }
 
 func worker(cfg *config.Config, srcFile *os.File, tasks <-chan BlockTask, results chan<- *BlockResult) {
@@ -148,19 +157,22 @@ func worker(cfg *config.Config, srcFile *os.File, tasks <-chan BlockTask, result
 		zero := err == nil && isAllZero(data)
 		var resData []byte
 		size := blockSize
+		var chunkID [32]byte
 		if zero {
 			putBlockBuffer(data)
 			resData = nil
 			size = 0
 		} else {
 			resData = data
+			chunkID = blake3.Sum256(data)
 		}
 		results <- &BlockResult{
-			Index:  task.Index,
-			Offset: task.R.Start,
-			Size:   size,
-			Data:   resData,
-			Err:    err,
+			Index:   task.Index,
+			Offset:  task.R.Start,
+			Size:    size,
+			Data:    resData,
+			ChunkID: chunkID,
+			Err:     err,
 		}
 	}
 }

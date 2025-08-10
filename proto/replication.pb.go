@@ -7,12 +7,11 @@
 package proto
 
 import (
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
-
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (
@@ -522,6 +521,58 @@ func (x *ResumeBitmap) GetBitmap() []byte {
 	return nil
 }
 
+type ManifestMessage struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SessionId     string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	Manifest      []byte                 `protobuf:"bytes,2,opt,name=manifest,proto3" json:"manifest,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ManifestMessage) Reset() {
+	*x = ManifestMessage{}
+	mi := &file_proto_replication_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ManifestMessage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ManifestMessage) ProtoMessage() {}
+
+func (x *ManifestMessage) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_replication_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ManifestMessage.ProtoReflect.Descriptor instead.
+func (*ManifestMessage) Descriptor() ([]byte, []int) {
+	return file_proto_replication_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *ManifestMessage) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *ManifestMessage) GetManifest() []byte {
+	if x != nil {
+		return x.Manifest
+	}
+	return nil
+}
+
 type FinalizeRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	SessionId     string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
@@ -531,7 +582,7 @@ type FinalizeRequest struct {
 
 func (x *FinalizeRequest) Reset() {
 	*x = FinalizeRequest{}
-	mi := &file_proto_replication_proto_msgTypes[9]
+	mi := &file_proto_replication_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -543,7 +594,7 @@ func (x *FinalizeRequest) String() string {
 func (*FinalizeRequest) ProtoMessage() {}
 
 func (x *FinalizeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_replication_proto_msgTypes[9]
+	mi := &file_proto_replication_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -556,7 +607,7 @@ func (x *FinalizeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FinalizeRequest.ProtoReflect.Descriptor instead.
 func (*FinalizeRequest) Descriptor() ([]byte, []int) {
-	return file_proto_replication_proto_rawDescGZIP(), []int{9}
+	return file_proto_replication_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *FinalizeRequest) GetSessionId() string {
@@ -577,7 +628,7 @@ type Ack struct {
 
 func (x *Ack) Reset() {
 	*x = Ack{}
-	mi := &file_proto_replication_proto_msgTypes[10]
+	mi := &file_proto_replication_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -589,7 +640,7 @@ func (x *Ack) String() string {
 func (*Ack) ProtoMessage() {}
 
 func (x *Ack) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_replication_proto_msgTypes[10]
+	mi := &file_proto_replication_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -602,7 +653,7 @@ func (x *Ack) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Ack.ProtoReflect.Descriptor instead.
 func (*Ack) Descriptor() ([]byte, []int) {
-	return file_proto_replication_proto_rawDescGZIP(), []int{10}
+	return file_proto_replication_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *Ack) GetSessionId() string {
@@ -672,7 +723,11 @@ const file_proto_replication_proto_rawDesc = "" +
 	"\fResumeBitmap\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x16\n" +
-	"\x06bitmap\x18\x02 \x01(\fR\x06bitmap\"0\n" +
+	"\x06bitmap\x18\x02 \x01(\fR\x06bitmap\"L\n" +
+	"\x0fManifestMessage\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x1a\n" +
+	"\bmanifest\x18\x02 \x01(\fR\bmanifest\"0\n" +
 	"\x0fFinalizeRequest\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\"N\n" +
@@ -680,7 +735,7 @@ const file_proto_replication_proto_rawDesc = "" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x0e\n" +
 	"\x02ok\x18\x02 \x01(\bR\x02ok\x12\x18\n" +
-	"\amessage\x18\x03 \x01(\tR\amessage2\xe3\x06\n" +
+	"\amessage\x18\x03 \x01(\tR\amessage2\xb3\a\n" +
 	"\vReplication\x12C\n" +
 	"\n" +
 	"LockVolume\x12\x18.replication.LockRequest\x1a\x1b.replication.StatusResponse\x12J\n" +
@@ -692,7 +747,8 @@ const file_proto_replication_proto_rawDesc = "" +
 	"\x04Ping\x12\x12.replication.Empty\x1a\x1b.replication.StatusResponse\x12J\n" +
 	"\tHandshake\x12\x1d.replication.HandshakeRequest\x1a\x1e.replication.HandshakeResponse\x12J\n" +
 	"\rCreateSession\x12\x1b.replication.SessionRequest\x1a\x1c.replication.SessionResponse\x12L\n" +
-	"\x10SendResumeBitmap\x12\x19.replication.ResumeBitmap\x1a\x1b.replication.StatusResponse(\x01\x12E\n" +
+	"\x10SendResumeBitmap\x12\x19.replication.ResumeBitmap\x1a\x1b.replication.StatusResponse(\x01\x12N\n" +
+	"\x11SendFinalManifest\x12\x1c.replication.ManifestMessage\x1a\x1b.replication.StatusResponse\x12E\n" +
 	"\bFinalize\x12\x1c.replication.FinalizeRequest\x1a\x1b.replication.StatusResponse\x123\n" +
 	"\tAckStream\x12\x10.replication.Ack\x1a\x10.replication.Ack(\x010\x01B\x18Z\x16lvmsync_go/proto;protob\x06proto3"
 
@@ -708,7 +764,7 @@ func file_proto_replication_proto_rawDescGZIP() []byte {
 	return file_proto_replication_proto_rawDescData
 }
 
-var file_proto_replication_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_proto_replication_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_proto_replication_proto_goTypes = []any{
 	(*VolumeMetadata)(nil),    // 0: replication.VolumeMetadata
 	(*LockRequest)(nil),       // 1: replication.LockRequest
@@ -719,8 +775,9 @@ var file_proto_replication_proto_goTypes = []any{
 	(*SessionRequest)(nil),    // 6: replication.SessionRequest
 	(*SessionResponse)(nil),   // 7: replication.SessionResponse
 	(*ResumeBitmap)(nil),      // 8: replication.ResumeBitmap
-	(*FinalizeRequest)(nil),   // 9: replication.FinalizeRequest
-	(*Ack)(nil),               // 10: replication.Ack
+	(*ManifestMessage)(nil),   // 9: replication.ManifestMessage
+	(*FinalizeRequest)(nil),   // 10: replication.FinalizeRequest
+	(*Ack)(nil),               // 11: replication.Ack
 }
 var file_proto_replication_proto_depIdxs = []int32{
 	1,  // 0: replication.Replication.LockVolume:input_type -> replication.LockRequest
@@ -733,22 +790,24 @@ var file_proto_replication_proto_depIdxs = []int32{
 	4,  // 7: replication.Replication.Handshake:input_type -> replication.HandshakeRequest
 	6,  // 8: replication.Replication.CreateSession:input_type -> replication.SessionRequest
 	8,  // 9: replication.Replication.SendResumeBitmap:input_type -> replication.ResumeBitmap
-	9,  // 10: replication.Replication.Finalize:input_type -> replication.FinalizeRequest
-	10, // 11: replication.Replication.AckStream:input_type -> replication.Ack
-	2,  // 12: replication.Replication.LockVolume:output_type -> replication.StatusResponse
-	0,  // 13: replication.Replication.GetVolumeMetadata:output_type -> replication.VolumeMetadata
-	2,  // 14: replication.Replication.SendVolumeMetadata:output_type -> replication.StatusResponse
-	2,  // 15: replication.Replication.StartTransferSession:output_type -> replication.StatusResponse
-	2,  // 16: replication.Replication.FinalizeSync:output_type -> replication.StatusResponse
-	2,  // 17: replication.Replication.GetStatus:output_type -> replication.StatusResponse
-	2,  // 18: replication.Replication.Ping:output_type -> replication.StatusResponse
-	5,  // 19: replication.Replication.Handshake:output_type -> replication.HandshakeResponse
-	7,  // 20: replication.Replication.CreateSession:output_type -> replication.SessionResponse
-	2,  // 21: replication.Replication.SendResumeBitmap:output_type -> replication.StatusResponse
-	2,  // 22: replication.Replication.Finalize:output_type -> replication.StatusResponse
-	10, // 23: replication.Replication.AckStream:output_type -> replication.Ack
-	12, // [12:24] is the sub-list for method output_type
-	0,  // [0:12] is the sub-list for method input_type
+	9,  // 10: replication.Replication.SendFinalManifest:input_type -> replication.ManifestMessage
+	10, // 11: replication.Replication.Finalize:input_type -> replication.FinalizeRequest
+	11, // 12: replication.Replication.AckStream:input_type -> replication.Ack
+	2,  // 13: replication.Replication.LockVolume:output_type -> replication.StatusResponse
+	0,  // 14: replication.Replication.GetVolumeMetadata:output_type -> replication.VolumeMetadata
+	2,  // 15: replication.Replication.SendVolumeMetadata:output_type -> replication.StatusResponse
+	2,  // 16: replication.Replication.StartTransferSession:output_type -> replication.StatusResponse
+	2,  // 17: replication.Replication.FinalizeSync:output_type -> replication.StatusResponse
+	2,  // 18: replication.Replication.GetStatus:output_type -> replication.StatusResponse
+	2,  // 19: replication.Replication.Ping:output_type -> replication.StatusResponse
+	5,  // 20: replication.Replication.Handshake:output_type -> replication.HandshakeResponse
+	7,  // 21: replication.Replication.CreateSession:output_type -> replication.SessionResponse
+	2,  // 22: replication.Replication.SendResumeBitmap:output_type -> replication.StatusResponse
+	2,  // 23: replication.Replication.SendFinalManifest:output_type -> replication.StatusResponse
+	2,  // 24: replication.Replication.Finalize:output_type -> replication.StatusResponse
+	11, // 25: replication.Replication.AckStream:output_type -> replication.Ack
+	13, // [13:26] is the sub-list for method output_type
+	0,  // [0:13] is the sub-list for method input_type
 	0,  // [0:0] is the sub-list for extension type_name
 	0,  // [0:0] is the sub-list for extension extendee
 	0,  // [0:0] is the sub-list for field type_name
@@ -765,7 +824,7 @@ func file_proto_replication_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_replication_proto_rawDesc), len(file_proto_replication_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   11,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

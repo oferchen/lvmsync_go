@@ -200,7 +200,7 @@ because flags override environment variables, which override the config file.
 | `--odirect` | `LVMSYNC_ODIRECT` | `odirect` | Use O_DIRECT for device I/O when possible |
 | `--numa_pin` | `LVMSYNC_NUMA_PIN` | `numa_pin` | Pin worker goroutines to device NUMA node |
 | `--max_retries` | `LVMSYNC_MAX_RETRIES` | `max_retries` | Maximum number of retries per block |
-| `--resume` | `LVMSYNC_RESUME` | `resume` | Path to resume state file |
+| `--resume` | `LVMSYNC_RESUME` | `resume` | Path to resume state file (checkpointed every 1 GiB or 10 s) |
 | `--speed` | `LVMSYNC_SPEED` | `speed` | Transfer speed limit |
 | `--sync_interval` | `LVMSYNC_SYNC_INTERVAL` | `sync_interval` | Bytes between fdatasync calls |
 | `--block_size` | `LVMSYNC_BLOCK_SIZE` | `block_size` | Block size for data transfer; specify 'auto' or 0 for automatic detection |
@@ -247,7 +247,7 @@ because flags override environment variables, which override the config file.
 
 1. **Handshake** – clients advertise `sector_size`, `alignment`, `max_concurrency`, and whether deduplication and compression are supported.
 2. **Session Creation** – the client sends an ephemeral certificate and receives a session ID, server certificate, and pre-shared key.
-3. **Resume Bitmap** – dirty block bitmaps are streamed with the session ID to resume interrupted transfers.
+3. **Resume Bitmap** – dirty block bitmaps are streamed with the session ID to resume interrupted transfers, and final manifests carrying SHA-256 digests validate completion.
 4. **Ack/Ping Stream** – a bidirectional stream of `Ack` messages per session provides keep-alives and progress confirmation.
 5. **Finalization** – the client requests completion using the session ID when replication is done.
 
@@ -495,7 +495,7 @@ lvmsync --speed 50MB /dev/vg0/snap0 /dev/vg0/data
 
 #### Resuming a Transfer
 
-Resume an interrupted transfer using a resume state file:
+Resume an interrupted transfer using a resume state file. The file stores the last successful CDC chunk digest and is checkpointed every 1 GiB or 10 s:
 
 ```sh
 lvmsync --resume statefile /dev/vg0/snap0 /dev/vg0/data

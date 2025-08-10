@@ -34,3 +34,24 @@ func TestManifestRoundTrip(t *testing.T) {
 		t.Fatalf("final SHA mismatch")
 	}
 }
+
+func TestManifestVerify(t *testing.T) {
+	data1 := []byte("foo")
+	data2 := []byte("bar")
+	var m Manifest
+	h1 := blake3.Sum256(data1)
+	m.Append(h1, 0, len(data1))
+	h2 := blake3.Sum256(data2)
+	m.Append(h2, int64(len(data1)), len(data2))
+	sha := sha256.New()
+	sha.Write(data1)
+	sha.Write(data2)
+	copy(m.FinalSHA256[:], sha.Sum(nil))
+	if !m.Verify([][]byte{data1, data2}) {
+		t.Fatalf("verify failed")
+	}
+	data1[0]++
+	if m.Verify([][]byte{data1, data2}) {
+		t.Fatalf("verify should fail")
+	}
+}

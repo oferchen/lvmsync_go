@@ -12,9 +12,10 @@ type BlockTask struct {
 }
 
 type BlockResult struct {
-	Index  int
-	Offset uint64
-	Size   uint32
-	Data   []byte
-	Err    error
+	Index   int
+	Offset  uint64
+	Size    uint32
+	Data    []byte
+	ChunkID [32]byte
+	Err     error
 }

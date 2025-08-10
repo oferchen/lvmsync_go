@@ -2,10 +2,12 @@ package transfer
 
 import (
 	"bytes"
+	"encoding/hex"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/zeebo/blake3"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 
@@ -43,27 +45,28 @@ func TestDumpChangesSequentialLogFields(t *testing.T) {
 	}
 }
 
-func TestReadResumeStartLogField(t *testing.T) {
+func TestReadResumeDigestLogField(t *testing.T) {
 	core, logs := observer.New(zap.InfoLevel)
 	Logger = zap.New(core)
 
 	tmp := t.TempDir()
 	stateFile := filepath.Join(tmp, "resume")
-	if err := os.WriteFile(stateFile, []byte("5"), 0o600); err != nil {
+	digest := blake3.Sum256([]byte("data"))
+	if err := os.WriteFile(stateFile, []byte(hex.EncodeToString(digest[:])), 0o600); err != nil {
 		t.Fatalf("write resume state: %v", err)
 	}
 
 	cfg := &config.Config{ResumeState: stateFile}
-	val := readResumeStart(cfg)
-	if val != 5 {
-		t.Fatalf("expected resume value 5, got %d", val)
+	val := readResumeDigest(cfg)
+	if val != digest {
+		t.Fatalf("expected digest match")
 	}
 
-	entries := logs.FilterMessage("Resuming from block").All()
+	entries := logs.FilterMessage("Resuming from chunk").All()
 	if len(entries) != 1 {
 		t.Fatalf("expected one resume log, got %d", len(entries))
 	}
-	if v, ok := entries[0].ContextMap()["resume_start_block"].(int64); !ok || v != 5 {
-		t.Fatalf("expected resume_start_block=5, got %v", entries[0].ContextMap()["resume_start_block"])
+	if v, ok := entries[0].ContextMap()["resume_chunk"].(string); !ok || v != hex.EncodeToString(digest[:]) {
+		t.Fatalf("unexpected resume_chunk %v", entries[0].ContextMap()["resume_chunk"])
 	}
 }

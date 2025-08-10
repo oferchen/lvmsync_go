@@ -97,3 +97,7 @@ func AckStream(ctx context.Context, c proto.ReplicationClient, sessionID string)
 	}
 	return stream, nil
 }
+
+func SendFinalManifest(ctx context.Context, c proto.ReplicationClient, sessionID string, manifest []byte) (*proto.StatusResponse, error) {
+	return c.SendFinalManifest(ctx, &proto.ManifestMessage{SessionId: sessionID, Manifest: manifest})
+}

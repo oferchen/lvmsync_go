@@ -108,6 +108,12 @@ lvmsync --compress auto --zstd_level 2 --compress_threshold 0.85
 - Each session maintains a bidirectional `Ack` stream for pings and acknowledgements.
 - Finalization requests close the session by ID.
 
+## Resume Workflow
+
+- Resume state files record the BLAKE3 digest of the last CDC chunk.
+- Checkpoint the resume file every 1 GiB of raw data or every 10 s.
+- Exchange final manifests containing chunk hashes and a final SHA-256 digest to verify completion.
+
 ## Testing and Linting
 
 - Ensure [`golangci-lint`](https://golangci-lint.run/) v2 passes before submitting changes.

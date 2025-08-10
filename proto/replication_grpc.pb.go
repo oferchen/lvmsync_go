@@ -8,7 +8,6 @@ package proto
 
 import (
 	context "context"
-
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -30,6 +29,7 @@ const (
 	Replication_Handshake_FullMethodName            = "/replication.Replication/Handshake"
 	Replication_CreateSession_FullMethodName        = "/replication.Replication/CreateSession"
 	Replication_SendResumeBitmap_FullMethodName     = "/replication.Replication/SendResumeBitmap"
+	Replication_SendFinalManifest_FullMethodName    = "/replication.Replication/SendFinalManifest"
 	Replication_Finalize_FullMethodName             = "/replication.Replication/Finalize"
 	Replication_AckStream_FullMethodName            = "/replication.Replication/AckStream"
 )
@@ -48,6 +48,7 @@ type ReplicationClient interface {
 	Handshake(ctx context.Context, in *HandshakeRequest, opts ...grpc.CallOption) (*HandshakeResponse, error)
 	CreateSession(ctx context.Context, in *SessionRequest, opts ...grpc.CallOption) (*SessionResponse, error)
 	SendResumeBitmap(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[ResumeBitmap, StatusResponse], error)
+	SendFinalManifest(ctx context.Context, in *ManifestMessage, opts ...grpc.CallOption) (*StatusResponse, error)
 	Finalize(ctx context.Context, in *FinalizeRequest, opts ...grpc.CallOption) (*StatusResponse, error)
 	AckStream(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[Ack, Ack], error)
 }
@@ -163,6 +164,16 @@ func (c *replicationClient) SendResumeBitmap(ctx context.Context, opts ...grpc.C
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type Replication_SendResumeBitmapClient = grpc.ClientStreamingClient[ResumeBitmap, StatusResponse]
 
+func (c *replicationClient) SendFinalManifest(ctx context.Context, in *ManifestMessage, opts ...grpc.CallOption) (*StatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(StatusResponse)
+	err := c.cc.Invoke(ctx, Replication_SendFinalManifest_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *replicationClient) Finalize(ctx context.Context, in *FinalizeRequest, opts ...grpc.CallOption) (*StatusResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(StatusResponse)
@@ -200,6 +211,7 @@ type ReplicationServer interface {
 	Handshake(context.Context, *HandshakeRequest) (*HandshakeResponse, error)
 	CreateSession(context.Context, *SessionRequest) (*SessionResponse, error)
 	SendResumeBitmap(grpc.ClientStreamingServer[ResumeBitmap, StatusResponse]) error
+	SendFinalManifest(context.Context, *ManifestMessage) (*StatusResponse, error)
 	Finalize(context.Context, *FinalizeRequest) (*StatusResponse, error)
 	AckStream(grpc.BidiStreamingServer[Ack, Ack]) error
 	mustEmbedUnimplementedReplicationServer()
@@ -241,6 +253,9 @@ func (UnimplementedReplicationServer) CreateSession(context.Context, *SessionReq
 }
 func (UnimplementedReplicationServer) SendResumeBitmap(grpc.ClientStreamingServer[ResumeBitmap, StatusResponse]) error {
 	return status.Errorf(codes.Unimplemented, "method SendResumeBitmap not implemented")
+}
+func (UnimplementedReplicationServer) SendFinalManifest(context.Context, *ManifestMessage) (*StatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SendFinalManifest not implemented")
 }
 func (UnimplementedReplicationServer) Finalize(context.Context, *FinalizeRequest) (*StatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Finalize not implemented")
@@ -438,6 +453,24 @@ func _Replication_SendResumeBitmap_Handler(srv interface{}, stream grpc.ServerSt
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type Replication_SendResumeBitmapServer = grpc.ClientStreamingServer[ResumeBitmap, StatusResponse]
 
+func _Replication_SendFinalManifest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ManifestMessage)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ReplicationServer).SendFinalManifest(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Replication_SendFinalManifest_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ReplicationServer).SendFinalManifest(ctx, req.(*ManifestMessage))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Replication_Finalize_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(FinalizeRequest)
 	if err := dec(in); err != nil {
@@ -505,6 +538,10 @@ var Replication_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CreateSession",
 			Handler:    _Replication_CreateSession_Handler,
+		},
+		{
+			MethodName: "SendFinalManifest",
+			Handler:    _Replication_SendFinalManifest_Handler,
 		},
 		{
 			MethodName: "Finalize",

@@ -52,6 +52,11 @@ message ResumeBitmap {
   bytes bitmap = 2;
 }
 
+message ManifestMessage {
+  string session_id = 1;
+  bytes manifest = 2;
+}
+
 message FinalizeRequest { string session_id = 1; }
 
 message Ack {
@@ -71,6 +76,7 @@ service Replication {
   rpc Handshake(HandshakeRequest) returns (HandshakeResponse);
   rpc CreateSession(SessionRequest) returns (SessionResponse);
   rpc SendResumeBitmap(stream ResumeBitmap) returns (StatusResponse);
+  rpc SendFinalManifest(ManifestMessage) returns (StatusResponse);
   rpc Finalize(FinalizeRequest) returns (StatusResponse);
   rpc AckStream(stream Ack) returns (stream Ack);
 }
