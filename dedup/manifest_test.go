@@ -1,26 +1,69 @@
 package dedup
 
 import (
+	"errors"
 	"testing"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 )
 
-func TestManifestAuditLog(t *testing.T) {
+type failingSyncCore struct {
+	zapcore.Core
+	err error
+}
+
+func (c *failingSyncCore) Sync() error {
+	return c.err
+}
+
+func TestAuditLogSuccessSyncError(t *testing.T) {
 	m := &Manifest{}
 	m.Append([32]byte{}, 0, 1)
-	core, logs := observer.New(zap.InfoLevel)
-	logger := zap.New(core)
+	core, observed := observer.New(zap.InfoLevel)
+	syncErr := errors.New("sync fail")
+	logger := zap.New(&failingSyncCore{Core: core, err: syncErr})
 	m.AuditLog(logger)
-	if logs.Len() != 1 {
-		t.Fatalf("expected one log, got %d", logs.Len())
+	entries := observed.All()
+	if len(entries) != 2 {
+		t.Fatalf("expected 2 log entries, got %d", len(entries))
 	}
-	entry := logs.All()[0]
-	if entry.Message != "session_manifest" {
-		t.Fatalf("unexpected message %s", entry.Message)
+	if entries[0].Message != "session_manifest" {
+		t.Fatalf("unexpected first log message %q", entries[0].Message)
 	}
-	if _, ok := entry.ContextMap()["manifest_json"]; !ok {
-		t.Fatalf("missing manifest_json field")
+	if entries[1].Message != "Logger sync error" {
+		t.Fatalf("unexpected second log message %q", entries[1].Message)
+	}
+	if errStr, ok := entries[1].ContextMap()["error"].(string); !ok || errStr != syncErr.Error() {
+		t.Fatalf("expected sync error %q, got %v", syncErr.Error(), entries[1].ContextMap()["error"])
+	}
+}
+
+func TestAuditLogMarshalErrorSyncError(t *testing.T) {
+	m := &Manifest{}
+	original := jsonMarshal
+	marshalErr := errors.New("marshal fail")
+	jsonMarshal = func(v any) ([]byte, error) { return nil, marshalErr }
+	defer func() { jsonMarshal = original }()
+	core, observed := observer.New(zap.InfoLevel)
+	syncErr := errors.New("sync fail")
+	logger := zap.New(&failingSyncCore{Core: core, err: syncErr})
+	m.AuditLog(logger)
+	entries := observed.All()
+	if len(entries) != 2 {
+		t.Fatalf("expected 2 log entries, got %d", len(entries))
+	}
+	if entries[0].Message != "manifest_marshal_error" {
+		t.Fatalf("unexpected first log message %q", entries[0].Message)
+	}
+	if errStr, ok := entries[0].ContextMap()["error"].(string); !ok || errStr != marshalErr.Error() {
+		t.Fatalf("expected marshal error %q, got %v", marshalErr.Error(), entries[0].ContextMap()["error"])
+	}
+	if entries[1].Message != "Logger sync error" {
+		t.Fatalf("unexpected second log message %q", entries[1].Message)
+	}
+	if errStr, ok := entries[1].ContextMap()["error"].(string); !ok || errStr != syncErr.Error() {
+		t.Fatalf("expected sync error %q, got %v", syncErr.Error(), entries[1].ContextMap()["error"])
 	}
 }
