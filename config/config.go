@@ -88,6 +88,8 @@ type Config struct {
 	BloomEntries         int      `mapstructure:"bloom_entries"`
 	BloomFpRate          float64  `mapstructure:"bloom_fp_rate"`
 	GRPCPort             int      `mapstructure:"grpc_port"`
+	GRPCListen           string   `mapstructure:"grpc_listen"`
+	GRPCConnect          string   `mapstructure:"grpc_connect"`
 	TLSCert              string   `mapstructure:"tls_cert"`
 	TLSKey               string   `mapstructure:"tls_key"`
 	CACert               string   `mapstructure:"ca_cert"`
@@ -305,6 +307,8 @@ func DefaultConfig() (*Config, error) {
 		BloomEntries:         1000000,
 		BloomFpRate:          0.01,
 		GRPCPort:             8443,
+		GRPCListen:           "",
+		GRPCConnect:          "",
 		TLSCert:              "",
 		TLSKey:               "",
 		CACert:               "",
@@ -383,6 +387,8 @@ func initLVMFlags(cfg *Config) *pflag.FlagSet {
 func initGRPCFlags(cfg *Config) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("gRPC Options", pflag.ExitOnError)
 	fs.Int("grpc_port", cfg.GRPCPort, "gRPC port to listen on")
+	fs.String("grpc_listen", cfg.GRPCListen, "gRPC listen address")
+	fs.String("grpc_connect", cfg.GRPCConnect, "gRPC server address to connect to")
 	fs.String("tls_cert", cfg.TLSCert, "TLS certificate file")
 	fs.String("tls_key", cfg.TLSKey, "TLS key file")
 	fs.String("ca_cert", cfg.CACert, "CA certificate file")
