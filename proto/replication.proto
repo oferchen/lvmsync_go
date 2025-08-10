@@ -23,6 +23,22 @@ message StatusResponse {
 message Empty {
 }
 
+message CapabilitySet {
+  repeated string capabilities = 1;
+}
+
+message SessionRequest {
+  string volume_name = 1;
+}
+
+message SessionResponse {
+  string session_id = 1;
+}
+
+message ResumeBitmap {
+  bytes bitmap = 1;
+}
+
 service Replication {
   rpc LockVolume(LockRequest) returns (StatusResponse);
   rpc GetVolumeMetadata(LockRequest) returns (VolumeMetadata);
@@ -31,4 +47,9 @@ service Replication {
   rpc FinalizeSync(LockRequest) returns (StatusResponse);
   rpc GetStatus(LockRequest) returns (StatusResponse);
   rpc Ping(Empty) returns (StatusResponse);
+  rpc ExchangeCapabilities(CapabilitySet) returns (CapabilitySet);
+  rpc CreateSession(SessionRequest) returns (SessionResponse);
+  rpc SendResumeBitmap(stream ResumeBitmap) returns (StatusResponse);
+  rpc Finalize(SessionResponse) returns (StatusResponse);
+  rpc AckStream(stream StatusResponse) returns (stream StatusResponse);
 }

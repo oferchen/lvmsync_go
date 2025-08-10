@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"io"
 	"os"
 
 	"google.golang.org/grpc"
@@ -142,4 +143,43 @@ func (s *replicationServer) GetStatus(ctx context.Context, req *proto.LockReques
 
 func (s *replicationServer) Ping(_ context.Context, _ *proto.Empty) (*proto.StatusResponse, error) {
 	return &proto.StatusResponse{Ok: true, Message: "pong"}, nil
+}
+
+func (s *replicationServer) ExchangeCapabilities(_ context.Context, caps *proto.CapabilitySet) (*proto.CapabilitySet, error) {
+	return caps, nil
+}
+
+func (s *replicationServer) CreateSession(_ context.Context, req *proto.SessionRequest) (*proto.SessionResponse, error) {
+	return &proto.SessionResponse{SessionId: req.GetVolumeName() + "-session"}, nil
+}
+
+func (s *replicationServer) SendResumeBitmap(stream proto.Replication_SendResumeBitmapServer) error {
+	for {
+		_, err := stream.Recv()
+		if err == io.EOF {
+			return stream.SendAndClose(&proto.StatusResponse{Ok: true})
+		}
+		if err != nil {
+			return err
+		}
+	}
+}
+
+func (s *replicationServer) Finalize(_ context.Context, req *proto.SessionResponse) (*proto.StatusResponse, error) {
+	return &proto.StatusResponse{Ok: true, Message: "finalized " + req.GetSessionId()}, nil
+}
+
+func (s *replicationServer) AckStream(stream proto.Replication_AckStreamServer) error {
+	for {
+		msg, err := stream.Recv()
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if err := stream.Send(msg); err != nil {
+			return err
+		}
+	}
 }

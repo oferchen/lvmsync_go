@@ -95,10 +95,15 @@ func TestInitDedupFlags(t *testing.T) {
 	}
 	fs := initDedupFlags(cfg)
 	cases := []struct{ name, want string }{
+		{"dedup", cfg.DedupMode},
+		{"cdc_min", strconv.Itoa(cfg.CDCMin)},
+		{"cdc_avg", strconv.Itoa(cfg.CDCAvg)},
+		{"cdc_max", strconv.Itoa(cfg.CDCMax)},
 		{"dedup_strategy", cfg.DedupStrategy},
 		{"dedup_state_file", cfg.DedupStateFile},
 		{"bloom_entries", strconv.Itoa(cfg.BloomEntries)},
 		{"bloom_fp_rate", fmt.Sprint(cfg.BloomFpRate)},
+		{"bloom_mbits", strconv.FormatUint(uint64(cfg.BloomMBits), 10)},
 	}
 	for _, tt := range cases {
 		f := fs.Lookup(tt.name)
@@ -121,6 +126,7 @@ func TestInitCompressionFlags(t *testing.T) {
 		{"compress", cfg.Compress},
 		{"compress_level", strconv.Itoa(cfg.CompressLevel)},
 		{"compress_concurrency", strconv.Itoa(cfg.CompressConcurrency)},
+		{"compress_threshold", strconv.FormatFloat(cfg.CompressThreshold, 'f', -1, 64)},
 	}
 	for _, tt := range cases {
 		f := fs.Lookup(tt.name)
@@ -167,6 +173,8 @@ func TestInitGRPCFlags(t *testing.T) {
 	fs := initGRPCFlags(cfg)
 	cases := []struct{ name, want string }{
 		{"grpc_port", strconv.Itoa(cfg.GRPCPort)},
+		{"grpc_listen", cfg.GRPCListen},
+		{"grpc_connect", cfg.GRPCConnect},
 		{"tls_cert", cfg.TLSCert},
 		{"tls_key", cfg.TLSKey},
 		{"ca_cert", cfg.CACert},

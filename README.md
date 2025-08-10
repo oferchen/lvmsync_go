@@ -188,6 +188,8 @@ because flags override environment variables, which override the config file.
 | `--volume_group` | `LVMSYNC_VOLUME_GROUP` | `volume_group` | Source volume group; derived from the source device path when empty |
 | `--target_volume_group` | `LVMSYNC_TARGET_VOLUME_GROUP` | `target_volume_group` | Volume group name of the target LVM volume |
 | `--target_vgs` | `LVMSYNC_TARGET_VGS` | `target_vgs` | Candidate target volume groups for auto-selection |
+| `--grpc_listen` | `LVMSYNC_GRPC_LISTEN` | `grpc_listen` | gRPC listen address |
+| `--grpc_connect` | `LVMSYNC_GRPC_CONNECT` | `grpc_connect` | gRPC server address to connect to |
 | `--grpc_port` | `LVMSYNC_GRPC_PORT` | `grpc_port` | gRPC port to listen on |
 | `--tls_cert` | `LVMSYNC_TLS_CERT` | `tls_cert` | TLS certificate file |
 | `--tls_key` | `LVMSYNC_TLS_KEY` | `tls_key` | TLS key file |
@@ -204,7 +206,7 @@ remote_pre_script: pre.sh # Remote Options
 dedup_strategy: bloom     # Deduplication Options
 compress: zstd            # Compression Options
 snapshot_size: 20%        # LVM Options
-grpc_port: 8443           # gRPC Options
+grpc_listen: ":8443"      # gRPC Options
 ```
 
 Use `--config` to point to a different file.

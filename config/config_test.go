@@ -175,21 +175,21 @@ func TestBuilderValidateCompression(t *testing.T) {
 	b := &Builder{defaults: defaults}
 
 	t.Run(Zstd+"Valid", func(t *testing.T) {
-		conf := &Config{Compress: Zstd, CompressLevel: 3}
+		conf := &Config{Compress: Zstd, CompressLevel: 3, CompressThreshold: 0.9}
 		if err := b.validateCompression(conf); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})
 
 	t.Run(Zstd+"Invalid", func(t *testing.T) {
-		conf := &Config{Compress: Zstd, CompressLevel: 100}
+		conf := &Config{Compress: Zstd, CompressLevel: 100, CompressThreshold: 0.9}
 		if err := b.validateCompression(conf); err == nil {
 			t.Fatalf("expected error")
 		}
 	})
 
 	t.Run(Auto, func(t *testing.T) {
-		conf := &Config{Compress: Auto}
+		conf := &Config{Compress: Auto, CompressThreshold: 0.9}
 		if compressiondetect.DetectOptimalCompression() == Zstd {
 			conf.CompressLevel = 3
 		} else {

@@ -31,6 +31,7 @@ const (
 var (
 	SupportedCompression        = []string{"none", "lz4", Zstd, Auto}
 	SupportedDedupStrategies    = []string{"none", Auto, "checksum", "rolling_hash", "bloom"}
+	SupportedDedupModes         = []string{"fixed", "cdc", "hybrid"}
 	SupportedChecksumAlgorithms = []string{"sha256", "blake3", "blake3-512"}
 )
 
@@ -69,6 +70,7 @@ type Config struct {
 	// For LZ4 use lz4.Fast or lz4.Level1 through lz4.Level9; ZSTD accepts levels 1-22.
 	CompressLevel        int      `mapstructure:"compress_level"`
 	CompressConcurrency  int      `mapstructure:"compress_concurrency"`
+	CompressThreshold    float64  `mapstructure:"compress_threshold"`
 	Speed                string   `mapstructure:"speed"`
 	SpeedLimit           int      `mapstructure:"-"`
 	SyncInterval         string   `mapstructure:"sync_interval"`
@@ -86,11 +88,18 @@ type Config struct {
 	Progress             bool     `mapstructure:"progress"`
 	BlockSize            int      `mapstructure:"-"`
 	BlockSizeRaw         string   `mapstructure:"-"`
+	DedupMode            string   `mapstructure:"dedup"`
+	CDCMin               int      `mapstructure:"cdc_min"`
+	CDCAvg               int      `mapstructure:"cdc_avg"`
+	CDCMax               int      `mapstructure:"cdc_max"`
 	DedupStrategy        string   `mapstructure:"dedup_strategy"`
 	DedupStateFile       string   `mapstructure:"dedup_state_file"`
 	BloomEntries         int      `mapstructure:"bloom_entries"`
 	BloomFpRate          float64  `mapstructure:"bloom_fp_rate"`
+	BloomMBits           uint     `mapstructure:"bloom_mbits"`
 	GRPCPort             int      `mapstructure:"grpc_port"`
+	GRPCListen           string   `mapstructure:"grpc_listen"`
+	GRPCConnect          string   `mapstructure:"grpc_connect"`
 	TLSCert              string   `mapstructure:"tls_cert"`
 	TLSKey               string   `mapstructure:"tls_key"`
 	CACert               string   `mapstructure:"ca_cert"`
@@ -188,6 +197,9 @@ func (b *Builder) applyDefaults(conf *Config) error {
 	if conf.CompressConcurrency <= 0 {
 		conf.CompressConcurrency = runtime.GOMAXPROCS(0)
 	}
+	if conf.CompressThreshold <= 0 {
+		conf.CompressThreshold = b.defaults.CompressThreshold
+	}
 	return nil
 }
 
@@ -206,6 +218,9 @@ func (b *Builder) validateCompression(conf *Config) error {
 			return fmt.Errorf("invalid lz4 compression level: %d", conf.CompressLevel)
 		}
 		_ = lz4.CompressionLevel(conf.CompressLevel)
+	}
+	if conf.CompressThreshold <= 0 || conf.CompressThreshold > 1 {
+		return fmt.Errorf("invalid compress threshold: %f", conf.CompressThreshold)
 	}
 	return nil
 }
@@ -299,6 +314,7 @@ func DefaultConfig() (*Config, error) {
 		Compress:             Auto,
 		CompressLevel:        3,
 		CompressConcurrency:  runtime.GOMAXPROCS(0),
+		CompressThreshold:    0.9,
 		Speed:                "100MB",
 		SyncInterval:         "1GB",
 		SyncIntervalBytes:    1000000000,
@@ -315,11 +331,18 @@ func DefaultConfig() (*Config, error) {
 		Progress:             true,
 		BlockSize:            0,
 		BlockSizeRaw:         Auto,
+		DedupMode:            "fixed",
+		CDCMin:               4 * 1024,
+		CDCAvg:               64 * 1024,
+		CDCMax:               1 * 1024 * 1024,
 		DedupStrategy:        "none",
 		DedupStateFile:       filepath.Join(homeDir, ".lvmsync_dedup"),
 		BloomEntries:         1000000,
 		BloomFpRate:          0.01,
+		BloomMBits:           0,
 		GRPCPort:             8443,
+		GRPCListen:           "",
+		GRPCConnect:          "",
 		TLSCert:              "",
 		TLSKey:               "",
 		CACert:               "",
@@ -370,10 +393,15 @@ func initRemoteFlags(cfg *Config) *pflag.FlagSet {
 
 func initDedupFlags(cfg *Config) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("Deduplication Options", pflag.ExitOnError)
+	fs.String("dedup", cfg.DedupMode, fmt.Sprintf("Deduplication mode: %v", SupportedDedupModes))
+	fs.Int("cdc_min", cfg.CDCMin, "Minimum chunk size for CDC")
+	fs.Int("cdc_avg", cfg.CDCAvg, "Average chunk size for CDC")
+	fs.Int("cdc_max", cfg.CDCMax, "Maximum chunk size for CDC")
 	fs.String("dedup_strategy", cfg.DedupStrategy, fmt.Sprintf("Deduplication strategy: %v", SupportedDedupStrategies))
 	fs.String("dedup_state_file", cfg.DedupStateFile, "Path to deduplication state file")
 	fs.Int("bloom_entries", cfg.BloomEntries, "Estimated number of entries for bloom filter")
 	fs.Float64("bloom_fp_rate", cfg.BloomFpRate, "False positive rate for bloom filter")
+	fs.Uint("bloom_mbits", cfg.BloomMBits, "Bloom filter m bits power")
 	return fs
 }
 
@@ -382,6 +410,7 @@ func initCompressionFlags(cfg *Config) *pflag.FlagSet {
 	fs.String("compress", cfg.Compress, fmt.Sprintf("Compression type, options: %v", SupportedCompression))
 	fs.Int("compress_level", cfg.CompressLevel, "Compression level. LZ4 accepts lz4.Fast or lz4.Level1..lz4.Level9; ZSTD accepts 1-22")
 	fs.Int("compress_concurrency", cfg.CompressConcurrency, "Compression concurrency (0 to use GOMAXPROCS)")
+	fs.Float64("compress_threshold", cfg.CompressThreshold, "Skip compression when estimated ratio exceeds this value")
 	return fs
 }
 
@@ -400,6 +429,8 @@ func initLVMFlags(cfg *Config) *pflag.FlagSet {
 func initGRPCFlags(cfg *Config) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("gRPC Options", pflag.ExitOnError)
 	fs.Int("grpc_port", cfg.GRPCPort, "gRPC port to listen on")
+	fs.String("grpc_listen", cfg.GRPCListen, "gRPC listen address")
+	fs.String("grpc_connect", cfg.GRPCConnect, "gRPC server address to connect to")
 	fs.String("tls_cert", cfg.TLSCert, "TLS certificate file")
 	fs.String("tls_key", cfg.TLSKey, "TLS key file")
 	fs.String("ca_cert", cfg.CACert, "CA certificate file")
