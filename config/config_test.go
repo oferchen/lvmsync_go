@@ -275,6 +275,37 @@ func TestConfigValidate(t *testing.T) {
 	})
 }
 
+func TestApplyThroughputMode(t *testing.T) {
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig returned error: %v", err)
+	}
+	v := viper.New()
+	conf := &Config{Mode: "throughput"}
+	b := &Builder{v: v, defaults: defaults}
+	if err := b.applyDefaults(conf); err != nil {
+		t.Fatalf("applyDefaults returned error: %v", err)
+	}
+	if conf.TransportOrder != "quic,h2,tcp+tls" {
+		t.Fatalf("transport order %s", conf.TransportOrder)
+	}
+	if conf.Parallel != 8 {
+		t.Fatalf("parallel %d", conf.Parallel)
+	}
+	if conf.DedupMode != "hybrid" {
+		t.Fatalf("dedup mode %s", conf.DedupMode)
+	}
+	if !conf.ODirect {
+		t.Fatalf("expected odirect enabled")
+	}
+	if conf.QUICCongestionControl != "bbr" {
+		t.Fatalf("quic cc %s", conf.QUICCongestionControl)
+	}
+	if conf.SyncInterval == 0 || conf.CheckpointInterval == 0 {
+		t.Fatalf("expected non-zero intervals")
+	}
+}
+
 func TestValidateEscalationCommandPath(t *testing.T) {
 	oldEuid := getEuid
 	getEuid = func() int { return 1000 }

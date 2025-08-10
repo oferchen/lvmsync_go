@@ -94,6 +94,20 @@ Internally, each group is set up through a dedicated helper such as
 `initGeneralFlags`, `initSSHFlags`, or `initCompressionFlags`, keeping flag
 definitions focused and easy to maintain.
 
+### Modes
+
+LVMSync exposes a `--mode` flag to apply preset configurations.
+
+- `default` – standard behavior.
+- `throughput` – tunes defaults for maximum throughput:
+  - transport order `quic,h2,tcp+tls`
+  - concurrency `8`
+  - deduplication mode `hybrid`
+  - compression `auto`
+  - enables `--odirect`
+  - large sync and checkpoint intervals
+  - QUIC congestion control `bbr`
+
 ```go
 func initConfig() *viper.Viper {
     v := viper.New()
