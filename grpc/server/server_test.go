@@ -394,6 +394,9 @@ func TestSessionFlow(t *testing.T) {
 	if _, err := bmp.CloseAndRecv(); err != nil {
 		t.Fatalf("bitmap close: %v", err)
 	}
+	if _, err := client.SendFinalManifest(ctx, &proto.ManifestMessage{SessionId: sess.GetSessionId(), Manifest: []byte("{}")}); err != nil {
+		t.Fatalf("SendFinalManifest: %v", err)
+	}
 	if _, err := client.Finalize(ctx, &proto.FinalizeRequest{SessionId: sess.GetSessionId()}); err != nil {
 		t.Fatalf("Finalize: %v", err)
 	}

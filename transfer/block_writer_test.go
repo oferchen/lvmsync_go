@@ -4,6 +4,8 @@ import (
 	"math"
 	"testing"
 
+	"github.com/zeebo/blake3"
+
 	"lvmsync_go/config"
 )
 
@@ -22,7 +24,8 @@ func TestValidateOffsetAndSizeFunc(t *testing.T) {
 func TestPrepareResultHeader(t *testing.T) {
 	cfg := &config.Config{VerifyChecksum: true, ChecksumAlgorithm: "sha256"}
 	checksum := GetChecksumStrategy(cfg.ChecksumAlgorithm)
-	res := &BlockResult{Offset: 5, Size: 4, Data: []byte("test")}
+	sum := blake3.Sum256([]byte("test"))
+	res := &BlockResult{Offset: 5, Size: 4, Data: []byte("test"), ChunkID: sum}
 	header := make([]byte, 12+checksum.Size())
 	n := prepareResultHeader(cfg, checksum, res, header)
 	if n != len(header) {

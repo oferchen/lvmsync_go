@@ -15,7 +15,7 @@ LVMSync is a high-performance incremental data replication tool for LVM snapshot
 - **Native LVM2 Integration**: Uses Go bindings to `liblvm2cmd` instead of shelling out.
 - **Deduplication Strategies**: Detect unchanged blocks using checksum, rolling hash, or a Bloom filter with optional FastCDC content-defined chunking and mmap-backed index.
 - **Remote Execution via SSH**: Replicates data over SSH with support for pre/post-scripts.
-- **Resume Support**: Ability to resume interrupted transfers.
+- **Resume Support**: Ability to resume interrupted transfers keyed to CDC chunk IDs with periodic checkpoints.
 - **LVM Snapshot Management**:
   - Automatic snapshot creation and removal.
   - Configurable snapshot size (absolute or percentage-based).
@@ -188,7 +188,7 @@ because flags override environment variables, which override the config file.
 | `--parallel` | `LVMSYNC_PARALLEL` | `parallel` | Number of concurrent workers |
 | `--zerocopy` | `LVMSYNC_ZEROCOPY` | `zerocopy` | Enable zero-copy transfers |
 | `--max_retries` | `LVMSYNC_MAX_RETRIES` | `max_retries` | Maximum number of retries per block |
-| `--resume` | `LVMSYNC_RESUME` | `resume` | Path to resume state file |
+| `--resume` | `LVMSYNC_RESUME` | `resume` | Path to resume state file (checkpointed every 1 GiB or 10 s) |
 | `--speed` | `LVMSYNC_SPEED` | `speed` | Transfer speed limit |
 | `--block_size` | `LVMSYNC_BLOCK_SIZE` | `block_size` | Block size for data transfer; specify 'auto' or 0 for automatic detection |
 | `--verbose` | `LVMSYNC_VERBOSE` | `verbose` | Verbosity level |
@@ -234,7 +234,7 @@ because flags override environment variables, which override the config file.
 
 1. **Handshake** – clients advertise `sector_size`, `alignment`, `max_concurrency`, and whether deduplication and compression are supported.
 2. **Session Creation** – the client sends an ephemeral certificate and receives a session ID, server certificate, and pre-shared key.
-3. **Resume Bitmap** – dirty block bitmaps are streamed with the session ID to resume interrupted transfers.
+3. **Resume Bitmap** – dirty block bitmaps are streamed with the session ID to resume interrupted transfers, and final manifests carrying SHA-256 digests validate completion.
 4. **Ack/Ping Stream** – a bidirectional stream of `Ack` messages per session provides keep-alives and progress confirmation.
 5. **Finalization** – the client requests completion using the session ID when replication is done.
 
@@ -482,7 +482,7 @@ lvmsync --speed 50MB /dev/vg0/snap0 /dev/vg0/data
 
 #### Resuming a Transfer
 
-Resume an interrupted transfer using a resume state file:
+Resume an interrupted transfer using a resume state file. The file stores the last successful CDC chunk digest and is checkpointed every 1 GiB or 10 s:
 
 ```sh
 lvmsync --resume statefile /dev/vg0/snap0 /dev/vg0/data
