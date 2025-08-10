@@ -55,8 +55,8 @@ jobs:
           # Core
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DEFAULT_BRANCH: main
-          # Validate all code on PRs; changed files only on direct pushes
-          VALIDATE_ALL_CODEBASE: ${{ github.event_name == 'pull_request' && 'true' || 'false' }}
+          # Validate entire codebase
+          VALIDATE_ALL_CODEBASE: "true"
           FILTER_REGEX_INCLUDE: ""
 
           # Go: pass ONLY the package pattern (NO "run")
