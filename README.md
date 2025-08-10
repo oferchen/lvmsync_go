@@ -638,6 +638,17 @@ The tool supports both local and remote transfers, as well as an "apply mode" fo
 | `--known_hosts`           | Path to known_hosts file (defaults to `$HOME/.ssh/known_hosts`) | `$HOME/.ssh/known_hosts` |
 | `--stricthostkeychecking` | Enable SSH StrictHostKeyChecking                                | `true`                   |
 
+Programmatic use of the SSH transport requires a configuration populated with
+fields like `SSHUser`, `SSHKeyPath`, `SSHPort`, `KnownHosts`,
+`StrictHostKeyCheck`, `SSHTimeout`, `SSHKeepAliveInterval`, and `MaxRetries`.
+The constructor also requires a `*zap.Logger`:
+
+```go
+logger, _ := zap.NewProduction()
+defer logger.Sync()
+sender, receiver, err := ssh.New(cfg, logger)
+```
+
 #### Remote Options
 
 | Option                 | Description                                       | Default     |

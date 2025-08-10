@@ -157,7 +157,7 @@ func setupTransport(t *testing.T, srv *mockServer) (transport.Sender, transport.
 		SSHKeepAliveInterval: time.Second,
 		KnownHosts:           srv.knownHostsFile(t),
 	}
-	s, r, err := New(cfg)
+	s, r, err := New(cfg, zap.NewNop())
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -179,19 +179,15 @@ func TestSSHSendReceive(t *testing.T) {
 	var buf bytes.Buffer
 	if err := r.Receive(context.Background(), &buf); err != nil {
 		t.Fatalf("receive: %v", err)
+	}
+	if !bytes.Equal(buf.Bytes(), payload) {
+		t.Fatalf("got %q want %q", buf.Bytes(), payload)
+	}
+}
 
 func TestSSHRegistered(t *testing.T) {
 	if _, ok := transport.Get("ssh"); !ok {
 		t.Fatalf("ssh transport not registered")
-	}
-}
-
-func TestSSHNew(t *testing.T) {
-	if _, _, err := New(&config.Config{}, zap.NewNop()); err != nil {
-		t.Fatalf("New: %v", err)
-	}
-	if !bytes.Equal(buf.Bytes(), payload) {
-		t.Fatalf("got %q want %q", buf.Bytes(), payload)
 	}
 }
 

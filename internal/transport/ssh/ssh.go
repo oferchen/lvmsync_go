@@ -11,15 +11,6 @@ import (
 	"lvmsync_go/remote"
 )
 
-var logger = zap.NewNop()
-
-// SetLogger assigns the package-wide logger.
-func SetLogger(l *zap.Logger) {
-	if l != nil {
-		logger = l
-	}
-}
-
 func init() {
 	transport.Register("ssh", New)
 }
@@ -39,7 +30,10 @@ type sshReceiver struct {
 }
 
 // New wraps the existing SSH client as a transport.
-func New(cfg *config.Config) (transport.Sender, transport.Receiver, error) {
+func New(cfg *config.Config, logger *zap.Logger) (transport.Sender, transport.Receiver, error) {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
 	host := "localhost"
 	logger.Info("ssh connection attempt", zap.String("host", host), zap.Int("port", cfg.SSHPort))
 	client, err := remote.NewSSHClient(host, cfg.SSHUser, cfg.SSHKeyPath, cfg.SSHPort, cfg.KnownHosts, cfg.StrictHostKeyCheck, cfg.SSHTimeout, cfg.SSHKeepAliveInterval, cfg.MaxRetries, logger)
