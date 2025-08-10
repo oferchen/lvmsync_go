@@ -86,3 +86,31 @@ func TestInitConfigPrecedence(t *testing.T) {
 		}
 	})
 }
+
+func TestFlagSetsBindToViper(t *testing.T) {
+	v, err := initConfig([]string{
+		"--grpc-port", "9999",
+		"--tls-cert", "cert.pem",
+		"--tls-key", "key.pem",
+		"--ca-cert", "ca.pem",
+		"--allow-insecure",
+	})
+	if err != nil {
+		t.Fatalf("initConfig: %v", err)
+	}
+	if port := v.GetInt("grpc-port"); port != 9999 {
+		t.Fatalf("expected grpc-port 9999, got %d", port)
+	}
+	if cert := v.GetString("tls-cert"); cert != "cert.pem" {
+		t.Fatalf("expected tls-cert cert.pem, got %q", cert)
+	}
+	if key := v.GetString("tls-key"); key != "key.pem" {
+		t.Fatalf("expected tls-key key.pem, got %q", key)
+	}
+	if ca := v.GetString("ca-cert"); ca != "ca.pem" {
+		t.Fatalf("expected ca-cert ca.pem, got %q", ca)
+	}
+	if insecure := v.GetBool("allow-insecure"); !insecure {
+		t.Fatalf("expected allow-insecure true")
+	}
+}

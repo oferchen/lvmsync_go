@@ -65,7 +65,7 @@ func TestBuildViperPrecedence(t *testing.T) {
 
 	t.Run("env_overrides_config", func(t *testing.T) {
 		resetFlags([]string{"--config", cfgPath})
-		t.Setenv("LVMSYNC.PARALLEL", "2")
+		t.Setenv("LVMSYNC_PARALLEL", "2")
 		cfg, err := DefaultConfig()
 		if err != nil {
 			t.Fatalf("DefaultConfig: %v", err)
@@ -83,7 +83,7 @@ func TestBuildViperPrecedence(t *testing.T) {
 
 	t.Run("flags_override_env", func(t *testing.T) {
 		resetFlags([]string{"--config", cfgPath, "--parallel", "3"})
-		t.Setenv("LVMSYNC.PARALLEL", "2")
+		t.Setenv("LVMSYNC_PARALLEL", "2")
 		cfg, err := DefaultConfig()
 		if err != nil {
 			t.Fatalf("DefaultConfig: %v", err)

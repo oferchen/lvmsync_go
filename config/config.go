@@ -596,7 +596,7 @@ func buildViper() (*viper.Viper, error) {
 	v.SetConfigType("yaml")
 	v.AddConfigPath(".")
 	v.AutomaticEnv()
-	v.SetEnvKeyReplacer(strings.NewReplacer("_", "."))
+	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.SetEnvPrefix("LVMSYNC")
 
 	if err := v.BindPFlags(pflag.CommandLine); err != nil {
