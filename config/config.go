@@ -234,14 +234,30 @@ func (b *Builder) applyDefaults(conf *Config) error {
 }
 
 func (b *Builder) applyThroughput(conf *Config) {
-	if conf.Transport == "" {
-		conf.Transport = "quic,h2,tcp+tls,ssh"
+	if !b.v.IsSet("transport") {
+		conf.Transport = "quic,h2,tcp+tls"
 	}
 	if !b.v.IsSet("parallel") {
 		conf.Parallel = 8
 	}
+	if !b.v.IsSet("concurrency") {
+		conf.Concurrency = 8
+	}
 	if !b.v.IsSet("dedup") {
 		conf.DedupMode = "hybrid"
+	}
+	if !b.v.IsSet("block_size") {
+		conf.BlockSize = 2 * 1024 * 1024
+		conf.BlockSizeRaw = "2097152"
+	}
+	if !b.v.IsSet("cdc_min") {
+		conf.CDCMin = 256 * 1024
+	}
+	if !b.v.IsSet("cdc_avg") {
+		conf.CDCAvg = 2 * 1024 * 1024
+	}
+	if !b.v.IsSet("cdc_max") {
+		conf.CDCMax = 8 * 1024 * 1024
 	}
 	if !b.v.IsSet("compress") {
 		conf.Compress = Auto
@@ -249,11 +265,12 @@ func (b *Builder) applyThroughput(conf *Config) {
 	if !b.v.IsSet("odirect") {
 		conf.ODirect = true
 	}
-	if conf.SyncInterval == "" {
-		conf.SyncInterval = "10MB"
+	if !b.v.IsSet("sync_interval") {
+		conf.SyncInterval = "1GB"
+		conf.SyncIntervalBytes = 1000000000
 	}
-	if conf.CheckpointInterval == 0 {
-		conf.CheckpointInterval = 30 * time.Minute
+	if !b.v.IsSet("checkpoint_interval") && conf.CheckpointInterval == 0 {
+		conf.CheckpointInterval = 10 * time.Second
 	}
 	if conf.QUICCongestionControl == "" {
 		conf.QUICCongestionControl = "bbr"

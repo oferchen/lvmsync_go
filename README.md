@@ -120,12 +120,12 @@ LVMSync exposes a `--mode` flag to apply preset configurations.
 
 - `default` – standard behavior.
 - `throughput` – tunes defaults for maximum throughput:
-  - transport order `quic,h2,tcp+tls,ssh`
+  - transport order `quic,h2,tcp+tls`
   - concurrency `8`
-  - deduplication mode `hybrid`
+  - deduplication mode `hybrid` with 2 MiB fixed chunks and CDC range 256 KiB–8 MiB
   - compression `auto`
   - enables `--odirect`
-  - large sync and checkpoint intervals
+  - `--sync-interval=1 GiB`, `--checkpoint-bytes=1 GiB`, `--checkpoint-interval=10s`
   - QUIC congestion control `bbr`
 
 ```go
