@@ -10,7 +10,7 @@ LVMSync is a high-performance incremental data replication tool for LVM snapshot
 - **Zero-Copy Transfers**: Utilizes `splice()` for efficient data movement.
 - **Parallel Execution**: Configurable concurrency for optimal performance.
 - **Rate-Limiting**: Control bandwidth usage during transfers.
-- **Compression**: Supports LZ4 and Zstd (with configurable compression levels and an auto mode based on CPU features).
+- **Compression**: Samples 8 KiB per chunk, skipping compression when the ratio exceeds a threshold. Auto mode selects LZ4 for chunks <256 KiB and Zstd level 1 for larger chunks on AVX2-capable CPUs.
 - **Checksum Verification**: Ensures data integrity using SHA-256 or BLAKE3.
 - **Native LVM2 Integration**: Uses Go bindings to `liblvm2cmd` instead of shelling out.
 - **Deduplication Strategies**: Detect unchanged blocks using checksum, rolling hash, Bloom filter, or FastCDC content-defined chunking with optional hybrid mode.
@@ -200,8 +200,10 @@ because flags override environment variables, which override the config file.
 | `--bloom_entries` | `LVMSYNC_BLOOM_ENTRIES` | `bloom_entries` | Estimated number of entries for bloom filter |
 | `--bloom_fp_rate` | `LVMSYNC_BLOOM_FP_RATE` | `bloom_fp_rate` | False positive rate for bloom filter |
 | `--compress` | `LVMSYNC_COMPRESS` | `compress` | Compression type: `none`, `lz4`, `zstd`, or `auto` |
-| `--compress_level` | `LVMSYNC_COMPRESS_LEVEL` | `compress_level` | Compression level. LZ4 accepts `lz4.Fast` or `lz4.Level1..lz4.Level9`; Zstd accepts `1-22` |
+| `--zstd_level` | `LVMSYNC_ZSTD_LEVEL` | `zstd_level` | Zstd compression level (`1-5`) |
+| `--lz4_level` | `LVMSYNC_LZ4_LEVEL` | `lz4_level` | LZ4 compression level: `fast` or `hc` |
 | `--compress_concurrency` | `LVMSYNC_COMPRESS_CONCURRENCY` | `compress_concurrency` | Compression concurrency (0 to use `GOMAXPROCS`) |
+| `--compress_threshold` | `LVMSYNC_COMPRESS_THRESHOLD` | `compress_threshold` | Skip compression when estimated ratio exceeds this value |
 | `--skip_snapshot_creation` | `LVMSYNC_SKIP_SNAPSHOT_CREATION` | `skip_snapshot_creation` | Skip automatic snapshot creation |
 | `--skip_disk_check` | `LVMSYNC_SKIP_DISK_CHECK` | `skip_disk_check` | Skip disk space check before snapshot creation |
 | `--snapshot_size` | `LVMSYNC_SNAPSHOT_SIZE` | `snapshot_size` | Snapshot size (e.g., `20G` or `20%`) |
@@ -398,8 +400,10 @@ The tool supports both local and remote transfers, as well as an "apply mode" fo
 | Option                   | Description                                                       | Default  |
 | ------------------------ | ----------------------------------------------------------------- | -------- |
 | `--compress`             | Compression type (options: `"none"`, `"lz4"`, `"zstd"`, `"auto"`) | `"auto"` |
-| `--compress_level`       | Compression level for Zstd (ignored for LZ4)                      | `3`      |
+| `--zstd_level`           | Zstd compression level (`1-5`)                                   | `1`      |
+| `--lz4_level`            | LZ4 compression level: `fast` or `hc`                            | `fast`   |
 | `--compress_concurrency` | Number of goroutines used for compression (`0` to use all cores)  | `0`      |
+| `--compress_threshold`   | Skip compression when estimated ratio exceeds this value         | `0.9`    |
 
 #### LVM Options
 
@@ -455,7 +459,7 @@ lvmsync --apply dumpfile.lvm /dev/vg0/data
 Enable Zstd compression with a specified compression level:
 
 ```sh
-lvmsync --compress zstd --compress_level 3 /dev/vg0/snap0 /dev/vg0/data
+lvmsync --compress zstd --zstd_level 3 /dev/vg0/snap0 /dev/vg0/data
 ```
 
 #### Rate Limiting
@@ -597,14 +601,14 @@ lvmsync --compress zstd --compress-level 5 /dev/vg0/snap0 /dev/vg0/data
 Environment:
 
 ```sh
-LVMSYNC_COMPRESS=zstd LVMSYNC_COMPRESS_LEVEL=5 lvmsync /dev/vg0/snap0 /dev/vg0/data
+LVMSYNC_COMPRESS=zstd LVMSYNC_ZSTD_LEVEL=5 lvmsync /dev/vg0/snap0 /dev/vg0/data
 ```
 
 YAML:
 
 ```yaml
 compress: zstd
-compress_level: 5
+zstd_level: 5
 ```
 
 #### LVM

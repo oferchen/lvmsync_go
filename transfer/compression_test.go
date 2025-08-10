@@ -160,6 +160,28 @@ func TestCompressChunkThreshold(t *testing.T) {
 	}
 }
 
+func TestSelectAlgorithm(t *testing.T) {
+	orig := hasAVX2
+	defer func() { hasAVX2 = orig }()
+
+	algo, lvl := selectAlgorithm(64*1024, StrategyAuto, 0)
+	if algo != compressionLZ4 || lvl != int(lz4.Level1) {
+		t.Fatalf("expected lz4 level1, got %s level %d", algo, lvl)
+	}
+
+	hasAVX2 = func() bool { return true }
+	algo, lvl = selectAlgorithm(300*1024, StrategyAuto, 0)
+	if algo != compressionZSTD || lvl != defaultZstdLv {
+		t.Fatalf("expected zstd level %d, got %s level %d", defaultZstdLv, algo, lvl)
+	}
+
+	hasAVX2 = func() bool { return false }
+	algo, lvl = selectAlgorithm(300*1024, StrategyAuto, 0)
+	if algo != compressionLZ4 || lvl != int(lz4.Level1) {
+		t.Fatalf("expected lz4 level1 fallback, got %s level %d", algo, lvl)
+	}
+}
+
 //nolint:revive // complex reuse test
 func TestLZ4WriterPoolReuse(t *testing.T) {
 	data1 := []byte("first payload")
