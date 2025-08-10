@@ -456,10 +456,10 @@ lvmsync --apply dumpfile.lvm /dev/vg0/data
 
 #### Using Compression
 
-Enable Zstd compression with a specified compression level:
+Estimate a sample of each chunk and compress only when it's worthwhile:
 
 ```sh
-lvmsync --compress zstd --zstd_level 3 /dev/vg0/snap0 /dev/vg0/data
+lvmsync --compress auto --zstd_level 2 --compress_threshold 0.85 /dev/vg0/snap0 /dev/vg0/data
 ```
 
 #### Rate Limiting
@@ -592,23 +592,30 @@ dedup_state_file: ~/.lvmsync_state
 
 #### Compression
 
+LVMSync samples 8 KiB from each chunk to gauge compression efficiency. If the
+compressed sample ratio is greater than or equal to `--compress_threshold`, the
+chunk is sent uncompressed. In `auto` mode, chunks smaller than 256 KiB use LZ4
+and larger ones select Zstd level 1 when AVX2 is available.
+Levels can be tuned with `--zstd_level` (1-5) or `--lz4_level` (`fast` or `hc`).
+
 CLI:
 
 ```sh
-lvmsync --compress zstd --compress-level 5 /dev/vg0/snap0 /dev/vg0/data
+lvmsync --compress auto --zstd_level 2 --compress_threshold 0.85 /dev/vg0/snap0 /dev/vg0/data
 ```
 
 Environment:
 
 ```sh
-LVMSYNC_COMPRESS=zstd LVMSYNC_ZSTD_LEVEL=5 lvmsync /dev/vg0/snap0 /dev/vg0/data
+LVMSYNC_COMPRESS=auto LVMSYNC_ZSTD_LEVEL=2 LVMSYNC_COMPRESS_THRESHOLD=0.85 lvmsync /dev/vg0/snap0 /dev/vg0/data
 ```
 
 YAML:
 
 ```yaml
-compress: zstd
-zstd_level: 5
+compress: auto
+zstd_level: 2
+compress_threshold: 0.85
 ```
 
 #### LVM
