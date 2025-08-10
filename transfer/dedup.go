@@ -221,22 +221,27 @@ func (c *ChecksumDedup) loadState() error {
 	return nil
 }
 
-func (r *RollingHashDedup) computeHash(data []byte) uint64 {
+func (r *RollingHashDedup) computeHash(data []byte) (uint64, error) {
 	hAny := rollingHashPool.Get()
 	h, ok := hAny.(*maphash.Hash)
 	if !ok {
-		panic("unexpected type from rollingHashPool")
+		rollingHashPool.Put(hAny)
+		return 0, fmt.Errorf("unexpected type %T from rollingHashPool", hAny)
 	}
 	h.Reset()
 	h.SetSeed(r.seed)
 	h.Write(data)
 	sum := h.Sum64()
 	rollingHashPool.Put(h)
-	return sum
+	return sum, nil
 }
 
 func (r *RollingHashDedup) ShouldTransfer(offset int64, data []byte) bool {
-	h := r.computeHash(data)
+	h, err := r.computeHash(data)
+	if err != nil {
+		zap.L().Error("compute hash failed", zap.Error(err))
+		return true
+	}
 
 	r.mu.RLock()
 	prev, exists := r.hashes[offset]
@@ -246,7 +251,11 @@ func (r *RollingHashDedup) ShouldTransfer(offset int64, data []byte) bool {
 }
 
 func (r *RollingHashDedup) RecordTransfer(offset int64, data []byte) {
-	h := r.computeHash(data)
+	h, err := r.computeHash(data)
+	if err != nil {
+		zap.L().Error("compute hash failed", zap.Error(err))
+		return
+	}
 
 	r.mu.Lock()
 	r.hashes[offset] = h
