@@ -228,6 +228,7 @@ lvmsync --compress auto --zstd_level 2 --compress_threshold 0.85
 - [ ] Implement real transports for QUIC, HTTP/2, TCP+TLS, and SSH; replace placeholders with functional backends and tests.
 - [ ] Add privilege escalation (`privesc`) tests covering success and error paths.
 - [ ] Expand coverage for configuration precedence across flags, environment variables, and config files.
+- [ ] Keep README configuration examples and precedence tests in sync.
  - [ ] Keep modules single-purpose; maintain the `transfer` package decomposition (`progress.go`, `handshake.go`, `block_writer.go`).
 - [ ] Document gRPC daemon configuration sources (flags, env vars, config file) and precedence.
 - [ ] Keep `README` configuration documentation current with code changes.
