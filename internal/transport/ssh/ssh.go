@@ -12,6 +12,6 @@ func init() {
 
 // New wraps the existing SSH client as a transport.
 func New(cfg *config.Config) (transport.Sender, transport.Receiver, error) {
-	_ = remote.Logger
+	_ = remote.SSHClient{}
 	return transport.NopSender{}, transport.NopReceiver{}, nil
 }

@@ -16,12 +16,26 @@ import (
 	"golang.org/x/crypto/ssh/knownhosts"
 )
 
+// SSHClient wraps an ssh.Client and provides structured logging.
+//
+// The embedded *zap.Logger defaults to a no-op logger when nil to avoid
+// nil-pointer dereferences while still allowing callers to inject their own
+// logger for observability.
+type SSHClient struct {
+	*ssh.Client
+	*zap.Logger
+}
+
 // NewSSHClient establishes an SSH connection to the given host using either a
 // private key or the local SSH agent for authentication. The connection is
 // configured with a keep-alive mechanism and host key verification based on the
 // provided known_hosts file.
-func NewSSHClient(host, user, keyPath string, port int, knownHostsPath string, verify bool, timeout, keepAliveInterval time.Duration, retries int) (*ssh.Client, error) {
-	authMethods, err := selectAuthMethods(keyPath)
+func NewSSHClient(host, user, keyPath string, port int, knownHostsPath string, verify bool, timeout, keepAliveInterval time.Duration, retries int, logger *zap.Logger) (*SSHClient, error) {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+
+	authMethods, err := selectAuthMethods(logger, keyPath)
 	if err != nil {
 		return nil, err
 	}
@@ -37,18 +51,19 @@ func NewSSHClient(host, user, keyPath string, port int, knownHostsPath string, v
 		Timeout:         timeout,
 	}
 	addr := fmt.Sprintf("%s:%d", host, port)
-	client, err := dialWithRetry(addr, config, host, port, retries)
+	client, err := dialWithRetry(logger, addr, config, host, port, retries)
 	if err != nil {
 		return nil, err
 	}
 
-	go startKeepAlive(client, host, keepAliveInterval)
+	sshClient := &SSHClient{Client: client, Logger: logger}
+	go sshClient.startKeepAlive(host, keepAliveInterval)
 
-	return client, nil
+	return sshClient, nil
 }
 
 //revive:disable-next-line:cognitive-complexity
-func selectAuthMethods(keyPath string) ([]ssh.AuthMethod, error) {
+func selectAuthMethods(logger *zap.Logger, keyPath string) ([]ssh.AuthMethod, error) {
 	var authMethods []ssh.AuthMethod
 	if keyPath != "" {
 		key, err := os.ReadFile(keyPath)
@@ -69,7 +84,7 @@ func selectAuthMethods(keyPath string) ([]ssh.AuthMethod, error) {
 				authMethods = append(authMethods, ssh.PublicKeysCallback(func() ([]ssh.Signer, error) {
 					defer func() {
 						if cerr := conn.Close(); cerr != nil {
-							Logger.Warn("ssh agent connection close error", zap.Error(cerr))
+							logger.Warn("ssh agent connection close error", zap.Error(cerr))
 						}
 					}()
 					return agentClient.Signers()
@@ -91,7 +106,7 @@ func setupHostKeyCallback(_ bool, knownHostsPath string) (ssh.HostKeyCallback, e
 	return hostKeyCallback, nil
 }
 
-func dialWithRetry(addr string, config *ssh.ClientConfig, host string, port, retries int) (*ssh.Client, error) {
+func dialWithRetry(logger *zap.Logger, addr string, config *ssh.ClientConfig, host string, port, retries int) (*ssh.Client, error) {
 	var client *ssh.Client
 	var err error
 	for attempt := 0; attempt <= retries; attempt++ {
@@ -99,7 +114,7 @@ func dialWithRetry(addr string, config *ssh.ClientConfig, host string, port, ret
 		if err == nil {
 			return client, nil
 		}
-		Logger.Warn("SSH dial failed",
+		logger.Warn("SSH dial failed",
 			zap.String("host", host),
 			zap.Int("port", port),
 			zap.Int("attempt", attempt+1),
@@ -109,26 +124,26 @@ func dialWithRetry(addr string, config *ssh.ClientConfig, host string, port, ret
 			time.Sleep(backoff)
 		}
 	}
-	Logger.Error("Unable to establish SSH connection", zap.String("host", host), zap.Int("port", port), zap.Error(err))
+	logger.Error("Unable to establish SSH connection", zap.String("host", host), zap.Int("port", port), zap.Error(err))
 	return nil, fmt.Errorf("failed to dial SSH after %d attempts: %w", retries+1, err)
 }
 
 // ValidateRemoteCommand ensures that the provided command exists and is
 // executable on the remote host by attempting to run it with a --version flag.
 // It returns an error if the command is missing or cannot be executed.
-func ValidateRemoteCommand(client *ssh.Client, remoteCmd string) error {
+func (c *SSHClient) ValidateRemoteCommand(remoteCmd string) error {
 	tokens := strings.Fields(remoteCmd)
 	if len(tokens) == 0 {
 		return fmt.Errorf("remote command is empty")
 	}
 	cmd := tokens[0]
-	session, err := client.NewSession()
+	session, err := c.NewSession()
 	if err != nil {
 		return fmt.Errorf("failed to create SSH session for validation: %w", err)
 	}
 	defer func() {
 		if err := session.Close(); err != nil && !errors.Is(err, io.EOF) {
-			Logger.Warn("session close error", zap.Error(err))
+			c.Logger.Warn("session close error", zap.Error(err))
 		}
 	}()
 	session.Stdout = io.Discard
@@ -147,29 +162,16 @@ func ValidateRemoteCommand(client *ssh.Client, remoteCmd string) error {
 
 // RunRemoteScript executes the provided shell script on the remote host using
 // the given SSH client.
-func RunRemoteScript(client *ssh.Client, script string) error {
-	session, err := client.NewSession()
+func (c *SSHClient) RunRemoteScript(script string) error {
+	session, err := c.NewSession()
 	if err != nil {
 		return fmt.Errorf("failed to create SSH session for script: %w", err)
 	}
 	defer func() {
 		if err := session.Close(); err != nil && !errors.Is(err, io.EOF) {
-			Logger.Warn("session close error", zap.Error(err))
+			c.Logger.Warn("session close error", zap.Error(err))
 		}
 	}()
-	Logger.Info("Running remote script", zap.String("script", script))
+	c.Logger.Info("Running remote script", zap.String("script", script))
 	return session.Run(script)
-}
-
-// Logger is the package-wide logger used for all remote SSH operations. By
-// default it discards all logs.
-var Logger = zap.NewNop()
-
-// SetLogger sets the package-wide logger. If a nil logger is provided, logging
-// is disabled by using a no-op logger.
-func SetLogger(logger *zap.Logger) {
-	if logger == nil {
-		logger = zap.NewNop()
-	}
-	Logger = logger
 }

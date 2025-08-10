@@ -5,25 +5,23 @@ import (
 	"time"
 
 	"go.uber.org/zap"
-	"golang.org/x/crypto/ssh"
 )
 
-func startKeepAlive(client *ssh.Client, host string, interval time.Duration) {
+func (c *SSHClient) startKeepAlive(host string, interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	for range ticker.C {
-		err := sendKeepAlive(client, host)
-		if err != nil {
+		if err := c.sendKeepAlive(host); err != nil {
 			break
 		}
 	}
 }
 
-func sendKeepAlive(client *ssh.Client, host string) error {
-	_, _, err := client.SendRequest("keepalive@openssh.com", true, nil)
+func (c *SSHClient) sendKeepAlive(host string) error {
+	_, _, err := c.SendRequest("keepalive@openssh.com", true, nil)
 	if err != nil {
-		Logger.Warn("SSH keepalive failed", zap.String("host", host), zap.Error(err))
+		c.Logger.Warn("SSH keepalive failed", zap.String("host", host), zap.Error(err))
 		return err
 	}
 	return nil

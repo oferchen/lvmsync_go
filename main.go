@@ -102,12 +102,11 @@ func runLocalDump(snapshotDevice, originDevice, dest string) (err error) {
 	return executeDump(cfg, snapshotDevice, originDevice, limitedOut)
 }
 
-func setupSSHClient(destHost string) (*ssh.Client, error) {
-	client, err := newSSHClient(destHost, cfg.SSHUser, cfg.SSHKeyPath, cfg.SSHPort, cfg.KnownHosts, cfg.StrictHostKeyCheck, cfg.SSHTimeout, cfg.SSHKeepAliveInterval, cfg.MaxRetries)
+func setupSSHClient(destHost string) (*remote.SSHClient, error) {
+	client, err := newSSHClient(destHost, cfg.SSHUser, cfg.SSHKeyPath, cfg.SSHPort, cfg.KnownHosts, cfg.StrictHostKeyCheck, cfg.SSHTimeout, cfg.SSHKeepAliveInterval, cfg.MaxRetries, zap.L())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create SSH client: %w", err)
 	}
-	remote.SetLogger(zap.L())
 	return client, nil
 }
 
@@ -181,8 +180,8 @@ func waitForRemoteCompletion(session waitSession, stdoutErrCh, stderrErrCh <-cha
 }
 
 //nolint:revive // high-level orchestration inherently complex
-func executeRemoteCommand(client *ssh.Client, destDevice, snapshotDevice, originDevice string) (err error) {
-	if err = remote.ValidateRemoteCommand(client, cfg.LVMSyncPath); err != nil {
+func executeRemoteCommand(client *remote.SSHClient, destDevice, snapshotDevice, originDevice string) (err error) {
+	if err = client.ValidateRemoteCommand(cfg.LVMSyncPath); err != nil {
 		return fmt.Errorf("remote command validation failed: %w", err)
 	}
 
@@ -230,13 +229,13 @@ func runRemoteDump(snapshotDevice, originDevice, dest string) (err error) {
 	}()
 
 	if cfg.RemotePreScript != "" {
-		if err = remote.RunRemoteScript(client, cfg.RemotePreScript); err != nil {
+		if err = client.RunRemoteScript(cfg.RemotePreScript); err != nil {
 			return fmt.Errorf("remote pre-script failed: %w", err)
 		}
 	}
 	if cfg.RemotePostScript != "" {
 		defer func() {
-			if err2 := remote.RunRemoteScript(client, cfg.RemotePostScript); err2 != nil {
+			if err2 := client.RunRemoteScript(cfg.RemotePostScript); err2 != nil {
 				if err == nil {
 					err = fmt.Errorf("remote post-script failed: %w", err2)
 				} else {

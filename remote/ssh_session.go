@@ -14,7 +14,7 @@ import (
 )
 
 type SSHSession struct {
-	Client  *ssh.Client
+	Client  *SSHClient
 	Session *ssh.Session
 }
 
@@ -27,7 +27,7 @@ var multiplexer = &SSHMultiplexer{
 	sessions: make(map[string]*SSHSession),
 }
 
-func GetMultiplexedSession(client *ssh.Client, host string) (*SSHSession, error) {
+func GetMultiplexedSession(client *SSHClient, host string) (*SSHSession, error) {
 	multiplexer.mu.Lock()
 	defer multiplexer.mu.Unlock()
 
@@ -44,7 +44,7 @@ func GetMultiplexedSession(client *ssh.Client, host string) (*SSHSession, error)
 	return session, nil
 }
 
-func NewSSHSession(client *ssh.Client) (*SSHSession, error) {
+func NewSSHSession(client *SSHClient) (*SSHSession, error) {
 	session, err := client.NewSession()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create SSH session: %w", err)
@@ -65,11 +65,14 @@ func (s *SSHSession) Wait() error {
 
 func (s *SSHSession) Close() {
 	if err := s.Session.Close(); err != nil && !errors.Is(err, io.EOF) {
-		Logger.Warn("session close error", zap.Error(err))
+		s.Client.Logger.Warn("session close error", zap.Error(err))
 	}
 }
 
-func RunSSHCommand(host, user, keyPath, hostKeyPath string, port int, command string, timeout time.Duration) error {
+func RunSSHCommand(logger *zap.Logger, host, user, keyPath, hostKeyPath string, port int, command string, timeout time.Duration) error {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
 	publicKey, err := readHostPublicKey(hostKeyPath)
 	if err != nil {
 		return fmt.Errorf("failed to load host public key: %w", err)
@@ -87,13 +90,14 @@ func RunSSHCommand(host, user, keyPath, hostKeyPath string, port int, command st
 	if err != nil {
 		return fmt.Errorf("failed to establish SSH connection: %w", err)
 	}
+	sshClient := &SSHClient{Client: client, Logger: logger}
 	defer func() {
-		if closeErr := client.Close(); closeErr != nil {
-			Logger.Warn("client close error", zap.Error(closeErr))
+		if closeErr := sshClient.Close(); closeErr != nil {
+			logger.Warn("client close error", zap.Error(closeErr))
 		}
 	}()
 
-	session, err := NewSSHSession(client)
+	session, err := NewSSHSession(sshClient)
 	if err != nil {
 		return fmt.Errorf("failed to create SSH session: %w", err)
 	}
@@ -110,7 +114,7 @@ func RunSSHCommand(host, user, keyPath, hostKeyPath string, port int, command st
 		return fmt.Errorf("SSH command failed: %w", err)
 	}
 
-	Logger.Info("SSH command completed", zap.String("host", host), zap.String("command", command))
+	logger.Info("SSH command completed", zap.String("host", host), zap.String("command", command))
 	return nil
 }
 

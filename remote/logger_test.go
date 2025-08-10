@@ -3,6 +3,7 @@ package remote
 import (
 	"testing"
 
+	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
 
@@ -23,10 +24,10 @@ func TestRunRemoteScriptNoLogger(t *testing.T) {
 	}
 	defer client.Close() //nolint:errcheck
 
-	SetLogger(nil)
+	sshClient := &SSHClient{Client: client, Logger: zap.NewNop()}
 
 	script := "echo hi"
-	if scriptErr := RunRemoteScript(client, script); scriptErr != nil {
+	if scriptErr := sshClient.RunRemoteScript(script); scriptErr != nil {
 		t.Fatalf("RunRemoteScript error: %v", scriptErr)
 	}
 }
@@ -45,9 +46,9 @@ func TestSendKeepAliveNoLogger(t *testing.T) {
 	}
 	defer client.Close() //nolint:errcheck
 
-	SetLogger(nil)
+	sshClient := &SSHClient{Client: client, Logger: zap.NewNop()}
 
-	if keepErr := sendKeepAlive(client, "host"); keepErr != nil {
+	if keepErr := sshClient.sendKeepAlive("host"); keepErr != nil {
 		t.Fatalf("sendKeepAlive error: %v", keepErr)
 	}
 }

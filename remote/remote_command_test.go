@@ -8,7 +8,7 @@ import (
 )
 
 func TestValidateRemoteCommand(t *testing.T) {
-	_, client := newSSHServerClient(t, func(cmd string) int {
+	_, rawClient := newSSHServerClient(t, func(cmd string) int {
 		switch cmd {
 		case "echo --version":
 			return 0
@@ -19,24 +19,26 @@ func TestValidateRemoteCommand(t *testing.T) {
 		}
 	})
 
-	if err := ValidateRemoteCommand(client, "echo"); err != nil {
+	client := &SSHClient{Client: rawClient, Logger: zap.NewNop()}
+	if err := client.ValidateRemoteCommand("echo"); err != nil {
 		t.Fatalf("expected success, got %v", err)
 	}
-	if err := ValidateRemoteCommand(client, "nonexistent"); err == nil {
+	if err := client.ValidateRemoteCommand("nonexistent"); err == nil {
 		t.Fatalf("expected error for nonexistent command")
 	}
 }
 
 func TestRunRemoteScript(t *testing.T) {
-	server, client := newSSHServerClient(t, func(_ string) int { return 0 }) // cmd is unused
+	server, rawClient := newSSHServerClient(t, func(_ string) int { return 0 }) // cmd is unused
 
 	core, observed := observer.New(zap.InfoLevel)
 	logger := zap.New(core)
-	SetLogger(logger)
-	defer SetLogger(nil)
+	defer logger.Sync()
+
+	client := &SSHClient{Client: rawClient, Logger: logger}
 
 	script := "echo hi"
-	if err := RunRemoteScript(client, script); err != nil {
+	if err := client.RunRemoteScript(script); err != nil {
 		t.Fatalf("RunRemoteScript error: %v", err)
 	}
 

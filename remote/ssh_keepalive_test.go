@@ -4,13 +4,17 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/zap"
+
 	remotetest "lvmsync_go/remote/testutil"
 )
 
 func TestSendKeepAlive(t *testing.T) {
-	server, client := newSSHServerClient(t, func(_ string) int { return 0 }) // cmd is unused
+	server, rawClient := newSSHServerClient(t, func(_ string) int { return 0 }) // cmd is unused
 
-	if err := sendKeepAlive(client, "host"); err != nil {
+	client := &SSHClient{Client: rawClient, Logger: zap.NewNop()}
+
+	if err := client.sendKeepAlive("host"); err != nil {
 		t.Fatalf("sendKeepAlive error: %v", err)
 	}
 
@@ -21,11 +25,13 @@ func TestSendKeepAlive(t *testing.T) {
 }
 
 func TestStartKeepAlive(t *testing.T) {
-	server, client := newSSHServerClient(t, func(_ string) int { return 0 }) // cmd is unused
+	server, rawClient := newSSHServerClient(t, func(_ string) int { return 0 }) // cmd is unused
+
+	client := &SSHClient{Client: rawClient, Logger: zap.NewNop()}
 
 	done := make(chan struct{})
 	go func() {
-		startKeepAlive(client, "host", 10*time.Millisecond)
+		client.startKeepAlive("host", 10*time.Millisecond)
 		close(done)
 	}()
 
@@ -48,7 +54,7 @@ func TestStartKeepAlive(t *testing.T) {
 func TestNewSSHClient(t *testing.T) {
 	server, host, port, knownHosts := newSSHServer(t, func(_ string) int { return 0 }) // cmd is unused
 	keyPath := remotetest.CreateTempKey(t)
-	client, err := NewSSHClient(host, "test", keyPath, port, knownHosts, true, time.Second, 10*time.Millisecond, 0)
+	client, err := NewSSHClient(host, "test", keyPath, port, knownHosts, true, time.Second, 10*time.Millisecond, 0, zap.NewNop())
 	if err != nil {
 		t.Fatalf("NewSSHClient error: %v", err)
 	}
@@ -65,7 +71,7 @@ func TestNewSSHClient(t *testing.T) {
 func TestSSHManager(t *testing.T) {
 	server, host, port, knownHosts := newSSHServer(t, func(_ string) int { return 0 }) // cmd is unused
 	keyPath := remotetest.CreateTempKey(t)
-	mgr, err := NewSSHManager("test", keyPath, time.Second, knownHosts)
+	mgr, err := NewSSHManager("test", keyPath, time.Second, knownHosts, zap.NewNop())
 	if err != nil {
 		t.Fatalf("NewSSHManager error: %v", err)
 	}
