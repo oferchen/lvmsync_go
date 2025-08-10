@@ -13,7 +13,7 @@ LVMSync is a high-performance incremental data replication tool for LVM snapshot
 - **Compression**: Supports LZ4 and Zstd (with configurable compression levels and an auto mode based on CPU features).
 - **Checksum Verification**: Ensures data integrity using SHA-256 or BLAKE3.
 - **Native LVM2 Integration**: Uses Go bindings to `liblvm2cmd` instead of shelling out.
-- **Deduplication Strategies**: Detect unchanged blocks using checksum, rolling hash, or Bloom filter with persistent state.
+- **Deduplication Strategies**: Detect unchanged blocks using checksum, rolling hash, Bloom filter, or FastCDC content-defined chunking with optional hybrid mode.
 - **Remote Execution via SSH**: Replicates data over SSH with support for pre/post-scripts.
 - **Resume Support**: Ability to resume interrupted transfers.
 - **LVM Snapshot Management**:
@@ -381,12 +381,17 @@ The tool supports both local and remote transfers, as well as an "apply mode" fo
 
 #### Deduplication Options
 
-| Option               | Description                                                                                                      | Default            |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------ |
-| `--dedup_strategy`   | Deduplication strategy (`"none"`, `"auto"`, `"checksum"`, `"rolling_hash"`, or `"bloom"`); use `none` to disable | `"none"`           |
-| `--dedup_state_file` | Path to deduplication state file                                                                                 | `~/.lvmsync_dedup` |
-| `--bloom_entries`    | Estimated number of entries for bloom filter                                                                     | `1000000`          |
-| `--bloom_fp_rate`    | False positive rate for bloom filter                                                                             | `0.01`             |
+| Option               | Description                                                                                             | Default            |
+| -------------------- | ------------------------------------------------------------------------------------------------------- | ------------------ |
+| `--dedup`            | Deduplication mode ("fixed", "cdc", or "hybrid")                                                  | "fixed"          |
+| `--cdc_min`          | Minimum chunk size for CDC                                                                              | 4096             |
+| `--cdc_avg`          | Average chunk size for CDC                                                                              | 65536            |
+| `--cdc_max`          | Maximum chunk size for CDC                                                                              | 1048576          |
+| `--dedup_strategy`   | Deduplication strategy ("none", "auto", "checksum", "rolling_hash", or "bloom"); use `none` to disable | "none"           |
+| `--dedup_state_file` | Path to deduplication state file                                                                        | ~/.lvmsync_dedup |
+| `--bloom_entries`    | Estimated number of entries for bloom filter                                                            | 1000000          |
+| `--bloom_fp_rate`    | False positive rate for bloom filter                                                                    | 0.01             |
+| `--bloom_mbits`      | Size of Bloom filter bitmap in megabits (mmap index)                                                   | 0                |
 
 #### Compression Options
 
