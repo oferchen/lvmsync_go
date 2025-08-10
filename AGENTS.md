@@ -226,7 +226,7 @@ lvmsync --compress auto --zstd_level 2 --compress_threshold 0.85
 
  - [ ] Review CLI argument parsing: prefer `pflag`, bind flags to `viper`, and group related options into reusable `FlagSet`s. Further flag-binding audits remain for commands beyond `config` and `cmd/grpcd`.
 - [ ] Implement real transports for QUIC, HTTP/2, TCP+TLS, and SSH; replace placeholders with functional backends and tests.
-- [ ] Add privilege escalation (`privesc`) tests covering success and error paths.
+- [ ] Add privilege escalation (`privesc`) tests covering success and error paths (tests require root; skipped otherwise).
 - [ ] Expand coverage for configuration precedence across flags, environment variables, and config files.
 - [ ] Keep README configuration examples and precedence tests in sync.
  - [ ] Keep modules single-purpose; maintain the `transfer` package decomposition (`progress.go`, `handshake.go`, `block_writer.go`).

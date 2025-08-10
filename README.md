@@ -1062,6 +1062,8 @@ go test -coverprofile=coverage.out ./...
 go tool cover -func=coverage.out
 ```
 
+Some tests, such as those in `internal/privesc`, require root privileges and are skipped when run unprivileged.
+
 The workflow enforces a minimum of 50% total coverage.
 
 ## License
