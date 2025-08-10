@@ -43,6 +43,7 @@ var (
 	compressionFlags *pflag.FlagSet
 	lvmFlags         *pflag.FlagSet
 	grpcFlags        *pflag.FlagSet
+	transportFlags   *pflag.FlagSet
 )
 
 var getEuid = os.Geteuid
@@ -104,13 +105,15 @@ type Config struct {
 	CACert                string        `mapstructure:"ca_cert"`
 	AllowInsecure         bool          `mapstructure:"allow_insecure"`
 	SudoPath              string        `mapstructure:"sudo_path"`
-	TransportOrder        string        `mapstructure:"transport_order"`
-	ODirect               bool          `mapstructure:"odirect"`
-	SyncInterval          time.Duration `mapstructure:"sync_interval"`
+	Transport             string        `mapstructure:"transport"`
+	QUICListen            string        `mapstructure:"quic_listen"`
+	QUICConnect           string        `mapstructure:"quic_connect"`
+	TCPPort               int           `mapstructure:"tcp_port"`
+	H2Port                int           `mapstructure:"h2_port"`
+	SyncInterval          string        `mapstructure:"sync_interval"`
 	CheckpointInterval    time.Duration `mapstructure:"checkpoint_interval"`
 	QUICCongestionControl string        `mapstructure:"quic_cc"`
-	SyncIntervalBytes    int      `mapstructure:"-"`
-	AllowInsecure        bool     `mapstructure:"allow_insecure"`
+	SyncIntervalBytes     int           `mapstructure:"-"`
 }
 
 func FormatBlockSize(blockSize int) (string, error) {
@@ -178,6 +181,9 @@ func (b *Builder) applyDefaults(conf *Config) error {
 	if conf.SudoPath == "" {
 		conf.SudoPath = b.defaults.SudoPath
 	}
+	if conf.Transport == "" {
+		conf.Transport = b.defaults.Transport
+	}
 
 	bs, raw, err := b.parseBlockSize()
 	if err != nil {
@@ -216,8 +222,8 @@ func (b *Builder) applyDefaults(conf *Config) error {
 }
 
 func (b *Builder) applyThroughput(conf *Config) {
-	if conf.TransportOrder == "" {
-		conf.TransportOrder = "quic,h2,tcp+tls"
+	if conf.Transport == "" {
+		conf.Transport = "quic,h2,tcp+tls,ssh"
 	}
 	if !b.v.IsSet("parallel") {
 		conf.Parallel = 8
@@ -231,8 +237,8 @@ func (b *Builder) applyThroughput(conf *Config) {
 	if !b.v.IsSet("odirect") {
 		conf.ODirect = true
 	}
-	if conf.SyncInterval == 0 {
-		conf.SyncInterval = 10 * time.Minute
+	if conf.SyncInterval == "" {
+		conf.SyncInterval = "10MB"
 	}
 	if conf.CheckpointInterval == 0 {
 		conf.CheckpointInterval = 30 * time.Minute
@@ -385,14 +391,15 @@ func DefaultConfig() (*Config, error) {
 		CACert:                "",
 		AllowInsecure:         true,
 		SudoPath:              "/usr/bin/sudo",
-		TransportOrder:        "",
-		ODirect:               false,
-		SyncInterval:          0,
+		Transport:             "quic,h2,tcp+tls,ssh",
+		QUICListen:            "",
+		QUICConnect:           "",
+		TCPPort:               0,
+		H2Port:                0,
+		SyncInterval:          "1GB",
 		CheckpointInterval:    0,
 		QUICCongestionControl: "",
-		ODirect:              false,
-		SyncInterval:         "1GB",
-		SyncIntervalBytes:    1000000000,
+		SyncIntervalBytes:     1000000000,
 	}, nil
 }
 
@@ -414,7 +421,6 @@ func initGeneralFlags(cfg *Config) *pflag.FlagSet {
 	fs.Bool("verify_checksum", cfg.VerifyChecksum, "Enable checksum verification")
 	fs.String("checksum_algorithm", cfg.ChecksumAlgorithm, fmt.Sprintf("Checksum algorithm: %v", SupportedChecksumAlgorithms))
 	fs.Bool("progress", cfg.Progress, "Show progress during transfer")
-	fs.Bool("odirect", cfg.ODirect, "Use O_DIRECT for disk I/O")
 	return fs
 }
 
@@ -486,6 +492,16 @@ func initGRPCFlags(cfg *Config) *pflag.FlagSet {
 	return fs
 }
 
+func initTransportFlags(cfg *Config) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("Transport Options", pflag.ExitOnError)
+	fs.String("transport", cfg.Transport, "Ordered transports to try (e.g. 'quic,h2,tcp+tls,ssh')")
+	fs.String("quic_listen", cfg.QUICListen, "QUIC listen address")
+	fs.String("quic_connect", cfg.QUICConnect, "QUIC connect address")
+	fs.Int("tcp_port", cfg.TCPPort, "TCP+TLS port")
+	fs.Int("h2_port", cfg.H2Port, "HTTP/2 TLS port")
+	return fs
+}
+
 func initFlagSets(defaultCfg *Config) {
 	generalFlags = initGeneralFlags(defaultCfg)
 	sshFlags = initSSHFlags(defaultCfg)
@@ -494,6 +510,7 @@ func initFlagSets(defaultCfg *Config) {
 	compressionFlags = initCompressionFlags(defaultCfg)
 	lvmFlags = initLVMFlags(defaultCfg)
 	grpcFlags = initGRPCFlags(defaultCfg)
+	transportFlags = initTransportFlags(defaultCfg)
 }
 
 func printFlagSetUsage(out io.Writer, fs *pflag.FlagSet) {
@@ -516,6 +533,7 @@ func registerFlags(defaultCfg *Config) {
 		compressionFlags,
 		lvmFlags,
 		grpcFlags,
+		transportFlags,
 	}
 	for _, fs := range flagSets {
 		pflag.CommandLine.AddFlagSet(fs)

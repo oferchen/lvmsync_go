@@ -24,6 +24,7 @@ import (
 	grpcserver "lvmsync_go/grpc/server"
 	clientpkg "lvmsync_go/internal/client"
 	"lvmsync_go/internal/privesc"
+	"lvmsync_go/internal/transport"
 	"lvmsync_go/lvm"
 	"lvmsync_go/proto"
 	"lvmsync_go/remote"
@@ -302,6 +303,15 @@ func run() error {
 	}
 	defer syncLogger(logger)
 	defer lvm.Cleanup()
+
+	if cfg.Transport != "" {
+		order := strings.Split(cfg.Transport, ",")
+		_, _, name, err := transport.Select(cfg, order)
+		if err != nil {
+			return err
+		}
+		logger.Info("selected transport", zap.String("transport", name))
+	}
 
 	if cfg.GRPCListen != "" {
 		srvCfg := grpcserver.Config{TLSCert: cfg.TLSCert, TLSKey: cfg.TLSKey, CACert: cfg.CACert, AllowInsecure: cfg.AllowInsecure}

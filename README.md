@@ -89,10 +89,17 @@ Flags are grouped in the CLI help:
 - **Compression Options** – algorithm and level tuning.
 - **LVM Options** – snapshot management and privilege escalation.
 - **gRPC Options** – parameters for the optional gRPC daemon.
+- **Transport Options** – configure data transports (QUIC, HTTP/2, TCP+TLS, SSH).
 
 Internally, each group is set up through a dedicated helper such as
 `initGeneralFlags`, `initSSHFlags`, or `initCompressionFlags`, keeping flag
 definitions focused and easy to maintain.
+
+Example:
+
+```sh
+lvmsync --transport quic,h2,tcp+tls,ssh --quic-listen :9000 --tcp-port 9443
+```
 
 ### Modes
 
@@ -100,7 +107,7 @@ LVMSync exposes a `--mode` flag to apply preset configurations.
 
 - `default` – standard behavior.
 - `throughput` – tunes defaults for maximum throughput:
-  - transport order `quic,h2,tcp+tls`
+  - transport order `quic,h2,tcp+tls,ssh`
   - concurrency `8`
   - deduplication mode `hybrid`
   - compression `auto`

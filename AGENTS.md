@@ -71,6 +71,14 @@ Environment override:
 LVMSYNC_SOURCE=/dev/vg0/snap1
 ```
 
+## Transport Configuration
+
+Example usage selecting transports and ports:
+
+```sh
+lvmsync --transport quic,h2,tcp+tls,ssh --quic-connect host:9000 --tcp-port 9443
+```
+
 ## Control Plane Flow
 
 - Clients perform a handshake sending `sector_size`, `alignment`, `max_concurrency`, and dedup/compression support.
