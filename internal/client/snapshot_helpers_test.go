@@ -5,8 +5,9 @@ import (
 	"math"
 	"testing"
 
-	"go.uber.org/zap"
 	"lvmsync_go/config"
+
+	"go.uber.org/zap"
 )
 
 func TestCalculateSnapshotSize(t *testing.T) {
