@@ -1,20 +1,19 @@
-package main
+package client
 
 import (
 	"io"
 	"path/filepath"
 	"testing"
 
-	"lvmsync_go/config"
-	"lvmsync_go/transfer"
-
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
+
+	"lvmsync_go/config"
+	"lvmsync_go/transfer"
 )
 
-func TestRunClientModeLogsSaveStateError(t *testing.T) {
-	var err error
-	cfg, err = config.DefaultConfig()
+func TestRunLogsSaveStateError(t *testing.T) {
+	cfg, err := config.DefaultConfig()
 	if err != nil {
 		t.Fatalf("DefaultConfig returned error: %v", err)
 	}
@@ -32,11 +31,9 @@ func TestRunClientModeLogsSaveStateError(t *testing.T) {
 
 	core, observed := observer.New(zap.ErrorLevel)
 	logger := zap.New(core)
-	zap.ReplaceGlobals(logger)
-	defer zap.ReplaceGlobals(zap.NewNop())
 
-	if err := runClientMode("/dev/snap", ""); err != nil {
-		t.Fatalf("runClientMode returned error: %v", err)
+	if err := Run(cfg, "/dev/snap", "", logger); err != nil {
+		t.Fatalf("Run returned error: %v", err)
 	}
 
 	logs := observed.FilterMessage("Failed to save dedup state").All()

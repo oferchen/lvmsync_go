@@ -7,6 +7,8 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
+
+	"lvmsync_go/config"
 )
 
 type syncCheckCore struct {
@@ -22,7 +24,7 @@ func (c *syncCheckCore) Sync() error {
 func TestMainLogsStructuredError(t *testing.T) {
 	// stub run to force an error
 	oldRun := runFunc
-	runFunc = func() error { return errors.New("boom") }
+	runFunc = func(_ *config.Config, _ *zap.Logger) error { return errors.New("boom") }
 	defer func() { runFunc = oldRun }()
 
 	// capture exit code
@@ -34,8 +36,10 @@ func TestMainLogsStructuredError(t *testing.T) {
 	core, logs := observer.New(zap.ErrorLevel)
 	synced := false
 	logger := zap.New(&syncCheckCore{Core: core, synced: &synced})
-	zap.ReplaceGlobals(logger)
-	defer zap.ReplaceGlobals(zap.NewNop())
+
+	oldConfigure := configureFunc
+	configureFunc = func() (*config.Config, *zap.Logger, error) { return &config.Config{}, logger, nil }
+	defer func() { configureFunc = oldConfigure }()
 
 	main()
 

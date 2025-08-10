@@ -1,8 +1,10 @@
-package main
+package client
 
 import (
 	"io"
 	"testing"
+
+	"go.uber.org/zap"
 
 	"lvmsync_go/config"
 	"lvmsync_go/transfer"
@@ -24,7 +26,7 @@ func TestExecuteDumpSequential(t *testing.T) {
 	}
 	defer func() { dumpChangesSequential = original }()
 
-	if execErr := executeDump(cfg2, "snap", "orig", io.Discard); execErr != nil {
+	if execErr := ExecuteDump(cfg2, "snap", "orig", io.Discard, zap.NewNop()); execErr != nil {
 		t.Fatalf("executeDump returned error: %v", execErr)
 	}
 	if !called {
@@ -47,7 +49,7 @@ func TestExecuteDumpParallel(t *testing.T) {
 	}
 	defer func() { dumpChangesParallel = original }()
 
-	if execErr := executeDump(cfg2, "snap", "orig", io.Discard); execErr != nil {
+	if execErr := ExecuteDump(cfg2, "snap", "orig", io.Discard, zap.NewNop()); execErr != nil {
 		t.Fatalf("executeDump returned error: %v", execErr)
 	}
 	if !called {
@@ -73,7 +75,7 @@ func TestExecuteDumpWithDedup(t *testing.T) {
 	}
 	defer func() { dumpChangesWithDeduplication = original }()
 
-	if execErr := executeDump(cfg2, "snap", "orig", io.Discard); execErr != nil {
+	if execErr := ExecuteDump(cfg2, "snap", "orig", io.Discard, zap.NewNop()); execErr != nil {
 		t.Fatalf("executeDump returned error: %v", execErr)
 	}
 	if !called {

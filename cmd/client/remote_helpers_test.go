@@ -1,4 +1,4 @@
-package main
+package client
 
 import (
 	"errors"
@@ -14,8 +14,7 @@ import (
 )
 
 func TestSetupSSHClient(t *testing.T) {
-	var err error
-	cfg, err = config.DefaultConfig()
+	cfg, err := config.DefaultConfig()
 	if err != nil {
 		t.Fatalf("DefaultConfig returned error: %v", err)
 	}
@@ -32,9 +31,9 @@ func TestSetupSSHClient(t *testing.T) {
 		}
 		defer func() { newSSHClient = remote.NewSSHClient }()
 
-		client, err := setupSSHClient("dest")
+		client, err := SetupSSHClient(cfg, "dest", zap.NewNop())
 		if err != nil {
-			t.Fatalf("setupSSHClient returned error: %v", err)
+			t.Fatalf("SetupSSHClient returned error: %v", err)
 		}
 		if client != dummy {
 			t.Fatalf("expected dummy client")
@@ -50,7 +49,7 @@ func TestSetupSSHClient(t *testing.T) {
 		}
 		defer func() { newSSHClient = remote.NewSSHClient }()
 
-		_, err := setupSSHClient("dest")
+		_, err := SetupSSHClient(cfg, "dest", zap.NewNop())
 		if err == nil || !strings.Contains(err.Error(), "failed to create SSH client") {
 			t.Fatalf("expected wrapped error, got %v", err)
 		}
@@ -119,7 +118,7 @@ func TestSetupSessionStreamsPipeErrors(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			_, _, _, err := setupSessionStreams(tc.sess)
+			_, _, _, err := SetupSessionStreams(tc.sess)
 			if err == nil || !strings.Contains(err.Error(), tc.want) {
 				t.Fatalf("expected %s error, got %v", tc.want, err)
 			}
@@ -135,8 +134,7 @@ type mockWriteCloser struct {
 func (m *mockWriteCloser) Close() error { return m.closeErr }
 
 func TestStreamToRemote(t *testing.T) {
-	var err error
-	cfg, err = config.DefaultConfig()
+	cfg, err := config.DefaultConfig()
 	if err != nil {
 		t.Fatalf("DefaultConfig returned error: %v", err)
 	}
@@ -162,7 +160,7 @@ func TestStreamToRemote(t *testing.T) {
 				return tc.dumpErr
 			}
 			remoteStdin := &mockWriteCloser{Writer: io.Discard, closeErr: tc.closeErr}
-			err := streamToRemote(remoteStdin, "snap", "origin")
+			err := StreamToRemote(cfg, remoteStdin, "snap", "origin", zap.NewNop())
 			if tc.dumpErr == nil && tc.closeErr == nil {
 				if err != nil {
 					t.Fatalf("expected nil error, got %v", err)
@@ -216,7 +214,7 @@ func TestWaitForRemoteCompletion(t *testing.T) {
 			} else {
 				stderrCh <- nil
 			}
-			err := waitForRemoteCompletion(&mockWaitSession{err: tc.waitErr}, stdoutCh, stderrCh)
+			err := WaitForRemoteCompletion(&mockWaitSession{err: tc.waitErr}, stdoutCh, stderrCh)
 			if tc.want == "" {
 				if err != nil {
 					t.Fatalf("expected nil, got %v", err)

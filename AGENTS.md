@@ -220,7 +220,9 @@ lvmsync --compress auto --zstd_level 2 --compress_threshold 0.85
 - [ ] Maintain tests for buffer alignment, hole punching, and NUMA pinning.
 - [ ] Enforce modular, single-responsibility design across packages.
 - [ ] Document each new CLI flag, environment variable, and configuration option in `README.md`.
-- [ ] Refactor `main.go` into smaller modules.
+- [x] Refactor `main.go` into smaller modules.
+- `cmd/client` handles snapshot dumping and transport selection, receiving configuration and loggers explicitly.
+- `cmd/apply` streams incoming data to destination devices and also accepts explicit configuration and loggers.
 - [ ] Verify configuration precedence.
 - [ ] Document feature changes in `README.md`.
 - [ ] Implement full transport registry with working QUIC, HTTP/2, TCP+TLS, and SSH backends and accompanying tests.

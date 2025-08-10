@@ -1,4 +1,4 @@
-package main
+package client
 
 import (
 	"io"
@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"go.uber.org/zap"
 
 	"lvmsync_go/config"
 	remotetest "lvmsync_go/remote/testutil"
@@ -35,7 +37,7 @@ func TestRunRemoteDump(t *testing.T) {
 		t.Fatalf("Atoi: %v", err)
 	}
 
-	cfg, err = config.DefaultConfig()
+	cfg, err := config.DefaultConfig()
 	if err != nil {
 		t.Fatalf("DefaultConfig returned error: %v", err)
 	}
@@ -57,7 +59,7 @@ func TestRunRemoteDump(t *testing.T) {
 	defer func() { dumpChangesSequential = origDump }()
 
 	dest := host + ":/dev/null"
-	if err := runRemoteDump("snap", "origin", dest); err != nil {
+	if err := RunRemoteDump(cfg, "snap", "origin", dest, zap.NewNop()); err != nil {
 		t.Fatalf("runRemoteDump returned error: %v", err)
 	}
 
@@ -92,7 +94,7 @@ func TestRunRemoteDumpError(t *testing.T) {
 		t.Fatalf("Atoi: %v", err)
 	}
 
-	cfg, err = config.DefaultConfig()
+	cfg, err := config.DefaultConfig()
 	if err != nil {
 		t.Fatalf("DefaultConfig returned error: %v", err)
 	}
@@ -111,7 +113,7 @@ func TestRunRemoteDumpError(t *testing.T) {
 	defer func() { dumpChangesSequential = origDump }()
 
 	dest := host + ":/dev/null"
-	err = runRemoteDump("snap", "origin", dest)
+	err = RunRemoteDump(cfg, "snap", "origin", dest, zap.NewNop())
 	if err == nil || !strings.Contains(err.Error(), "remote command error") {
 		t.Fatalf("expected remote command error, got %v", err)
 	}
