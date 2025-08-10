@@ -125,6 +125,7 @@ lvmsync --compress auto --zstd_level 2 --compress_threshold 0.85
 - Dedup strategies should expose pure functions and persist state deterministically.
 - Provide tests for Bloom filter sizing and CDC window boundaries.
 - Document tunables `--cdc-min`, `--cdc-avg`, `--cdc-max`, and `--bloom-mbits`.
+- Verify configuration precedence (flags > env vars > config file) and handle invalid YAML or value parse errors.
 
 ### Compression
 
@@ -224,6 +225,8 @@ lvmsync --compress auto --zstd_level 2 --compress_threshold 0.85
 - `cmd/client` handles snapshot dumping and transport selection, receiving configuration and loggers explicitly.
 - `cmd/apply` streams incoming data to destination devices and also accepts explicit configuration and loggers.
 - [ ] Verify configuration precedence.
+- [ ] Maintain tests for dedup configuration precedence and error paths (invalid YAML, parse errors).
+- [ ] Keep README dedup configuration options in sync with code.
 - [ ] Document feature changes in `README.md`.
 - [x] Implement full transport registry with working QUIC, HTTP/2, TCP+TLS, and SSH backends and accompanying tests.
 - [x] Finalize hybrid deduplication and document CDC tuning knobs.
