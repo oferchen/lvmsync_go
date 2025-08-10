@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -28,12 +29,12 @@ func (f *fakeListener) Close() error              { return nil }
 func (f *fakeListener) Addr() net.Addr            { return &net.TCPAddr{} }
 
 type fakeServer struct {
-	served  bool
-	stopped bool
+	served  atomic.Bool
+	stopped atomic.Bool
 }
 
-func (f *fakeServer) Serve(net.Listener) error { f.served = true; return nil }
-func (f *fakeServer) GracefulStop()            { f.stopped = true }
+func (f *fakeServer) Serve(net.Listener) error { f.served.Store(true); return nil }
+func (f *fakeServer) GracefulStop()            { f.stopped.Store(true) }
 
 func TestStartGRPCServerSuccess(t *testing.T) {
 	cfg := &config.Config{GRPCListen: "127.0.0.1:0"}
@@ -50,11 +51,11 @@ func TestStartGRPCServerSuccess(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	time.Sleep(10 * time.Millisecond)
-	if !srv.served {
+	if !srv.served.Load() {
 		t.Fatalf("server not started")
 	}
 	cleanup()
-	if !srv.stopped {
+	if !srv.stopped.Load() {
 		t.Fatalf("server not stopped")
 	}
 }
