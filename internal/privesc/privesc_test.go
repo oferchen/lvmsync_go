@@ -25,6 +25,9 @@ func dropPriv(t *testing.T) func() {
 }
 
 func TestEnsureRootAlreadyRoot(t *testing.T) {
+	if os.Geteuid() != 0 {
+		t.Skip("test requires root")
+	}
 	called := false
 	err := EnsureRoot("sudo -n", func(argv0 string, argv []string, envv []string) error {
 		called = true
