@@ -9,7 +9,7 @@ import (
 func TestCLIFlagsOverrideEnvAndConfig(t *testing.T) {
 	cfgPath := writeTempConfig(t, "parallel: 1\n")
 	resetFlags([]string{"--config", cfgPath, "--parallel", "3"})
-	t.Setenv("LVMSYNC.PARALLEL", "2")
+	t.Setenv("LVMSYNC_PARALLEL", "2")
 
 	defaults, err := DefaultConfig()
 	if err != nil {
@@ -35,7 +35,7 @@ func TestCLIFlagsOverrideEnvAndConfig(t *testing.T) {
 func TestEnvOverridesConfig(t *testing.T) {
 	cfgPath := writeTempConfig(t, "parallel: 1\n")
 	resetFlags([]string{"--config", cfgPath})
-	t.Setenv("LVMSYNC.PARALLEL", "2")
+	t.Setenv("LVMSYNC_PARALLEL", "2")
 
 	defaults, err := DefaultConfig()
 	if err != nil {

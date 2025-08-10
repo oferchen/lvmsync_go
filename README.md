@@ -835,6 +835,26 @@ volume_group: vg_data
 
 `lvmsync-grpcd` accepts configuration via flags, environment variables prefixed with `LVMSYNC_GRPC_`, or a YAML file. Values are resolved in the following order: flags override environment variables, which override the config file.
 
+| Flag | Environment variable | Config key | Description |
+|------|----------------------|------------|-------------|
+| `--grpc-port` | `LVMSYNC_GRPC_GRPC_PORT` | `grpc-port` | gRPC port to listen on |
+| `--tls-cert` | `LVMSYNC_GRPC_TLS_CERT` | `tls-cert` | TLS certificate file |
+| `--tls-key` | `LVMSYNC_GRPC_TLS_KEY` | `tls-key` | TLS key file |
+| `--ca-cert` | `LVMSYNC_GRPC_CA_CERT` | `ca-cert` | CA certificate file |
+| `--allow-insecure` | `LVMSYNC_GRPC_ALLOW_INSECURE` | `allow-insecure` | Allow insecure (no TLS) |
+| `--config` | `LVMSYNC_GRPC_CONFIG` | `config` | Path to config YAML file |
+
+Precedence example:
+
+```sh
+cat >grpcd.yaml <<'EOF'
+grpc-port: 1111
+EOF
+export LVMSYNC_GRPC_GRPC_PORT=2222
+lvmsync-grpcd --config grpcd.yaml --grpc-port 3333
+# effective port: 3333
+```
+
 CLI:
 
 ```sh
