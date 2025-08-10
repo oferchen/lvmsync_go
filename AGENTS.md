@@ -92,6 +92,11 @@ Example configuration:
 lvmsync --compress auto --zstd_level 2 --compress_threshold 0.85
 ```
 
+## Performance Libraries
+
+- Prefer CPU-accelerated implementations such as `github.com/zeebo/blake3` for hashing and `github.com/klauspost/compress` for Zstd and LZ4 compression.
+- Choose libraries that leverage vector instructions when available to maximize throughput.
+
 ## Control Plane Flow
 
 - Clients perform a handshake sending `sector_size`, `alignment`, `max_concurrency`, and dedup/compression support.
@@ -169,6 +174,7 @@ lvmsync --compress auto --zstd_level 2 --compress_threshold 0.85
 - [ ] Track decomposition of large files like `transfer/transfer.go`.
 - [ ] Ensure progress logging uses `zap` exclusively.
 - [ ] Add a dedicated unit test for every new function.
+- [ ] Maintain tests for compression detection, ensuring benchmark and cache logic remain correct.
 - [ ] Enforce modular, single-responsibility design across packages.
 - [ ] Document each new CLI flag, environment variable, and configuration option in `README.md`.
 - [ ] Refactor `main.go` into smaller modules.

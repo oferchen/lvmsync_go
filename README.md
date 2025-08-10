@@ -703,6 +703,8 @@ Decouple modules by injecting dependencies through interfaces or constructor par
 
 Every change should include unit tests. Run `go test -cover ./...` to ensure coverage remains high and regressions are caught early.
 
+Compression detection uses benchmark-driven selection between LZ4 and Zstd and now includes dedicated tests verifying algorithm choice and cache resets.
+
 ## Development
 
 ### Development Setup
