@@ -2,6 +2,8 @@ package server
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -48,6 +50,7 @@ func New(conf Config, a lvmagent.Agent) (*grpc.Server, error) {
 			ClientAuth:   tls.RequireAndVerifyClientCert,
 			ClientCAs:    pool,
 			MinVersion:   tls.VersionTLS13,
+			MaxVersion:   tls.VersionTLS13,
 		}
 		opts = append(opts, grpc.Creds(credentials.NewTLS(tlsCfg)))
 	}
@@ -150,7 +153,17 @@ func (s *replicationServer) ExchangeCapabilities(_ context.Context, caps *proto.
 }
 
 func (s *replicationServer) CreateSession(_ context.Context, req *proto.SessionRequest) (*proto.SessionResponse, error) {
-	return &proto.SessionResponse{SessionId: req.GetVolumeName() + "-session"}, nil
+	sessionID := req.GetVolumeName() + "-session"
+	seed := make([]byte, 32)
+	if _, err := rand.Read(seed); err != nil {
+		return nil, err
+	}
+	h := sha256.New()
+	h.Write([]byte(sessionID))
+	h.Write([]byte(req.GetDeviceUuid()))
+	h.Write(seed)
+	psk := h.Sum(nil)
+	return &proto.SessionResponse{SessionId: sessionID, Psk: psk}, nil
 }
 
 func (s *replicationServer) SendResumeBitmap(stream proto.Replication_SendResumeBitmapServer) error {

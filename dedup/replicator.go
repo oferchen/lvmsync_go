@@ -1,6 +1,10 @@
 package dedup
 
-import "io"
+import (
+	"io"
+
+	"go.uber.org/zap"
+)
 
 // Replicator wires together the chunker, hasher and Bloom filter into a
 // forward-only streaming pipeline. Unique chunks are written to the
@@ -43,5 +47,6 @@ func (r *Replicator) Process(src io.Reader) (Manifest, error) {
 			break
 		}
 	}
+	r.Manifest.AuditLog(zap.L())
 	return *r.Manifest, nil
 }

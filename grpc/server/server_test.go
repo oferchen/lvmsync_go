@@ -380,9 +380,12 @@ func TestHandshakeSession(t *testing.T) {
 	if len(caps.GetCapabilities()) != 1 || caps.GetCapabilities()[0] != "cap" {
 		t.Fatalf("unexpected caps %v", caps.GetCapabilities())
 	}
-	sess, err := client.CreateSession(ctx, &proto.SessionRequest{VolumeName: "vol"})
+	sess, err := client.CreateSession(ctx, &proto.SessionRequest{VolumeName: "vol", DeviceUuid: "dev"})
 	if err != nil {
 		t.Fatalf("CreateSession: %v", err)
+	}
+	if len(sess.GetPsk()) == 0 {
+		t.Fatalf("expected psk in session response")
 	}
 	bmp, err := client.SendResumeBitmap(ctx)
 	if err != nil {
