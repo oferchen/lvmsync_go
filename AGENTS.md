@@ -231,7 +231,8 @@ lvmsync --compress auto --zstd_level 2 --compress_threshold 0.85
 - [ ] Keep transport documentation and configuration references (flags and env vars) up to date.
 - [ ] Track decomposition of large files like `transfer/transfer.go`.
 - [ ] Ensure progress logging uses `zap` exclusively.
- - [ ] Ensure every function has a dedicated unit test.
+- [ ] Ensure every new function has a dedicated unit test.
+- [ ] Run `go build ./...` and `go test ./...` before merging changes.
 - [ ] Maintain tests for compression detection, ensuring benchmark and cache logic remain correct.
 - [ ] Maintain tests for buffer alignment, hole punching, and NUMA pinning.
 - [ ] Enforce modular, single-responsibility design across packages.
