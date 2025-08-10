@@ -54,7 +54,7 @@ func iterateBlocks(cfg *config.Config, ranges []Range, srcFile *os.File, bufOut 
 			binary.BigEndian.PutUint32(header[8:12], 0)
 			if _, err := bufOut.Write(header[:]); err != nil {
 				putBlockBuffer(data)
-				return totalBytes, skippedBlocks, fmt.Errorf("failed to write header: %w", err)
+				return totalBytes, skippedBlocks, manifest, fmt.Errorf("failed to write header: %w", err)
 			}
 			putBlockBuffer(data)
 			totalBytes += int64(blockSize)

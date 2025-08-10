@@ -543,3 +543,16 @@ func TestTLSFileValidation(t *testing.T) {
 		}
 	})
 }
+
+func TestDefaultCDCTunables(t *testing.T) {
+	cfg, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig returned error: %v", err)
+	}
+	if cfg.CDCMin != 4*1024 || cfg.CDCAvg != 64*1024 || cfg.CDCMax != 1*1024*1024 {
+		t.Fatalf("unexpected CDC defaults %d/%d/%d", cfg.CDCMin, cfg.CDCAvg, cfg.CDCMax)
+	}
+	if cfg.BloomMBits != 0 {
+		t.Fatalf("expected bloom mbits 0, got %d", cfg.BloomMBits)
+	}
+}

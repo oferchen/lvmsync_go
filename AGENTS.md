@@ -111,6 +111,7 @@ lvmsync --transport quic,h2,tcp+tls,ssh --quic-connect host:9000 --tcp-port 9443
 
 - Document every CLI flag, environment variable, and configuration option in `README.md`.
 - Update examples and default values to match new options.
+- Deduplication modes (`fixed`, `cdc`, `hybrid`) expose tunables `--cdc-min`, `--cdc-avg`, `--cdc-max`, and Bloom filter sizing with `--bloom-mbits`.
 
 ## Release Workflow
 
