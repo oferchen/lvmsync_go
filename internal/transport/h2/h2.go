@@ -21,15 +21,6 @@ import (
 	"lvmsync_go/internal/transport"
 )
 
-var logger = zap.NewNop()
-
-// SetLogger assigns the package-wide logger for H2 transport.
-func SetLogger(l *zap.Logger) {
-	if l != nil {
-		logger = l
-	}
-}
-
 func init() {
 	transport.Register("h2", New)
 }
@@ -94,10 +85,10 @@ func (r *h2Receiver) Receive(ctx context.Context, w io.Writer) error {
 		n, err := io.Copy(w, req.Body)
 		req.Body.Close()
 		if err != nil {
-			r.logger.Error("h2 receive error", zap.Error(err), zap.Int64("bytes_transferred", n))
+			r.logger.Error("h2 receive error", zap.String("remote_addr", req.RemoteAddr), zap.Error(err), zap.Int64("bytes_transferred", n))
 			http.Error(res, err.Error(), http.StatusInternalServerError)
 		} else {
-			r.logger.Info("h2 stream closed", zap.Int64("bytes_transferred", n))
+			r.logger.Info("h2 stream closed", zap.String("remote_addr", req.RemoteAddr), zap.Int64("bytes_transferred", n))
 			res.WriteHeader(http.StatusOK)
 		}
 		close(done)
@@ -135,7 +126,7 @@ func (r *h2Receiver) Close() error {
 }
 
 // New initializes an HTTP/2 sender and receiver bound to cfg.H2Port.
-func New(cfg *config.Config) (transport.Sender, transport.Receiver, error) {
+func New(cfg *config.Config, logger *zap.Logger) (transport.Sender, transport.Receiver, error) {
 	cert, err := generateCert()
 	if err != nil {
 		return nil, nil, fmt.Errorf("generate cert: %w", err)

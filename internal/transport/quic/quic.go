@@ -169,4 +169,11 @@ func generateCert() (tls.Certificate, error) {
 	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
 	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)})
 	return tls.X509KeyPair(certPEM, keyPEM)
+
+// New returns no-op QUIC transport implementations.
+func New(cfg *config.Config, logger *zap.Logger) (transport.Sender, transport.Receiver, error) {
+	_ = logger
+	var _ quic.VersionNumber
+	return transport.NopSender{}, transport.NopReceiver{}, nil
+
 }
