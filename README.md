@@ -211,6 +211,14 @@ because flags override environment variables, which override the config file.
 | `--allow_insecure` | `LVMSYNC_ALLOW_INSECURE` | `allow_insecure` | Allow insecure (no TLS) |
 | `--sudo_path` | `LVMSYNC_SUDO_PATH` | `sudo_path` | Path to sudo executable |
 
+### Control Plane Flow
+
+1. **Handshake** – clients advertise `sector_size`, `alignment`, `max_concurrency`, and whether deduplication and compression are supported.
+2. **Session Creation** – the client sends an ephemeral certificate and receives a session ID, server certificate, and pre-shared key.
+3. **Resume Bitmap** – dirty block bitmaps are streamed with the session ID to resume interrupted transfers.
+4. **Ack/Ping Stream** – a bidirectional stream of `Ack` messages per session provides keep-alives and progress confirmation.
+5. **Finalization** – the client requests completion using the session ID when replication is done.
+
 ### `config.yaml` example
 
 ```yaml

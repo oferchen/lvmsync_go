@@ -3,12 +3,16 @@ package server
 import (
 	"context"
 	"crypto/rand"
+	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"fmt"
 	"io"
+	"math/big"
 	"os"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -148,11 +152,17 @@ func (s *replicationServer) Ping(_ context.Context, _ *proto.Empty) (*proto.Stat
 	return &proto.StatusResponse{Ok: true, Message: "pong"}, nil
 }
 
-func (s *replicationServer) ExchangeCapabilities(_ context.Context, caps *proto.CapabilitySet) (*proto.CapabilitySet, error) {
-	return caps, nil
+func (s *replicationServer) Handshake(_ context.Context, req *proto.HandshakeRequest) (*proto.HandshakeResponse, error) {
+	if req.GetSectorSize() == 0 || req.GetAlignment() == 0 {
+		return nil, status.Error(codes.InvalidArgument, "missing handshake parameters")
+	}
+	return &proto.HandshakeResponse{Ok: true, Message: "handshake ok"}, nil
 }
 
 func (s *replicationServer) CreateSession(_ context.Context, req *proto.SessionRequest) (*proto.SessionResponse, error) {
+	if _, err := x509.ParseCertificate(req.GetClientCert()); err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid client cert")
+	}
 	sessionID := req.GetVolumeName() + "-session"
 	seed := make([]byte, 32)
 	if _, err := rand.Read(seed); err != nil {
@@ -163,7 +173,16 @@ func (s *replicationServer) CreateSession(_ context.Context, req *proto.SessionR
 	h.Write([]byte(req.GetDeviceUuid()))
 	h.Write(seed)
 	psk := h.Sum(nil)
-	return &proto.SessionResponse{SessionId: sessionID, Psk: psk}, nil
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return nil, err
+	}
+	tmpl := &x509.Certificate{SerialNumber: big.NewInt(time.Now().UnixNano()), Subject: pkix.Name{CommonName: sessionID}, NotBefore: time.Now(), NotAfter: time.Now().Add(time.Hour)}
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
+	if err != nil {
+		return nil, err
+	}
+	return &proto.SessionResponse{SessionId: sessionID, Psk: psk, ServerCert: der}, nil
 }
 
 func (s *replicationServer) SendResumeBitmap(stream proto.Replication_SendResumeBitmapServer) error {
@@ -178,7 +197,7 @@ func (s *replicationServer) SendResumeBitmap(stream proto.Replication_SendResume
 	}
 }
 
-func (s *replicationServer) Finalize(_ context.Context, req *proto.SessionResponse) (*proto.StatusResponse, error) {
+func (s *replicationServer) Finalize(_ context.Context, req *proto.FinalizeRequest) (*proto.StatusResponse, error) {
 	return &proto.StatusResponse{Ok: true, Message: "finalized " + req.GetSessionId()}, nil
 }
 

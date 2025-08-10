@@ -26,7 +26,7 @@ const (
 	Replication_FinalizeSync_FullMethodName         = "/replication.Replication/FinalizeSync"
 	Replication_GetStatus_FullMethodName            = "/replication.Replication/GetStatus"
 	Replication_Ping_FullMethodName                 = "/replication.Replication/Ping"
-	Replication_ExchangeCapabilities_FullMethodName = "/replication.Replication/ExchangeCapabilities"
+	Replication_Handshake_FullMethodName            = "/replication.Replication/Handshake"
 	Replication_CreateSession_FullMethodName        = "/replication.Replication/CreateSession"
 	Replication_SendResumeBitmap_FullMethodName     = "/replication.Replication/SendResumeBitmap"
 	Replication_Finalize_FullMethodName             = "/replication.Replication/Finalize"
@@ -44,11 +44,11 @@ type ReplicationClient interface {
 	FinalizeSync(ctx context.Context, in *LockRequest, opts ...grpc.CallOption) (*StatusResponse, error)
 	GetStatus(ctx context.Context, in *LockRequest, opts ...grpc.CallOption) (*StatusResponse, error)
 	Ping(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*StatusResponse, error)
-	ExchangeCapabilities(ctx context.Context, in *CapabilitySet, opts ...grpc.CallOption) (*CapabilitySet, error)
+	Handshake(ctx context.Context, in *HandshakeRequest, opts ...grpc.CallOption) (*HandshakeResponse, error)
 	CreateSession(ctx context.Context, in *SessionRequest, opts ...grpc.CallOption) (*SessionResponse, error)
 	SendResumeBitmap(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[ResumeBitmap, StatusResponse], error)
-	Finalize(ctx context.Context, in *SessionResponse, opts ...grpc.CallOption) (*StatusResponse, error)
-	AckStream(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[StatusResponse, StatusResponse], error)
+	Finalize(ctx context.Context, in *FinalizeRequest, opts ...grpc.CallOption) (*StatusResponse, error)
+	AckStream(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[Ack, Ack], error)
 }
 
 type replicationClient struct {
@@ -129,10 +129,10 @@ func (c *replicationClient) Ping(ctx context.Context, in *Empty, opts ...grpc.Ca
 	return out, nil
 }
 
-func (c *replicationClient) ExchangeCapabilities(ctx context.Context, in *CapabilitySet, opts ...grpc.CallOption) (*CapabilitySet, error) {
+func (c *replicationClient) Handshake(ctx context.Context, in *HandshakeRequest, opts ...grpc.CallOption) (*HandshakeResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(CapabilitySet)
-	err := c.cc.Invoke(ctx, Replication_ExchangeCapabilities_FullMethodName, in, out, cOpts...)
+	out := new(HandshakeResponse)
+	err := c.cc.Invoke(ctx, Replication_Handshake_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -162,7 +162,7 @@ func (c *replicationClient) SendResumeBitmap(ctx context.Context, opts ...grpc.C
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type Replication_SendResumeBitmapClient = grpc.ClientStreamingClient[ResumeBitmap, StatusResponse]
 
-func (c *replicationClient) Finalize(ctx context.Context, in *SessionResponse, opts ...grpc.CallOption) (*StatusResponse, error) {
+func (c *replicationClient) Finalize(ctx context.Context, in *FinalizeRequest, opts ...grpc.CallOption) (*StatusResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(StatusResponse)
 	err := c.cc.Invoke(ctx, Replication_Finalize_FullMethodName, in, out, cOpts...)
@@ -172,18 +172,18 @@ func (c *replicationClient) Finalize(ctx context.Context, in *SessionResponse, o
 	return out, nil
 }
 
-func (c *replicationClient) AckStream(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[StatusResponse, StatusResponse], error) {
+func (c *replicationClient) AckStream(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[Ack, Ack], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	stream, err := c.cc.NewStream(ctx, &Replication_ServiceDesc.Streams[1], Replication_AckStream_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &grpc.GenericClientStream[StatusResponse, StatusResponse]{ClientStream: stream}
+	x := &grpc.GenericClientStream[Ack, Ack]{ClientStream: stream}
 	return x, nil
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type Replication_AckStreamClient = grpc.BidiStreamingClient[StatusResponse, StatusResponse]
+type Replication_AckStreamClient = grpc.BidiStreamingClient[Ack, Ack]
 
 // ReplicationServer is the server API for Replication service.
 // All implementations must embed UnimplementedReplicationServer
@@ -196,11 +196,11 @@ type ReplicationServer interface {
 	FinalizeSync(context.Context, *LockRequest) (*StatusResponse, error)
 	GetStatus(context.Context, *LockRequest) (*StatusResponse, error)
 	Ping(context.Context, *Empty) (*StatusResponse, error)
-	ExchangeCapabilities(context.Context, *CapabilitySet) (*CapabilitySet, error)
+	Handshake(context.Context, *HandshakeRequest) (*HandshakeResponse, error)
 	CreateSession(context.Context, *SessionRequest) (*SessionResponse, error)
 	SendResumeBitmap(grpc.ClientStreamingServer[ResumeBitmap, StatusResponse]) error
-	Finalize(context.Context, *SessionResponse) (*StatusResponse, error)
-	AckStream(grpc.BidiStreamingServer[StatusResponse, StatusResponse]) error
+	Finalize(context.Context, *FinalizeRequest) (*StatusResponse, error)
+	AckStream(grpc.BidiStreamingServer[Ack, Ack]) error
 	mustEmbedUnimplementedReplicationServer()
 }
 
@@ -232,8 +232,8 @@ func (UnimplementedReplicationServer) GetStatus(context.Context, *LockRequest) (
 func (UnimplementedReplicationServer) Ping(context.Context, *Empty) (*StatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Ping not implemented")
 }
-func (UnimplementedReplicationServer) ExchangeCapabilities(context.Context, *CapabilitySet) (*CapabilitySet, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ExchangeCapabilities not implemented")
+func (UnimplementedReplicationServer) Handshake(context.Context, *HandshakeRequest) (*HandshakeResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Handshake not implemented")
 }
 func (UnimplementedReplicationServer) CreateSession(context.Context, *SessionRequest) (*SessionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateSession not implemented")
@@ -241,10 +241,10 @@ func (UnimplementedReplicationServer) CreateSession(context.Context, *SessionReq
 func (UnimplementedReplicationServer) SendResumeBitmap(grpc.ClientStreamingServer[ResumeBitmap, StatusResponse]) error {
 	return status.Errorf(codes.Unimplemented, "method SendResumeBitmap not implemented")
 }
-func (UnimplementedReplicationServer) Finalize(context.Context, *SessionResponse) (*StatusResponse, error) {
+func (UnimplementedReplicationServer) Finalize(context.Context, *FinalizeRequest) (*StatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Finalize not implemented")
 }
-func (UnimplementedReplicationServer) AckStream(grpc.BidiStreamingServer[StatusResponse, StatusResponse]) error {
+func (UnimplementedReplicationServer) AckStream(grpc.BidiStreamingServer[Ack, Ack]) error {
 	return status.Errorf(codes.Unimplemented, "method AckStream not implemented")
 }
 func (UnimplementedReplicationServer) mustEmbedUnimplementedReplicationServer() {}
@@ -394,20 +394,20 @@ func _Replication_Ping_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Replication_ExchangeCapabilities_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CapabilitySet)
+func _Replication_Handshake_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HandshakeRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ReplicationServer).ExchangeCapabilities(ctx, in)
+		return srv.(ReplicationServer).Handshake(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Replication_ExchangeCapabilities_FullMethodName,
+		FullMethod: Replication_Handshake_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ReplicationServer).ExchangeCapabilities(ctx, req.(*CapabilitySet))
+		return srv.(ReplicationServer).Handshake(ctx, req.(*HandshakeRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -438,7 +438,7 @@ func _Replication_SendResumeBitmap_Handler(srv interface{}, stream grpc.ServerSt
 type Replication_SendResumeBitmapServer = grpc.ClientStreamingServer[ResumeBitmap, StatusResponse]
 
 func _Replication_Finalize_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SessionResponse)
+	in := new(FinalizeRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -450,17 +450,17 @@ func _Replication_Finalize_Handler(srv interface{}, ctx context.Context, dec fun
 		FullMethod: Replication_Finalize_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ReplicationServer).Finalize(ctx, req.(*SessionResponse))
+		return srv.(ReplicationServer).Finalize(ctx, req.(*FinalizeRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _Replication_AckStream_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(ReplicationServer).AckStream(&grpc.GenericServerStream[StatusResponse, StatusResponse]{ServerStream: stream})
+	return srv.(ReplicationServer).AckStream(&grpc.GenericServerStream[Ack, Ack]{ServerStream: stream})
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type Replication_AckStreamServer = grpc.BidiStreamingServer[StatusResponse, StatusResponse]
+type Replication_AckStreamServer = grpc.BidiStreamingServer[Ack, Ack]
 
 // Replication_ServiceDesc is the grpc.ServiceDesc for Replication service.
 // It's only intended for direct use with grpc.RegisterService,
@@ -498,8 +498,8 @@ var Replication_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Replication_Ping_Handler,
 		},
 		{
-			MethodName: "ExchangeCapabilities",
-			Handler:    _Replication_ExchangeCapabilities_Handler,
+			MethodName: "Handshake",
+			Handler:    _Replication_Handshake_Handler,
 		},
 		{
 			MethodName: "CreateSession",

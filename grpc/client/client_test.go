@@ -2,8 +2,14 @@ package client
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"math/big"
 	"net"
 	"testing"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -44,21 +50,35 @@ func TestHandshakeAndAck(t *testing.T) {
 	client, cleanup := setupClient(t)
 	defer cleanup()
 	ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs("role", "replicator"))
-	caps, err := Handshake(ctx, client, []string{"foo"})
-	if err != nil {
+	if _, err := Handshake(ctx, client, &proto.HandshakeRequest{SectorSize: 512, Alignment: 512, MaxConcurrency: 1}); err != nil {
 		t.Fatalf("Handshake: %v", err)
 	}
-	if len(caps) != 1 || caps[0] != "foo" {
-		t.Fatalf("unexpected caps %v", caps)
+	sess, err := client.CreateSession(ctx, &proto.SessionRequest{VolumeName: "vol", DeviceUuid: "dev", ClientCert: dummyCert(t)})
+	if err != nil {
+		t.Fatalf("CreateSession: %v", err)
 	}
-	stream, err := AckStream(ctx, client)
+	stream, err := AckStream(ctx, client, sess.GetSessionId())
 	if err != nil {
 		t.Fatalf("AckStream: %v", err)
 	}
-	if err := stream.Send(&proto.StatusResponse{Ok: true, Message: "ping"}); err != nil {
+	if err := stream.Send(&proto.Ack{SessionId: sess.GetSessionId(), Ok: true, Message: "ping"}); err != nil {
 		t.Fatalf("send: %v", err)
 	}
 	if _, err := stream.Recv(); err != nil {
 		t.Fatalf("recv: %v", err)
 	}
+}
+
+func dummyCert(t *testing.T) []byte {
+	t.Helper()
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("GenerateKey: %v", err)
+	}
+	tmpl := &x509.Certificate{SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: "test"}, NotBefore: time.Now(), NotAfter: time.Now().Add(time.Hour)}
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
+	if err != nil {
+		t.Fatalf("CreateCertificate: %v", err)
+	}
+	return der
 }

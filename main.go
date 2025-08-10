@@ -332,24 +332,30 @@ func run() error {
 			return fmt.Errorf("gRPC dial: %w", err)
 		}
 		c := proto.NewReplicationClient(conn)
-		if _, err := grpcclient.Handshake(context.Background(), c, []string{"lvmsync"}); err != nil {
+		hs := &proto.HandshakeRequest{SectorSize: 512, Alignment: 512, MaxConcurrency: uint32(cfg.Parallel), DedupSupported: true, CompressionSupported: true}
+		if _, err := grpcclient.Handshake(context.Background(), c, hs); err != nil {
 			conn.Close()
 			return fmt.Errorf("handshake failed: %w", err)
 		}
-		stream, err := grpcclient.AckStream(context.Background(), c)
+		sess, err := grpcclient.CreateSession(context.Background(), c, "vol", "dev")
+		if err != nil {
+			conn.Close()
+			return fmt.Errorf("create session: %w", err)
+		}
+		stream, err := grpcclient.AckStream(context.Background(), c, sess.GetSessionId())
 		if err != nil {
 			conn.Close()
 			return fmt.Errorf("ack stream: %w", err)
 		}
-		go func() {
+		go func(id string) {
 			ticker := time.NewTicker(30 * time.Second)
 			defer ticker.Stop()
 			for range ticker.C {
-				if err := stream.Send(&proto.StatusResponse{Ok: true, Message: "ping"}); err != nil {
+				if err := stream.Send(&proto.Ack{SessionId: id, Ok: true, Message: "ping"}); err != nil {
 					return
 				}
 			}
-		}()
+		}(sess.GetSessionId())
 		defer stream.CloseSend()
 		defer conn.Close()
 	}

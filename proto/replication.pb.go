@@ -221,27 +221,31 @@ func (*Empty) Descriptor() ([]byte, []int) {
 	return file_proto_replication_proto_rawDescGZIP(), []int{3}
 }
 
-type CapabilitySet struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Capabilities  []string               `protobuf:"bytes,1,rep,name=capabilities,proto3" json:"capabilities,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+type HandshakeRequest struct {
+	state                protoimpl.MessageState `protogen:"open.v1"`
+	SectorSize           uint32                 `protobuf:"varint,1,opt,name=sector_size,json=sectorSize,proto3" json:"sector_size,omitempty"`
+	Alignment            uint32                 `protobuf:"varint,2,opt,name=alignment,proto3" json:"alignment,omitempty"`
+	MaxConcurrency       uint32                 `protobuf:"varint,3,opt,name=max_concurrency,json=maxConcurrency,proto3" json:"max_concurrency,omitempty"`
+	DedupSupported       bool                   `protobuf:"varint,4,opt,name=dedup_supported,json=dedupSupported,proto3" json:"dedup_supported,omitempty"`
+	CompressionSupported bool                   `protobuf:"varint,5,opt,name=compression_supported,json=compressionSupported,proto3" json:"compression_supported,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
-func (x *CapabilitySet) Reset() {
-	*x = CapabilitySet{}
+func (x *HandshakeRequest) Reset() {
+	*x = HandshakeRequest{}
 	mi := &file_proto_replication_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *CapabilitySet) String() string {
+func (x *HandshakeRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*CapabilitySet) ProtoMessage() {}
+func (*HandshakeRequest) ProtoMessage() {}
 
-func (x *CapabilitySet) ProtoReflect() protoreflect.Message {
+func (x *HandshakeRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_proto_replication_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -253,29 +257,110 @@ func (x *CapabilitySet) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use CapabilitySet.ProtoReflect.Descriptor instead.
-func (*CapabilitySet) Descriptor() ([]byte, []int) {
+// Deprecated: Use HandshakeRequest.ProtoReflect.Descriptor instead.
+func (*HandshakeRequest) Descriptor() ([]byte, []int) {
 	return file_proto_replication_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *CapabilitySet) GetCapabilities() []string {
+func (x *HandshakeRequest) GetSectorSize() uint32 {
 	if x != nil {
-		return x.Capabilities
+		return x.SectorSize
 	}
-	return nil
+	return 0
+}
+
+func (x *HandshakeRequest) GetAlignment() uint32 {
+	if x != nil {
+		return x.Alignment
+	}
+	return 0
+}
+
+func (x *HandshakeRequest) GetMaxConcurrency() uint32 {
+	if x != nil {
+		return x.MaxConcurrency
+	}
+	return 0
+}
+
+func (x *HandshakeRequest) GetDedupSupported() bool {
+	if x != nil {
+		return x.DedupSupported
+	}
+	return false
+}
+
+func (x *HandshakeRequest) GetCompressionSupported() bool {
+	if x != nil {
+		return x.CompressionSupported
+	}
+	return false
+}
+
+type HandshakeResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Ok            bool                   `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HandshakeResponse) Reset() {
+	*x = HandshakeResponse{}
+	mi := &file_proto_replication_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HandshakeResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HandshakeResponse) ProtoMessage() {}
+
+func (x *HandshakeResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_replication_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HandshakeResponse.ProtoReflect.Descriptor instead.
+func (*HandshakeResponse) Descriptor() ([]byte, []int) {
+	return file_proto_replication_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *HandshakeResponse) GetOk() bool {
+	if x != nil {
+		return x.Ok
+	}
+	return false
+}
+
+func (x *HandshakeResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
 }
 
 type SessionRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	VolumeName    string                 `protobuf:"bytes,1,opt,name=volume_name,json=volumeName,proto3" json:"volume_name,omitempty"`
 	DeviceUuid    string                 `protobuf:"bytes,2,opt,name=device_uuid,json=deviceUuid,proto3" json:"device_uuid,omitempty"`
+	ClientCert    []byte                 `protobuf:"bytes,3,opt,name=client_cert,json=clientCert,proto3" json:"client_cert,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SessionRequest) Reset() {
 	*x = SessionRequest{}
-	mi := &file_proto_replication_proto_msgTypes[5]
+	mi := &file_proto_replication_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -287,7 +372,7 @@ func (x *SessionRequest) String() string {
 func (*SessionRequest) ProtoMessage() {}
 
 func (x *SessionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_replication_proto_msgTypes[5]
+	mi := &file_proto_replication_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -300,7 +385,7 @@ func (x *SessionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SessionRequest.ProtoReflect.Descriptor instead.
 func (*SessionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_replication_proto_rawDescGZIP(), []int{5}
+	return file_proto_replication_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *SessionRequest) GetVolumeName() string {
@@ -317,17 +402,25 @@ func (x *SessionRequest) GetDeviceUuid() string {
 	return ""
 }
 
+func (x *SessionRequest) GetClientCert() []byte {
+	if x != nil {
+		return x.ClientCert
+	}
+	return nil
+}
+
 type SessionResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	SessionId     string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
 	Psk           []byte                 `protobuf:"bytes,2,opt,name=psk,proto3" json:"psk,omitempty"`
+	ServerCert    []byte                 `protobuf:"bytes,3,opt,name=server_cert,json=serverCert,proto3" json:"server_cert,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SessionResponse) Reset() {
 	*x = SessionResponse{}
-	mi := &file_proto_replication_proto_msgTypes[6]
+	mi := &file_proto_replication_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -339,7 +432,7 @@ func (x *SessionResponse) String() string {
 func (*SessionResponse) ProtoMessage() {}
 
 func (x *SessionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_replication_proto_msgTypes[6]
+	mi := &file_proto_replication_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -352,7 +445,7 @@ func (x *SessionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SessionResponse.ProtoReflect.Descriptor instead.
 func (*SessionResponse) Descriptor() ([]byte, []int) {
-	return file_proto_replication_proto_rawDescGZIP(), []int{6}
+	return file_proto_replication_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *SessionResponse) GetSessionId() string {
@@ -369,16 +462,24 @@ func (x *SessionResponse) GetPsk() []byte {
 	return nil
 }
 
+func (x *SessionResponse) GetServerCert() []byte {
+	if x != nil {
+		return x.ServerCert
+	}
+	return nil
+}
+
 type ResumeBitmap struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Bitmap        []byte                 `protobuf:"bytes,1,opt,name=bitmap,proto3" json:"bitmap,omitempty"`
+	SessionId     string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	Bitmap        []byte                 `protobuf:"bytes,2,opt,name=bitmap,proto3" json:"bitmap,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ResumeBitmap) Reset() {
 	*x = ResumeBitmap{}
-	mi := &file_proto_replication_proto_msgTypes[7]
+	mi := &file_proto_replication_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -390,7 +491,7 @@ func (x *ResumeBitmap) String() string {
 func (*ResumeBitmap) ProtoMessage() {}
 
 func (x *ResumeBitmap) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_replication_proto_msgTypes[7]
+	mi := &file_proto_replication_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -403,7 +504,14 @@ func (x *ResumeBitmap) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResumeBitmap.ProtoReflect.Descriptor instead.
 func (*ResumeBitmap) Descriptor() ([]byte, []int) {
-	return file_proto_replication_proto_rawDescGZIP(), []int{7}
+	return file_proto_replication_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *ResumeBitmap) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
 }
 
 func (x *ResumeBitmap) GetBitmap() []byte {
@@ -411,6 +519,110 @@ func (x *ResumeBitmap) GetBitmap() []byte {
 		return x.Bitmap
 	}
 	return nil
+}
+
+type FinalizeRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SessionId     string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FinalizeRequest) Reset() {
+	*x = FinalizeRequest{}
+	mi := &file_proto_replication_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FinalizeRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FinalizeRequest) ProtoMessage() {}
+
+func (x *FinalizeRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_replication_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FinalizeRequest.ProtoReflect.Descriptor instead.
+func (*FinalizeRequest) Descriptor() ([]byte, []int) {
+	return file_proto_replication_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *FinalizeRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+type Ack struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SessionId     string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	Ok            bool                   `protobuf:"varint,2,opt,name=ok,proto3" json:"ok,omitempty"`
+	Message       string                 `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Ack) Reset() {
+	*x = Ack{}
+	mi := &file_proto_replication_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Ack) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Ack) ProtoMessage() {}
+
+func (x *Ack) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_replication_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Ack.ProtoReflect.Descriptor instead.
+func (*Ack) Descriptor() ([]byte, []int) {
+	return file_proto_replication_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *Ack) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *Ack) GetOk() bool {
+	if x != nil {
+		return x.Ok
+	}
+	return false
+}
+
+func (x *Ack) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
 }
 
 var File_proto_replication_proto protoreflect.FileDescriptor
@@ -432,20 +644,42 @@ const file_proto_replication_proto_rawDesc = "" +
 	"\x0eStatusResponse\x12\x0e\n" +
 	"\x02ok\x18\x01 \x01(\bR\x02ok\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\"\a\n" +
-	"\x05Empty\"3\n" +
-	"\rCapabilitySet\x12\"\n" +
-	"\fcapabilities\x18\x01 \x03(\tR\fcapabilities\"R\n" +
+	"\x05Empty\"\xd8\x01\n" +
+	"\x10HandshakeRequest\x12\x1f\n" +
+	"\vsector_size\x18\x01 \x01(\rR\n" +
+	"sectorSize\x12\x1c\n" +
+	"\talignment\x18\x02 \x01(\rR\talignment\x12'\n" +
+	"\x0fmax_concurrency\x18\x03 \x01(\rR\x0emaxConcurrency\x12'\n" +
+	"\x0fdedup_supported\x18\x04 \x01(\bR\x0ededupSupported\x123\n" +
+	"\x15compression_supported\x18\x05 \x01(\bR\x14compressionSupported\"=\n" +
+	"\x11HandshakeResponse\x12\x0e\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"s\n" +
 	"\x0eSessionRequest\x12\x1f\n" +
 	"\vvolume_name\x18\x01 \x01(\tR\n" +
 	"volumeName\x12\x1f\n" +
 	"\vdevice_uuid\x18\x02 \x01(\tR\n" +
-	"deviceUuid\"B\n" +
+	"deviceUuid\x12\x1f\n" +
+	"\vclient_cert\x18\x03 \x01(\fR\n" +
+	"clientCert\"c\n" +
 	"\x0fSessionResponse\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x10\n" +
-	"\x03psk\x18\x02 \x01(\fR\x03psk\"&\n" +
-	"\fResumeBitmap\x12\x16\n" +
-	"\x06bitmap\x18\x01 \x01(\fR\x06bitmap2\xfd\x06\n" +
+	"\x03psk\x18\x02 \x01(\fR\x03psk\x12\x1f\n" +
+	"\vserver_cert\x18\x03 \x01(\fR\n" +
+	"serverCert\"E\n" +
+	"\fResumeBitmap\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x16\n" +
+	"\x06bitmap\x18\x02 \x01(\fR\x06bitmap\"0\n" +
+	"\x0fFinalizeRequest\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\"N\n" +
+	"\x03Ack\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x0e\n" +
+	"\x02ok\x18\x02 \x01(\bR\x02ok\x12\x18\n" +
+	"\amessage\x18\x03 \x01(\tR\amessage2\xe3\x06\n" +
 	"\vReplication\x12C\n" +
 	"\n" +
 	"LockVolume\x12\x18.replication.LockRequest\x1a\x1b.replication.StatusResponse\x12J\n" +
@@ -454,12 +688,12 @@ const file_proto_replication_proto_rawDesc = "" +
 	"\x14StartTransferSession\x12\x18.replication.LockRequest\x1a\x1b.replication.StatusResponse\x12E\n" +
 	"\fFinalizeSync\x12\x18.replication.LockRequest\x1a\x1b.replication.StatusResponse\x12B\n" +
 	"\tGetStatus\x12\x18.replication.LockRequest\x1a\x1b.replication.StatusResponse\x127\n" +
-	"\x04Ping\x12\x12.replication.Empty\x1a\x1b.replication.StatusResponse\x12N\n" +
-	"\x14ExchangeCapabilities\x12\x1a.replication.CapabilitySet\x1a\x1a.replication.CapabilitySet\x12J\n" +
+	"\x04Ping\x12\x12.replication.Empty\x1a\x1b.replication.StatusResponse\x12J\n" +
+	"\tHandshake\x12\x1d.replication.HandshakeRequest\x1a\x1e.replication.HandshakeResponse\x12J\n" +
 	"\rCreateSession\x12\x1b.replication.SessionRequest\x1a\x1c.replication.SessionResponse\x12L\n" +
 	"\x10SendResumeBitmap\x12\x19.replication.ResumeBitmap\x1a\x1b.replication.StatusResponse(\x01\x12E\n" +
-	"\bFinalize\x12\x1c.replication.SessionResponse\x1a\x1b.replication.StatusResponse\x12I\n" +
-	"\tAckStream\x12\x1b.replication.StatusResponse\x1a\x1b.replication.StatusResponse(\x010\x01B\x18Z\x16lvmsync_go/proto;protob\x06proto3"
+	"\bFinalize\x12\x1c.replication.FinalizeRequest\x1a\x1b.replication.StatusResponse\x123\n" +
+	"\tAckStream\x12\x10.replication.Ack\x1a\x10.replication.Ack(\x010\x01B\x18Z\x16lvmsync_go/proto;protob\x06proto3"
 
 var (
 	file_proto_replication_proto_rawDescOnce sync.Once
@@ -473,16 +707,19 @@ func file_proto_replication_proto_rawDescGZIP() []byte {
 	return file_proto_replication_proto_rawDescData
 }
 
-var file_proto_replication_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_proto_replication_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_proto_replication_proto_goTypes = []any{
-	(*VolumeMetadata)(nil),  // 0: replication.VolumeMetadata
-	(*LockRequest)(nil),     // 1: replication.LockRequest
-	(*StatusResponse)(nil),  // 2: replication.StatusResponse
-	(*Empty)(nil),           // 3: replication.Empty
-	(*CapabilitySet)(nil),   // 4: replication.CapabilitySet
-	(*SessionRequest)(nil),  // 5: replication.SessionRequest
-	(*SessionResponse)(nil), // 6: replication.SessionResponse
-	(*ResumeBitmap)(nil),    // 7: replication.ResumeBitmap
+	(*VolumeMetadata)(nil),    // 0: replication.VolumeMetadata
+	(*LockRequest)(nil),       // 1: replication.LockRequest
+	(*StatusResponse)(nil),    // 2: replication.StatusResponse
+	(*Empty)(nil),             // 3: replication.Empty
+	(*HandshakeRequest)(nil),  // 4: replication.HandshakeRequest
+	(*HandshakeResponse)(nil), // 5: replication.HandshakeResponse
+	(*SessionRequest)(nil),    // 6: replication.SessionRequest
+	(*SessionResponse)(nil),   // 7: replication.SessionResponse
+	(*ResumeBitmap)(nil),      // 8: replication.ResumeBitmap
+	(*FinalizeRequest)(nil),   // 9: replication.FinalizeRequest
+	(*Ack)(nil),               // 10: replication.Ack
 }
 var file_proto_replication_proto_depIdxs = []int32{
 	1,  // 0: replication.Replication.LockVolume:input_type -> replication.LockRequest
@@ -492,11 +729,11 @@ var file_proto_replication_proto_depIdxs = []int32{
 	1,  // 4: replication.Replication.FinalizeSync:input_type -> replication.LockRequest
 	1,  // 5: replication.Replication.GetStatus:input_type -> replication.LockRequest
 	3,  // 6: replication.Replication.Ping:input_type -> replication.Empty
-	4,  // 7: replication.Replication.ExchangeCapabilities:input_type -> replication.CapabilitySet
-	5,  // 8: replication.Replication.CreateSession:input_type -> replication.SessionRequest
-	7,  // 9: replication.Replication.SendResumeBitmap:input_type -> replication.ResumeBitmap
-	6,  // 10: replication.Replication.Finalize:input_type -> replication.SessionResponse
-	2,  // 11: replication.Replication.AckStream:input_type -> replication.StatusResponse
+	4,  // 7: replication.Replication.Handshake:input_type -> replication.HandshakeRequest
+	6,  // 8: replication.Replication.CreateSession:input_type -> replication.SessionRequest
+	8,  // 9: replication.Replication.SendResumeBitmap:input_type -> replication.ResumeBitmap
+	9,  // 10: replication.Replication.Finalize:input_type -> replication.FinalizeRequest
+	10, // 11: replication.Replication.AckStream:input_type -> replication.Ack
 	2,  // 12: replication.Replication.LockVolume:output_type -> replication.StatusResponse
 	0,  // 13: replication.Replication.GetVolumeMetadata:output_type -> replication.VolumeMetadata
 	2,  // 14: replication.Replication.SendVolumeMetadata:output_type -> replication.StatusResponse
@@ -504,11 +741,11 @@ var file_proto_replication_proto_depIdxs = []int32{
 	2,  // 16: replication.Replication.FinalizeSync:output_type -> replication.StatusResponse
 	2,  // 17: replication.Replication.GetStatus:output_type -> replication.StatusResponse
 	2,  // 18: replication.Replication.Ping:output_type -> replication.StatusResponse
-	4,  // 19: replication.Replication.ExchangeCapabilities:output_type -> replication.CapabilitySet
-	6,  // 20: replication.Replication.CreateSession:output_type -> replication.SessionResponse
+	5,  // 19: replication.Replication.Handshake:output_type -> replication.HandshakeResponse
+	7,  // 20: replication.Replication.CreateSession:output_type -> replication.SessionResponse
 	2,  // 21: replication.Replication.SendResumeBitmap:output_type -> replication.StatusResponse
 	2,  // 22: replication.Replication.Finalize:output_type -> replication.StatusResponse
-	2,  // 23: replication.Replication.AckStream:output_type -> replication.StatusResponse
+	10, // 23: replication.Replication.AckStream:output_type -> replication.Ack
 	12, // [12:24] is the sub-list for method output_type
 	0,  // [0:12] is the sub-list for method input_type
 	0,  // [0:0] is the sub-list for extension type_name
@@ -527,7 +764,7 @@ func file_proto_replication_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_replication_proto_rawDesc), len(file_proto_replication_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   8,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

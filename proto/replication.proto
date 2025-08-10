@@ -20,25 +20,44 @@ message StatusResponse {
   string message = 2;
 }
 
-message Empty {
+message Empty {}
+
+message HandshakeRequest {
+  uint32 sector_size = 1;
+  uint32 alignment = 2;
+  uint32 max_concurrency = 3;
+  bool dedup_supported = 4;
+  bool compression_supported = 5;
 }
 
-message CapabilitySet {
-  repeated string capabilities = 1;
+message HandshakeResponse {
+  bool ok = 1;
+  string message = 2;
 }
 
 message SessionRequest {
   string volume_name = 1;
   string device_uuid = 2;
+  bytes client_cert = 3;
 }
 
 message SessionResponse {
   string session_id = 1;
   bytes psk = 2;
+  bytes server_cert = 3;
 }
 
 message ResumeBitmap {
-  bytes bitmap = 1;
+  string session_id = 1;
+  bytes bitmap = 2;
+}
+
+message FinalizeRequest { string session_id = 1; }
+
+message Ack {
+  string session_id = 1;
+  bool ok = 2;
+  string message = 3;
 }
 
 service Replication {
@@ -49,9 +68,9 @@ service Replication {
   rpc FinalizeSync(LockRequest) returns (StatusResponse);
   rpc GetStatus(LockRequest) returns (StatusResponse);
   rpc Ping(Empty) returns (StatusResponse);
-  rpc ExchangeCapabilities(CapabilitySet) returns (CapabilitySet);
+  rpc Handshake(HandshakeRequest) returns (HandshakeResponse);
   rpc CreateSession(SessionRequest) returns (SessionResponse);
   rpc SendResumeBitmap(stream ResumeBitmap) returns (StatusResponse);
-  rpc Finalize(SessionResponse) returns (StatusResponse);
-  rpc AckStream(stream StatusResponse) returns (stream StatusResponse);
+  rpc Finalize(FinalizeRequest) returns (StatusResponse);
+  rpc AckStream(stream Ack) returns (stream Ack);
 }
