@@ -1,4 +1,4 @@
-package main
+package client
 
 import (
 	"io"
@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"go.uber.org/zap"
 
 	"lvmsync_go/config"
 	remotetest "lvmsync_go/remote/testutil"
@@ -25,8 +27,7 @@ func TestRemotePostScriptRunsOnError(t *testing.T) {
 		t.Fatalf("Atoi: %v", err)
 	}
 
-	var cfgErr error
-	cfg, cfgErr = config.DefaultConfig()
+	cfg, cfgErr := config.DefaultConfig()
 	if cfgErr != nil {
 		t.Fatalf("DefaultConfig returned error: %v", cfgErr)
 	}
@@ -46,7 +47,7 @@ func TestRemotePostScriptRunsOnError(t *testing.T) {
 	defer func() { dumpChangesSequential = original }()
 
 	dest := host + ":/dev/null"
-	err = runClientMode("/dev/snap", dest)
+	err = Run(cfg, "/dev/snap", dest, zap.NewNop())
 	if err == nil || !strings.Contains(err.Error(), "dumpChanges") {
 		t.Fatalf("expected dumpChanges error, got %v", err)
 	}
@@ -79,8 +80,7 @@ func TestRemotePostScriptNotRunIfPreScriptFails(t *testing.T) {
 		t.Fatalf("Atoi: %v", err)
 	}
 
-	var cfgErr error
-	cfg, cfgErr = config.DefaultConfig()
+	cfg, cfgErr := config.DefaultConfig()
 	if cfgErr != nil {
 		t.Fatalf("DefaultConfig returned error: %v", cfgErr)
 	}
@@ -94,7 +94,7 @@ func TestRemotePostScriptNotRunIfPreScriptFails(t *testing.T) {
 	cfg.LVMSyncPath = "lvmsync"
 
 	dest := host + ":/dev/null"
-	err = runClientMode("/dev/snap", dest)
+	err = Run(cfg, "/dev/snap", dest, zap.NewNop())
 	if err == nil {
 		t.Fatalf("expected error from pre-script")
 	}

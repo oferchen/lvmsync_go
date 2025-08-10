@@ -1,16 +1,17 @@
-package main
+package client
 
 import (
 	"io"
 	"os"
 	"testing"
 
+	"go.uber.org/zap"
+
 	"lvmsync_go/config"
 )
 
-func TestRunClientModeStdout(t *testing.T) {
-	var err error
-	cfg, err = config.DefaultConfig()
+func TestRunStdout(t *testing.T) {
+	cfg, err := config.DefaultConfig()
 	if err != nil {
 		t.Fatalf("DefaultConfig returned error: %v", err)
 	}
@@ -35,8 +36,8 @@ func TestRunClientModeStdout(t *testing.T) {
 	oldStdout := os.Stdout
 	os.Stdout = w
 
-	if err = runClientMode("/dev/snap", ""); err != nil {
-		t.Fatalf("runClientMode returned error: %v", err)
+	if err = Run(cfg, "/dev/snap", "", zap.NewNop()); err != nil {
+		t.Fatalf("Run returned error: %v", err)
 	}
 
 	w.Close()

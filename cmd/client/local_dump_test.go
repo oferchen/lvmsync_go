@@ -1,4 +1,4 @@
-package main
+package client
 
 import (
 	"errors"
@@ -6,12 +6,13 @@ import (
 	"os"
 	"testing"
 
+	"go.uber.org/zap"
+
 	"lvmsync_go/config"
 )
 
 func TestRunLocalDumpSuccess(t *testing.T) {
-	var err error
-	cfg, err = config.DefaultConfig()
+	cfg, err := config.DefaultConfig()
 	if err != nil {
 		t.Fatalf("DefaultConfig returned error: %v", err)
 	}
@@ -41,7 +42,7 @@ func TestRunLocalDumpSuccess(t *testing.T) {
 	}
 	defer func() { dumpChangesSequential = originalDump }()
 
-	if err := runLocalDump("snap", "orig", "/fake/dest"); err != nil {
+	if err := RunLocalDump(cfg, "snap", "orig", "/fake/dest", zap.NewNop()); err != nil {
 		t.Fatalf("runLocalDump returned error: %v", err)
 	}
 	if !openCalled {
@@ -53,8 +54,7 @@ func TestRunLocalDumpSuccess(t *testing.T) {
 }
 
 func TestRunLocalDumpOpenError(t *testing.T) {
-	var err error
-	cfg, err = config.DefaultConfig()
+	cfg, err := config.DefaultConfig()
 	if err != nil {
 		t.Fatalf("DefaultConfig returned error: %v", err)
 	}
@@ -72,7 +72,7 @@ func TestRunLocalDumpOpenError(t *testing.T) {
 	}
 	defer func() { dumpChangesSequential = originalDump }()
 
-	if err := runLocalDump("snap", "orig", "/fake/dest"); err == nil {
+	if err := RunLocalDump(cfg, "snap", "orig", "/fake/dest", zap.NewNop()); err == nil {
 		t.Fatalf("expected error, got nil")
 	}
 }
