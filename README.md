@@ -53,7 +53,8 @@ LVMSync is organized into modular packages to keep concerns separated:
 - `grpc` – provides the gRPC server and authentication helpers used by the remote daemon.
 - `common` and `internal` – shared helpers and internal utilities such as multi-error handling.
 - `internal/client` – coordinates snapshot preparation and client transfer execution.
-- `cmd/client` – handles snapshot dumping and transport selection.
+- `cmd/dump` – handles snapshot dumping and transport selection.
+- `cmd/root` – configures the application and routes to subcommands.
 - `cmd/apply` – applies streamed data to destination devices.
 - `cmd/lvmsync` – CLI orchestrator with a `signals` subpackage for signal handling and cleanup.
 - `cmd/grpcd` – standalone gRPC daemon exposing LVMSync operations remotely.
@@ -64,7 +65,7 @@ This structure allows individual packages to be developed and tested in isolatio
 
 - Snapshot preparation helpers (`ensureVolumeGroups`, `checkDiskSpaceForSnapshot`, `createSnapshotIfNeeded`, `PrepareSnapshot`) and client execution logic are consolidated under `internal/client`.
 - These helpers no longer rely on global variables; configuration and loggers are passed explicitly.
-- `main.go` now orchestrates operations through the `cmd/client` and `cmd/apply` packages.
+- `main.go` now delegates to `cmd/root`, which wires together `cmd/dump` and `cmd/apply`.
 
 ## Logging
 
