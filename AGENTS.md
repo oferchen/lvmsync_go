@@ -169,6 +169,9 @@ lvmsync --compress auto --zstd_level 2 --compress_threshold 0.85
 - Where external commands would normally execute, inject test hooks (e.g.,
   `privesc.EnsureRoot` accepts an `exec` function) to stub side effects during
   tests.
+- The snapshot monitoring goroutine closes its error channel on exit; cleanup
+  must only cancel monitoring. `TestCreateSnapshotCleanupNoPanic` verifies this
+  behavior.
 
 ## Modularity and Single Responsibility
 

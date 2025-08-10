@@ -150,6 +150,7 @@ func createSnapshotIfNeeded(cfg *config.Config, originalVolume string, snapshotB
 
 	monitorCtx, cancel := context.WithCancel(context.Background())
 	go func() {
+		defer close(monitorErrCh)
 		if err := monitorSnapshot(monitorCtx, snapshotPath, 80.0, 10*time.Second); err != nil && err != context.Canceled {
 			logger.Error("Snapshot monitor error", zap.Error(err))
 			select {
@@ -161,9 +162,6 @@ func createSnapshotIfNeeded(cfg *config.Config, originalVolume string, snapshotB
 
 	cleanup = func() {
 		cancel()
-		if monitorErrCh != nil {
-			close(monitorErrCh)
-		}
 		if err := removeSnapshot(context.Background(), snapshotPath); err != nil {
 			logger.Warn("Failed to remove snapshot", zap.Error(err))
 		} else {
