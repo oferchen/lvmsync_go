@@ -57,7 +57,8 @@ jobs:
 
       - name: Ensure module path matches repository
         run: |
-          repo_mod="github.com/${GITHUB_REPOSITORY}"
+          # "github.com/${GITHUB_REPOSITORY}"
+          repo_mod="lvmsync_go"
           if [ ! -f go.mod ]; then
             echo "No go.mod found. Initializing module '${repo_mod}'..."
             go mod init "${repo_mod}"
