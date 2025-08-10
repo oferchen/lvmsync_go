@@ -160,6 +160,40 @@ func TestCompressChunkThreshold(t *testing.T) {
 	}
 }
 
+// TestCompressChunkAutoSelects verifies that automatic compression selects the
+// expected algorithm based on chunk size and CPU capabilities.
+func TestCompressChunkAutoSelects(t *testing.T) {
+	orig := hasAVX2
+	defer func() { hasAVX2 = orig }()
+
+	small := bytes.Repeat([]byte("a"), 64*1024)
+	large := bytes.Repeat([]byte("a"), 300*1024)
+
+	cases := []struct {
+		name   string
+		data   []byte
+		avx2   bool
+		expect string
+	}{
+		{"smallAvx2", small, true, compressionLZ4},
+		{"largeAvx2", large, true, compressionZSTD},
+		{"largeNoAvx2", large, false, compressionLZ4},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			hasAVX2 = func() bool { return tc.avx2 }
+			_, algo, err := CompressChunk(tc.data, StrategyAuto, 0, 1, 1.0)
+			if err != nil {
+				t.Fatalf("compress chunk: %v", err)
+			}
+			if algo != tc.expect {
+				t.Fatalf("expected %s, got %s", tc.expect, algo)
+			}
+		})
+	}
+}
+
 func TestSelectAlgorithm(t *testing.T) {
 	orig := hasAVX2
 	defer func() { hasAVX2 = orig }()

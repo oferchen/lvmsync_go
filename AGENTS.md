@@ -82,8 +82,9 @@ lvmsync --transport quic,h2,tcp+tls,ssh --quic-connect host:9000 --tcp-port 9443
 ## Compression Policy
 
 - Sample 8 KiB from each chunk to estimate the compression ratio.
-- Skip compression when the ratio is greater than or equal to `--compress-threshold`.
+- Skip compression when the ratio is greater than or equal to `--compress_threshold`.
 - Auto mode selects LZ4 for chunks under 256 KiB and Zstd level 1 for larger chunks on AVX2-capable CPUs.
+- Choose the algorithm with `--compress {auto|lz4|zstd|none}` and tune levels using `--zstd_level 1..5` or `--lz4_level {fast|hc}`.
 
 Example configuration:
 
