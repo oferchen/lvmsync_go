@@ -9,7 +9,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 
-	clientcmd "lvmsync_go/cmd/client"
+	dumpcmd "lvmsync_go/cmd/dump"
 )
 
 type failingSyncCore struct {
@@ -23,7 +23,7 @@ func (c *failingSyncCore) Sync() error {
 
 func TestCopyPipeAsyncError(t *testing.T) {
 	r, w := io.Pipe()
-	errCh := clientcmd.CopyPipeAsync(io.Discard, r)
+	errCh := dumpcmd.CopyPipeAsync(io.Discard, r)
 	expected := errors.New("copy fail")
 	w.CloseWithError(expected)
 	if err := <-errCh; !errors.Is(err, expected) {

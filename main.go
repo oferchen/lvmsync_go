@@ -3,29 +3,21 @@ package main
 import (
 	"fmt"
 	"os"
-	"os/signal"
 
-	"github.com/spf13/pflag"
 	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
 
-	"lvmsync_go/app"
-	applycmd "lvmsync_go/cmd/apply"
-	clientcmd "lvmsync_go/cmd/client"
-	"lvmsync_go/config"
-	clientpkg "lvmsync_go/internal/client"
-	"lvmsync_go/internal/privesc"
-	"lvmsync_go/lvm"
+	rootcmd "lvmsync_go/cmd/root"
 )
 
 var (
-	configureFunc = configure
-	runFunc       = run
-	exitFunc      = os.Exit
+	configureFunc  = rootcmd.Configure
+	runFunc        = rootcmd.Run
+	syncLoggerFunc = rootcmd.SyncLogger
+	exitFunc       = os.Exit
 )
 
-// syncLogger flushes any buffered log entries and logs if the sync fails.
-func syncLogger(logger *zap.Logger) {
+func syncLogger(logger *zap.Logger) { syncLoggerFunc(logger) }
 	if err := logger.Sync(); err != nil {
 		logger.Error("Logger sync error", zap.Error(err))
 	}
@@ -126,7 +118,7 @@ func main() {
 	cfg, logger, err := configureFunc()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "configuration failed: %v\n", err)
-		os.Exit(1)
+		exitFunc(1)
 	}
 	if err := runFunc(cfg, logger); err != nil {
 		logger.Error("run failed", zap.Error(err))
