@@ -8,9 +8,12 @@ import (
 )
 
 func TestHasher(t *testing.T) {
-	h := NewHasher(nil)
+	h, err := NewHasher(nil)
+	if err != nil {
+		t.Fatalf("new hasher: %v", err)
+	}
 	msg := []byte("hello world")
-	if _, err := h.Write(msg); err != nil {
+	if _, err = h.Write(msg); err != nil {
 		t.Fatalf("write failed: %v", err)
 	}
 	sum := h.Sum256()
@@ -20,8 +23,11 @@ func TestHasher(t *testing.T) {
 	}
 
 	key := []byte("0123456789abcdef0123456789abcdef")
-	h = NewHasher(key)
-	if _, err := h.Write(msg); err != nil {
+	h, err = NewHasher(key)
+	if err != nil {
+		t.Fatalf("new hasher: %v", err)
+	}
+	if _, err = h.Write(msg); err != nil {
 		t.Fatalf("write failed: %v", err)
 	}
 	sum2 := h.Sum256()
