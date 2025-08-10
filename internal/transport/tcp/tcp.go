@@ -19,15 +19,6 @@ import (
 	"lvmsync_go/internal/transport"
 )
 
-var logger = zap.NewNop()
-
-// SetLogger assigns the package-wide logger for TCP transport.
-func SetLogger(l *zap.Logger) {
-	if l != nil {
-		logger = l
-	}
-}
-
 func init() {
 	transport.Register("tcp+tls", New)
 }
@@ -48,7 +39,8 @@ func (s *tcpSender) Send(ctx context.Context, r io.Reader) error {
 		s.logger.Error("tcp dial error", zap.String("remote_addr", s.addr), zap.Error(err))
 		return err
 	}
-	s.logger.Info("tcp connection opened", zap.String("remote_addr", conn.RemoteAddr().String()))
+	remoteAddr := conn.RemoteAddr().String()
+	s.logger.Info("tcp connection opened", zap.String("remote_addr", remoteAddr))
 	done := make(chan struct{})
 	go func() {
 		select {
@@ -63,10 +55,10 @@ func (s *tcpSender) Send(ctx context.Context, r io.Reader) error {
 	}
 	close(done)
 	if copyErr != nil {
-		s.logger.Error("tcp send error", zap.String("remote_addr", s.addr), zap.Error(copyErr), zap.Int64("bytes_transferred", n))
+		s.logger.Error("tcp send error", zap.String("remote_addr", remoteAddr), zap.Error(copyErr), zap.Int64("bytes_transferred", n))
 		return copyErr
 	}
-	s.logger.Info("tcp connection closed", zap.String("remote_addr", s.addr), zap.Int64("bytes_transferred", n))
+	s.logger.Info("tcp connection closed", zap.String("remote_addr", remoteAddr), zap.Int64("bytes_transferred", n))
 	return nil
 }
 
@@ -97,7 +89,8 @@ func (r *tcpReceiver) Receive(ctx context.Context, w io.Writer) error {
 		return err
 	case conn = <-connCh:
 	}
-	r.logger.Info("tcp connection opened", zap.String("remote_addr", conn.RemoteAddr().String()))
+	remoteAddr := conn.RemoteAddr().String()
+	r.logger.Info("tcp connection opened", zap.String("remote_addr", remoteAddr))
 	done := make(chan struct{})
 	go func() {
 		select {
@@ -112,10 +105,10 @@ func (r *tcpReceiver) Receive(ctx context.Context, w io.Writer) error {
 	}
 	close(done)
 	if copyErr != nil {
-		r.logger.Error("tcp receive error", zap.Error(copyErr), zap.Int64("bytes_transferred", n))
+		r.logger.Error("tcp receive error", zap.String("remote_addr", remoteAddr), zap.Error(copyErr), zap.Int64("bytes_transferred", n))
 		return copyErr
 	}
-	r.logger.Info("tcp connection closed", zap.Int64("bytes_transferred", n))
+	r.logger.Info("tcp connection closed", zap.String("remote_addr", remoteAddr), zap.Int64("bytes_transferred", n))
 	return nil
 }
 
@@ -128,7 +121,7 @@ func (r *tcpReceiver) Close() error {
 }
 
 // New initializes a TCP+TLS sender and receiver bound to cfg.TCPPort.
-func New(cfg *config.Config) (transport.Sender, transport.Receiver, error) {
+func New(cfg *config.Config, logger *zap.Logger) (transport.Sender, transport.Receiver, error) {
 	cert, err := generateCert()
 	if err != nil {
 		return nil, nil, fmt.Errorf("generate cert: %w", err)
