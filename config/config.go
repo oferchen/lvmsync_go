@@ -54,6 +54,7 @@ type Config struct {
 	StdoutMode            bool          `mapstructure:"stdout"`
 	Mode                  string        `mapstructure:"mode"`
 	Parallel              int           `mapstructure:"parallel"`
+	Concurrency           int           `mapstructure:"concurrency"`
 	ZeroCopy              bool          `mapstructure:"zerocopy"`
 	ODirect               bool          `mapstructure:"odirect"`
 	MaxRetries            int           `mapstructure:"max_retries"`
@@ -355,6 +356,7 @@ func DefaultConfig() (*Config, error) {
 		ApplyMode:             "",
 		StdoutMode:            false,
 		Parallel:              4,
+		Concurrency:           0,
 		ZeroCopy:              false,
 		MaxRetries:            3,
 		ResumeState:           "",
@@ -511,6 +513,7 @@ func initTransportFlags(cfg *Config) *pflag.FlagSet {
 	fs.String("transport", cfg.Transport, "Ordered transports to try (e.g. 'quic,h2,tcp+tls,ssh')")
 	fs.String("quic_listen", cfg.QUICListen, "QUIC listen address")
 	fs.String("quic_connect", cfg.QUICConnect, "QUIC connect address")
+	fs.Int("concurrency", cfg.Concurrency, "Stream concurrency (0 to autotune)")
 	fs.Int("tcp_port", cfg.TCPPort, "TCP+TLS port")
 	fs.Int("h2_port", cfg.H2Port, "HTTP/2 TLS port")
 	return fs

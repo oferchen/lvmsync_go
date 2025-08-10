@@ -194,3 +194,28 @@ func TestInitGRPCFlags(t *testing.T) {
 		}
 	}
 }
+
+func TestInitTransportFlags(t *testing.T) {
+	cfg, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	fs := initTransportFlags(cfg)
+	cases := []struct{ name, want string }{
+		{"transport", cfg.Transport},
+		{"quic_listen", cfg.QUICListen},
+		{"quic_connect", cfg.QUICConnect},
+		{"concurrency", strconv.Itoa(cfg.Concurrency)},
+		{"tcp_port", strconv.Itoa(cfg.TCPPort)},
+		{"h2_port", strconv.Itoa(cfg.H2Port)},
+	}
+	for _, tt := range cases {
+		f := fs.Lookup(tt.name)
+		if f == nil {
+			t.Fatalf("missing %s flag", tt.name)
+		}
+		if f.DefValue != tt.want {
+			t.Fatalf("%s default %s want %s", tt.name, f.DefValue, tt.want)
+		}
+	}
+}
