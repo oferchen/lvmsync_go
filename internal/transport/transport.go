@@ -62,10 +62,32 @@ func Select(cfg *config.Config, order []string) (Sender, Receiver, string, error
 type NopSender struct{}
 
 // Send implements the Sender interface.
-func (NopSender) Send(context.Context, io.Reader) error { return nil }
+func (NopSender) Send(ctx context.Context, r io.Reader) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+	if r == nil {
+		return nil
+	}
+	_, err := io.Copy(io.Discard, r)
+	return err
+}
 
 // NopReceiver is a no-op receiver implementation used by placeholder transports.
 type NopReceiver struct{}
 
 // Receive implements the Receiver interface.
-func (NopReceiver) Receive(context.Context, io.Writer) error { return nil }
+func (NopReceiver) Receive(ctx context.Context, w io.Writer) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+	if w == nil {
+		return nil
+	}
+	_, err := w.Write(nil)
+	return err
+}
