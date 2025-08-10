@@ -9,7 +9,6 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/pierrec/lz4/v4"
 	"github.com/spf13/viper"
 
 	compressiondetect "lvmsync_go/internal/compressiondetect"
@@ -175,14 +174,14 @@ func TestBuilderValidateCompression(t *testing.T) {
 	b := &Builder{defaults: defaults}
 
 	t.Run(Zstd+"Valid", func(t *testing.T) {
-		conf := &Config{Compress: Zstd, CompressLevel: 3, CompressThreshold: 0.9}
+		conf := &Config{Compress: Zstd, ZstdLevel: 3, CompressThreshold: 0.9}
 		if err := b.validateCompression(conf); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})
 
 	t.Run(Zstd+"Invalid", func(t *testing.T) {
-		conf := &Config{Compress: Zstd, CompressLevel: 100, CompressThreshold: 0.9}
+		conf := &Config{Compress: Zstd, ZstdLevel: 6, CompressThreshold: 0.9}
 		if err := b.validateCompression(conf); err == nil {
 			t.Fatalf("expected error")
 		}
@@ -191,9 +190,9 @@ func TestBuilderValidateCompression(t *testing.T) {
 	t.Run(Auto, func(t *testing.T) {
 		conf := &Config{Compress: Auto, CompressThreshold: 0.9}
 		if compressiondetect.DetectOptimalCompression() == Zstd {
-			conf.CompressLevel = 3
+			conf.ZstdLevel = 2
 		} else {
-			conf.CompressLevel = int(lz4.Level3)
+			conf.LZ4Level = "fast"
 		}
 		if err := b.validateCompression(conf); err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -369,11 +368,11 @@ func TestBuildBlockSize(t *testing.T) {
 }
 
 //nolint:revive // complex validation scenarios
-func TestCompressLevelValidation(t *testing.T) {
+func TestCompressionLevelValidation(t *testing.T) {
 	t.Run(Zstd+"Valid", func(t *testing.T) {
 		v := viper.New()
 		v.Set("compress", Zstd)
-		v.Set("compress_level", 3)
+		v.Set("zstd_level", 3)
 		defaults, err := DefaultConfig()
 		if err != nil {
 			t.Fatalf("DefaultConfig returned error: %v", err)
@@ -387,7 +386,7 @@ func TestCompressLevelValidation(t *testing.T) {
 	t.Run(Zstd+"Invalid", func(t *testing.T) {
 		v := viper.New()
 		v.Set("compress", Zstd)
-		v.Set("compress_level", 100)
+		v.Set("zstd_level", 6)
 		defaults, err := DefaultConfig()
 		if err != nil {
 			t.Fatalf("DefaultConfig returned error: %v", err)
@@ -402,9 +401,9 @@ func TestCompressLevelValidation(t *testing.T) {
 		v := viper.New()
 		v.Set("compress", Auto)
 		if compressiondetect.DetectOptimalCompression() == Zstd {
-			v.Set("compress_level", 3)
+			v.Set("zstd_level", 2)
 		} else {
-			v.Set("compress_level", int(lz4.Level3))
+			v.Set("lz4_level", "fast")
 		}
 		defaults, err := DefaultConfig()
 		if err != nil {
@@ -420,9 +419,9 @@ func TestCompressLevelValidation(t *testing.T) {
 		v := viper.New()
 		v.Set("compress", Auto)
 		if compressiondetect.DetectOptimalCompression() == Zstd {
-			v.Set("compress_level", 100)
+			v.Set("zstd_level", 6)
 		} else {
-			v.Set("compress_level", int(lz4.Level9)+1)
+			v.Set("lz4_level", "bad")
 		}
 		defaults, err := DefaultConfig()
 		if err != nil {
@@ -437,7 +436,7 @@ func TestCompressLevelValidation(t *testing.T) {
 	t.Run("lz4Valid", func(t *testing.T) {
 		v := viper.New()
 		v.Set("compress", "lz4")
-		v.Set("compress_level", int(lz4.Level3))
+		v.Set("lz4_level", "hc")
 		defaults, err := DefaultConfig()
 		if err != nil {
 			t.Fatalf("DefaultConfig returned error: %v", err)
@@ -451,7 +450,7 @@ func TestCompressLevelValidation(t *testing.T) {
 	t.Run("lz4Invalid", func(t *testing.T) {
 		v := viper.New()
 		v.Set("compress", "lz4")
-		v.Set("compress_level", int(lz4.Level9)+1)
+		v.Set("lz4_level", "slow")
 		defaults, err := DefaultConfig()
 		if err != nil {
 			t.Fatalf("DefaultConfig returned error: %v", err)

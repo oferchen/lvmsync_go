@@ -45,10 +45,14 @@ remote_post_script: ""
 
 # Compression method (options: "none", "lz4", "zstd", "auto")
 compress: "auto"
-# Compression level for zstd (ignored for lz4)
-compress_level: 3
+# Zstd compression level (1-5)
+zstd_level: 1
+# LZ4 compression level: fast or hc
+lz4_level: fast
 # Number of goroutines for compression (0 to use all cores)
 compress_concurrency: 0
+# Skip compression when estimated ratio exceeds this value
+compress_threshold: 0.9
 speed: "100MB"  # Speed limit (e.g. "100MB")
 # Enable checksum verification for data integrity
 verify_checksum: false

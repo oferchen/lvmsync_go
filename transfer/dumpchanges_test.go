@@ -130,7 +130,7 @@ func TestProcessDumpDataAutoDecompression(t *testing.T) {
 	changed := []int{0}
 	src, snapshot := createDumpTestFiles(t, blockSize, changed)
 
-	cfgDump := &config.Config{BlockSize: int(blockSize), Compress: "zstd", CompressLevel: 1, VerifyChecksum: true, Parallel: 1, MaxRetries: 1}
+	cfgDump := &config.Config{BlockSize: int(blockSize), Compress: "zstd", ZstdLevel: 1, CompressLevel: 1, VerifyChecksum: true, Parallel: 1, MaxRetries: 1}
 	var buf bytes.Buffer
 	if err := DumpChangesParallel(cfgDump, snapshot, src, &buf); err != nil {
 		t.Fatalf("DumpChangesParallel failed: %v", err)

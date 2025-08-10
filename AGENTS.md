@@ -79,6 +79,18 @@ Example usage selecting transports and ports:
 lvmsync --transport quic,h2,tcp+tls,ssh --quic-connect host:9000 --tcp-port 9443
 ```
 
+## Compression Policy
+
+- Sample 8 KiB from each chunk to estimate the compression ratio.
+- Skip compression when the ratio is greater than or equal to `--compress-threshold`.
+- Auto mode selects LZ4 for chunks under 256 KiB and Zstd level 1 for larger chunks on AVX2-capable CPUs.
+
+Example configuration:
+
+```sh
+lvmsync --compress auto --zstd_level 2 --compress_threshold 0.85
+```
+
 ## Control Plane Flow
 
 - Clients perform a handshake sending `sector_size`, `alignment`, `max_concurrency`, and dedup/compression support.

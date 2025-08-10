@@ -49,28 +49,29 @@ var (
 var getEuid = os.Geteuid
 
 type Config struct {
-	ConfigFile           string        `mapstructure:"config"`
-	ApplyMode            string        `mapstructure:"apply"`
-	StdoutMode           bool          `mapstructure:"stdout"`
-	Mode                 string        `mapstructure:"mode"`
-	Parallel             int           `mapstructure:"parallel"`
-	ZeroCopy             bool          `mapstructure:"zerocopy"`
-	ODirect              bool          `mapstructure:"odirect"`
-	MaxRetries           int           `mapstructure:"max_retries"`
-	ResumeState          string        `mapstructure:"resume"`
-	SSHUser              string        `mapstructure:"ssh_user"`
-	SSHKeyPath           string        `mapstructure:"ssh_key"`
-	SSHPort              int           `mapstructure:"ssh_port"`
-	SSHTimeout           time.Duration `mapstructure:"ssh_timeout"`
-	SSHKeepAliveInterval time.Duration `mapstructure:"ssh_keepalive"`
-	KnownHosts           string        `mapstructure:"known_hosts"`
-	StrictHostKeyCheck   bool          `mapstructure:"strict_host_key_checking"`
-	LVMSyncPath          string        `mapstructure:"lvmsync_path"`
-	RemotePreScript      string        `mapstructure:"remote_pre_script"`
-	RemotePostScript     string        `mapstructure:"remote_post_script"`
-	Compress             string        `mapstructure:"compress"`
-	// For LZ4 use lz4.Fast or lz4.Level1 through lz4.Level9; ZSTD accepts levels 1-22.
-	CompressLevel         int           `mapstructure:"compress_level"`
+	ConfigFile            string        `mapstructure:"config"`
+	ApplyMode             string        `mapstructure:"apply"`
+	StdoutMode            bool          `mapstructure:"stdout"`
+	Mode                  string        `mapstructure:"mode"`
+	Parallel              int           `mapstructure:"parallel"`
+	ZeroCopy              bool          `mapstructure:"zerocopy"`
+	ODirect               bool          `mapstructure:"odirect"`
+	MaxRetries            int           `mapstructure:"max_retries"`
+	ResumeState           string        `mapstructure:"resume"`
+	SSHUser               string        `mapstructure:"ssh_user"`
+	SSHKeyPath            string        `mapstructure:"ssh_key"`
+	SSHPort               int           `mapstructure:"ssh_port"`
+	SSHTimeout            time.Duration `mapstructure:"ssh_timeout"`
+	SSHKeepAliveInterval  time.Duration `mapstructure:"ssh_keepalive"`
+	KnownHosts            string        `mapstructure:"known_hosts"`
+	StrictHostKeyCheck    bool          `mapstructure:"strict_host_key_checking"`
+	LVMSyncPath           string        `mapstructure:"lvmsync_path"`
+	RemotePreScript       string        `mapstructure:"remote_pre_script"`
+	RemotePostScript      string        `mapstructure:"remote_post_script"`
+	Compress              string        `mapstructure:"compress"`
+	ZstdLevel             int           `mapstructure:"zstd_level"`
+	LZ4Level              string        `mapstructure:"lz4_level"`
+	CompressLevel         int           `mapstructure:"-"`
 	CompressConcurrency   int           `mapstructure:"compress_concurrency"`
 	CompressThreshold     float64       `mapstructure:"compress_threshold"`
 	Speed                 string        `mapstructure:"speed"`
@@ -215,6 +216,12 @@ func (b *Builder) applyDefaults(conf *Config) error {
 	if conf.CompressThreshold <= 0 {
 		conf.CompressThreshold = b.defaults.CompressThreshold
 	}
+	if conf.ZstdLevel == 0 {
+		conf.ZstdLevel = b.defaults.ZstdLevel
+	}
+	if conf.LZ4Level == "" {
+		conf.LZ4Level = b.defaults.LZ4Level
+	}
 	if conf.Mode == "throughput" {
 		b.applyThroughput(conf)
 	}
@@ -255,14 +262,19 @@ func (b *Builder) validateCompression(conf *Config) error {
 	}
 	switch resolved {
 	case Zstd:
-		if conf.CompressLevel < 1 || conf.CompressLevel > 22 {
-			return fmt.Errorf("invalid zstd compression level: %d", conf.CompressLevel)
+		if conf.ZstdLevel < 1 || conf.ZstdLevel > 5 {
+			return fmt.Errorf("invalid zstd compression level: %d", conf.ZstdLevel)
 		}
+		conf.CompressLevel = conf.ZstdLevel
 	case "lz4":
-		if conf.CompressLevel < int(lz4.Fast) || conf.CompressLevel > int(lz4.Level9) {
-			return fmt.Errorf("invalid lz4 compression level: %d", conf.CompressLevel)
+		switch strings.ToLower(conf.LZ4Level) {
+		case "fast":
+			conf.CompressLevel = int(lz4.Fast)
+		case "hc":
+			conf.CompressLevel = int(lz4.Level9)
+		default:
+			return fmt.Errorf("invalid lz4 compression level: %s", conf.LZ4Level)
 		}
-		_ = lz4.CompressionLevel(conf.CompressLevel)
 	}
 	if conf.CompressThreshold <= 0 || conf.CompressThreshold > 1 {
 		return fmt.Errorf("invalid compress threshold: %f", conf.CompressThreshold)
@@ -357,7 +369,8 @@ func DefaultConfig() (*Config, error) {
 		RemotePreScript:       "",
 		RemotePostScript:      "",
 		Compress:              Auto,
-		CompressLevel:         3,
+		ZstdLevel:             1,
+		LZ4Level:              "fast",
 		CompressConcurrency:   runtime.GOMAXPROCS(0),
 		CompressThreshold:     0.9,
 		Speed:                 "100MB",
@@ -461,7 +474,8 @@ func initDedupFlags(cfg *Config) *pflag.FlagSet {
 func initCompressionFlags(cfg *Config) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("Compression Options", pflag.ExitOnError)
 	fs.String("compress", cfg.Compress, fmt.Sprintf("Compression type, options: %v", SupportedCompression))
-	fs.Int("compress_level", cfg.CompressLevel, "Compression level. LZ4 accepts lz4.Fast or lz4.Level1..lz4.Level9; ZSTD accepts 1-22")
+	fs.Int("zstd_level", cfg.ZstdLevel, "Zstd compression level (1-5)")
+	fs.String("lz4_level", cfg.LZ4Level, "LZ4 compression level: fast or hc")
 	fs.Int("compress_concurrency", cfg.CompressConcurrency, "Compression concurrency (0 to use GOMAXPROCS)")
 	fs.Float64("compress_threshold", cfg.CompressThreshold, "Skip compression when estimated ratio exceeds this value")
 	return fs

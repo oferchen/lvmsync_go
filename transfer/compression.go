@@ -17,6 +17,10 @@ const (
 	compressionZSTD = "zstd"
 )
 
+// hasAVX2 reports whether the current CPU supports AVX2 instructions. It is
+// a variable to allow tests to override the detection behavior.
+var hasAVX2 = compressiondetect.HasAVX2
+
 // No shared state is kept between decompression readers.
 
 // NewCompressionWriter creates a compression writer that wraps the destination
@@ -74,7 +78,7 @@ func selectAlgorithm(chunkLen int, compress string, level int) (string, int) {
 			}
 			return compressionLZ4, level
 		}
-		if compressiondetect.HasAVX2() {
+		if hasAVX2() {
 			return compressionZSTD, defaultZstdLv
 		}
 		if level == 0 {
