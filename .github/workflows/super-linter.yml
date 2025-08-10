@@ -62,7 +62,7 @@ jobs:
 
           # Go: pass ONLY the package pattern (NO "run")
           GO_LINTER: golangci-lint
-          GO_LINT_FLAGS: ./...
+          GO_LINT_FLAGS: ""
           GOLANGCI_LINT_VERSION: v2.3.1
 
           # Formatters
@@ -75,7 +75,7 @@ jobs:
           LINTER_RULES_PATH: .
           JSCPD_CONFIG_FILE: .jscpd.json
           # Optional: keep if you truly want to ignore all JSON except the config; prefer to define ignores inside .jscpd.json.
-          JSCPD_IGNORE: "**/*.json"
+          # JSCPD_IGNORE: "**/*.json"
 
           DOCKERFILE_HADOLINT_FILE_NAME: .hadolint.yaml
           DOCKERFILE_HADOLINT_CONFIG_FILE: .hadolint.yaml
@@ -85,6 +85,11 @@ jobs:
           # Exclude only the JSCPD config itself from other linters' scans;
           # keep dashboards handled via .jscpd.json ignore list
           FILTER_REGEX_EXCLUDE: '(^|/)\.jscpd\.json$'
+
+          # Go: disable file-mode linter; enable module-aware path
+          VALIDATE_GO: "false"
+          VALIDATE_GO_MODULES: "true"
+
         continue-on-error: ${{ env.SUPER_LINTER_STRICT != 'true' }}
 
       - name: Cleanup linter artifacts
@@ -153,4 +158,3 @@ jobs:
 
           echo "Failed to push auto-fix commit after retries."
           exit 1
-          
