@@ -2,10 +2,13 @@ package transfer
 
 import (
 	"bytes"
+	"crypto/rand"
 	"io"
 	"testing"
 
 	"github.com/pierrec/lz4/v4"
+
+	compressiondetect "lvmsync_go/internal/compressiondetect"
 )
 
 func compressData(t *testing.T, data []byte, algo string, level int) []byte {
@@ -100,6 +103,60 @@ func TestNewCompressionWriterLevel(t *testing.T) {
 				t.Fatalf("%s: unexpected error: %v", tt.name, err)
 			}
 		}
+	}
+}
+
+func TestNewCompressionWriterAutoDetects(t *testing.T) {
+	compressiondetect.ResetForTest()
+	algo := compressiondetect.DetectOptimalCompression()
+	lvl := 1
+	if algo == compressionLZ4 {
+		lvl = int(lz4.Level1)
+	}
+	w, err := NewCompressionWriter(io.Discard, StrategyAuto, lvl, 1)
+	if err != nil {
+		t.Fatalf("new writer: %v", err)
+	}
+	switch algo {
+	case compressionLZ4:
+		if _, ok := w.(*pooledLz4Writer); !ok {
+			t.Fatalf("expected lz4 writer")
+		}
+	case compressionZSTD:
+		if _, ok := w.(*pooledZstdWriter); !ok {
+			t.Fatalf("expected zstd writer")
+		}
+	default:
+		t.Fatalf("unknown algo %s", algo)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+}
+
+func TestCompressChunkThreshold(t *testing.T) {
+	data := bytes.Repeat([]byte("a"), 64*1024)
+	compressed, algo, err := CompressChunk(data, StrategyAuto, 0, 1, 0.9)
+	if err != nil {
+		t.Fatalf("compress chunk: %v", err)
+	}
+	if algo == "none" || len(compressed) >= len(data) {
+		t.Fatalf("expected data to be compressed")
+	}
+
+	rnd := make([]byte, 64*1024)
+	if _, err := rand.Read(rnd); err != nil {
+		t.Fatalf("rand: %v", err)
+	}
+	out, algo, err := CompressChunk(rnd, StrategyAuto, 0, 1, 0.9)
+	if err != nil {
+		t.Fatalf("compress chunk random: %v", err)
+	}
+	if algo != "none" {
+		t.Fatalf("expected compression to be skipped")
+	}
+	if !bytes.Equal(out, rnd) {
+		t.Fatalf("data altered when compression skipped")
 	}
 }
 

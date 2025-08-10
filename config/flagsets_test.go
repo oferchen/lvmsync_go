@@ -124,6 +124,7 @@ func TestInitCompressionFlags(t *testing.T) {
 		{"compress", cfg.Compress},
 		{"compress_level", strconv.Itoa(cfg.CompressLevel)},
 		{"compress_concurrency", strconv.Itoa(cfg.CompressConcurrency)},
+		{"compress_threshold", strconv.FormatFloat(cfg.CompressThreshold, 'f', -1, 64)},
 	}
 	for _, tt := range cases {
 		f := fs.Lookup(tt.name)
