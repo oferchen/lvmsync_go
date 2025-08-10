@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 
+	"golang.org/x/sys/unix"
+
 	"lvmsync_go/internal/privesc"
 	lvmlib "lvmsync_go/lvm"
 )
@@ -57,7 +59,7 @@ func NewSudoAgent(sudoPath string, l lvmlib.API, ensureRoot func() error) Agent 
 			if cmd == "" {
 				cmd = "sudo -n"
 			}
-			return privesc.EnsureRoot(cmd)
+			return privesc.EnsureRoot(cmd, unix.Exec)
 		}
 	}
 	return &sudoAgent{sudoPath: sudoPath, lvm: api, ensureRoot: ensureRoot}

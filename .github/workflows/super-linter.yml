@@ -20,8 +20,9 @@ on:
     branches: [main, master]
 
 permissions:
-  contents: write
-  statuses: write
+  contents: read
+  # contents: write
+  # statuses: write
 
 concurrency:
   group: lint-${{ github.ref }}
@@ -36,6 +37,12 @@ jobs:
     name: Super-Linter
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: write
+    env:
+      GO111MODULE: "on"
+      CGO_ENABLED: "1"
+      CGO_CFLAGS: "-I/usr/include"
 
     steps:
       - name: Checkout (with credentials for potential push)
@@ -87,8 +94,8 @@ jobs:
           FILTER_REGEX_EXCLUDE: '(^|/)\.jscpd\.json$'
 
           # Go: disable file-mode linter; enable module-aware path
-          VALIDATE_GO: "false"
-          VALIDATE_GO_MODULES: "true"
+          # VALIDATE_GO: "false"
+          # VALIDATE_GO_MODULES: "true"
 
         continue-on-error: ${{ env.SUPER_LINTER_STRICT != 'true' }}
 
