@@ -20,9 +20,10 @@ func newPair(t *testing.T) (transport.Sender, transport.Receiver) {
 	if !ok {
 		t.Fatalf("quic transport not registered")
 	}
+	logger := zap.NewNop()
 	// Create receiver first to determine listening address.
 	cfgR := &config.Config{QUICListen: "127.0.0.1:0"}
-	_, rcv, err := f(cfgR, zap.NewNop())
+	_, rcv, err := f(cfgR, logger)
 	if err != nil {
 		t.Fatalf("receiver factory error: %v", err)
 	}
@@ -31,7 +32,7 @@ func newPair(t *testing.T) (transport.Sender, transport.Receiver) {
 		t.Fatalf("unexpected receiver type")
 	}
 	cfgS := &config.Config{QUICConnect: qr.ln.Addr().String()}
-	snd, _, err := f(cfgS, zap.NewNop())
+	snd, _, err := f(cfgS, logger)
 	if err != nil {
 		t.Fatalf("sender factory error: %v", err)
 	}

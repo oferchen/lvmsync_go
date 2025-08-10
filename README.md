@@ -180,6 +180,17 @@ Recent refactors added several configuration options:
 - `--sync_interval` controls how many bytes are written between `fdatasync` calls.
 - `--block_size` sets the transfer block size (use `auto` for detection).
 
+### QUIC transport
+
+Include `quic` in the `--transport` list or configuration to enable the QUIC data plane.
+Use `--quic_listen` (`LVMSYNC_QUIC_LISTEN` / `quic_listen`) to bind a listener and `--quic_connect`
+(`LVMSYNC_QUIC_CONNECT` / `quic_connect`) to dial a peer. Select the congestion control algorithm with
+`--quic_cc` or `LVMSYNC_QUIC_CC` (defaults to `bbr`).
+
+```sh
+lvmsync --transport quic --quic_listen :9000
+```
+
 ### I/O tuning
 
 - `--odirect` uses O_DIRECT with block-size aligned buffers.
@@ -637,6 +648,17 @@ The tool supports both local and remote transfers, as well as an "apply mode" fo
 | `--ssh_port`              | SSH port number                                                 | `22`                     |
 | `--known_hosts`           | Path to known_hosts file (defaults to `$HOME/.ssh/known_hosts`) | `$HOME/.ssh/known_hosts` |
 | `--stricthostkeychecking` | Enable SSH StrictHostKeyChecking                                | `true`                   |
+
+Programmatic use of the SSH transport requires a configuration populated with
+fields like `SSHUser`, `SSHKeyPath`, `SSHPort`, `KnownHosts`,
+`StrictHostKeyCheck`, `SSHTimeout`, `SSHKeepAliveInterval`, and `MaxRetries`.
+The constructor also requires a `*zap.Logger`:
+
+```go
+logger, _ := zap.NewProduction()
+defer logger.Sync()
+sender, receiver, err := ssh.New(cfg, logger)
+```
 
 #### Remote Options
 
