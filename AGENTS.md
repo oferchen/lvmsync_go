@@ -225,15 +225,15 @@ lvmsync --compress auto --zstd_level 2 --compress_threshold 0.85
 - `cmd/apply` streams incoming data to destination devices and also accepts explicit configuration and loggers.
 - [ ] Verify configuration precedence.
 - [ ] Document feature changes in `README.md`.
-- [ ] Implement full transport registry with working QUIC, HTTP/2, TCP+TLS, and SSH backends and accompanying tests.
-- [ ] Finalize hybrid deduplication and document CDC tuning knobs.
-- [ ] Integrate adaptive compression sampling with configurable thresholds and unit benchmarks.
+- [x] Implement full transport registry with working QUIC, HTTP/2, TCP+TLS, and SSH backends and accompanying tests.
+- [x] Finalize hybrid deduplication and document CDC tuning knobs.
+- [x] Integrate adaptive compression sampling with configurable thresholds and unit benchmarks.
 ## Roadmap
 
 - [ ] Implement gRPC control plane with mTLS and port configurability.
-- [ ] Introduce pluggable data plane with transport registry supporting QUIC, HTTP/2, TLS/TCP, and SSH.
-- [ ] Add hybrid deduplication combining fixed-size and content-defined chunking (FastCDC).
-- [ ] Implement adaptive compression with CPU feature detection and per-chunk sampling.
+- [x] Introduce pluggable data plane with transport registry supporting QUIC, HTTP/2, TLS/TCP, and SSH.
+- [x] Add hybrid deduplication combining fixed-size and content-defined chunking (FastCDC).
+- [x] Implement adaptive compression with CPU feature detection and per-chunk sampling.
 - [ ] Optimize transfer pipeline for concurrency autotuning, large in-flight windows, and efficient I/O paths.
 - [ ] Provide `FlagSet`-grouped CLI options bound to Viper, with parity across flags, environment variables, and config files.
 - [ ] Ensure each new function includes unit tests and documentation updates in README.md.
