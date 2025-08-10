@@ -41,6 +41,7 @@ func Dial(addr string, conf Config, opts ...grpc.DialOption) (*grpc.ClientConn, 
 			Certificates: []tls.Certificate{cert},
 			RootCAs:      pool,
 			MinVersion:   tls.VersionTLS13,
+			MaxVersion:   tls.VersionTLS13,
 		}
 		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(tlsCfg)))
 	}

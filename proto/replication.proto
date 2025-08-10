@@ -29,10 +29,12 @@ message CapabilitySet {
 
 message SessionRequest {
   string volume_name = 1;
+  string device_uuid = 2;
 }
 
 message SessionResponse {
   string session_id = 1;
+  bytes psk = 2;
 }
 
 message ResumeBitmap {
