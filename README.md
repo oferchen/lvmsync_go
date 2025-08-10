@@ -934,6 +934,16 @@ Keep functions and packages focused on a single task to simplify maintenance and
 
 Decouple modules by injecting dependencies through interfaces or constructor parameters. This approach makes components easier to test and swap during refactoring.
 
+For example, `internal/privesc.EnsureRoot` accepts an `exec` function so tests
+can stub the `unix.Exec` call:
+
+```go
+err := privesc.EnsureRoot("sudo -n", func(argv0 string, argv, envv []string) error {
+    // record arguments or return a controlled error
+    return nil
+})
+```
+
 ### Test Coverage
 
 Every change should include unit tests. Run `go test -cover ./...` to ensure coverage remains high and regressions are caught early.

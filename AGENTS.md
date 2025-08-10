@@ -160,6 +160,9 @@ lvmsync --compress auto --zstd_level 2 --compress_threshold 0.85
 
 - Add a dedicated unit test for every new function.
 - Cover both successful and failing paths to verify correctness.
+- Where external commands would normally execute, inject test hooks (e.g.,
+  `privesc.EnsureRoot` accepts an `exec` function) to stub side effects during
+  tests.
 
 ## Modularity and Single Responsibility
 

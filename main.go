@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
+	"golang.org/x/sys/unix"
 
 	"lvmsync_go/app"
 	applycmd "lvmsync_go/cmd/apply"
@@ -36,7 +37,7 @@ func configure() (*config.Config, *zap.Logger, error) {
 		return nil, nil, fmt.Errorf("configuration error: %w", err)
 	}
 
-	if err = privesc.EnsureRoot(cfg.LVMEscalation); err != nil {
+	if err = privesc.EnsureRoot(cfg.LVMEscalation, unix.Exec); err != nil {
 		return nil, nil, fmt.Errorf("privilege escalation error: %w", err)
 	}
 
