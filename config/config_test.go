@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+	"time"
 
 	"github.com/spf13/viper"
 
@@ -288,23 +289,38 @@ func TestApplyThroughputMode(t *testing.T) {
 	if err := b.applyDefaults(conf); err != nil {
 		t.Fatalf("applyDefaults returned error: %v", err)
 	}
-	if conf.Transport != "quic,h2,tcp+tls,ssh" {
+	if conf.Transport != "quic,h2,tcp+tls" {
 		t.Fatalf("transport order %s", conf.Transport)
 	}
 	if conf.Parallel != 8 {
 		t.Fatalf("parallel %d", conf.Parallel)
 	}
+	if conf.Concurrency != 8 {
+		t.Fatalf("concurrency %d", conf.Concurrency)
+	}
 	if conf.DedupMode != "hybrid" {
 		t.Fatalf("dedup mode %s", conf.DedupMode)
+	}
+	if conf.BlockSize != 2*1024*1024 {
+		t.Fatalf("block size %d", conf.BlockSize)
+	}
+	if conf.CDCMin != 256*1024 || conf.CDCAvg != 2*1024*1024 || conf.CDCMax != 8*1024*1024 {
+		t.Fatalf("cdc ranges %d %d %d", conf.CDCMin, conf.CDCAvg, conf.CDCMax)
+	}
+	if conf.Compress != Auto {
+		t.Fatalf("compress %s", conf.Compress)
 	}
 	if !conf.ODirect {
 		t.Fatalf("expected odirect enabled")
 	}
+	if conf.SyncIntervalBytes != 1000000000 {
+		t.Fatalf("sync interval bytes %d", conf.SyncIntervalBytes)
+	}
+	if conf.CheckpointInterval != 10*time.Second {
+		t.Fatalf("checkpoint interval %v", conf.CheckpointInterval)
+	}
 	if conf.QUICCongestionControl != "bbr" {
 		t.Fatalf("quic cc %s", conf.QUICCongestionControl)
-	}
-	if conf.SyncInterval == "" || conf.CheckpointInterval == 0 {
-		t.Fatalf("expected non-zero intervals")
 	}
 }
 
