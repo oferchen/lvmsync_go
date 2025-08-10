@@ -202,13 +202,13 @@ lvmsync --compress auto --zstd_level 2 --compress_threshold 0.85
 - [ ] Remove stray `fmt.Print*` calls in favor of structured logs.
 - [ ] Monitor elimination of `fmt.Print*` calls to keep progress logging fully structured.
 - [x] Refactor `cmd/grpcd` to defer `syncLogger` for structured log flushing.
-- [ ] Expand unit test coverage for remote execution and client signal handling, and run coverage reports.
+- [x] Expand unit test coverage for remote execution and client signal handling, and run coverage reports (transports coverage ≥50%).
 
   ```sh
   go test -cover ./...
   ```
 
-- [ ] Run lint checks to keep style and correctness issues from creeping in.
+- [x] Run lint checks to keep style and correctness issues from creeping in for transports.
 
   ```sh
   golangci-lint run
