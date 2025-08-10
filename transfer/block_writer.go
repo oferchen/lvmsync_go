@@ -145,6 +145,8 @@ func processParallelResults(cfg *config.Config, results <-chan *BlockResult, buf
 
 func worker(cfg *config.Config, srcFile *os.File, tasks <-chan BlockTask, results chan<- *BlockResult) {
 	defer workerWG.Done()
+	unlock := pinWorkerToDevice(cfg, srcFile)
+	defer unlock()
 	for task := range tasks {
 		offset, blockSize, err := validateOffsetAndSize(task.R.Start, cfg.BlockSize)
 		if err != nil {

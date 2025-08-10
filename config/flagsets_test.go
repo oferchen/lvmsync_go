@@ -20,6 +20,7 @@ func TestInitGeneralFlags(t *testing.T) {
 		{"parallel", strconv.Itoa(cfg.Parallel)},
 		{"zerocopy", strconv.FormatBool(cfg.ZeroCopy)},
 		{"odirect", strconv.FormatBool(cfg.ODirect)},
+		{"numa_pin", strconv.FormatBool(cfg.NumaPin)},
 		{"max_retries", strconv.Itoa(cfg.MaxRetries)},
 		{"resume", cfg.ResumeState},
 		{"speed", cfg.Speed},
@@ -29,7 +30,6 @@ func TestInitGeneralFlags(t *testing.T) {
 		{"verify_checksum", strconv.FormatBool(cfg.VerifyChecksum)},
 		{"checksum_algorithm", cfg.ChecksumAlgorithm},
 		{"progress", strconv.FormatBool(cfg.Progress)},
-		{"odirect", strconv.FormatBool(cfg.ODirect)},
 	}
 	for _, tt := range cases {
 		f := fs.Lookup(tt.name)
@@ -183,6 +183,31 @@ func TestInitGRPCFlags(t *testing.T) {
 		{"ca_cert", cfg.CACert},
 		{"allow_insecure", strconv.FormatBool(cfg.AllowInsecure)},
 		{"sudo_path", cfg.SudoPath},
+	}
+	for _, tt := range cases {
+		f := fs.Lookup(tt.name)
+		if f == nil {
+			t.Fatalf("missing %s flag", tt.name)
+		}
+		if f.DefValue != tt.want {
+			t.Fatalf("%s default %s want %s", tt.name, f.DefValue, tt.want)
+		}
+	}
+}
+
+func TestInitTransportFlags(t *testing.T) {
+	cfg, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	fs := initTransportFlags(cfg)
+	cases := []struct{ name, want string }{
+		{"transport", cfg.Transport},
+		{"quic_listen", cfg.QUICListen},
+		{"quic_connect", cfg.QUICConnect},
+		{"concurrency", strconv.Itoa(cfg.Concurrency)},
+		{"tcp_port", strconv.Itoa(cfg.TCPPort)},
+		{"h2_port", strconv.Itoa(cfg.H2Port)},
 	}
 	for _, tt := range cases {
 		f := fs.Lookup(tt.name)

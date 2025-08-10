@@ -19,12 +19,10 @@ func ExecuteClient(runClient func(string, string) error, snapshotPath, destPath 
 	}
 
 	if monitorErrCh != nil {
-		select {
-		case err := <-monitorErrCh:
+		for err := range monitorErrCh {
 			if err != nil {
 				return fmt.Errorf("snapshot monitor error: %w", err)
 			}
-		default:
 		}
 	}
 

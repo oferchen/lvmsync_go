@@ -9,13 +9,16 @@ LVMSync is a high-performance incremental data replication tool for LVM snapshot
 - **Incremental Block-Level Synchronization**: Transfers only changed blocks.
 - **Zero-Copy Transfers**: Utilizes `splice()` for efficient data movement.
 - **Parallel Execution**: Configurable concurrency for optimal performance.
+- **Adaptive Transport Concurrency**: Maintains ~1–2×BDP of in-flight data and can be overridden with `--concurrency`.
 - **Rate-Limiting**: Control bandwidth usage during transfers.
 - **Compression**: Samples 8 KiB per chunk, skipping compression when the ratio exceeds a threshold. Auto mode selects LZ4 for chunks <256 KiB and Zstd level 1 for larger chunks on AVX2-capable CPUs.
 - **Checksum Verification**: Ensures data integrity using SHA-256 or BLAKE3.
 - **Native LVM2 Integration**: Uses Go bindings to `liblvm2cmd` instead of shelling out.
 - **Deduplication Strategies**: Detect unchanged blocks using checksum, rolling hash, or a Bloom filter with optional FastCDC content-defined chunking and mmap-backed index.
 - **Remote Execution via SSH**: Replicates data over SSH with support for pre/post-scripts.
-- **Resume Support**: Ability to resume interrupted transfers keyed to CDC chunk IDs with periodic checkpoints.
+- **Resume Support**: Ability to resume interrupted transfers.
+- **Sparse Destination Optimization**: Detects runs of zero bytes and punches holes when the filesystem supports it.
+- **Aligned I/O Buffers and NUMA Pinning**: `--odirect` allocates block-size aligned slabs from a `sync.Pool` and can pin worker goroutines to the device's NUMA node.
 - **LVM Snapshot Management**:
   - Automatic snapshot creation and removal.
   - Configurable snapshot size (absolute or percentage-based).
@@ -156,6 +159,12 @@ The overall loading flow works in three stages:
 2. `buildViper()` binds flags, `LVMSYNC_*` environment variables, and an optional `config.yaml` into a single configuration source.
 3. `LoadConfig()` merges those values with built-in defaults and validates the result.
 
+### I/O tuning
+
+- `--odirect` uses O_DIRECT with block-size aligned buffers.
+- `--sync_interval` sets how many bytes are written between `fdatasync` calls.
+- `--numa_pin` pins worker goroutines to CPUs local to the source device's NUMA node.
+
 ### Precedence and environment variables
 
 LVMSync uses [`pflag`](https://github.com/spf13/pflag) and [`viper`](https://github.com/spf13/viper) so every option can be
@@ -186,10 +195,14 @@ because flags override environment variables, which override the config file.
 | `--apply` | `LVMSYNC_APPLY` | `apply` | Apply mode: read change dump from file ('-' for STDIN) and apply to destination device |
 | `--stdout` | `LVMSYNC_STDOUT` | `stdout` | Write change dump to STDOUT |
 | `--parallel` | `LVMSYNC_PARALLEL` | `parallel` | Number of concurrent workers |
+| `--concurrency` | `LVMSYNC_CONCURRENCY` | `concurrency` | Stream concurrency (0 to autotune based on BDP) |
 | `--zerocopy` | `LVMSYNC_ZEROCOPY` | `zerocopy` | Enable zero-copy transfers |
+| `--odirect` | `LVMSYNC_ODIRECT` | `odirect` | Use O_DIRECT for device I/O when possible |
+| `--numa_pin` | `LVMSYNC_NUMA_PIN` | `numa_pin` | Pin worker goroutines to device NUMA node |
 | `--max_retries` | `LVMSYNC_MAX_RETRIES` | `max_retries` | Maximum number of retries per block |
 | `--resume` | `LVMSYNC_RESUME` | `resume` | Path to resume state file (checkpointed every 1 GiB or 10 s) |
 | `--speed` | `LVMSYNC_SPEED` | `speed` | Transfer speed limit |
+| `--sync_interval` | `LVMSYNC_SYNC_INTERVAL` | `sync_interval` | Bytes between fdatasync calls |
 | `--block_size` | `LVMSYNC_BLOCK_SIZE` | `block_size` | Block size for data transfer; specify 'auto' or 0 for automatic detection |
 | `--verbose` | `LVMSYNC_VERBOSE` | `verbose` | Verbosity level |
 | `--verify_checksum` | `LVMSYNC_VERIFY_CHECKSUM` | `verify_checksum` | Enable checksum verification |

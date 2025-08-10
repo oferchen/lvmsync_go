@@ -54,8 +54,10 @@ type Config struct {
 	StdoutMode            bool          `mapstructure:"stdout"`
 	Mode                  string        `mapstructure:"mode"`
 	Parallel              int           `mapstructure:"parallel"`
+	Concurrency           int           `mapstructure:"concurrency"`
 	ZeroCopy              bool          `mapstructure:"zerocopy"`
 	ODirect               bool          `mapstructure:"odirect"`
+	NumaPin               bool          `mapstructure:"numa_pin"`
 	MaxRetries            int           `mapstructure:"max_retries"`
 	ResumeState           string        `mapstructure:"resume"`
 	SSHUser               string        `mapstructure:"ssh_user"`
@@ -175,6 +177,9 @@ func (b *Builder) applyDefaults(conf *Config) error {
 	}
 	if !b.v.IsSet("allow_insecure") {
 		conf.AllowInsecure = b.defaults.AllowInsecure
+	}
+	if !b.v.IsSet("numa_pin") {
+		conf.NumaPin = b.defaults.NumaPin
 	}
 	if conf.GRPCPort == 0 {
 		conf.GRPCPort = b.defaults.GRPCPort
@@ -355,7 +360,10 @@ func DefaultConfig() (*Config, error) {
 		ApplyMode:             "",
 		StdoutMode:            false,
 		Parallel:              4,
+		Concurrency:           0,
 		ZeroCopy:              false,
+		ODirect:               false,
+		NumaPin:               false,
 		MaxRetries:            3,
 		ResumeState:           "",
 		SSHUser:               "root",
@@ -425,6 +433,7 @@ func initGeneralFlags(cfg *Config) *pflag.FlagSet {
 	fs.Int("parallel", cfg.Parallel, "Number of concurrent workers")
 	fs.Bool("zerocopy", cfg.ZeroCopy, "Enable zero-copy transfers")
 	fs.Bool("odirect", cfg.ODirect, "Use O_DIRECT for device I/O when possible")
+	fs.Bool("numa_pin", cfg.NumaPin, "Pin worker goroutines to device NUMA node")
 	fs.Int("max_retries", cfg.MaxRetries, "Maximum number of retries per block")
 	fs.String("resume", cfg.ResumeState, "Path to resume state file")
 	fs.String("speed", cfg.Speed, "Transfer speed limit")
@@ -511,6 +520,7 @@ func initTransportFlags(cfg *Config) *pflag.FlagSet {
 	fs.String("transport", cfg.Transport, "Ordered transports to try (e.g. 'quic,h2,tcp+tls,ssh')")
 	fs.String("quic_listen", cfg.QUICListen, "QUIC listen address")
 	fs.String("quic_connect", cfg.QUICConnect, "QUIC connect address")
+	fs.Int("concurrency", cfg.Concurrency, "Stream concurrency (0 to autotune)")
 	fs.Int("tcp_port", cfg.TCPPort, "TCP+TLS port")
 	fs.Int("h2_port", cfg.H2Port, "HTTP/2 TLS port")
 	return fs
