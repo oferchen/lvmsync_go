@@ -112,6 +112,26 @@ lvmsync --compress auto --zstd_level 2 --compress_threshold 0.85
 - Prefer CPU-accelerated implementations such as `github.com/zeebo/blake3` for hashing and `github.com/klauspost/compress` for Zstd and LZ4 compression.
 - Choose libraries that leverage vector instructions when available to maximize throughput.
 
+## Coding Conventions
+
+### Transports
+
+- Register transports via `transport.Register` using short, descriptive names.
+- Each transport must implement `Sender` and `Receiver` interfaces and include an integration test.
+- Avoid global state; pass configuration and loggers explicitly.
+
+### Deduplication
+
+- Dedup strategies should expose pure functions and persist state deterministically.
+- Provide tests for Bloom filter sizing and CDC window boundaries.
+- Document tunables `--cdc-min`, `--cdc-avg`, `--cdc-max`, and `--bloom-mbits`.
+
+### Compression
+
+- Detect CPU features before selecting algorithms.
+- Sample 8 KiB per chunk to estimate ratios and honour `--compress_threshold`.
+- Benchmarks must cover algorithm choice and cache resets.
+
 ## Control Plane Flow
 
 - Clients perform a handshake sending `sector_size`, `alignment`, `max_concurrency`, and dedup/compression support.
@@ -202,6 +222,9 @@ lvmsync --compress auto --zstd_level 2 --compress_threshold 0.85
 - [ ] Refactor `main.go` into smaller modules.
 - [ ] Verify configuration precedence.
 - [ ] Document feature changes in `README.md`.
+- [ ] Implement full transport registry with working QUIC, HTTP/2, TCP+TLS, and SSH backends and accompanying tests.
+- [ ] Finalize hybrid deduplication and document CDC tuning knobs.
+- [ ] Integrate adaptive compression sampling with configurable thresholds and unit benchmarks.
 ## Roadmap
 
 - [ ] Implement gRPC control plane with mTLS and port configurability.

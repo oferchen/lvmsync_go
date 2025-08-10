@@ -114,20 +114,6 @@ Example:
 lvmsync --transport quic,h2,tcp+tls,ssh --quic-listen :9000 --tcp-port 9443
 ```
 
-### Modes
-
-LVMSync exposes a `--mode` flag to apply preset configurations.
-
-- `default` – standard behavior.
-- `throughput` – tunes defaults for maximum throughput:
-  - transport order `quic,h2,tcp+tls`
-  - concurrency `8`
-  - deduplication mode `hybrid` with 2 MiB fixed chunks and CDC range 256 KiB–8 MiB
-  - compression `auto`
-  - enables `--odirect`
-  - `--sync-interval=1 GiB`, `--checkpoint-bytes=1 GiB`, `--checkpoint-interval=10s`
-  - QUIC congestion control `bbr`
-
 ```go
 func initConfig() *viper.Viper {
     v := viper.New()
@@ -243,13 +229,50 @@ because flags override environment variables, which override the config file.
 | `--allow_insecure` | `LVMSYNC_ALLOW_INSECURE` | `allow_insecure` | Allow insecure (no TLS) |
 | `--sudo_path` | `LVMSYNC_SUDO_PATH` | `sudo_path` | Path to sudo executable |
 
-### Control Plane Flow
+## gRPC Control Plane
+
+The optional gRPC daemon exposes snapshot management and replication over a mutually authenticated channel.
 
 1. **Handshake** – clients advertise `sector_size`, `alignment`, `max_concurrency`, and whether deduplication and compression are supported.
 2. **Session Creation** – the client sends an ephemeral certificate and receives a session ID, server certificate, and pre-shared key.
 3. **Resume Bitmap** – dirty block bitmaps are streamed with the session ID to resume interrupted transfers, and final manifests carrying SHA-256 digests validate completion.
 4. **Ack/Ping Stream** – a bidirectional stream of `Ack` messages per session provides keep-alives and progress confirmation.
 5. **Finalization** – the client requests completion using the session ID when replication is done.
+
+Run the daemon with TLS:
+
+```sh
+lvmsync-grpcd --grpc-port 9443 --tls-cert cert.pem --tls-key key.pem --ca-cert ca.pem
+```
+
+Environment variables provide the same settings:
+
+```sh
+LVMSYNC_GRPC_GRPC_PORT=9443 \
+LVMSYNC_GRPC_TLS_CERT=cert.pem \
+LVMSYNC_GRPC_TLS_KEY=key.pem \
+LVMSYNC_GRPC_CA_CERT=ca.pem \
+lvmsync-grpcd
+```
+
+YAML (`grpcd.yaml`):
+
+```yaml
+grpc-port: 9443
+tls-cert: cert.pem
+tls-key: key.pem
+ca-cert: ca.pem
+```
+
+Clients connect using `--grpc-connect`:
+
+```sh
+lvmsync --grpc-connect localhost:9443 /dev/vg0/snap0 /dev/vg0/data
+```
+
+```sh
+LVMSYNC_GRPC_CONNECT=localhost:9443 lvmsync /dev/vg0/snap0 /dev/vg0/data
+```
 
 ### `config.yaml` example
 
@@ -283,6 +306,95 @@ With a config file:
 
 ```sh
 lvmsync --config config.yaml /dev/vg0/snap0 /mnt/backup
+```
+
+## Transport Registry
+
+Transports are pluggable and selected in order using the `--transport` flag. LVMSync tries each transport until one succeeds.
+
+CLI:
+
+```sh
+lvmsync --transport quic,h2,tcp+tls,ssh --quic-listen :9000 --tcp-port 9443 /dev/vg0/snap0 /mnt/backup
+```
+
+Environment:
+
+```sh
+LVMSYNC_TRANSPORT=quic,h2,tcp+tls,ssh lvmsync /dev/vg0/snap0 /mnt/backup
+```
+
+YAML:
+
+```yaml
+transport: quic,h2,tcp+tls,ssh
+tcp-port: 9443
+```
+
+## Hybrid Deduplication and Adaptive Compression
+
+Hybrid dedup combines fixed-size and content-defined chunking. Enable it with `--dedup hybrid` and tune the CDC window with `--cdc_min`, `--cdc_avg`, and `--cdc_max`.
+
+Compression samples 8 KiB from each chunk and skips when the estimated ratio exceeds `--compress_threshold`. `--compress auto` selects LZ4 for chunks under 256 KiB and Zstd otherwise.
+
+CLI:
+
+```sh
+lvmsync --dedup hybrid --cdc_min 4096 --cdc_avg 65536 --cdc_max 1048576 \
+        --compress auto --compress_threshold 0.85 /dev/vg0/snap0 /mnt/backup
+```
+
+Environment:
+
+```sh
+LVMSYNC_DEDUP=hybrid \
+LVMSYNC_CDC_MIN=4096 \
+LVMSYNC_CDC_AVG=65536 \
+LVMSYNC_CDC_MAX=1048576 \
+LVMSYNC_COMPRESS=auto \
+LVMSYNC_COMPRESS_THRESHOLD=0.85 \
+lvmsync /dev/vg0/snap0 /mnt/backup
+```
+
+YAML:
+
+```yaml
+dedup: hybrid
+cdc_min: 4096
+cdc_avg: 65536
+cdc_max: 1048576
+compress: auto
+compress_threshold: 0.85
+```
+
+## Throughput Mode Presets
+
+`--mode throughput` applies a set of options tuned for high-bandwidth links:
+
+- transport order `quic,h2,tcp+tls,ssh`
+- concurrency `8`
+- deduplication mode `hybrid`
+- compression `auto`
+- enables `--odirect`
+- sync interval `10MB` and checkpoint interval `30m`
+- QUIC congestion control `bbr`
+
+CLI:
+
+```sh
+lvmsync --mode throughput /dev/vg0/snap0 /mnt/backup
+```
+
+Environment:
+
+```sh
+LVMSYNC_MODE=throughput lvmsync /dev/vg0/snap0 /mnt/backup
+```
+
+YAML:
+
+```yaml
+mode: throughput
 ```
 
 ### Logging and progress
