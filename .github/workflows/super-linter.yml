@@ -1,16 +1,5 @@
 ---
 # .github/workflows/super-linter.yml
-# OVERHEAD: Hardened Super-Linter workflow
-# - Soft/Hard fail via SUPER_LINTER_STRICT
-# - golangci-lint uses package pattern (./...) to avoid cross-dir issues
-# - Skips auto-push on forks/protected branches/PRs
-# - Cleans root-owned linter artifacts before committing
-# - Robust commit flow (rebase + retries + [skip ci])
-# - Status updates enabled (avoid 403s via permissions)
-# - Concurrency per ref (prevents overlapping runs)
-# - JSCPD reads local .jscpd.json (dashboards ignored there)
-# - Uploads JSCPD HTML report as artifact
-
 name: Super-Linter
 
 on:
@@ -28,8 +17,9 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  SUPER_LINTER_STRICT: "true" # set "false" to soft-fail the job
-  JSCPD_IGNORE: "${{ github.workspace }}/*.json"
+  SUPER_LINTER_STRICT: "true"
+  # Let .jscpd.json drive ignores; avoid per-run env overrides that can conflict.
+  # JSCPD_IGNORE: "**/*.json"
 
 jobs:
   super-linter:
@@ -55,11 +45,12 @@ jobs:
           # Core
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DEFAULT_BRANCH: main
-          # Validate all code on PRs; changed files only on direct pushes
-          VALIDATE_ALL_CODEBASE: ${{ github.event_name == 'pull_request' && 'true' || 'false' }}
+
+          # IMPORTANT: force package-mode to avoid cross-dir file lists
+          VALIDATE_ALL_CODEBASE: true
           FILTER_REGEX_INCLUDE: ""
 
-          # Go: pass ONLY the package pattern (NO "run")
+          # Go (package pattern only)
           GO_LINTER: golangci-lint
           GO_LINT_FLAGS: ./...
           GOLANGCI_LINT_VERSION: v2.3.1
@@ -73,16 +64,13 @@ jobs:
 
           LINTER_RULES_PATH: .
           JSCPD_CONFIG_FILE: .jscpd.json
-          # Optional: keep if you truly want to ignore all JSON except the config; prefer to define ignores inside .jscpd.json.
-          JSCPD_IGNORE: "**/*.json"
 
           DOCKERFILE_HADOLINT_FILE_NAME: .hadolint.yaml
           DOCKERFILE_HADOLINT_CONFIG_FILE: .hadolint.yaml
           IGNORE_GENERATED_FILES: true
           IGNORE_GITIGNORED_FILES: true
 
-          # Exclude only the JSCPD config itself from other linters' scans;
-          # keep dashboards handled via .jscpd.json ignore list
+          # Exclude only the JSCPD config itself from other linters
           FILTER_REGEX_EXCLUDE: '(^|/)\.jscpd\.json$'
         continue-on-error: ${{ env.SUPER_LINTER_STRICT != 'true' }}
 
@@ -106,21 +94,17 @@ jobs:
           git config --global safe.directory "$GITHUB_WORKSPACE"
           cd "$GITHUB_WORKSPACE"
 
-          # Quick exit if nothing changed
           if ! git status --porcelain | grep -q .; then
             echo "No working directory changes detected."
             exit 0
           fi
 
           git add -A
-
-          # Exit if nothing staged
           if git diff --cached --quiet; then
             echo "No staged changes to commit."
             exit 0
           fi
 
-          # Rebase to avoid non-FF push
           git fetch --no-tags --prune origin \
             "+refs/heads/${BRANCH_NAME}:refs/remotes/origin/${BRANCH_NAME}"
           if ! git rebase --autostash "origin/${BRANCH_NAME}"; then
@@ -129,16 +113,11 @@ jobs:
             exit 1
           fi
 
-          # Single commit; skip CI to avoid loops
           msg="chore: auto-fix lint issues [super-linter] [skip ci]"
           git commit -m "$msg" \
             --author="github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>" \
-            --no-verify || {
-            echo "No commit created (nothing to commit)."
-            exit 0
-          }
+            --no-verify || { echo "No commit created."; exit 0; }
 
-          # Push with retries
           for i in 1 2 3; do
             if git push origin "HEAD:${BRANCH_NAME}"; then
               echo "Pushed auto-fix commit to ${BRANCH_NAME}."
@@ -149,6 +128,5 @@ jobs:
               "+refs/heads/${BRANCH_NAME}:refs/remotes/origin/${BRANCH_NAME}"
             git rebase --autostash "origin/${BRANCH_NAME}" || { git rebase --abort || true; }
           done
-
           echo "Failed to push auto-fix commit after retries."
           exit 1
