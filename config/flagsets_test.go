@@ -20,6 +20,7 @@ func TestInitGeneralFlags(t *testing.T) {
 		{"parallel", strconv.Itoa(cfg.Parallel)},
 		{"zerocopy", strconv.FormatBool(cfg.ZeroCopy)},
 		{"odirect", strconv.FormatBool(cfg.ODirect)},
+		{"numa_pin", strconv.FormatBool(cfg.NumaPin)},
 		{"max_retries", strconv.Itoa(cfg.MaxRetries)},
 		{"resume", cfg.ResumeState},
 		{"speed", cfg.Speed},
@@ -29,7 +30,6 @@ func TestInitGeneralFlags(t *testing.T) {
 		{"verify_checksum", strconv.FormatBool(cfg.VerifyChecksum)},
 		{"checksum_algorithm", cfg.ChecksumAlgorithm},
 		{"progress", strconv.FormatBool(cfg.Progress)},
-		{"odirect", strconv.FormatBool(cfg.ODirect)},
 	}
 	for _, tt := range cases {
 		f := fs.Lookup(tt.name)
