@@ -45,6 +45,16 @@ func iterateBlocks(cfg *config.Config, ranges []Range, srcFile *os.File, bufOut 
 		}
 
 		binary.BigEndian.PutUint64(header[0:8], r.Start)
+		if isAllZero(data) {
+			binary.BigEndian.PutUint32(header[8:12], 0)
+			if _, err := bufOut.Write(header[:]); err != nil {
+				putBlockBuffer(data)
+				return totalBytes, skippedBlocks, fmt.Errorf("failed to write header: %w", err)
+			}
+			putBlockBuffer(data)
+			totalBytes += int64(blockSize)
+			continue
+		}
 		binary.BigEndian.PutUint32(header[8:12], blockSize)
 		if _, err := bufOut.Write(header[:]); err != nil {
 			putBlockBuffer(data)
@@ -97,10 +107,14 @@ func processParallelResults(cfg *config.Config, results <-chan *BlockResult, buf
 
 		n := prepareResultHeader(cfg, checksum, res, header)
 		if err := writeResult(bufOut, header[:n], res.Data); err != nil {
-			putBlockBuffer(res.Data)
+			if res.Data != nil {
+				putBlockBuffer(res.Data)
+			}
 			return totalBytesTransferred, err
 		}
-		putBlockBuffer(res.Data)
+		if res.Data != nil {
+			putBlockBuffer(res.Data)
+		}
 
 		totalBytesTransferred += int64(res.Size)
 		saveResumeState(cfg, res.Index)
@@ -118,11 +132,21 @@ func worker(cfg *config.Config, srcFile *os.File, tasks <-chan BlockTask, result
 			continue
 		}
 		data, err := ReadBlockWithRetries(cfg, srcFile, offset, false, [2]int{-1, -1})
+		zero := err == nil && isAllZero(data)
+		var resData []byte
+		size := blockSize
+		if zero {
+			putBlockBuffer(data)
+			resData = nil
+			size = 0
+		} else {
+			resData = data
+		}
 		results <- &BlockResult{
 			Index:  task.Index,
 			Offset: task.R.Start,
-			Size:   blockSize,
-			Data:   data,
+			Size:   size,
+			Data:   resData,
 			Err:    err,
 		}
 	}

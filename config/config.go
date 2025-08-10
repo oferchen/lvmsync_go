@@ -52,6 +52,7 @@ type Config struct {
 	StdoutMode           bool          `mapstructure:"stdout"`
 	Parallel             int           `mapstructure:"parallel"`
 	ZeroCopy             bool          `mapstructure:"zerocopy"`
+	ODirect              bool          `mapstructure:"odirect"`
 	MaxRetries           int           `mapstructure:"max_retries"`
 	ResumeState          string        `mapstructure:"resume"`
 	SSHUser              string        `mapstructure:"ssh_user"`
@@ -70,6 +71,8 @@ type Config struct {
 	CompressConcurrency  int      `mapstructure:"compress_concurrency"`
 	Speed                string   `mapstructure:"speed"`
 	SpeedLimit           int      `mapstructure:"-"`
+	SyncInterval         string   `mapstructure:"sync_interval"`
+	SyncIntervalBytes    int      `mapstructure:"-"`
 	VerifyChecksum       bool     `mapstructure:"verify_checksum"`
 	ChecksumAlgorithm    string   `mapstructure:"checksum_algorithm"`
 	Verbose              int      `mapstructure:"verbose"`
@@ -173,6 +176,15 @@ func (b *Builder) applyDefaults(conf *Config) error {
 	}
 	conf.SpeedLimit = sl
 
+	si, err := b.parseBytesOrFallback("sync_interval", b.defaults.SyncInterval)
+	if err != nil {
+		return err
+	}
+	conf.SyncIntervalBytes = si
+	if conf.SyncInterval == "" {
+		conf.SyncInterval = b.defaults.SyncInterval
+	}
+
 	if conf.CompressConcurrency <= 0 {
 		conf.CompressConcurrency = runtime.GOMAXPROCS(0)
 	}
@@ -271,6 +283,7 @@ func DefaultConfig() (*Config, error) {
 		StdoutMode:           false,
 		Parallel:             4,
 		ZeroCopy:             false,
+		ODirect:              false,
 		MaxRetries:           3,
 		ResumeState:          "",
 		SSHUser:              "root",
@@ -287,6 +300,8 @@ func DefaultConfig() (*Config, error) {
 		CompressLevel:        3,
 		CompressConcurrency:  runtime.GOMAXPROCS(0),
 		Speed:                "100MB",
+		SyncInterval:         "1GB",
+		SyncIntervalBytes:    1000000000,
 		VerifyChecksum:       false,
 		ChecksumAlgorithm:    "sha256",
 		Verbose:              0,
@@ -320,9 +335,11 @@ func initGeneralFlags(cfg *Config) *pflag.FlagSet {
 	fs.Bool("stdout", cfg.StdoutMode, "Write change dump to STDOUT")
 	fs.Int("parallel", cfg.Parallel, "Number of concurrent workers")
 	fs.Bool("zerocopy", cfg.ZeroCopy, "Enable zero-copy transfers")
+	fs.Bool("odirect", cfg.ODirect, "Use O_DIRECT for device I/O when possible")
 	fs.Int("max_retries", cfg.MaxRetries, "Maximum number of retries per block")
 	fs.String("resume", cfg.ResumeState, "Path to resume state file")
 	fs.String("speed", cfg.Speed, "Transfer speed limit")
+	fs.String("sync_interval", cfg.SyncInterval, "Bytes between fdatasync calls")
 	fs.String("block_size", cfg.BlockSizeRaw, "Block size for data transfer; specify 'auto' or 0 for automatic detection")
 	fs.CountP("verbose", "v", "Verbosity level")
 	fs.Bool("verify_checksum", cfg.VerifyChecksum, "Enable checksum verification")
