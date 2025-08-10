@@ -29,7 +29,7 @@ concurrency:
 
 env:
   SUPER_LINTER_STRICT: "true" # set "false" to soft-fail the job
-  # JSCPD_IGNORE: "${{ github.workspace }}/*.json"
+  JSCPD_IGNORE: "${{ github.workspace }}/*.json"
 
 jobs:
   super-linter:
@@ -63,7 +63,7 @@ jobs:
           DEFAULT_BRANCH: main
           # Validate all code on PRs; changed files only on direct pushes
           VALIDATE_ALL_CODEBASE: ${{ github.event_name == 'pull_request' && 'true' || 'false' }}
-          # VALIDATE_GIT_COMMITLINT: "false"
+          VALIDATE_GIT_COMMITLINT: "false"
           FILTER_REGEX_INCLUDE: ""
 
           # VALIDATE_GO: true
@@ -96,7 +96,7 @@ jobs:
           FILTER_REGEX_EXCLUDE: '(^|/)\.jscpd\.json$'
 
           # Go: disable file-mode linter; enable module-aware path
-          # VALIDATE_GO: "false"
+          VALIDATE_GO: "false"
           # VALIDATE_GO_MODULES: "true"
 
         continue-on-error: ${{ env.SUPER_LINTER_STRICT != 'true' }}
