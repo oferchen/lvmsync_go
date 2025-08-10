@@ -175,6 +175,7 @@ lvmsync --compress auto --zstd_level 2 --compress_threshold 0.85
 - Document every CLI flag, environment variable, and configuration option in `README.md`.
 - Update examples and default values to match new options.
 - Deduplication modes (`fixed`, `cdc`, `hybrid`) expose tunables `--cdc-min`, `--cdc-avg`, `--cdc-max`, and Bloom filter sizing with `--bloom-mbits` for the mmap-backed index.
+- Keep transport sections and flag-to-env tables (QUIC, HTTP/2, TCP+TLS, SSH) in sync with code changes.
 
 ## Release Workflow
 
@@ -217,6 +218,7 @@ lvmsync --compress auto --zstd_level 2 --compress_threshold 0.85
 - [ ] Keep modules single-purpose; maintain the `transfer` package decomposition (`progress.go`, `handshake.go`, `block_writer.go`).
 - [ ] Document gRPC daemon configuration sources (flags, env vars, config file) and precedence.
 - [ ] Keep `README` configuration documentation current with code changes.
+- [ ] Keep transport documentation and configuration references (flags and env vars) up to date.
 - [ ] Track decomposition of large files like `transfer/transfer.go`.
 - [ ] Ensure progress logging uses `zap` exclusively.
 - [ ] Add a dedicated unit test for every new function.

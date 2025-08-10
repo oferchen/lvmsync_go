@@ -176,7 +176,7 @@ Recent refactors added several configuration options:
 
 - `--transport` selects the ordered list of transports to try.
 - `--quic_listen` and `--quic_connect` configure QUIC addresses.
-- `--tcp_port` and `--h2_port` expose TCP+TLS and HTTP/2 endpoints.
+- `--tcp_port`, `--h2_port`, and `--ssh_port` expose TCP+TLS, HTTP/2, and SSH endpoints.
 - `--sync_interval` controls how many bytes are written between `fdatasync` calls.
 - `--block_size` sets the transfer block size (use `auto` for detection).
 
@@ -389,30 +389,49 @@ lvmsync --config config.yaml /dev/vg0/snap0 /mnt/backup
 
 Transports are pluggable and selected in order using the `--transport` flag. LVMSync tries each transport until one succeeds.
 
-Each transport exposes its own tuning flags:
+### Flags and environment variables
 
-- `--quic-listen` / `--quic-connect`
-- `--h2-port` for HTTP/2
-- `--tcp-port` for TCP+TLS
-- `--ssh-port` for SSH
+| Flag | Environment variable | Description |
+|------|----------------------|-------------|
+| `--transport` | `LVMSYNC_TRANSPORT` | Ordered transports to try (e.g., `quic,h2,tcp+tls,ssh`) |
+| `--quic-listen` | `LVMSYNC_QUIC_LISTEN` | QUIC listen address |
+| `--quic-connect` | `LVMSYNC_QUIC_CONNECT` | QUIC connect address |
+| `--h2-port` | `LVMSYNC_H2_PORT` | HTTP/2 TLS port |
+| `--tcp-port` | `LVMSYNC_TCP_PORT` | TCP+TLS port |
+| `--ssh-port` | `LVMSYNC_SSH_PORT` | SSH port |
 
-CLI:
+### Usage examples
+
+**QUIC**
 
 ```sh
-lvmsync --transport quic,h2,tcp+tls,ssh --quic-listen :9000 --tcp-port 9443 /dev/vg0/snap0 /mnt/backup
+lvmsync --transport quic --quic-listen :9000
+# or
+LVMSYNC_TRANSPORT=quic LVMSYNC_QUIC_LISTEN=:9000 lvmsync
 ```
 
-Environment:
+**HTTP/2**
 
 ```sh
-LVMSYNC_TRANSPORT=quic,h2,tcp+tls,ssh lvmsync /dev/vg0/snap0 /mnt/backup
+lvmsync --transport h2 --h2-port 9443
+# or
+LVMSYNC_TRANSPORT=h2 LVMSYNC_H2_PORT=9443 lvmsync
 ```
 
-YAML:
+**TCP+TLS**
 
-```yaml
-transport: quic,h2,tcp+tls,ssh
-tcp-port: 9443
+```sh
+lvmsync --transport tcp+tls --tcp-port 9443
+# or
+LVMSYNC_TRANSPORT=tcp+tls LVMSYNC_TCP_PORT=9443 lvmsync
+```
+
+**SSH**
+
+```sh
+lvmsync --transport ssh backup@host:/dev/vg1/target --ssh-port 2222
+# or
+LVMSYNC_TRANSPORT=ssh LVMSYNC_SSH_PORT=2222 lvmsync backup@host:/dev/vg1/target
 ```
 
 ## Hybrid Deduplication and Adaptive Compression
