@@ -2,10 +2,18 @@
 # .slsa-goreleaser.yml
 version: 2
 builds:
-  - goos:
-      - linux
-    goarch:
-      - amd64
-    dir: .
+  - id: lvmsync_go
     main: ./main.go
-    binary: lvmsync_go
+    env: [CGO_ENABLED=1]
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    ldflags: [-s -w]
+archives:
+  - id: archives
+    ids: [lvmsync_go]
+    formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+checksum:
+  name_template: "checksums.txt"
+...
