@@ -1,20 +1,56 @@
 # syntax=docker/dockerfile:1.4
 # Dockerfile
 
-FROM alpine:3.20  # ✅ CKV_DOCKER_7: pinned tag
+# 1) Build
+FROM golang:1.24-alpine AS build
+ARG BIN
+ARG BUILD_PATH=.
+ARG GIT_SHA=unknown
 
-# hadolint ignore=DL3018
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup \
-    && apk add --no-cache ca-certificates
+RUN apk add --no-cache \
+      build-base \
+      linux-headers \
+      pkgconf \
+      lvm2-dev \
+      libaio-dev
 
-WORKDIR /app
+ENV CGO_ENABLED=1 \
+    GO111MODULE=on
 
-COPY --chown=appuser:appgroup lvmsync_go /usr/local/bin/lvmsync_go
-RUN chmod 0755 /usr/local/bin/lvmsync_go
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN --mount=type=cache,target=/go/pkg/mod go mod download
 
-USER appuser
+COPY . .
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    go build -trimpath -ldflags "-s -w -X lvmsync_go/config.BuildVersion=${GIT_SHA}" -o /out/${BIN} ${BUILD_PATH} && \
 
-ENTRYPOINT ["/usr/local/bin/lvmsync_go"]
+# 2) Strip
+# checkov:skip=CKV_DOCKER_7: we intentionally track Alpine latest for this stage
+FROM alpine:latest AS strip
+ARG BIN
+RUN apk add --no-cache binutils
+COPY --from=build /out/${BIN} /work/${BIN}
+RUN strip /work/${BIN} /work/${BIN}
+
+# 3) Runtime
+# checkov:skip=CKV_DOCKER_7: we intentionally track Alpine latest for runtime
+FROM alpine:latest
+ARG BIN
+
+RUN apk add --no-cache \
+      ca-certificates \
+      device-mapper-libs \
+      lvm2-libs \
+      libaio \
+  && addgroup -S app \
+  && adduser -S -G app -H -s /sbin/nologin app
+
+COPY --from=strip /work/${BIN} /usr/local/bin/${BIN}
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=2 \
-  CMD [ "/usr/local/bin/lvmsync_go", "--healthcheck" ]
+  CMD [ "/usr/local/bin/${BIN}", "--healthcheck" ]
+
+USER app:app
+WORKDIR /home/app
+ENTRYPOINT ["/usr/local/bin/${BIN}"]
