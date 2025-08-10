@@ -19,16 +19,45 @@ func TestRegistryLookup(t *testing.T) {
 	}
 }
 
-func TestSelectFallback(t *testing.T) {
+func TestSelectOrder(t *testing.T) {
 	fail := func(*config.Config) (Sender, Receiver, error) { return nil, nil, errors.New("fail") }
 	ok := func(*config.Config) (Sender, Receiver, error) { return NopSender{}, NopReceiver{}, nil }
-	Register("fail", fail)
-	Register("ok", ok)
-	_, _, name, err := Select(&config.Config{}, []string{"fail", "ok"})
-	if err != nil {
-		t.Fatalf("select returned error: %v", err)
+
+	tests := []struct {
+		name    string
+		order   []string
+		want    string
+		wantErr bool
+	}{
+		{
+			name:  "fallback",
+			order: []string{"fail", "ok"},
+			want:  "ok",
+		},
+		{
+			name:    "allfail",
+			order:   []string{"fail"},
+			wantErr: true,
+		},
 	}
-	if name != "ok" {
-		t.Fatalf("expected ok, got %s", name)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			Register("fail", fail)
+			Register("ok", ok)
+			_, _, name, err := Select(&config.Config{}, tt.order)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("expected error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("select returned error: %v", err)
+			}
+			if name != tt.want {
+				t.Fatalf("expected %s, got %s", tt.want, name)
+			}
+		})
 	}
 }

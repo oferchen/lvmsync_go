@@ -6,6 +6,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"errors"
 	"math/big"
 	"net"
 	"testing"
@@ -66,6 +67,220 @@ func TestHandshakeAndAck(t *testing.T) {
 	}
 	if _, err := stream.Recv(); err != nil {
 		t.Fatalf("recv: %v", err)
+	}
+}
+
+func TestDial(t *testing.T) {
+	lis := bufconn.Listen(bufSize)
+	srv, err := servers.New(servers.Config{AllowInsecure: true}, nil)
+	if err != nil {
+		t.Fatalf("server.New: %v", err)
+	}
+	go srv.Serve(lis)
+	defer srv.Stop()
+
+	cases := []struct {
+		name    string
+		conf    Config
+		wantErr bool
+	}{
+		{"insecure", Config{AllowInsecure: true}, false},
+		{"missingCert", Config{TLSCert: "nope", TLSKey: "nope", CACert: "nope"}, true},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			opts := []grpc.DialOption{}
+			if !tc.wantErr {
+				opts = append(opts, grpc.WithContextDialer(bufDialer(lis)))
+			}
+			conn, err := Dial("bufnet", tc.conf, opts...)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("expected error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("Dial: %v", err)
+			}
+			conn.Close()
+		})
+	}
+}
+
+type fakeSessionClient struct {
+	stubClient
+	resp *proto.SessionResponse
+	err  error
+}
+
+func (f *fakeSessionClient) CreateSession(ctx context.Context, _ *proto.SessionRequest, _ ...grpc.CallOption) (*proto.SessionResponse, error) {
+	return f.resp, f.err
+}
+
+func TestCreateSession(t *testing.T) {
+	goodCert := dummyCert(t)
+	cases := []struct {
+		name    string
+		client  proto.ReplicationClient
+		wantErr bool
+	}{
+		{
+			name:   "success",
+			client: &fakeSessionClient{resp: &proto.SessionResponse{SessionId: "s", Psk: []byte{1}, ServerCert: goodCert}},
+		},
+		{
+			name:    "badCert",
+			client:  &fakeSessionClient{resp: &proto.SessionResponse{SessionId: "s", Psk: []byte{1}, ServerCert: []byte("bad")}},
+			wantErr: true,
+		},
+		{
+			name:    "missingPSK",
+			client:  &fakeSessionClient{resp: &proto.SessionResponse{SessionId: "s", ServerCert: goodCert}},
+			wantErr: true,
+		},
+		{
+			name:    "rpcError",
+			client:  &fakeSessionClient{err: errors.New("fail")},
+			wantErr: true,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := CreateSession(context.Background(), tc.client, "vol", "dev")
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("expected error")
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+			}
+		})
+	}
+}
+
+type fakeManifestClient struct {
+	stubClient
+	resp *proto.StatusResponse
+	err  error
+}
+
+func (f *fakeManifestClient) SendFinalManifest(ctx context.Context, _ *proto.ManifestMessage, _ ...grpc.CallOption) (*proto.StatusResponse, error) {
+	return f.resp, f.err
+}
+
+func TestSendFinalManifest(t *testing.T) {
+	cases := []struct {
+		name    string
+		client  proto.ReplicationClient
+		wantErr bool
+	}{
+		{
+			name:   "success",
+			client: &fakeManifestClient{resp: &proto.StatusResponse{Ok: true}},
+		},
+		{
+			name:    "rpcError",
+			client:  &fakeManifestClient{err: errors.New("fail")},
+			wantErr: true,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := SendFinalManifest(context.Background(), tc.client, "sess", []byte("{}"))
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("expected error")
+				}
+			} else if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+type fakeAckClient struct{ stubClient }
+
+func (fakeAckClient) AckStream(context.Context, ...grpc.CallOption) (proto.Replication_AckStreamClient, error) {
+	return nil, errors.New("fail")
+}
+
+func TestAckStreamError(t *testing.T) {
+	c := fakeAckClient{}
+	if _, err := AckStream(context.Background(), c, "sess"); err == nil {
+		t.Fatalf("expected error")
+	}
+}
+
+type fakeHandshakeClient struct{ stubClient }
+
+type stubClient struct{}
+
+func (stubClient) LockVolume(context.Context, *proto.LockRequest, ...grpc.CallOption) (*proto.StatusResponse, error) {
+	return nil, nil
+}
+
+func (stubClient) GetVolumeMetadata(context.Context, *proto.LockRequest, ...grpc.CallOption) (*proto.VolumeMetadata, error) {
+	return nil, nil
+}
+
+func (stubClient) SendVolumeMetadata(context.Context, *proto.VolumeMetadata, ...grpc.CallOption) (*proto.StatusResponse, error) {
+	return nil, nil
+}
+
+func (stubClient) StartTransferSession(context.Context, *proto.LockRequest, ...grpc.CallOption) (*proto.StatusResponse, error) {
+	return nil, nil
+}
+
+func (stubClient) FinalizeSync(context.Context, *proto.LockRequest, ...grpc.CallOption) (*proto.StatusResponse, error) {
+	return nil, nil
+}
+
+func (stubClient) GetStatus(context.Context, *proto.LockRequest, ...grpc.CallOption) (*proto.StatusResponse, error) {
+	return nil, nil
+}
+
+func (stubClient) Ping(context.Context, *proto.Empty, ...grpc.CallOption) (*proto.StatusResponse, error) {
+	return nil, nil
+}
+
+func (stubClient) Handshake(context.Context, *proto.HandshakeRequest, ...grpc.CallOption) (*proto.HandshakeResponse, error) {
+	return nil, nil
+}
+
+func (stubClient) CreateSession(context.Context, *proto.SessionRequest, ...grpc.CallOption) (*proto.SessionResponse, error) {
+	return nil, nil
+}
+
+func (stubClient) SendResumeBitmap(context.Context, ...grpc.CallOption) (proto.Replication_SendResumeBitmapClient, error) {
+	return nil, nil
+}
+
+func (stubClient) SendFinalManifest(context.Context, *proto.ManifestMessage, ...grpc.CallOption) (*proto.StatusResponse, error) {
+	return nil, nil
+}
+
+func (stubClient) Finalize(context.Context, *proto.FinalizeRequest, ...grpc.CallOption) (*proto.StatusResponse, error) {
+	return nil, nil
+}
+
+func (stubClient) AckStream(context.Context, ...grpc.CallOption) (proto.Replication_AckStreamClient, error) {
+	return nil, nil
+}
+
+func (fakeHandshakeClient) Handshake(context.Context, *proto.HandshakeRequest, ...grpc.CallOption) (*proto.HandshakeResponse, error) {
+	return nil, errors.New("fail")
+}
+
+func TestHandshakeError(t *testing.T) {
+	c := fakeHandshakeClient{}
+	if _, err := Handshake(context.Background(), c, &proto.HandshakeRequest{}); err == nil {
+		t.Fatalf("expected error")
 	}
 }
 

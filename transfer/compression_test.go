@@ -135,28 +135,37 @@ func TestNewCompressionWriterAutoDetects(t *testing.T) {
 }
 
 func TestCompressChunkThreshold(t *testing.T) {
-	data := bytes.Repeat([]byte("a"), 64*1024)
-	compressed, algo, err := CompressChunk(data, StrategyAuto, 0, 1, 0.9)
-	if err != nil {
-		t.Fatalf("compress chunk: %v", err)
-	}
-	if algo == "none" || len(compressed) >= len(data) {
-		t.Fatalf("expected data to be compressed")
-	}
-
 	rnd := make([]byte, 64*1024)
 	if _, err := rand.Read(rnd); err != nil {
 		t.Fatalf("rand: %v", err)
 	}
-	out, algo, err := CompressChunk(rnd, StrategyAuto, 0, 1, 0.9)
-	if err != nil {
-		t.Fatalf("compress chunk random: %v", err)
+	data := bytes.Repeat([]byte("a"), 64*1024)
+
+	cases := []struct {
+		name             string
+		input            []byte
+		expectCompressed bool
+	}{
+		{"compressible", data, true},
+		{"random", rnd, false},
 	}
-	if algo != "none" {
-		t.Fatalf("expected compression to be skipped")
-	}
-	if !bytes.Equal(out, rnd) {
-		t.Fatalf("data altered when compression skipped")
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			out, algo, err := CompressChunk(tc.input, StrategyAuto, 0, 1, 0.9)
+			if err != nil {
+				t.Fatalf("compress chunk: %v", err)
+			}
+			if tc.expectCompressed {
+				if algo == "none" || len(out) >= len(tc.input) {
+					t.Fatalf("expected data to be compressed")
+				}
+			} else {
+				if algo != "none" || !bytes.Equal(out, tc.input) {
+					t.Fatalf("expected compression to be skipped")
+				}
+			}
+		})
 	}
 }
 
