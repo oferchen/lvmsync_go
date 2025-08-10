@@ -226,13 +226,19 @@ func dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer,
 	startTime := time.Now()
 	var totalBytesTransferred int64
 	var skippedBlocks int
-	totalBytesTransferred, skippedBlocks, err = iterateBlocks(cfg, ranges, srcFile, bufOut, dedup, pipeFds)
+	var manifest *Manifest
+	totalBytesTransferred, skippedBlocks, manifest, err = iterateBlocks(cfg, ranges, srcFile, bufOut, dedup, pipeFds)
 	if err != nil {
 		return err
 	}
 	finalizeProgress(cfg)
 
 	logSequentialSummary(totalBytesTransferred, skippedBlocks, startTime)
+	if manifest != nil {
+		if Logger != nil {
+			Logger.Info("final checksum", zap.String("final_sha256", fmt.Sprintf("%x", manifest.FinalSHA256)))
+		}
+	}
 	if Logger != nil {
 		_ = Logger.Sync()
 	}
