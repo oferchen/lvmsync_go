@@ -155,6 +155,7 @@ lvmsync --compress auto --zstd_level 2 --compress_threshold 0.85
 - Run `go test -cover ./...` to generate coverage statistics.
 - For a file `coverage.out`, view details with `go tool cover -func=coverage.out`.
 - Enforce a minimum threshold by failing the build when the total coverage is below the desired percentage.
+- Maintain overall coverage of at least 50% as reported by `go test -cover ./...`.
 
 ## Unit Tests
 

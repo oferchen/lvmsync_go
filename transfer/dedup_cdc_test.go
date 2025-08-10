@@ -3,6 +3,7 @@ package transfer
 import (
 	"bytes"
 	"io"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -44,6 +45,50 @@ func TestCDCDedupChunkAndHash(t *testing.T) {
 	}
 }
 
+func TestCDCDedupChunkBoundaries(t *testing.T) {
+	cfg, err := config.DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	// Use small CDC sizes for predictable chunking.
+	cfg.CDCMin = 64
+	cfg.CDCAvg = 64
+	cfg.CDCMax = 128
+
+	cases := []struct {
+		name string
+		size int
+	}{
+		{"ltMin", 32},
+		{"eqMin", 64},
+		{"gtMax", 256},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			d := NewCDCDedup(cfg)
+			data := bytes.Repeat([]byte("a"), tc.size)
+			chunks, _, err := d.ChunkAndHash(data)
+			if err != nil {
+				t.Fatalf("ChunkAndHash: %v", err)
+			}
+			var total int
+			for i, ch := range chunks {
+				total += ch.Length
+				if ch.Length > cfg.CDCMax {
+					t.Fatalf("chunk %d exceeded max", i)
+				}
+				if i < len(chunks)-1 && ch.Length < cfg.CDCMin {
+					t.Fatalf("chunk %d below min", i)
+				}
+			}
+			if total != tc.size {
+				t.Fatalf("total %d != size %d", total, tc.size)
+			}
+		})
+	}
+}
+
 func TestCDCDedupSaveStateWriteFailure(t *testing.T) {
 	cfg, err := config.DefaultConfig()
 	if err != nil {
@@ -70,5 +115,24 @@ func TestCDCDedupMmapIndex(t *testing.T) {
 	expected := 1 << (cfg.BloomMBits - 3)
 	if len(d.index) != expected {
 		t.Fatalf("unexpected index size %d want %d", len(d.index), expected)
+	}
+}
+
+func TestCDCDedupSaveState(t *testing.T) {
+	cfg, err := config.DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	cfg.DedupStateFile = filepath.Join(t.TempDir(), "state")
+	d := NewCDCDedup(cfg)
+	if err := d.SaveState(); err != nil {
+		t.Fatalf("SaveState: %v", err)
+	}
+	info, err := os.Stat(cfg.DedupStateFile)
+	if err != nil {
+		t.Fatalf("Stat: %v", err)
+	}
+	if info.Size() == 0 {
+		t.Fatalf("expected non-empty state file")
 	}
 }
