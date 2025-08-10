@@ -457,6 +457,26 @@ compress: auto
 compress_threshold: 0.85
 ```
 
+### Dedup configuration
+
+The `dedup` package exposes a `LoadConfig` helper that reads tuning parameters
+from flags, `LVMSYNC_*` environment variables, or keys in a YAML file. Values
+are resolved with the following precedence (highest first):
+
+1. Command-line flags
+2. `LVMSYNC_*` environment variables
+3. `config.yaml`
+4. Built-in defaults
+
+| Flag | Environment variable | Config key | Description | Default |
+|------|----------------------|------------|-------------|---------|
+| `--min_chunk_size` | `LVMSYNC_MIN_CHUNK_SIZE` | `min_chunk_size` | Minimum chunk size in bytes | `4096` |
+| `--max_chunk_size` | `LVMSYNC_MAX_CHUNK_SIZE` | `max_chunk_size` | Maximum chunk size in bytes | `1048576` |
+| `--false_positive_rate` | `LVMSYNC_FALSE_POSITIVE_RATE` | `false_positive_rate` | Bloom filter false positive rate | `0.001` |
+| `--ram_bytes` | `LVMSYNC_RAM_BYTES` | `ram_bytes` | RAM budget for the Bloom filter | `1073741824` |
+| `--volume_size` | `LVMSYNC_VOLUME_SIZE` | `volume_size` | Size of the volume being processed | `0` |
+| `--hash_key` | `LVMSYNC_HASH_KEY` | `hash_key` | Optional hex-encoded key for BLAKE3 hashing | `""` |
+
 ## Throughput Mode Presets
 
 `--mode throughput` applies a set of options tuned for high-bandwidth links:
