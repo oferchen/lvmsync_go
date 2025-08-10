@@ -146,4 +146,5 @@ func (r *sshReceiver) Receive(ctx context.Context, w io.Writer) error {
 		r.logger.Info("ssh receive stream closed", zap.String("host", r.host), zap.Int("port", r.port), zap.Int64("bytes_transferred", n))
 	}
 	return copyErr
+
 }

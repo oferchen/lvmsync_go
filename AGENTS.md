@@ -5,7 +5,11 @@ This project maintains a set of conventions to keep contributions consistent and
 ## Logging
 
 - Use [zap](https://github.com/uber-go/zap) for structured logging.
+- Zap is the sole logging backend; avoid `log` or `fmt.Print*` for progress output.
 - Always call `Sync()` (e.g., `defer logger.Sync()`) before program exit to flush buffers.
+- Transport constructors must accept a `*zap.Logger`; avoid package-level loggers.
+- Log connection lifecycle events and errors with `snake_case` fields including units (e.g., `bytes_transferred`, `duration_ms`).
+- Callers using transports should `defer logger.Sync()` to ensure logs are flushed.
 
 ### Field Naming
 
@@ -37,6 +41,7 @@ logger.Info("snapshot complete",
 - Prefer [`pflag`](https://github.com/spf13/pflag) for flag parsing.
 - Bind flags to [`viper`](https://github.com/spf13/viper) to support configuration from flags, config files, and environment variables.
 - Group related options into `FlagSet`s to share common configuration across commands.
+- Define flags within `pflag.FlagSet`s and bind them to `viper`; the standard library `flag` package is not used.
 - Expose configuration via both config files and environment variables for easy automation.
 
 ### Flag Grouping Example
@@ -159,7 +164,7 @@ lvmsync --compress auto --zstd_level 2 --compress_threshold 0.85
 
 ## Unit Tests
 
-- Add a dedicated unit test for every new function.
+- Every function must have a dedicated unit test.
 - Cover both successful and failing paths to verify correctness.
 - Where external commands would normally execute, inject test hooks (e.g.,
   `privesc.EnsureRoot` accepts an `exec` function) to stub side effects during
@@ -215,13 +220,16 @@ lvmsync --compress auto --zstd_level 2 --compress_threshold 0.85
   ```
 
  - [ ] Review CLI argument parsing: prefer `pflag`, bind flags to `viper`, and group related options into reusable `FlagSet`s. Further flag-binding audits remain for commands beyond `config` and `cmd/grpcd`.
-- [ ] Keep modules single-purpose; maintain the `transfer` package decomposition (`progress.go`, `handshake.go`, `block_writer.go`).
+- [ ] Implement real transports for QUIC, HTTP/2, TCP+TLS, and SSH; replace placeholders with functional backends and tests.
+- [ ] Add privilege escalation (`privesc`) tests covering success and error paths.
+- [ ] Expand coverage for configuration precedence across flags, environment variables, and config files.
+ - [ ] Keep modules single-purpose; maintain the `transfer` package decomposition (`progress.go`, `handshake.go`, `block_writer.go`).
 - [ ] Document gRPC daemon configuration sources (flags, env vars, config file) and precedence.
 - [ ] Keep `README` configuration documentation current with code changes.
 - [ ] Keep transport documentation and configuration references (flags and env vars) up to date.
 - [ ] Track decomposition of large files like `transfer/transfer.go`.
 - [ ] Ensure progress logging uses `zap` exclusively.
-- [ ] Add a dedicated unit test for every new function.
+ - [ ] Ensure every function has a dedicated unit test.
 - [ ] Maintain tests for compression detection, ensuring benchmark and cache logic remain correct.
 - [ ] Maintain tests for buffer alignment, hole punching, and NUMA pinning.
 - [ ] Enforce modular, single-responsibility design across packages.

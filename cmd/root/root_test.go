@@ -4,8 +4,9 @@ import (
 	"errors"
 	"testing"
 
-	"go.uber.org/zap"
 	"lvmsync_go/config"
+
+	"go.uber.org/zap"
 )
 
 func TestSetupGRPCSuccess(t *testing.T) {

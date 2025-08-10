@@ -4,11 +4,13 @@ import (
 	"errors"
 	"testing"
 
+	"go.uber.org/zap"
+
 	"lvmsync_go/config"
 )
 
 func TestRegistryLookup(t *testing.T) {
-	factory := func(*config.Config) (Sender, Receiver, error) { return NopSender{}, NopReceiver{}, nil }
+	factory := func(*config.Config, *zap.Logger) (Sender, Receiver, error) { return NopSender{}, NopReceiver{}, nil }
 	Register("test", factory)
 	got, ok := Get("test")
 	if !ok {
@@ -20,8 +22,8 @@ func TestRegistryLookup(t *testing.T) {
 }
 
 func TestSelectOrder(t *testing.T) {
-	fail := func(*config.Config) (Sender, Receiver, error) { return nil, nil, errors.New("fail") }
-	ok := func(*config.Config) (Sender, Receiver, error) { return NopSender{}, NopReceiver{}, nil }
+	fail := func(*config.Config, *zap.Logger) (Sender, Receiver, error) { return nil, nil, errors.New("fail") }
+	ok := func(*config.Config, *zap.Logger) (Sender, Receiver, error) { return NopSender{}, NopReceiver{}, nil }
 
 	tests := []struct {
 		name    string
@@ -45,7 +47,7 @@ func TestSelectOrder(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			Register("fail", fail)
 			Register("ok", ok)
-			_, _, name, err := Select(&config.Config{}, tt.order)
+			_, _, name, err := Select(&config.Config{}, tt.order, zap.NewNop())
 			if tt.wantErr {
 				if err == nil {
 					t.Fatalf("expected error")
