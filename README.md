@@ -116,6 +116,28 @@ Logger.Warn("Zero-copy transfer failed",
 LVMSync uses [`pflag`](https://github.com/spf13/pflag) and [`viper`](https://github.com/spf13/viper) to accept options from
 flags, environment variables, and a YAML file.
 
+### Examples
+
+Set the `parallel` worker count using any configuration source:
+
+CLI flag:
+
+```sh
+lvmsync --parallel 16
+```
+
+Environment variable:
+
+```sh
+LVMSYNC_PARALLEL=16 lvmsync
+```
+
+`config.yaml`:
+
+```yaml
+parallel: 16
+```
+
 ### Flag groups
 
 Flags are grouped in the CLI help:
