@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"golang.org/x/crypto/ssh"
+	"go.uber.org/zap"
 
 	"lvmsync_go/config"
 	"lvmsync_go/remote"
@@ -21,9 +21,9 @@ func TestSetupSSHClient(t *testing.T) {
 	}
 
 	t.Run("success", func(t *testing.T) {
-		dummy := &ssh.Client{}
+		dummy := &remote.SSHClient{}
 		called := false
-		newSSHClient = func(host, user, keyPath string, port int, knownHostsPath string, verify bool, timeout, keepAliveInterval time.Duration, retries int) (*ssh.Client, error) {
+		newSSHClient = func(host, user, keyPath string, port int, knownHostsPath string, verify bool, timeout, keepAliveInterval time.Duration, retries int, logger *zap.Logger) (*remote.SSHClient, error) {
 			called = true
 			if host != "dest" {
 				t.Fatalf("unexpected host %s", host)
@@ -45,7 +45,7 @@ func TestSetupSSHClient(t *testing.T) {
 	})
 
 	t.Run("failure", func(t *testing.T) {
-		newSSHClient = func(host, user, keyPath string, port int, knownHostsPath string, verify bool, timeout, keepAliveInterval time.Duration, retries int) (*ssh.Client, error) {
+		newSSHClient = func(host, user, keyPath string, port int, knownHostsPath string, verify bool, timeout, keepAliveInterval time.Duration, retries int, logger *zap.Logger) (*remote.SSHClient, error) {
 			return nil, errors.New("fail")
 		}
 		defer func() { newSSHClient = remote.NewSSHClient }()

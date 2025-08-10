@@ -26,14 +26,19 @@ type SSHManager struct {
 	clients   map[string]*ssh.Client
 	sshConfig *ssh.ClientConfig
 	timeout   time.Duration
+	logger    *zap.Logger
 }
 
 // NewSSHManager initializes an SSHManager for the provided user. The keyPath
 // specifies a private key to use for authentication; if empty, the SSH agent
 // will be consulted. All host keys are verified against the provided
 // knownHostsPath. The timeout applies to establishing new connections.
-func NewSSHManager(user, keyPath string, timeout time.Duration, knownHostsPath string) (*SSHManager, error) {
-	authMethods, err := getSSHAuthMethods(keyPath)
+func NewSSHManager(user, keyPath string, timeout time.Duration, knownHostsPath string, logger *zap.Logger) (*SSHManager, error) {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+
+	authMethods, err := getSSHAuthMethods(keyPath, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize authentication: %w", err)
 	}
@@ -54,6 +59,7 @@ func NewSSHManager(user, keyPath string, timeout time.Duration, knownHostsPath s
 		clients:   make(map[string]*ssh.Client),
 		sshConfig: sshConfig,
 		timeout:   timeout,
+		logger:    logger,
 	}, nil
 }
 
@@ -87,7 +93,7 @@ func (s *SSHManager) CloseAll() error {
 	var errs error
 	for addr, client := range s.clients {
 		if err := client.Close(); err != nil {
-			Logger.Warn("client close error", zap.String("addr", addr), zap.Error(err))
+			s.logger.Warn("client close error", zap.String("addr", addr), zap.Error(err))
 			errs = multierr.Append(errs, fmt.Errorf("%s: %w", addr, err))
 		}
 		delete(s.clients, addr)
@@ -96,7 +102,7 @@ func (s *SSHManager) CloseAll() error {
 	return errs
 }
 
-func getSSHAuthMethods(keyPath string) ([]ssh.AuthMethod, error) {
+func getSSHAuthMethods(keyPath string, logger *zap.Logger) ([]ssh.AuthMethod, error) {
 	authMethods := []ssh.AuthMethod{}
 
 	if keyPath != "" {
@@ -106,7 +112,7 @@ func getSSHAuthMethods(keyPath string) ([]ssh.AuthMethod, error) {
 		}
 		authMethods = append(authMethods, ssh.PublicKeys(signer))
 	} else {
-		agentAuth, err := sshAgentAuth()
+		agentAuth, err := sshAgentAuth(logger)
 		if err != nil {
 			return nil, err
 		}
@@ -144,7 +150,7 @@ func loadPrivateKey(keyPath string) (ssh.Signer, error) {
 	return ssh.ParsePrivateKey(keyData)
 }
 
-func sshAgentAuth() (ssh.AuthMethod, error) {
+func sshAgentAuth(logger *zap.Logger) (ssh.AuthMethod, error) {
 	agentSock := os.Getenv("SSH_AUTH_SOCK")
 	if agentSock == "" {
 		return nil, fmt.Errorf("SSH_AUTH_SOCK is not set")
@@ -158,7 +164,7 @@ func sshAgentAuth() (ssh.AuthMethod, error) {
 	agentClient := agent.NewClient(conn)
 	defer func() {
 		if closeErr := conn.Close(); closeErr != nil {
-			Logger.Warn("ssh agent connection close error", zap.Error(closeErr))
+			logger.Warn("ssh agent connection close error", zap.Error(closeErr))
 		}
 	}()
 
