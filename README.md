@@ -13,7 +13,7 @@ LVMSync is a high-performance incremental data replication tool for LVM snapshot
 - **Compression**: Samples 8 KiB per chunk, skipping compression when the ratio exceeds a threshold. Auto mode selects LZ4 for chunks <256 KiB and Zstd level 1 for larger chunks on AVX2-capable CPUs.
 - **Checksum Verification**: Ensures data integrity using SHA-256 or BLAKE3.
 - **Native LVM2 Integration**: Uses Go bindings to `liblvm2cmd` instead of shelling out.
-- **Deduplication Strategies**: Detect unchanged blocks using checksum, rolling hash, Bloom filter, or FastCDC content-defined chunking with optional hybrid mode.
+- **Deduplication Strategies**: Detect unchanged blocks using checksum, rolling hash, or a Bloom filter with optional FastCDC content-defined chunking and mmap-backed index.
 - **Remote Execution via SSH**: Replicates data over SSH with support for pre/post-scripts.
 - **Resume Support**: Ability to resume interrupted transfers.
 - **LVM Snapshot Management**:

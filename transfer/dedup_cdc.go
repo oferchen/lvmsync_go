@@ -6,10 +6,12 @@ import (
 	"encoding/binary"
 	"hash"
 	"io"
+	"os"
 	"sync"
 
 	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/zeebo/blake3"
+	"golang.org/x/sys/unix"
 
 	"lvmsync_go/config"
 	"lvmsync_go/dedup"
@@ -17,12 +19,15 @@ import (
 
 // CDCDedup implements a simple FastCDC based deduplication helper. It
 // chunks data using the dedup.Chunker and records per chunk hashes in a
-// Bloom filter and an in-memory index. Each chunk is hashed with BLAKE3
-// while a final SHA-256 digest is computed over the chunk digests.
+// Bloom filter and an optional mmap backed bitset index. Each chunk is
+// hashed with BLAKE3 while a final SHA-256 digest is computed over the
+// chunk digests.
 type CDCDedup struct {
 	chunker   *dedup.Chunker
 	bloom     *bloom.BloomFilter
-	index     map[[32]byte]struct{}
+	index     []byte
+	indexFile *os.File
+	indexMask uint64
 	stateFile string
 
 	mu  sync.Mutex
@@ -32,13 +37,31 @@ type CDCDedup struct {
 // NewCDCDedup constructs a CDCDedup using the tunables provided in cfg.
 func NewCDCDedup(cfg *config.Config) *CDCDedup {
 	bf := bloom.NewWithEstimates(uint(cfg.BloomEntries), cfg.BloomFpRate)
-	return &CDCDedup{
+	cd := &CDCDedup{
 		chunker:   dedup.NewChunker(cfg.CDCMin, cfg.CDCAvg, cfg.CDCMax),
 		bloom:     bf,
-		index:     make(map[[32]byte]struct{}),
 		stateFile: cfg.DedupStateFile,
 		sha:       sha256.New(),
 	}
+	if cfg.BloomMBits > 0 {
+		size := 1 << (cfg.BloomMBits - 3)
+		f, err := os.OpenFile(cfg.DedupStateFile+".idx", os.O_RDWR|os.O_CREATE, 0o600)
+		if err == nil {
+			if err := f.Truncate(int64(size)); err == nil {
+				data, err := unix.Mmap(int(f.Fd()), 0, size, unix.PROT_READ|unix.PROT_WRITE, unix.MAP_SHARED)
+				if err == nil {
+					cd.index = data
+					cd.indexFile = f
+					cd.indexMask = (1 << cfg.BloomMBits) - 1
+				} else {
+					f.Close()
+				}
+			} else {
+				f.Close()
+			}
+		}
+	}
+	return cd
 }
 
 // ChunkAndHash splits p into FastCDC chunks recording hashes. The returned
@@ -62,7 +85,12 @@ func (c *CDCDedup) ChunkAndHash(p []byte) ([]dedup.Chunk, [32]byte, error) {
 		digest := blake3.Sum256(ch.Data)
 		if !c.bloom.Test(digest[:]) {
 			c.bloom.Add(digest[:])
-			c.index[digest] = struct{}{}
+		}
+		if len(c.index) > 0 {
+			idx := binary.LittleEndian.Uint64(digest[:8]) & c.indexMask
+			byteIdx := idx >> 3
+			bit := byte(1 << (idx & 7))
+			c.index[byteIdx] |= bit
 		}
 		c.sha.Write(digest[:])
 		ch.Offset = offset
@@ -83,12 +111,19 @@ func (c *CDCDedup) ChunkAndHash(p []byte) ([]dedup.Chunk, [32]byte, error) {
 func (c *CDCDedup) SaveState() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return saveStateFile(c.stateFile, func(w io.Writer) error {
-		for h := range c.index {
-			if err := binary.Write(w, binary.LittleEndian, h); err != nil {
-				return err
-			}
+	if err := saveStateFile(c.stateFile, func(w io.Writer) error {
+		_, err := c.bloom.WriteTo(w)
+		return err
+	}); err != nil {
+		return err
+	}
+	if len(c.index) > 0 {
+		if err := unix.Msync(c.index, unix.MS_SYNC); err != nil {
+			return err
 		}
-		return nil
-	})
+		if c.indexFile != nil {
+			return c.indexFile.Sync()
+		}
+	}
+	return nil
 }
