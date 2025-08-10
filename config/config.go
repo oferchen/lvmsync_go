@@ -54,6 +54,7 @@ type Config struct {
 	Mode                 string        `mapstructure:"mode"`
 	Parallel             int           `mapstructure:"parallel"`
 	ZeroCopy             bool          `mapstructure:"zerocopy"`
+	ODirect              bool          `mapstructure:"odirect"`
 	MaxRetries           int           `mapstructure:"max_retries"`
 	ResumeState          string        `mapstructure:"resume"`
 	SSHUser              string        `mapstructure:"ssh_user"`
@@ -108,6 +109,8 @@ type Config struct {
 	SyncInterval          time.Duration `mapstructure:"sync_interval"`
 	CheckpointInterval    time.Duration `mapstructure:"checkpoint_interval"`
 	QUICCongestionControl string        `mapstructure:"quic_cc"`
+	SyncIntervalBytes    int      `mapstructure:"-"`
+	AllowInsecure        bool     `mapstructure:"allow_insecure"`
 }
 
 func FormatBlockSize(blockSize int) (string, error) {
@@ -190,6 +193,15 @@ func (b *Builder) applyDefaults(conf *Config) error {
 		return err
 	}
 	conf.SpeedLimit = sl
+
+	si, err := b.parseBytesOrFallback("sync_interval", b.defaults.SyncInterval)
+	if err != nil {
+		return err
+	}
+	conf.SyncIntervalBytes = si
+	if conf.SyncInterval == "" {
+		conf.SyncInterval = b.defaults.SyncInterval
+	}
 
 	if conf.CompressConcurrency <= 0 {
 		conf.CompressConcurrency = runtime.GOMAXPROCS(0)
@@ -378,6 +390,9 @@ func DefaultConfig() (*Config, error) {
 		SyncInterval:          0,
 		CheckpointInterval:    0,
 		QUICCongestionControl: "",
+		ODirect:              false,
+		SyncInterval:         "1GB",
+		SyncIntervalBytes:    1000000000,
 	}, nil
 }
 
@@ -389,9 +404,11 @@ func initGeneralFlags(cfg *Config) *pflag.FlagSet {
 	fs.String("mode", cfg.Mode, "Preset mode: default or throughput")
 	fs.Int("parallel", cfg.Parallel, "Number of concurrent workers")
 	fs.Bool("zerocopy", cfg.ZeroCopy, "Enable zero-copy transfers")
+	fs.Bool("odirect", cfg.ODirect, "Use O_DIRECT for device I/O when possible")
 	fs.Int("max_retries", cfg.MaxRetries, "Maximum number of retries per block")
 	fs.String("resume", cfg.ResumeState, "Path to resume state file")
 	fs.String("speed", cfg.Speed, "Transfer speed limit")
+	fs.String("sync_interval", cfg.SyncInterval, "Bytes between fdatasync calls")
 	fs.String("block_size", cfg.BlockSizeRaw, "Block size for data transfer; specify 'auto' or 0 for automatic detection")
 	fs.CountP("verbose", "v", "Verbosity level")
 	fs.Bool("verify_checksum", cfg.VerifyChecksum, "Enable checksum verification")

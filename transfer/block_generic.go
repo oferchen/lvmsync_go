@@ -18,3 +18,22 @@ func ZeroCopyTransfer(src *os.File, dst *os.File, offset int64, length int64, pi
 	}
 	return nil
 }
+
+func DetectSectorSize(_ *os.File) (int, error) { return 512, nil }
+
+func getAlignedBlockBuffer(size int) []byte { return getBlockBuffer(size) }
+
+func putAlignedBlockBuffer(buf []byte) { putBlockBuffer(buf) }
+
+func punchHole(f *os.File, offset uint64, length int) error {
+	zero := make([]byte, length)
+	_, err := f.WriteAt(zero, int64(offset))
+	return err
+}
+
+func fdatasyncFile(f *os.File) error { return f.Sync() }
+
+func openFileODirect(path string, flag int) (*os.File, bool, error) {
+	f, err := os.OpenFile(path, flag, 0)
+	return f, false, err
+}

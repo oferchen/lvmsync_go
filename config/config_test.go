@@ -153,8 +153,8 @@ func TestBuilderApplyDefaults(t *testing.T) {
 	if conf.CompressConcurrency != runtime.GOMAXPROCS(0) {
 		t.Fatalf("expected default compress concurrency, got %d", conf.CompressConcurrency)
 	}
-	if conf.CompressThreshold != defaults.CompressThreshold {
-		t.Fatalf("expected default compress threshold %v", defaults.CompressThreshold)
+	if conf.SyncIntervalBytes != defaults.SyncIntervalBytes {
+		t.Fatalf("expected default sync interval %d, got %d", defaults.SyncIntervalBytes, conf.SyncIntervalBytes)
 	}
 
 	t.Run("invalidBlockSize", func(t *testing.T) {

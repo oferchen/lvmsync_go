@@ -157,7 +157,20 @@ func prepareRanges(cfg *config.Config, snapshot, source string) ([]Range, error)
 	return ranges, nil
 }
 
-func setupSourceFile(source string) (*os.File, error) {
+func setupSourceFile(cfg *config.Config, source string) (*os.File, error) {
+	if cfg.ODirect {
+		tmp, err := os.Open(source)
+		if err != nil {
+			return nil, fmt.Errorf("failed to open source device %s: %w", source, err)
+		}
+		sector, err := DetectSectorSize(tmp)
+		_ = tmp.Close()
+		if err == nil && cfg.BlockSize%sector == 0 {
+			if f, direct, err := openFileODirect(source, os.O_RDONLY); err == nil && direct {
+				return f, nil
+			}
+		}
+	}
 	srcFile, err := os.Open(source)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open source device %s: %w", source, err)
@@ -198,7 +211,7 @@ func dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer,
 	}
 	defer cleanupOutput(bufOut, compWriter)
 
-	srcFile, err := setupSourceFile(source)
+	srcFile, err := setupSourceFile(cfg, source)
 	if err != nil {
 		return err
 	}
@@ -213,13 +226,19 @@ func dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer,
 	startTime := time.Now()
 	var totalBytesTransferred int64
 	var skippedBlocks int
-	totalBytesTransferred, skippedBlocks, err = iterateBlocks(cfg, ranges, srcFile, bufOut, dedup, pipeFds)
+	var manifest *Manifest
+	totalBytesTransferred, skippedBlocks, manifest, err = iterateBlocks(cfg, ranges, srcFile, bufOut, dedup, pipeFds)
 	if err != nil {
 		return err
 	}
 	finalizeProgress(cfg)
 
 	logSequentialSummary(totalBytesTransferred, skippedBlocks, startTime)
+	if manifest != nil {
+		if Logger != nil {
+			Logger.Info("final checksum", zap.String("final_sha256", fmt.Sprintf("%x", manifest.FinalSHA256)))
+		}
+	}
 	if Logger != nil {
 		_ = Logger.Sync()
 	}
@@ -354,7 +373,7 @@ func DumpChangesParallel(cfg *config.Config, snapshot, source string, out io.Wri
 	}
 	defer cleanupOutput(bufOut, compWriter)
 
-	srcFile, err := setupSourceFile(source)
+	srcFile, err := setupSourceFile(cfg, source)
 	if err != nil {
 		return err
 	}
@@ -402,10 +421,23 @@ func readBlockHeader(reader *bufio.Reader, headerBuf []byte, verify bool, checks
 	return offset, chunkSize, transmittedSum, nil
 }
 
-func readBlockData(reader io.Reader, chunkSize uint32) ([]byte, error) {
-	data := getBlockBuffer(int(chunkSize))
+func readBlockData(cfg *config.Config, reader io.Reader, chunkSize uint32) ([]byte, error) {
+	if chunkSize == 0 {
+		return nil, nil
+	}
+	size := int(chunkSize)
+	var data []byte
+	if cfg.ODirect {
+		data = getAlignedBlockBuffer(size)
+	} else {
+		data = getBlockBuffer(size)
+	}
 	if _, err := io.ReadFull(reader, data); err != nil {
-		putBlockBuffer(data)
+		if cfg.ODirect {
+			putAlignedBlockBuffer(data)
+		} else {
+			putBlockBuffer(data)
+		}
 		if err == io.EOF || err == io.ErrUnexpectedEOF {
 			return nil, io.EOF
 		}
@@ -439,12 +471,23 @@ func writeData(destFile *os.File, offset uint64, data []byte) error {
 	return nil
 }
 
-func processBlock(destFile *os.File, dedup DeduplicationStrategy, verify bool, checksum ChecksumStrategy, offset uint64, transmitted, data []byte) (bool, error) {
+func processBlock(cfg *config.Config, destFile *os.File, dedup DeduplicationStrategy, verify bool, checksum ChecksumStrategy, offset uint64, transmitted, data []byte, chunkSize uint32) (bool, error) {
 	if offset > math.MaxInt64 {
 		return false, fmt.Errorf("offset %d overflows int64", offset)
 	}
 	if err := verifyChecksum(verify, checksum, data, transmitted, offset); err != nil {
 		return false, err
+	}
+	if chunkSize == 0 || isAllZero(data) {
+		if err := punchHole(destFile, offset, cfg.BlockSize); err != nil {
+			zero := getAlignedBlockBuffer(cfg.BlockSize)
+			if err := writeData(destFile, offset, zero); err != nil {
+				putAlignedBlockBuffer(zero)
+				return false, err
+			}
+			putAlignedBlockBuffer(zero)
+		}
+		return true, nil
 	}
 	if dedup != nil {
 		intOffset := int64(offset)
@@ -459,8 +502,9 @@ func processBlock(destFile *os.File, dedup DeduplicationStrategy, verify bool, c
 	return true, nil
 }
 
-func applyBlocks(reader *bufio.Reader, destFile *os.File, dedup DeduplicationStrategy, verify bool, checksum ChecksumStrategy) (int64, error) {
+func applyBlocks(cfg *config.Config, reader *bufio.Reader, destFile *os.File, dedup DeduplicationStrategy, verify bool, checksum ChecksumStrategy) (int64, error) {
 	var totalBytes int64
+	var sinceSync int64
 	headerLen := 12
 	if verify {
 		headerLen += checksum.Size()
@@ -475,20 +519,33 @@ func applyBlocks(reader *bufio.Reader, destFile *os.File, dedup DeduplicationStr
 			return totalBytes, err
 		}
 
-		data, err := readBlockData(reader, chunkSize)
+		data, err := readBlockData(cfg, reader, chunkSize)
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
 			return totalBytes, err
 		}
-		written, err := processBlock(destFile, dedup, verify, checksum, offset, transmittedSum, data)
-		putBlockBuffer(data)
+		written, err := processBlock(cfg, destFile, dedup, verify, checksum, offset, transmittedSum, data, chunkSize)
+		if cfg.ODirect {
+			if data != nil {
+				putAlignedBlockBuffer(data)
+			}
+		} else if data != nil {
+			putBlockBuffer(data)
+		}
 		if err != nil {
 			return totalBytes, err
 		}
 		if written {
 			totalBytes += int64(chunkSize)
+			sinceSync += int64(chunkSize)
+			if cfg.SyncIntervalBytes > 0 && sinceSync >= int64(cfg.SyncIntervalBytes) {
+				if err := fdatasyncFile(destFile); err != nil {
+					return totalBytes, err
+				}
+				sinceSync = 0
+			}
 		}
 	}
 	return totalBytes, nil
@@ -514,16 +571,32 @@ func processDumpDataCore(cfg *config.Config, in io.Reader, destPath string, dedu
 
 	reader := bufio.NewReader(decReader)
 
-	destFile, err := os.OpenFile(destPath, os.O_RDWR, 0)
-	if err != nil {
-		return fmt.Errorf("failed to open destination device %s: %w", destPath, err)
+	var destFile *os.File
+	if cfg.ODirect {
+		tmp, err2 := os.Open(destPath)
+		if err2 != nil {
+			return fmt.Errorf("failed to open destination device %s: %w", destPath, err2)
+		}
+		sector, err2 := DetectSectorSize(tmp)
+		_ = tmp.Close()
+		if err2 == nil && cfg.BlockSize%sector == 0 {
+			if f, direct, err2 := openFileODirect(destPath, os.O_RDWR); err2 == nil && direct {
+				destFile = f
+			}
+		}
+	}
+	if destFile == nil {
+		destFile, err = os.OpenFile(destPath, os.O_RDWR, 0)
+		if err != nil {
+			return fmt.Errorf("failed to open destination device %s: %w", destPath, err)
+		}
 	}
 	defer common.CloseWithErr(destFile, &err, "close destination device")
 
 	startTime := time.Now()
 	checksum := GetChecksumStrategy(cfg.ChecksumAlgorithm)
 	var totalBytes int64
-	totalBytes, err = applyBlocks(reader, destFile, dedup, verify, checksum)
+	totalBytes, err = applyBlocks(cfg, reader, destFile, dedup, verify, checksum)
 	if err != nil {
 		return err
 	}

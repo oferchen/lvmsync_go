@@ -90,10 +90,19 @@ func readWithZeroCopy(cfg *config.Config, src *os.File, offset int64, pipeFds [2
 		return nil, err
 	}
 
-	data := getBlockBuffer(blockSize)
+	var data []byte
+	if cfg.ODirect {
+		data = getAlignedBlockBuffer(blockSize)
+	} else {
+		data = getBlockBuffer(blockSize)
+	}
 	_, err = io.ReadFull(r, data)
 	if err != nil {
-		putBlockBuffer(data)
+		if cfg.ODirect {
+			putAlignedBlockBuffer(data)
+		} else {
+			putBlockBuffer(data)
+		}
 		return nil, err
 	}
 	return data, nil
@@ -103,7 +112,12 @@ func retryRead(cfg *config.Config, src *os.File, offset int64) ([]byte, error) {
 	blockSize := cfg.BlockSize
 	maxRetries := cfg.MaxRetries
 
-	buf := getBlockBuffer(blockSize)
+	var buf []byte
+	if cfg.ODirect {
+		buf = getAlignedBlockBuffer(blockSize)
+	} else {
+		buf = getBlockBuffer(blockSize)
+	}
 	for attempt := 0; attempt < maxRetries; attempt++ {
 		n, err := src.ReadAt(buf, offset)
 		if err == nil && n == blockSize {
@@ -119,6 +133,10 @@ func retryRead(cfg *config.Config, src *os.File, offset int64) ([]byte, error) {
 		time.Sleep(100 * time.Millisecond)
 	}
 
-	putBlockBuffer(buf)
+	if cfg.ODirect {
+		putAlignedBlockBuffer(buf)
+	} else {
+		putBlockBuffer(buf)
+	}
 	return nil, fmt.Errorf("failed to read block at offset %d after %d attempts", offset, maxRetries)
 }
