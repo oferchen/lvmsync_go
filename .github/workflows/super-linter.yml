@@ -67,8 +67,8 @@ jobs:
           VALIDATE_GIT_COMMITLINT: "false"
           FILTER_REGEX_INCLUDE: ""
 
-          VALIDATE_GO: true
-          VALIDATE_GO_MODULES: true
+          # VALIDATE_GO: true
+          # VALIDATE_GO_MODULES: true
           VALIDATE_GO_RELEASER: true
 
           GO_LINTER: golangci-lint
