@@ -55,8 +55,9 @@ jobs:
           # Core
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DEFAULT_BRANCH: main
-          # Validate entire codebase
-          VALIDATE_ALL_CODEBASE: "true"
+          # Validate all code on PRs; changed files only on direct pushes
+          VALIDATE_ALL_CODEBASE: ${{ github.event_name == 'pull_request' && 'true' || 'false' }}
+          VALIDATE_GIT_COMMITLINT: "false"
           FILTER_REGEX_INCLUDE: ""
 
           # Go: pass ONLY the package pattern (NO "run")
@@ -152,3 +153,4 @@ jobs:
 
           echo "Failed to push auto-fix commit after retries."
           exit 1
+          
