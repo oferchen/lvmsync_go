@@ -67,7 +67,10 @@ jobs:
           VALIDATE_GIT_COMMITLINT: "false"
           FILTER_REGEX_INCLUDE: ""
 
-          # Go: pass ONLY the package pattern (NO "run")
+          VALIDATE_GO: true
+          VALIDATE_GO_MODULES: true
+          VALIDATE_GO_RELEASER: true
+
           GO_LINTER: golangci-lint
           GO_LINT_FLAGS: ""
           GOLANGCI_LINT_VERSION: v2.3.1
