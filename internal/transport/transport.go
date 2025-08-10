@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 
+	"go.uber.org/zap"
+
 	"lvmsync_go/config"
 )
 
@@ -20,8 +22,8 @@ type Receiver interface {
 	Receive(ctx context.Context, w io.Writer) error
 }
 
-// Factory constructs a sender/receiver pair using the provided configuration.
-type Factory func(cfg *config.Config) (Sender, Receiver, error)
+// Factory constructs a sender/receiver pair using the provided configuration and logger.
+type Factory func(cfg *config.Config, logger *zap.Logger) (Sender, Receiver, error)
 
 var (
 	mu       sync.RWMutex
@@ -44,13 +46,13 @@ func Get(name string) (Factory, bool) {
 }
 
 // Select returns the first transport in order that initializes successfully.
-func Select(cfg *config.Config, order []string) (Sender, Receiver, string, error) {
+func Select(cfg *config.Config, order []string, logger *zap.Logger) (Sender, Receiver, string, error) {
 	for _, name := range order {
 		f, ok := Get(name)
 		if !ok {
 			continue
 		}
-		s, r, err := f(cfg)
+		s, r, err := f(cfg, logger)
 		if err == nil {
 			return s, r, name, nil
 		}

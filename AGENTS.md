@@ -7,6 +7,9 @@ This project maintains a set of conventions to keep contributions consistent and
 - Use [zap](https://github.com/uber-go/zap) for structured logging.
 - Zap is the sole logging backend; avoid `log` or `fmt.Print*` for progress output.
 - Always call `Sync()` (e.g., `defer logger.Sync()`) before program exit to flush buffers.
+- Transport constructors must accept a `*zap.Logger`; avoid package-level loggers.
+- Log connection lifecycle events and errors with `snake_case` fields including units (e.g., `bytes_transferred`, `duration_ms`).
+- Callers using transports should `defer logger.Sync()` to ensure logs are flushed.
 
 ### Field Naming
 
