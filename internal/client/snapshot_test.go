@@ -2,6 +2,7 @@ package client_test
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -96,5 +97,60 @@ func TestPrepareSnapshotCreatesSnapshot(t *testing.T) {
 	cleanup()
 	if removedPath != snap {
 		t.Fatalf("removeSnapshot called with %q, expected %q", removedPath, snap)
+	}
+}
+
+func TestCreateSnapshotCleanupNoPanic(t *testing.T) {
+	cfg, err := config.DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig error: %v", err)
+	}
+	cfg.SkipDiskCheck = true
+	cfg.VolumeGroup = "vg"
+	cfg.TargetVolumeGroup = "vg2"
+
+	restoreParse := client.SetParseSnapshotSizeForTest(func(string, string) (uint64, error) { return 1024, nil })
+	defer restoreParse()
+
+	restoreCreate := client.SetCreateSnapshotForTest(func(context.Context, string, string, string) error { return nil })
+	defer restoreCreate()
+
+	restorePath := client.SetGetSnapshotDevicePathForTest(func(name, vg string) string { return "/dev/" + vg + "/" + name })
+	defer restorePath()
+
+	ready := make(chan struct{}, 1)
+	restoreMonitor := client.SetMonitorSnapshotForTest(func(ctx context.Context, path string, threshold float64, interval time.Duration) error {
+		ready <- struct{}{}
+		<-ctx.Done()
+		return errors.New("monitor error")
+	})
+	defer restoreMonitor()
+
+	restoreRemove := client.SetRemoveSnapshotForTest(func(context.Context, string) error { return nil })
+	defer restoreRemove()
+
+	logger := zap.NewNop()
+	_, monitorCh, cleanup, err := client.PrepareSnapshot(cfg, "/dev/vg/orig", logger)
+	if err != nil {
+		t.Fatalf("PrepareSnapshot error: %v", err)
+	}
+
+	<-ready
+	cleanup()
+
+	select {
+	case err, ok := <-monitorCh:
+		if !ok {
+			t.Fatalf("expected monitor error")
+		}
+		if err == nil {
+			t.Fatalf("expected error from monitor, got nil")
+		}
+	case <-time.After(1 * time.Second):
+		t.Fatalf("timeout waiting for monitor error")
+	}
+
+	if _, ok := <-monitorCh; ok {
+		t.Fatalf("expected closed monitor channel")
 	}
 }

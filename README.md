@@ -26,6 +26,9 @@ LVMSync is a high-performance incremental data replication tool for LVM snapshot
   - Auto-selection of target volume groups with sufficient free space.
   - Automatic privilege escalation (defaulting to `sudo -n`).
   - Snapshot health monitoring that fails fast if usage exceeds a threshold.
+  - Snapshot monitor goroutine closes its error channel on exit; cleanup only
+    cancels monitoring, avoiding send-on-closed-channel panics (see
+    `TestCreateSnapshotCleanupNoPanic`).
 - **Graceful Shutdown**: Signal handling ensures snapshots are cleaned up on interruption.
 - **Flexible Configuration**: Flags, environment variables, or `config.yaml`. See [Configuration](#configuration).
 - **Configuration Validation**: Checks key parameters (e.g., volume group existence, escalation command) before starting operations.
