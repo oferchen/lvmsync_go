@@ -2,9 +2,12 @@
 package transfer
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"runtime"
+
+	"github.com/pierrec/lz4/v4"
 
 	"lvmsync_go/internal/compressiondetect"
 )
@@ -53,4 +56,85 @@ func NewDecompressionReader(r io.Reader, compress string, concurrency int) (io.R
 		return nil, fmt.Errorf("unsupported compression type: %s", compress)
 	}
 	return strategy.NewReader(r, concurrency)
+}
+
+const (
+	sampleSize    = 8 * 1024
+	lz4MaxChunk   = 256 * 1024
+	defaultZstdLv = 1
+)
+
+// selectAlgorithm chooses a compression algorithm and level based on the
+// requested strategy, chunk size, and CPU capabilities.
+func selectAlgorithm(chunkLen int, compress string, level int) (string, int) {
+	if compress == StrategyAuto {
+		if chunkLen < lz4MaxChunk {
+			if level == 0 {
+				level = int(lz4.Level1)
+			}
+			return compressionLZ4, level
+		}
+		if compressiondetect.HasAVX2() {
+			return compressionZSTD, defaultZstdLv
+		}
+		if level == 0 {
+			level = int(lz4.Level1)
+		}
+		return compressionLZ4, level
+	}
+	return compress, level
+}
+
+// estimateRatio compresses a sample of the data using the selected algorithm
+// and returns the compressed size ratio.
+func estimateRatio(data []byte, algo string, level, concurrency int) (float64, error) {
+	n := len(data)
+	if n > sampleSize {
+		n = sampleSize
+	}
+	sample := data[:n]
+	var buf bytes.Buffer
+	w, err := NewCompressionWriter(&buf, algo, level, concurrency)
+	if err != nil {
+		return 0, err
+	}
+	if _, err := w.Write(sample); err != nil {
+		_ = w.Close()
+		return 0, err
+	}
+	if err := w.Close(); err != nil {
+		return 0, err
+	}
+	return float64(buf.Len()) / float64(n), nil
+}
+
+// CompressChunk compresses a chunk of data based on the provided compression
+// settings. Compression is skipped when the estimated ratio exceeds the
+// threshold. The returned string indicates the algorithm used; "none" means no
+// compression was applied.
+func CompressChunk(data []byte, compress string, level, concurrency int, threshold float64) ([]byte, string, error) {
+	algo, lvl := selectAlgorithm(len(data), compress, level)
+	if algo == "none" {
+		return data, "none", nil
+	}
+	ratio, err := estimateRatio(data, algo, lvl, concurrency)
+	if err != nil {
+		return nil, "", err
+	}
+	if ratio >= threshold {
+		return data, "none", nil
+	}
+	var buf bytes.Buffer
+	w, err := NewCompressionWriter(&buf, algo, lvl, concurrency)
+	if err != nil {
+		return nil, "", err
+	}
+	if _, err := w.Write(data); err != nil {
+		_ = w.Close()
+		return nil, "", err
+	}
+	if err := w.Close(); err != nil {
+		return nil, "", err
+	}
+	return buf.Bytes(), algo, nil
 }

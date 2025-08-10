@@ -68,6 +68,7 @@ type Config struct {
 	// For LZ4 use lz4.Fast or lz4.Level1 through lz4.Level9; ZSTD accepts levels 1-22.
 	CompressLevel        int      `mapstructure:"compress_level"`
 	CompressConcurrency  int      `mapstructure:"compress_concurrency"`
+	CompressThreshold    float64  `mapstructure:"compress_threshold"`
 	Speed                string   `mapstructure:"speed"`
 	SpeedLimit           int      `mapstructure:"-"`
 	VerifyChecksum       bool     `mapstructure:"verify_checksum"`
@@ -176,6 +177,9 @@ func (b *Builder) applyDefaults(conf *Config) error {
 	if conf.CompressConcurrency <= 0 {
 		conf.CompressConcurrency = runtime.GOMAXPROCS(0)
 	}
+	if conf.CompressThreshold <= 0 {
+		conf.CompressThreshold = b.defaults.CompressThreshold
+	}
 	return nil
 }
 
@@ -194,6 +198,9 @@ func (b *Builder) validateCompression(conf *Config) error {
 			return fmt.Errorf("invalid lz4 compression level: %d", conf.CompressLevel)
 		}
 		_ = lz4.CompressionLevel(conf.CompressLevel)
+	}
+	if conf.CompressThreshold <= 0 || conf.CompressThreshold > 1 {
+		return fmt.Errorf("invalid compress threshold: %f", conf.CompressThreshold)
 	}
 	return nil
 }
@@ -286,6 +293,7 @@ func DefaultConfig() (*Config, error) {
 		Compress:             Auto,
 		CompressLevel:        3,
 		CompressConcurrency:  runtime.GOMAXPROCS(0),
+		CompressThreshold:    0.9,
 		Speed:                "100MB",
 		VerifyChecksum:       false,
 		ChecksumAlgorithm:    "sha256",
@@ -365,6 +373,7 @@ func initCompressionFlags(cfg *Config) *pflag.FlagSet {
 	fs.String("compress", cfg.Compress, fmt.Sprintf("Compression type, options: %v", SupportedCompression))
 	fs.Int("compress_level", cfg.CompressLevel, "Compression level. LZ4 accepts lz4.Fast or lz4.Level1..lz4.Level9; ZSTD accepts 1-22")
 	fs.Int("compress_concurrency", cfg.CompressConcurrency, "Compression concurrency (0 to use GOMAXPROCS)")
+	fs.Float64("compress_threshold", cfg.CompressThreshold, "Skip compression when estimated ratio exceeds this value")
 	return fs
 }
 
