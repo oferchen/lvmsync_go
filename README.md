@@ -93,6 +93,23 @@ logger.Info("snapshot complete",
 )
 ```
 
+Errors during block operations log the byte offset and block size explicitly:
+
+```go
+Logger.Warn("Zero-copy transfer failed",
+    zap.Int64("offset", offset),
+    zap.Int("size_bytes", blockSize),
+    zap.Int("attempt", attempt+1),
+    zap.Error(err),
+)
+```
+
+| Field | Description |
+|-------|-------------|
+| `offset` | Byte offset from the start of the device |
+| `size_bytes` | Size of the block being processed |
+| `attempt` | Current retry attempt |
+
 ## Configuration
 
 LVMSync uses [`pflag`](https://github.com/spf13/pflag) and [`viper`](https://github.com/spf13/viper) to accept options from

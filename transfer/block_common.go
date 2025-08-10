@@ -77,7 +77,7 @@ func readWithZeroCopy(cfg *config.Config, src *os.File, offset int64, pipeFds [2
 
 		Logger.Warn("Zero-copy transfer failed",
 			zap.Int64("offset", offset),
-			zap.Int("size", blockSize),
+			zap.Int("size_bytes", blockSize),
 			zap.Int("attempt", attempt+1),
 			zap.Error(err))
 
@@ -126,7 +126,7 @@ func retryRead(cfg *config.Config, src *os.File, offset int64) ([]byte, error) {
 
 		Logger.Warn("Failed to read block",
 			zap.Int64("offset", offset),
-			zap.Int("size", blockSize),
+			zap.Int("size_bytes", blockSize),
 			zap.Int("attempt", attempt+1),
 			zap.Error(err))
 
