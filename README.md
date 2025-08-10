@@ -180,6 +180,17 @@ Recent refactors added several configuration options:
 - `--sync_interval` controls how many bytes are written between `fdatasync` calls.
 - `--block_size` sets the transfer block size (use `auto` for detection).
 
+### QUIC transport
+
+Include `quic` in the `--transport` list or configuration to enable the QUIC data plane.
+Use `--quic_listen` (`LVMSYNC_QUIC_LISTEN` / `quic_listen`) to bind a listener and `--quic_connect`
+(`LVMSYNC_QUIC_CONNECT` / `quic_connect`) to dial a peer. Select the congestion control algorithm with
+`--quic_cc` or `LVMSYNC_QUIC_CC` (defaults to `bbr`).
+
+```sh
+lvmsync --transport quic --quic_listen :9000
+```
+
 ### I/O tuning
 
 - `--odirect` uses O_DIRECT with block-size aligned buffers.
