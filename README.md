@@ -964,7 +964,7 @@ LVMSync is written in Go by Ofer Chen, inspired by [mpalmer/lvmsync](https://git
 
 ## Contributing
 
-Contributions are welcome. Please follow the project's coding guidelines, include appropriate logging and error handling, and update documentation as needed.
+Contributions are welcome. See [AGENTS.md](AGENTS.md) for detailed contributor instructions and open TODO items. Please follow the project's coding guidelines, include appropriate logging and error handling, and update documentation as needed.
 
 ### Single-Responsibility Functions
 
