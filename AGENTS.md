@@ -175,6 +175,7 @@ lvmsync --compress auto --zstd_level 2 --compress_threshold 0.85
 - [ ] Ensure progress logging uses `zap` exclusively.
 - [ ] Add a dedicated unit test for every new function.
 - [ ] Maintain tests for compression detection, ensuring benchmark and cache logic remain correct.
+- [ ] Maintain tests for buffer alignment, hole punching, and NUMA pinning.
 - [ ] Enforce modular, single-responsibility design across packages.
 - [ ] Document each new CLI flag, environment variable, and configuration option in `README.md`.
 - [ ] Refactor `main.go` into smaller modules.

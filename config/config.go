@@ -56,6 +56,7 @@ type Config struct {
 	Parallel              int           `mapstructure:"parallel"`
 	ZeroCopy              bool          `mapstructure:"zerocopy"`
 	ODirect               bool          `mapstructure:"odirect"`
+	NumaPin               bool          `mapstructure:"numa_pin"`
 	MaxRetries            int           `mapstructure:"max_retries"`
 	ResumeState           string        `mapstructure:"resume"`
 	SSHUser               string        `mapstructure:"ssh_user"`
@@ -175,6 +176,9 @@ func (b *Builder) applyDefaults(conf *Config) error {
 	}
 	if !b.v.IsSet("allow_insecure") {
 		conf.AllowInsecure = b.defaults.AllowInsecure
+	}
+	if !b.v.IsSet("numa_pin") {
+		conf.NumaPin = b.defaults.NumaPin
 	}
 	if conf.GRPCPort == 0 {
 		conf.GRPCPort = b.defaults.GRPCPort
@@ -356,6 +360,8 @@ func DefaultConfig() (*Config, error) {
 		StdoutMode:            false,
 		Parallel:              4,
 		ZeroCopy:              false,
+		ODirect:               false,
+		NumaPin:               false,
 		MaxRetries:            3,
 		ResumeState:           "",
 		SSHUser:               "root",
@@ -425,6 +431,7 @@ func initGeneralFlags(cfg *Config) *pflag.FlagSet {
 	fs.Int("parallel", cfg.Parallel, "Number of concurrent workers")
 	fs.Bool("zerocopy", cfg.ZeroCopy, "Enable zero-copy transfers")
 	fs.Bool("odirect", cfg.ODirect, "Use O_DIRECT for device I/O when possible")
+	fs.Bool("numa_pin", cfg.NumaPin, "Pin worker goroutines to device NUMA node")
 	fs.Int("max_retries", cfg.MaxRetries, "Maximum number of retries per block")
 	fs.String("resume", cfg.ResumeState, "Path to resume state file")
 	fs.String("speed", cfg.Speed, "Transfer speed limit")
