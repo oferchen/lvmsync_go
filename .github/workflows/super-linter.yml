@@ -63,12 +63,12 @@ jobs:
           DEFAULT_BRANCH: main
           # Validate all code on PRs; changed files only on direct pushes
           VALIDATE_ALL_CODEBASE: ${{ github.event_name == 'pull_request' && 'true' || 'false' }}
-          VALIDATE_GIT_COMMITLINT: "false"
+          # VALIDATE_GIT_COMMITLINT: "false"
           FILTER_REGEX_INCLUDE: ""
 
           # VALIDATE_GO: true
           # VALIDATE_GO_MODULES: true
-          VALIDATE_GO_RELEASER: true
+          # VALIDATE_GO_RELEASER: true
 
           GO_LINTER: golangci-lint
           GO_LINT_FLAGS: ""
