@@ -3,6 +3,7 @@ package transfer
 import (
 	"bytes"
 	"io"
+	"path/filepath"
 	"testing"
 
 	"lvmsync_go/config"
@@ -49,14 +50,25 @@ func TestCDCDedupSaveStateWriteFailure(t *testing.T) {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
 	d := NewCDCDedup(cfg)
-	var h [32]byte
-	h[0] = 1
-	d.index[h] = struct{}{}
 	fw := &cdcFailingWriter{failAfter: 0}
 	orig := createStateFile
 	createStateFile = func(string) (io.WriteCloser, error) { return fw, nil }
 	defer func() { createStateFile = orig }()
 	if err := d.SaveState(); err == nil {
 		t.Fatalf("expected error")
+	}
+}
+
+func TestCDCDedupMmapIndex(t *testing.T) {
+	cfg, err := config.DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	cfg.BloomMBits = 8
+	cfg.DedupStateFile = filepath.Join(t.TempDir(), "state")
+	d := NewCDCDedup(cfg)
+	expected := 1 << (cfg.BloomMBits - 3)
+	if len(d.index) != expected {
+		t.Fatalf("unexpected index size %d want %d", len(d.index), expected)
 	}
 }

@@ -123,7 +123,7 @@ lvmsync --compress auto --zstd_level 2 --compress_threshold 0.85
 
 - Document every CLI flag, environment variable, and configuration option in `README.md`.
 - Update examples and default values to match new options.
-- Deduplication modes (`fixed`, `cdc`, `hybrid`) expose tunables `--cdc-min`, `--cdc-avg`, `--cdc-max`, and Bloom filter sizing with `--bloom-mbits`.
+- Deduplication modes (`fixed`, `cdc`, `hybrid`) expose tunables `--cdc-min`, `--cdc-avg`, `--cdc-max`, and Bloom filter sizing with `--bloom-mbits` for the mmap-backed index.
 
 ## Release Workflow
 
