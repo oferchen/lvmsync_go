@@ -152,6 +152,9 @@ func TestBuilderApplyDefaults(t *testing.T) {
 	if conf.CompressConcurrency != runtime.GOMAXPROCS(0) {
 		t.Fatalf("expected default compress concurrency, got %d", conf.CompressConcurrency)
 	}
+	if conf.Concurrency != 0 {
+		t.Fatalf("expected default concurrency 0, got %d", conf.Concurrency)
+	}
 	if conf.SyncIntervalBytes != defaults.SyncIntervalBytes {
 		t.Fatalf("expected default sync interval %d, got %d", defaults.SyncIntervalBytes, conf.SyncIntervalBytes)
 	}

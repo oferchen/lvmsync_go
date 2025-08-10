@@ -79,6 +79,9 @@ Example usage selecting transports and ports:
 lvmsync --transport quic,h2,tcp+tls,ssh --quic-connect host:9000 --tcp-port 9443
 ```
 
+BDP-based autotuning keeps roughly one to two times the bandwidth–delay product
+in flight. Override the autotuned value with `--concurrency`.
+
 ## Compression Policy
 
 - Sample 8 KiB from each chunk to estimate the compression ratio.

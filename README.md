@@ -9,6 +9,7 @@ LVMSync is a high-performance incremental data replication tool for LVM snapshot
 - **Incremental Block-Level Synchronization**: Transfers only changed blocks.
 - **Zero-Copy Transfers**: Utilizes `splice()` for efficient data movement.
 - **Parallel Execution**: Configurable concurrency for optimal performance.
+- **Adaptive Transport Concurrency**: Maintains ~1–2×BDP of in-flight data and can be overridden with `--concurrency`.
 - **Rate-Limiting**: Control bandwidth usage during transfers.
 - **Compression**: Samples 8 KiB per chunk, skipping compression when the ratio exceeds a threshold. Auto mode selects LZ4 for chunks <256 KiB and Zstd level 1 for larger chunks on AVX2-capable CPUs.
 - **Checksum Verification**: Ensures data integrity using SHA-256 or BLAKE3.
@@ -186,6 +187,7 @@ because flags override environment variables, which override the config file.
 | `--apply` | `LVMSYNC_APPLY` | `apply` | Apply mode: read change dump from file ('-' for STDIN) and apply to destination device |
 | `--stdout` | `LVMSYNC_STDOUT` | `stdout` | Write change dump to STDOUT |
 | `--parallel` | `LVMSYNC_PARALLEL` | `parallel` | Number of concurrent workers |
+| `--concurrency` | `LVMSYNC_CONCURRENCY` | `concurrency` | Stream concurrency (0 to autotune based on BDP) |
 | `--zerocopy` | `LVMSYNC_ZEROCOPY` | `zerocopy` | Enable zero-copy transfers |
 | `--max_retries` | `LVMSYNC_MAX_RETRIES` | `max_retries` | Maximum number of retries per block |
 | `--resume` | `LVMSYNC_RESUME` | `resume` | Path to resume state file |
