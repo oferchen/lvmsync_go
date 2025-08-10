@@ -1,6 +1,5 @@
 ---
 # .github/workflows/go.yml
-# "${{ github.workspace }}/.github/workflows/go.yml
 
 name: Go
 
@@ -40,17 +39,7 @@ jobs:
         uses: actions/setup-go@v5.5.0
         with:
           go-version: ${{ matrix.go-version }}
-
-      - name: Cache Go modules
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: >-
-            ${{ runner.os }}-go-${{ matrix.go-version }}-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-${{ matrix.go-version }}-
+          cache: true
 
       - name: Auto-fix gofmt/goimports
         run: |
@@ -66,16 +55,17 @@ jobs:
             git push
           fi
 
-      - name: Ensure module is lvmsync_go (init if missing, fail if mismatch)
+      - name: Ensure module path matches repository
         run: |
+          repo_mod="github.com/${GITHUB_REPOSITORY}"
           if [ ! -f go.mod ]; then
-            echo "No go.mod found. Initializing module 'lvmsync_go'..."
-            go mod init lvmsync_go
+            echo "No go.mod found. Initializing module '${repo_mod}'..."
+            go mod init "${repo_mod}"
           fi
-          mod_line=$(grep -E '^module ' go.mod | awk '{print $2}')
-          if [ "$mod_line" != "lvmsync_go" ]; then
-            echo "go.mod declares module '$mod_line' but must be 'lvmsync_go' for imports like 'lvmsync_go/...'."
-            echo "Please set the module line to:  module lvmsync_go"
+          current_mod="$(awk '/^module /{print $2}' go.mod)"
+          if [ "${current_mod}" != "${repo_mod}" ]; then
+            echo "go.mod declares module '${current_mod}', expected '${repo_mod}'."
+            echo "Please set:  module ${repo_mod}"
             exit 1
           fi
 
