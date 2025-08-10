@@ -11,7 +11,10 @@ import (
 func BenchmarkReplicator(b *testing.B) {
 	data := bytes.Repeat([]byte("abcde12345"), 1<<15) // ~1MB
 	ch := NewChunker(64, 256, 1024)
-	h := NewHasher(nil)
+	h, err := NewHasher(nil)
+	if err != nil {
+		b.Fatalf("new hasher: %v", err)
+	}
 	bloom := NewBloom(1<<20, 0.001)
 	for i := 0; i < b.N; i++ {
 		r := bytes.NewReader(data)

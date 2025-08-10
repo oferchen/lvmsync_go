@@ -13,21 +13,22 @@ type Hasher struct {
 }
 
 // NewHasher returns a hasher. When key is nil an unkeyed hash is used,
-// otherwise BLAKE3 is initialised in keyed mode.
-func NewHasher(key []byte) *Hasher {
+// otherwise BLAKE3 is initialised in keyed mode. Any initialisation error is
+// returned to the caller instead of panicking.
+func NewHasher(key []byte) (*Hasher, error) {
 	var h *blake3.Hasher
+	var err error
 	if key != nil {
 		var k [32]byte
 		copy(k[:], key)
-		var err error
 		h, err = blake3.NewKeyed(k[:])
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 	} else {
 		h = blake3.New()
 	}
-	return &Hasher{h: h}
+	return &Hasher{h: h}, nil
 }
 
 // Reset resets the underlying hasher to start a new digest.
