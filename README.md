@@ -922,16 +922,16 @@ Run the linter locally to mirror CI:
 golangci-lint run ./...
 ```
 
-To run the tests and static checks locally:
+### Testing
+
+Run unit tests with coverage:
 
 ```sh
-go fmt ./...
-go vet ./...
-go test ./...
-go test -cover ./config
+go test -coverprofile=coverage.out ./...
+go tool cover -func=coverage.out
 ```
 
-The last command generates a coverage report for the `config` package. The same steps run in GitHub Actions under `.github/workflows/go.yml`.
+The workflow enforces a minimum of 50% total coverage.
 
 ## License
 

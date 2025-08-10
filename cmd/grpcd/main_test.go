@@ -114,3 +114,21 @@ func TestFlagSetsBindToViper(t *testing.T) {
 		t.Fatalf("expected allow-insecure true")
 	}
 }
+
+func TestInitConfigUnknownFlag(t *testing.T) {
+	if _, err := initConfig([]string{"--unknown"}); err == nil {
+		t.Fatalf("expected error for unknown flag")
+	}
+}
+
+func TestInitConfigInvalidConfigFile(t *testing.T) {
+	dir := t.TempDir()
+	cfgFile := filepath.Join(dir, "grpcd.yaml")
+	// Write malformed YAML
+	if err := os.WriteFile(cfgFile, []byte(":-bad"), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	if _, err := initConfig([]string{"--config", cfgFile}); err == nil {
+		t.Fatalf("expected error for malformed config")
+	}
+}
