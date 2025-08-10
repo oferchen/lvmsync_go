@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        go-version: [ "${{ env.GO-VERSION }}" ]
+        go-version: [ "${{ vars.GO_VERSION || '1.24.x' }}" ]
     permissions:
       contents: write
     env:
