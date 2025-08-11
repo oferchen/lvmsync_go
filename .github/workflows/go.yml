@@ -78,13 +78,14 @@ jobs:
           git diff --exit-code -- go.mod go.sum || {
             echo "go.mod/go.sum changed after tidy. Commit the changes."; exit 1; }
 
-      - name: Build project
-        run: go build -v ./...
+      - name: Install golangci-lint
+        run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 
-      - name: Run tests
-        run: |
-          go test -coverprofile=coverage.out ./...
-          go tool cover -func=coverage.out | tail -n 1
+      - name: Build, test, and lint
+        run: make verify
+
+      - name: Show coverage
+        run: go tool cover -func=coverage.out | tail -n 1
 
       - name: Enforce coverage threshold
         run: |
