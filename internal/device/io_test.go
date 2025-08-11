@@ -62,3 +62,15 @@ func TestFileWriter(t *testing.T) {
 	}
 	f.Close()
 }
+
+func TestSetReadAhead(t *testing.T) {
+	f, err := os.CreateTemp("", "ra")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(f.Name())
+	defer f.Close()
+	if err := SetReadAhead(f, 128*1024); err != nil {
+		t.Fatalf("readahead: %v", err)
+	}
+}
