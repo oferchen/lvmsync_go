@@ -212,6 +212,15 @@ lvmsync --compress auto --zstd_level 2 --compress_threshold 0.85
 - Follow the guidelines in `CONTRIBUTING.md`.
 - Commit messages must follow the Conventional Commits format: `type(scope): description`.
 
+## Pre-Merge Checklist
+
+Run these commands locally before opening a pull request:
+
+- `go build ./...`
+- `go test -coverprofile=coverage.out ./...`
+- `golangci-lint run`
+- `go tool cover -func=coverage.out` and ensure total coverage is at least 50%
+
 ## Production Readiness Checklist
 
 - Use `zap` for all structured logging and call `logger.Sync()` on shutdown.
