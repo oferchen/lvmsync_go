@@ -1,12 +1,11 @@
+// Package lvm provides a privileged agent wrapper around LVM operations.
 package lvm
 
 import (
 	"context"
 	"errors"
 
-	"golang.org/x/sys/unix"
-
-	"lvmsync_go/internal/privesc"
+	"lvmsync_go/internal/privilege"
 	lvmlib "lvmsync_go/lvm"
 )
 
@@ -48,19 +47,13 @@ type sudoAgent struct {
 	ensureRoot func() error
 }
 
-// NewSudoAgent returns an Agent implementation that escalates privileges using sudo.
-// An optional ensureRoot function can be provided (primarily for tests). When nil,
-// privesc.EnsureRoot is used with the configured sudo path.
+// NewSudoAgent returns an Agent implementation that ensures root privileges
+// before invoking LVM commands. An optional ensureRoot function can be provided
+// (primarily for tests). When nil, privilege.New().Ensure is used.
 func NewSudoAgent(sudoPath string, l lvmlib.API, ensureRoot func() error) Agent {
 	api, _ := l.(lvmAPI)
 	if ensureRoot == nil {
-		ensureRoot = func() error {
-			cmd := sudoPath
-			if cmd == "" {
-				cmd = "sudo -n"
-			}
-			return privesc.EnsureRoot(cmd, unix.Exec)
-		}
+		ensureRoot = privilege.New().Ensure
 	}
 	return &sudoAgent{sudoPath: sudoPath, lvm: api, ensureRoot: ensureRoot}
 }

@@ -1065,14 +1065,16 @@ Keep functions and packages focused on a single task to simplify maintenance and
 
 Decouple modules by injecting dependencies through interfaces or constructor parameters. This approach makes components easier to test and swap during refactoring.
 
-For example, `internal/privesc.EnsureRoot` accepts an `exec` function so tests
-can stub the `unix.Exec` call:
+For example, the `privilege` package exposes an `Escalator` interface so tests
+can stub command execution:
 
 ```go
-err := privesc.EnsureRoot("sudo -n", func(argv0 string, argv, envv []string) error {
-    // record arguments or return a controlled error
-    return nil
-})
+esc := privilege.New()
+if err := esc.Ensure(); err != nil {
+    // handle missing capabilities or sudo
+}
+cmd := esc.Command("lvs", "--version")
+_ = cmd
 ```
 
 ### Test Coverage
@@ -1113,7 +1115,7 @@ go test -coverprofile=coverage.out ./...
 go tool cover -func=coverage.out
 ```
 
-Some tests, such as those in `internal/privesc`, require root privileges and are skipped when run unprivileged.
+Some privileged tests are skipped when run without root access.
 
 The workflow enforces a minimum of 50% total coverage.
 

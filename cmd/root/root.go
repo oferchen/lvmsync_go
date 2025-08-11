@@ -6,7 +6,6 @@ import (
 
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
-	"golang.org/x/sys/unix"
 
 	"lvmsync_go/app"
 	applycmd "lvmsync_go/cmd/apply"
@@ -14,7 +13,7 @@ import (
 	servecmd "lvmsync_go/cmd/serve"
 	"lvmsync_go/config"
 	clientpkg "lvmsync_go/internal/client"
-	"lvmsync_go/internal/privesc"
+	"lvmsync_go/internal/privilege"
 	"lvmsync_go/lvm"
 )
 
@@ -43,8 +42,9 @@ func Configure() (*config.Config, *zap.Logger, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("configuration error: %w", err)
 	}
-	if err = privesc.EnsureRoot(cfg.LVMEscalation, unix.Exec); err != nil {
-		return nil, nil, fmt.Errorf("privilege escalation error: %w", err)
+	esc := privilege.New()
+	if err = esc.Ensure(); err != nil {
+		return nil, nil, fmt.Errorf("privilege check failed: %w", err)
 	}
 	if err = cfg.Validate(); err != nil {
 		return nil, nil, fmt.Errorf("configuration validation error: %w", err)
