@@ -156,3 +156,55 @@ func TestSSHUserEnvOverridesConfig(t *testing.T) {
 		t.Fatalf("expected ssh_user env, got %s", conf.SSHUser)
 	}
 }
+
+func TestSSHHostCLIOverridesEnvAndConfig(t *testing.T) {
+	cfgPath := writeTempConfig(t, "ssh_host: config\n")
+	resetFlags([]string{"--config", cfgPath, "--ssh_host", "cli"})
+	t.Setenv("LVMSYNC_SSH_HOST", "env")
+
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	registerFlags(defaults)
+	pflag.Parse()
+
+	v, err := buildViper()
+	if err != nil {
+		t.Fatalf("buildViper: %v", err)
+	}
+	builder := &Builder{v: v, defaults: defaults}
+	conf, err := builder.Build()
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if conf.SSHHost != "cli" {
+		t.Fatalf("expected ssh_host cli, got %s", conf.SSHHost)
+	}
+}
+
+func TestSSHHostEnvOverridesConfig(t *testing.T) {
+	cfgPath := writeTempConfig(t, "ssh_host: config\n")
+	resetFlags([]string{"--config", cfgPath})
+	t.Setenv("LVMSYNC_SSH_HOST", "env")
+
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	registerFlags(defaults)
+	pflag.Parse()
+
+	v, err := buildViper()
+	if err != nil {
+		t.Fatalf("buildViper: %v", err)
+	}
+	builder := &Builder{v: v, defaults: defaults}
+	conf, err := builder.Build()
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if conf.SSHHost != "env" {
+		t.Fatalf("expected ssh_host env, got %s", conf.SSHHost)
+	}
+}

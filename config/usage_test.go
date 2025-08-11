@@ -18,7 +18,7 @@ func TestFlagSetUsage(t *testing.T) {
 		want string
 	}{
 		{initGeneralFlags(cfg), "--config"},
-		{initSSHFlags(cfg), "--ssh_user"},
+		{initSSHFlags(cfg), "--ssh_host"},
 		{initRemoteFlags(cfg), "--lvmsync_path"},
 		{initDedupFlags(cfg), "--dedup_strategy"},
 		{initCompressionFlags(cfg), "--compress"},

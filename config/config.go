@@ -61,6 +61,7 @@ type Config struct {
 	NumaPin               bool          `mapstructure:"numa_pin"`
 	MaxRetries            int           `mapstructure:"max_retries"`
 	ResumeState           string        `mapstructure:"resume"`
+	SSHHost               string        `mapstructure:"ssh_host"`
 	SSHUser               string        `mapstructure:"ssh_user"`
 	SSHKeyPath            string        `mapstructure:"ssh_key"`
 	SSHPort               int           `mapstructure:"ssh_port"`
@@ -387,6 +388,7 @@ func DefaultConfig() (*Config, error) {
 		NumaPin:               false,
 		MaxRetries:            3,
 		ResumeState:           "",
+		SSHHost:               "localhost",
 		SSHUser:               "root",
 		SSHKeyPath:            "",
 		SSHPort:               22,
@@ -474,6 +476,7 @@ func initGeneralFlags(cfg *Config) *pflag.FlagSet {
 
 func initSSHFlags(cfg *Config) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("SSH Options", pflag.ExitOnError)
+	fs.String("ssh_host", cfg.SSHHost, "SSH host")
 	fs.String("ssh_user", cfg.SSHUser, "SSH username")
 	fs.String("ssh_key", cfg.SSHKeyPath, "Path to SSH private key or use agent")
 	fs.Int("ssh_port", cfg.SSHPort, "SSH port")
