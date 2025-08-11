@@ -586,17 +586,7 @@ func printFlagSetUsage(out io.Writer, fs *pflag.FlagSet) {
 
 func registerFlags(defaultCfg *Config) {
 	initFlagSets(defaultCfg)
-	flagSets := []*pflag.FlagSet{
-		generalFlags,
-		sshFlags,
-		remoteFlags,
-		dedupFlags,
-		compressionFlags,
-		lvmFlags,
-		grpcFlags,
-		transportFlags,
-		serveFlags,
-	}
+	flagSets := allFlagSets()
 	for _, fs := range flagSets {
 		pflag.CommandLine.AddFlagSet(fs)
 	}
@@ -611,17 +601,32 @@ func registerFlags(defaultCfg *Config) {
 	pflag.Usage = pflag.CommandLine.Usage
 }
 
+func allFlagSets() []*pflag.FlagSet {
+	return []*pflag.FlagSet{
+		generalFlags,
+		sshFlags,
+		remoteFlags,
+		dedupFlags,
+		compressionFlags,
+		lvmFlags,
+		grpcFlags,
+		transportFlags,
+	}
+}
+
 func buildViper() (*viper.Viper, error) {
 	v := viper.New()
 	v.SetConfigName("config")
 	v.SetConfigType("yaml")
 	v.AddConfigPath(".")
-	v.AutomaticEnv()
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.SetEnvPrefix("LVMSYNC")
+	v.AutomaticEnv()
 
-	if err := v.BindPFlags(pflag.CommandLine); err != nil {
-		return nil, err
+	for _, fs := range allFlagSets() {
+		if err := v.BindPFlags(fs); err != nil {
+			return nil, err
+		}
 	}
 	if cfgFile := v.GetString("config"); cfgFile != "" {
 		v.SetConfigFile(cfgFile)

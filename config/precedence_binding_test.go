@@ -104,3 +104,55 @@ func TestFlagSetsBindToViper(t *testing.T) {
 		t.Fatalf("grpc_port got %d want 9999", got)
 	}
 }
+
+func TestSSHUserCLIOverridesEnvAndConfig(t *testing.T) {
+	cfgPath := writeTempConfig(t, "ssh_user: config\n")
+	resetFlags([]string{"--config", cfgPath, "--ssh_user", "cli"})
+	t.Setenv("LVMSYNC_SSH_USER", "env")
+
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	registerFlags(defaults)
+	pflag.Parse()
+
+	v, err := buildViper()
+	if err != nil {
+		t.Fatalf("buildViper: %v", err)
+	}
+	builder := &Builder{v: v, defaults: defaults}
+	conf, err := builder.Build()
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if conf.SSHUser != "cli" {
+		t.Fatalf("expected ssh_user cli, got %s", conf.SSHUser)
+	}
+}
+
+func TestSSHUserEnvOverridesConfig(t *testing.T) {
+	cfgPath := writeTempConfig(t, "ssh_user: config\n")
+	resetFlags([]string{"--config", cfgPath})
+	t.Setenv("LVMSYNC_SSH_USER", "env")
+
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	registerFlags(defaults)
+	pflag.Parse()
+
+	v, err := buildViper()
+	if err != nil {
+		t.Fatalf("buildViper: %v", err)
+	}
+	builder := &Builder{v: v, defaults: defaults}
+	conf, err := builder.Build()
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if conf.SSHUser != "env" {
+		t.Fatalf("expected ssh_user env, got %s", conf.SSHUser)
+	}
+}
