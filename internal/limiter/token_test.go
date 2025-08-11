@@ -1,24 +1,32 @@
+// Package limiter tests verify token bucket accuracy.
+//
+// Example:
+//
+//	tb := New(1024, 1024, clk)
+//	tb.Allow(512)
 package limiter
 
 import (
+	"math"
 	"testing"
 	"time"
 )
 
-type fakeClock struct{ now time.Time }
+type stubClock struct{ now time.Time }
 
-func (f *fakeClock) Now() time.Time        { return f.now }
-func (f *fakeClock) Sleep(d time.Duration) { f.now = f.now.Add(d) }
+func (s *stubClock) Now() time.Time        { return s.now }
+func (s *stubClock) Sleep(d time.Duration) { s.now = s.now.Add(d) }
 
-func TestAllow(t *testing.T) {
-	fc := &fakeClock{now: time.Unix(0, 0)}
-	tb := New(1000, 1000, fc)
-	tb.Allow(1000)
-	if fc.now != time.Unix(0, 0) {
-		t.Fatalf("unexpected advance")
-	}
-	tb.Allow(1000)
-	if fc.now.Sub(time.Unix(0, 0)) < time.Second {
-		t.Fatalf("expected at least 1s wait")
+func TestTokenBucketAccuracy(t *testing.T) {
+	clk := &stubClock{now: time.Unix(0, 0)}
+	rate := 1024
+	tb := New(rate, rate, clk)
+	tb.Allow(rate)
+	start := clk.Now()
+	tb.Allow(rate)
+	elapsed := clk.Now().Sub(start)
+	expected := time.Second
+	if math.Abs(float64(elapsed-expected)) > float64(expected)*0.03 {
+		t.Fatalf("elapsed %v outside ±3%% of %v", elapsed, expected)
 	}
 }

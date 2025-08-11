@@ -1,5 +1,10 @@
 // Package limiter provides a token-bucket rate limiter used to cap outgoing
 // bandwidth based on post-compression bytes.
+//
+// Example:
+//
+//	tb := limiter.New(1<<20, 1<<20, nil) // 1 MiB/s
+//	tb.Allow(len(p))                     // block until tokens are available
 package limiter
 
 import (
