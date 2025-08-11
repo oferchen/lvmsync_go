@@ -1,29 +1,40 @@
-// Package compress includes an auto codec that picks LZ4 for smaller inputs and
-// Zstd for larger ones, returning the original data when compression is not
-// beneficial.
+// Package compress includes an auto codec that selects a compression algorithm
+// based on CPU features, falling back to LZ4 or Zstd.
 package compress
 
-// Auto selects a codec based on input size.
+import "lvmsync_go/internal/compressiondetect"
+
+// Auto chooses a codec based on detected CPU characteristics.
 type Auto struct {
 	lz4  Codec
 	zstd Codec
+	use  string
 }
 
 // NewAuto returns an auto-selecting codec.
-func NewAuto() Codec { return &Auto{lz4: NewLZ4(), zstd: NewZstd()} }
-
-// Compress chooses LZ4 for inputs <256KiB otherwise Zstd.
-func (a *Auto) Compress(in []byte) ([]byte, bool, error) {
-	if len(in) < 256<<10 {
-		return a.lz4.Compress(in)
-	}
-	return a.zstd.Compress(in)
+func NewAuto() Codec {
+	algo := compressiondetect.DetectOptimalCompression()
+	return &Auto{lz4: NewLZ4(), zstd: NewZstd(), use: algo}
 }
 
-// Decompress tries Zstd first then falls back to LZ4.
+// Compress uses the preferred codec.
+func (a *Auto) Compress(in []byte) ([]byte, bool, error) {
+	if a.use == "zstd" {
+		return a.zstd.Compress(in)
+	}
+	return a.lz4.Compress(in)
+}
+
+// Decompress tries the preferred codec then falls back to the other.
 func (a *Auto) Decompress(in []byte) ([]byte, error) {
-	if out, err := a.zstd.Decompress(in); err == nil {
+	if a.use == "zstd" {
+		if out, err := a.zstd.Decompress(in); err == nil {
+			return out, nil
+		}
+		return a.lz4.Decompress(in)
+	}
+	if out, err := a.lz4.Decompress(in); err == nil {
 		return out, nil
 	}
-	return a.lz4.Decompress(in)
+	return a.zstd.Decompress(in)
 }
