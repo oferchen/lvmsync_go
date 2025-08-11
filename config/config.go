@@ -611,6 +611,7 @@ func allFlagSets() []*pflag.FlagSet {
 		lvmFlags,
 		grpcFlags,
 		transportFlags,
+		serveFlags,
 	}
 }
 

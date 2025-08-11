@@ -217,6 +217,19 @@ Use `--quic_listen` (`LVMSYNC_QUIC_LISTEN` / `quic_listen`) to bind a listener a
 lvmsync --transport quic --quic_listen :9000
 ```
 
+### Serve command
+
+Run the built‑in QUIC server with `--serve` to negotiate parameters with an
+incoming client. The server listens on `--serve_listen` (default `:9000`) and
+expects the client to present matching `--serve_protocol`, `--serve_algorithm`,
+and optional `--serve_test_space` values. A mismatched value aborts the
+connection. Transfers proceed only when `--serve_policy` is `accept` (the
+default).
+
+```sh
+lvmsync --serve --serve_listen :9000
+```
+
 ### I/O tuning
 
 - `--odirect` uses O_DIRECT with block-size aligned buffers.
@@ -315,6 +328,38 @@ LVMSYNC_GRPC_GRPC_PORT=9443 LVMSYNC_GRPC_TLS_CERT=cert.pem lvmsync-grpcd
 | `--tls_key` | `LVMSYNC_TLS_KEY` | `tls_key` | TLS key file |
 | `--ca_cert` | `LVMSYNC_CA_CERT` | `ca_cert` | CA certificate file |
 | `--allow_insecure` | `LVMSYNC_ALLOW_INSECURE` | `allow_insecure` | Allow insecure (no TLS) |
+
+### Serve options
+
+| Flag | Environment variable | Config key | Default | Description |
+|------|----------------------|------------|---------|-------------|
+| `--serve` | `LVMSYNC_SERVE` | `serve` | `false` | Run QUIC server instead of client |
+| `--serve_listen` | `LVMSYNC_SERVE_LISTEN` | `serve_listen` | `:9000` | QUIC listen address |
+| `--serve_protocol` | `LVMSYNC_SERVE_PROTOCOL` | `serve_protocol` | `lvmsync` | Protocol name to negotiate |
+| `--serve_algorithm` | `LVMSYNC_SERVE_ALGORITHM` | `serve_algorithm` | `sha256` | Algorithm identifier to negotiate |
+| `--serve_test_space` | `LVMSYNC_SERVE_TEST_SPACE` | `serve_test_space` | `""` | Optional test-space string |
+| `--serve_policy` | `LVMSYNC_SERVE_POLICY` | `serve_policy` | `accept` | Transfer policy (non-`accept` rejects) |
+
+CLI:
+
+```sh
+lvmsync --serve --serve_listen :9900
+```
+
+Environment:
+
+```sh
+LVMSYNC_SERVE=true LVMSYNC_SERVE_LISTEN=:9900 lvmsync
+```
+
+Environment variables mirror the CLI flags with the `LVMSYNC_SERVE_` prefix.
+
+`config.yaml`:
+
+```yaml
+serve: true
+serve_listen: ":9900"
+```
 
 ### Common deployment scenarios
 
