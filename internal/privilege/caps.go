@@ -9,7 +9,12 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-var hasCaps = realHasCaps
+// HasCaps probes the kernel for effective capabilities. Tests may replace this
+// function to simulate different privilege levels.
+var HasCaps = realHasCaps
+
+// RealHasCaps returns the actual capability probe.
+func RealHasCaps() bool { return realHasCaps() }
 
 // realHasCaps probes the kernel for effective capabilities.
 func realHasCaps() bool {
@@ -29,7 +34,7 @@ func realHasCaps() bool {
 
 // checkCaps ensures the required capabilities are present.
 func checkCaps() error {
-	if hasCaps() {
+	if HasCaps() {
 		return nil
 	}
 	return fmt.Errorf("missing capabilities")
