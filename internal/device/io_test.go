@@ -2,9 +2,10 @@ package device
 
 import (
 	"errors"
-	"golang.org/x/sys/unix"
 	"os"
 	"testing"
+
+	"golang.org/x/sys/unix"
 )
 
 func TestAlign(t *testing.T) {
