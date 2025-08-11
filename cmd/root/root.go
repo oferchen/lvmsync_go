@@ -11,6 +11,7 @@ import (
 	"lvmsync_go/app"
 	applycmd "lvmsync_go/cmd/apply"
 	dumpcmd "lvmsync_go/cmd/dump"
+	servecmd "lvmsync_go/cmd/serve"
 	"lvmsync_go/config"
 	clientpkg "lvmsync_go/internal/client"
 	"lvmsync_go/internal/privesc"
@@ -26,6 +27,7 @@ var (
 	executeClientFn   = clientpkg.ExecuteClient
 	selectTransport   = dumpcmd.SelectTransport
 	runDump           = dumpcmd.Run
+	runServe          = servecmd.Run
 )
 
 // SyncLogger flushes buffered log entries and logs if syncing fails.
@@ -97,6 +99,10 @@ func ExecuteClient(cfg *config.Config, snapshotPath, destPath string, sigErrCh, 
 
 // Run orchestrates the command execution.
 func Run(cfg *config.Config, logger *zap.Logger) error {
+	if cfg.Serve {
+		return runServe(cfg, logger)
+	}
+
 	defer lvm.Cleanup()
 
 	if err := selectTransport(cfg, logger); err != nil {

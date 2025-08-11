@@ -44,6 +44,7 @@ var (
 	lvmFlags         *pflag.FlagSet
 	grpcFlags        *pflag.FlagSet
 	transportFlags   *pflag.FlagSet
+	serveFlags       *pflag.FlagSet
 )
 
 var getEuid = os.Geteuid
@@ -117,6 +118,13 @@ type Config struct {
 	CheckpointInterval    time.Duration `mapstructure:"checkpoint_interval"`
 	QUICCongestionControl string        `mapstructure:"quic_cc"`
 	SyncIntervalBytes     int           `mapstructure:"-"`
+
+	Serve          bool   `mapstructure:"serve"`
+	ServeListen    string `mapstructure:"serve_listen"`
+	ServeProtocol  string `mapstructure:"serve_protocol"`
+	ServeAlgorithm string `mapstructure:"serve_algorithm"`
+	ServeTestSpace string `mapstructure:"serve_test_space"`
+	ServePolicy    string `mapstructure:"serve_policy"`
 }
 
 func FormatBlockSize(blockSize int) (string, error) {
@@ -438,6 +446,12 @@ func DefaultConfig() (*Config, error) {
 		CheckpointInterval:    0,
 		QUICCongestionControl: "",
 		SyncIntervalBytes:     1000000000,
+		Serve:                 false,
+		ServeListen:           ":9000",
+		ServeProtocol:         "lvmsync",
+		ServeAlgorithm:        "sha256",
+		ServeTestSpace:        "",
+		ServePolicy:           "accept",
 	}, nil
 }
 
@@ -543,6 +557,17 @@ func initTransportFlags(cfg *Config) *pflag.FlagSet {
 	return fs
 }
 
+func initServeFlags(cfg *Config) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("Serve Options", pflag.ExitOnError)
+	fs.Bool("serve", cfg.Serve, "Run in serve mode")
+	fs.String("serve_listen", cfg.ServeListen, "QUIC listen address")
+	fs.String("serve_protocol", cfg.ServeProtocol, "Protocol to negotiate")
+	fs.String("serve_algorithm", cfg.ServeAlgorithm, "Algorithm to negotiate")
+	fs.String("serve_test_space", cfg.ServeTestSpace, "Test-space option")
+	fs.String("serve_policy", cfg.ServePolicy, "Transfer policy")
+	return fs
+}
+
 func initFlagSets(defaultCfg *Config) {
 	generalFlags = initGeneralFlags(defaultCfg)
 	sshFlags = initSSHFlags(defaultCfg)
@@ -552,6 +577,7 @@ func initFlagSets(defaultCfg *Config) {
 	lvmFlags = initLVMFlags(defaultCfg)
 	grpcFlags = initGRPCFlags(defaultCfg)
 	transportFlags = initTransportFlags(defaultCfg)
+	serveFlags = initServeFlags(defaultCfg)
 }
 
 func printFlagSetUsage(out io.Writer, fs *pflag.FlagSet) {
@@ -575,6 +601,7 @@ func registerFlags(defaultCfg *Config) {
 		lvmFlags,
 		grpcFlags,
 		transportFlags,
+		serveFlags,
 	}
 	for _, fs := range flagSets {
 		pflag.CommandLine.AddFlagSet(fs)
