@@ -12,7 +12,7 @@ func fakeLookPath(err error) func(string) (string, error) {
 }
 
 func TestEnsureWithCaps(t *testing.T) {
-	hasCaps = func() bool { return true }
+	HasCaps = func() bool { return true }
 	esc := New().(*sudoEscalator)
 	if esc.useSudo {
 		t.Fatalf("expected capabilities to be used")
@@ -23,7 +23,7 @@ func TestEnsureWithCaps(t *testing.T) {
 }
 
 func TestEnsureWithSudo(t *testing.T) {
-	hasCaps = func() bool { return false }
+	HasCaps = func() bool { return false }
 	lookPath = fakeLookPath(nil)
 	esc := New().(*sudoEscalator)
 	if !esc.useSudo {
@@ -35,7 +35,7 @@ func TestEnsureWithSudo(t *testing.T) {
 }
 
 func TestEnsureNoSudo(t *testing.T) {
-	hasCaps = func() bool { return false }
+	HasCaps = func() bool { return false }
 	lookPath = fakeLookPath(errors.New("missing"))
 	esc := New().(*sudoEscalator)
 	if err := esc.Ensure(); err == nil {
@@ -44,13 +44,13 @@ func TestEnsureNoSudo(t *testing.T) {
 }
 
 func TestCommand(t *testing.T) {
-	hasCaps = func() bool { return false }
+	HasCaps = func() bool { return false }
 	esc := New()
 	cmd := esc.Command("echo", "hi")
 	if cmd.Args[0] != "sudo" {
 		t.Fatalf("expected sudo prefix")
 	}
-	hasCaps = func() bool { return true }
+	HasCaps = func() bool { return true }
 	esc = New()
 	cmd = esc.Command("echo", "hi")
 	if cmd.Args[0] == "sudo" {
@@ -61,7 +61,7 @@ func TestCommand(t *testing.T) {
 // Restore globals after tests.
 func TestMain(m *testing.M) {
 	code := m.Run()
-	hasCaps = realHasCaps
+	HasCaps = RealHasCaps
 	lookPath = exec.LookPath
 	if code != 0 {
 		panic(code)
