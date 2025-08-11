@@ -243,7 +243,17 @@ lvmsync --compress auto --zstd_level 2 --compress_threshold 0.85
   golangci-lint run
   ```
 
- - [ ] Review CLI argument parsing: prefer `pflag`, bind flags to `viper`, and group related options into reusable `FlagSet`s. Further flag-binding audits remain for commands beyond `config` and `cmd/grpcd`.
+- [ ] Review CLI argument parsing: prefer `pflag`, bind flags to `viper`, and group related options into reusable `FlagSet`s. Further flag-binding audits remain for commands beyond `config` and `cmd/grpcd`.
+- [ ] Implement QUIC `serve` command with minimal flags and `zap`-only logging.
+- [ ] Audit `serve` and related CLI flags for simplification and consistency.
+- [ ] Update `README` and configuration docs for `serve` mode and flag changes.
+- [ ] Add unit tests for the `serve` command and flag parsing.
+
+  ```sh
+  go build ./...
+  go test -cover ./...
+  golangci-lint run
+  ```
 - [ ] Implement real transports for QUIC, HTTP/2, TCP+TLS, and SSH; replace placeholders with functional backends and tests.
 - [ ] Add privilege escalation (`privesc`) tests covering success and error paths (tests require root; skipped otherwise).
 - [ ] Expand coverage for configuration precedence across flags, environment variables, and config files.
