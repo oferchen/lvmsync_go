@@ -55,7 +55,7 @@ func TestInitSSHFlags(t *testing.T) {
 		{"ssh_timeout", cfg.SSHTimeout.String()},
 		{"ssh_keepalive", cfg.SSHKeepAliveInterval.String()},
 		{"known_hosts", cfg.KnownHosts},
-		{"stricthostkeychecking", strconv.FormatBool(cfg.StrictHostKeyCheck)},
+		{"strict_host_key_checking", strconv.FormatBool(cfg.StrictHostKeyCheck)},
 	}
 	for _, tt := range cases {
 		f := fs.Lookup(tt.name)
@@ -182,7 +182,6 @@ func TestInitGRPCFlags(t *testing.T) {
 		{"tls_key", cfg.TLSKey},
 		{"ca_cert", cfg.CACert},
 		{"allow_insecure", strconv.FormatBool(cfg.AllowInsecure)},
-		{"sudo_path", cfg.SudoPath},
 	}
 	for _, tt := range cases {
 		f := fs.Lookup(tt.name)

@@ -65,6 +65,16 @@ func TestDefaultConfigBlockSize(t *testing.T) {
 	}
 }
 
+func TestDefaultConfigStrictHostKeyCheck(t *testing.T) {
+	cfg, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig returned error: %v", err)
+	}
+	if !cfg.StrictHostKeyCheck {
+		t.Fatalf("expected StrictHostKeyCheck to default to true")
+	}
+}
+
 func TestHumanBlockSize(t *testing.T) {
 	c := &Config{BlockSize: 0}
 	if c.HumanBlockSize() != Auto {
@@ -187,6 +197,20 @@ func TestBuilderValidateCompression(t *testing.T) {
 
 	t.Run(Zstd+"Invalid", func(t *testing.T) {
 		conf := &Config{Compress: Zstd, ZstdLevel: 6, CompressThreshold: 0.9}
+		if err := b.validateCompression(conf); err == nil {
+			t.Fatalf("expected error")
+		}
+	})
+
+	t.Run("invalidThresholdTooHigh", func(t *testing.T) {
+		conf := &Config{Compress: Zstd, ZstdLevel: 3, CompressThreshold: 1.1}
+		if err := b.validateCompression(conf); err == nil {
+			t.Fatalf("expected error")
+		}
+	})
+
+	t.Run("invalidThresholdNonPositive", func(t *testing.T) {
+		conf := &Config{Compress: Zstd, ZstdLevel: 3, CompressThreshold: 0}
 		if err := b.validateCompression(conf); err == nil {
 			t.Fatalf("expected error")
 		}

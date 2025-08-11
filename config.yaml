@@ -18,7 +18,6 @@ tls_cert: ""  # TLS certificate file
 tls_key: ""  # TLS key file
 ca_cert: ""  # CA certificate file
 allow_insecure: true  # Allow running without TLS
-sudo_path: "/usr/bin/sudo"  # Path to sudo executable
 
 # Deduplication Options
 # Strategy: "none", "auto", "checksum", "rolling_hash", or "bloom"
