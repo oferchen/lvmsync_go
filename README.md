@@ -283,7 +283,7 @@ LVMSYNC_GRPC_GRPC_PORT=9443 LVMSYNC_GRPC_TLS_CERT=cert.pem lvmsync-grpcd
 | `--ssh_timeout` | `LVMSYNC_SSH_TIMEOUT` | `ssh_timeout` | SSH connection timeout |
 | `--ssh_keepalive` | `LVMSYNC_SSH_KEEPALIVE` | `ssh_keepalive` | SSH keepalive interval |
 | `--known_hosts` | `LVMSYNC_KNOWN_HOSTS` | `known_hosts` | Path to known_hosts file |
-| `--stricthostkeychecking` | `LVMSYNC_STRICTHOSTKEYCHECKING` | `strict_host_key_checking` | Enable SSH StrictHostKeyChecking |
+| `--strict_host_key_checking` | `LVMSYNC_STRICT_HOST_KEY_CHECKING` | `strict_host_key_checking` | Require host keys to be present in `known_hosts` |
 | `--lvmsync_path` | `LVMSYNC_LVMSYNC_PATH` | `lvmsync_path` | Remote command to run |
 | `--remote_pre_script` | `LVMSYNC_REMOTE_PRE_SCRIPT` | `remote_pre_script` | Remote script to run before transfer |
 | `--remote_post_script` | `LVMSYNC_REMOTE_POST_SCRIPT` | `remote_post_script` | Remote script to run after transfer |
@@ -315,7 +315,6 @@ LVMSYNC_GRPC_GRPC_PORT=9443 LVMSYNC_GRPC_TLS_CERT=cert.pem lvmsync-grpcd
 | `--tls_key` | `LVMSYNC_TLS_KEY` | `tls_key` | TLS key file |
 | `--ca_cert` | `LVMSYNC_CA_CERT` | `ca_cert` | CA certificate file |
 | `--allow_insecure` | `LVMSYNC_ALLOW_INSECURE` | `allow_insecure` | Allow insecure (no TLS) |
-| `--sudo_path` | `LVMSYNC_SUDO_PATH` | `sudo_path` | Path to sudo executable |
 
 ### Common deployment scenarios
 
@@ -673,7 +672,7 @@ The tool supports both local and remote transfers, as well as an "apply mode" fo
 | `--ssh_key`               | Path to SSH private key or use the SSH agent                    | `""`                     |
 | `--ssh_port`              | SSH port number                                                 | `22`                     |
 | `--known_hosts`           | Path to known_hosts file (defaults to `$HOME/.ssh/known_hosts`) | `$HOME/.ssh/known_hosts` |
-| `--stricthostkeychecking` | Enable SSH StrictHostKeyChecking                                | `true`                   |
+| `--strict_host_key_checking` | Require host keys to be present in `known_hosts`            | `true`                   |
 
 Programmatic use of the SSH transport requires a configuration populated with
 fields like `SSHUser`, `SSHKeyPath`, `SSHPort`, `KnownHosts`,
@@ -739,7 +738,6 @@ sender, receiver, err := ssh.New(cfg, logger)
 | `--tls-key`        | TLS key file                 | `""`            |
 | `--ca-cert`        | CA certificate file          | `""`            |
 | `--allow-insecure` | Allow insecure (disable TLS) | `false`         |
-| `--sudo_path`      | Path to sudo executable      | `/usr/bin/sudo` |
 
 ### Examples
 

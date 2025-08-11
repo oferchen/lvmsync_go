@@ -44,6 +44,7 @@ var (
 	lvmFlags         *pflag.FlagSet
 	grpcFlags        *pflag.FlagSet
 	transportFlags   *pflag.FlagSet
+	serveFlags       *pflag.FlagSet
 )
 
 var getEuid = os.Geteuid
@@ -107,7 +108,6 @@ type Config struct {
 	TLSKey                string        `mapstructure:"tls_key"`
 	CACert                string        `mapstructure:"ca_cert"`
 	AllowInsecure         bool          `mapstructure:"allow_insecure"`
-	SudoPath              string        `mapstructure:"sudo_path"`
 	Transport             string        `mapstructure:"transport"`
 	QUICListen            string        `mapstructure:"quic_listen"`
 	QUICConnect           string        `mapstructure:"quic_connect"`
@@ -117,6 +117,13 @@ type Config struct {
 	CheckpointInterval    time.Duration `mapstructure:"checkpoint_interval"`
 	QUICCongestionControl string        `mapstructure:"quic_cc"`
 	SyncIntervalBytes     int           `mapstructure:"-"`
+
+	Serve          bool   `mapstructure:"serve"`
+	ServeListen    string `mapstructure:"serve_listen"`
+	ServeProtocol  string `mapstructure:"serve_protocol"`
+	ServeAlgorithm string `mapstructure:"serve_algorithm"`
+	ServeTestSpace string `mapstructure:"serve_test_space"`
+	ServePolicy    string `mapstructure:"serve_policy"`
 }
 
 func FormatBlockSize(blockSize int) (string, error) {
@@ -183,9 +190,6 @@ func (b *Builder) applyDefaults(conf *Config) error {
 	}
 	if conf.GRPCPort == 0 {
 		conf.GRPCPort = b.defaults.GRPCPort
-	}
-	if conf.SudoPath == "" {
-		conf.SudoPath = b.defaults.SudoPath
 	}
 	if conf.Transport == "" {
 		conf.Transport = b.defaults.Transport
@@ -428,7 +432,6 @@ func DefaultConfig() (*Config, error) {
 		TLSKey:                "",
 		CACert:                "",
 		AllowInsecure:         true,
-		SudoPath:              "/usr/bin/sudo",
 		Transport:             "quic,h2,tcp+tls,ssh",
 		QUICListen:            "",
 		QUICConnect:           "",
@@ -438,6 +441,12 @@ func DefaultConfig() (*Config, error) {
 		CheckpointInterval:    0,
 		QUICCongestionControl: "",
 		SyncIntervalBytes:     1000000000,
+		Serve:                 false,
+		ServeListen:           ":9000",
+		ServeProtocol:         "lvmsync",
+		ServeAlgorithm:        "sha256",
+		ServeTestSpace:        "",
+		ServePolicy:           "accept",
 	}, nil
 }
 
@@ -471,7 +480,7 @@ func initSSHFlags(cfg *Config) *pflag.FlagSet {
 	fs.Duration("ssh_timeout", cfg.SSHTimeout, "SSH connection timeout")
 	fs.Duration("ssh_keepalive", cfg.SSHKeepAliveInterval, "SSH keepalive interval")
 	fs.String("known_hosts", cfg.KnownHosts, "Path to known_hosts file")
-	fs.Bool("stricthostkeychecking", cfg.StrictHostKeyCheck, "Enable SSH StrictHostKeyChecking")
+	fs.Bool("strict_host_key_checking", cfg.StrictHostKeyCheck, "Require host keys to be present in known_hosts")
 	return fs
 }
 
@@ -528,7 +537,6 @@ func initGRPCFlags(cfg *Config) *pflag.FlagSet {
 	fs.String("tls_key", cfg.TLSKey, "TLS key file")
 	fs.String("ca_cert", cfg.CACert, "CA certificate file")
 	fs.Bool("allow_insecure", cfg.AllowInsecure, "Allow insecure (no TLS)")
-	fs.String("sudo_path", cfg.SudoPath, "Path to sudo executable")
 	return fs
 }
 
@@ -543,6 +551,17 @@ func initTransportFlags(cfg *Config) *pflag.FlagSet {
 	return fs
 }
 
+func initServeFlags(cfg *Config) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("Serve Options", pflag.ExitOnError)
+	fs.Bool("serve", cfg.Serve, "Run in serve mode")
+	fs.String("serve_listen", cfg.ServeListen, "QUIC listen address")
+	fs.String("serve_protocol", cfg.ServeProtocol, "Protocol to negotiate")
+	fs.String("serve_algorithm", cfg.ServeAlgorithm, "Algorithm to negotiate")
+	fs.String("serve_test_space", cfg.ServeTestSpace, "Test-space option")
+	fs.String("serve_policy", cfg.ServePolicy, "Transfer policy")
+	return fs
+}
+
 func initFlagSets(defaultCfg *Config) {
 	generalFlags = initGeneralFlags(defaultCfg)
 	sshFlags = initSSHFlags(defaultCfg)
@@ -552,6 +571,7 @@ func initFlagSets(defaultCfg *Config) {
 	lvmFlags = initLVMFlags(defaultCfg)
 	grpcFlags = initGRPCFlags(defaultCfg)
 	transportFlags = initTransportFlags(defaultCfg)
+	serveFlags = initServeFlags(defaultCfg)
 }
 
 func printFlagSetUsage(out io.Writer, fs *pflag.FlagSet) {
