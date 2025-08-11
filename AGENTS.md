@@ -2,6 +2,14 @@
 
 This project maintains a set of conventions to keep contributions consistent and maintainable.
 
+## Context
+
+LVMSync is a high-performance tool for streaming LVM snapshots across hosts. The codebase targets
+production reliability, favoring small, single-purpose components with clear interfaces. Each
+function should do one thing well, include dedicated tests, and rely on dependency injection where
+practical. Logging and configuration are fully structured to keep behavior predictable across
+command-line use, environment variables, and `config.yaml` files.
+
 ## Logging
 
 - Use [zap](https://github.com/uber-go/zap) for structured logging.
@@ -203,6 +211,17 @@ lvmsync --compress auto --zstd_level 2 --compress_threshold 0.85
 
 - Follow the guidelines in `CONTRIBUTING.md`.
 - Commit messages must follow the Conventional Commits format: `type(scope): description`.
+
+## Production Readiness Checklist
+
+- Use `zap` for all structured logging and call `logger.Sync()` on shutdown.
+- Parse configuration with `pflag` and `viper`; expose every option via CLI flags, `LVMSYNC_*` environment variables, and the
+  `config.yaml` file.
+- Group related CLI options into dedicated `FlagSet`s with clear descriptions.
+- Keep packages and functions single-purpose and inject dependencies for testability.
+- Provide unit tests for every function, covering success and error paths.
+- Run `go build ./...`, `go test -cover ./...`, and `golangci-lint run` before merging.
+- Document new flags, environment variables, and configuration options in `README.md`.
 
 ## TODO
 
