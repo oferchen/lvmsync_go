@@ -1038,6 +1038,14 @@ Every change should include unit tests. Run `go test -cover ./...` to ensure cov
 
 Compression detection uses benchmark-driven selection between LZ4 and Zstd and now includes dedicated tests verifying algorithm choice and cache resets.
 
+### Production readiness
+
+- Structured logging uses [`zap`](https://github.com/uber-go/zap); always defer a logger sync to flush entries.
+- Configuration is parsed with [`pflag`](https://github.com/spf13/pflag) and [`viper`](https://github.com/spf13/viper). Every option can be set via CLI flags, `LVMSYNC_*` environment variables, or the `config.yaml` file.
+- Related flags are organized into thematic `FlagSet`s for concise help output.
+- Each function in the codebase includes unit tests covering both success and failure paths.
+- Before sending patches, run `go build ./...`, `go test -cover ./...`, and `golangci-lint run`.
+
 ## Development
 
 ### Development Setup
