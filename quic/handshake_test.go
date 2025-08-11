@@ -3,6 +3,7 @@ package quic
 import (
 	"bufio"
 	"net"
+	"strings"
 	"testing"
 )
 
@@ -42,6 +43,20 @@ func TestNegotiateMismatch(t *testing.T) {
 	}
 	_ = client.Close()
 	if err := <-errCh; err == nil {
+		t.Fatalf("expected error")
+	}
+}
+
+func TestReadNegotiationEmpty(t *testing.T) {
+	r := bufio.NewReader(strings.NewReader("\n"))
+	if _, err := ReadNegotiation(r); err == nil {
+		t.Fatalf("expected error")
+	}
+}
+
+func TestReadNegotiationUnexpectedToken(t *testing.T) {
+	r := bufio.NewReader(strings.NewReader("proto extra\n"))
+	if _, err := ReadNegotiation(r); err == nil {
 		t.Fatalf("expected error")
 	}
 }
