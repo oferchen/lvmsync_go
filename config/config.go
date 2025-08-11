@@ -108,7 +108,6 @@ type Config struct {
 	TLSKey                string        `mapstructure:"tls_key"`
 	CACert                string        `mapstructure:"ca_cert"`
 	AllowInsecure         bool          `mapstructure:"allow_insecure"`
-	SudoPath              string        `mapstructure:"sudo_path"`
 	Transport             string        `mapstructure:"transport"`
 	QUICListen            string        `mapstructure:"quic_listen"`
 	QUICConnect           string        `mapstructure:"quic_connect"`
@@ -191,9 +190,6 @@ func (b *Builder) applyDefaults(conf *Config) error {
 	}
 	if conf.GRPCPort == 0 {
 		conf.GRPCPort = b.defaults.GRPCPort
-	}
-	if conf.SudoPath == "" {
-		conf.SudoPath = b.defaults.SudoPath
 	}
 	if conf.Transport == "" {
 		conf.Transport = b.defaults.Transport
@@ -436,7 +432,6 @@ func DefaultConfig() (*Config, error) {
 		TLSKey:                "",
 		CACert:                "",
 		AllowInsecure:         true,
-		SudoPath:              "/usr/bin/sudo",
 		Transport:             "quic,h2,tcp+tls,ssh",
 		QUICListen:            "",
 		QUICConnect:           "",
@@ -485,7 +480,7 @@ func initSSHFlags(cfg *Config) *pflag.FlagSet {
 	fs.Duration("ssh_timeout", cfg.SSHTimeout, "SSH connection timeout")
 	fs.Duration("ssh_keepalive", cfg.SSHKeepAliveInterval, "SSH keepalive interval")
 	fs.String("known_hosts", cfg.KnownHosts, "Path to known_hosts file")
-	fs.Bool("stricthostkeychecking", cfg.StrictHostKeyCheck, "Enable SSH StrictHostKeyChecking")
+	fs.Bool("strict_host_key_checking", cfg.StrictHostKeyCheck, "Require host keys to be present in known_hosts")
 	return fs
 }
 
@@ -542,7 +537,6 @@ func initGRPCFlags(cfg *Config) *pflag.FlagSet {
 	fs.String("tls_key", cfg.TLSKey, "TLS key file")
 	fs.String("ca_cert", cfg.CACert, "CA certificate file")
 	fs.Bool("allow_insecure", cfg.AllowInsecure, "Allow insecure (no TLS)")
-	fs.String("sudo_path", cfg.SudoPath, "Path to sudo executable")
 	return fs
 }
 
