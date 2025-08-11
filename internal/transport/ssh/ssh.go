@@ -34,7 +34,10 @@ func New(cfg *config.Config, logger *zap.Logger) (transport.Sender, transport.Re
 	if logger == nil {
 		logger = zap.NewNop()
 	}
-	host := "localhost"
+	host := cfg.SSHHost
+	if host == "" {
+		host = "localhost"
+	}
 	logger.Info("ssh connection attempt", zap.String("host", host), zap.Int("port", cfg.SSHPort))
 	client, err := remote.NewSSHClient(host, cfg.SSHUser, cfg.SSHKeyPath, cfg.SSHPort, cfg.KnownHosts, cfg.StrictHostKeyCheck, cfg.SSHTimeout, cfg.SSHKeepAliveInterval, cfg.MaxRetries, logger)
 	if err != nil {
@@ -140,5 +143,4 @@ func (r *sshReceiver) Receive(ctx context.Context, w io.Writer) error {
 		r.logger.Info("ssh receive stream closed", zap.String("host", r.host), zap.Int("port", r.port), zap.Int64("bytes_transferred", n))
 	}
 	return copyErr
-
 }

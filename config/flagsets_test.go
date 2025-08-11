@@ -49,6 +49,7 @@ func TestInitSSHFlags(t *testing.T) {
 	}
 	fs := initSSHFlags(cfg)
 	cases := []struct{ name, want string }{
+		{"ssh_host", cfg.SSHHost},
 		{"ssh_user", cfg.SSHUser},
 		{"ssh_key", cfg.SSHKeyPath},
 		{"ssh_port", strconv.Itoa(cfg.SSHPort)},

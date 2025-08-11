@@ -290,6 +290,7 @@ LVMSYNC_GRPC_GRPC_PORT=9443 LVMSYNC_GRPC_TLS_CERT=cert.pem lvmsync-grpcd
 | `--verify_checksum` | `LVMSYNC_VERIFY_CHECKSUM` | `verify_checksum` | Enable checksum verification |
 | `--checksum_algorithm` | `LVMSYNC_CHECKSUM_ALGORITHM` | `checksum_algorithm` | Checksum algorithm: `sha256`, `blake3`, or `blake3-512` |
 | `--progress` | `LVMSYNC_PROGRESS` | `progress` | Show progress during transfer |
+| `--ssh_host` | `LVMSYNC_SSH_HOST` | `ssh_host` | SSH host |
 | `--ssh_user` | `LVMSYNC_SSH_USER` | `ssh_user` | SSH username |
 | `--ssh_key` | `LVMSYNC_SSH_KEY` | `ssh_key` | Path to SSH private key or use agent |
 | `--ssh_port` | `LVMSYNC_SSH_PORT` | `ssh_port` | SSH port |
@@ -436,6 +437,7 @@ LVMSYNC_GRPC_CONNECT=localhost:9443 lvmsync /dev/vg0/snap0 /dev/vg0/data
 
 ```yaml
 parallel: 4               # General Options
+ssh_host: backup          # SSH Options
 ssh_user: backup          # SSH Options
 remote_pre_script: pre.sh # Remote Options
 dedup_strategy: bloom     # Deduplication Options
@@ -713,6 +715,7 @@ The tool supports both local and remote transfers, as well as an "apply mode" fo
 
 | Option                    | Description                                                     | Default                  |
 | ------------------------- | --------------------------------------------------------------- | ------------------------ |
+| `--ssh_host`              | SSH host                                                        | `"localhost"`            |
 | `--ssh_user`              | SSH username                                                    | `"root"`                 |
 | `--ssh_key`               | Path to SSH private key or use the SSH agent                    | `""`                     |
 | `--ssh_port`              | SSH port number                                                 | `22`                     |
@@ -895,12 +898,13 @@ lvmsync --ssh-user backup --ssh-port 2222 /dev/vg0/snap0 backup:/dev/vg0/data
 Environment:
 
 ```sh
-LVMSYNC_SSH_USER=backup LVMSYNC_SSH_PORT=2222 lvmsync /dev/vg0/snap0 backup:/dev/vg0/data
+LVMSYNC_SSH_HOST=backup LVMSYNC_SSH_USER=backup LVMSYNC_SSH_PORT=2222 lvmsync /dev/vg0/snap0 /dev/vg0/data
 ```
 
 YAML:
 
 ```yaml
+ssh_host: backup
 ssh_user: backup
 ssh_port: 2222
 ```
