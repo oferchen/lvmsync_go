@@ -2,6 +2,7 @@
 package remote
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
@@ -66,7 +67,7 @@ func NewSSHManager(user, keyPath string, timeout time.Duration, knownHostsPath s
 // GetClient returns an SSH client connected to the specified host and port.
 // If a connection already exists it is reused; otherwise a new connection is
 // established.
-func (s *SSHManager) GetClient(host string, port int) (*ssh.Client, error) {
+func (s *SSHManager) GetClient(ctx context.Context, host string, port int) (*ssh.Client, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -75,7 +76,7 @@ func (s *SSHManager) GetClient(host string, port int) (*ssh.Client, error) {
 		return client, nil
 	}
 
-	client, err := dialSSH(addr, s.sshConfig, s.timeout)
+	client, err := dialSSH(ctx, addr, s.sshConfig, s.timeout)
 	if err != nil {
 		return nil, fmt.Errorf("failed to establish SSH connection: %w", err)
 	}
@@ -128,8 +129,12 @@ func getHostKeyCallback(knownHostsPath string) (ssh.HostKeyCallback, error) {
 	return knownhosts.New(knownHostsPath)
 }
 
-func dialSSH(addr string, sshConfig *ssh.ClientConfig, timeout time.Duration) (*ssh.Client, error) {
-	conn, err := net.DialTimeout("tcp", addr, timeout)
+func dialSSH(ctx context.Context, addr string, sshConfig *ssh.ClientConfig, timeout time.Duration) (*ssh.Client, error) {
+	dialer := net.Dialer{Timeout: timeout}
+	if deadline, ok := ctx.Deadline(); ok {
+		dialer.Deadline = deadline
+	}
+	conn, err := dialer.DialContext(ctx, "tcp", addr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to %s: %w", addr, err)
 	}

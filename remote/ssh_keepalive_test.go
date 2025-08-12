@@ -80,12 +80,12 @@ func TestSSHManager(t *testing.T) {
 		t.Fatalf("NewSSHManager error: %v", err)
 	}
 
-	client1, err := mgr.GetClient(host, port)
+	client1, err := mgr.GetClient(context.Background(), host, port)
 	if err != nil {
 		t.Fatalf("GetClient error: %v", err)
 	}
 
-	client2, err := mgr.GetClient(host, port)
+	client2, err := mgr.GetClient(context.Background(), host, port)
 	if err != nil {
 		t.Fatalf("GetClient second error: %v", err)
 	}
@@ -98,7 +98,7 @@ func TestSSHManager(t *testing.T) {
 		t.Fatalf("CloseAll error: %v", err)
 	}
 
-	client3, err := mgr.GetClient(host, port)
+	client3, err := mgr.GetClient(context.Background(), host, port)
 	if err != nil {
 		t.Fatalf("GetClient after CloseAll error: %v", err)
 	}
