@@ -110,6 +110,13 @@ func Run(cfg *config.Config, logger *zap.Logger) error {
 
 	defer lvm.Cleanup()
 
+	if cfg.ApplyMode != "" {
+		if err := applycmd.Run(cfg, cfg.ApplyMode, pflag.Args()); err != nil {
+			return fmt.Errorf("apply operation failed: %w", err)
+		}
+		return nil
+	}
+
 	if err := selectTransport(cfg, logger); err != nil {
 		return err
 	}
@@ -124,13 +131,6 @@ func Run(cfg *config.Config, logger *zap.Logger) error {
 	var snapshotPath string
 	signals, sigErrCh := setupSignalHandle(cfg, &snapshotPath, logger)
 	defer signal.Stop(signals)
-
-	if cfg.ApplyMode != "" {
-		if err = applycmd.Run(cfg, cfg.ApplyMode, pflag.Args()); err != nil {
-			return fmt.Errorf("apply operation failed: %w", err)
-		}
-		return nil
-	}
 
 	args := pflag.Args()
 	if (cfg.StdoutMode && len(args) < 1) || (!cfg.StdoutMode && len(args) < 2) {

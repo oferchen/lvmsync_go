@@ -17,7 +17,14 @@ grpc_port: 8443  # gRPC port to listen on
 tls_cert: ""  # TLS certificate file
 tls_key: ""  # TLS key file
 ca_cert: ""  # CA certificate file
-allow_insecure: true  # Allow running without TLS
+allow_insecure: false  # Allow running without TLS
+
+# Serve Options
+serve: false  # Enable built-in server
+serve_listen: ":9000"  # Server listen address
+serve_protocol: lvmsync  # Server protocol
+serve_algorithm: sha256  # Hash algorithm for served data
+serve_policy: accept  # Client acceptance policy
 
 # Deduplication Options
 # Strategy: "none", "auto", "checksum", "rolling_hash", or "bloom"

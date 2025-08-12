@@ -45,9 +45,13 @@ func (m *Manifest) AuditLog(logger *zap.Logger) {
 	b, err := m.Marshal()
 	if err != nil {
 		logger.Error("manifest_marshal_error", zap.Error(err))
-		syncLogger(logger)
+		if err := logger.Sync(); err != nil {
+			logger.Error("logger_sync_error", zap.Error(err))
+		}
 		return
 	}
 	logger.Info("session_manifest", zap.ByteString("manifest_json", b))
-	syncLogger(logger)
+	if err := logger.Sync(); err != nil {
+		logger.Error("logger_sync_error", zap.Error(err))
+	}
 }

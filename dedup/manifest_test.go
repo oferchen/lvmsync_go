@@ -32,7 +32,7 @@ func TestAuditLogSuccessSyncError(t *testing.T) {
 	if entries[0].Message != "session_manifest" {
 		t.Fatalf("unexpected first log message %q", entries[0].Message)
 	}
-	if entries[1].Message != "Logger sync error" {
+	if entries[1].Message != "logger_sync_error" {
 		t.Fatalf("unexpected second log message %q", entries[1].Message)
 	}
 	if errStr, ok := entries[1].ContextMap()["error"].(string); !ok || errStr != syncErr.Error() {
@@ -60,7 +60,7 @@ func TestAuditLogMarshalErrorSyncError(t *testing.T) {
 	if errStr, ok := entries[0].ContextMap()["error"].(string); !ok || errStr != marshalErr.Error() {
 		t.Fatalf("expected marshal error %q, got %v", marshalErr.Error(), entries[0].ContextMap()["error"])
 	}
-	if entries[1].Message != "Logger sync error" {
+	if entries[1].Message != "logger_sync_error" {
 		t.Fatalf("unexpected second log message %q", entries[1].Message)
 	}
 	if errStr, ok := entries[1].ContextMap()["error"].(string); !ok || errStr != syncErr.Error() {

@@ -954,6 +954,8 @@ dedup_strategy: bloom
 dedup_state_file: ~/.lvmsync_state
 ```
 
+LVMSync automatically reloads this state file on startup. Delete it to reset deduplication: `rm ~/.lvmsync_dedup`.
+
 #### Compression
 
 LVMSync samples 8 KiB from each chunk to gauge compression efficiency. If the
