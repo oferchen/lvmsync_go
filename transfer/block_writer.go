@@ -57,7 +57,8 @@ func iterateBlocks(cfg *config.Config, ranges []Range, srcFile *os.File, bufOut 
 				putBlockBuffer(data)
 				return totalBytes, skippedBlocks, manifest, fmt.Errorf("failed to write header: %w", err)
 			}
-			saveResumeState(cfg, [32]byte{}, int64(blockSize), logger)
+			zh := zeroHash(int(blockSize))
+			saveResumeState(cfg, zh, int64(blockSize), logger)
 			putBlockBuffer(data)
 			totalBytes += int64(blockSize)
 			continue
@@ -171,6 +172,7 @@ func worker(cfg *config.Config, srcFile *os.File, tasks <-chan BlockTask, result
 			putBlockBuffer(data)
 			resData = nil
 			size = 0
+			chunkID = zeroHash(int(blockSize))
 		} else {
 			resData = data
 			chunkID = blake3.Sum256(data)
