@@ -3,6 +3,8 @@ package hash
 import (
 	"encoding/hex"
 	"testing"
+
+	cpufeatures "lvmsync_go/internal/cpufeatures"
 )
 
 func TestSumXXH3(t *testing.T) {
@@ -47,5 +49,11 @@ func BenchmarkSumBLAKE3(b *testing.B) {
 	data := []byte("benchmark data for hashing")
 	for i := 0; i < b.N; i++ {
 		SumBLAKE3(data)
+	}
+}
+
+func TestHasSIMD(t *testing.T) {
+	if HasSIMD() != cpufeatures.HasSIMD() {
+		t.Fatalf("HasSIMD mismatch")
 	}
 }
