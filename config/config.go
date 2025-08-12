@@ -61,6 +61,7 @@ type Config struct {
 	NumaPin               bool          `mapstructure:"numa_pin"`
 	MaxRetries            int           `mapstructure:"max_retries"`
 	ResumeState           string        `mapstructure:"resume"`
+	SSHHost               string        `mapstructure:"ssh_host"`
 	SSHUser               string        `mapstructure:"ssh_user"`
 	SSHKeyPath            string        `mapstructure:"ssh_key"`
 	SSHPort               int           `mapstructure:"ssh_port"`
@@ -317,7 +318,7 @@ func (b *Builder) finalizeConfig(conf *Config) error {
 		return fmt.Errorf("unsupported checksum algorithm: %s", conf.ChecksumAlgorithm)
 	}
 
-	if !conf.AllowInsecure {
+	if !conf.AllowInsecure && (conf.GRPCListen != "" || conf.GRPCConnect != "") {
 		if conf.TLSCert == "" || conf.TLSKey == "" {
 			return fmt.Errorf("tls_cert and tls_key must be specified unless allow_insecure is set")
 		}
@@ -387,6 +388,7 @@ func DefaultConfig() (*Config, error) {
 		NumaPin:               false,
 		MaxRetries:            3,
 		ResumeState:           "",
+		SSHHost:               "localhost",
 		SSHUser:               "root",
 		SSHKeyPath:            "",
 		SSHPort:               22,
@@ -431,7 +433,7 @@ func DefaultConfig() (*Config, error) {
 		TLSCert:               "",
 		TLSKey:                "",
 		CACert:                "",
-		AllowInsecure:         true,
+		AllowInsecure:         false,
 		Transport:             "quic,h2,tcp+tls,ssh",
 		QUICListen:            "",
 		QUICConnect:           "",
@@ -464,6 +466,7 @@ func initGeneralFlags(cfg *Config) *pflag.FlagSet {
 	fs.String("resume", cfg.ResumeState, "Path to resume state file")
 	fs.String("speed", cfg.Speed, "Transfer speed limit")
 	fs.String("sync_interval", cfg.SyncInterval, "Bytes between fdatasync calls")
+	fs.Duration("checkpoint_interval", cfg.CheckpointInterval, "Duration between checkpoints")
 	fs.String("block_size", cfg.BlockSizeRaw, "Block size for data transfer; specify 'auto' or 0 for automatic detection")
 	fs.CountP("verbose", "v", "Verbosity level")
 	fs.Bool("verify_checksum", cfg.VerifyChecksum, "Enable checksum verification")
@@ -474,6 +477,7 @@ func initGeneralFlags(cfg *Config) *pflag.FlagSet {
 
 func initSSHFlags(cfg *Config) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("SSH Options", pflag.ExitOnError)
+	fs.String("ssh_host", cfg.SSHHost, "SSH host")
 	fs.String("ssh_user", cfg.SSHUser, "SSH username")
 	fs.String("ssh_key", cfg.SSHKeyPath, "Path to SSH private key or use agent")
 	fs.Int("ssh_port", cfg.SSHPort, "SSH port")
@@ -545,6 +549,7 @@ func initTransportFlags(cfg *Config) *pflag.FlagSet {
 	fs.String("transport", cfg.Transport, "Ordered transports to try (e.g. 'quic,h2,tcp+tls,ssh')")
 	fs.String("quic_listen", cfg.QUICListen, "QUIC listen address")
 	fs.String("quic_connect", cfg.QUICConnect, "QUIC connect address")
+	fs.String("quic_cc", cfg.QUICCongestionControl, "QUIC congestion control algorithm")
 	fs.Int("concurrency", cfg.Concurrency, "Stream concurrency (0 to autotune)")
 	fs.Int("tcp_port", cfg.TCPPort, "TCP+TLS port")
 	fs.Int("h2_port", cfg.H2Port, "HTTP/2 TLS port")

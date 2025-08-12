@@ -2,11 +2,14 @@ package serve
 
 import (
 	"bufio"
+	"context"
 	"io"
 	"net"
 	"os"
+	"strings"
 	"testing"
 
+	q "github.com/quic-go/quic-go"
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
 
@@ -17,12 +20,12 @@ import (
 func TestRunAcceptsTransfer(t *testing.T) {
 	server, client := net.Pipe()
 	orig := acceptFunc
-	acceptFunc = func(cfg *config.Config) (io.ReadWriteCloser, error) { return server, nil }
+	acceptFunc = func(ctx context.Context, cfg *config.Config) (io.ReadWriteCloser, error) { return server, nil }
 	defer func() { acceptFunc = orig }()
 
 	cfg := &config.Config{ServeProtocol: "proto", ServeAlgorithm: "alg", ServeTestSpace: "ts", ServePolicy: "accept"}
 	errCh := make(chan error, 1)
-	go func() { errCh <- Run(cfg, zap.NewNop()) }()
+	go func() { errCh <- Run(context.Background(), cfg, zap.NewNop()) }()
 
 	hs := qn.Negotiation{Protocol: "proto", Algorithm: "alg", TestSpace: "ts"}
 	if err := qn.WriteNegotiation(client, hs); err != nil {
@@ -45,7 +48,7 @@ func resetFlags(args []string) {
 }
 
 func TestServeFlagParsing(t *testing.T) {
-	resetFlags([]string{"--serve", "--serve_listen", "localhost:9900", "--serve_protocol", "p", "--serve_algorithm", "a", "--serve_test_space", "t", "--serve_policy", "accept"})
+	resetFlags([]string{"--serve", "--serve_listen", "localhost:9900", "--serve_protocol", "p", "--serve_algorithm", "a", "--serve_test_space", "t", "--serve_policy", "accept", "--allow_insecure"})
 	cfg, err := config.LoadConfig()
 	if err != nil {
 		t.Fatalf("LoadConfig: %v", err)
@@ -61,12 +64,12 @@ func TestServeFlagParsing(t *testing.T) {
 func TestRunNegotiationMismatch(t *testing.T) {
 	server, client := net.Pipe()
 	orig := acceptFunc
-	acceptFunc = func(cfg *config.Config) (io.ReadWriteCloser, error) { return server, nil }
+	acceptFunc = func(ctx context.Context, cfg *config.Config) (io.ReadWriteCloser, error) { return server, nil }
 	defer func() { acceptFunc = orig }()
 
 	cfg := &config.Config{ServeProtocol: "proto", ServeAlgorithm: "alg", ServeTestSpace: "ts", ServePolicy: "accept"}
 	errCh := make(chan error, 1)
-	go func() { errCh <- Run(cfg, zap.NewNop()) }()
+	go func() { errCh <- Run(context.Background(), cfg, zap.NewNop()) }()
 
 	if err := qn.WriteNegotiation(client, qn.Negotiation{Protocol: "proto", Algorithm: "other", TestSpace: "ts"}); err != nil {
 		t.Fatalf("write negotiation: %v", err)
@@ -80,12 +83,12 @@ func TestRunNegotiationMismatch(t *testing.T) {
 func TestRunRejectsPolicy(t *testing.T) {
 	server, client := net.Pipe()
 	orig := acceptFunc
-	acceptFunc = func(cfg *config.Config) (io.ReadWriteCloser, error) { return server, nil }
+	acceptFunc = func(ctx context.Context, cfg *config.Config) (io.ReadWriteCloser, error) { return server, nil }
 	defer func() { acceptFunc = orig }()
 
 	cfg := &config.Config{ServeProtocol: "proto", ServeAlgorithm: "alg", ServeTestSpace: "ts", ServePolicy: "deny"}
 	errCh := make(chan error, 1)
-	go func() { errCh <- Run(cfg, zap.NewNop()) }()
+	go func() { errCh <- Run(context.Background(), cfg, zap.NewNop()) }()
 
 	hs := qn.Negotiation{Protocol: "proto", Algorithm: "alg", TestSpace: "ts"}
 	if err := qn.WriteNegotiation(client, hs); err != nil {
@@ -97,5 +100,33 @@ func TestRunRejectsPolicy(t *testing.T) {
 	client.Close()
 	if err := <-errCh; err == nil {
 		t.Fatalf("expected error")
+	}
+}
+
+type fakeConn struct{ closed bool }
+
+func (f *fakeConn) CloseWithError(code q.ApplicationErrorCode, msg string) error {
+	f.closed = true
+	return nil
+}
+
+type fakeListener struct{ closed bool }
+
+func (f *fakeListener) Close() error {
+	f.closed = true
+	return nil
+}
+
+func TestQuicStreamCloseClosesResources(t *testing.T) {
+	qs := &quicStream{
+		ReadWriteCloser: io.NopCloser(strings.NewReader("")),
+		conn:            &fakeConn{},
+		listener:        &fakeListener{},
+	}
+	if err := qs.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	if !qs.conn.(*fakeConn).closed || !qs.listener.(*fakeListener).closed {
+		t.Fatalf("expected conn and listener closed")
 	}
 }

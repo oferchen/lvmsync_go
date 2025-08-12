@@ -254,7 +254,7 @@ func TestBuilderFinalizeConfig(t *testing.T) {
 	})
 
 	t.Run("missingTLS", func(t *testing.T) {
-		conf := &Config{AllowInsecure: false, ChecksumAlgorithm: "sha256"}
+		conf := &Config{AllowInsecure: false, ChecksumAlgorithm: "sha256", GRPCListen: ":1"}
 		if err := b.finalizeConfig(conf); err == nil {
 			t.Fatalf("expected error")
 		}
@@ -270,7 +270,7 @@ func TestBuilderFinalizeConfig(t *testing.T) {
 		if err := os.WriteFile(key, []byte("key"), 0o644); err != nil {
 			t.Fatalf("write key: %v", err)
 		}
-		conf := &Config{AllowInsecure: false, TLSCert: cert, TLSKey: key, ChecksumAlgorithm: "sha256"}
+		conf := &Config{AllowInsecure: false, TLSCert: cert, TLSKey: key, GRPCListen: ":1", ChecksumAlgorithm: "sha256"}
 		if err := b.finalizeConfig(conf); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -559,6 +559,7 @@ func TestTLSFileValidation(t *testing.T) {
 	t.Run("missingFiles", func(t *testing.T) {
 		v := viper.New()
 		v.Set("allow_insecure", false)
+		v.Set("grpc_listen", ":1")
 		b := &Builder{v: v, defaults: defaults}
 		if _, err := b.Build(); err == nil {
 			t.Fatalf("expected error")
@@ -577,6 +578,7 @@ func TestTLSFileValidation(t *testing.T) {
 		}
 		v := viper.New()
 		v.Set("allow_insecure", false)
+		v.Set("grpc_listen", ":1")
 		v.Set("tls_cert", cert)
 		v.Set("tls_key", key)
 		v.Set("ca_cert", ca)

@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"io"
 	"testing"
+
+	"go.uber.org/zap"
 )
 
 // BenchmarkReplicator measures end-to-end throughput of the replication
@@ -19,7 +21,7 @@ func BenchmarkReplicator(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		r := bytes.NewReader(data)
 		var dst bytes.Buffer
-		repl := NewReplicator(ch, h, bloom, &dst)
+		repl := NewReplicator(ch, h, bloom, &dst, zap.NewNop())
 		if _, err := repl.Process(r); err != nil {
 			b.Fatalf("process: %v", err)
 		}

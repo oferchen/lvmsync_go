@@ -25,6 +25,7 @@ func TestInitGeneralFlags(t *testing.T) {
 		{"resume", cfg.ResumeState},
 		{"speed", cfg.Speed},
 		{"sync_interval", cfg.SyncInterval},
+		{"checkpoint_interval", cfg.CheckpointInterval.String()},
 		{"block_size", cfg.BlockSizeRaw},
 		{"verbose", "0"},
 		{"verify_checksum", strconv.FormatBool(cfg.VerifyChecksum)},
@@ -49,6 +50,7 @@ func TestInitSSHFlags(t *testing.T) {
 	}
 	fs := initSSHFlags(cfg)
 	cases := []struct{ name, want string }{
+		{"ssh_host", cfg.SSHHost},
 		{"ssh_user", cfg.SSHUser},
 		{"ssh_key", cfg.SSHKeyPath},
 		{"ssh_port", strconv.Itoa(cfg.SSHPort)},
@@ -204,6 +206,7 @@ func TestInitTransportFlags(t *testing.T) {
 		{"transport", cfg.Transport},
 		{"quic_listen", cfg.QUICListen},
 		{"quic_connect", cfg.QUICConnect},
+		{"quic_cc", cfg.QUICCongestionControl},
 		{"concurrency", strconv.Itoa(cfg.Concurrency)},
 		{"tcp_port", strconv.Itoa(cfg.TCPPort)},
 		{"h2_port", strconv.Itoa(cfg.H2Port)},

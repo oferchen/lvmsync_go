@@ -23,11 +23,15 @@ type Replicator struct {
 	Bloom    *Bloom
 	Writer   io.Writer
 	Manifest *Manifest
+	Logger   *zap.Logger
 }
 
 // NewReplicator creates a new replicator with the supplied components.
-func NewReplicator(ch ChunkSource, h *Hasher, b *Bloom, w io.Writer) *Replicator {
-	return &Replicator{Chunker: ch, Hasher: h, Bloom: b, Writer: w, Manifest: &Manifest{}}
+func NewReplicator(ch ChunkSource, h *Hasher, b *Bloom, w io.Writer, logger *zap.Logger) *Replicator {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+	return &Replicator{Chunker: ch, Hasher: h, Bloom: b, Writer: w, Manifest: &Manifest{}, Logger: logger}
 }
 
 // Process consumes data from r, chunking, hashing and deduplicating it in
@@ -55,6 +59,6 @@ func (r *Replicator) Process(src io.Reader) (Manifest, error) {
 			break
 		}
 	}
-	r.Manifest.AuditLog(zap.L())
+	r.Manifest.AuditLog(r.Logger)
 	return *r.Manifest, nil
 }

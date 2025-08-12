@@ -79,10 +79,6 @@ type errReader struct{ err error }
 
 func (e errReader) Read([]byte) (int, error) { return 0, e.err }
 
-type errWriter struct{ err error }
-
-func (e errWriter) Write([]byte) (int, error) { return 0, e.err }
-
 func TestQUICSendErrorPropagation(t *testing.T) {
 	s, r := newPair(t)
 	defer r.(*quicReceiver).Close()
