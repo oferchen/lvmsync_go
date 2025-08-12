@@ -207,9 +207,9 @@ func TestRunHeartbeatError(t *testing.T) {
 	hbErrCh <- errors.New("hb fail")
 
 	startGRPCServer = func(context.Context, *config.Config, *zap.Logger) (func(), <-chan error, error) {
-		errCh := make(chan error, 1)
-		close(errCh)
-		return func() {}, errCh, nil
+		ch := make(chan error)
+		close(ch)
+		return func() {}, ch, nil
 	}
 	clientHandshake = func(*config.Config, *zap.Logger) (func(), chan error, error) {
 		return func() {}, hbErrCh, nil
@@ -217,8 +217,9 @@ func TestRunHeartbeatError(t *testing.T) {
 	selectTransport = func(*config.Config, *zap.Logger) error { return nil }
 
 	sigErrCh := make(chan error, 1)
+	signalCh := make(chan os.Signal)
 	setupSignalHandle = func(*config.Config, *string, *zap.Logger) (chan os.Signal, chan error) {
-		return nil, sigErrCh
+		return signalCh, sigErrCh
 	}
 	prepareSnapshotFn = func(ctx context.Context, _ *config.Config, _ string, _ *zap.Logger) (string, chan error, func(), error) {
 		return "snap", nil, func() {}, nil
