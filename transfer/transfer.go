@@ -259,7 +259,7 @@ func (t *Transfer) dumpChangesCore(cfg *config.Config, snapshot, source string, 
 	finalizeResumeState(cfg, t.Logger)
 	if manifest != nil {
 		if t.Logger != nil {
-			t.Logger.Info("final checksum", zap.String("final_sha256", fmt.Sprintf("%x", manifest.FinalSHA256)))
+			t.Logger.Info("final checksum", zap.String("final_digest", fmt.Sprintf("%x", manifest.FinalDigest)))
 		}
 	}
 	if t.Logger != nil {
@@ -491,7 +491,7 @@ func (t *Transfer) DumpChangesParallel(cfg *config.Config, snapshot, source stri
 	logParallelSummary(t.Logger, totalBytesTransferred, startTime)
 	finalizeResumeState(cfg, t.Logger)
 	if manifest != nil && t.Logger != nil {
-		t.Logger.Info("final checksum", zap.String("final_sha256", fmt.Sprintf("%x", manifest.FinalSHA256)))
+		t.Logger.Info("final checksum", zap.String("final_digest", fmt.Sprintf("%x", manifest.FinalDigest)))
 	}
 	if t.Logger != nil {
 		_ = t.Logger.Sync()
