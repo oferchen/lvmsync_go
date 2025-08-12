@@ -169,8 +169,8 @@ func WaitForRemoteCompletion(session waitSession, stdoutErrCh, stderrErrCh <-cha
 }
 
 // ExecuteRemoteCommand runs the remote apply command over SSH.
-func ExecuteRemoteCommand(cfg *config.Config, client *remote.SSHClient, destDevice, snapshotDevice, originDevice string, logger *zap.Logger) (err error) {
-	if err = client.ValidateRemoteCommand(context.Background(), cfg.LVMSyncPath); err != nil {
+func ExecuteRemoteCommand(ctx context.Context, cfg *config.Config, client *remote.SSHClient, destDevice, snapshotDevice, originDevice string, logger *zap.Logger) (err error) {
+	if err = client.ValidateRemoteCommand(ctx, cfg.LVMSyncPath); err != nil {
 		return fmt.Errorf("remote command validation failed: %w", err)
 	}
 
@@ -236,7 +236,9 @@ func RunRemoteDump(cfg *config.Config, snapshotDevice, originDevice, dest string
 		}()
 	}
 
-	return ExecuteRemoteCommand(cfg, client, destDevice, snapshotDevice, originDevice, logger)
+	validationCtx, cancel := context.WithTimeout(ctx, cfg.SSHTimeout)
+	defer cancel()
+	return ExecuteRemoteCommand(validationCtx, cfg, client, destDevice, snapshotDevice, originDevice, logger)
 }
 
 // SelectTransport chooses and logs the transport if configured.
