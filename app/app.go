@@ -58,7 +58,7 @@ type ackStreamClient interface {
 }
 
 // StartGRPCServer starts the gRPC server if configured and returns a cleanup function and error channel.
-func StartGRPCServer(cfg *config.Config, logger *zap.Logger) (func(), chan error, error) {
+func StartGRPCServer(ctx context.Context, cfg *config.Config, logger *zap.Logger) (func(), <-chan error, error) {
 	errCh := make(chan error, 1)
 	if cfg.GRPCListen == "" {
 		close(errCh)
@@ -68,20 +68,25 @@ func StartGRPCServer(cfg *config.Config, logger *zap.Logger) (func(), chan error
 	srvCfg := grpcserver.Config{TLSCert: cfg.TLSCert, TLSKey: cfg.TLSKey, CACert: cfg.CACert, AllowInsecure: cfg.AllowInsecure}
 	ln, err := listen("tcp", cfg.GRPCListen)
 	if err != nil {
-		close(errCh)
 		return nil, nil, fmt.Errorf("gRPC listen: %w", err)
 	}
 	srv, err := newServer(srvCfg, nil)
 	if err != nil {
 		ln.Close()
-		close(errCh)
 		return nil, nil, fmt.Errorf("gRPC server: %w", err)
 	}
 	go func() {
-		if err := srv.Serve(ln); err != nil {
-			logger.Error("grpc server", zap.Error(err))
-			errCh <- err
+		serveErrCh := make(chan error, 1)
+		go func() { serveErrCh <- srv.Serve(ln) }()
+		var serveErr error
+		select {
+		case serveErr = <-serveErrCh:
+		case <-ctx.Done():
+			srv.GracefulStop()
+			ln.Close()
+			serveErr = <-serveErrCh
 		}
+		errCh <- serveErr
 	}()
 	cleanup := func() {
 		srv.GracefulStop()
