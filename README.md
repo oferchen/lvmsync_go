@@ -422,6 +422,8 @@ Run the daemon with TLS:
 lvmsync-grpcd --grpc-port 9443 --tls-cert cert.pem --tls-key key.pem --ca-cert ca.pem
 ```
 
+On failure, `lvmsync-grpcd` logs the error and exits with status `1` so calling scripts can inspect `$?`.
+
 Environment variables provide the same settings:
 
 ```sh
@@ -1089,7 +1091,7 @@ Invalid configurations will cause the tool to abort with a clear error message.
 
 ## Exit Codes
 
-LVMSync returns conventional exit codes to indicate overall status:
+LVMSync commands such as `lvmsync` and `lvmsync-grpcd` return conventional exit codes to indicate overall status:
 
 | Code | Meaning |
 |------|---------|
