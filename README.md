@@ -86,7 +86,7 @@ are emitted as structured log entries, allowing external tooling to track transf
 
 The example below demonstrates these conventions:
 
-```go
+```
 logger, _ := zap.NewProduction()
 defer syncLogger(logger)
 start := time.Now()
@@ -100,7 +100,7 @@ logger.Info("snapshot complete",
 
 Errors during block operations log the byte offset and block size explicitly:
 
-```go
+```
 Logger.Warn("Zero-copy transfer failed",
     zap.Int64("offset", offset),
     zap.Int("size_bytes", blockSize),
@@ -165,7 +165,7 @@ Example:
 lvmsync --transport quic,h2,tcp+tls,ssh --quic_listen :9000 --tcp_port 9443
 ```
 
-```go
+```
 func initConfig() *viper.Viper {
     v := viper.New()
 
@@ -592,7 +592,6 @@ are resolved with the following precedence (highest first):
 - deduplication mode `hybrid`
 - compression `auto`
 - enables `--odirect`
-- sync interval `10MB` and checkpoint interval `30m`
 - QUIC congestion control `bbr`
 
 CLI:
@@ -730,7 +729,7 @@ fields like `SSHUser`, `SSHKeyPath`, `SSHPort`, `KnownHosts`,
 `StrictHostKeyCheck`, `SSHTimeout`, `SSHKeepAliveInterval`, and `MaxRetries`.
 The constructor also requires a `*zap.Logger`:
 
-```go
+```
 logger, _ := zap.NewProduction()
 defer logger.Sync()
 sender, receiver, err := ssh.New(cfg, logger)
@@ -1076,7 +1075,7 @@ Decouple modules by injecting dependencies through interfaces or constructor par
 For example, the `privilege` package exposes an `Escalator` interface so tests
 can stub command execution:
 
-```go
+```
 esc := privilege.New()
 if err := esc.Ensure(); err != nil {
     // handle missing capabilities or sudo
