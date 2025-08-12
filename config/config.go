@@ -644,7 +644,20 @@ func buildViper(flagSets *FlagSets) (*viper.Viper, error) {
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.SetEnvPrefix("LVMSYNC")
 	v.AutomaticEnv()
-
+	keys := []string{
+		"transport",
+		"quic_listen",
+		"quic_connect",
+		"quic_cc",
+		"concurrency",
+		"tcp_port",
+		"h2_port",
+	}
+	for _, k := range keys {
+		if err := v.BindEnv(k); err != nil {
+			return nil, err
+		}
+	}
 	for _, fs := range flagSets.All() {
 		if err := v.BindPFlags(fs); err != nil {
 			return nil, err

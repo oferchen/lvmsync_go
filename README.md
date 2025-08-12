@@ -511,6 +511,7 @@ Transports are pluggable and selected in order using the `--transport` flag. LVM
 | `--quic_listen` | `LVMSYNC_QUIC_LISTEN` | QUIC listen address |
 | `--quic_connect` | `LVMSYNC_QUIC_CONNECT` | QUIC connect address |
 | `--quic_cc` | `LVMSYNC_QUIC_CC` | QUIC congestion control algorithm |
+| `--concurrency` | `LVMSYNC_CONCURRENCY` | Stream concurrency (0 to autotune based on BDP) |
 | `--h2_port` | `LVMSYNC_H2_PORT` | HTTP/2 TLS port |
 | `--tcp_port` | `LVMSYNC_TCP_PORT` | TCP+TLS port |
 | `--ssh_port` | `LVMSYNC_SSH_PORT` | SSH port |
