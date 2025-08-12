@@ -13,9 +13,12 @@ type Chunk struct {
 }
 
 // Manifest records all transferred chunks and the final SHA-256 hash.
+// When resuming transfers, Bitmap carries a bitset of confirmed chunk indices
+// to allow skipping already replicated data.
 type Manifest struct {
 	Chunks      []Chunk  `json:"chunks"`
 	FinalSHA256 [32]byte `json:"final_sha256"`
+	Bitmap      []byte   `json:"bitmap,omitempty"`
 }
 
 // Append adds a chunk entry to the manifest.
