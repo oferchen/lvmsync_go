@@ -14,7 +14,7 @@ import (
 )
 
 func TestIterateBlocksFinalSHA(t *testing.T) {
-	SetLogger(zap.NewNop())
+	Logger = zap.NewNop()
 	blockSize := int64(1024)
 	snapshot := "vg-lv"
 	_, src := createVolumeFiles(t, snapshot, blockSize, []int{0})

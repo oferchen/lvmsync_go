@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 
 	"lvmsync_go/config"
+	"lvmsync_go/transfer"
 )
 
 func TestRunLocalDumpSuccess(t *testing.T) {
@@ -33,7 +34,7 @@ func TestRunLocalDumpSuccess(t *testing.T) {
 
 	originalDump := dumpChangesSequential
 	var dumpCalled bool
-	dumpChangesSequential = func(c *config.Config, snap, origin string, out io.Writer) error {
+	dumpChangesSequential = func(_ *transfer.Transfer, c *config.Config, snap, origin string, out io.Writer) error {
 		dumpCalled = true
 		if snap != "snap" || origin != "orig" {
 			t.Fatalf("unexpected devices: %s %s", snap, origin)
@@ -66,7 +67,7 @@ func TestRunLocalDumpOpenError(t *testing.T) {
 	defer func() { openFile = originalOpen }()
 
 	originalDump := dumpChangesSequential
-	dumpChangesSequential = func(c *config.Config, snap, origin string, out io.Writer) error {
+	dumpChangesSequential = func(_ *transfer.Transfer, c *config.Config, snap, origin string, out io.Writer) error {
 		t.Fatalf("dumpChangesSequential should not be called on open error")
 		return nil
 	}

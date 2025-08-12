@@ -143,8 +143,8 @@ func processParallelResults(cfg *config.Config, results <-chan *BlockResult, buf
 	return totalBytesTransferred, manifest, nil
 }
 
-func worker(cfg *config.Config, srcFile *os.File, tasks <-chan BlockTask, results chan<- *BlockResult) {
-	defer workerWG.Done()
+func worker(cfg *config.Config, srcFile *os.File, tasks <-chan BlockTask, results chan<- *BlockResult, wg *sync.WaitGroup) {
+	defer wg.Done()
 	unlock := pinWorkerToDevice(cfg, srcFile)
 	defer unlock()
 	for task := range tasks {

@@ -20,7 +20,7 @@ func TestExecuteDumpSequential(t *testing.T) {
 
 	called := false
 	original := dumpChangesSequential
-	dumpChangesSequential = func(c *config.Config, snap, origin string, out io.Writer) error {
+	dumpChangesSequential = func(_ *transfer.Transfer, c *config.Config, snap, origin string, out io.Writer) error {
 		called = true
 		return nil
 	}
@@ -43,7 +43,7 @@ func TestExecuteDumpParallel(t *testing.T) {
 
 	called := false
 	original := dumpChangesParallel
-	dumpChangesParallel = func(c *config.Config, snap, origin string, out io.Writer) error {
+	dumpChangesParallel = func(_ *transfer.Transfer, c *config.Config, snap, origin string, out io.Writer) error {
 		called = true
 		return nil
 	}
@@ -66,7 +66,7 @@ func TestExecuteDumpWithDedup(t *testing.T) {
 
 	called := false
 	original := dumpChangesWithDeduplication
-	dumpChangesWithDeduplication = func(c *config.Config, snap, origin string, out io.Writer, d transfer.DeduplicationStrategy) error {
+	dumpChangesWithDeduplication = func(_ *transfer.Transfer, c *config.Config, snap, origin string, out io.Writer, d transfer.DeduplicationStrategy) error {
 		if d == nil {
 			t.Fatalf("deduplication strategy was nil")
 		}

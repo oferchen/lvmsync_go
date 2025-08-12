@@ -13,7 +13,7 @@ import (
 )
 
 func TestReadBlockWithRetriesTransientFailure(t *testing.T) {
-	SetLogger(zap.NewNop())
+	Logger = zap.NewNop()
 
 	blockSize := 4
 	data := []byte{1, 2, 3, 4}
@@ -44,7 +44,7 @@ func TestReadBlockWithRetriesTransientFailure(t *testing.T) {
 }
 
 func TestReadBlockWithRetriesPipeHandling(t *testing.T) {
-	SetLogger(zap.NewNop())
+	Logger = zap.NewNop()
 
 	blockSize := 4
 	data := []byte{1, 2, 3, 4}

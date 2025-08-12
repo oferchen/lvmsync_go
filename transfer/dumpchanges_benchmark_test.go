@@ -2,6 +2,7 @@ package transfer
 
 import (
 	"bytes"
+	"sync"
 	"testing"
 
 	"lvmsync_go/config"
@@ -10,7 +11,7 @@ import (
 )
 
 func BenchmarkDumpChangesSequential(b *testing.B) {
-	SetLogger(zap.NewNop())
+	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{})
 	blockSize := int64(4096)
 	changed := []int{0, 1, 2, 3}
 	src, snapshot := createDumpTestFiles(b, blockSize, changed)
@@ -19,14 +20,14 @@ func BenchmarkDumpChangesSequential(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		buf.Reset()
-		if err := DumpChangesSequential(cfg, snapshot, src, &buf); err != nil {
+		if err := tr.DumpChangesSequential(cfg, snapshot, src, &buf); err != nil {
 			b.Fatalf("DumpChangesSequential failed: %v", err)
 		}
 	}
 }
 
 func BenchmarkDumpChangesParallel(b *testing.B) {
-	SetLogger(zap.NewNop())
+	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{})
 	blockSize := int64(4096)
 	changed := []int{0, 1, 2, 3}
 	src, snapshot := createDumpTestFiles(b, blockSize, changed)
@@ -35,7 +36,7 @@ func BenchmarkDumpChangesParallel(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		buf.Reset()
-		if err := DumpChangesParallel(cfg, snapshot, src, &buf); err != nil {
+		if err := tr.DumpChangesParallel(cfg, snapshot, src, &buf); err != nil {
 			b.Fatalf("DumpChangesParallel failed: %v", err)
 		}
 	}
