@@ -122,7 +122,7 @@ func TestRunRemoteDumpError(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	err = RunRemoteDump(ctx, cfg, "snap", "origin", dest, zap.NewNop())
-	if err == nil || !strings.Contains(err.Error(), "remote command error") {
+	if err == nil || !errors.Is(err, ErrRemoteCommand) {
 		t.Fatalf("expected remote command error, got %v", err)
 	}
 }

@@ -19,6 +19,9 @@ import (
 	"lvmsync_go/transfer"
 )
 
+// ErrRemoteCommand indicates that execution of the remote command failed.
+var ErrRemoteCommand = errors.New("remote command error")
+
 var (
 	dumpChangesSequential = func(t *transfer.Transfer, cfg *config.Config, snap, origin string, out io.Writer) error {
 		return t.DumpChangesSequential(cfg, snap, origin, out)
@@ -178,7 +181,7 @@ type waitSession interface {
 // WaitForRemoteCompletion waits for the remote command and I/O copies to finish.
 func WaitForRemoteCompletion(session waitSession, stdoutErrCh, stderrErrCh <-chan error) error {
 	if err := session.Wait(); err != nil {
-		return fmt.Errorf("remote command error: %w", err)
+		return fmt.Errorf("%w: %v", ErrRemoteCommand, err)
 	}
 	if err := <-stdoutErrCh; err != nil {
 		return fmt.Errorf("stdout copy error: %w", err)
