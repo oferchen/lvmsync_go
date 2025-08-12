@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/bits-and-blooms/bloom/v3"
+	"go.uber.org/zap"
 
 	"lvmsync_go/config"
 )
@@ -33,7 +34,7 @@ func TestWrapRateLimitedWriterEnabled(t *testing.T) {
 
 func TestNewDeduplicationStrategy(t *testing.T) {
 	cfg := &config.Config{DedupStrategy: "bloom", DedupStateFile: "state", BloomEntries: 1000, BloomFpRate: 0.05}
-	d := NewDeduplicationStrategy(cfg)
+	d := NewDeduplicationStrategy(cfg, zap.NewNop())
 	bf, ok := d.(*BloomFilterDedup)
 	if !ok {
 		t.Fatal("expected bloom filter strategy")
@@ -44,7 +45,7 @@ func TestNewDeduplicationStrategy(t *testing.T) {
 	}
 
 	cfg.DedupStrategy = "checksum"
-	if _, ok := NewDeduplicationStrategy(cfg).(*ChecksumDedup); !ok {
+	if _, ok := NewDeduplicationStrategy(cfg, zap.NewNop()).(*ChecksumDedup); !ok {
 		t.Fatal("expected checksum strategy")
 	}
 
@@ -53,20 +54,20 @@ func TestNewDeduplicationStrategy(t *testing.T) {
 
 	cfg.DedupStrategy = "auto"
 	detectBestStrategy = func() string { return "rolling_hash" }
-	if _, ok := NewDeduplicationStrategy(cfg).(*RollingHashDedup); !ok {
+	if _, ok := NewDeduplicationStrategy(cfg, zap.NewNop()).(*RollingHashDedup); !ok {
 		t.Fatal("expected rolling hash strategy for auto")
 	}
 
 	cfg.DedupStrategy = "auto"
 	detectBestStrategy = func() string { return "checksum" }
-	if _, ok := NewDeduplicationStrategy(cfg).(*ChecksumDedup); !ok {
+	if _, ok := NewDeduplicationStrategy(cfg, zap.NewNop()).(*ChecksumDedup); !ok {
 		t.Fatal("expected checksum strategy for auto")
 	}
 }
 
 func TestNewDeduplicationStrategyInvalidBloomEntries(t *testing.T) {
 	cfg := &config.Config{DedupStrategy: "bloom", BloomEntries: -1, BloomFpRate: 0.05}
-	if NewDeduplicationStrategy(cfg) != nil {
+	if NewDeduplicationStrategy(cfg, zap.NewNop()) != nil {
 		t.Fatal("expected nil strategy for invalid bloom entries")
 	}
 }

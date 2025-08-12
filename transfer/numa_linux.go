@@ -86,14 +86,14 @@ func parseCPUList(list string) []int {
 // pinWorkerToDevice pins the current goroutine to the NUMA node associated
 // with the source device when cfg.NumaPin is true. The returned function must
 // be deferred to release the thread lock.
-func pinWorkerToDevice(cfg *config.Config, src *os.File) func() {
+func pinWorkerToDevice(cfg *config.Config, src *os.File, logger *zap.Logger) func() {
 	if cfg == nil || !cfg.NumaPin {
 		return func() {}
 	}
 	runtime.LockOSThread()
 	if err := pinCurrentThreadToDevice(src); err != nil {
-		if Logger != nil {
-			Logger.Warn("numa pin failed", zap.Error(err))
+		if logger != nil {
+			logger.Warn("numa pin failed", zap.Error(err))
 		}
 	}
 	return runtime.UnlockOSThread

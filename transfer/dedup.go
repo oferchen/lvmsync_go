@@ -31,15 +31,15 @@ var createStateFile = func(name string) (io.WriteCloser, error) {
 	return f, nil
 }
 
-func saveStateFile(path string, write func(io.Writer) error) error {
+func saveStateFile(logger *zap.Logger, path string, write func(io.Writer) error) error {
 	file, err := createStateFile(path)
 	if err != nil {
 		return err
 	}
 	defer func() {
 		if closeErr := file.Close(); closeErr != nil {
-			if Logger != nil {
-				Logger.Warn("failed to close state file", zap.Error(closeErr))
+			if logger != nil {
+				logger.Warn("failed to close state file", zap.Error(closeErr))
 			}
 		}
 	}()
@@ -61,6 +61,7 @@ type ChecksumDedup struct {
 	hashes    map[int64][]byte
 	mu        sync.RWMutex
 	strategy  ChecksumStrategy
+	logger    *zap.Logger
 }
 
 // BloomFilterDedup uses a Bloom filter to track transferred blocks.
@@ -72,6 +73,7 @@ type BloomFilterDedup struct {
 	entries   uint
 	fpRate    float64
 	strategy  ChecksumStrategy
+	logger    *zap.Logger
 }
 
 // RollingHashDedup computes a rolling hash for block comparison.
@@ -81,6 +83,7 @@ type RollingHashDedup struct {
 	hashes    map[int64]uint64
 	mu        sync.RWMutex
 	seed      maphash.Seed
+	logger    *zap.Logger
 }
 
 var rollingHashPool = sync.Pool{
@@ -105,7 +108,7 @@ func supportsChecksumAcceleration() bool {
 // NewDeduplicationStrategy returns a deduplication strategy based on cfg.
 // When cfg.DedupStrategy is auto, it selects the best available algorithm
 // and updates cfg accordingly.
-func NewDeduplicationStrategy(cfg *config.Config) DeduplicationStrategy {
+func NewDeduplicationStrategy(cfg *config.Config, logger *zap.Logger) DeduplicationStrategy {
 	strategy := cfg.DedupStrategy
 	if strategy == StrategyAuto {
 		strategy = detectBestStrategy()
@@ -119,17 +122,18 @@ func NewDeduplicationStrategy(cfg *config.Config) DeduplicationStrategy {
 			stateFile: cfg.DedupStateFile,
 			hashes:    make(map[int64]uint64),
 			seed:      maphash.MakeSeed(),
+			logger:    logger,
 		}
 		if err := d.loadState(); err != nil {
-			if Logger != nil {
-				Logger.Warn("failed to load dedup state", zap.Error(err))
+			if logger != nil {
+				logger.Warn("failed to load dedup state", zap.Error(err))
 			}
 		}
 		return d
 	case "bloom":
 		if cfg.BloomEntries < 0 || uint64(cfg.BloomEntries) > uint64(math.MaxUint) {
-			if Logger != nil {
-				Logger.Warn("invalid bloom entries", zap.Int("entries", cfg.BloomEntries))
+			if logger != nil {
+				logger.Warn("invalid bloom entries", zap.Int("entries", cfg.BloomEntries))
 			}
 			return nil
 		}
@@ -140,10 +144,11 @@ func NewDeduplicationStrategy(cfg *config.Config) DeduplicationStrategy {
 			entries:   entries,
 			fpRate:    cfg.BloomFpRate,
 			strategy:  GetChecksumStrategy(cfg.ChecksumAlgorithm),
+			logger:    logger,
 		}
 		if err := d.loadState(); err != nil {
-			if Logger != nil {
-				Logger.Warn("failed to load dedup state", zap.Error(err))
+			if logger != nil {
+				logger.Warn("failed to load dedup state", zap.Error(err))
 			}
 		}
 		return d
@@ -152,10 +157,11 @@ func NewDeduplicationStrategy(cfg *config.Config) DeduplicationStrategy {
 			stateFile: cfg.DedupStateFile,
 			hashes:    make(map[int64][]byte),
 			strategy:  GetChecksumStrategy(cfg.ChecksumAlgorithm),
+			logger:    logger,
 		}
 		if err := d.loadState(); err != nil {
-			if Logger != nil {
-				Logger.Warn("failed to load dedup state", zap.Error(err))
+			if logger != nil {
+				logger.Warn("failed to load dedup state", zap.Error(err))
 			}
 		}
 		return d
@@ -182,7 +188,7 @@ func (c *ChecksumDedup) RecordTransfer(offset int64, data []byte) {
 func (c *ChecksumDedup) SaveState() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return saveStateFile(c.stateFile, func(file io.Writer) error {
+	return saveStateFile(c.logger, c.stateFile, func(file io.Writer) error {
 		size := c.strategy.Size()
 		for offset, hash := range c.hashes {
 			if err := binary.Write(file, binary.LittleEndian, offset); err != nil {
@@ -209,8 +215,8 @@ func (c *ChecksumDedup) loadState() error {
 	}
 	defer func() {
 		if closeErr := file.Close(); closeErr != nil {
-			if Logger != nil {
-				Logger.Warn("failed to close state file", zap.Error(closeErr))
+			if c.logger != nil {
+				c.logger.Warn("failed to close state file", zap.Error(closeErr))
 			}
 		}
 	}()
@@ -251,8 +257,8 @@ func (r *RollingHashDedup) computeHash(data []byte) (uint64, error) {
 func (r *RollingHashDedup) ShouldTransfer(offset int64, data []byte) bool {
 	h, err := r.computeHash(data)
 	if err != nil {
-		if Logger != nil {
-			Logger.Error("compute hash failed", zap.Error(err))
+		if r.logger != nil {
+			r.logger.Error("compute hash failed", zap.Error(err))
 		}
 		return true
 	}
@@ -267,8 +273,8 @@ func (r *RollingHashDedup) ShouldTransfer(offset int64, data []byte) bool {
 func (r *RollingHashDedup) RecordTransfer(offset int64, data []byte) {
 	h, err := r.computeHash(data)
 	if err != nil {
-		if Logger != nil {
-			Logger.Error("compute hash failed", zap.Error(err))
+		if r.logger != nil {
+			r.logger.Error("compute hash failed", zap.Error(err))
 		}
 		return
 	}
@@ -281,7 +287,7 @@ func (r *RollingHashDedup) RecordTransfer(offset int64, data []byte) {
 func (r *RollingHashDedup) SaveState() error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	return saveStateFile(r.stateFile, func(file io.Writer) error {
+	return saveStateFile(r.logger, r.stateFile, func(file io.Writer) error {
 		seedArr := *(*[2]uint64)(unsafe.Pointer(&r.seed))
 		if err := binary.Write(file, binary.LittleEndian, seedArr); err != nil {
 			return err
@@ -309,8 +315,8 @@ func (r *RollingHashDedup) loadState() error {
 	}
 	defer func() {
 		if err := file.Close(); err != nil {
-			if Logger != nil {
-				Logger.Warn("failed to close state file", zap.Error(err))
+			if r.logger != nil {
+				r.logger.Warn("failed to close state file", zap.Error(err))
 			}
 		}
 	}()
@@ -367,7 +373,7 @@ func (b *BloomFilterDedup) RecordTransfer(_ int64, data []byte) {
 func (b *BloomFilterDedup) SaveState() error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	return saveStateFile(b.stateFile, func(file io.Writer) error {
+	return saveStateFile(b.logger, b.stateFile, func(file io.Writer) error {
 		_, err := b.filter.WriteTo(file)
 		return err
 	})
@@ -383,8 +389,8 @@ func (b *BloomFilterDedup) loadState() error {
 	}
 	defer func() {
 		if closeErr := file.Close(); closeErr != nil {
-			if Logger != nil {
-				Logger.Warn("failed to close state file", zap.Error(closeErr))
+			if b.logger != nil {
+				b.logger.Warn("failed to close state file", zap.Error(closeErr))
 			}
 		}
 	}()

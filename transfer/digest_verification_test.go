@@ -14,12 +14,12 @@ import (
 )
 
 func TestIterateBlocksFinalSHA(t *testing.T) {
-	Logger = zap.NewNop()
+	logger := zap.NewNop()
 	blockSize := int64(1024)
 	snapshot := "vg-lv"
 	_, src := createVolumeFiles(t, snapshot, blockSize, []int{0})
 	cfg := &config.Config{BlockSize: int(blockSize), Compress: "zstd", ZstdLevel: 1, CompressLevel: 1, MaxRetries: 1}
-	ranges, err := gatherChangedRanges(snapshot, blockSize)
+	ranges, err := gatherChangedRanges(snapshot, blockSize, logger)
 	if err != nil {
 		t.Fatalf("gather ranges: %v", err)
 	}
@@ -33,7 +33,7 @@ func TestIterateBlocksFinalSHA(t *testing.T) {
 		t.Fatalf("compression writer: %v", err)
 	}
 	bufOut := bufio.NewWriter(w)
-	_, _, manifest, err := iterateBlocks(cfg, ranges, srcFile, bufOut, nil, [2]int{-1, -1})
+	_, _, manifest, err := iterateBlocks(cfg, ranges, srcFile, bufOut, nil, [2]int{-1, -1}, logger)
 	if err != nil {
 		t.Fatalf("iterateBlocks: %v", err)
 	}

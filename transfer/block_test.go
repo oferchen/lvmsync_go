@@ -13,7 +13,7 @@ import (
 )
 
 func TestReadBlockWithRetriesTransientFailure(t *testing.T) {
-	Logger = zap.NewNop()
+	logger := zap.NewNop()
 
 	blockSize := 4
 	data := []byte{1, 2, 3, 4}
@@ -30,7 +30,7 @@ func TestReadBlockWithRetriesTransientFailure(t *testing.T) {
 	}()
 
 	start := time.Now()
-	buf, err := ReadBlockWithRetries(cfg, tmp, 0, false, [2]int{-1, -1})
+	buf, err := ReadBlockWithRetries(cfg, tmp, 0, false, [2]int{-1, -1}, logger)
 	if err != nil {
 		t.Fatalf("ReadBlockWithRetries returned error: %v", err)
 	}
@@ -44,7 +44,7 @@ func TestReadBlockWithRetriesTransientFailure(t *testing.T) {
 }
 
 func TestReadBlockWithRetriesPipeHandling(t *testing.T) {
-	Logger = zap.NewNop()
+	logger := zap.NewNop()
 
 	blockSize := 4
 	data := []byte{1, 2, 3, 4}
@@ -57,7 +57,7 @@ func TestReadBlockWithRetriesPipeHandling(t *testing.T) {
 	}
 
 	atomic.StoreInt64(&PipeCreationCount, 0)
-	buf, err := ReadBlockWithRetries(cfg, tmp, 0, true, [2]int{-1, -1})
+	buf, err := ReadBlockWithRetries(cfg, tmp, 0, true, [2]int{-1, -1}, logger)
 	if err != nil {
 		t.Fatalf("ReadBlockWithRetries error: %v", err)
 	}
@@ -85,7 +85,7 @@ func TestReadBlockWithRetriesPipeHandling(t *testing.T) {
 	}()
 
 	atomic.StoreInt64(&PipeCreationCount, 0)
-	buf, err = ReadBlockWithRetries(cfg, tmp, 0, true, fds)
+	buf, err = ReadBlockWithRetries(cfg, tmp, 0, true, fds, logger)
 	if err != nil {
 		t.Fatalf("ReadBlockWithRetries error: %v", err)
 	}

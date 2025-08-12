@@ -30,15 +30,15 @@ func ReadBlock(src *os.File, offset int64, size int) ([]byte, error) {
 }
 
 //nolint:revive // high complexity is acceptable for this low-level function
-func ReadBlockWithRetries(cfg *config.Config, src *os.File, offset int64, useZeroCopy bool, pipeFds [2]int) ([]byte, error) {
+func ReadBlockWithRetries(cfg *config.Config, src *os.File, offset int64, useZeroCopy bool, pipeFds [2]int, logger *zap.Logger) ([]byte, error) {
 	if useZeroCopy {
-		return readWithZeroCopy(cfg, src, offset, pipeFds)
+		return readWithZeroCopy(cfg, src, offset, pipeFds, logger)
 	}
-	return retryRead(cfg, src, offset)
+	return retryRead(cfg, src, offset, logger)
 }
 
 //revive:disable-next-line:cognitive-complexity
-func readWithZeroCopy(cfg *config.Config, src *os.File, offset int64, pipeFds [2]int) ([]byte, error) {
+func readWithZeroCopy(cfg *config.Config, src *os.File, offset int64, pipeFds [2]int, logger *zap.Logger) ([]byte, error) {
 	blockSize := cfg.BlockSize
 	maxRetries := cfg.MaxRetries
 
@@ -49,12 +49,16 @@ func readWithZeroCopy(cfg *config.Config, src *os.File, offset int64, pipeFds [2
 		atomic.AddInt64(&PipeCreationCount, 1)
 		defer func() {
 			if closeErr := syscall.Close(pipeFds[0]); closeErr != nil {
-				Logger.Warn("close pipe", zap.Int("fd", pipeFds[0]), zap.Error(closeErr))
+				if logger != nil {
+					logger.Warn("close pipe", zap.Int("fd", pipeFds[0]), zap.Error(closeErr))
+				}
 			}
 		}()
 		defer func() {
 			if closeErr := syscall.Close(pipeFds[1]); closeErr != nil {
-				Logger.Warn("close pipe", zap.Int("fd", pipeFds[1]), zap.Error(closeErr))
+				if logger != nil {
+					logger.Warn("close pipe", zap.Int("fd", pipeFds[1]), zap.Error(closeErr))
+				}
 			}
 		}()
 	}
@@ -65,7 +69,9 @@ func readWithZeroCopy(cfg *config.Config, src *os.File, offset int64, pipeFds [2
 	}
 	defer func() {
 		if closeErr := r.Close(); closeErr != nil {
-			Logger.Warn("pipe read close", zap.Error(closeErr))
+			if logger != nil {
+				logger.Warn("pipe read close", zap.Error(closeErr))
+			}
 		}
 	}()
 
@@ -75,11 +81,13 @@ func readWithZeroCopy(cfg *config.Config, src *os.File, offset int64, pipeFds [2
 			break
 		}
 
-		Logger.Warn("Zero-copy transfer failed",
-			zap.Int64("offset", offset),
-			zap.Int("size_bytes", blockSize),
-			zap.Int("attempt", attempt+1),
-			zap.Error(err))
+		if logger != nil {
+			logger.Warn("Zero-copy transfer failed",
+				zap.Int64("offset", offset),
+				zap.Int("size_bytes", blockSize),
+				zap.Int("attempt", attempt+1),
+				zap.Error(err))
+		}
 
 		time.Sleep(100 * time.Millisecond)
 	}
@@ -108,7 +116,7 @@ func readWithZeroCopy(cfg *config.Config, src *os.File, offset int64, pipeFds [2
 	return data, nil
 }
 
-func retryRead(cfg *config.Config, src *os.File, offset int64) ([]byte, error) {
+func retryRead(cfg *config.Config, src *os.File, offset int64, logger *zap.Logger) ([]byte, error) {
 	blockSize := cfg.BlockSize
 	maxRetries := cfg.MaxRetries
 
@@ -124,11 +132,13 @@ func retryRead(cfg *config.Config, src *os.File, offset int64) ([]byte, error) {
 			return buf, nil
 		}
 
-		Logger.Warn("Failed to read block",
-			zap.Int64("offset", offset),
-			zap.Int("size_bytes", blockSize),
-			zap.Int("attempt", attempt+1),
-			zap.Error(err))
+		if logger != nil {
+			logger.Warn("Failed to read block",
+				zap.Int64("offset", offset),
+				zap.Int("size_bytes", blockSize),
+				zap.Int("attempt", attempt+1),
+				zap.Error(err))
+		}
 
 		time.Sleep(100 * time.Millisecond)
 	}

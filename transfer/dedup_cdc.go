@@ -111,7 +111,7 @@ func (c *CDCDedup) ChunkAndHash(p []byte) ([]dedup.Chunk, [32]byte, error) {
 func (c *CDCDedup) SaveState() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if err := saveStateFile(c.stateFile, func(w io.Writer) error {
+	if err := saveStateFile(nil, c.stateFile, func(w io.Writer) error {
 		_, err := c.bloom.WriteTo(w)
 		return err
 	}); err != nil {

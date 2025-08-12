@@ -129,7 +129,7 @@ func Run(cfg *config.Config, logger *zap.Logger) error {
 	defer lvm.Cleanup()
 
 	if cfg.ApplyMode != "" {
-		if err := applycmd.Run(cfg, cfg.ApplyMode, pflag.Args()); err != nil {
+		if err := applycmd.Run(cfg, cfg.ApplyMode, pflag.Args(), logger); err != nil {
 			return fmt.Errorf("apply operation failed: %w", err)
 		}
 		return nil
