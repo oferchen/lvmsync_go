@@ -3,6 +3,7 @@ package transfer
 import (
 	"bytes"
 	"crypto/rand"
+	"fmt"
 	"io"
 	"testing"
 
@@ -172,8 +173,14 @@ func TestCompressChunkThreshold(t *testing.T) {
 // TestCompressChunkAutoSelects verifies that automatic compression selects the
 // expected algorithm based on chunk size and CPU capabilities.
 func TestCompressChunkAutoSelects(t *testing.T) {
-	orig := hasAVX2
-	defer func() { hasAVX2 = orig }()
+	orig := supportsSIMD
+	defer func() { supportsSIMD = orig }()
+	origAVX2 := hasAVX2
+	origNEON := hasNEON
+	defer func() {
+		hasAVX2 = origAVX2
+		hasNEON = origNEON
+	}()
 
 	small := bytes.Repeat([]byte("a"), 64*1024)
 	large := bytes.Repeat([]byte("a"), 300*1024)
@@ -181,17 +188,27 @@ func TestCompressChunkAutoSelects(t *testing.T) {
 	cases := []struct {
 		name   string
 		data   []byte
-		avx2   bool
+		simd   bool
 		expect string
 	}{
-		{"smallAvx2", small, true, compressionLZ4},
-		{"largeAvx2", large, true, compressionZSTD},
-		{"largeNoAvx2", large, false, compressionLZ4},
+		{"smallSIMD", small, true, compressionLZ4},
+		{"largeSIMD", large, true, compressionZSTD},
+		{"largeNoSIMD", large, false, compressionLZ4},
+		avx2   bool
+		neon   bool
+		expect string
+	}{
+		{"smallAvx2", small, true, false, compressionLZ4},
+		{"largeAvx2", large, true, false, compressionZSTD},
+		{"largeNeon", large, false, true, compressionZSTD},
+		{"largeNoAccel", large, false, false, compressionLZ4},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			supportsSIMD = func() bool { return tc.simd }
 			hasAVX2 = func() bool { return tc.avx2 }
+			hasNEON = func() bool { return tc.neon }
 			_, algo, err := CompressChunk(tc.data, StrategyAuto, 0, 1, 1.0)
 			if err != nil {
 				t.Fatalf("compress chunk: %v", err)
@@ -203,22 +220,43 @@ func TestCompressChunkAutoSelects(t *testing.T) {
 	}
 }
 
+func TestSelectAlgorithmZstdLevelClamp(t *testing.T) {
+	origAVX2 := hasAVX2
+	origNEON := hasNEON
+	defer func() {
+		hasAVX2 = origAVX2
+		hasNEON = origNEON
+	}()
+
+	hasAVX2 = func() bool { return true }
+	hasNEON = func() bool { return false }
+
+	_, lvl := selectAlgorithm(300*1024, StrategyAuto, 5)
+	if lvl != maxAutoZstdLv {
+		t.Fatalf("expected level %d, got %d", maxAutoZstdLv, lvl)
+	}
+	_, lvl = selectAlgorithm(300*1024, StrategyAuto, 0)
+	if lvl != defaultZstdLv {
+		t.Fatalf("expected default level %d, got %d", defaultZstdLv, lvl)
+	}
+}
+
 func TestSelectAlgorithm(t *testing.T) {
-	orig := hasAVX2
-	defer func() { hasAVX2 = orig }()
+	orig := supportsSIMD
+	defer func() { supportsSIMD = orig }()
 
 	algo, lvl := selectAlgorithm(64*1024, StrategyAuto, 0)
 	if algo != compressionLZ4 || lvl != int(lz4.Level1) {
 		t.Fatalf("expected lz4 level1, got %s level %d", algo, lvl)
 	}
 
-	hasAVX2 = func() bool { return true }
+	supportsSIMD = func() bool { return true }
 	algo, lvl = selectAlgorithm(300*1024, StrategyAuto, 0)
 	if algo != compressionZSTD || lvl != defaultZstdLv {
 		t.Fatalf("expected zstd level %d, got %s level %d", defaultZstdLv, algo, lvl)
 	}
 
-	hasAVX2 = func() bool { return false }
+	supportsSIMD = func() bool { return false }
 	algo, lvl = selectAlgorithm(300*1024, StrategyAuto, 0)
 	if algo != compressionLZ4 || lvl != int(lz4.Level1) {
 		t.Fatalf("expected lz4 level1 fallback, got %s level %d", algo, lvl)
@@ -335,6 +373,25 @@ func BenchmarkCompressChunk(b *testing.B) {
 				if _, _, err := CompressChunk(data, algo, 0, 1, 0.9); err != nil {
 					b.Fatalf("compress chunk: %v", err)
 				}
+			}
+		})
+	}
+}
+
+func BenchmarkSelectAlgorithm(b *testing.B) {
+	origAVX2 := hasAVX2
+	origNEON := hasNEON
+	defer func() {
+		hasAVX2 = origAVX2
+		hasNEON = origNEON
+	}()
+
+	for _, sz := range []int{64 * 1024, 300 * 1024} {
+		b.Run(fmt.Sprintf("size_%d", sz), func(b *testing.B) {
+			hasAVX2 = func() bool { return true }
+			hasNEON = func() bool { return false }
+			for i := 0; i < b.N; i++ {
+				selectAlgorithm(sz, StrategyAuto, 0)
 			}
 		})
 	}

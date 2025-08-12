@@ -1,6 +1,7 @@
 package transfer
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/json"
 	"testing"
@@ -14,7 +15,8 @@ func TestManifestRoundTrip(t *testing.T) {
 	sum := blake3.Sum256(data)
 	m.Append(sum, 0, len(data))
 	sha := sha256.Sum256(data)
-	m.FinalSHA256 = sha
+	m.FinalDigest = sha[:]
+	m.DigestAlgo = "sha256"
 
 	b, err := m.Marshal()
 	if err != nil {
@@ -30,7 +32,7 @@ func TestManifestRoundTrip(t *testing.T) {
 	if m2.Chunks[0].Offset != 0 || m2.Chunks[0].Length != len(data) {
 		t.Fatalf("unexpected chunk values: %#v", m2.Chunks[0])
 	}
-	if m2.FinalSHA256 != sha {
+	if !bytes.Equal(m2.FinalDigest, sha[:]) {
 		t.Fatalf("final SHA mismatch")
 	}
 }
@@ -46,12 +48,35 @@ func TestManifestVerify(t *testing.T) {
 	sha := sha256.New()
 	sha.Write(data1)
 	sha.Write(data2)
-	copy(m.FinalSHA256[:], sha.Sum(nil))
+	m.FinalDigest = sha.Sum(nil)
+	m.DigestAlgo = "sha256"
 	if !m.Verify([][]byte{data1, data2}) {
 		t.Fatalf("verify failed")
 	}
 	data1[0]++
 	if m.Verify([][]byte{data1, data2}) {
 		t.Fatalf("verify should fail")
+	}
+}
+
+func TestMissingIndices(t *testing.T) {
+	var a, b Manifest
+	d1 := []byte("foo")
+	h1 := blake3.Sum256(d1)
+	a.Append(h1, 0, len(d1))
+	a.FinalDigest = []byte{1}
+	a.DigestAlgo = "sha256"
+
+	d2 := []byte("bar")
+	h2 := blake3.Sum256(d2)
+	a.Append(h2, int64(len(d1)), len(d2))
+
+	b.Append(h1, 0, len(d1))
+	b.FinalDigest = []byte{1}
+	b.DigestAlgo = "sha256"
+
+	missing := a.MissingIndices(b)
+	if len(missing) != 1 || missing[0] != 1 {
+		t.Fatalf("unexpected missing indices %v", missing)
 	}
 }

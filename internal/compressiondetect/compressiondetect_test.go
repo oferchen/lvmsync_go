@@ -33,3 +33,7 @@ func TestResetForTest(t *testing.T) {
 func TestHasAVX2(t *testing.T) {
 	_ = HasAVX2()
 }
+
+func TestHasNEON(t *testing.T) {
+	_ = HasNEON()
+}

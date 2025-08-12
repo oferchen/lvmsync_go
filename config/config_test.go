@@ -273,6 +273,16 @@ func TestBuilderFinalizeConfig(t *testing.T) {
 		}
 	})
 
+	t.Run("autoAlgorithm", func(t *testing.T) {
+		conf := &Config{AllowInsecure: true, ChecksumAlgorithm: Auto}
+		if err := b.finalizeConfig(conf); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if conf.ChecksumAlgorithm != Auto {
+			t.Fatalf("expected auto algorithm preserved")
+		}
+	})
+
 	t.Run("invalidAlgorithm", func(t *testing.T) {
 		conf := &Config{AllowInsecure: true, ChecksumAlgorithm: "md5"}
 		if err := b.finalizeConfig(conf); err == nil {

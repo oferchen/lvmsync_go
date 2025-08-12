@@ -288,7 +288,7 @@ func SelectTransport(cfg *config.Config, logger *zap.Logger) error {
 		return nil
 	}
 	order := strings.Split(cfg.Transport, ",")
-	_, _, name, err := transport.Select(cfg, order, logger)
+	_, name, err := transport.Select(cfg, order, logger)
 	if err != nil {
 		return err
 	}

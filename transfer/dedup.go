@@ -14,9 +14,9 @@ import (
 
 	"github.com/bits-and-blooms/bloom/v3"
 	"go.uber.org/zap"
-	"golang.org/x/sys/cpu"
 
 	"lvmsync_go/config"
+	cpufeatures "lvmsync_go/internal/cpufeatures"
 )
 
 var createStateFile = func(name string) (io.WriteCloser, error) {
@@ -102,7 +102,7 @@ var detectBestStrategy = func() string {
 }
 
 func supportsChecksumAcceleration() bool {
-	return cpu.X86.HasAVX2 || cpu.X86.HasAVX || cpu.X86.HasSSE42
+	return cpufeatures.HasAVX2() || cpufeatures.HasAVX512() || cpufeatures.HasNEON() || cpufeatures.HasAESNI()
 }
 
 // NewDeduplicationStrategy returns a deduplication strategy based on cfg.
