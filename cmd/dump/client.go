@@ -268,7 +268,9 @@ func RunRemoteDump(ctx context.Context, cfg *config.Config, snapshotDevice, orig
 		}()
 	}
 
-	return ExecuteRemoteCommand(ctx, cfg, client, destDevice, snapshotDevice, originDevice, logger)
+	validationCtx, cancel := context.WithTimeout(ctx, cfg.SSHTimeout)
+	defer cancel()
+	return ExecuteRemoteCommand(validationCtx, cfg, client, destDevice, snapshotDevice, originDevice, logger)
 }
 
 // SelectTransport chooses and logs the transport if configured.

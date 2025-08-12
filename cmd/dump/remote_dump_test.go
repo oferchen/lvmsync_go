@@ -2,11 +2,13 @@ package dump
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -118,5 +120,66 @@ func TestRunRemoteDumpError(t *testing.T) {
 	err = RunRemoteDump(context.Background(), cfg, "snap", "origin", dest, zap.NewNop())
 	if err == nil || !strings.Contains(err.Error(), "remote command error") {
 		t.Fatalf("expected remote command error, got %v", err)
+	}
+}
+
+// TestRunRemoteDumpTimeout verifies that command validation respects SSHTimeout.
+func TestRunRemoteDumpTimeout(t *testing.T) {
+	var cmdCount int
+	server := remotetest.NewMockSSHServer(t, func(cmd string) int {
+		cmdCount++
+		switch {
+		case cmd == "lvmsync --version":
+			time.Sleep(100 * time.Millisecond)
+			return 0
+		case strings.HasPrefix(cmd, "lvmsync --apply - /dev/null"):
+			return 0
+		default:
+			t.Fatalf("unexpected command: %s", cmd)
+			return 1
+		}
+	})
+	defer server.Close()
+
+	host, portStr, err := net.SplitHostPort(server.Addr)
+	if err != nil {
+		t.Fatalf("SplitHostPort: %v", err)
+	}
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		t.Fatalf("Atoi: %v", err)
+	}
+
+	cfg, err := config.DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig returned error: %v", err)
+	}
+	cfg.SSHUser = "test"
+	cfg.SSHPort = port
+	cfg.SSHKeyPath = remotetest.CreateTempKey(t)
+	cfg.KnownHosts = remotetest.CreateKnownHostsFile(t, server)
+	cfg.StrictHostKeyCheck = true
+	cfg.LVMSyncPath = "lvmsync"
+	cfg.Parallel = 1
+	cfg.SSHTimeout = 20 * time.Millisecond
+
+	origDump := dumpChangesSequential
+	dumpChangesSequential = func(_ *transfer.Transfer, c *config.Config, snap, origin string, out io.Writer) error {
+		return nil
+	}
+	defer func() { dumpChangesSequential = origDump }()
+
+	dest := host + ":/dev/null"
+	err = RunRemoteDump(cfg, "snap", "origin", dest, zap.NewNop())
+	if err == nil || !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected context deadline exceeded, got %v", err)
+	}
+
+	cmds := server.Commands()
+	if len(cmds) != 1 || cmds[0] != "lvmsync --version" {
+		t.Fatalf("unexpected commands: %v", cmds)
+	}
+	if cmdCount != 1 {
+		t.Fatalf("expected only validation command, got %d", cmdCount)
 	}
 }
