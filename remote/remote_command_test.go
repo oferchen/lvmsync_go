@@ -20,11 +20,27 @@ func TestValidateRemoteCommand(t *testing.T) {
 	})
 
 	client := &SSHClient{Client: rawClient, Logger: zap.NewNop()}
-	if err := client.ValidateRemoteCommand("echo"); err != nil {
-		t.Fatalf("expected success, got %v", err)
+	tests := []struct {
+		name    string
+		cmd     string
+		wantErr bool
+	}{
+		{"valid", "echo", false},
+		{"path sanitized", "/usr/bin/echo", false},
+		{"missing", "nonexistent", true},
+		{"metacharacters", "echo; rm -rf /", true},
 	}
-	if err := client.ValidateRemoteCommand("nonexistent"); err == nil {
-		t.Fatalf("expected error for nonexistent command")
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := client.ValidateRemoteCommand(tt.cmd)
+			if tt.wantErr && err == nil {
+				t.Fatalf("expected error for %q", tt.cmd)
+			}
+			if !tt.wantErr && err != nil {
+				t.Fatalf("unexpected error for %q: %v", tt.cmd, err)
+			}
+		})
 	}
 }
 
