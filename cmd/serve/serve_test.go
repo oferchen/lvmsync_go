@@ -56,7 +56,7 @@ func resetFlags(args []string) {
 }
 
 func TestServeFlagParsing(t *testing.T) {
-	resetFlags([]string{"--serve", "--serve_listen", "localhost:9900", "--serve_protocol", "p", "--serve_algorithm", "a", "--serve_test_space", "t", "--serve_policy", "accept", "--allow_insecure"})
+	resetFlags([]string{"--serve", "--serve_listen", "localhost:9900", "--serve_protocol", "p", "--serve_algorithm", "a", "--serve_test_space", "t", "--serve_policy", "accept", "--serve_accept_timeout", "5s", "--allow_insecure"})
 	defaults, err := config.DefaultConfig()
 	if err != nil {
 		t.Fatalf("DefaultConfig: %v", err)
@@ -69,7 +69,7 @@ func TestServeFlagParsing(t *testing.T) {
 	if !cfg.Serve {
 		t.Fatalf("expected Serve true")
 	}
-	if cfg.ServeListen != "localhost:9900" || cfg.ServeProtocol != "p" || cfg.ServeAlgorithm != "a" || cfg.ServeTestSpace != "t" || cfg.ServePolicy != "accept" {
+	if cfg.ServeListen != "localhost:9900" || cfg.ServeProtocol != "p" || cfg.ServeAlgorithm != "a" || cfg.ServeTestSpace != "t" || cfg.ServePolicy != "accept" || cfg.ServeAcceptTimeout != 5*time.Second {
 		t.Fatalf("unexpected serve config: %+v", cfg)
 	}
 }
@@ -113,6 +113,14 @@ func TestRunRejectsPolicy(t *testing.T) {
 	client.Close()
 	if err := <-errCh; err == nil {
 		t.Fatalf("expected error")
+	}
+}
+
+func TestAcceptFuncTimeout(t *testing.T) {
+	cfg := &config.Config{ServeListen: "localhost:0", AllowInsecure: true, ServeAcceptTimeout: 10 * time.Millisecond}
+	_, err := acceptFunc(context.Background(), cfg)
+	if err == nil || !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected deadline exceeded, got %v", err)
 	}
 }
 

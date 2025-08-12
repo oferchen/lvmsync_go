@@ -607,7 +607,7 @@ func initServeFlags(cfg *Config) *pflag.FlagSet {
 	fs.String("serve_algorithm", cfg.ServeAlgorithm, "Algorithm to negotiate")
 	fs.String("serve_test_space", cfg.ServeTestSpace, "Test-space option")
 	fs.String("serve_policy", cfg.ServePolicy, "Transfer policy")
-	fs.Duration("serve_accept_timeout", cfg.ServeAcceptTimeout, "Timeout for accept operations")
+	fs.Duration("serve_accept_timeout", cfg.ServeAcceptTimeout, "Timeout for accepting connection and stream")
 	return fs
 }
 
