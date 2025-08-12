@@ -27,8 +27,8 @@ var (
 	newServer = func(cfg grpcserver.Config, agent lvmlib.Agent) (grpcServer, error) {
 		return grpcserver.New(cfg, agent)
 	}
-	dial = func(addr string, conf grpcclient.Config) (closeableConn, error) {
-		return grpcclient.Dial(addr, conf)
+	dial = func(ctx context.Context, addr string, conf grpcclient.Config) (closeableConn, error) {
+		return grpcclient.Dial(ctx, addr, conf)
 	}
 	handshake     = grpcclient.Handshake
 	createSession = grpcclient.CreateSession
@@ -89,18 +89,20 @@ func ClientHandshake(cfg *config.Config, logger *zap.Logger) (func(), chan error
 	if cfg.GRPCConnect == "" {
 		return func() {}, nil, nil
 	}
-	conn, err := dial(cfg.GRPCConnect, grpcclient.Config{
+	ctx, cancel := context.WithCancel(context.Background())
+	conn, err := dial(ctx, cfg.GRPCConnect, grpcclient.Config{
 		TLSCert:       cfg.TLSCert,
 		TLSKey:        cfg.TLSKey,
 		CACert:        cfg.CACert,
 		AllowInsecure: cfg.AllowInsecure,
+		DialTimeout:   cfg.GRPCDialTimeout,
 	})
 	if err != nil {
+		cancel()
 		return nil, nil, fmt.Errorf("gRPC dial: %w", err)
 	}
 	c := proto.NewReplicationClient(conn)
 	hs := &proto.HandshakeRequest{SectorSize: 512, Alignment: 512, MaxConcurrency: uint32(cfg.Parallel), DedupSupported: true, CompressionSupported: true}
-	ctx, cancel := context.WithCancel(context.Background())
 	hsCtx, hsCancel := context.WithTimeout(ctx, 10*time.Second)
 	if _, err := handshake(hsCtx, c, hs); err != nil {
 		hsCancel()

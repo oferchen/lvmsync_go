@@ -284,7 +284,7 @@ func TestConfigValidate(t *testing.T) {
 		defer restore()
 		restorePriv := lvm.SetPrivilegeChecker(func() error { return nil })
 		defer restorePriv()
-		cfg := &Config{VolumeGroup: "vg0", LVMEscalation: "sudo", SSHKeepAliveInterval: time.Second}
+		cfg := &Config{VolumeGroup: "vg0", LVMEscalation: "sudo", SSHKeepAliveInterval: time.Second, GRPCDialTimeout: time.Second}
 		if err := cfg.Validate(); err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
@@ -296,14 +296,14 @@ func TestConfigValidate(t *testing.T) {
 		defer restore()
 		restorePriv := lvm.SetPrivilegeChecker(func() error { return nil })
 		defer restorePriv()
-		cfg := &Config{VolumeGroup: "vg0", LVMEscalation: "sudo", SSHKeepAliveInterval: time.Second}
+		cfg := &Config{VolumeGroup: "vg0", LVMEscalation: "sudo", SSHKeepAliveInterval: time.Second, GRPCDialTimeout: time.Second}
 		if err := cfg.Validate(); err == nil {
 			t.Fatalf("expected error")
 		}
 	})
 
 	t.Run("invalidKeepalive", func(t *testing.T) {
-		cfg := &Config{SSHKeepAliveInterval: 0}
+		cfg := &Config{SSHKeepAliveInterval: 0, GRPCDialTimeout: time.Second}
 		if err := cfg.Validate(); err == nil {
 			t.Fatalf("expected error")
 		}
@@ -371,7 +371,7 @@ func TestValidateEscalationCommandPath(t *testing.T) {
 	}
 	os.Setenv("PATH", dir)
 
-	cfg := &Config{LVMEscalation: "sudo", SSHKeepAliveInterval: time.Second}
+	cfg := &Config{LVMEscalation: "sudo", SSHKeepAliveInterval: time.Second, GRPCDialTimeout: time.Second}
 	if err := cfg.Validate(); err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}

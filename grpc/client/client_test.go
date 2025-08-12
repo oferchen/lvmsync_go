@@ -36,11 +36,13 @@ func setupClient(t *testing.T) (proto.ReplicationClient, func()) {
 		t.Fatalf("server.New: %v", err)
 	}
 	go srv.Serve(lis)
-	conn, err := Dial("bufnet", Config{AllowInsecure: true}, grpc.WithContextDialer(bufDialer(lis)))
+	ctx, cancel := context.WithCancel(context.Background())
+	conn, err := Dial(ctx, "bufnet", Config{AllowInsecure: true, DialTimeout: time.Second}, grpc.WithContextDialer(bufDialer(lis)))
 	if err != nil {
 		t.Fatalf("Dial: %v", err)
 	}
 	cleanup := func() {
+		cancel()
 		conn.Close()
 		srv.Stop()
 	}
@@ -84,8 +86,8 @@ func TestDial(t *testing.T) {
 		conf    Config
 		wantErr bool
 	}{
-		{"insecure", Config{AllowInsecure: true}, false},
-		{"missingCert", Config{TLSCert: "nope", TLSKey: "nope", CACert: "nope"}, true},
+		{"insecure", Config{AllowInsecure: true, DialTimeout: time.Second}, false},
+		{"missingCert", Config{TLSCert: "nope", TLSKey: "nope", CACert: "nope", DialTimeout: time.Second}, true},
 	}
 
 	for _, tc := range cases {
@@ -94,7 +96,9 @@ func TestDial(t *testing.T) {
 			if !tc.wantErr {
 				opts = append(opts, grpc.WithContextDialer(bufDialer(lis)))
 			}
-			conn, err := Dial("bufnet", tc.conf, opts...)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			conn, err := Dial(ctx, "bufnet", tc.conf, opts...)
 			if tc.wantErr {
 				if err == nil {
 					t.Fatalf("expected error")

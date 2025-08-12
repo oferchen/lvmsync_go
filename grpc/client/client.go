@@ -25,9 +25,10 @@ type Config struct {
 	TLSKey        string
 	CACert        string
 	AllowInsecure bool
+	DialTimeout   time.Duration
 }
 
-func Dial(addr string, conf Config, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
+func Dial(ctx context.Context, addr string, conf Config, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
 	if conf.AllowInsecure {
 		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	} else {
@@ -55,7 +56,9 @@ func Dial(addr string, conf Config, opts ...grpc.DialOption) (*grpc.ClientConn, 
 	if !strings.Contains(addr, "://") {
 		target = "passthrough:///" + addr
 	}
-	return grpc.NewClient(target, opts...)
+	dctx, cancel := context.WithTimeout(ctx, conf.DialTimeout)
+	defer cancel()
+	return grpc.DialContext(dctx, target, opts...)
 }
 
 func Handshake(ctx context.Context, c proto.ReplicationClient, hs *proto.HandshakeRequest) (*proto.HandshakeResponse, error) {

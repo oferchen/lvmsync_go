@@ -180,6 +180,7 @@ func TestInitGRPCFlags(t *testing.T) {
 		{"grpc_port", strconv.Itoa(cfg.GRPCPort)},
 		{"grpc_listen", cfg.GRPCListen},
 		{"grpc_connect", cfg.GRPCConnect},
+		{"grpc_dial_timeout", cfg.GRPCDialTimeout.String()},
 		{"tls_cert", cfg.TLSCert},
 		{"tls_key", cfg.TLSKey},
 		{"ca_cert", cfg.CACert},
