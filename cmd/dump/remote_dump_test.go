@@ -1,6 +1,7 @@
 package dump
 
 import (
+	"context"
 	"io"
 	"net"
 	"strconv"
@@ -60,7 +61,7 @@ func TestRunRemoteDump(t *testing.T) {
 	defer func() { dumpChangesSequential = origDump }()
 
 	dest := host + ":/dev/null"
-	if err := RunRemoteDump(cfg, "snap", "origin", dest, zap.NewNop()); err != nil {
+	if err := RunRemoteDump(context.Background(), cfg, "snap", "origin", dest, zap.NewNop()); err != nil {
 		t.Fatalf("runRemoteDump returned error: %v", err)
 	}
 
@@ -114,7 +115,7 @@ func TestRunRemoteDumpError(t *testing.T) {
 	defer func() { dumpChangesSequential = origDump }()
 
 	dest := host + ":/dev/null"
-	err = RunRemoteDump(cfg, "snap", "origin", dest, zap.NewNop())
+	err = RunRemoteDump(context.Background(), cfg, "snap", "origin", dest, zap.NewNop())
 	if err == nil || !strings.Contains(err.Error(), "remote command error") {
 		t.Fatalf("expected remote command error, got %v", err)
 	}

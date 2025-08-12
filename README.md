@@ -310,8 +310,8 @@ LVMSYNC_GRPC_GRPC_PORT=9443 LVMSYNC_GRPC_TLS_CERT=cert.pem lvmsync-grpcd
 | `--known_hosts` | `LVMSYNC_KNOWN_HOSTS` | `known_hosts` | Path to known_hosts file |
 | `--strict_host_key_checking` | `LVMSYNC_STRICT_HOST_KEY_CHECKING` | `strict_host_key_checking` | Require host keys to be present in `known_hosts` |
 | `--lvmsync_path` | `LVMSYNC_LVMSYNC_PATH` | `lvmsync_path` | Remote command to run (basename sanitized; only `[a-zA-Z0-9._-]+` allowed) |
-| `--remote_pre_script` | `LVMSYNC_REMOTE_PRE_SCRIPT` | `remote_pre_script` | Remote script to run before transfer |
-| `--remote_post_script` | `LVMSYNC_REMOTE_POST_SCRIPT` | `remote_post_script` | Remote script to run after transfer |
+| `--remote_pre_script` | `LVMSYNC_REMOTE_PRE_SCRIPT` | `remote_pre_script` | Remote script to run before transfer (times out after `ssh_timeout`) |
+| `--remote_post_script` | `LVMSYNC_REMOTE_POST_SCRIPT` | `remote_post_script` | Remote script to run after transfer (separate `ssh_timeout`) |
 | `--dedup_strategy` | `LVMSYNC_DEDUP_STRATEGY` | `dedup_strategy` | Deduplication strategy: `none`, `auto`, `checksum`, `rolling_hash`, or `bloom` |
 | `--dedup_state_file` | `LVMSYNC_DEDUP_STATE_FILE` | `dedup_state_file` | Path to deduplication state file |
 | `--bloom_entries` | `LVMSYNC_BLOOM_ENTRIES` | `bloom_entries` | Estimated number of entries for bloom filter |
@@ -761,8 +761,12 @@ The `--lvmsync_path` value is sanitized to its basename and must match
 | Option                 | Description                                       | Default     |
 | ---------------------- | ------------------------------------------------- | ----------- |
 | `--lvmsync_path`       | Remote command to run (sanitized basename)         | `"lvmsync"` |
-| `--remote_pre_script`  | Remote script to run before starting the transfer | `""`        |
-| `--remote_post_script` | Remote script to run after finishing the transfer | `""`        |
+| `--remote_pre_script`  | Remote script to run before starting the transfer (`ssh_timeout` applies) | `""`        |
+| `--remote_post_script` | Remote script to run after finishing the transfer (uses a fresh `ssh_timeout`) | `""`        |
+
+Both scripts are run with the configured `ssh_timeout`. The post script uses its
+own timeout and still attempts to execute even when the main transfer fails;
+timeouts or cancellations are reported separately.
 
 #### Deduplication Options
 
