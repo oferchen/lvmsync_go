@@ -152,12 +152,13 @@ type Config struct {
 	QUICCongestionControl string        `mapstructure:"quic_cc"`
 	SyncIntervalBytes     int           `mapstructure:"-"`
 
-	Serve          bool   `mapstructure:"serve"`
-	ServeListen    string `mapstructure:"serve_listen"`
-	ServeProtocol  string `mapstructure:"serve_protocol"`
-	ServeAlgorithm string `mapstructure:"serve_algorithm"`
-	ServeTestSpace string `mapstructure:"serve_test_space"`
-	ServePolicy    string `mapstructure:"serve_policy"`
+	Serve              bool          `mapstructure:"serve"`
+	ServeListen        string        `mapstructure:"serve_listen"`
+	ServeProtocol      string        `mapstructure:"serve_protocol"`
+	ServeAlgorithm     string        `mapstructure:"serve_algorithm"`
+	ServeTestSpace     string        `mapstructure:"serve_test_space"`
+	ServePolicy        string        `mapstructure:"serve_policy"`
+	ServeAcceptTimeout time.Duration `mapstructure:"serve_accept_timeout"`
 }
 
 func FormatBlockSize(blockSize int) (string, error) {
@@ -486,6 +487,7 @@ func DefaultConfig() (*Config, error) {
 		ServeAlgorithm:        "sha256",
 		ServeTestSpace:        "",
 		ServePolicy:           "accept",
+		ServeAcceptTimeout:    30 * time.Second,
 	}, nil
 }
 
@@ -605,6 +607,7 @@ func initServeFlags(cfg *Config) *pflag.FlagSet {
 	fs.String("serve_algorithm", cfg.ServeAlgorithm, "Algorithm to negotiate")
 	fs.String("serve_test_space", cfg.ServeTestSpace, "Test-space option")
 	fs.String("serve_policy", cfg.ServePolicy, "Transfer policy")
+	fs.Duration("serve_accept_timeout", cfg.ServeAcceptTimeout, "Timeout for accepting connection and stream")
 	return fs
 }
 

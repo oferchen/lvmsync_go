@@ -235,6 +235,7 @@ expects the client to present matching `--serve_protocol`, `--serve_algorithm`,
 and optional `--serve_test_space` values. A mismatched value aborts the
 connection. Transfers proceed only when `--serve_policy` is `accept` (the
 default). The server closes the stream, QUIC connection, and listener when the transfer completes, logging any shutdown errors at `warn` level, and exits gracefully when it receives `SIGINT` or `SIGTERM`.
+Pending accept operations time out after `--serve_accept_timeout` (default `30s`).
 
 ```sh
 lvmsync --serve --serve_listen :9000
@@ -356,6 +357,7 @@ LVMSYNC_GRPC_GRPC_PORT=9443 LVMSYNC_GRPC_TLS_CERT=cert.pem lvmsync-grpcd
 | `--serve_algorithm` | `LVMSYNC_SERVE_ALGORITHM` | `serve_algorithm` | `sha256` | Algorithm identifier to negotiate |
 | `--serve_test_space` | `LVMSYNC_SERVE_TEST_SPACE` | `serve_test_space` | `""` | Optional test-space string |
 | `--serve_policy` | `LVMSYNC_SERVE_POLICY` | `serve_policy` | `accept` | Transfer policy (non-`accept` rejects) |
+| `--serve_accept_timeout` | `LVMSYNC_SERVE_ACCEPT_TIMEOUT` | `serve_accept_timeout` | `30s` | Timeout for accept operations |
 
 CLI:
 

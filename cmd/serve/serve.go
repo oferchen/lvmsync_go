@@ -26,16 +26,29 @@ var acceptFunc = func(ctx context.Context, cfg *config.Config) (io.ReadWriteClos
 	if err != nil {
 		return nil, err
 	}
+
+	listenCtx, listenCancel := context.WithTimeout(ctx, cfg.ServeAcceptTimeout)
+	defer listenCancel()
 	l, err := q.ListenAddr(cfg.ServeListen, tlsConf, qn.NewQUICConfig())
 	if err != nil {
 		return nil, err
 	}
-	conn, err := l.Accept(ctx)
+	if err := listenCtx.Err(); err != nil {
+		_ = l.Close()
+		return nil, err
+	}
+
+	connCtx, connCancel := context.WithTimeout(ctx, cfg.ServeAcceptTimeout)
+	conn, err := l.Accept(connCtx)
+	connCancel()
 	if err != nil {
 		_ = l.Close()
 		return nil, err
 	}
-	stream, err := conn.AcceptStream(ctx)
+
+	streamCtx, streamCancel := context.WithTimeout(ctx, cfg.ServeAcceptTimeout)
+	stream, err := conn.AcceptStream(streamCtx)
+	streamCancel()
 	if err != nil {
 		_ = conn.CloseWithError(0, "")
 		_ = l.Close()
