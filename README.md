@@ -162,7 +162,7 @@ definitions focused and easy to maintain.
 Example:
 
 ```sh
-lvmsync --transport quic,h2,tcp+tls,ssh --quic-listen :9000 --tcp-port 9443
+lvmsync --transport quic,h2,tcp+tls,ssh --quic_listen :9000 --tcp_port 9443
 ```
 
 ```go
@@ -204,6 +204,7 @@ Recent refactors added several configuration options:
 - `--quic_listen` and `--quic_connect` configure QUIC addresses.
 - `--tcp_port`, `--h2_port`, and `--ssh_port` expose TCP+TLS, HTTP/2, and SSH endpoints.
 - `--sync_interval` controls how many bytes are written between `fdatasync` calls.
+- `--checkpoint_interval` sets how often resume state is persisted.
 - `--block_size` sets the transfer block size (use `auto` for detection).
 
 ### QUIC transport
@@ -285,6 +286,7 @@ LVMSYNC_GRPC_GRPC_PORT=9443 LVMSYNC_GRPC_TLS_CERT=cert.pem lvmsync-grpcd
 | `--resume` | `LVMSYNC_RESUME` | `resume` | Path to resume state file (checkpointed every 1 GiB or 10 s) |
 | `--speed` | `LVMSYNC_SPEED` | `speed` | Transfer speed limit |
 | `--sync_interval` | `LVMSYNC_SYNC_INTERVAL` | `sync_interval` | Bytes between fdatasync calls |
+| `--checkpoint_interval` | `LVMSYNC_CHECKPOINT_INTERVAL` | `checkpoint_interval` | Duration between checkpoints |
 | `--block_size` | `LVMSYNC_BLOCK_SIZE` | `block_size` | Block size for data transfer; specify 'auto' or 0 for automatic detection |
 | `--verbose` | `LVMSYNC_VERBOSE` | `verbose` | Verbosity level |
 | `--verify_checksum` | `LVMSYNC_VERIFY_CHECKSUM` | `verify_checksum` | Enable checksum verification |
@@ -379,13 +381,13 @@ serve_listen: ":9900"
 - **Using the gRPC control plane**:
 
   ```sh
-  lvmsync --grpc-connect backup:9443 /dev/vg0/source /dev/vg1/target
+  lvmsync --grpc_connect backup:9443 /dev/vg0/source /dev/vg1/target
   ```
 
 - **Throughput-optimized QUIC transfer**:
 
   ```sh
-  lvmsync --mode throughput --transport quic --quic-connect host:9000 /dev/vg0/source /dev/vg1/target
+  lvmsync --mode throughput --transport quic --quic_connect host:9000 /dev/vg0/source /dev/vg1/target
   ```
 
 ## gRPC Control Plane
@@ -423,10 +425,10 @@ tls-key: key.pem
 ca-cert: ca.pem
 ```
 
-Clients connect using `--grpc-connect`:
+Clients connect using `--grpc_connect`:
 
 ```sh
-lvmsync --grpc-connect localhost:9443 /dev/vg0/snap0 /dev/vg0/data
+lvmsync --grpc_connect localhost:9443 /dev/vg0/snap0 /dev/vg0/data
 ```
 
 ```sh
@@ -477,18 +479,19 @@ Transports are pluggable and selected in order using the `--transport` flag. LVM
 | Flag | Environment variable | Description |
 |------|----------------------|-------------|
 | `--transport` | `LVMSYNC_TRANSPORT` | Ordered transports to try (e.g., `quic,h2,tcp+tls,ssh`) |
-| `--quic-listen` | `LVMSYNC_QUIC_LISTEN` | QUIC listen address |
-| `--quic-connect` | `LVMSYNC_QUIC_CONNECT` | QUIC connect address |
-| `--h2-port` | `LVMSYNC_H2_PORT` | HTTP/2 TLS port |
-| `--tcp-port` | `LVMSYNC_TCP_PORT` | TCP+TLS port |
-| `--ssh-port` | `LVMSYNC_SSH_PORT` | SSH port |
+| `--quic_listen` | `LVMSYNC_QUIC_LISTEN` | QUIC listen address |
+| `--quic_connect` | `LVMSYNC_QUIC_CONNECT` | QUIC connect address |
+| `--quic_cc` | `LVMSYNC_QUIC_CC` | QUIC congestion control algorithm |
+| `--h2_port` | `LVMSYNC_H2_PORT` | HTTP/2 TLS port |
+| `--tcp_port` | `LVMSYNC_TCP_PORT` | TCP+TLS port |
+| `--ssh_port` | `LVMSYNC_SSH_PORT` | SSH port |
 
 ### Usage examples
 
 **QUIC**
 
 ```sh
-lvmsync --transport quic --quic-listen :9000
+lvmsync --transport quic --quic_listen :9000
 # or
 LVMSYNC_TRANSPORT=quic LVMSYNC_QUIC_LISTEN=:9000 lvmsync
 ```
@@ -496,7 +499,7 @@ LVMSYNC_TRANSPORT=quic LVMSYNC_QUIC_LISTEN=:9000 lvmsync
 **HTTP/2**
 
 ```sh
-lvmsync --transport h2 --h2-port 9443
+lvmsync --transport h2 --h2_port 9443
 # or
 LVMSYNC_TRANSPORT=h2 LVMSYNC_H2_PORT=9443 lvmsync
 ```
@@ -504,7 +507,7 @@ LVMSYNC_TRANSPORT=h2 LVMSYNC_H2_PORT=9443 lvmsync
 **TCP+TLS**
 
 ```sh
-lvmsync --transport tcp+tls --tcp-port 9443
+lvmsync --transport tcp+tls --tcp_port 9443
 # or
 LVMSYNC_TRANSPORT=tcp+tls LVMSYNC_TCP_PORT=9443 lvmsync
 ```
@@ -512,7 +515,7 @@ LVMSYNC_TRANSPORT=tcp+tls LVMSYNC_TCP_PORT=9443 lvmsync
 **SSH**
 
 ```sh
-lvmsync --transport ssh backup@host:/dev/vg1/target --ssh-port 2222
+lvmsync --transport ssh backup@host:/dev/vg1/target --ssh_port 2222
 # or
 LVMSYNC_TRANSPORT=ssh LVMSYNC_SSH_PORT=2222 lvmsync backup@host:/dev/vg1/target
 ```
@@ -781,11 +784,11 @@ sender, receiver, err := ssh.New(cfg, logger)
 
 | Option             | Description                  | Default         |
 | ------------------ | ---------------------------- | --------------- |
-| `--grpc-port`      | gRPC port to listen on       | `8443`          |
-| `--tls-cert`       | TLS certificate file         | `""`            |
-| `--tls-key`        | TLS key file                 | `""`            |
-| `--ca-cert`        | CA certificate file          | `""`            |
-| `--allow-insecure` | Allow insecure (disable TLS) | `false`         |
+| `--grpc_port`      | gRPC port to listen on       | `8443`          |
+| `--tls_cert`       | TLS certificate file         | `""`            |
+| `--tls_key`        | TLS key file                 | `""`            |
+| `--ca_cert`        | CA certificate file          | `""`            |
+| `--allow_insecure` | Allow insecure (disable TLS) | `false`         |
 
 ### Examples
 
@@ -892,7 +895,7 @@ resume: statefile
 CLI:
 
 ```sh
-lvmsync --ssh-user backup --ssh-port 2222 /dev/vg0/snap0 backup:/dev/vg0/data
+lvmsync --ssh_user backup --ssh_port 2222 /dev/vg0/snap0 backup:/dev/vg0/data
 ```
 
 Environment:
@@ -914,7 +917,7 @@ ssh_port: 2222
 CLI:
 
 ```sh
-lvmsync --lvmsync-path /usr/bin/lvmsync --remote-pre-script /tmp/pre.sh /dev/vg0/snap0 user@host:/dev/vg0/data
+lvmsync --lvmsync_path /usr/bin/lvmsync --remote_pre_script /tmp/pre.sh /dev/vg0/snap0 user@host:/dev/vg0/data
 ```
 
 Environment:
@@ -935,7 +938,7 @@ remote_pre_script: /tmp/pre.sh
 CLI:
 
 ```sh
-lvmsync --dedup-strategy bloom --dedup-state-file ~/.lvmsync_state /dev/vg0/snap0 /dev/vg0/data
+lvmsync --dedup_strategy bloom --dedup_state_file ~/.lvmsync_state /dev/vg0/snap0 /dev/vg0/data
 ```
 
 Environment:
@@ -984,7 +987,7 @@ compress_threshold: 0.85
 CLI:
 
 ```sh
-lvmsync --snapshot-size 25% --volume-group vg_data /dev/vg_data/original /dev/vg_data/destination
+lvmsync --snapshot_size 25% --volume_group vg_data /dev/vg_data/original /dev/vg_data/destination
 ```
 
 Environment:

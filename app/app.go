@@ -98,16 +98,18 @@ func ClientHandshake(cfg *config.Config, logger *zap.Logger) (func(), error) {
 	}
 	c := proto.NewReplicationClient(conn)
 	hs := &proto.HandshakeRequest{SectorSize: 512, Alignment: 512, MaxConcurrency: uint32(cfg.Parallel), DedupSupported: true, CompressionSupported: true}
-	if _, err := handshake(context.Background(), c, hs); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if _, err := handshake(ctx, c, hs); err != nil {
 		conn.Close()
 		return nil, fmt.Errorf("handshake failed: %w", err)
 	}
-	sess, err := createSession(context.Background(), c, "vol", "dev")
+	sess, err := createSession(ctx, c, "vol", "dev")
 	if err != nil {
 		conn.Close()
 		return nil, fmt.Errorf("create session: %w", err)
 	}
-	stream, err := ackStream(context.Background(), c, sess.GetSessionId())
+	stream, err := ackStream(ctx, c, sess.GetSessionId())
 	if err != nil {
 		conn.Close()
 		return nil, fmt.Errorf("ack stream: %w", err)
