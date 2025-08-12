@@ -320,6 +320,7 @@ LVMSYNC_GRPC_GRPC_PORT=9443 LVMSYNC_GRPC_TLS_CERT=cert.pem lvmsync-grpcd
 | `--skip_disk_check` | `LVMSYNC_SKIP_DISK_CHECK` | `skip_disk_check` | Skip disk space check before snapshot creation |
 | `--snapshot_size` | `LVMSYNC_SNAPSHOT_SIZE` | `snapshot_size` | Snapshot size (e.g., `20G` or `20%`) |
 | `--lvm_escalation` | `LVMSYNC_LVM_ESCALATION` | `lvm_escalation` | Command used to escalate privileges for LVM commands |
+| `--lvm_timeout` | `LVMSYNC_LVM_TIMEOUT` | `lvm_timeout` | Timeout for LVM operations |
 | `--volume_group` | `LVMSYNC_VOLUME_GROUP` | `volume_group` | Source volume group; derived from the source device path when empty |
 | `--target_volume_group` | `LVMSYNC_TARGET_VOLUME_GROUP` | `target_volume_group` | Volume group name of the target LVM volume |
 | `--target_vgs` | `LVMSYNC_TARGET_VGS` | `target_vgs` | Candidate target volume groups for auto-selection |
@@ -774,15 +775,16 @@ sender, receiver, err := ssh.New(cfg, logger)
 
 #### LVM Options
 
-| Option                     | Description                                                                                                  | Default     |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------ | ----------- |
-| `--skip_snapshot_creation` | Skip automatic snapshot creation                                                                             | `false`     |
-| `--skip_disk_check`        | Skip disk space check before snapshot creation                                                               | `false`     |
-| `--snapshot_size`          | Snapshot size as an absolute value (e.g., `"20G"`) or as a percentage (e.g., `"20%"`)                        | `"20%"`     |
-| `--volume_group`           | Source volume group. Derived from the source device path when empty                                          | `""`        |
-| `--target_volume_group`    | Volume group name of the target LVM volume                                                                   | `""`        |
-| `--target_vgs`             | Candidate target volume groups for auto-selection                                                            | `[]`        |
-| `--lvm_escalation`         | Command used to re-execute the program with elevated privileges when not running as root (e.g., `"sudo -n"`) | `"sudo -n"` |
+| Option | Description | Default |
+| ------ | ----------- | ------- |
+| `--skip_snapshot_creation` | Skip automatic snapshot creation | `false` |
+| `--skip_disk_check` | Skip disk space check before snapshot creation | `false` |
+| `--snapshot_size` | Snapshot size as an absolute value (e.g., "20G") or as a percentage (e.g., "20%") | "20%" |
+| `--volume_group` | Source volume group. Derived from the source device path when empty | "" |
+| `--target_volume_group` | Volume group name of the target LVM volume | "" |
+| `--target_vgs` | Candidate target volume groups for auto-selection | [] |
+| `--lvm_escalation` | Command used to re-execute the program with elevated privileges when not running as root (e.g., "sudo -n") | "sudo -n" |
+| `--lvm_timeout` | Timeout for LVM operations | 10s |
 
 #### gRPC Options
 

@@ -90,6 +90,7 @@ type Config struct {
 	TargetVolumeGroup     string        `mapstructure:"target_volume_group"`
 	TargetVGCandidates    []string      `mapstructure:"target_vgs"`
 	LVMEscalation         string        `mapstructure:"lvm_escalation"`
+	LVMTimeout            time.Duration `mapstructure:"lvm_timeout"`
 	Progress              bool          `mapstructure:"progress"`
 	BlockSize             int           `mapstructure:"-"`
 	BlockSizeRaw          string        `mapstructure:"-"`
@@ -416,6 +417,7 @@ func DefaultConfig() (*Config, error) {
 		TargetVolumeGroup:     "",
 		TargetVGCandidates:    []string{},
 		LVMEscalation:         "sudo -n",
+		LVMTimeout:            10 * time.Second,
 		Progress:              true,
 		BlockSize:             0,
 		BlockSizeRaw:          Auto,
@@ -528,6 +530,7 @@ func initLVMFlags(cfg *Config) *pflag.FlagSet {
 	fs.Bool("skip_disk_check", cfg.SkipDiskCheck, "Skip disk space check before snapshot creation")
 	fs.String("snapshot_size", cfg.SnapshotSize, "Snapshot size (e.g., '20G' or '20%')")
 	fs.String("lvm_escalation", cfg.LVMEscalation, "Command used to escalate privileges for LVM commands")
+	fs.Duration("lvm_timeout", cfg.LVMTimeout, "Timeout for LVM operations")
 	fs.String("volume_group", cfg.VolumeGroup, "Source volume group; derived from the source device path when empty")
 	fs.String("target_volume_group", cfg.TargetVolumeGroup, "Volume group name of the target LVM volume")
 	fs.StringSlice("target_vgs", cfg.TargetVGCandidates, "Candidate target volume groups for auto-selection")
@@ -679,12 +682,16 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("grpc dial timeout must be > 0")
 	}
 	if c.VolumeGroup != "" {
-		if _, err := lvm.GetVolumeGroupFreeSpace(context.Background(), c.VolumeGroup); err != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), c.LVMTimeout)
+		defer cancel()
+		if _, err := lvm.GetVolumeGroupFreeSpace(ctx, c.VolumeGroup); err != nil {
 			return fmt.Errorf("volume group %q does not exist or is inaccessible: %w", c.VolumeGroup, err)
 		}
 	}
 	if c.TargetVolumeGroup != "" {
-		if _, err := lvm.GetVolumeGroupFreeSpace(context.Background(), c.TargetVolumeGroup); err != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), c.LVMTimeout)
+		defer cancel()
+		if _, err := lvm.GetVolumeGroupFreeSpace(ctx, c.TargetVolumeGroup); err != nil {
 			return fmt.Errorf("target volume group %q does not exist or is inaccessible: %w", c.TargetVolumeGroup, err)
 		}
 	}

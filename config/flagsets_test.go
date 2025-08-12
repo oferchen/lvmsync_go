@@ -155,6 +155,7 @@ func TestInitLVMFlags(t *testing.T) {
 		{"skip_disk_check", strconv.FormatBool(cfg.SkipDiskCheck)},
 		{"snapshot_size", cfg.SnapshotSize},
 		{"lvm_escalation", cfg.LVMEscalation},
+		{"lvm_timeout", cfg.LVMTimeout.String()},
 		{"volume_group", cfg.VolumeGroup},
 		{"target_volume_group", cfg.TargetVolumeGroup},
 		{"target_vgs", "[]"},
