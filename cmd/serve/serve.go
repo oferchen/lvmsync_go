@@ -26,16 +26,37 @@ var acceptFunc = func(ctx context.Context, cfg *config.Config) (io.ReadWriteClos
 	if err != nil {
 		return nil, err
 	}
-	l, err := q.ListenAddr(cfg.ServeListen, tlsConf, qn.NewQUICConfig())
-	if err != nil {
-		return nil, err
+	listenCtx, cancel := context.WithTimeout(ctx, cfg.ServeAcceptTimeout)
+	defer cancel()
+	type listenRes struct {
+		l   *q.Listener
+		err error
 	}
-	conn, err := l.Accept(ctx)
+	lch := make(chan listenRes, 1)
+	go func() {
+		l, err := q.ListenAddr(cfg.ServeListen, tlsConf, qn.NewQUICConfig())
+		lch <- listenRes{l: l, err: err}
+	}()
+	var l *q.Listener
+	select {
+	case <-listenCtx.Done():
+		return nil, listenCtx.Err()
+	case res := <-lch:
+		if res.err != nil {
+			return nil, res.err
+		}
+		l = res.l
+	}
+	connCtx, cancel := context.WithTimeout(ctx, cfg.ServeAcceptTimeout)
+	defer cancel()
+	conn, err := l.Accept(connCtx)
 	if err != nil {
 		_ = l.Close()
 		return nil, err
 	}
-	stream, err := conn.AcceptStream(ctx)
+	streamCtx, cancel := context.WithTimeout(ctx, cfg.ServeAcceptTimeout)
+	defer cancel()
+	stream, err := conn.AcceptStream(streamCtx)
 	if err != nil {
 		_ = conn.CloseWithError(0, "")
 		_ = l.Close()
