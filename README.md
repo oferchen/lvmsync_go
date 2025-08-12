@@ -1121,6 +1121,8 @@ LVMSync commands such as `lvmsync` and `lvmsync-grpcd` return conventional exit 
 | `0` | Success |
 | `1` | Configuration or runtime failure |
 
+Exit code handling lives in [main.go](main.go#L21-L37), with configuration errors bubbling up from [cmd/root/root.go](cmd/root/root.go#L42-L52) and runtime errors from [cmd/root/root.go](cmd/root/root.go#L121-L186).
+
 Example shell usage:
 
 ```sh
