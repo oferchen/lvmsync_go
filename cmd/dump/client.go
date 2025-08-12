@@ -162,7 +162,7 @@ func WaitForRemoteCompletion(session waitSession, stdoutErrCh, stderrErrCh <-cha
 
 // ExecuteRemoteCommand runs the remote apply command over SSH.
 func ExecuteRemoteCommand(cfg *config.Config, client *remote.SSHClient, destDevice, snapshotDevice, originDevice string, logger *zap.Logger) (err error) {
-	if err = client.ValidateRemoteCommand(cfg.LVMSyncPath); err != nil {
+	if err = client.ValidateRemoteCommand(context.Background(), cfg.LVMSyncPath); err != nil {
 		return fmt.Errorf("remote command validation failed: %w", err)
 	}
 
@@ -210,14 +210,15 @@ func RunRemoteDump(cfg *config.Config, snapshotDevice, originDevice, dest string
 		}
 	}()
 
+	ctx := context.Background()
 	if cfg.RemotePreScript != "" {
-		if err = client.RunRemoteScript(cfg.RemotePreScript); err != nil {
+		if err = client.RunRemoteScript(ctx, cfg.RemotePreScript); err != nil {
 			return fmt.Errorf("remote pre-script failed: %w", err)
 		}
 	}
 	if cfg.RemotePostScript != "" {
 		defer func() {
-			if err2 := client.RunRemoteScript(cfg.RemotePostScript); err2 != nil {
+			if err2 := client.RunRemoteScript(ctx, cfg.RemotePostScript); err2 != nil {
 				if err == nil {
 					err = fmt.Errorf("remote post-script failed: %w", err2)
 				} else {
