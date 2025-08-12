@@ -122,7 +122,12 @@ Logger.Warn("Zero-copy transfer failed",
 ## Configuration
 
 LVMSync uses [`pflag`](https://github.com/spf13/pflag) and [`viper`](https://github.com/spf13/viper) to accept options from
-flags, environment variables, and a YAML file.
+flags, environment variables, and a YAML file. Source and destination paths are provided as positional arguments after any
+flags:
+
+```sh
+lvmsync [flags] <source> <dest>
+```
 
 ### Examples
 
