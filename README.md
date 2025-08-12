@@ -316,6 +316,7 @@ LVMSYNC_GRPC_GRPC_PORT=9443 LVMSYNC_GRPC_TLS_CERT=cert.pem lvmsync-grpcd
 | `--dedup_state_file` | `LVMSYNC_DEDUP_STATE_FILE` | `dedup_state_file` | Path to deduplication state file |
 | `--bloom_entries` | `LVMSYNC_BLOOM_ENTRIES` | `bloom_entries` | Estimated number of entries for bloom filter |
 | `--bloom_fp_rate` | `LVMSYNC_BLOOM_FP_RATE` | `bloom_fp_rate` | False positive rate for bloom filter |
+| `--bloom_mbits` | `LVMSYNC_BLOOM_MBITS` | `bloom_mbits` | Bloom filter m bits power |
 | `--compress` | `LVMSYNC_COMPRESS` | `compress` | Compression type: `none`, `lz4`, `zstd`, or `auto` |
 | `--zstd_level` | `LVMSYNC_ZSTD_LEVEL` | `zstd_level` | Zstd compression level (`1-5`) |
 | `--lz4_level` | `LVMSYNC_LZ4_LEVEL` | `lz4_level` | LZ4 compression level: `fast` or `hc` |
@@ -545,7 +546,7 @@ CLI:
 
 ```sh
 lvmsync --dedup hybrid --cdc_min 4096 --cdc_avg 65536 --cdc_max 1048576 \
-        --bloom_entries 1000000 --bloom_fp_rate 0.01 \
+        --bloom_entries 1000000 --bloom_fp_rate 0.01 --bloom_mbits 24 \
         --compress auto --compress_threshold 0.85 /dev/vg0/snap0 /mnt/backup
 ```
 
@@ -558,6 +559,7 @@ LVMSYNC_CDC_AVG=65536 \
 LVMSYNC_CDC_MAX=1048576 \
 LVMSYNC_BLOOM_ENTRIES=1000000 \
 LVMSYNC_BLOOM_FP_RATE=0.01 \
+LVMSYNC_BLOOM_MBITS=24 \
 LVMSYNC_COMPRESS=auto \
 LVMSYNC_COMPRESS_THRESHOLD=0.85 \
 lvmsync /dev/vg0/snap0 /mnt/backup
@@ -572,6 +574,7 @@ cdc_avg: 65536
 cdc_max: 1048576
 bloom_entries: 1000000
 bloom_fp_rate: 0.01
+bloom_mbits: 24
 compress: auto
 compress_threshold: 0.85
 ```
