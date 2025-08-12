@@ -432,6 +432,15 @@ LVMSYNC_GRPC_CA_CERT=ca.pem \
 lvmsync-grpcd
 ```
 
+Misconfiguration logs an error and exits with code `1`:
+
+```sh
+lvmsync-grpcd --tls-cert missing --tls-key missing
+{"level":"error","msg":"init gRPC server","error":"load TLS key pair: open missing: no such file or directory"}
+echo $?
+1
+```
+
 YAML (`grpcd.yaml`):
 
 ```yaml

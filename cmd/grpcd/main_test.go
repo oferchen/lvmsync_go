@@ -132,3 +132,38 @@ func TestInitConfigInvalidConfigFile(t *testing.T) {
 		t.Fatalf("expected error for malformed config")
 	}
 }
+
+func TestMainLogsErrorAndExits(t *testing.T) {
+	oldArgs := os.Args
+	os.Args = []string{"grpcd", "--tls-cert", "missing", "--tls-key", "missing"}
+	defer func() { os.Args = oldArgs }()
+
+	var exitCode int
+	exitFunc = func(code int) { exitCode = code; panic("exit") }
+	defer func() { exitFunc = os.Exit }()
+
+	core, logs := observer.New(zap.ErrorLevel)
+	newZapProduction = func(opts ...zap.Option) (*zap.Logger, error) { return zap.New(core, opts...), nil }
+	defer func() { newZapProduction = zap.NewProduction }()
+
+	defer func() {
+		if r := recover(); r != "exit" {
+			t.Fatalf("unexpected panic: %v", r)
+		}
+		if exitCode != 1 {
+			t.Fatalf("expected exit code 1, got %d", exitCode)
+		}
+		entries := logs.All()
+		if len(entries) == 0 {
+			t.Fatalf("expected log entry")
+		}
+		if entries[0].Level != zap.ErrorLevel {
+			t.Fatalf("expected error level, got %v", entries[0].Level)
+		}
+		if entries[0].Message != "init gRPC server" {
+			t.Fatalf("unexpected message %q", entries[0].Message)
+		}
+	}()
+
+	main()
+}
