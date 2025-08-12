@@ -3,6 +3,7 @@ module lvmsync_go
 go 1.23.0
 
 require (
+	github.com/bits-and-blooms/bitset v1.10.0
 	github.com/bits-and-blooms/bloom/v3 v3.7.0
 	github.com/klauspost/compress v1.18.0
 	github.com/klauspost/cpuid/v2 v2.2.7
@@ -21,7 +22,6 @@ require (
 )
 
 require (
-	github.com/bits-and-blooms/bitset v1.10.0 // indirect
 	github.com/fsnotify/fsnotify v1.8.0 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
 	github.com/go-viper/mapstructure/v2 v2.2.1 // indirect
