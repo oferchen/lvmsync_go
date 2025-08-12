@@ -55,33 +55,32 @@ logger.Info("snapshot complete",
 ### Flag Grouping Example
 
 ```go
-func initConfig() *viper.Viper {
+func initConfig() (*viper.Viper, string, string) {
     v := viper.New()
-    syncFlags := pflag.NewFlagSet("sync", pflag.ExitOnError)
-    syncFlags.String("source", "", "snapshot device")
-    syncFlags.String("dest", "", "destination path")
-    pflag.CommandLine.AddFlagSet(syncFlags)
+    general := pflag.NewFlagSet("general", pflag.ExitOnError)
+    general.Bool("progress", true, "show progress")
+    pflag.CommandLine.AddFlagSet(general)
 
-    v.BindPFlags(syncFlags)
+    v.BindPFlags(pflag.CommandLine)
     v.SetConfigName("config")
     v.AddConfigPath(".")
     v.SetEnvPrefix("LVMSYNC")
     v.AutomaticEnv()
-    return v
+
+    pflag.Parse()
+    args := pflag.Args()
+    if len(args) < 2 {
+        pflag.Usage()
+        os.Exit(1)
+    }
+    return v, args[0], args[1]
 }
 ```
 
-Sample `config.yaml`:
-
-```yaml
-source: /dev/vg0/snap0
-dest: /mnt/backup
-```
-
-Environment override:
+Example invocation:
 
 ```sh
-LVMSYNC_SOURCE=/dev/vg0/snap1
+lvmsync /dev/vg0/snap0 /mnt/backup
 ```
 
 ## Transport Configuration
