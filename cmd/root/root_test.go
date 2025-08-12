@@ -25,16 +25,19 @@ func TestSetupGRPCSuccess(t *testing.T) {
 	startGRPCServer = func(_ *config.Config, _ *zap.Logger) (func(), error) {
 		return func() { srvCleanCalled = true }, nil
 	}
-	clientHandshake = func(_ *config.Config, _ *zap.Logger) (func(), error) {
-		return func() { clientCleanCalled = true }, nil
+	clientHandshake = func(_ *config.Config, _ *zap.Logger) (func(), chan error, error) {
+		return func() { clientCleanCalled = true }, make(chan error), nil
 	}
 
-	cleanupSrv, cleanupClient, err := SetupGRPC(cfg, logger)
+	cleanupSrv, cleanupClient, hbErrCh, err := SetupGRPC(cfg, logger)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	cleanupSrv()
 	cleanupClient()
+	if hbErrCh == nil {
+		t.Fatalf("expected heartbeat channel")
+	}
 	if !srvCleanCalled || !clientCleanCalled {
 		t.Fatalf("cleanup functions not called")
 	}
@@ -48,7 +51,7 @@ func TestSetupGRPCServerError(t *testing.T) {
 	startGRPCServer = func(_ *config.Config, _ *zap.Logger) (func(), error) {
 		return nil, errors.New("srv fail")
 	}
-	if _, _, err := SetupGRPC(cfg, logger); err == nil {
+	if _, _, _, err := SetupGRPC(cfg, logger); err == nil {
 		t.Fatalf("expected error")
 	}
 }
@@ -66,10 +69,10 @@ func TestSetupGRPCClientError(t *testing.T) {
 	startGRPCServer = func(_ *config.Config, _ *zap.Logger) (func(), error) {
 		return func() { srvCleanupCalled = true }, nil
 	}
-	clientHandshake = func(_ *config.Config, _ *zap.Logger) (func(), error) {
-		return nil, errors.New("client fail")
+	clientHandshake = func(_ *config.Config, _ *zap.Logger) (func(), chan error, error) {
+		return nil, nil, errors.New("client fail")
 	}
-	if _, _, err := SetupGRPC(cfg, logger); err == nil {
+	if _, _, _, err := SetupGRPC(cfg, logger); err == nil {
 		t.Fatalf("expected error")
 	}
 	if !srvCleanupCalled {

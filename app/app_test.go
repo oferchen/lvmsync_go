@@ -112,13 +112,16 @@ func TestClientHandshakeSuccess(t *testing.T) {
 	}
 	ackStream = func(context.Context, proto.ReplicationClient, string) (ackStreamClient, error) { return fs, nil }
 
-	cleanup, err := ClientHandshake(cfg, logger)
+	cleanup, hbErrCh, err := ClientHandshake(cfg, logger)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	cleanup()
 	if !fc.closed || !fs.closed {
 		t.Fatalf("cleanup did not close resources")
+	}
+	if err, ok := <-hbErrCh; ok || err != nil {
+		t.Fatalf("unexpected heartbeat error: %v", err)
 	}
 }
 
@@ -129,10 +132,58 @@ func TestClientHandshakeDialError(t *testing.T) {
 	defer func() { dial = origDial }()
 	dial = func(string, grpcclient.Config) (closeableConn, error) { return nil, errors.New("dial fail") }
 
-	if _, err := ClientHandshake(cfg, logger); err == nil {
+	if _, _, err := ClientHandshake(cfg, logger); err == nil {
 		t.Fatalf("expected error")
 	}
 }
+
+func TestClientHandshakeHeartbeatFailure(t *testing.T) {
+	cfg := &config.Config{GRPCConnect: "addr", Parallel: 1}
+	logger := zap.NewNop()
+
+	fc := &fakeConn{}
+	fs := &failingStream{}
+	origDial := dial
+	origHandshake := handshake
+	origCreateSession := createSession
+	origAckStream := ackStream
+	origInterval := heartbeatInterval
+	defer func() {
+		dial = origDial
+		handshake = origHandshake
+		createSession = origCreateSession
+		ackStream = origAckStream
+		heartbeatInterval = origInterval
+	}()
+	dial = func(addr string, conf grpcclient.Config) (closeableConn, error) { return fc, nil }
+	handshake = func(context.Context, proto.ReplicationClient, *proto.HandshakeRequest) (*proto.HandshakeResponse, error) {
+		return &proto.HandshakeResponse{}, nil
+	}
+	createSession = func(context.Context, proto.ReplicationClient, string, string) (*proto.SessionResponse, error) {
+		return &proto.SessionResponse{SessionId: "id"}, nil
+	}
+	ackStream = func(context.Context, proto.ReplicationClient, string) (ackStreamClient, error) { return fs, nil }
+	heartbeatInterval = 10 * time.Millisecond
+
+	cleanup, hbErrCh, err := ClientHandshake(cfg, logger)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	defer cleanup()
+	select {
+	case err := <-hbErrCh:
+		if err == nil {
+			t.Fatalf("expected heartbeat error")
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Fatalf("timeout waiting for heartbeat error")
+	}
+}
+
+type failingStream struct{ closed bool }
+
+func (f *failingStream) Send(*proto.Ack) error { return errors.New("send fail") }
+func (f *failingStream) CloseSend() error      { f.closed = true; return nil }
 
 // SetupSignalHandling tests
 
