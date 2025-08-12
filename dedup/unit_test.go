@@ -5,10 +5,12 @@ import (
 	"encoding/hex"
 	"io"
 	"testing"
+
+	"lvmsync_go/hash"
 )
 
 func TestHasher(t *testing.T) {
-	h, err := NewHasher(nil)
+	h, err := hash.NewBlake3Hasher(nil)
 	if err != nil {
 		t.Fatalf("new hasher: %v", err)
 	}
@@ -23,7 +25,7 @@ func TestHasher(t *testing.T) {
 	}
 
 	key := []byte("0123456789abcdef0123456789abcdef")
-	h, err = NewHasher(key)
+	h, err = hash.NewBlake3Hasher(key)
 	if err != nil {
 		t.Fatalf("new hasher: %v", err)
 	}

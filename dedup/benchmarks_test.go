@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"go.uber.org/zap"
+
+	"lvmsync_go/hash"
 )
 
 // BenchmarkReplicator measures end-to-end throughput of the replication
@@ -13,7 +15,7 @@ import (
 func BenchmarkReplicator(b *testing.B) {
 	data := bytes.Repeat([]byte("abcde12345"), 1<<15) // ~1MB
 	ch := NewChunker(64, 256, 1024)
-	h, err := NewHasher(nil)
+	h, err := hash.NewBlake3Hasher(nil)
 	if err != nil {
 		b.Fatalf("new hasher: %v", err)
 	}

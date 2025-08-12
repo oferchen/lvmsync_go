@@ -12,6 +12,7 @@ require (
 	github.com/spf13/pflag v1.0.7
 	github.com/spf13/viper v1.20.1
 	github.com/zeebo/blake3 v0.2.4
+	github.com/zeebo/xxh3 v1.0.2
 	go.uber.org/goleak v1.3.0
 	go.uber.org/multierr v1.10.0
 	go.uber.org/zap v1.27.0
