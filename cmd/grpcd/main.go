@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 
 	grpcserver "lvmsync_go/grpc/server"
 	lvmagent "lvmsync_go/internal/lvm"
@@ -19,6 +20,9 @@ import (
 var (
 	newZapProduction = zap.NewProduction
 	exitFunc         = os.Exit
+	newServer        = grpcserver.New
+	listen           = net.Listen
+	serve            = func(s *grpc.Server, lis net.Listener) error { return s.Serve(lis) }
 )
 
 func main() {
@@ -26,6 +30,7 @@ func main() {
 	if err != nil {
 		zap.NewNop().Error("init logger", zap.Error(err))
 		exitFunc(1)
+		return
 	}
 	defer syncLogger(logger)
 
@@ -38,6 +43,8 @@ func main() {
 	v, err := initConfig(os.Args[1:])
 	if err != nil {
 		fatal("init config", err)
+		syncLogger(logger)
+		exitFunc(1)
 		return
 	}
 
@@ -49,14 +56,14 @@ func main() {
 	}
 
 	agent := lvmagent.NewAgent(nil, nil)
-	srv, srvErr := grpcserver.New(cfg, agent)
+	srv, srvErr := newServer(cfg, agent)
 	if srvErr != nil {
 		fatal("init gRPC server", srvErr)
 		return
 	}
 
 	port := v.GetInt("grpc-port")
-	lis, listenErr := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
+	lis, listenErr := listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
 	if listenErr != nil {
 		fatal("listen", listenErr)
 		return

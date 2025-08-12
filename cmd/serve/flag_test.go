@@ -6,6 +6,7 @@ import (
 	"io"
 	"net"
 	"testing"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -14,7 +15,7 @@ import (
 )
 
 func TestServeFlagBindingSuccess(t *testing.T) {
-	resetFlags([]string{"--serve", "--serve_listen", "localhost:9900", "--serve_protocol", "p", "--serve_algorithm", "a", "--serve_test_space", "t", "--serve_policy", "accept"})
+	resetFlags([]string{"--serve", "--serve_listen", "localhost:9900", "--serve_protocol", "p", "--serve_algorithm", "a", "--serve_test_space", "t", "--serve_policy", "accept", "--serve_accept_timeout", "1s"})
 	defaults, err := config.DefaultConfig()
 	if err != nil {
 		t.Fatalf("DefaultConfig: %v", err)
@@ -27,7 +28,7 @@ func TestServeFlagBindingSuccess(t *testing.T) {
 	if !cfg.Serve {
 		t.Fatalf("expected Serve true")
 	}
-	if cfg.ServeListen != "localhost:9900" || cfg.ServeProtocol != "p" || cfg.ServeAlgorithm != "a" || cfg.ServeTestSpace != "t" || cfg.ServePolicy != "accept" {
+	if cfg.ServeListen != "localhost:9900" || cfg.ServeProtocol != "p" || cfg.ServeAlgorithm != "a" || cfg.ServeTestSpace != "t" || cfg.ServePolicy != "accept" || cfg.ServeAcceptTimeout != time.Second {
 		t.Fatalf("unexpected serve config: %+v", cfg)
 	}
 
