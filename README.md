@@ -316,6 +316,7 @@ LVMSYNC_GRPC_GRPC_PORT=9443 LVMSYNC_GRPC_TLS_CERT=cert.pem lvmsync-grpcd
 | `--dedup_state_file` | `LVMSYNC_DEDUP_STATE_FILE` | `dedup_state_file` | Path to deduplication state file |
 | `--bloom_entries` | `LVMSYNC_BLOOM_ENTRIES` | `bloom_entries` | Estimated number of entries for bloom filter |
 | `--bloom_fp_rate` | `LVMSYNC_BLOOM_FP_RATE` | `bloom_fp_rate` | False positive rate for bloom filter |
+| `--bloom_mbits` | `LVMSYNC_BLOOM_MBITS` | `bloom_mbits` | Bloom filter m bits power |
 | `--compress` | `LVMSYNC_COMPRESS` | `compress` | Compression type: `none`, `lz4`, `zstd`, or `auto` |
 | `--zstd_level` | `LVMSYNC_ZSTD_LEVEL` | `zstd_level` | Zstd compression level (`1-5`) |
 | `--lz4_level` | `LVMSYNC_LZ4_LEVEL` | `lz4_level` | LZ4 compression level: `fast` or `hc` |
@@ -338,6 +339,8 @@ LVMSYNC_GRPC_GRPC_PORT=9443 LVMSYNC_GRPC_TLS_CERT=cert.pem lvmsync-grpcd
 | `--grpc_connect` | `LVMSYNC_GRPC_CONNECT` | `grpc_connect` | gRPC server address to connect to |
 | `--grpc_port` | `LVMSYNC_GRPC_PORT` | `grpc_port` | gRPC port to listen on |
 | `--grpc_dial_timeout` | `LVMSYNC_GRPC_DIAL_TIMEOUT` | `grpc_dial_timeout` | gRPC dial timeout |
+| `--grpc_heartbeat_interval` | `LVMSYNC_GRPC_HEARTBEAT_INTERVAL` | `grpc_heartbeat_interval` | gRPC heartbeat interval |
+| `--grpc_heartbeat_send_timeout` | `LVMSYNC_GRPC_HEARTBEAT_SEND_TIMEOUT` | `grpc_heartbeat_send_timeout` | gRPC heartbeat send timeout |
 | `--tls_cert` | `LVMSYNC_TLS_CERT` | `tls_cert` | TLS certificate file |
 | `--tls_key` | `LVMSYNC_TLS_KEY` | `tls_key` | TLS key file |
 | `--ca_cert` | `LVMSYNC_CA_CERT` | `ca_cert` | CA certificate file |
@@ -545,7 +548,7 @@ CLI:
 
 ```sh
 lvmsync --dedup hybrid --cdc_min 4096 --cdc_avg 65536 --cdc_max 1048576 \
-        --bloom_entries 1000000 --bloom_fp_rate 0.01 \
+        --bloom_entries 1000000 --bloom_fp_rate 0.01 --bloom_mbits 24 \
         --compress auto --compress_threshold 0.85 /dev/vg0/snap0 /mnt/backup
 ```
 
@@ -558,6 +561,7 @@ LVMSYNC_CDC_AVG=65536 \
 LVMSYNC_CDC_MAX=1048576 \
 LVMSYNC_BLOOM_ENTRIES=1000000 \
 LVMSYNC_BLOOM_FP_RATE=0.01 \
+LVMSYNC_BLOOM_MBITS=24 \
 LVMSYNC_COMPRESS=auto \
 LVMSYNC_COMPRESS_THRESHOLD=0.85 \
 lvmsync /dev/vg0/snap0 /mnt/backup
@@ -572,6 +576,7 @@ cdc_avg: 65536
 cdc_max: 1048576
 bloom_entries: 1000000
 bloom_fp_rate: 0.01
+bloom_mbits: 24
 compress: auto
 compress_threshold: 0.85
 ```
@@ -799,6 +804,8 @@ sender, receiver, err := ssh.New(cfg, logger)
 | ------------------ | ---------------------------- | --------------- |
 | `--grpc_port`      | gRPC port to listen on       | `8443`          |
 | `--grpc_dial_timeout` | gRPC dial timeout          | `5s`            |
+| `--grpc_heartbeat_interval` | gRPC heartbeat interval | `30s`          |
+| `--grpc_heartbeat_send_timeout` | gRPC heartbeat send timeout | `5s` |
 | `--tls_cert`       | TLS certificate file         | `""`            |
 | `--tls_key`        | TLS key file                 | `""`            |
 | `--ca_cert`        | CA certificate file          | `""`            |
