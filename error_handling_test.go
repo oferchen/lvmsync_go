@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"io"
 	"testing"
@@ -23,7 +24,7 @@ func (c *failingSyncCore) Sync() error {
 
 func TestCopyPipeAsyncError(t *testing.T) {
 	r, w := io.Pipe()
-	errCh := dumpcmd.CopyPipeAsync(io.Discard, r)
+	errCh := dumpcmd.CopyPipeAsync(context.Background(), io.Discard, r)
 	expected := errors.New("copy fail")
 	w.CloseWithError(expected)
 	if err := <-errCh; !errors.Is(err, expected) {

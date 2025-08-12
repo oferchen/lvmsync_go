@@ -34,11 +34,32 @@ var (
 )
 
 // CopyPipeAsync copies data from src to dst in a new goroutine and returns a channel with the result.
-func CopyPipeAsync(dst io.Writer, src io.Reader) <-chan error {
+func CopyPipeAsync(ctx context.Context, dst io.Writer, src io.Reader) <-chan error {
 	errCh := make(chan error, 1)
 	go func() {
-		_, err := io.Copy(dst, src)
-		errCh <- err
+		defer close(errCh)
+		const chunkSize = int64(32 * 1024)
+		for {
+			select {
+			case <-ctx.Done():
+				errCh <- ctx.Err()
+				return
+			default:
+				n, err := io.Copy(dst, io.LimitReader(src, chunkSize))
+				if err != nil {
+					if errors.Is(err, io.EOF) {
+						errCh <- nil
+					} else {
+						errCh <- err
+					}
+					return
+				}
+				if n < chunkSize {
+					errCh <- nil
+					return
+				}
+			}
+		}
 	}()
 	return errCh
 }
@@ -69,7 +90,7 @@ func Run(cfg *config.Config, snapshotDevice, dest string, logger *zap.Logger) er
 		return ExecuteDump(cfg, snapshotDevice, originDevice, limitedOut, logger)
 	}
 	if strings.Contains(dest, ":") {
-		return RunRemoteDump(cfg, snapshotDevice, originDevice, dest, logger)
+		return RunRemoteDump(context.Background(), cfg, snapshotDevice, originDevice, dest, logger)
 	}
 	return RunLocalDump(cfg, snapshotDevice, originDevice, dest, logger)
 }
@@ -113,7 +134,7 @@ type pipeSession interface {
 }
 
 // SetupSessionStreams wires local stdio to the remote session.
-func SetupSessionStreams(session pipeSession) (io.WriteCloser, <-chan error, <-chan error, error) {
+func SetupSessionStreams(ctx context.Context, session pipeSession) (io.WriteCloser, <-chan error, <-chan error, error) {
 	stdoutPipe, err := session.StdoutPipe()
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to get stdout pipe: %w", err)
@@ -122,8 +143,8 @@ func SetupSessionStreams(session pipeSession) (io.WriteCloser, <-chan error, <-c
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to get stderr pipe: %w", err)
 	}
-	stdoutErrCh := CopyPipeAsync(os.Stdout, stdoutPipe)
-	stderrErrCh := CopyPipeAsync(os.Stderr, stderrPipe)
+	stdoutErrCh := CopyPipeAsync(ctx, os.Stdout, stdoutPipe)
+	stderrErrCh := CopyPipeAsync(ctx, os.Stderr, stderrPipe)
 
 	remoteStdin, err := session.StdinPipe()
 	if err != nil {
@@ -180,7 +201,7 @@ func ExecuteRemoteCommand(ctx context.Context, cfg *config.Config, client *remot
 	}
 	defer closeSession(session, &err)
 
-	remoteStdin, stdoutErrCh, stderrErrCh, err := SetupSessionStreams(session)
+	remoteStdin, stdoutErrCh, stderrErrCh, err := SetupSessionStreams(ctx, session)
 	if err != nil {
 		return err
 	}
@@ -200,7 +221,7 @@ func ExecuteRemoteCommand(ctx context.Context, cfg *config.Config, client *remot
 }
 
 // RunRemoteDump streams snapshot data to a remote host over SSH.
-func RunRemoteDump(cfg *config.Config, snapshotDevice, originDevice, dest string, logger *zap.Logger) (err error) {
+func RunRemoteDump(ctx context.Context, cfg *config.Config, snapshotDevice, originDevice, dest string, logger *zap.Logger) (err error) {
 	parts := strings.SplitN(dest, ":", 2)
 	destHost, destDevice := parts[0], parts[1]
 	client, cancel, err := SetupSSHClient(cfg, destHost, logger)
@@ -218,19 +239,30 @@ func RunRemoteDump(cfg *config.Config, snapshotDevice, originDevice, dest string
 		}
 	}()
 
-	ctx := context.Background()
 	if cfg.RemotePreScript != "" {
-		if err = client.RunRemoteScript(ctx, cfg.RemotePreScript); err != nil {
+		scriptCtx, cancel := context.WithTimeout(ctx, cfg.SSHTimeout)
+		if err = client.RunRemoteScript(scriptCtx, cfg.RemotePreScript); err != nil {
+			cancel()
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				return fmt.Errorf("remote pre-script context error: %w", err)
+			}
 			return fmt.Errorf("remote pre-script failed: %w", err)
 		}
+		cancel()
 	}
 	if cfg.RemotePostScript != "" {
 		defer func() {
-			if err2 := client.RunRemoteScript(ctx, cfg.RemotePostScript); err2 != nil {
+			scriptCtx, cancel := context.WithTimeout(ctx, cfg.SSHTimeout)
+			defer cancel()
+			if err2 := client.RunRemoteScript(scriptCtx, cfg.RemotePostScript); err2 != nil {
+				msg := "remote post-script failed"
+				if errors.Is(err2, context.Canceled) || errors.Is(err2, context.DeadlineExceeded) {
+					msg = "remote post-script context error"
+				}
 				if err == nil {
-					err = fmt.Errorf("remote post-script failed: %w", err2)
+					err = fmt.Errorf("%s: %w", msg, err2)
 				} else {
-					err = fmt.Errorf("%v; remote post-script failed: %w", err, err2)
+					err = fmt.Errorf("%v; %s: %w", err, msg, err2)
 				}
 			}
 		}()
