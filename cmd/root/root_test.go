@@ -120,11 +120,11 @@ func TestSetupGRPCServeFailurePropagation(t *testing.T) {
 		startGRPCServer = origStart
 		clientHandshake = origClient
 	}()
-	startGRPCServer = func(_ context.Context, _ *config.Config, _ *zap.Logger) (func(), <-chan error, error) {
-		ch := make(chan error, 1)
-		ch <- errors.New("serve boom")
-		return func() { srvCleanupCalled = true; close(ch) }, ch, nil
-	}
+       startGRPCServer = func(_ context.Context, _ *config.Config, _ *zap.Logger) (func(), <-chan error, error) {
+               errCh := make(chan error, 1)
+               errCh <- errors.New("serve boom")
+               return func() { srvCleanupCalled = true; close(errCh) }, errCh, nil
+       }
 	clientHandshake = func(_ *config.Config, _ *zap.Logger) (func(), chan error, error) {
 		t.Fatalf("client handshake should not be called")
 		return nil, nil, nil
