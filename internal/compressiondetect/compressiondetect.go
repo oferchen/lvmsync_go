@@ -149,3 +149,14 @@ func ResetForTest() {
 	benchCache = make(map[string]string)
 	benchMu.Unlock()
 }
+
+// HasAVX2 reports whether the current CPU supports AVX2 instructions.
+func HasAVX2() bool {
+	return cpu.X86.HasAVX2
+}
+
+// HasNEON reports whether the current CPU supports ARM NEON instructions.
+func HasNEON() bool {
+	return cpu.ARM64.HasASIMD || cpu.ARM.HasNEON
+}
+

@@ -25,8 +25,12 @@ func TestNewTLSConfigMissingCert(t *testing.T) {
 }
 
 func TestNewQUICConfig(t *testing.T) {
-	qc := NewQUICConfig()
+	qc := NewQUICConfig(0)
 	if qc.Allow0RTT {
 		t.Fatalf("0-RTT should be disabled")
+	}
+	tuned := NewQUICConfig(128 * 1024)
+	if tuned.MaxIncomingStreams == 0 || tuned.MaxStreamReceiveWindow == 0 {
+		t.Fatalf("expected tuning to set windows and streams")
 	}
 }

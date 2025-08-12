@@ -29,3 +29,11 @@ func TestResetForTest(t *testing.T) {
 		t.Fatal("expected detection after reset")
 	}
 }
+
+func TestHasAVX2(t *testing.T) {
+	_ = HasAVX2()
+}
+
+func TestHasNEON(t *testing.T) {
+	_ = HasNEON()
+}
