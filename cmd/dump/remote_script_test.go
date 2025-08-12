@@ -11,6 +11,7 @@ import (
 
 	"lvmsync_go/config"
 	remotetest "lvmsync_go/remote/testutil"
+	"lvmsync_go/transfer"
 )
 
 // Test that remote post script executes even when dumpChanges fails
@@ -41,7 +42,7 @@ func TestRemotePostScriptRunsOnError(t *testing.T) {
 	cfg.LVMSyncPath = "lvmsync"
 
 	original := dumpChangesSequential
-	dumpChangesSequential = func(c *config.Config, snapshot, source string, out io.Writer) error {
+	dumpChangesSequential = func(_ *transfer.Transfer, c *config.Config, snapshot, source string, out io.Writer) error {
 		return io.ErrUnexpectedEOF
 	}
 	defer func() { dumpChangesSequential = original }()

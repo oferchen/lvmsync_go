@@ -25,14 +25,23 @@ import (
 )
 
 // Logger holds the package-wide zap.Logger used for progress and error reporting.
-var (
+var Logger *zap.Logger
+
+// Transfer encapsulates transfer state shared across operations.
+type Transfer struct {
 	Logger   *zap.Logger
 	workerWG *sync.WaitGroup
-)
+}
 
-// SetLogger assigns Logger for package-wide logging and overrides any existing logger.
-func SetLogger(logger *zap.Logger) {
+// NewTransfer creates a Transfer with the provided logger and wait group.
+// When wg is nil, a new instance is allocated. The package-wide Logger is
+// set to the provided logger for internal helpers that rely on it.
+func NewTransfer(logger *zap.Logger, wg *sync.WaitGroup) *Transfer {
+	if wg == nil {
+		wg = &sync.WaitGroup{}
+	}
 	Logger = logger
+	return &Transfer{Logger: logger, workerWG: wg}
 }
 
 // ChecksumState stores block checksums and the algorithm used for deduplication.
@@ -200,7 +209,7 @@ func setupPipe(cfg *config.Config) ([2]int, func(), error) {
 	return pipeFds, cleanup, nil
 }
 
-func dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer, dedup DeduplicationStrategy, handshake string) (err error) {
+func (t *Transfer) dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer, dedup DeduplicationStrategy, handshake string) (err error) {
 	ranges, err := prepareRanges(cfg, snapshot, source)
 	if err != nil {
 		return err
@@ -253,7 +262,7 @@ func dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer,
 	return nil
 }
 
-func setupDedup(cfg *config.Config) (DeduplicationStrategy, func()) {
+func (t *Transfer) setupDedup(cfg *config.Config) (DeduplicationStrategy, func()) {
 	dedup := NewDeduplicationStrategy(cfg)
 	cleanup := func() {}
 	if dedup != nil {
@@ -267,29 +276,29 @@ func setupDedup(cfg *config.Config) (DeduplicationStrategy, func()) {
 }
 
 // DumpChangesSequential streams changed blocks from snapshot to out sequentially and saves dedup state if enabled.
-func DumpChangesSequential(cfg *config.Config, snapshot, source string, out io.Writer) error {
-	dedup, cleanup := setupDedup(cfg)
+func (t *Transfer) DumpChangesSequential(cfg *config.Config, snapshot, source string, out io.Writer) error {
+	dedup, cleanup := t.setupDedup(cfg)
 	if dedup != nil {
 		defer cleanup()
 	}
-	return dumpChangesCore(cfg, snapshot, source, out, dedup, "")
+	return t.dumpChangesCore(cfg, snapshot, source, out, dedup, "")
 }
 
 // DumpChangesWithDeduplication transfers changed blocks using the provided dedup strategy and a checksum-dedup handshake, updating the strategy's state.
-func DumpChangesWithDeduplication(cfg *config.Config, snapshot, source string, out io.Writer, dedup DeduplicationStrategy) error {
-	return dumpChangesCore(cfg, snapshot, source, out, dedup, "checksum-dedup")
+func (t *Transfer) DumpChangesWithDeduplication(cfg *config.Config, snapshot, source string, out io.Writer, dedup DeduplicationStrategy) error {
+	return t.dumpChangesCore(cfg, snapshot, source, out, dedup, "checksum-dedup")
 }
 
 // DumpChanges chooses an appropriate transfer mode and persists dedup state when a strategy is configured.
-func DumpChanges(cfg *config.Config, snapshot, source string, out io.Writer) error {
-	dedup, cleanup := setupDedup(cfg)
+func (t *Transfer) DumpChanges(cfg *config.Config, snapshot, source string, out io.Writer) error {
+	dedup, cleanup := t.setupDedup(cfg)
 	if dedup != nil {
 		defer cleanup()
 		Logger.Info("Deduplication enabled", zap.String("strategy", cfg.DedupStrategy))
-		return DumpChangesWithDeduplication(cfg, snapshot, source, out, dedup)
+		return t.DumpChangesWithDeduplication(cfg, snapshot, source, out, dedup)
 	}
 	Logger.Info("Deduplication disabled, performing full block transfer")
-	return DumpChangesSequential(cfg, snapshot, source, out)
+	return t.DumpChangesSequential(cfg, snapshot, source, out)
 }
 
 var (
@@ -394,7 +403,7 @@ func calculateTotalDataSize(ranges []Range) int64 {
 	return int64(total)
 }
 
-func startParallelWorkers(cfg *config.Config, srcFile *os.File, ranges []Range, resumeStart int) <-chan *BlockResult {
+func (t *Transfer) startParallelWorkers(cfg *config.Config, srcFile *os.File, ranges []Range, resumeStart int) <-chan *BlockResult {
 	numBlocks := len(ranges)
 	taskBuf := cfg.Parallel
 	if taskBuf < 1 {
@@ -402,10 +411,9 @@ func startParallelWorkers(cfg *config.Config, srcFile *os.File, ranges []Range, 
 	}
 	tasks := make(chan BlockTask, taskBuf)
 	results := make(chan *BlockResult, taskBuf)
-	workerWG = &sync.WaitGroup{}
 	for i := 0; i < cfg.Parallel; i++ {
-		workerWG.Add(1)
-		go worker(cfg, srcFile, tasks, results)
+		t.workerWG.Add(1)
+		go worker(cfg, srcFile, tasks, results, t.workerWG)
 	}
 
 	go func() {
@@ -415,14 +423,14 @@ func startParallelWorkers(cfg *config.Config, srcFile *os.File, ranges []Range, 
 		close(tasks)
 	}()
 
-	go finalizeResults(workerWG, results)
+	go finalizeResults(t.workerWG, results)
 	return results
 }
 
-func DumpChangesParallel(cfg *config.Config, snapshot, source string, out io.Writer) (err error) {
+func (t *Transfer) DumpChangesParallel(cfg *config.Config, snapshot, source string, out io.Writer) (err error) {
 	if cfg.ZeroCopy {
 		Logger.Warn("ZeroCopy mode enabled, falling back to sequential execution")
-		return DumpChangesSequential(cfg, snapshot, source, out)
+		return t.DumpChangesSequential(cfg, snapshot, source, out)
 	}
 
 	ranges, err := prepareRanges(cfg, snapshot, source)
@@ -449,7 +457,7 @@ func DumpChangesParallel(cfg *config.Config, snapshot, source string, out io.Wri
 
 	resumeDigest := readResumeDigest(cfg)
 	resumeStart := findResumeIndex(cfg, srcFile, ranges, resumeDigest)
-	results := startParallelWorkers(cfg, srcFile, ranges, resumeStart)
+	results := t.startParallelWorkers(cfg, srcFile, ranges, resumeStart)
 
 	startTime := time.Now()
 	checksum := GetChecksumStrategy(cfg.ChecksumAlgorithm)
@@ -625,7 +633,7 @@ func applyBlocks(cfg *config.Config, reader *bufio.Reader, destFile *os.File, de
 	return totalBytes, nil
 }
 
-func processDumpDataCore(cfg *config.Config, in io.Reader, destPath string, dedup DeduplicationStrategy, verify bool) (err error) {
+func (t *Transfer) processDumpDataCore(cfg *config.Config, in io.Reader, destPath string, dedup DeduplicationStrategy, verify bool) (err error) {
 	bufReader := bufio.NewReader(in)
 	var hs common.Handshake
 	hs, err = readAndValidateHandshake(bufReader, dedup, verify)
@@ -684,13 +692,13 @@ func processDumpDataCore(cfg *config.Config, in io.Reader, destPath string, dedu
 }
 
 // ProcessDumpDataWithDeduplication applies a dump stream to destPath using the given dedup strategy without checksum verification, updating the strategy's state.
-func ProcessDumpDataWithDeduplication(cfg *config.Config, in io.Reader, destPath string, dedup DeduplicationStrategy) error {
-	return processDumpDataCore(cfg, in, destPath, dedup, false)
+func (t *Transfer) ProcessDumpDataWithDeduplication(cfg *config.Config, in io.Reader, destPath string, dedup DeduplicationStrategy) error {
+	return t.processDumpDataCore(cfg, in, destPath, dedup, false)
 }
 
 // ProcessDumpData applies a dump stream to destPath with checksum verification for each block before writing.
-func ProcessDumpData(cfg *config.Config, in io.Reader, destPath string) error {
-	return processDumpDataCore(cfg, in, destPath, nil, true)
+func (t *Transfer) ProcessDumpData(cfg *config.Config, in io.Reader, destPath string) error {
+	return t.processDumpDataCore(cfg, in, destPath, nil, true)
 }
 
 func openApplyReader(applyFile string) (io.ReadCloser, error) {
@@ -704,7 +712,7 @@ func openApplyReader(applyFile string) (io.ReadCloser, error) {
 	return f, nil
 }
 
-func applyData(cfg *config.Config, in io.Reader, destDevice string) error {
+func (t *Transfer) applyData(cfg *config.Config, in io.Reader, destDevice string) error {
 	dedup := NewDeduplicationStrategy(cfg)
 	if dedup != nil {
 		Logger.Info("Applying deduplication during restore", zap.String("strategy", cfg.DedupStrategy))
@@ -713,17 +721,17 @@ func applyData(cfg *config.Config, in io.Reader, destDevice string) error {
 				Logger.Error("Failed to save dedup state", zap.Error(err))
 			}
 		}()
-		return ProcessDumpDataWithDeduplication(cfg, in, destDevice, dedup)
+		return t.ProcessDumpDataWithDeduplication(cfg, in, destDevice, dedup)
 	}
-	return ProcessDumpData(cfg, in, destDevice)
+	return t.ProcessDumpData(cfg, in, destDevice)
 }
 
 // RunApply reads a dump file or stdin and writes the data to destDevice.
-func RunApply(cfg *config.Config, applyFile, destDevice string) (err error) {
+func (t *Transfer) RunApply(cfg *config.Config, applyFile, destDevice string) (err error) {
 	rc, err := openApplyReader(applyFile)
 	if err != nil {
 		return err
 	}
 	defer common.CloseWithErr(rc, &err, "close apply file")
-	return applyData(cfg, rc, destDevice)
+	return t.applyData(cfg, rc, destDevice)
 }

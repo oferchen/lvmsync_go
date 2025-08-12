@@ -2,13 +2,17 @@ package apply
 
 import (
 	"fmt"
+	"sync"
 
 	"lvmsync_go/config"
 	"lvmsync_go/transfer"
 )
 
 // applyFunc allows tests to override the apply implementation.
-var applyFunc = transfer.RunApply
+var applyFunc = func(cfg *config.Config, applyFile, destDevice string) error {
+	t := transfer.NewTransfer(transfer.Logger, &sync.WaitGroup{})
+	return t.RunApply(cfg, applyFile, destDevice)
+}
 
 // Run executes apply mode using the provided configuration and arguments.
 // args should contain the destination device as the first element.

@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap"
 
 	"lvmsync_go/config"
+	"lvmsync_go/transfer"
 )
 
 func TestRunStdout(t *testing.T) {
@@ -23,7 +24,7 @@ func TestRunStdout(t *testing.T) {
 	expected := "test output"
 
 	originalFunc := dumpChangesSequential
-	dumpChangesSequential = func(c *config.Config, snapshot, source string, out io.Writer) error {
+	dumpChangesSequential = func(_ *transfer.Transfer, c *config.Config, snapshot, source string, out io.Writer) error {
 		_, writeErr := out.Write([]byte(expected))
 		return writeErr
 	}

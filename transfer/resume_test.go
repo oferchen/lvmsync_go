@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/zeebo/blake3"
@@ -68,14 +69,14 @@ func parseOffsets(t *testing.T, data []byte, blockSize int64) []int64 {
 }
 
 func TestResumeSequential(t *testing.T) {
-	SetLogger(zap.NewNop())
+	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{})
 	blockSize := int64(1024)
 	src, snapshot, resume := createTestFiles(t, blockSize, 4)
 
 	cfg := &config.Config{BlockSize: int(blockSize), Compress: "none", Parallel: 1, ResumeState: resume, MaxRetries: 1}
 
 	var buf bytes.Buffer
-	if err := DumpChangesParallel(cfg, snapshot, src, &buf); err != nil {
+	if err := tr.DumpChangesParallel(cfg, snapshot, src, &buf); err != nil {
 		t.Fatalf("DumpChangesParallel failed: %v", err)
 	}
 	finalizeResumeState(cfg)
@@ -92,14 +93,14 @@ func TestResumeSequential(t *testing.T) {
 }
 
 func TestResumeParallel(t *testing.T) {
-	SetLogger(zap.NewNop())
+	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{})
 	blockSize := int64(1024)
 	src, snapshot, resume := createTestFiles(t, blockSize, 4)
 
 	cfg := &config.Config{BlockSize: int(blockSize), Compress: "none", Parallel: 2, ResumeState: resume, MaxRetries: 1}
 
 	var buf bytes.Buffer
-	if err := DumpChangesParallel(cfg, snapshot, src, &buf); err != nil {
+	if err := tr.DumpChangesParallel(cfg, snapshot, src, &buf); err != nil {
 		t.Fatalf("DumpChangesParallel failed: %v", err)
 	}
 	finalizeResumeState(cfg)

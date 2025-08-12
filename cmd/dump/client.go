@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"sync"
 
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
@@ -19,11 +20,17 @@ import (
 )
 
 var (
-	dumpChangesSequential        = transfer.DumpChangesSequential
-	dumpChangesParallel          = transfer.DumpChangesParallel
-	dumpChangesWithDeduplication = transfer.DumpChangesWithDeduplication
-	newSSHClient                 = remote.NewSSHClient
-	openFile                     = os.OpenFile
+	dumpChangesSequential = func(t *transfer.Transfer, cfg *config.Config, snap, origin string, out io.Writer) error {
+		return t.DumpChangesSequential(cfg, snap, origin, out)
+	}
+	dumpChangesParallel = func(t *transfer.Transfer, cfg *config.Config, snap, origin string, out io.Writer) error {
+		return t.DumpChangesParallel(cfg, snap, origin, out)
+	}
+	dumpChangesWithDeduplication = func(t *transfer.Transfer, cfg *config.Config, snap, origin string, out io.Writer, d transfer.DeduplicationStrategy) error {
+		return t.DumpChangesWithDeduplication(cfg, snap, origin, out, d)
+	}
+	newSSHClient = remote.NewSSHClient
+	openFile     = os.OpenFile
 )
 
 // CopyPipeAsync copies data from src to dst in a new goroutine and returns a channel with the result.
@@ -38,6 +45,7 @@ func CopyPipeAsync(dst io.Writer, src io.Reader) <-chan error {
 
 // ExecuteDump selects the appropriate dump implementation based on configuration.
 func ExecuteDump(cfg *config.Config, snapshotDevice, originDevice string, out io.Writer, logger *zap.Logger) error {
+	t := transfer.NewTransfer(logger, &sync.WaitGroup{})
 	dedup := transfer.NewDeduplicationStrategy(cfg)
 	if dedup != nil {
 		defer func() {
@@ -45,12 +53,12 @@ func ExecuteDump(cfg *config.Config, snapshotDevice, originDevice string, out io
 				logger.Error("Failed to save dedup state", zap.Error(err))
 			}
 		}()
-		return dumpChangesWithDeduplication(cfg, snapshotDevice, originDevice, out, dedup)
+		return dumpChangesWithDeduplication(t, cfg, snapshotDevice, originDevice, out, dedup)
 	}
 	if cfg.Parallel <= 1 {
-		return dumpChangesSequential(cfg, snapshotDevice, originDevice, out)
+		return dumpChangesSequential(t, cfg, snapshotDevice, originDevice, out)
 	}
-	return dumpChangesParallel(cfg, snapshotDevice, originDevice, out)
+	return dumpChangesParallel(t, cfg, snapshotDevice, originDevice, out)
 }
 
 // Run executes client mode transferring data to dest.

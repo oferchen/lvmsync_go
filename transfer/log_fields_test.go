@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"github.com/zeebo/blake3"
@@ -16,7 +17,7 @@ import (
 
 func TestDumpChangesSequentialLogFields(t *testing.T) {
 	core, logs := observer.New(zap.InfoLevel)
-	SetLogger(zap.New(core))
+	tr := NewTransfer(zap.New(core), &sync.WaitGroup{})
 
 	blockSize := int64(1024)
 	changed := []int{0, 2}
@@ -24,7 +25,7 @@ func TestDumpChangesSequentialLogFields(t *testing.T) {
 
 	cfg := &config.Config{BlockSize: int(blockSize), Compress: "none", MaxRetries: 1}
 	var buf bytes.Buffer
-	if err := DumpChangesSequential(cfg, snapshot, src, &buf); err != nil {
+	if err := tr.DumpChangesSequential(cfg, snapshot, src, &buf); err != nil {
 		t.Fatalf("DumpChangesSequential failed: %v", err)
 	}
 
