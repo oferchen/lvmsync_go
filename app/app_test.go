@@ -184,10 +184,68 @@ func TestClientHandshakeHeartbeatFailure(t *testing.T) {
 	}
 }
 
+func TestClientHandshakeHeartbeatTimeout(t *testing.T) {
+	cfg := &config.Config{GRPCConnect: "addr", Parallel: 1}
+	logger := zap.NewNop()
+
+	fc := &fakeConn{}
+	block := make(chan struct{})
+	fs := &blockingStream{block: block}
+	origDial := dial
+	origHandshake := handshake
+	origCreateSession := createSession
+	origAckStream := ackStream
+	origInterval := heartbeatInterval
+	origTimeout := heartbeatSendTimeout
+	defer func() {
+		dial = origDial
+		handshake = origHandshake
+		createSession = origCreateSession
+		ackStream = origAckStream
+		heartbeatInterval = origInterval
+		heartbeatSendTimeout = origTimeout
+	}()
+	dial = func(ctx context.Context, addr string, conf grpcclient.Config) (closeableConn, error) {
+		return fc, nil
+	}
+	handshake = func(context.Context, proto.ReplicationClient, *proto.HandshakeRequest) (*proto.HandshakeResponse, error) {
+		return &proto.HandshakeResponse{}, nil
+	}
+	createSession = func(context.Context, proto.ReplicationClient, string, string) (*proto.SessionResponse, error) {
+		return &proto.SessionResponse{SessionId: "id"}, nil
+	}
+	ackStream = func(context.Context, proto.ReplicationClient, string) (ackStreamClient, error) { return fs, nil }
+	heartbeatInterval = 10 * time.Millisecond
+	heartbeatSendTimeout = 20 * time.Millisecond
+
+	cleanup, hbErrCh, err := ClientHandshake(cfg, logger)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	defer cleanup()
+	select {
+	case err := <-hbErrCh:
+		if !errors.Is(err, context.DeadlineExceeded) {
+			t.Fatalf("expected deadline exceeded, got %v", err)
+		}
+	case <-time.After(200 * time.Millisecond):
+		t.Fatalf("timeout waiting for heartbeat error")
+	}
+	close(block)
+}
+
 type failingStream struct{ closed bool }
 
 func (f *failingStream) Send(*proto.Ack) error { return errors.New("send fail") }
 func (f *failingStream) CloseSend() error      { f.closed = true; return nil }
+
+type blockingStream struct {
+	closed bool
+	block  chan struct{}
+}
+
+func (b *blockingStream) Send(*proto.Ack) error { <-b.block; return nil }
+func (b *blockingStream) CloseSend() error      { b.closed = true; return nil }
 
 // SetupSignalHandling tests
 
