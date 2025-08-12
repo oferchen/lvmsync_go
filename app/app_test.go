@@ -157,9 +157,9 @@ func TestClientHandshakeHeartbeatFailure(t *testing.T) {
 		ackStream = origAckStream
 		heartbeatInterval = origInterval
 	}()
-        dial = func(ctx context.Context, addr string, conf grpcclient.Config) (closeableConn, error) {
-                return fc, nil
-        }
+	dial = func(ctx context.Context, addr string, conf grpcclient.Config) (closeableConn, error) {
+		return fc, nil
+	}
 	handshake = func(context.Context, proto.ReplicationClient, *proto.HandshakeRequest) (*proto.HandshakeResponse, error) {
 		return &proto.HandshakeResponse{}, nil
 	}

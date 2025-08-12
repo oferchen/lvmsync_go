@@ -301,17 +301,17 @@ func TestConfigValidate(t *testing.T) {
 		defer restore()
 		restorePriv := lvm.SetPrivilegeChecker(func() error { return nil })
 		defer restorePriv()
-                cfg := &Config{
-                        VolumeGroup:         "vg0",
-                        LVMEscalation:       "sudo",
-                        SSHKeepAliveInterval: time.Second,
-                        LVMTimeout:          time.Second,
-                        GRPCDialTimeout:     time.Second,
-                }
-                if err := cfg.Validate(); err != nil {
-                        t.Fatalf("expected no error, got %v", err)
-                }
-        })
+		cfg := &Config{
+			VolumeGroup:          "vg0",
+			LVMEscalation:        "sudo",
+			SSHKeepAliveInterval: time.Second,
+			LVMTimeout:           time.Second,
+			GRPCDialTimeout:      time.Second,
+		}
+		if err := cfg.Validate(); err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+	})
 
 	t.Run("failure", func(t *testing.T) {
 		fb := &fakeBackend{err: fmt.Errorf("command error")}
