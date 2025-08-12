@@ -1,1 +1,1 @@
-No pruning candidates identified; repository code paths are required for current functionality.
+Removed unused internal packages `device`, `frame`, and `hash`; updated module dependencies with `go mod tidy`.
