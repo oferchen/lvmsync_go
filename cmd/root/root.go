@@ -47,7 +47,7 @@ func Configure() (*config.Config, *zap.Logger, error) {
 	}
 	esc := privilege.New()
 	if err = esc.Ensure(); err != nil {
-		return nil, nil, fmt.Errorf("privilege escalation error: %w", err)
+		return nil, nil, fmt.Errorf("privilege check failed: %w", err)
 	}
 	if err = cfg.Validate(); err != nil {
 		return nil, nil, fmt.Errorf("configuration validation error: %w", err)

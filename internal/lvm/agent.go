@@ -1,6 +1,4 @@
-// Package lvm exposes a minimal privileged agent wrapper used by the gRPC
-// server. It delegates to an injected Escalator to ensure required
-// privileges before invoking the underlying LVM API.
+// Package lvm provides a privileged agent wrapper around LVM operations.
 package lvm
 
 import (
@@ -46,12 +44,13 @@ type agent struct {
 	lvm lvmAPI
 }
 
-// NewAgent creates an Agent using the provided LVM API and Escalator. When esc
-// is nil, the default Escalator is used.
-func NewAgent(l lvmlib.API, esc privilege.Escalator) Agent {
+// NewSudoAgent returns an Agent implementation that ensures root privileges
+// before invoking LVM commands. An optional ensureRoot function can be provided
+// (primarily for tests). When nil, privilege.New().Ensure is used.
+func NewSudoAgent(sudoPath string, l lvmlib.API, ensureRoot func() error) Agent {
 	api, _ := l.(lvmAPI)
-	if esc == nil {
-		esc = privilege.New()
+	if ensureRoot == nil {
+		ensureRoot = privilege.New().Ensure
 	}
 	return &agent{esc: esc, lvm: api}
 }

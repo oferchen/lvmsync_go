@@ -174,9 +174,9 @@ lvmsync --compress auto --zstd_level 2 --compress_threshold 0.85
 
 - Every function must have a dedicated unit test.
 - Cover both successful and failing paths to verify correctness.
-- Where external commands would normally execute, inject test hooks (for
-  example, the `privilege` package allows stubbing capability checks) to
-  isolate side effects during tests.
+  - Where external commands would normally execute, inject test hooks (e.g.,
+    the `privilege` package accepts `exec.Command` substitutes) to stub side
+    effects during tests.
 - The snapshot monitoring goroutine closes its error channel on exit; cleanup
   must only cancel monitoring. `TestCreateSnapshotCleanupNoPanic` verifies this
   behavior.
@@ -264,7 +264,7 @@ Run these commands locally before opening a pull request:
   golangci-lint run
   ```
 - [ ] Implement real transports for QUIC, HTTP/2, TCP+TLS, and SSH; replace placeholders with functional backends and tests.
-- [ ] Add privilege escalation (`privilege`) tests covering success and error paths (tests require root; skipped otherwise).
+ - [ ] Add privilege escalation tests covering success and error paths (tests require root; skipped otherwise).
 - [ ] Expand coverage for configuration precedence across flags, environment variables, and config files.
 - [ ] Keep README configuration examples and precedence tests in sync.
  - [ ] Keep modules single-purpose; maintain the `transfer` package decomposition (`progress.go`, `handshake.go`, `block_writer.go`).

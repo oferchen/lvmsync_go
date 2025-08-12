@@ -1073,16 +1073,16 @@ Keep functions and packages focused on a single task to simplify maintenance and
 
 Decouple modules by injecting dependencies through interfaces or constructor parameters. This approach makes components easier to test and swap during refactoring.
 
-For example, the `internal/privilege` package exposes its capability probe as a
-variable, allowing tests to stub the check:
+For example, the `privilege` package exposes an `Escalator` interface so tests
+can stub command execution:
 
 ```go
-privilege.HasCaps = func() bool { return true }
 esc := privilege.New()
 if err := esc.Ensure(); err != nil {
-    // handle error
+    // handle missing capabilities or sudo
 }
-privilege.HasCaps = privilege.RealHasCaps
+cmd := esc.Command("lvs", "--version")
+_ = cmd
 ```
 
 ### Test Coverage
@@ -1123,7 +1123,7 @@ go test -coverprofile=coverage.out ./...
 go tool cover -func=coverage.out
 ```
 
-Some tests may require root privileges and are skipped when run unprivileged.
+Some privileged tests are skipped when run without root access.
 
 The workflow enforces a minimum of 50% total coverage.
 
