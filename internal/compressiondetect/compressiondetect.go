@@ -39,7 +39,7 @@ func DetectOptimalCompression() string {
 			cacheSize += cpuid.CPU.Cache.L2
 		}
 
-		if cpu.X86.HasAVX512F || cpu.X86.HasAVX2 || cpu.X86.HasBMI2 || cpu.X86.HasSSE42 || (cores >= 4 && cacheSize >= 2<<20) {
+		if cpu.X86.HasAVX512F || cpu.X86.HasAVX2 || cpu.X86.HasBMI2 || cpu.X86.HasSSE42 || cpu.ARM64.HasASIMD || cpu.ARM.HasNEON || (cores >= 4 && cacheSize >= 2<<20) {
 			detected = "zstd"
 		} else {
 			detected = benchmarkCached(cores, cacheSize)
@@ -151,4 +151,9 @@ func ResetForTest() {
 // HasAVX2 reports whether the current CPU supports AVX2 instructions.
 func HasAVX2() bool {
 	return cpu.X86.HasAVX2
+}
+
+// HasNEON reports whether the current CPU supports ARM NEON instructions.
+func HasNEON() bool {
+	return cpu.ARM64.HasASIMD || cpu.ARM.HasNEON
 }

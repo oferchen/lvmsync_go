@@ -2,7 +2,6 @@ package transfer
 
 import (
 	"bufio"
-	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
 	"math"
@@ -31,7 +30,7 @@ func iterateBlocks(cfg *config.Config, ranges []Range, srcFile *os.File, bufOut 
 	skippedBlocks := 0
 	var header [12]byte
 	manifest := &Manifest{}
-	sha := sha256.New()
+	h := newDigestHasher(cfg.ChecksumAlgorithm)
 	for _, r := range ranges {
 		offset, blockSize, err := validateOffsetAndSize(r.Start, cfg.BlockSize)
 		if err != nil {
@@ -72,7 +71,7 @@ func iterateBlocks(cfg *config.Config, ranges []Range, srcFile *os.File, bufOut 
 			return totalBytes, skippedBlocks, manifest, fmt.Errorf("failed to write block data: %w", err)
 		}
 
-		sha.Write(data)
+		h.Write(data)
 		sum := blake3.Sum256(data)
 		manifest.Append(sum, int64(r.Start), int(blockSize))
 		saveResumeState(cfg, sum, int64(blockSize), logger)
@@ -81,7 +80,8 @@ func iterateBlocks(cfg *config.Config, ranges []Range, srcFile *os.File, bufOut 
 
 		totalBytes += int64(blockSize)
 	}
-	copy(manifest.FinalSHA256[:], sha.Sum(nil))
+	manifest.DigestAlgo = cfg.ChecksumAlgorithm
+	manifest.FinalDigest = h.Sum(nil)
 	return totalBytes, skippedBlocks, manifest, nil
 }
 
@@ -122,7 +122,7 @@ func processParallelResults(
 	}
 	header := make([]byte, headerSize)
 	var totalBytesTransferred int64
-	sha := sha256.New()
+	h := newDigestHasher(cfg.ChecksumAlgorithm)
 	manifest := &Manifest{}
 	for res := range results {
 		if res.Err != nil {
@@ -137,7 +137,7 @@ func processParallelResults(
 			return totalBytesTransferred, manifest, err
 		}
 		if res.Data != nil {
-			sha.Write(res.Data)
+			h.Write(res.Data)
 			manifest.Append(res.ChunkID, int64(res.Offset), int(res.Size))
 			saveResumeState(cfg, res.ChunkID, int64(res.Size), logger)
 			putBlockBuffer(res.Data)
@@ -148,7 +148,8 @@ func processParallelResults(
 		totalBytesTransferred += int64(res.Size)
 		reportProgress(cfg, totalBytesTransferred, totalDataSize, res.Index, startTime, logger)
 	}
-	copy(manifest.FinalSHA256[:], sha.Sum(nil))
+	manifest.DigestAlgo = cfg.ChecksumAlgorithm
+	manifest.FinalDigest = h.Sum(nil)
 	return totalBytesTransferred, manifest, nil
 }
 

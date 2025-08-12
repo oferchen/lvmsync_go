@@ -29,7 +29,7 @@ var acceptFunc = func(ctx context.Context, cfg *config.Config) (io.ReadWriteClos
 
 	listenCtx, listenCancel := context.WithTimeout(ctx, cfg.ServeAcceptTimeout)
 	defer listenCancel()
-	l, err := q.ListenAddr(cfg.ServeListen, tlsConf, qn.NewQUICConfig())
+	l, err := q.ListenAddr(cfg.ServeListen, tlsConf, qn.NewQUICConfig(0))
 	if err != nil {
 		return nil, err
 	}

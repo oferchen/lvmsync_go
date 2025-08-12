@@ -48,14 +48,17 @@ func Get(name string) (Factory, bool) {
 // Select returns the first transport in order that initializes successfully.
 func Select(cfg *config.Config, order []string, logger *zap.Logger) (Transport, string, error) {
 	for _, name := range order {
+		logger.Info("initializing transport", zap.String("transport", name))
 		f, ok := Get(name)
 		if !ok {
+			logger.Warn("transport not registered", zap.String("transport", name))
 			continue
 		}
 		t, err := f(cfg, logger)
 		if err == nil {
 			return t, name, nil
 		}
+		logger.Warn("transport init failed", zap.String("transport", name), zap.Error(err))
 	}
 	return nil, "", fmt.Errorf("no working transport")
 }

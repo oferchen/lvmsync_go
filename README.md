@@ -11,7 +11,7 @@ LVMSync is a high-performance incremental data replication tool for LVM snapshot
 - **Parallel Execution**: Configurable concurrency for optimal performance.
 - **Adaptive Transport Concurrency**: Maintains ~1–2×BDP of in-flight data and can be overridden with `--concurrency`.
 - **Rate-Limiting**: Control bandwidth usage during transfers.
-- **Compression**: Samples 8 KiB per chunk, skipping compression when the ratio exceeds a threshold. Auto mode selects LZ4 for chunks <256 KiB and Zstd level 1 for larger chunks on AVX2-capable CPUs.
+- **Compression**: Samples 8 KiB per chunk, skipping compression when the ratio exceeds a threshold. Auto mode selects LZ4 for chunks <256 KiB and Zstd levels 1–3 for larger chunks on AVX2 or NEON hosts; otherwise LZ4.
 - **Checksum Verification**: Ensures data integrity using SHA-256 or BLAKE3.
 - **Native LVM2 Integration**: Uses Go bindings to `liblvm2cmd` instead of shelling out.
 - **Deduplication Strategies**: Detect unchanged blocks using checksum, rolling hash, or a Bloom filter with optional FastCDC content-defined chunking and mmap-backed index.
@@ -511,6 +511,7 @@ Transports are pluggable and selected in order using the `--transport` flag. LVM
 | `--quic_listen` | `LVMSYNC_QUIC_LISTEN` | QUIC listen address |
 | `--quic_connect` | `LVMSYNC_QUIC_CONNECT` | QUIC connect address |
 | `--quic_cc` | `LVMSYNC_QUIC_CC` | QUIC congestion control algorithm |
+| `--concurrency` | `LVMSYNC_CONCURRENCY` | Stream concurrency (0 to autotune based on BDP) |
 | `--h2_port` | `LVMSYNC_H2_PORT` | HTTP/2 TLS port |
 | `--tcp_port` | `LVMSYNC_TCP_PORT` | TCP+TLS port |
 | `--ssh_port` | `LVMSYNC_SSH_PORT` | SSH port |
@@ -1013,8 +1014,9 @@ LVMSync automatically reloads this state file on startup. Delete it to reset ded
 
 LVMSync samples 8 KiB from each chunk to gauge compression efficiency. If the
 compressed sample ratio is greater than or equal to `--compress_threshold`, the
-chunk is sent uncompressed. In `auto` mode, chunks smaller than 256 KiB use LZ4
-and larger ones select Zstd level 1 when AVX2 is available.
+chunk is sent uncompressed. In `auto` mode, chunks smaller than 256 KiB use LZ4,
+and larger ones select Zstd (levels 1–3) when AVX2 or NEON is available;
+otherwise LZ4.
 Levels can be tuned with `--zstd_level` (1-5) or `--lz4_level` (`fast` or `hc`).
 
 CLI:
