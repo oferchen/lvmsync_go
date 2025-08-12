@@ -4,6 +4,10 @@
 
 LVMSync provides high-performance block-level replication for LVM snapshots on 64-bit Linux systems. The repository already includes Go modules, basic tests and CI, but still needs improved coverage, error handling and developer documentation. This PRD outlines remaining capabilities, coding standards and tasks for future development.
 
+## Supported Platforms
+
+LVMSync runs on Linux only and is validated on the `amd64` and `arm64` architectures.
+
 ## Goals
 
 - Reliable incremental replication of LVM snapshots across hosts.
