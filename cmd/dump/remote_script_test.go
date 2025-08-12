@@ -146,7 +146,7 @@ func TestRemotePostScriptContextError(t *testing.T) {
 	cfg.RemotePostScript = "slow-post"
 	cfg.SSHUser = "test"
 	cfg.SSHPort = port
-	cfg.SSHTimeout = time.Millisecond
+	cfg.SSHTimeout = 50 * time.Millisecond
 	cfg.SSHKeyPath = remotetest.CreateTempKey(t)
 	cfg.KnownHosts = remotetest.CreateKnownHostsFile(t, server)
 	cfg.StrictHostKeyCheck = true
