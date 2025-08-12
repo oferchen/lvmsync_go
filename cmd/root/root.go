@@ -107,8 +107,8 @@ func PrepareSnapshot(cfg *config.Config, originalVolume string, logger *zap.Logg
 }
 
 // ExecuteClient runs the client transfer logic.
-func ExecuteClient(cfg *config.Config, snapshotPath, destPath string, sigErrCh, monitorErrCh chan error, logger *zap.Logger) error {
-	return executeClientFn(func(snapshot, dest string) error {
+func ExecuteClient(ctx context.Context, cfg *config.Config, snapshotPath, destPath string, sigErrCh, monitorErrCh chan error, logger *zap.Logger) error {
+	return executeClientFn(ctx, func(ctx context.Context, snapshot, dest string) error {
 		return runDump(cfg, snapshot, dest, logger)
 	}, snapshotPath, destPath, sigErrCh, monitorErrCh)
 }
@@ -175,7 +175,7 @@ func Run(cfg *config.Config, logger *zap.Logger) error {
 	}
 	defer cleanup()
 
-	return ExecuteClient(cfg, snapshotPath, destPath, sigErrCh, monitorErrCh, logger)
+	return ExecuteClient(ctx, cfg, snapshotPath, destPath, sigErrCh, monitorErrCh, logger)
 }
 
 // Execute is a helper that configures and runs the root command.

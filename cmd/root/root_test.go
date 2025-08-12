@@ -52,7 +52,7 @@ func TestSetupGRPCSuccess(t *testing.T) {
 	srvErrCh <- nil
 	<-done
 	cleanupClient()
-	if errCh == nil {
+	if hbErrCh == nil {
 		t.Fatalf("expected error channel")
 	}
 	if !srvCleanCalled || !clientCleanCalled {
@@ -120,7 +120,7 @@ func TestSetupGRPCServeFailurePropagation(t *testing.T) {
 		startGRPCServer = origStart
 		clientHandshake = origClient
 	}()
-	startGRPCServer = func(_ *config.Config, _ *zap.Logger) (func(), chan error, error) {
+	startGRPCServer = func(_ context.Context, _ *config.Config, _ *zap.Logger) (func(), <-chan error, error) {
 		ch := make(chan error, 1)
 		ch <- errors.New("serve boom")
 		return func() { srvCleanupCalled = true; close(ch) }, ch, nil
@@ -129,7 +129,7 @@ func TestSetupGRPCServeFailurePropagation(t *testing.T) {
 		t.Fatalf("client handshake should not be called")
 		return nil, nil, nil
 	}
-	if _, _, _, err := SetupGRPC(cfg, logger); err == nil {
+	if _, _, _, err := SetupGRPC(context.Background(), cfg, logger); err == nil {
 		t.Fatalf("expected error from serve failure")
 	}
 	if !srvCleanupCalled {
@@ -161,12 +161,12 @@ func TestExecuteClient(t *testing.T) {
 		executeClientFn = origExec
 		runDump = origRunDump
 	}()
-	executeClientFn = func(f func(string, string) error, snap, dest string, sigErrCh, monitorErrCh chan error) error {
+	executeClientFn = func(ctx context.Context, f func(context.Context, string, string) error, snap, dest string, sigErrCh, monitorErrCh chan error) error {
 		called = true
 		if snap != "s" || dest != "d" {
 			t.Fatalf("unexpected args")
 		}
-		return f(snap, dest)
+		return f(ctx, snap, dest)
 	}
 	runDump = func(_ *config.Config, snap, dest string, _ *zap.Logger) error {
 		if snap != "s" || dest != "d" {
@@ -174,7 +174,9 @@ func TestExecuteClient(t *testing.T) {
 		}
 		return nil
 	}
-	if err := ExecuteClient(cfg, "s", "d", nil, nil, logger); err != nil {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	if err := ExecuteClient(ctx, cfg, "s", "d", nil, nil, logger); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if !called {
@@ -204,7 +206,9 @@ func TestRunHeartbeatError(t *testing.T) {
 	hbErrCh := make(chan error, 1)
 	hbErrCh <- errors.New("hb fail")
 
-	startGRPCServer = func(*config.Config, *zap.Logger) (func(), error) { return func() {}, nil }
+	startGRPCServer = func(context.Context, *config.Config, *zap.Logger) (func(), <-chan error, error) {
+		return func() {}, make(chan error), nil
+	}
 	clientHandshake = func(*config.Config, *zap.Logger) (func(), chan error, error) {
 		return func() {}, hbErrCh, nil
 	}
@@ -217,7 +221,7 @@ func TestRunHeartbeatError(t *testing.T) {
 	prepareSnapshotFn = func(*config.Config, string, *zap.Logger) (string, chan error, func(), error) {
 		return "snap", nil, func() {}, nil
 	}
-	executeClientFn = func(f func(string, string) error, snap, dest string, sigErrCh, monitorErrCh chan error) error {
+	executeClientFn = func(ctx context.Context, f func(context.Context, string, string) error, snap, dest string, sigErrCh, monitorErrCh chan error) error {
 		return <-sigErrCh
 	}
 
