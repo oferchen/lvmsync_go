@@ -1,9 +1,11 @@
 package dump
 
 import (
+	"context"
 	"io"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
@@ -32,7 +34,9 @@ func TestRunLogsSaveStateError(t *testing.T) {
 	core, observed := observer.New(zap.ErrorLevel)
 	logger := zap.New(core)
 
-	if err := Run(cfg, "/dev/snap", "", logger); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := Run(ctx, cfg, "/dev/snap", "", logger); err != nil {
 		t.Fatalf("Run returned error: %v", err)
 	}
 

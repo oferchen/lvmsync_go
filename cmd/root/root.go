@@ -114,7 +114,7 @@ func PrepareSnapshot(ctx context.Context, cfg *config.Config, originalVolume str
 // ExecuteClient runs the client transfer logic.
 func ExecuteClient(ctx context.Context, cfg *config.Config, snapshotPath, destPath string, sigErrCh, monitorErrCh chan error, logger *zap.Logger) error {
 	return executeClientFn(ctx, func(ctx context.Context, snapshot, dest string) error {
-		return runDump(cfg, snapshot, dest, logger)
+		return runDump(ctx, cfg, snapshot, dest, logger)
 	}, snapshotPath, destPath, sigErrCh, monitorErrCh)
 }
 

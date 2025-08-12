@@ -169,7 +169,7 @@ func TestExecuteClient(t *testing.T) {
 		}
 		return f(ctx, snap, dest)
 	}
-	runDump = func(_ *config.Config, snap, dest string, _ *zap.Logger) error {
+	runDump = func(_ context.Context, _ *config.Config, snap, dest string, _ *zap.Logger) error {
 		if snap != "s" || dest != "d" {
 			t.Fatalf("unexpected dump args")
 		}
