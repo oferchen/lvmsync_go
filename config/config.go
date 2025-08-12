@@ -147,6 +147,8 @@ type Config struct {
 	QUICConnect           string        `mapstructure:"quic_connect"`
 	TCPPort               int           `mapstructure:"tcp_port"`
 	H2Port                int           `mapstructure:"h2_port"`
+	TCPParallel           int           `mapstructure:"tcp_parallel"`
+	TCPNotSentLowAt       int           `mapstructure:"tcp_lowat"`
 	SyncInterval          string        `mapstructure:"sync_interval"`
 	CheckpointInterval    time.Duration `mapstructure:"checkpoint_interval"`
 	QUICCongestionControl string        `mapstructure:"quic_cc"`
@@ -477,6 +479,8 @@ func DefaultConfig() (*Config, error) {
 		QUICConnect:           "",
 		TCPPort:               0,
 		H2Port:                0,
+		TCPParallel:           1,
+		TCPNotSentLowAt:       0,
 		SyncInterval:          "1GB",
 		CheckpointInterval:    0,
 		QUICCongestionControl: "",
@@ -596,6 +600,8 @@ func initTransportFlags(cfg *Config) *pflag.FlagSet {
 	fs.Int("concurrency", cfg.Concurrency, "Stream concurrency (0 to autotune)")
 	fs.Int("tcp_port", cfg.TCPPort, "TCP+TLS port")
 	fs.Int("h2_port", cfg.H2Port, "HTTP/2 TLS port")
+	fs.Int("tcp_parallel", cfg.TCPParallel, "Number of parallel TCP connections")
+	fs.Int("tcp_lowat", cfg.TCPNotSentLowAt, "TCP_NOTSENT_LOWAT in bytes")
 	return fs
 }
 
@@ -709,6 +715,12 @@ func (c *Config) ValidateWith(geteuid func() int) error {
 	}
 	if c.HeartbeatSendTimeout <= 0 {
 		return fmt.Errorf("grpc heartbeat send timeout must be > 0")
+	}
+	if c.TCPParallel < 1 || c.TCPParallel > 4 {
+		return fmt.Errorf("tcp_parallel must be between 1 and 4")
+	}
+	if c.TCPNotSentLowAt < 0 {
+		return fmt.Errorf("tcp_lowat must be >= 0")
 	}
 	if c.VolumeGroup != "" {
 		ctx, cancel := context.WithTimeout(context.Background(), c.LVMTimeout)
