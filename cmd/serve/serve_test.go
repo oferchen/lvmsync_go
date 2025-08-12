@@ -124,6 +124,23 @@ func TestAcceptFuncTimeout(t *testing.T) {
 	}
 }
 
+func TestRunAcceptTimeout(t *testing.T) {
+	orig := acceptFunc
+	acceptFunc = func(ctx context.Context, cfg *config.Config) (io.ReadWriteCloser, error) {
+		ctx, cancel := context.WithTimeout(ctx, cfg.ServeAcceptTimeout)
+		defer cancel()
+		<-ctx.Done()
+		return nil, ctx.Err()
+	}
+	defer func() { acceptFunc = orig }()
+
+	cfg := &config.Config{ServeProtocol: "proto", ServeAlgorithm: "alg", ServeTestSpace: "ts", ServePolicy: "accept", ServeAcceptTimeout: 10 * time.Millisecond}
+	err := Run(context.Background(), cfg, zap.NewNop())
+	if err == nil || !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected deadline exceeded, got %v", err)
+	}
+}
+
 type errCloseConn struct{ net.Conn }
 
 func (e errCloseConn) Close() error { return fmt.Errorf("close fail") }

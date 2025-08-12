@@ -424,6 +424,8 @@ Run the daemon with TLS:
 lvmsync-grpcd --grpc-port 9443 --tls-cert cert.pem --tls-key key.pem --ca-cert ca.pem
 ```
 
+On failure, `lvmsync-grpcd` logs the error and exits with status `1` so calling scripts can inspect `$?`.
+
 Environment variables provide the same settings:
 
 ```sh
@@ -432,6 +434,15 @@ LVMSYNC_GRPC_TLS_CERT=cert.pem \
 LVMSYNC_GRPC_TLS_KEY=key.pem \
 LVMSYNC_GRPC_CA_CERT=ca.pem \
 lvmsync-grpcd
+```
+
+Misconfiguration logs an error and exits with code `1`:
+
+```sh
+lvmsync-grpcd --tls-cert missing --tls-key missing
+{"level":"error","msg":"init gRPC server","error":"load TLS key pair: open missing: no such file or directory"}
+echo $?
+1
 ```
 
 YAML (`grpcd.yaml`):
@@ -820,6 +831,18 @@ timeouts or cancellations are reported separately.
 | `--ca_cert`        | CA certificate file          | `""`            |
 | `--allow_insecure` | Allow insecure (disable TLS) | `false`         |
 
+#### Serve Options
+
+| Option | Description | Default |
+| ------ | ----------- | ------- |
+| `--serve` | Run QUIC server instead of client | `false` |
+| `--serve_listen` | QUIC listen address | `:9000` |
+| `--serve_protocol` | Protocol name to negotiate | `lvmsync` |
+| `--serve_algorithm` | Algorithm identifier to negotiate | `sha256` |
+| `--serve_test_space` | Optional test-space string | `""` |
+| `--serve_policy` | Transfer policy (non-`accept` rejects) | `accept` |
+| `--serve_accept_timeout` | Timeout for listener and stream acceptance | `30s` |
+
 ### Examples
 
 #### Local Transfer
@@ -1091,7 +1114,7 @@ Invalid configurations will cause the tool to abort with a clear error message.
 
 ## Exit Codes
 
-LVMSync returns conventional exit codes to indicate overall status:
+LVMSync commands such as `lvmsync` and `lvmsync-grpcd` return conventional exit codes to indicate overall status:
 
 | Code | Meaning |
 |------|---------|
