@@ -4,6 +4,8 @@ import (
 	"os"
 	"testing"
 
+	"go.uber.org/zap"
+
 	"lvmsync_go/config"
 )
 
@@ -28,7 +30,7 @@ func BenchmarkReadBlockWithPool(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		buf, err := ReadBlockWithRetries(cfg, f, 0, false, [2]int{-1, -1})
+		buf, err := ReadBlockWithRetries(cfg, f, 0, false, [2]int{-1, -1}, zap.NewNop())
 		if err != nil {
 			b.Fatal(err)
 		}

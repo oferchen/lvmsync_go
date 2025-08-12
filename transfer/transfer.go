@@ -24,9 +24,6 @@ import (
 	"lvmsync_go/internal/blocksize"
 )
 
-// Logger holds the package-wide zap.Logger used for progress and error reporting.
-var Logger *zap.Logger
-
 // Transfer encapsulates transfer state shared across operations.
 type Transfer struct {
 	Logger   *zap.Logger
@@ -34,13 +31,11 @@ type Transfer struct {
 }
 
 // NewTransfer creates a Transfer with the provided logger and wait group.
-// When wg is nil, a new instance is allocated. The package-wide Logger is
-// set to the provided logger for internal helpers that rely on it.
+// When wg is nil, a new instance is allocated.
 func NewTransfer(logger *zap.Logger, wg *sync.WaitGroup) *Transfer {
 	if wg == nil {
 		wg = &sync.WaitGroup{}
 	}
-	Logger = logger
 	return &Transfer{Logger: logger, workerWG: wg}
 }
 
@@ -77,7 +72,7 @@ func LoadChecksumState(filename string) (state *ChecksumState, err error) {
 }
 
 //revive:disable-next-line:cognitive-complexity
-func SaveChecksumState(filename string, state *ChecksumState) (err error) {
+func SaveChecksumState(filename string, state *ChecksumState, logger *zap.Logger) (err error) {
 	var file *os.File
 	file, err = os.Create(filename)
 	if err != nil {
@@ -85,8 +80,8 @@ func SaveChecksumState(filename string, state *ChecksumState) (err error) {
 	}
 	if err = file.Chmod(0o600); err != nil {
 		if closeErr := file.Close(); closeErr != nil {
-			if Logger != nil {
-				Logger.Warn("Failed to close checksum state file", zap.Error(closeErr))
+			if logger != nil {
+				logger.Warn("Failed to close checksum state file", zap.Error(closeErr))
 			}
 			return fmt.Errorf("chmod checksum state: %v; close checksum state: %w", err, closeErr)
 		}
@@ -101,7 +96,8 @@ func SaveChecksumState(filename string, state *ChecksumState) (err error) {
 	return nil
 }
 
-func prepareOutputWriter(out io.Writer, cfg *config.Config) (io.WriteCloser, *bufio.Writer, error) {
+func prepareOutputWriter(out io.Writer, cfg *config.Config, logger *zap.Logger) (io.WriteCloser, *bufio.Writer, error) {
+	_ = logger
 	limitedOut := WrapRateLimitedWriter(out, cfg.SpeedLimit)
 	compWriter, err := NewCompressionWriter(limitedOut, cfg.Compress, cfg.CompressLevel, cfg.CompressConcurrency)
 	if err != nil {
@@ -111,20 +107,20 @@ func prepareOutputWriter(out io.Writer, cfg *config.Config) (io.WriteCloser, *bu
 	return compWriter, bufOut, nil
 }
 
-func cleanupOutput(buf *bufio.Writer, w io.WriteCloser) {
+func cleanupOutput(buf *bufio.Writer, w io.WriteCloser, logger *zap.Logger) {
 	if err := buf.Flush(); err != nil {
-		if Logger != nil {
-			Logger.Warn("Failed to flush output", zap.Error(err))
+		if logger != nil {
+			logger.Warn("Failed to flush output", zap.Error(err))
 		}
 	}
 	if err := w.Close(); err != nil {
-		if Logger != nil {
-			Logger.Warn("Failed to close writer", zap.Error(err))
+		if logger != nil {
+			logger.Warn("Failed to close writer", zap.Error(err))
 		}
 	}
 }
 
-func detectBlockSize(cfg *config.Config, source string) error {
+func detectBlockSize(cfg *config.Config, source string, logger *zap.Logger) error {
 	if cfg.BlockSize != 0 {
 		return nil
 	}
@@ -133,11 +129,13 @@ func detectBlockSize(cfg *config.Config, source string) error {
 		return fmt.Errorf("auto-detect block size: %w", err)
 	}
 	cfg.BlockSize = bs
-	Logger.Info("Auto-detected block size", zap.Int("block_size_bytes", cfg.BlockSize))
+	if logger != nil {
+		logger.Info("Auto-detected block size", zap.Int("block_size_bytes", cfg.BlockSize))
+	}
 	return nil
 }
 
-func gatherChangedRanges(snapshot string, blockSize int64) ([]Range, error) {
+func gatherChangedRanges(snapshot string, blockSize int64, logger *zap.Logger) ([]Range, error) {
 	metadataDevice := GetMetadataDevice(snapshot)
 	if metadataDevice == "" {
 		return nil, fmt.Errorf("failed to determine metadata device from snapshot %s", snapshot)
@@ -146,21 +144,25 @@ func gatherChangedRanges(snapshot string, blockSize int64) ([]Range, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error getting differences: %w", err)
 	}
-	Logger.Info("Changed blocks determined", zap.Int("block_count", len(ranges)))
+	if logger != nil {
+		logger.Info("Changed blocks determined", zap.Int("block_count", len(ranges)))
+	}
 	return ranges, nil
 }
 
-func prepareRanges(cfg *config.Config, snapshot, source string) ([]Range, error) {
-	if err := detectBlockSize(cfg, source); err != nil {
+func prepareRanges(cfg *config.Config, snapshot, source string, logger *zap.Logger) ([]Range, error) {
+	if err := detectBlockSize(cfg, source, logger); err != nil {
 		return nil, err
 	}
-	Logger.Info("Using block size", zap.Int("block_size_bytes", cfg.BlockSize))
+	if logger != nil {
+		logger.Info("Using block size", zap.Int("block_size_bytes", cfg.BlockSize))
+	}
 
 	_, blockSize, err := validateOffsetAndSize(0, cfg.BlockSize)
 	if err != nil {
 		return nil, err
 	}
-	ranges, err := gatherChangedRanges(snapshot, int64(blockSize))
+	ranges, err := gatherChangedRanges(snapshot, int64(blockSize), logger)
 	if err != nil {
 		return nil, err
 	}
@@ -188,7 +190,7 @@ func setupSourceFile(cfg *config.Config, source string) (*os.File, error) {
 	return srcFile, nil
 }
 
-func setupPipe(cfg *config.Config) ([2]int, func(), error) {
+func setupPipe(cfg *config.Config, logger *zap.Logger) ([2]int, func(), error) {
 	var pipeFds [2]int
 	cleanup := func() {}
 	if cfg.ZeroCopy {
@@ -197,10 +199,14 @@ func setupPipe(cfg *config.Config) ([2]int, func(), error) {
 		}
 		cleanup = func() {
 			if closeErr := syscall.Close(pipeFds[0]); closeErr != nil {
-				Logger.Warn("close pipe", zap.Int("fd", pipeFds[0]), zap.Error(closeErr))
+				if logger != nil {
+					logger.Warn("close pipe", zap.Int("fd", pipeFds[0]), zap.Error(closeErr))
+				}
 			}
 			if closeErr := syscall.Close(pipeFds[1]); closeErr != nil {
-				Logger.Warn("close pipe", zap.Int("fd", pipeFds[1]), zap.Error(closeErr))
+				if logger != nil {
+					logger.Warn("close pipe", zap.Int("fd", pipeFds[1]), zap.Error(closeErr))
+				}
 			}
 		}
 	} else {
@@ -210,16 +216,16 @@ func setupPipe(cfg *config.Config) ([2]int, func(), error) {
 }
 
 func (t *Transfer) dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer, dedup DeduplicationStrategy, handshake string) (err error) {
-	ranges, err := prepareRanges(cfg, snapshot, source)
+	ranges, err := prepareRanges(cfg, snapshot, source, t.Logger)
 	if err != nil {
 		return err
 	}
 
-	compWriter, bufOut, err := setupOutput(cfg, out, handshake)
+	compWriter, bufOut, err := setupOutput(cfg, out, handshake, t.Logger)
 	if err != nil {
 		return err
 	}
-	defer cleanupOutput(bufOut, compWriter)
+	defer cleanupOutput(bufOut, compWriter, t.Logger)
 
 	srcFile, err := setupSourceFile(cfg, source)
 	if err != nil {
@@ -227,14 +233,14 @@ func (t *Transfer) dumpChangesCore(cfg *config.Config, snapshot, source string, 
 	}
 	defer common.CloseWithErr(srcFile, &err, "close source file")
 
-	pipeFds, cleanupPipe, err := setupPipe(cfg)
+	pipeFds, cleanupPipe, err := setupPipe(cfg, t.Logger)
 	if err != nil {
 		return err
 	}
 	defer cleanupPipe()
 
-	resumeDigest := readResumeDigest(cfg)
-	startIdx := findResumeIndex(cfg, srcFile, ranges, resumeDigest)
+	resumeDigest := readResumeDigest(cfg, t.Logger)
+	startIdx := findResumeIndex(cfg, srcFile, ranges, resumeDigest, t.Logger)
 	if startIdx > 0 {
 		ranges = ranges[startIdx:]
 	}
@@ -243,32 +249,34 @@ func (t *Transfer) dumpChangesCore(cfg *config.Config, snapshot, source string, 
 	var totalBytesTransferred int64
 	var skippedBlocks int
 	var manifest *Manifest
-	totalBytesTransferred, skippedBlocks, manifest, err = iterateBlocks(cfg, ranges, srcFile, bufOut, dedup, pipeFds)
+	totalBytesTransferred, skippedBlocks, manifest, err = iterateBlocks(cfg, ranges, srcFile, bufOut, dedup, pipeFds, t.Logger)
 	if err != nil {
 		return err
 	}
-	finalizeProgress(cfg)
+	finalizeProgress(cfg, t.Logger)
 
-	logSequentialSummary(totalBytesTransferred, skippedBlocks, startTime)
-	finalizeResumeState(cfg)
+	logSequentialSummary(t.Logger, totalBytesTransferred, skippedBlocks, startTime)
+	finalizeResumeState(cfg, t.Logger)
 	if manifest != nil {
-		if Logger != nil {
-			Logger.Info("final checksum", zap.String("final_sha256", fmt.Sprintf("%x", manifest.FinalSHA256)))
+		if t.Logger != nil {
+			t.Logger.Info("final checksum", zap.String("final_sha256", fmt.Sprintf("%x", manifest.FinalSHA256)))
 		}
 	}
-	if Logger != nil {
-		_ = Logger.Sync()
+	if t.Logger != nil {
+		_ = t.Logger.Sync()
 	}
 	return nil
 }
 
 func (t *Transfer) setupDedup(cfg *config.Config) (DeduplicationStrategy, func()) {
-	dedup := NewDeduplicationStrategy(cfg)
+	dedup := NewDeduplicationStrategy(cfg, t.Logger)
 	cleanup := func() {}
 	if dedup != nil {
 		cleanup = func() {
 			if err := dedup.SaveState(); err != nil {
-				Logger.Error("Failed to save dedup state", zap.Error(err))
+				if t.Logger != nil {
+					t.Logger.Error("Failed to save dedup state", zap.Error(err))
+				}
 			}
 		}
 	}
@@ -294,10 +302,14 @@ func (t *Transfer) DumpChanges(cfg *config.Config, snapshot, source string, out 
 	dedup, cleanup := t.setupDedup(cfg)
 	if dedup != nil {
 		defer cleanup()
-		Logger.Info("Deduplication enabled", zap.String("strategy", cfg.DedupStrategy))
+		if t.Logger != nil {
+			t.Logger.Info("Deduplication enabled", zap.String("strategy", cfg.DedupStrategy))
+		}
 		return t.DumpChangesWithDeduplication(cfg, snapshot, source, out, dedup)
 	}
-	Logger.Info("Deduplication disabled, performing full block transfer")
+	if t.Logger != nil {
+		t.Logger.Info("Deduplication disabled, performing full block transfer")
+	}
 	return t.DumpChangesSequential(cfg, snapshot, source, out)
 }
 
@@ -308,14 +320,16 @@ var (
 	resumeChunk [32]byte
 )
 
-func writeResumeState(path string, chunk [32]byte) {
+func writeResumeState(logger *zap.Logger, path string, chunk [32]byte) {
 	err := os.WriteFile(path, []byte(hex.EncodeToString(chunk[:])), 0o600)
 	if err != nil {
-		Logger.Warn("Failed to update resume state", zap.Error(err))
+		if logger != nil {
+			logger.Warn("Failed to update resume state", zap.Error(err))
+		}
 	}
 }
 
-func saveResumeState(cfg *config.Config, chunk [32]byte, size int64) {
+func saveResumeState(cfg *config.Config, chunk [32]byte, size int64, logger *zap.Logger) {
 	if cfg.ResumeState == "" {
 		return
 	}
@@ -327,13 +341,13 @@ func saveResumeState(cfg *config.Config, chunk [32]byte, size int64) {
 	resumeBytes += size
 	resumeChunk = chunk
 	if resumeBytes >= 1<<30 || time.Since(resumeLast) >= 10*time.Second {
-		writeResumeState(cfg.ResumeState, resumeChunk)
+		writeResumeState(logger, cfg.ResumeState, resumeChunk)
 		resumeBytes = 0
 		resumeLast = time.Now()
 	}
 }
 
-func finalizeResumeState(cfg *config.Config) {
+func finalizeResumeState(cfg *config.Config, logger *zap.Logger) {
 	if cfg.ResumeState == "" {
 		return
 	}
@@ -342,11 +356,11 @@ func finalizeResumeState(cfg *config.Config) {
 	if resumeLast.IsZero() {
 		return
 	}
-	writeResumeState(cfg.ResumeState, resumeChunk)
+	writeResumeState(logger, cfg.ResumeState, resumeChunk)
 	resumeBytes = 0
 }
 
-func readResumeDigest(cfg *config.Config) [32]byte {
+func readResumeDigest(cfg *config.Config, logger *zap.Logger) [32]byte {
 	var out [32]byte
 	if cfg.ResumeState == "" {
 		return out
@@ -360,11 +374,13 @@ func readResumeDigest(cfg *config.Config) [32]byte {
 		return out
 	}
 	copy(out[:], b)
-	Logger.Info("Resuming from chunk", zap.String("resume_chunk", hex.EncodeToString(out[:])))
+	if logger != nil {
+		logger.Info("Resuming from chunk", zap.String("resume_chunk", hex.EncodeToString(out[:])))
+	}
 	return out
 }
 
-func findResumeIndex(cfg *config.Config, srcFile *os.File, ranges []Range, digest [32]byte) int {
+func findResumeIndex(cfg *config.Config, srcFile *os.File, ranges []Range, digest [32]byte, logger *zap.Logger) int {
 	if cfg.ResumeState == "" || digest == [32]byte{} {
 		return 0
 	}
@@ -373,14 +389,16 @@ func findResumeIndex(cfg *config.Config, srcFile *os.File, ranges []Range, diges
 		if err != nil {
 			return 0
 		}
-		data, err := ReadBlockWithRetries(cfg, srcFile, offset, cfg.ZeroCopy, [2]int{-1, -1})
+		data, err := ReadBlockWithRetries(cfg, srcFile, offset, cfg.ZeroCopy, [2]int{-1, -1}, logger)
 		if err != nil {
 			continue
 		}
 		sum := blake3.Sum256(data)
 		putBlockBuffer(data)
 		if sum == digest {
-			Logger.Info("Resuming after index", zap.Int("resume_index", i+1))
+			if logger != nil {
+				logger.Info("Resuming after index", zap.Int("resume_index", i+1))
+			}
 			return i + 1
 		}
 	}
@@ -403,7 +421,7 @@ func calculateTotalDataSize(ranges []Range) int64 {
 	return int64(total)
 }
 
-func (t *Transfer) startParallelWorkers(cfg *config.Config, srcFile *os.File, ranges []Range, resumeStart int) <-chan *BlockResult {
+func (t *Transfer) startParallelWorkers(cfg *config.Config, srcFile *os.File, ranges []Range, resumeStart int, logger *zap.Logger) <-chan *BlockResult {
 	numBlocks := len(ranges)
 	taskBuf := cfg.Parallel
 	if taskBuf < 1 {
@@ -413,7 +431,7 @@ func (t *Transfer) startParallelWorkers(cfg *config.Config, srcFile *os.File, ra
 	results := make(chan *BlockResult, taskBuf)
 	for i := 0; i < cfg.Parallel; i++ {
 		t.workerWG.Add(1)
-		go worker(cfg, srcFile, tasks, results, t.workerWG)
+		go worker(cfg, srcFile, tasks, results, t.workerWG, logger)
 	}
 
 	go func() {
@@ -429,11 +447,13 @@ func (t *Transfer) startParallelWorkers(cfg *config.Config, srcFile *os.File, ra
 
 func (t *Transfer) DumpChangesParallel(cfg *config.Config, snapshot, source string, out io.Writer) (err error) {
 	if cfg.ZeroCopy {
-		Logger.Warn("ZeroCopy mode enabled, falling back to sequential execution")
+		if t.Logger != nil {
+			t.Logger.Warn("ZeroCopy mode enabled, falling back to sequential execution")
+		}
 		return t.DumpChangesSequential(cfg, snapshot, source, out)
 	}
 
-	ranges, err := prepareRanges(cfg, snapshot, source)
+	ranges, err := prepareRanges(cfg, snapshot, source, t.Logger)
 	if err != nil {
 		return err
 	}
@@ -443,11 +463,11 @@ func (t *Transfer) DumpChangesParallel(cfg *config.Config, snapshot, source stri
 		return err
 	}
 
-	compWriter, bufOut, err := prepareOutputWriter(out, cfg)
+	compWriter, bufOut, err := prepareOutputWriter(out, cfg, t.Logger)
 	if err != nil {
 		return err
 	}
-	defer cleanupOutput(bufOut, compWriter)
+	defer cleanupOutput(bufOut, compWriter, t.Logger)
 
 	srcFile, err := setupSourceFile(cfg, source)
 	if err != nil {
@@ -455,26 +475,26 @@ func (t *Transfer) DumpChangesParallel(cfg *config.Config, snapshot, source stri
 	}
 	defer common.CloseWithErr(srcFile, &err, "close source file")
 
-	resumeDigest := readResumeDigest(cfg)
-	resumeStart := findResumeIndex(cfg, srcFile, ranges, resumeDigest)
-	results := t.startParallelWorkers(cfg, srcFile, ranges, resumeStart)
+	resumeDigest := readResumeDigest(cfg, t.Logger)
+	resumeStart := findResumeIndex(cfg, srcFile, ranges, resumeDigest, t.Logger)
+	results := t.startParallelWorkers(cfg, srcFile, ranges, resumeStart, t.Logger)
 
 	startTime := time.Now()
 	checksum := GetChecksumStrategy(cfg.ChecksumAlgorithm)
 	var totalBytesTransferred int64
 	var manifest *Manifest
-	totalBytesTransferred, manifest, err = processParallelResults(cfg, results, bufOut, checksum, totalDataSize, startTime)
+	totalBytesTransferred, manifest, err = processParallelResults(cfg, results, bufOut, checksum, totalDataSize, startTime, t.Logger)
 	if err != nil {
 		return err
 	}
-	finalizeProgress(cfg)
-	logParallelSummary(totalBytesTransferred, startTime)
-	finalizeResumeState(cfg)
-	if manifest != nil && Logger != nil {
-		Logger.Info("final checksum", zap.String("final_sha256", fmt.Sprintf("%x", manifest.FinalSHA256)))
+	finalizeProgress(cfg, t.Logger)
+	logParallelSummary(t.Logger, totalBytesTransferred, startTime)
+	finalizeResumeState(cfg, t.Logger)
+	if manifest != nil && t.Logger != nil {
+		t.Logger.Info("final checksum", zap.String("final_sha256", fmt.Sprintf("%x", manifest.FinalSHA256)))
 	}
-	if Logger != nil {
-		_ = Logger.Sync()
+	if t.Logger != nil {
+		_ = t.Logger.Sync()
 	}
 	return nil
 }
@@ -539,12 +559,14 @@ func verifyChecksum(verify bool, checksum ChecksumStrategy, data, transmitted []
 	return nil
 }
 
-func writeData(destFile *os.File, offset uint64, data []byte) error {
+func writeData(destFile *os.File, offset uint64, data []byte, logger *zap.Logger) error {
 	if offset > math.MaxInt64 {
 		return fmt.Errorf("offset %d overflows int64", offset)
 	}
 	if _, err := destFile.Seek(int64(offset), io.SeekStart); err != nil {
-		Logger.Warn("Seek error", zap.Uint64("offset", offset), zap.Error(err))
+		if logger != nil {
+			logger.Warn("Seek error", zap.Uint64("offset", offset), zap.Error(err))
+		}
 		return nil
 	}
 	if _, err := destFile.Write(data); err != nil {
@@ -553,7 +575,17 @@ func writeData(destFile *os.File, offset uint64, data []byte) error {
 	return nil
 }
 
-func processBlock(cfg *config.Config, destFile *os.File, dedup DeduplicationStrategy, verify bool, checksum ChecksumStrategy, offset uint64, transmitted, data []byte, chunkSize uint32) (bool, error) {
+func processBlock(
+	cfg *config.Config,
+	destFile *os.File,
+	dedup DeduplicationStrategy,
+	verify bool,
+	checksum ChecksumStrategy,
+	offset uint64,
+	transmitted, data []byte,
+	chunkSize uint32,
+	logger *zap.Logger,
+) (bool, error) {
 	if offset > math.MaxInt64 {
 		return false, fmt.Errorf("offset %d overflows int64", offset)
 	}
@@ -563,7 +595,7 @@ func processBlock(cfg *config.Config, destFile *os.File, dedup DeduplicationStra
 	if chunkSize == 0 || isAllZero(data) {
 		if err := punchHole(destFile, offset, cfg.BlockSize); err != nil {
 			zero := getAlignedBlockBuffer(cfg.BlockSize)
-			if err := writeData(destFile, offset, zero); err != nil {
+			if err := writeData(destFile, offset, zero, logger); err != nil {
 				putAlignedBlockBuffer(zero)
 				return false, err
 			}
@@ -578,13 +610,13 @@ func processBlock(cfg *config.Config, destFile *os.File, dedup DeduplicationStra
 		}
 		dedup.RecordTransfer(intOffset, data)
 	}
-	if err := writeData(destFile, offset, data); err != nil {
+	if err := writeData(destFile, offset, data, logger); err != nil {
 		return false, err
 	}
 	return true, nil
 }
 
-func applyBlocks(cfg *config.Config, reader *bufio.Reader, destFile *os.File, dedup DeduplicationStrategy, verify bool, checksum ChecksumStrategy) (int64, error) {
+func applyBlocks(cfg *config.Config, reader *bufio.Reader, destFile *os.File, dedup DeduplicationStrategy, verify bool, checksum ChecksumStrategy, logger *zap.Logger) (int64, error) {
 	var totalBytes int64
 	var sinceSync int64
 	headerLen := 12
@@ -608,7 +640,7 @@ func applyBlocks(cfg *config.Config, reader *bufio.Reader, destFile *os.File, de
 		if err != nil {
 			return totalBytes, err
 		}
-		written, err := processBlock(cfg, destFile, dedup, verify, checksum, offset, transmittedSum, data, chunkSize)
+		written, err := processBlock(cfg, destFile, dedup, verify, checksum, offset, transmittedSum, data, chunkSize, logger)
 		if cfg.ODirect {
 			if data != nil {
 				putAlignedBlockBuffer(data)
@@ -646,8 +678,8 @@ func (t *Transfer) processDumpDataCore(cfg *config.Config, in io.Reader, destPat
 		return fmt.Errorf("failed to create decompression reader: %w", err)
 	}
 	defer func() {
-		if closeErr := decReader.Close(); closeErr != nil && Logger != nil {
-			Logger.Warn("Failed to close decompression reader", zap.Error(closeErr))
+		if closeErr := decReader.Close(); closeErr != nil && t.Logger != nil {
+			t.Logger.Warn("Failed to close decompression reader", zap.Error(closeErr))
 		}
 	}()
 
@@ -678,16 +710,18 @@ func (t *Transfer) processDumpDataCore(cfg *config.Config, in io.Reader, destPat
 	startTime := time.Now()
 	checksum := GetChecksumStrategy(cfg.ChecksumAlgorithm)
 	var totalBytes int64
-	totalBytes, err = applyBlocks(cfg, reader, destFile, dedup, verify, checksum)
+	totalBytes, err = applyBlocks(cfg, reader, destFile, dedup, verify, checksum, t.Logger)
 	if err != nil {
 		return err
 	}
 
 	elapsed := time.Since(startTime).Seconds()
-	Logger.Info("Applied changes",
-		zap.Int64("bytes", totalBytes),
-		zap.Float64("seconds", elapsed),
-		zap.Float64("MB/s", float64(totalBytes)/elapsed/1048576.0))
+	if t.Logger != nil {
+		t.Logger.Info("Applied changes",
+			zap.Int64("bytes", totalBytes),
+			zap.Float64("seconds", elapsed),
+			zap.Float64("MB/s", float64(totalBytes)/elapsed/1048576.0))
+	}
 	return nil
 }
 
@@ -713,12 +747,16 @@ func openApplyReader(applyFile string) (io.ReadCloser, error) {
 }
 
 func (t *Transfer) applyData(cfg *config.Config, in io.Reader, destDevice string) error {
-	dedup := NewDeduplicationStrategy(cfg)
+	dedup := NewDeduplicationStrategy(cfg, t.Logger)
 	if dedup != nil {
-		Logger.Info("Applying deduplication during restore", zap.String("strategy", cfg.DedupStrategy))
+		if t.Logger != nil {
+			t.Logger.Info("Applying deduplication during restore", zap.String("strategy", cfg.DedupStrategy))
+		}
 		defer func() {
 			if err := dedup.SaveState(); err != nil {
-				Logger.Error("Failed to save dedup state", zap.Error(err))
+				if t.Logger != nil {
+					t.Logger.Error("Failed to save dedup state", zap.Error(err))
+				}
 			}
 		}()
 		return t.ProcessDumpDataWithDeduplication(cfg, in, destDevice, dedup)

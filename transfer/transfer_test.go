@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 
+	"go.uber.org/zap"
+
 	"lvmsync_go/config"
 )
 
@@ -20,7 +22,7 @@ func TestIterateBlocksOffsetOverflow(t *testing.T) {
 
 	cfg := &config.Config{BlockSize: 4096}
 	bufOut := bufio.NewWriter(io.Discard)
-	_, _, _, err := iterateBlocks(cfg, []Range{{Start: math.MaxUint64, End: math.MaxUint64}}, src, bufOut, nil, [2]int{-1, -1})
+	_, _, _, err := iterateBlocks(cfg, []Range{{Start: math.MaxUint64, End: math.MaxUint64}}, src, bufOut, nil, [2]int{-1, -1}, zap.NewNop())
 	if err == nil || !strings.Contains(err.Error(), "offset") {
 		t.Fatalf("expected offset error, got %v", err)
 	}
@@ -32,7 +34,7 @@ func TestIterateBlocksOversizedBlockSize(t *testing.T) {
 
 	cfg := &config.Config{BlockSize: int(math.MaxUint32) + 1}
 	bufOut := bufio.NewWriter(io.Discard)
-	_, _, _, err := iterateBlocks(cfg, []Range{{Start: 0, End: 0}}, src, bufOut, nil, [2]int{-1, -1})
+	_, _, _, err := iterateBlocks(cfg, []Range{{Start: 0, End: 0}}, src, bufOut, nil, [2]int{-1, -1}, zap.NewNop())
 	if err == nil || !strings.Contains(err.Error(), "block size") {
 		t.Fatalf("expected block size error, got %v", err)
 	}
@@ -41,7 +43,7 @@ func TestIterateBlocksOversizedBlockSize(t *testing.T) {
 func TestSaveResumeStatePermissions(t *testing.T) {
 	dir := t.TempDir()
 	cfg := &config.Config{ResumeState: filepath.Join(dir, "resume")}
-	saveResumeState(cfg, [32]byte{}, 1<<30)
+	saveResumeState(cfg, [32]byte{}, 1<<30, zap.NewNop())
 
 	info, err := os.Stat(cfg.ResumeState)
 	if err != nil {
@@ -81,7 +83,7 @@ func TestReadBlockHeaderOffsetOverflow(t *testing.T) {
 func TestWriteDataOffsetOverflow(t *testing.T) {
 	dest := newTempFile(t, "dest")
 	defer dest.Close()
-	err := writeData(dest, math.MaxUint64, []byte("data"))
+	err := writeData(dest, math.MaxUint64, []byte("data"), zap.NewNop())
 	if err == nil || !strings.Contains(err.Error(), "overflows int64") {
 		t.Fatalf("expected overflow error, got %v", err)
 	}

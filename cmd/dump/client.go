@@ -67,7 +67,7 @@ func CopyPipeAsync(ctx context.Context, dst io.Writer, src io.Reader) <-chan err
 // ExecuteDump selects the appropriate dump implementation based on configuration.
 func ExecuteDump(cfg *config.Config, snapshotDevice, originDevice string, out io.Writer, logger *zap.Logger) error {
 	t := transfer.NewTransfer(logger, &sync.WaitGroup{})
-	dedup := transfer.NewDeduplicationStrategy(cfg)
+	dedup := transfer.NewDeduplicationStrategy(cfg, logger)
 	if dedup != nil {
 		defer func() {
 			if err := dedup.SaveState(); err != nil {

@@ -6,6 +6,8 @@ import (
 	"io"
 	"strings"
 
+	"go.uber.org/zap"
+
 	"lvmsync_go/common"
 	"lvmsync_go/config"
 )
@@ -22,11 +24,11 @@ func composeHandshake(cfg *config.Config, mode string) common.Handshake {
 	return hs
 }
 
-func setupOutput(cfg *config.Config, out io.Writer, handshake string) (io.WriteCloser, *bufio.Writer, error) {
+func setupOutput(cfg *config.Config, out io.Writer, handshake string, logger *zap.Logger) (io.WriteCloser, *bufio.Writer, error) {
 	if err := common.WriteHandshake(out, composeHandshake(cfg, handshake)); err != nil {
 		return nil, nil, err
 	}
-	return prepareOutputWriter(out, cfg)
+	return prepareOutputWriter(out, cfg, logger)
 }
 
 func prepareParallelHandshake(cfg *config.Config) string {

@@ -3,6 +3,8 @@ package apply
 import (
 	"testing"
 
+	"go.uber.org/zap"
+
 	"lvmsync_go/config"
 )
 
@@ -16,7 +18,7 @@ func TestRun(t *testing.T) {
 
 	called := false
 	original := applyFunc
-	applyFunc = func(c *config.Config, applyFileArg, destDevice string) error {
+	applyFunc = func(c *config.Config, applyFileArg, destDevice string, _ *zap.Logger) error {
 		called = true
 		if applyFileArg != applyFile {
 			t.Fatalf("expected applyFile %s, got %s", applyFile, applyFileArg)
@@ -28,7 +30,7 @@ func TestRun(t *testing.T) {
 	}
 	defer func() { applyFunc = original }()
 
-	if err := Run(cfg, applyFile, []string{dest}); err != nil {
+	if err := Run(cfg, applyFile, []string{dest}, zap.NewNop()); err != nil {
 		t.Fatalf("Run returned error: %v", err)
 	}
 	if !called {

@@ -48,7 +48,7 @@ func TestDumpChangesSequentialLogFields(t *testing.T) {
 
 func TestReadResumeDigestLogField(t *testing.T) {
 	core, logs := observer.New(zap.InfoLevel)
-	Logger = zap.New(core)
+	logger := zap.New(core)
 
 	tmp := t.TempDir()
 	stateFile := filepath.Join(tmp, "resume")
@@ -58,7 +58,7 @@ func TestReadResumeDigestLogField(t *testing.T) {
 	}
 
 	cfg := &config.Config{ResumeState: stateFile}
-	val := readResumeDigest(cfg)
+	val := readResumeDigest(cfg, logger)
 	if val != digest {
 		t.Fatalf("expected digest match")
 	}

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/zeebo/blake3"
+	"go.uber.org/zap"
 
 	"lvmsync_go/config"
 )
@@ -25,7 +26,7 @@ func validateOffsetAndSize(offset uint64, size int) (int64, uint32, error) {
 	return int64(offset), uint32(size), nil
 }
 
-func iterateBlocks(cfg *config.Config, ranges []Range, srcFile *os.File, bufOut *bufio.Writer, dedup DeduplicationStrategy, pipeFds [2]int) (int64, int, *Manifest, error) {
+func iterateBlocks(cfg *config.Config, ranges []Range, srcFile *os.File, bufOut *bufio.Writer, dedup DeduplicationStrategy, pipeFds [2]int, logger *zap.Logger) (int64, int, *Manifest, error) {
 	var totalBytes int64
 	skippedBlocks := 0
 	var header [12]byte
@@ -36,7 +37,7 @@ func iterateBlocks(cfg *config.Config, ranges []Range, srcFile *os.File, bufOut 
 		if err != nil {
 			return totalBytes, skippedBlocks, manifest, err
 		}
-		data, err := ReadBlockWithRetries(cfg, srcFile, offset, cfg.ZeroCopy, pipeFds)
+		data, err := ReadBlockWithRetries(cfg, srcFile, offset, cfg.ZeroCopy, pipeFds, logger)
 		if err != nil {
 			return totalBytes, skippedBlocks, manifest, fmt.Errorf("error reading block at offset %d: %w", r.Start, err)
 		}
@@ -56,7 +57,7 @@ func iterateBlocks(cfg *config.Config, ranges []Range, srcFile *os.File, bufOut 
 				putBlockBuffer(data)
 				return totalBytes, skippedBlocks, manifest, fmt.Errorf("failed to write header: %w", err)
 			}
-			saveResumeState(cfg, [32]byte{}, int64(blockSize))
+			saveResumeState(cfg, [32]byte{}, int64(blockSize), logger)
 			putBlockBuffer(data)
 			totalBytes += int64(blockSize)
 			continue
@@ -74,7 +75,7 @@ func iterateBlocks(cfg *config.Config, ranges []Range, srcFile *os.File, bufOut 
 		sha.Write(data)
 		sum := blake3.Sum256(data)
 		manifest.Append(sum, int64(r.Start), int(blockSize))
-		saveResumeState(cfg, sum, int64(blockSize))
+		saveResumeState(cfg, sum, int64(blockSize), logger)
 
 		putBlockBuffer(data)
 
@@ -106,7 +107,15 @@ func writeResult(bufOut *bufio.Writer, header, data []byte) error {
 	return nil
 }
 
-func processParallelResults(cfg *config.Config, results <-chan *BlockResult, bufOut *bufio.Writer, checksum ChecksumStrategy, totalDataSize int64, startTime time.Time) (int64, *Manifest, error) {
+func processParallelResults(
+	cfg *config.Config,
+	results <-chan *BlockResult,
+	bufOut *bufio.Writer,
+	checksum ChecksumStrategy,
+	totalDataSize int64,
+	startTime time.Time,
+	logger *zap.Logger,
+) (int64, *Manifest, error) {
 	headerSize := 12
 	if cfg.VerifyChecksum {
 		headerSize += checksum.Size()
@@ -130,22 +139,22 @@ func processParallelResults(cfg *config.Config, results <-chan *BlockResult, buf
 		if res.Data != nil {
 			sha.Write(res.Data)
 			manifest.Append(res.ChunkID, int64(res.Offset), int(res.Size))
-			saveResumeState(cfg, res.ChunkID, int64(res.Size))
+			saveResumeState(cfg, res.ChunkID, int64(res.Size), logger)
 			putBlockBuffer(res.Data)
 		} else {
-			saveResumeState(cfg, res.ChunkID, 0)
+			saveResumeState(cfg, res.ChunkID, 0, logger)
 		}
 
 		totalBytesTransferred += int64(res.Size)
-		reportProgress(cfg, totalBytesTransferred, totalDataSize, res.Index, startTime)
+		reportProgress(cfg, totalBytesTransferred, totalDataSize, res.Index, startTime, logger)
 	}
 	copy(manifest.FinalSHA256[:], sha.Sum(nil))
 	return totalBytesTransferred, manifest, nil
 }
 
-func worker(cfg *config.Config, srcFile *os.File, tasks <-chan BlockTask, results chan<- *BlockResult, wg *sync.WaitGroup) {
+func worker(cfg *config.Config, srcFile *os.File, tasks <-chan BlockTask, results chan<- *BlockResult, wg *sync.WaitGroup, logger *zap.Logger) {
 	defer wg.Done()
-	unlock := pinWorkerToDevice(cfg, srcFile)
+	unlock := pinWorkerToDevice(cfg, srcFile, logger)
 	defer unlock()
 	for task := range tasks {
 		offset, blockSize, err := validateOffsetAndSize(task.R.Start, cfg.BlockSize)
@@ -153,7 +162,7 @@ func worker(cfg *config.Config, srcFile *os.File, tasks <-chan BlockTask, result
 			results <- &BlockResult{Index: task.Index, Err: err}
 			continue
 		}
-		data, err := ReadBlockWithRetries(cfg, srcFile, offset, false, [2]int{-1, -1})
+		data, err := ReadBlockWithRetries(cfg, srcFile, offset, false, [2]int{-1, -1}, logger)
 		zero := err == nil && isAllZero(data)
 		var resData []byte
 		size := blockSize

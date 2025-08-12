@@ -79,7 +79,7 @@ func TestResumeSequential(t *testing.T) {
 	if err := tr.DumpChangesParallel(cfg, snapshot, src, &buf); err != nil {
 		t.Fatalf("DumpChangesParallel failed: %v", err)
 	}
-	finalizeResumeState(cfg)
+	finalizeResumeState(cfg, zap.NewNop())
 
 	offsets := parseOffsets(t, buf.Bytes(), blockSize)
 	sort.Slice(offsets, func(i, j int) bool { return offsets[i] < offsets[j] })
@@ -103,7 +103,7 @@ func TestResumeParallel(t *testing.T) {
 	if err := tr.DumpChangesParallel(cfg, snapshot, src, &buf); err != nil {
 		t.Fatalf("DumpChangesParallel failed: %v", err)
 	}
-	finalizeResumeState(cfg)
+	finalizeResumeState(cfg, zap.NewNop())
 
 	offsets := parseOffsets(t, buf.Bytes(), blockSize)
 	sort.Slice(offsets, func(i, j int) bool { return offsets[i] < offsets[j] })
