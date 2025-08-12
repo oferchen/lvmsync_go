@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -103,5 +104,52 @@ func TestRemotePostScriptNotRunIfPreScriptFails(t *testing.T) {
 	cmds := server.Commands()
 	if len(cmds) != 1 || cmds[0] != cfg.RemotePreScript {
 		t.Fatalf("post script should not run, commands: %v", cmds)
+	}
+}
+
+// Test that post script context errors are reported distinctly
+func TestRemotePostScriptContextError(t *testing.T) {
+	server := remotetest.NewMockSSHServer(t, func(cmd string) int {
+		switch {
+		case cmd == "lvmsync --version":
+			return 0
+		case strings.HasPrefix(cmd, "lvmsync --apply - /dev/null"):
+			return 0
+		case cmd == "slow-post":
+			time.Sleep(100 * time.Millisecond)
+			return 0
+		default:
+			t.Fatalf("unexpected command: %s", cmd)
+			return 1
+		}
+	})
+	defer server.Close()
+
+	host, portStr, err := net.SplitHostPort(server.Addr)
+	if err != nil {
+		t.Fatalf("SplitHostPort: %v", err)
+	}
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		t.Fatalf("Atoi: %v", err)
+	}
+
+	cfg, cfgErr := config.DefaultConfig()
+	if cfgErr != nil {
+		t.Fatalf("DefaultConfig returned error: %v", cfgErr)
+	}
+	cfg.RemotePostScript = "slow-post"
+	cfg.SSHUser = "test"
+	cfg.SSHPort = port
+	cfg.SSHTimeout = time.Millisecond
+	cfg.SSHKeyPath = remotetest.CreateTempKey(t)
+	cfg.KnownHosts = remotetest.CreateKnownHostsFile(t, server)
+	cfg.StrictHostKeyCheck = true
+	cfg.LVMSyncPath = "lvmsync"
+
+	dest := host + ":/dev/null"
+	err = Run(cfg, "/dev/snap", dest, zap.NewNop())
+	if err == nil || !strings.Contains(err.Error(), "remote post-script context error") {
+		t.Fatalf("expected remote post-script context error, got %v", err)
 	}
 }
