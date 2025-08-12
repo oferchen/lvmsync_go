@@ -78,8 +78,10 @@ func selectAuthMethods(logger *zap.Logger, keyPath string) ([]ssh.AuthMethod, er
 	} else {
 		sshAgentSock := os.Getenv("SSH_AUTH_SOCK")
 		if sshAgentSock != "" {
-			conn, err := net.Dial("unix", sshAgentSock)
-			if err == nil {
+			conn, err := net.DialTimeout("unix", sshAgentSock, 5*time.Second)
+			if err != nil {
+				logger.Warn("ssh agent dial failed", zap.String("sock", sshAgentSock), zap.Error(err))
+			} else {
 				agentClient := agent.NewClient(conn)
 				authMethods = append(authMethods, ssh.PublicKeysCallback(func() ([]ssh.Signer, error) {
 					defer func() {
