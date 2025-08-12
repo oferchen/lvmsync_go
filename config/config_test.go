@@ -391,9 +391,7 @@ func TestApplyThroughputMode(t *testing.T) {
 }
 
 func TestValidateEscalationCommandPath(t *testing.T) {
-	oldEuid := getEuid
-	getEuid = func() int { return 1000 }
-	defer func() { getEuid = oldEuid }()
+	geteuid := func() int { return 1000 }
 
 	oldPath := os.Getenv("PATH")
 	defer os.Setenv("PATH", oldPath)
@@ -406,12 +404,12 @@ func TestValidateEscalationCommandPath(t *testing.T) {
 	os.Setenv("PATH", dir)
 
 	cfg := &Config{LVMEscalation: "sudo", SSHKeepAliveInterval: time.Second, GRPCDialTimeout: time.Second}
-	if err := cfg.Validate(); err != nil {
+	if err := cfg.ValidateWith(geteuid); err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
 	os.Setenv("PATH", "")
-	if err := cfg.Validate(); err == nil {
+	if err := cfg.ValidateWith(geteuid); err == nil {
 		t.Fatalf("expected error when command missing")
 	}
 }
@@ -647,8 +645,12 @@ func TestLoadConfigPrecedence(t *testing.T) {
 	cfgPath := writeTempConfig(t, "parallel: 1\n")
 	resetFlags([]string{"--config", cfgPath, "--parallel", "3"})
 	t.Setenv("LVMSYNC_PARALLEL", "2")
-
-	conf, err := LoadConfig()
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	fs := NewFlagSets(defaults)
+	conf, err := LoadConfig(fs, defaults)
 	if err != nil {
 		t.Fatalf("LoadConfig: %v", err)
 	}
@@ -661,7 +663,12 @@ func TestLoadConfigInvalidPath(t *testing.T) {
 	missing := filepath.Join(t.TempDir(), "missing.yaml")
 	resetFlags([]string{"--config", missing})
 
-	if _, err := LoadConfig(); err == nil || !strings.Contains(err.Error(), "error reading config file") {
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	fs := NewFlagSets(defaults)
+	if _, err := LoadConfig(fs, defaults); err == nil || !strings.Contains(err.Error(), "error reading config file") {
 		t.Fatalf("expected config file error, got %v", err)
 	}
 }

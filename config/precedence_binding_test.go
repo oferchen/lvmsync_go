@@ -15,10 +15,11 @@ func TestCLIFlagsOverrideEnvAndConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
-	registerFlags(defaults)
+	fs := NewFlagSets(defaults)
+	registerFlags(fs)
 	pflag.Parse()
 
-	v, err := buildViper()
+	v, err := buildViper(fs)
 	if err != nil {
 		t.Fatalf("buildViper: %v", err)
 	}
@@ -41,10 +42,11 @@ func TestEnvOverridesConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
-	registerFlags(defaults)
+	fs := NewFlagSets(defaults)
+	registerFlags(fs)
 	pflag.Parse()
 
-	v, err := buildViper()
+	v, err := buildViper(fs)
 	if err != nil {
 		t.Fatalf("buildViper: %v", err)
 	}
@@ -74,10 +76,11 @@ func TestFlagSetsBindToViper(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
-	registerFlags(defaults)
+	fs := NewFlagSets(defaults)
+	registerFlags(fs)
 	pflag.Parse()
 
-	v, err := buildViper()
+	v, err := buildViper(fs)
 	if err != nil {
 		t.Fatalf("buildViper: %v", err)
 	}
@@ -114,10 +117,11 @@ func TestSSHUserCLIOverridesEnvAndConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
-	registerFlags(defaults)
+	fs := NewFlagSets(defaults)
+	registerFlags(fs)
 	pflag.Parse()
 
-	v, err := buildViper()
+	v, err := buildViper(fs)
 	if err != nil {
 		t.Fatalf("buildViper: %v", err)
 	}
@@ -140,10 +144,11 @@ func TestSSHUserEnvOverridesConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
-	registerFlags(defaults)
+	fs := NewFlagSets(defaults)
+	registerFlags(fs)
 	pflag.Parse()
 
-	v, err := buildViper()
+	v, err := buildViper(fs)
 	if err != nil {
 		t.Fatalf("buildViper: %v", err)
 	}
@@ -166,10 +171,11 @@ func TestSSHHostCLIOverridesEnvAndConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
-	registerFlags(defaults)
+	fs := NewFlagSets(defaults)
+	registerFlags(fs)
 	pflag.Parse()
 
-	v, err := buildViper()
+	v, err := buildViper(fs)
 	if err != nil {
 		t.Fatalf("buildViper: %v", err)
 	}
@@ -192,10 +198,11 @@ func TestSSHHostEnvOverridesConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
-	registerFlags(defaults)
+	fs := NewFlagSets(defaults)
+	registerFlags(fs)
 	pflag.Parse()
 
-	v, err := buildViper()
+	v, err := buildViper(fs)
 	if err != nil {
 		t.Fatalf("buildViper: %v", err)
 	}

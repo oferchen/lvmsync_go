@@ -55,7 +55,12 @@ func resetFlags(args []string) {
 
 func TestServeFlagParsing(t *testing.T) {
 	resetFlags([]string{"--serve", "--serve_listen", "localhost:9900", "--serve_protocol", "p", "--serve_algorithm", "a", "--serve_test_space", "t", "--serve_policy", "accept", "--allow_insecure"})
-	cfg, err := config.LoadConfig()
+	defaults, err := config.DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	fs := config.NewFlagSets(defaults)
+	cfg, err := config.LoadConfig(fs, defaults)
 	if err != nil {
 		t.Fatalf("LoadConfig: %v", err)
 	}

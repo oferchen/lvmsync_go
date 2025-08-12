@@ -35,19 +35,48 @@ var (
 	SupportedChecksumAlgorithms = []string{"sha256", "blake3", "blake3-512"}
 )
 
-var (
-	generalFlags     *pflag.FlagSet
-	sshFlags         *pflag.FlagSet
-	remoteFlags      *pflag.FlagSet
-	dedupFlags       *pflag.FlagSet
-	compressionFlags *pflag.FlagSet
-	lvmFlags         *pflag.FlagSet
-	grpcFlags        *pflag.FlagSet
-	transportFlags   *pflag.FlagSet
-	serveFlags       *pflag.FlagSet
-)
+// FlagSets groups the flag sets for different configuration areas.
+type FlagSets struct {
+	General     *pflag.FlagSet
+	SSH         *pflag.FlagSet
+	Remote      *pflag.FlagSet
+	Dedup       *pflag.FlagSet
+	Compression *pflag.FlagSet
+	LVM         *pflag.FlagSet
+	GRPC        *pflag.FlagSet
+	Transport   *pflag.FlagSet
+	Serve       *pflag.FlagSet
+}
 
-var getEuid = os.Geteuid
+// NewFlagSets constructs grouped flag sets using the provided defaults.
+func NewFlagSets(cfg *Config) *FlagSets {
+	return &FlagSets{
+		General:     initGeneralFlags(cfg),
+		SSH:         initSSHFlags(cfg),
+		Remote:      initRemoteFlags(cfg),
+		Dedup:       initDedupFlags(cfg),
+		Compression: initCompressionFlags(cfg),
+		LVM:         initLVMFlags(cfg),
+		GRPC:        initGRPCFlags(cfg),
+		Transport:   initTransportFlags(cfg),
+		Serve:       initServeFlags(cfg),
+	}
+}
+
+// All returns all flag sets in a stable order.
+func (f *FlagSets) All() []*pflag.FlagSet {
+	return []*pflag.FlagSet{
+		f.General,
+		f.SSH,
+		f.Remote,
+		f.Dedup,
+		f.Compression,
+		f.LVM,
+		f.GRPC,
+		f.Transport,
+		f.Serve,
+	}
+}
 
 type Config struct {
 	ConfigFile            string        `mapstructure:"config"`
@@ -573,18 +602,6 @@ func initServeFlags(cfg *Config) *pflag.FlagSet {
 	return fs
 }
 
-func initFlagSets(defaultCfg *Config) {
-	generalFlags = initGeneralFlags(defaultCfg)
-	sshFlags = initSSHFlags(defaultCfg)
-	remoteFlags = initRemoteFlags(defaultCfg)
-	dedupFlags = initDedupFlags(defaultCfg)
-	compressionFlags = initCompressionFlags(defaultCfg)
-	lvmFlags = initLVMFlags(defaultCfg)
-	grpcFlags = initGRPCFlags(defaultCfg)
-	transportFlags = initTransportFlags(defaultCfg)
-	serveFlags = initServeFlags(defaultCfg)
-}
-
 func printFlagSetUsage(out io.Writer, fs *pflag.FlagSet) {
 	if fs == nil {
 		return
@@ -595,38 +612,22 @@ func printFlagSetUsage(out io.Writer, fs *pflag.FlagSet) {
 	fmt.Fprintln(out)
 }
 
-func registerFlags(defaultCfg *Config) {
-	initFlagSets(defaultCfg)
-	flagSets := allFlagSets()
-	for _, fs := range flagSets {
+func registerFlags(flagSets *FlagSets) {
+	for _, fs := range flagSets.All() {
 		pflag.CommandLine.AddFlagSet(fs)
 	}
 	pflag.CommandLine.Usage = func() {
 		out := pflag.CommandLine.Output()
 		fmt.Fprintln(out, "Usage of", os.Args[0]+":")
 		fmt.Fprintln(out)
-		for _, fs := range flagSets {
+		for _, fs := range flagSets.All() {
 			printFlagSetUsage(out, fs)
 		}
 	}
 	pflag.Usage = pflag.CommandLine.Usage
 }
 
-func allFlagSets() []*pflag.FlagSet {
-	return []*pflag.FlagSet{
-		generalFlags,
-		sshFlags,
-		remoteFlags,
-		dedupFlags,
-		compressionFlags,
-		lvmFlags,
-		grpcFlags,
-		transportFlags,
-		serveFlags,
-	}
-}
-
-func buildViper() (*viper.Viper, error) {
+func buildViper(flagSets *FlagSets) (*viper.Viper, error) {
 	v := viper.New()
 	v.SetConfigName("config")
 	v.SetConfigType("yaml")
@@ -635,7 +636,7 @@ func buildViper() (*viper.Viper, error) {
 	v.SetEnvPrefix("LVMSYNC")
 	v.AutomaticEnv()
 
-	for _, fs := range allFlagSets() {
+	for _, fs := range flagSets.All() {
 		if err := v.BindPFlags(fs); err != nil {
 			return nil, err
 		}
@@ -649,22 +650,18 @@ func buildViper() (*viper.Viper, error) {
 	return v, nil
 }
 
-func LoadConfig() (*Config, error) {
-	defaultCfg, err := DefaultConfig()
-	if err != nil {
-		return nil, err
-	}
-	registerFlags(defaultCfg)
+func LoadConfig(flagSets *FlagSets, defaults *Config) (*Config, error) {
+	registerFlags(flagSets)
 	pflag.Parse()
 
-	v, err := buildViper()
+	v, err := buildViper(flagSets)
 	if err != nil {
 		return nil, err
 	}
 
 	builder := &Builder{
 		v:        v,
-		defaults: defaultCfg,
+		defaults: defaults,
 	}
 	conf, err := builder.Build()
 	if err != nil {
@@ -674,7 +671,11 @@ func LoadConfig() (*Config, error) {
 	return conf, nil
 }
 
-func (c *Config) Validate() error {
+// Validate verifies configuration values using the real OS euid.
+func (c *Config) Validate() error { return c.ValidateWith(os.Geteuid) }
+
+// ValidateWith verifies configuration values using the provided geteuid function.
+func (c *Config) ValidateWith(geteuid func() int) error {
 	if c.SSHKeepAliveInterval <= 0 {
 		return fmt.Errorf("ssh keepalive interval must be > 0")
 	}
@@ -695,7 +696,7 @@ func (c *Config) Validate() error {
 			return fmt.Errorf("target volume group %q does not exist or is inaccessible: %w", c.TargetVolumeGroup, err)
 		}
 	}
-	if getEuid() != 0 {
+	if geteuid() != 0 {
 		parts := strings.Fields(c.LVMEscalation)
 		if len(parts) == 0 {
 			return fmt.Errorf("lvm escalation command is empty")

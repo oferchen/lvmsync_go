@@ -88,7 +88,7 @@ func TestStartGRPCServerServeError(t *testing.T) {
 	newServer = func(conf grpcserver.Config, agent lvmlib.Agent) (grpcServer, error) {
 		return &failingServer{err: srvErr}, nil
 	}
-	cleanup, errCh, err := StartGRPCServer(cfg, logger)
+	cleanup, errCh, err := StartGRPCServer(context.Background(), cfg, logger)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
