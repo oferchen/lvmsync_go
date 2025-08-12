@@ -27,7 +27,7 @@ func TestPrepareSkipSnapshot(t *testing.T) {
 	defer restore()
 
 	logger := zap.NewNop()
-	snap, monitorCh, cleanup, err := client.PrepareSnapshot(cfg, "/dev/vg/orig", logger)
+	snap, monitorCh, cleanup, err := client.PrepareSnapshot(context.Background(), cfg, "/dev/vg/orig", logger)
 	if err != nil {
 		t.Fatalf("Prepare returned error: %v", err)
 	}
@@ -80,7 +80,7 @@ func TestPrepareSnapshotCreatesSnapshot(t *testing.T) {
 	defer restoreRemove()
 
 	logger := zap.NewNop()
-	snap, monitorCh, cleanup, err := client.PrepareSnapshot(cfg, "/dev/vg/orig", logger)
+	snap, monitorCh, cleanup, err := client.PrepareSnapshot(context.Background(), cfg, "/dev/vg/orig", logger)
 	if err != nil {
 		t.Fatalf("PrepareSnapshot error: %v", err)
 	}
@@ -130,7 +130,7 @@ func TestCreateSnapshotCleanupNoPanic(t *testing.T) {
 	defer restoreRemove()
 
 	logger := zap.NewNop()
-	_, monitorCh, cleanup, err := client.PrepareSnapshot(cfg, "/dev/vg/orig", logger)
+	_, monitorCh, cleanup, err := client.PrepareSnapshot(context.Background(), cfg, "/dev/vg/orig", logger)
 	if err != nil {
 		t.Fatalf("PrepareSnapshot error: %v", err)
 	}

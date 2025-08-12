@@ -8,6 +8,8 @@ import (
 	"io"
 	"net"
 	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -61,7 +63,7 @@ func NewSSHClient(
 		Timeout:         timeout,
 	}
 	addr := fmt.Sprintf("%s:%d", host, port)
-	client, err := dialWithRetry(logger, addr, config, host, port, retries)
+	client, err := dialWithRetry(ctx, logger, addr, config, host, port, retries)
 	if err != nil {
 		return nil, err
 	}
@@ -118,10 +120,13 @@ func setupHostKeyCallback(_ bool, knownHostsPath string) (ssh.HostKeyCallback, e
 	return hostKeyCallback, nil
 }
 
-func dialWithRetry(logger *zap.Logger, addr string, config *ssh.ClientConfig, host string, port, retries int) (*ssh.Client, error) {
+func dialWithRetry(ctx context.Context, logger *zap.Logger, addr string, config *ssh.ClientConfig, host string, port, retries int) (*ssh.Client, error) {
 	var client *ssh.Client
 	var err error
 	for attempt := 0; attempt <= retries; attempt++ {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
 		client, err = ssh.Dial("tcp", addr, config)
 		if err == nil {
 			return client, nil
@@ -133,10 +138,17 @@ func dialWithRetry(logger *zap.Logger, addr string, config *ssh.ClientConfig, ho
 			zap.Error(err))
 		if attempt < retries {
 			backoff := time.Duration(1<<attempt) * time.Second
-			time.Sleep(backoff)
+			select {
+			case <-time.After(backoff):
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			}
 		}
 	}
 	logger.Error("Unable to establish SSH connection", zap.String("host", host), zap.Int("port", port), zap.Error(err))
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
 	return nil, fmt.Errorf("failed to dial SSH after %d attempts: %w", retries+1, err)
 }
 
@@ -144,11 +156,17 @@ func dialWithRetry(logger *zap.Logger, addr string, config *ssh.ClientConfig, ho
 // executable on the remote host by attempting to run it with a --version flag.
 // It returns an error if the command is missing or cannot be executed.
 func (c *SSHClient) ValidateRemoteCommand(ctx context.Context, remoteCmd string) error {
+	if strings.ContainsAny(remoteCmd, "&|;<>$`\"'!*") {
+		return fmt.Errorf("remote command contains shell metacharacters")
+	}
 	tokens := strings.Fields(remoteCmd)
 	if len(tokens) == 0 {
 		return fmt.Errorf("remote command is empty")
 	}
-	cmd := tokens[0]
+	cmd := filepath.Base(tokens[0])
+	if !regexp.MustCompile(`^[a-zA-Z0-9._-]+$`).MatchString(cmd) {
+		return fmt.Errorf("remote command %s contains invalid characters", cmd)
+	}
 	session, err := c.NewSession()
 	if err != nil {
 		return fmt.Errorf("failed to create SSH session for validation: %w", err)
