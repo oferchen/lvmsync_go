@@ -98,32 +98,43 @@ func ClientHandshake(cfg *config.Config, logger *zap.Logger) (func(), error) {
 	}
 	c := proto.NewReplicationClient(conn)
 	hs := &proto.HandshakeRequest{SectorSize: 512, Alignment: 512, MaxConcurrency: uint32(cfg.Parallel), DedupSupported: true, CompressionSupported: true}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	if _, err := handshake(ctx, c, hs); err != nil {
+	ctx, cancel := context.WithCancel(context.Background())
+	hsCtx, hsCancel := context.WithTimeout(ctx, 10*time.Second)
+	if _, err := handshake(hsCtx, c, hs); err != nil {
+		hsCancel()
+		cancel()
 		conn.Close()
 		return nil, fmt.Errorf("handshake failed: %w", err)
 	}
-	sess, err := createSession(ctx, c, "vol", "dev")
+	sess, err := createSession(hsCtx, c, "vol", "dev")
+	hsCancel()
 	if err != nil {
+		cancel()
 		conn.Close()
 		return nil, fmt.Errorf("create session: %w", err)
 	}
 	stream, err := ackStream(ctx, c, sess.GetSessionId())
 	if err != nil {
+		cancel()
 		conn.Close()
 		return nil, fmt.Errorf("ack stream: %w", err)
 	}
 	go func(id string) {
 		ticker := time.NewTicker(30 * time.Second)
 		defer ticker.Stop()
-		for range ticker.C {
-			if err := stream.Send(&proto.Ack{SessionId: id, Ok: true, Message: "ping"}); err != nil {
+		for {
+			select {
+			case <-ctx.Done():
 				return
+			case <-ticker.C:
+				if err := stream.Send(&proto.Ack{SessionId: id, Ok: true, Message: "ping"}); err != nil {
+					return
+				}
 			}
 		}
 	}(sess.GetSessionId())
 	cleanup := func() {
+		cancel()
 		stream.CloseSend()
 		conn.Close()
 	}
