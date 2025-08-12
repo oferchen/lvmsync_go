@@ -63,7 +63,9 @@ func TestRunRemoteDump(t *testing.T) {
 	defer func() { dumpChangesSequential = origDump }()
 
 	dest := host + ":/dev/null"
-	if err := RunRemoteDump(context.Background(), cfg, "snap", "origin", dest, zap.NewNop()); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := RunRemoteDump(ctx, cfg, "snap", "origin", dest, zap.NewNop()); err != nil {
 		t.Fatalf("runRemoteDump returned error: %v", err)
 	}
 
@@ -117,7 +119,9 @@ func TestRunRemoteDumpError(t *testing.T) {
 	defer func() { dumpChangesSequential = origDump }()
 
 	dest := host + ":/dev/null"
-	err = RunRemoteDump(context.Background(), cfg, "snap", "origin", dest, zap.NewNop())
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	err = RunRemoteDump(ctx, cfg, "snap", "origin", dest, zap.NewNop())
 	if err == nil || !strings.Contains(err.Error(), "remote command error") {
 		t.Fatalf("expected remote command error, got %v", err)
 	}
@@ -170,7 +174,9 @@ func TestRunRemoteDumpTimeout(t *testing.T) {
 	defer func() { dumpChangesSequential = origDump }()
 
 	dest := host + ":/dev/null"
-	err = RunRemoteDump(context.Background(), cfg, "snap", "origin", dest, zap.NewNop())
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	err = RunRemoteDump(ctx, cfg, "snap", "origin", dest, zap.NewNop())
 	if err == nil || !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("expected context deadline exceeded, got %v", err)
 	}

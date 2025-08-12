@@ -1,9 +1,11 @@
 package dump
 
 import (
+	"context"
 	"io"
 	"os"
 	"testing"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -37,7 +39,9 @@ func TestRunStdout(t *testing.T) {
 	oldStdout := os.Stdout
 	os.Stdout = w
 
-	if err = Run(cfg, "/dev/snap", "", zap.NewNop()); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err = Run(ctx, cfg, "/dev/snap", "", zap.NewNop()); err != nil {
 		t.Fatalf("Run returned error: %v", err)
 	}
 

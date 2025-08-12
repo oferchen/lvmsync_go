@@ -83,14 +83,14 @@ func ExecuteDump(cfg *config.Config, snapshotDevice, originDevice string, out io
 }
 
 // Run executes client mode transferring data to dest.
-func Run(cfg *config.Config, snapshotDevice, dest string, logger *zap.Logger) error {
+func Run(ctx context.Context, cfg *config.Config, snapshotDevice, dest string, logger *zap.Logger) error {
 	originDevice := snapshotDevice
 	if cfg.StdoutMode {
 		limitedOut := transfer.WrapRateLimitedWriter(os.Stdout, cfg.SpeedLimit)
 		return ExecuteDump(cfg, snapshotDevice, originDevice, limitedOut, logger)
 	}
 	if strings.Contains(dest, ":") {
-		return RunRemoteDump(context.Background(), cfg, snapshotDevice, originDevice, dest, logger)
+		return RunRemoteDump(ctx, cfg, snapshotDevice, originDevice, dest, logger)
 	}
 	return RunLocalDump(cfg, snapshotDevice, originDevice, dest, logger)
 }
