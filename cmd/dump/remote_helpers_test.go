@@ -121,7 +121,7 @@ func TestSetupSessionStreamsPipeErrors(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			_, _, _, err := SetupSessionStreams(tc.sess)
+			_, _, _, err := SetupSessionStreams(context.Background(), tc.sess)
 			if err == nil || !strings.Contains(err.Error(), tc.want) {
 				t.Fatalf("expected %s error, got %v", tc.want, err)
 			}

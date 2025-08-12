@@ -34,11 +34,32 @@ var (
 )
 
 // CopyPipeAsync copies data from src to dst in a new goroutine and returns a channel with the result.
-func CopyPipeAsync(dst io.Writer, src io.Reader) <-chan error {
+func CopyPipeAsync(ctx context.Context, dst io.Writer, src io.Reader) <-chan error {
 	errCh := make(chan error, 1)
 	go func() {
-		_, err := io.Copy(dst, src)
-		errCh <- err
+		defer close(errCh)
+		const chunkSize = int64(32 * 1024)
+		for {
+			select {
+			case <-ctx.Done():
+				errCh <- ctx.Err()
+				return
+			default:
+				n, err := io.Copy(dst, io.LimitReader(src, chunkSize))
+				if err != nil {
+					if errors.Is(err, io.EOF) {
+						errCh <- nil
+					} else {
+						errCh <- err
+					}
+					return
+				}
+				if n < chunkSize {
+					errCh <- nil
+					return
+				}
+			}
+		}
 	}()
 	return errCh
 }
@@ -113,7 +134,7 @@ type pipeSession interface {
 }
 
 // SetupSessionStreams wires local stdio to the remote session.
-func SetupSessionStreams(session pipeSession) (io.WriteCloser, <-chan error, <-chan error, error) {
+func SetupSessionStreams(ctx context.Context, session pipeSession) (io.WriteCloser, <-chan error, <-chan error, error) {
 	stdoutPipe, err := session.StdoutPipe()
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to get stdout pipe: %w", err)
@@ -122,8 +143,8 @@ func SetupSessionStreams(session pipeSession) (io.WriteCloser, <-chan error, <-c
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to get stderr pipe: %w", err)
 	}
-	stdoutErrCh := CopyPipeAsync(os.Stdout, stdoutPipe)
-	stderrErrCh := CopyPipeAsync(os.Stderr, stderrPipe)
+	stdoutErrCh := CopyPipeAsync(ctx, os.Stdout, stdoutPipe)
+	stderrErrCh := CopyPipeAsync(ctx, os.Stderr, stderrPipe)
 
 	remoteStdin, err := session.StdinPipe()
 	if err != nil {
@@ -169,8 +190,8 @@ func WaitForRemoteCompletion(session waitSession, stdoutErrCh, stderrErrCh <-cha
 }
 
 // ExecuteRemoteCommand runs the remote apply command over SSH.
-func ExecuteRemoteCommand(cfg *config.Config, client *remote.SSHClient, destDevice, snapshotDevice, originDevice string, logger *zap.Logger) (err error) {
-	if err = client.ValidateRemoteCommand(context.Background(), cfg.LVMSyncPath); err != nil {
+func ExecuteRemoteCommand(ctx context.Context, cfg *config.Config, client *remote.SSHClient, destDevice, snapshotDevice, originDevice string, logger *zap.Logger) (err error) {
+	if err = client.ValidateRemoteCommand(ctx, cfg.LVMSyncPath); err != nil {
 		return fmt.Errorf("remote command validation failed: %w", err)
 	}
 
@@ -180,7 +201,7 @@ func ExecuteRemoteCommand(cfg *config.Config, client *remote.SSHClient, destDevi
 	}
 	defer closeSession(session, &err)
 
-	remoteStdin, stdoutErrCh, stderrErrCh, err := SetupSessionStreams(session)
+	remoteStdin, stdoutErrCh, stderrErrCh, err := SetupSessionStreams(ctx, session)
 	if err != nil {
 		return err
 	}
@@ -236,7 +257,7 @@ func RunRemoteDump(cfg *config.Config, snapshotDevice, originDevice, dest string
 		}()
 	}
 
-	return ExecuteRemoteCommand(cfg, client, destDevice, snapshotDevice, originDevice, logger)
+	return ExecuteRemoteCommand(ctx, cfg, client, destDevice, snapshotDevice, originDevice, logger)
 }
 
 // SelectTransport chooses and logs the transport if configured.
