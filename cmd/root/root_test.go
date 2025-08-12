@@ -52,7 +52,7 @@ func TestSetupGRPCSuccess(t *testing.T) {
 	srvErrCh <- nil
 	<-done
 	cleanupClient()
-	if errCh == nil {
+	if hbErrCh == nil {
 		t.Fatalf("expected error channel")
 	}
 	if !srvCleanCalled || !clientCleanCalled {
@@ -120,7 +120,7 @@ func TestSetupGRPCServeFailurePropagation(t *testing.T) {
 		startGRPCServer = origStart
 		clientHandshake = origClient
 	}()
-	startGRPCServer = func(_ *config.Config, _ *zap.Logger) (func(), chan error, error) {
+	startGRPCServer = func(_ context.Context, _ *config.Config, _ *zap.Logger) (func(), <-chan error, error) {
 		ch := make(chan error, 1)
 		ch <- errors.New("serve boom")
 		return func() { srvCleanupCalled = true; close(ch) }, ch, nil
@@ -129,7 +129,7 @@ func TestSetupGRPCServeFailurePropagation(t *testing.T) {
 		t.Fatalf("client handshake should not be called")
 		return nil, nil, nil
 	}
-	if _, _, _, err := SetupGRPC(cfg, logger); err == nil {
+	if _, _, _, err := SetupGRPC(context.Background(), cfg, logger); err == nil {
 		t.Fatalf("expected error from serve failure")
 	}
 	if !srvCleanupCalled {
@@ -204,7 +204,11 @@ func TestRunHeartbeatError(t *testing.T) {
 	hbErrCh := make(chan error, 1)
 	hbErrCh <- errors.New("hb fail")
 
-	startGRPCServer = func(*config.Config, *zap.Logger) (func(), error) { return func() {}, nil }
+	startGRPCServer = func(context.Context, *config.Config, *zap.Logger) (func(), <-chan error, error) {
+		ch := make(chan error, 1)
+		close(ch)
+		return func() {}, ch, nil
+	}
 	clientHandshake = func(*config.Config, *zap.Logger) (func(), chan error, error) {
 		return func() {}, hbErrCh, nil
 	}
