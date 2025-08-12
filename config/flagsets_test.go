@@ -214,6 +214,8 @@ func TestInitTransportFlags(t *testing.T) {
 		{"concurrency", strconv.Itoa(cfg.Concurrency)},
 		{"tcp_port", strconv.Itoa(cfg.TCPPort)},
 		{"h2_port", strconv.Itoa(cfg.H2Port)},
+		{"tcp_parallel", strconv.Itoa(cfg.TCPParallel)},
+		{"tcp_lowat", strconv.Itoa(cfg.TCPNotSentLowAt)},
 	}
 	for _, tt := range cases {
 		f := fs.Lookup(tt.name)

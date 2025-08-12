@@ -212,6 +212,8 @@ Recent refactors added several configuration options:
 - `--transport` selects the ordered list of transports to try.
 - `--quic_listen` and `--quic_connect` configure QUIC addresses.
 - `--tcp_port`, `--h2_port`, and `--ssh_port` expose TCP+TLS, HTTP/2, and SSH endpoints.
+- `--tcp_parallel` controls the number of parallel TCP connections (2–4).
+- `--tcp_lowat` sets TCP_NOTSENT_LOWAT to limit unsent bytes.
 - `--sync_interval` controls how many bytes are written between `fdatasync` calls.
 - `--checkpoint_interval` sets how often resume state is persisted.
 - `--block_size` sets the transfer block size (use `auto` for detection).
@@ -336,6 +338,8 @@ LVMSYNC_GRPC_GRPC_PORT=9443 LVMSYNC_GRPC_TLS_CERT=cert.pem lvmsync-grpcd
 | `--quic_connect` | `LVMSYNC_QUIC_CONNECT` | `quic_connect` | QUIC connect address |
 | `--tcp_port` | `LVMSYNC_TCP_PORT` | `tcp_port` | TCP+TLS port |
 | `--h2_port` | `LVMSYNC_H2_PORT` | `h2_port` | HTTP/2 TLS port |
+| `--tcp_parallel` | `LVMSYNC_TCP_PARALLEL` | `tcp_parallel` | Number of parallel TCP connections |
+| `--tcp_lowat` | `LVMSYNC_TCP_LOWAT` | `tcp_lowat` | TCP_NOTSENT_LOWAT in bytes |
 | `--grpc_listen` | `LVMSYNC_GRPC_LISTEN` | `grpc_listen` | gRPC listen address |
 | `--grpc_connect` | `LVMSYNC_GRPC_CONNECT` | `grpc_connect` | gRPC server address to connect to |
 | `--grpc_port` | `LVMSYNC_GRPC_PORT` | `grpc_port` | gRPC port to listen on |
@@ -513,6 +517,8 @@ Transports are pluggable and selected in order using the `--transport` flag. LVM
 | `--quic_cc` | `LVMSYNC_QUIC_CC` | QUIC congestion control algorithm |
 | `--h2_port` | `LVMSYNC_H2_PORT` | HTTP/2 TLS port |
 | `--tcp_port` | `LVMSYNC_TCP_PORT` | TCP+TLS port |
+| `--tcp_parallel` | `LVMSYNC_TCP_PARALLEL` | Number of parallel TCP connections |
+| `--tcp_lowat` | `LVMSYNC_TCP_LOWAT` | TCP_NOTSENT_LOWAT in bytes |
 | `--ssh_port` | `LVMSYNC_SSH_PORT` | SSH port |
 
 ### Usage examples
