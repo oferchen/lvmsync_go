@@ -159,4 +159,3 @@ func HasAVX2() bool {
 func HasNEON() bool {
 	return cpu.ARM64.HasASIMD || cpu.ARM.HasNEON
 }
-
