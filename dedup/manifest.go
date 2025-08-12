@@ -8,6 +8,7 @@ import (
 
 // ManifestEntry describes a single chunk in the output stream.
 type ManifestEntry struct {
+	// Hash stores the BLAKE3-256 digest of the chunk for integrity checks.
 	Hash   [32]byte `json:"hash"`
 	Offset int64    `json:"offset"`
 	Length int      `json:"length"`

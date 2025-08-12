@@ -10,18 +10,18 @@ import (
 	"sync"
 
 	"github.com/bits-and-blooms/bloom/v3"
-	"github.com/zeebo/blake3"
 	"golang.org/x/sys/unix"
 
 	"lvmsync_go/config"
 	"lvmsync_go/dedup"
+	hashutil "lvmsync_go/hash"
 )
 
-// CDCDedup implements a simple FastCDC based deduplication helper. It
-// chunks data using the dedup.Chunker and records per chunk hashes in a
-// Bloom filter and an optional mmap backed bitset index. Each chunk is
-// hashed with BLAKE3 while a final SHA-256 digest is computed over the
-// chunk digests.
+// CDCDedup implements a simple FastCDC based deduplication helper.
+// It chunks data using the dedup.Chunker and records per chunk hashes in a
+// Bloom filter and an optional mmap backed bitset index. Chunk data is
+// hashed with BLAKE3 for integrity while fast XXH3 hashes feed the Bloom
+// filter. A final SHA-256 digest is computed over the BLAKE3 chunk digests.
 type CDCDedup struct {
 	chunker   *dedup.Chunker
 	bloom     *bloom.BloomFilter
@@ -82,17 +82,20 @@ func (c *CDCDedup) ChunkAndHash(p []byte) ([]dedup.Chunk, [32]byte, error) {
 		if err != nil && err != io.EOF {
 			return nil, [32]byte{}, err
 		}
-		digest := blake3.Sum256(ch.Data)
-		if !c.bloom.Test(digest[:]) {
-			c.bloom.Add(digest[:])
+		b3 := hashutil.SumBLAKE3(ch.Data)
+		xx := hashutil.SumXXH3(ch.Data)
+		var buf [8]byte
+		binary.LittleEndian.PutUint64(buf[:], xx)
+		if !c.bloom.Test(buf[:]) {
+			c.bloom.Add(buf[:])
 		}
 		if len(c.index) > 0 {
-			idx := binary.LittleEndian.Uint64(digest[:8]) & c.indexMask
+			idx := xx & c.indexMask
 			byteIdx := idx >> 3
 			bit := byte(1 << (idx & 7))
 			c.index[byteIdx] |= bit
 		}
-		c.sha.Write(digest[:])
+		c.sha.Write(b3[:])
 		ch.Offset = offset
 		out = append(out, ch)
 		offset += int64(ch.Length)
