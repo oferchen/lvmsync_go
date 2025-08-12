@@ -3,9 +3,11 @@ package root
 import (
 	"context"
 	"errors"
+	"os"
 	"testing"
 	"time"
 
+	"github.com/spf13/pflag"
 	"lvmsync_go/config"
 
 	"go.uber.org/zap"
@@ -176,5 +178,53 @@ func TestExecuteClient(t *testing.T) {
 	}
 	if !called {
 		t.Fatalf("executeClientFn not called")
+	}
+}
+
+func TestRunHeartbeatError(t *testing.T) {
+	cfg := &config.Config{StdoutMode: true}
+	logger := zap.NewNop()
+
+	origStart := startGRPCServer
+	origClient := clientHandshake
+	origSetup := setupSignalHandle
+	origPrepare := prepareSnapshotFn
+	origExec := executeClientFn
+	origSelect := selectTransport
+	defer func() {
+		startGRPCServer = origStart
+		clientHandshake = origClient
+		setupSignalHandle = origSetup
+		prepareSnapshotFn = origPrepare
+		executeClientFn = origExec
+		selectTransport = origSelect
+	}()
+
+	hbErrCh := make(chan error, 1)
+	hbErrCh <- errors.New("hb fail")
+
+	startGRPCServer = func(*config.Config, *zap.Logger) (func(), error) { return func() {}, nil }
+	clientHandshake = func(*config.Config, *zap.Logger) (func(), chan error, error) {
+		return func() {}, hbErrCh, nil
+	}
+	selectTransport = func(*config.Config, *zap.Logger) error { return nil }
+
+	sigErrCh := make(chan error, 1)
+	setupSignalHandle = func(*config.Config, *string, *zap.Logger) (chan os.Signal, chan error) {
+		return nil, sigErrCh
+	}
+	prepareSnapshotFn = func(*config.Config, string, *zap.Logger) (string, chan error, func(), error) {
+		return "snap", nil, func() {}, nil
+	}
+	executeClientFn = func(f func(string, string) error, snap, dest string, sigErrCh, monitorErrCh chan error) error {
+		return <-sigErrCh
+	}
+
+	pflag.CommandLine = pflag.NewFlagSet("test", pflag.ContinueOnError)
+	pflag.CommandLine.Parse([]string{"vol"})
+
+	err := Run(cfg, logger)
+	if err == nil || err.Error() != "hb fail" {
+		t.Fatalf("expected heartbeat error, got %v", err)
 	}
 }

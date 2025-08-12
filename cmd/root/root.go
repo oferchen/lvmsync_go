@@ -145,11 +145,17 @@ func Run(cfg *config.Config, logger *zap.Logger) error {
 		cleanupSrv()
 	}()
 	defer cleanupClient()
-	_ = hbErrCh
 
 	var snapshotPath string
 	signals, sigErrCh := setupSignalHandle(cfg, &snapshotPath, logger)
 	defer signal.Stop(signals)
+
+	go func() {
+		if err := <-hbErrCh; err != nil {
+			logger.Error("heartbeat error", zap.Error(err))
+			sigErrCh <- err
+		}
+	}()
 
 	args := pflag.Args()
 	if (cfg.StdoutMode && len(args) < 1) || (!cfg.StdoutMode && len(args) < 2) {
