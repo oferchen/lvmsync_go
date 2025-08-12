@@ -34,9 +34,15 @@ func main() {
 	}
 	defer syncLogger(logger)
 
+	fatal := func(msg string, err error) {
+		logger.Error(msg, zap.Error(err))
+		syncLogger(logger)
+		exitFunc(1)
+	}
+
 	v, err := initConfig(os.Args[1:])
 	if err != nil {
-		logger.Error("init config", zap.Error(err))
+		fatal("init config", err)
 		syncLogger(logger)
 		exitFunc(1)
 		return
@@ -52,26 +58,20 @@ func main() {
 	agent := lvmagent.NewAgent(nil, nil)
 	srv, srvErr := newServer(cfg, agent)
 	if srvErr != nil {
-		logger.Error("init gRPC server", zap.Error(srvErr))
-		syncLogger(logger)
-		exitFunc(1)
+		fatal("init gRPC server", srvErr)
 		return
 	}
 
 	port := v.GetInt("grpc-port")
 	lis, listenErr := listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
 	if listenErr != nil {
-		logger.Error("listen", zap.Error(listenErr))
-		syncLogger(logger)
-		exitFunc(1)
+		fatal("listen", listenErr)
 		return
 	}
 
 	logger.Info("gRPC server listening", zap.Int("port", port))
-	if serveErr := serve(srv, lis); serveErr != nil {
-		logger.Error("serve", zap.Error(serveErr))
-		syncLogger(logger)
-		exitFunc(1)
+	if serveErr := srv.Serve(lis); serveErr != nil {
+		fatal("serve", serveErr)
 		return
 	}
 }
