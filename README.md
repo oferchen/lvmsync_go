@@ -234,7 +234,7 @@ incoming client. The server listens on `--serve_listen` (default `:9000`) and
 expects the client to present matching `--serve_protocol`, `--serve_algorithm`,
 and optional `--serve_test_space` values. A mismatched value aborts the
 connection. Transfers proceed only when `--serve_policy` is `accept` (the
-default). The server closes the stream, QUIC connection, and listener when the transfer completes, logging any shutdown errors at `warn` level, and exits gracefully when it receives `SIGINT` or `SIGTERM`.
+default). Listener and stream acceptance are bounded by `--serve_accept_timeout` (default `30s`). The server closes the stream, QUIC connection, and listener when the transfer completes, logging any shutdown errors at `warn` level, and exits gracefully when it receives `SIGINT` or `SIGTERM`.
 
 ```sh
 lvmsync --serve --serve_listen :9000
@@ -356,6 +356,7 @@ LVMSYNC_GRPC_GRPC_PORT=9443 LVMSYNC_GRPC_TLS_CERT=cert.pem lvmsync-grpcd
 | `--serve_algorithm` | `LVMSYNC_SERVE_ALGORITHM` | `serve_algorithm` | `sha256` | Algorithm identifier to negotiate |
 | `--serve_test_space` | `LVMSYNC_SERVE_TEST_SPACE` | `serve_test_space` | `""` | Optional test-space string |
 | `--serve_policy` | `LVMSYNC_SERVE_POLICY` | `serve_policy` | `accept` | Transfer policy (non-`accept` rejects) |
+| `--serve_accept_timeout` | `LVMSYNC_SERVE_ACCEPT_TIMEOUT` | `serve_accept_timeout` | `30s` | Timeout for listener and stream acceptance |
 
 CLI:
 
@@ -819,6 +820,18 @@ timeouts or cancellations are reported separately.
 | `--tls_key`        | TLS key file                 | `""`            |
 | `--ca_cert`        | CA certificate file          | `""`            |
 | `--allow_insecure` | Allow insecure (disable TLS) | `false`         |
+
+#### Serve Options
+
+| Option | Description | Default |
+| ------ | ----------- | ------- |
+| `--serve` | Run QUIC server instead of client | `false` |
+| `--serve_listen` | QUIC listen address | `:9000` |
+| `--serve_protocol` | Protocol name to negotiate | `lvmsync` |
+| `--serve_algorithm` | Algorithm identifier to negotiate | `sha256` |
+| `--serve_test_space` | Optional test-space string | `""` |
+| `--serve_policy` | Transfer policy (non-`accept` rejects) | `accept` |
+| `--serve_accept_timeout` | Timeout for listener and stream acceptance | `30s` |
 
 ### Examples
 
