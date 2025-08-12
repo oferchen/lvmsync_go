@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"runtime"
 
 	"go.uber.org/zap"
 
@@ -14,11 +15,20 @@ var (
 	syncLoggerFunc    = rootcmd.SyncLogger
 	exitFunc          = os.Exit
 	exampleLoggerFunc = func() *zap.Logger { return zap.NewExample() }
+	runtimeGOOS       = runtime.GOOS
 )
 
 func syncLogger(logger *zap.Logger) { syncLoggerFunc(logger) }
 
 func main() {
+	if runtimeGOOS != "linux" {
+		tmpLogger := exampleLoggerFunc()
+		tmpLogger.Error("unsupported platform", zap.String("goos", runtimeGOOS))
+		_ = tmpLogger.Sync()
+		exitFunc(1)
+		return
+	}
+
 	cfg, logger, err := configureFunc()
 	if err != nil {
 		tmpLogger := exampleLoggerFunc()

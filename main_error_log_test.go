@@ -92,3 +92,37 @@ func TestMainLogsConfigError(t *testing.T) {
 		t.Fatalf("logger was not synced")
 	}
 }
+
+func TestMainErrorsOnNonLinux(t *testing.T) {
+	oldGOOS := runtimeGOOS
+	runtimeGOOS = "darwin"
+	defer func() { runtimeGOOS = oldGOOS }()
+
+	oldExit := exitFunc
+	var code int
+	exitFunc = func(c int) { code = c }
+	defer func() { exitFunc = oldExit }()
+
+	core, logs := observer.New(zap.ErrorLevel)
+	synced := false
+	tmpLogger := zap.New(&syncCheckCore{Core: core, synced: &synced})
+
+	oldExample := exampleLoggerFunc
+	exampleLoggerFunc = func() *zap.Logger { return tmpLogger }
+	defer func() { exampleLoggerFunc = oldExample }()
+
+	main()
+
+	if code != 1 {
+		t.Fatalf("expected exit code 1, got %d", code)
+	}
+
+	entries := logs.FilterMessage("unsupported platform").All()
+	if len(entries) != 1 {
+		t.Fatalf("expected one log entry, got %d", len(entries))
+	}
+
+	if !synced {
+		t.Fatalf("logger was not synced")
+	}
+}
