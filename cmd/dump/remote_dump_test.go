@@ -170,7 +170,7 @@ func TestRunRemoteDumpTimeout(t *testing.T) {
 	defer func() { dumpChangesSequential = origDump }()
 
 	dest := host + ":/dev/null"
-	err = RunRemoteDump(cfg, "snap", "origin", dest, zap.NewNop())
+	err = RunRemoteDump(context.Background(), cfg, "snap", "origin", dest, zap.NewNop())
 	if err == nil || !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("expected context deadline exceeded, got %v", err)
 	}

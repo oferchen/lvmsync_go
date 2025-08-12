@@ -33,7 +33,7 @@ func TestSetupSSHClient(t *testing.T) {
 		}
 		defer func() { newSSHClient = remote.NewSSHClient }()
 
-		client, cancel, err := SetupSSHClient(cfg, "dest", zap.NewNop())
+		client, cancel, err := SetupSSHClient(context.Background(), cfg, "dest", zap.NewNop())
 		if err != nil {
 			t.Fatalf("SetupSSHClient returned error: %v", err)
 		}
@@ -52,7 +52,7 @@ func TestSetupSSHClient(t *testing.T) {
 		}
 		defer func() { newSSHClient = remote.NewSSHClient }()
 
-		_, _, err := SetupSSHClient(cfg, "dest", zap.NewNop())
+		_, _, err := SetupSSHClient(context.Background(), cfg, "dest", zap.NewNop())
 		if err == nil || !strings.Contains(err.Error(), "failed to create SSH client") {
 			t.Fatalf("expected wrapped error, got %v", err)
 		}
