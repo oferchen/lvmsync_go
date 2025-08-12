@@ -669,6 +669,9 @@ func LoadConfig() (*Config, error) {
 }
 
 func (c *Config) Validate() error {
+	if c.SSHKeepAliveInterval <= 0 {
+		return fmt.Errorf("ssh keepalive interval must be > 0")
+	}
 	if c.VolumeGroup != "" {
 		if _, err := lvm.GetVolumeGroupFreeSpace(context.Background(), c.VolumeGroup); err != nil {
 			return fmt.Errorf("volume group %q does not exist or is inaccessible: %w", c.VolumeGroup, err)
