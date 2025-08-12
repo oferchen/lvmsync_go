@@ -2,6 +2,7 @@
 package remote
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -69,7 +70,7 @@ func (s *SSHSession) Close() {
 	}
 }
 
-func RunSSHCommand(logger *zap.Logger, host, user, keyPath, hostKeyPath string, port int, command string, timeout time.Duration) error {
+func RunSSHCommand(ctx context.Context, logger *zap.Logger, host, user, keyPath, hostKeyPath string, port int, command string, timeout time.Duration) error {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
@@ -81,7 +82,7 @@ func RunSSHCommand(logger *zap.Logger, host, user, keyPath, hostKeyPath string, 
 	if err != nil {
 		return fmt.Errorf("failed to load private key: %w", err)
 	}
-	client, err := dialSSH(fmt.Sprintf("%s:%d", host, port), &ssh.ClientConfig{
+	client, err := dialSSH(ctx, fmt.Sprintf("%s:%d", host, port), &ssh.ClientConfig{
 		User:            user,
 		Auth:            []ssh.AuthMethod{ssh.PublicKeys(signer)},
 		HostKeyCallback: ssh.FixedHostKey(publicKey),
