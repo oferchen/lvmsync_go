@@ -142,10 +142,10 @@ func TestPrepareSnapshot(t *testing.T) {
 	logger := zap.NewNop()
 	orig := prepareSnapshotFn
 	defer func() { prepareSnapshotFn = orig }()
-	prepareSnapshotFn = func(c *config.Config, v string, l *zap.Logger) (string, chan error, func(), error) {
+	prepareSnapshotFn = func(ctx context.Context, c *config.Config, v string, l *zap.Logger) (string, chan error, func(), error) {
 		return "snap", nil, func() {}, nil
 	}
-	snap, ch, cleanup, err := PrepareSnapshot(cfg, "vol", logger)
+	snap, ch, cleanup, err := PrepareSnapshot(context.Background(), cfg, "vol", logger)
 	if err != nil || snap != "snap" || ch != nil || cleanup == nil {
 		t.Fatalf("unexpected result")
 	}
@@ -207,7 +207,9 @@ func TestRunHeartbeatError(t *testing.T) {
 	hbErrCh <- errors.New("hb fail")
 
 	startGRPCServer = func(context.Context, *config.Config, *zap.Logger) (func(), <-chan error, error) {
-		return func() {}, make(chan error), nil
+		errCh := make(chan error, 1)
+		close(errCh)
+		return func() {}, errCh, nil
 	}
 	clientHandshake = func(*config.Config, *zap.Logger) (func(), chan error, error) {
 		return func() {}, hbErrCh, nil
@@ -218,7 +220,7 @@ func TestRunHeartbeatError(t *testing.T) {
 	setupSignalHandle = func(*config.Config, *string, *zap.Logger) (chan os.Signal, chan error) {
 		return nil, sigErrCh
 	}
-	prepareSnapshotFn = func(*config.Config, string, *zap.Logger) (string, chan error, func(), error) {
+	prepareSnapshotFn = func(ctx context.Context, _ *config.Config, _ string, _ *zap.Logger) (string, chan error, func(), error) {
 		return "snap", nil, func() {}, nil
 	}
 	executeClientFn = func(ctx context.Context, f func(context.Context, string, string) error, snap, dest string, sigErrCh, monitorErrCh chan error) error {
