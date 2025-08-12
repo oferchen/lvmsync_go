@@ -8,6 +8,8 @@ import (
 	"io"
 	"net"
 	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -61,7 +63,7 @@ func NewSSHClient(
 		Timeout:         timeout,
 	}
 	addr := fmt.Sprintf("%s:%d", host, port)
-	client, err := dialWithRetry(logger, addr, config, host, port, retries)
+	client, err := dialWithRetry(ctx, logger, addr, config, host, port, retries)
 	if err != nil {
 		return nil, err
 	}
@@ -118,10 +120,13 @@ func setupHostKeyCallback(_ bool, knownHostsPath string) (ssh.HostKeyCallback, e
 	return hostKeyCallback, nil
 }
 
-func dialWithRetry(logger *zap.Logger, addr string, config *ssh.ClientConfig, host string, port, retries int) (*ssh.Client, error) {
+func dialWithRetry(ctx context.Context, logger *zap.Logger, addr string, config *ssh.ClientConfig, host string, port, retries int) (*ssh.Client, error) {
 	var client *ssh.Client
 	var err error
 	for attempt := 0; attempt <= retries; attempt++ {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
 		client, err = ssh.Dial("tcp", addr, config)
 		if err == nil {
 			return client, nil
@@ -133,22 +138,35 @@ func dialWithRetry(logger *zap.Logger, addr string, config *ssh.ClientConfig, ho
 			zap.Error(err))
 		if attempt < retries {
 			backoff := time.Duration(1<<attempt) * time.Second
-			time.Sleep(backoff)
+			select {
+			case <-time.After(backoff):
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			}
 		}
 	}
 	logger.Error("Unable to establish SSH connection", zap.String("host", host), zap.Int("port", port), zap.Error(err))
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
 	return nil, fmt.Errorf("failed to dial SSH after %d attempts: %w", retries+1, err)
 }
 
 // ValidateRemoteCommand ensures that the provided command exists and is
 // executable on the remote host by attempting to run it with a --version flag.
 // It returns an error if the command is missing or cannot be executed.
-func (c *SSHClient) ValidateRemoteCommand(remoteCmd string) error {
+func (c *SSHClient) ValidateRemoteCommand(ctx context.Context, remoteCmd string) error {
+	if strings.ContainsAny(remoteCmd, "&|;<>$`\"'!*") {
+		return fmt.Errorf("remote command contains shell metacharacters")
+	}
 	tokens := strings.Fields(remoteCmd)
 	if len(tokens) == 0 {
 		return fmt.Errorf("remote command is empty")
 	}
-	cmd := tokens[0]
+	cmd := filepath.Base(tokens[0])
+	if !regexp.MustCompile(`^[a-zA-Z0-9._-]+$`).MatchString(cmd) {
+		return fmt.Errorf("remote command %s contains invalid characters", cmd)
+	}
 	session, err := c.NewSession()
 	if err != nil {
 		return fmt.Errorf("failed to create SSH session for validation: %w", err)
@@ -160,21 +178,34 @@ func (c *SSHClient) ValidateRemoteCommand(remoteCmd string) error {
 	}()
 	session.Stdout = io.Discard
 	session.Stderr = io.Discard
-	if err := session.Run(fmt.Sprintf("%s --version", cmd)); err != nil {
-		if exitErr, ok := err.(*ssh.ExitError); ok {
-			status := exitErr.ExitStatus()
-			if status == 126 || status == 127 {
-				return fmt.Errorf("remote command %s not found or not executable: %w", cmd, err)
-			}
+	errCh := make(chan error, 1)
+	if err := session.Start(fmt.Sprintf("%s --version", cmd)); err != nil {
+		return fmt.Errorf("failed to start remote command %s: %w", cmd, err)
+	}
+	go func() { errCh <- session.Wait() }()
+	select {
+	case <-ctx.Done():
+		if sigErr := session.Signal(ssh.SIGKILL); sigErr != nil && !errors.Is(sigErr, io.EOF) {
+			c.Logger.Warn("session signal error", zap.Error(sigErr))
 		}
-		return fmt.Errorf("failed to run remote command %s: %w", cmd, err)
+		return ctx.Err()
+	case err := <-errCh:
+		if err != nil {
+			if exitErr, ok := err.(*ssh.ExitError); ok {
+				status := exitErr.ExitStatus()
+				if status == 126 || status == 127 {
+					return fmt.Errorf("remote command %s not found or not executable: %w", cmd, err)
+				}
+			}
+			return fmt.Errorf("failed to run remote command %s: %w", cmd, err)
+		}
 	}
 	return nil
 }
 
 // RunRemoteScript executes the provided shell script on the remote host using
 // the given SSH client.
-func (c *SSHClient) RunRemoteScript(script string) error {
+func (c *SSHClient) RunRemoteScript(ctx context.Context, script string) error {
 	session, err := c.NewSession()
 	if err != nil {
 		return fmt.Errorf("failed to create SSH session for script: %w", err)
@@ -185,5 +216,18 @@ func (c *SSHClient) RunRemoteScript(script string) error {
 		}
 	}()
 	c.Logger.Info("Running remote script", zap.String("script", script))
-	return session.Run(script)
+	errCh := make(chan error, 1)
+	if err := session.Start(script); err != nil {
+		return fmt.Errorf("failed to start remote script: %w", err)
+	}
+	go func() { errCh <- session.Wait() }()
+	select {
+	case <-ctx.Done():
+		if sigErr := session.Signal(ssh.SIGKILL); sigErr != nil && !errors.Is(sigErr, io.EOF) {
+			c.Logger.Warn("session signal error", zap.Error(sigErr))
+		}
+		return ctx.Err()
+	case err := <-errCh:
+		return err
+	}
 }

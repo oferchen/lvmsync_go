@@ -1,7 +1,10 @@
 package remote
 
 import (
+	"context"
+	"errors"
 	"testing"
+	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
@@ -20,10 +23,10 @@ func TestValidateRemoteCommand(t *testing.T) {
 	})
 
 	client := &SSHClient{Client: rawClient, Logger: zap.NewNop()}
-	if err := client.ValidateRemoteCommand("echo"); err != nil {
+	if err := client.ValidateRemoteCommand(context.Background(), "echo"); err != nil {
 		t.Fatalf("expected success, got %v", err)
 	}
-	if err := client.ValidateRemoteCommand("nonexistent"); err == nil {
+	if err := client.ValidateRemoteCommand(context.Background(), "nonexistent"); err == nil {
 		t.Fatalf("expected error for nonexistent command")
 	}
 }
@@ -38,7 +41,7 @@ func TestRunRemoteScript(t *testing.T) {
 	client := &SSHClient{Client: rawClient, Logger: logger}
 
 	script := "echo hi"
-	if err := client.RunRemoteScript(script); err != nil {
+	if err := client.RunRemoteScript(context.Background(), script); err != nil {
 		t.Fatalf("RunRemoteScript error: %v", err)
 	}
 
@@ -56,5 +59,31 @@ func TestRunRemoteScript(t *testing.T) {
 	}
 	if logs[0].ContextMap()["script"] != script {
 		t.Fatalf("expected script %q in log, got %v", script, logs[0].ContextMap()["script"])
+	}
+}
+
+func TestRunRemoteScriptCanceled(t *testing.T) {
+	_, rawClient := newSSHServerClient(t, func(cmd string) int {
+		time.Sleep(100 * time.Millisecond)
+		return 0
+	})
+	client := &SSHClient{Client: rawClient, Logger: zap.NewNop()}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+	if err := client.RunRemoteScript(ctx, "echo hi"); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected deadline exceeded, got %v", err)
+	}
+}
+
+func TestValidateRemoteCommandCanceled(t *testing.T) {
+	_, rawClient := newSSHServerClient(t, func(cmd string) int {
+		time.Sleep(100 * time.Millisecond)
+		return 0
+	})
+	client := &SSHClient{Client: rawClient, Logger: zap.NewNop()}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+	if err := client.ValidateRemoteCommand(ctx, "echo"); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected deadline exceeded, got %v", err)
 	}
 }

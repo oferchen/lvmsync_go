@@ -66,13 +66,13 @@ func SetRemoveSnapshotForTest(f func(context.Context, string) error) func() {
 
 // PrepareSnapshot sets up a snapshot for the given original volume. It returns the snapshot path,
 // an optional monitor error channel, a cleanup function, and any error encountered.
-func PrepareSnapshot(cfg *config.Config, originalVolume string, logger *zap.Logger) (string, chan error, func(), error) {
+func PrepareSnapshot(ctx context.Context, cfg *config.Config, originalVolume string, logger *zap.Logger) (string, chan error, func(), error) {
 	snapshotBytes, err := calculateSnapshotSize(cfg, originalVolume)
 	if err != nil {
 		return "", nil, nil, err
 	}
 
-	if err := ensureVolumeGroups(cfg, originalVolume, logger); err != nil {
+	if err := ensureVolumeGroups(ctx, cfg, originalVolume, logger); err != nil {
 		return "", nil, nil, err
 	}
 
@@ -80,7 +80,7 @@ func PrepareSnapshot(cfg *config.Config, originalVolume string, logger *zap.Logg
 		return "", nil, nil, err
 	}
 
-	return createSnapshotIfNeeded(cfg, originalVolume, snapshotBytes, logger)
+	return createSnapshotIfNeeded(ctx, cfg, originalVolume, snapshotBytes, logger)
 }
 
 func calculateSnapshotSize(cfg *config.Config, originalVolume string) (uint64, error) {
@@ -91,7 +91,7 @@ func calculateSnapshotSize(cfg *config.Config, originalVolume string) (uint64, e
 	return snapshotBytes, nil
 }
 
-func ensureVolumeGroups(cfg *config.Config, originalVolume string, logger *zap.Logger) error {
+func ensureVolumeGroups(ctx context.Context, cfg *config.Config, originalVolume string, logger *zap.Logger) error {
 	if cfg.VolumeGroup == "" {
 		vg, err := getVolumeGroupName(originalVolume)
 		if err != nil {
@@ -106,7 +106,7 @@ func ensureVolumeGroups(cfg *config.Config, originalVolume string, logger *zap.L
 		if err != nil {
 			return fmt.Errorf("failed to determine volume size: %w", err)
 		}
-		vg, err := selectVolumeGroupForSize(context.Background(), cfg.TargetVGCandidates, lvSize)
+		vg, err := selectVolumeGroupForSize(ctx, cfg.TargetVGCandidates, lvSize)
 		if err != nil {
 			return fmt.Errorf("failed to select target volume group: %w", err)
 		}
@@ -131,7 +131,7 @@ func checkDiskSpaceForSnapshot(cfg *config.Config, snapshotBytes uint64, logger 
 	return nil
 }
 
-func createSnapshotIfNeeded(cfg *config.Config, originalVolume string, snapshotBytes uint64, logger *zap.Logger) (string, chan error, func(), error) {
+func createSnapshotIfNeeded(ctx context.Context, cfg *config.Config, originalVolume string, snapshotBytes uint64, logger *zap.Logger) (string, chan error, func(), error) {
 	snapshotPath := originalVolume
 	var monitorErrCh chan error
 	cleanup := func() {}
@@ -142,13 +142,13 @@ func createSnapshotIfNeeded(cfg *config.Config, originalVolume string, snapshotB
 
 	monitorErrCh = make(chan error, 1)
 	snapshotName := fmt.Sprintf("snap-%d", time.Now().Unix())
-	if err := createSnapshot(context.Background(), originalVolume, snapshotName, strconv.FormatUint(snapshotBytes, 10)); err != nil {
+	if err := createSnapshot(ctx, originalVolume, snapshotName, strconv.FormatUint(snapshotBytes, 10)); err != nil {
 		return "", nil, nil, fmt.Errorf("snapshot creation failed: %w", err)
 	}
 	snapshotPath = getSnapshotDevicePath(snapshotName, cfg.VolumeGroup)
 	logger.Info("Snapshot created", zap.String("snapshot", snapshotPath))
 
-	monitorCtx, cancel := context.WithCancel(context.Background())
+	monitorCtx, cancel := context.WithCancel(ctx)
 	mon := monitorSnapshot
 	go func() {
 		defer close(monitorErrCh)
@@ -163,7 +163,9 @@ func createSnapshotIfNeeded(cfg *config.Config, originalVolume string, snapshotB
 
 	cleanup = func() {
 		cancel()
-		if err := removeSnapshot(context.Background(), snapshotPath); err != nil {
+		removeCtx, removeCancel := context.WithTimeout(ctx, 10*time.Second)
+		defer removeCancel()
+		if err := removeSnapshot(removeCtx, snapshotPath); err != nil {
 			logger.Warn("Failed to remove snapshot", zap.Error(err))
 		} else {
 			logger.Info("Snapshot removed", zap.String("snapshot", snapshotPath))

@@ -2,12 +2,14 @@ package remote
 
 import (
 	"context"
+	"errors"
 	"os"
 	"strings"
 	"testing"
 	"time"
 
 	"go.uber.org/zap"
+	"golang.org/x/crypto/ssh"
 
 	remotetest "lvmsync_go/remote/testutil"
 )
@@ -48,5 +50,20 @@ func TestNewSSHClientNoAuth(t *testing.T) {
 	_, err := NewSSHClient(context.Background(), "localhost", "root", "", 22, knownHosts, true, time.Second, time.Second, 0, zap.NewNop())
 	if err == nil || !strings.Contains(err.Error(), "no SSH authentication methods configured") {
 		t.Fatalf("expected error for missing auth methods, got %v", err)
+	}
+}
+
+func TestDialWithRetryContextCancel(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	config := &ssh.ClientConfig{
+		User:            "test",
+		Auth:            []ssh.AuthMethod{ssh.Password("")},
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Timeout:         10 * time.Millisecond,
+	}
+	cancel()
+	_, err := dialWithRetry(ctx, zap.NewNop(), "127.0.0.1:22", config, "127.0.0.1", 22, 3)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context canceled error, got %v", err)
 	}
 }

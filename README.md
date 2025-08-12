@@ -309,7 +309,7 @@ LVMSYNC_GRPC_GRPC_PORT=9443 LVMSYNC_GRPC_TLS_CERT=cert.pem lvmsync-grpcd
 | `--ssh_keepalive` | `LVMSYNC_SSH_KEEPALIVE` | `ssh_keepalive` | SSH keepalive interval |
 | `--known_hosts` | `LVMSYNC_KNOWN_HOSTS` | `known_hosts` | Path to known_hosts file |
 | `--strict_host_key_checking` | `LVMSYNC_STRICT_HOST_KEY_CHECKING` | `strict_host_key_checking` | Require host keys to be present in `known_hosts` |
-| `--lvmsync_path` | `LVMSYNC_LVMSYNC_PATH` | `lvmsync_path` | Remote command to run |
+| `--lvmsync_path` | `LVMSYNC_LVMSYNC_PATH` | `lvmsync_path` | Remote command to run (basename sanitized; only `[a-zA-Z0-9._-]+` allowed) |
 | `--remote_pre_script` | `LVMSYNC_REMOTE_PRE_SCRIPT` | `remote_pre_script` | Remote script to run before transfer |
 | `--remote_post_script` | `LVMSYNC_REMOTE_POST_SCRIPT` | `remote_post_script` | Remote script to run after transfer |
 | `--dedup_strategy` | `LVMSYNC_DEDUP_STRATEGY` | `dedup_strategy` | Deduplication strategy: `none`, `auto`, `checksum`, `rolling_hash`, or `bloom` |
@@ -755,9 +755,12 @@ sender, receiver, err := ssh.New(cfg, logger)
 
 #### Remote Options
 
+The `--lvmsync_path` value is sanitized to its basename and must match
+`[a-zA-Z0-9._-]+` to prevent shell injection.
+
 | Option                 | Description                                       | Default     |
 | ---------------------- | ------------------------------------------------- | ----------- |
-| `--lvmsync_path`       | Remote command to run (e.g., `"lvmsync"`)         | `"lvmsync"` |
+| `--lvmsync_path`       | Remote command to run (sanitized basename)         | `"lvmsync"` |
 | `--remote_pre_script`  | Remote script to run before starting the transfer | `""`        |
 | `--remote_post_script` | Remote script to run after finishing the transfer | `""`        |
 
