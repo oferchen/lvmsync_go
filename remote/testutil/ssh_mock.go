@@ -15,10 +15,12 @@ import (
 	"golang.org/x/crypto/ssh/knownhosts"
 )
 
+type ExecHandler func(string, ssh.Channel) int
+
 type MockSSHServer struct {
 	Addr       string
 	listener   net.Listener
-	handler    func(string) int
+	handler    ExecHandler
 	mu         sync.Mutex
 	commands   []string
 	globalReqs []string
@@ -27,6 +29,12 @@ type MockSSHServer struct {
 }
 
 func NewMockSSHServer(t *testing.T, handler func(string) int) *MockSSHServer {
+	return NewMockSSHServerWithChannel(t, func(cmd string, ch ssh.Channel) int {
+		return handler(cmd)
+	})
+}
+
+func NewMockSSHServerWithChannel(t *testing.T, handler ExecHandler) *MockSSHServer {
 	t.Helper()
 	private, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
@@ -92,14 +100,14 @@ func (s *MockSSHServer) handleChannel(ch ssh.Channel, in <-chan *ssh.Request) {
 			s.mu.Lock()
 			s.commands = append(s.commands, payload.Command)
 			s.mu.Unlock()
-			status := s.handler(payload.Command)
+			req.Reply(true, nil) //nolint:errcheck
+			status := s.handler(payload.Command, ch)
 			var exitStatus uint32
 			if status >= 0 && status <= 255 {
 				exitStatus = uint32(status)
 			} else {
 				exitStatus = 255
 			}
-			req.Reply(true, nil) //nolint:errcheck
 			exitPayload := struct{ Status uint32 }{Status: exitStatus}
 			ch.SendRequest("exit-status", false, ssh.Marshal(exitPayload)) //nolint:errcheck
 			return
