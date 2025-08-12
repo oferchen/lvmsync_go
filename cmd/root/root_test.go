@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/pflag"
 
+	"go.uber.org/goleak"
 	"go.uber.org/zap"
 )
 
@@ -233,5 +234,80 @@ func TestRunHeartbeatError(t *testing.T) {
 	err := Run(cfg, logger)
 	if err == nil || err.Error() != "hb fail" {
 		t.Fatalf("expected heartbeat error, got %v", err)
+	}
+}
+
+func TestRunGRPCConnectGoroutineLeak(t *testing.T) {
+	cases := []struct {
+		name        string
+		grpcConnect string
+		hbChannel   bool
+	}{
+		{name: "no_grpc_connect", grpcConnect: "", hbChannel: false},
+		{name: "with_grpc_connect", grpcConnect: "addr", hbChannel: true},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			defer goleak.VerifyNone(t)
+
+			cfg := &config.Config{StdoutMode: true, GRPCConnect: tc.grpcConnect}
+			logger := zap.NewNop()
+
+			origStart := startGRPCServer
+			origClient := clientHandshake
+			origSetup := setupSignalHandle
+			origPrepare := prepareSnapshotFn
+			origExec := executeClientFn
+			origSelect := selectTransport
+			defer func() {
+				startGRPCServer = origStart
+				clientHandshake = origClient
+				setupSignalHandle = origSetup
+				prepareSnapshotFn = origPrepare
+				executeClientFn = origExec
+				selectTransport = origSelect
+			}()
+
+			startGRPCServer = func(context.Context, *config.Config, *zap.Logger) (func(), <-chan error, error) {
+				ch := make(chan error)
+				close(ch)
+				return func() {}, ch, nil
+			}
+
+			if tc.hbChannel {
+				hbErrCh := make(chan error)
+				clientHandshake = func(*config.Config, *zap.Logger) (func(), chan error, error) {
+					return func() { close(hbErrCh) }, hbErrCh, nil
+				}
+			} else {
+				clientHandshake = func(*config.Config, *zap.Logger) (func(), chan error, error) {
+					return func() {}, nil, nil
+				}
+			}
+
+			setupSignalHandle = func(context.Context, *config.Config, *string, *zap.Logger) (chan os.Signal, chan error) {
+				return nil, make(chan error, 1)
+			}
+
+			selectTransport = func(*config.Config, *zap.Logger) error { return nil }
+
+			prepareSnapshotFn = func(context.Context, *config.Config, string, *zap.Logger) (string, chan error, func(), error) {
+				return "snap", nil, func() {}, nil
+			}
+
+			executeClientFn = func(context.Context, func(context.Context, string, string) error, string, string, chan error, chan error) error {
+				return nil
+			}
+
+			pflag.CommandLine = pflag.NewFlagSet("test", pflag.ContinueOnError)
+			pflag.CommandLine.Parse([]string{"vol"})
+
+			if err := Run(cfg, logger); err != nil {
+				t.Fatalf("Run returned error: %v", err)
+			}
+
+			time.Sleep(10 * time.Millisecond)
+		})
 	}
 }
