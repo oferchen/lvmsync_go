@@ -14,7 +14,6 @@ import (
 
 	"lvmsync_go/common"
 	"lvmsync_go/config"
-	"lvmsync_go/internal/transport"
 	"lvmsync_go/remote"
 	"lvmsync_go/transfer"
 )
@@ -284,14 +283,8 @@ func RunRemoteDump(ctx context.Context, cfg *config.Config, snapshotDevice, orig
 
 // SelectTransport chooses and logs the transport if configured.
 func SelectTransport(cfg *config.Config, logger *zap.Logger) error {
-	if cfg.Transport == "" {
-		return nil
+	if cfg.Transport != "" {
+		logger.Warn("transport selection not implemented", zap.String("transport", cfg.Transport))
 	}
-	order := strings.Split(cfg.Transport, ",")
-	_, name, err := transport.Select(cfg, order, logger)
-	if err != nil {
-		return err
-	}
-	logger.Info("selected transport", zap.String("transport", name))
 	return nil
 }

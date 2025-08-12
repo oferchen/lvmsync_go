@@ -1,16 +1,13 @@
-## Current Flow
-```mermaid
-flowchart TD
-    A[Startup] --> B[Configure]
-    B --> C[Run]
-    C --> D[Shutdown]
+# Flow
+
+## Before
+```
+main -> Configure -> selectTransport -> SetupGRPC -> ExecuteClient -> SyncLogger
 ```
 
-## Fixed Flow
-Documentation updated; runtime flow unchanged.
-```mermaid
-flowchart TD
-    A[Startup] --> B[Configure]
-    B --> C[Run]
-    C --> D[Shutdown]
+## After
 ```
+main -> Configure -> SetupGRPC -> ExecuteClient -> SyncLogger
+```
+
+`selectTransport` previously depended on an unused transport package. The new flow removes the unused dependency and warns when a transport is requested.

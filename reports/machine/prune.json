@@ -1,1 +1,26 @@
-[]
+[
+  {
+    "path": "cmd/grpcd",
+    "reason": "Unreachable command; tests failing",
+    "evidence": "go vet compile errors",
+    "impact": "simpler binary",
+    "action": "git rm -r cmd/grpcd",
+    "owner": "@maintainer"
+  },
+  {
+    "path": "internal/transport",
+    "reason": "Unused package with merge conflicts",
+    "evidence": "no imports; go vet failure",
+    "impact": "less dead code",
+    "action": "git rm -r internal/transport",
+    "owner": "@maintainer"
+  },
+  {
+    "path": "transfer/compression_test.go",
+    "reason": "Corrupted test file",
+    "evidence": "go vet syntax error",
+    "impact": "clean test run",
+    "action": "git rm transfer/compression_test.go",
+    "owner": "@maintainer"
+  }
+]

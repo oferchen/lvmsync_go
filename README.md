@@ -172,7 +172,7 @@ definitions focused and easy to maintain.
 Example:
 
 ```sh
-lvmsync --transport quic,h2,tcp+tls,ssh --quic_listen :9000 --tcp_port 9443
+lvmsync /dev/vg0/snap0 /mnt/backup
 ```
 
 ```
@@ -210,7 +210,7 @@ The overall loading flow works in three stages:
 
 Recent refactors added several configuration options:
 
-- `--transport` selects the ordered list of transports to try.
+- `--transport` selects the ordered list of transports to try (currently ignored).
 - `--quic_listen` and `--quic_connect` configure QUIC addresses.
 - `--tcp_port`, `--h2_port`, and `--ssh_port` expose TCP+TLS, HTTP/2, and SSH endpoints.
 - `--tcp_parallel` controls the number of parallel TCP connections (2–4).
@@ -334,7 +334,7 @@ LVMSYNC_GRPC_GRPC_PORT=9443 LVMSYNC_GRPC_TLS_CERT=cert.pem lvmsync-grpcd
 | `--volume_group` | `LVMSYNC_VOLUME_GROUP` | `volume_group` | Source volume group; derived from the source device path when empty |
 | `--target_volume_group` | `LVMSYNC_TARGET_VOLUME_GROUP` | `target_volume_group` | Volume group name of the target LVM volume |
 | `--target_vgs` | `LVMSYNC_TARGET_VGS` | `target_vgs` | Candidate target volume groups for auto-selection |
-| `--transport` | `LVMSYNC_TRANSPORT` | `transport` | Ordered transports to try (e.g., `quic,h2,tcp+tls,ssh`) |
+| `--transport` | `LVMSYNC_TRANSPORT` | `transport` | Ordered transports to try (e.g., `quic,h2,tcp+tls,ssh`) (currently ignored) |
 | `--quic_listen` | `LVMSYNC_QUIC_LISTEN` | `quic_listen` | QUIC listen address |
 | `--quic_connect` | `LVMSYNC_QUIC_CONNECT` | `quic_connect` | QUIC connect address |
 | `--tcp_port` | `LVMSYNC_TCP_PORT` | `tcp_port` | TCP+TLS port |
@@ -506,13 +506,13 @@ lvmsync --config config.yaml /dev/vg0/snap0 /mnt/backup
 
 ## Transport Registry
 
-Transports are pluggable and selected in order using the `--transport` flag. LVMSync tries each transport until one succeeds.
+Transport selection is currently not implemented; the `--transport` flag is accepted but ignored.
 
 ### Flags and environment variables
 
 | Flag | Environment variable | Description |
 |------|----------------------|-------------|
-| `--transport` | `LVMSYNC_TRANSPORT` | Ordered transports to try (e.g., `quic,h2,tcp+tls,ssh`) |
+| `--transport` | `LVMSYNC_TRANSPORT` | Ordered transports to try (e.g., `quic,h2,tcp+tls,ssh`) (currently ignored) |
 | `--quic_listen` | `LVMSYNC_QUIC_LISTEN` | QUIC listen address |
 | `--quic_connect` | `LVMSYNC_QUIC_CONNECT` | QUIC connect address |
 | `--quic_cc` | `LVMSYNC_QUIC_CC` | QUIC congestion control algorithm |

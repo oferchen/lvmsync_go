@@ -1,2 +1,1 @@
-- Removed reference to unsupported sync interval option in Throughput Mode section of README.md.
-- Relabeled non-compilable Go snippets as plain code blocks to keep README example build passing.
+- README.md: removed transport selection example and marked `--transport` flag as currently ignored in option list and configuration tables.
