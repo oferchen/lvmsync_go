@@ -67,8 +67,8 @@ compress_threshold: 0.9
 speed: "100MB"  # Speed limit (e.g. "100MB")
 # Enable checksum verification for data integrity
 verify_checksum: false
-# Checksum algorithm (options: sha256, blake3, blake3-512)
-checksum_algorithm: sha256
+# Checksum algorithm (options: auto, sha256, blake3, blake3-512)
+checksum_algorithm: auto
 verbose: 0  # Verbosity level (0 = silent, higher numbers = more verbose)
 
 # LVM Options:

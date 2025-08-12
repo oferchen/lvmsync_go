@@ -43,3 +43,17 @@ func TestUnsupportedAlgorithmDefaultsToSHA256(t *testing.T) {
 		t.Fatalf("default checksum mismatch: got %x, want %x", got, want)
 	}
 }
+
+func TestAutoChecksumSelects(t *testing.T) {
+	orig := detectChecksumAlgorithm
+	defer func() { detectChecksumAlgorithm = orig }()
+
+	detectChecksumAlgorithm = func() string { return "blake3" }
+	if _, ok := GetChecksumStrategy("auto").(*BLAKE3Checksum); !ok {
+		t.Fatalf("expected blake3 strategy")
+	}
+	detectChecksumAlgorithm = func() string { return "sha256" }
+	if _, ok := GetChecksumStrategy("auto").(*SHA256Checksum); !ok {
+		t.Fatalf("expected sha256 strategy")
+	}
+}

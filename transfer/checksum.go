@@ -7,6 +7,8 @@ import (
 	"sync"
 
 	"github.com/zeebo/blake3"
+
+	cpufeatures "lvmsync_go/internal/cpufeatures"
 )
 
 // ChecksumStrategy defines an interface for computing checksums with a
@@ -43,6 +45,13 @@ var (
 	initOnce   sync.Once
 )
 
+var detectChecksumAlgorithm = func() string {
+	if cpufeatures.HasAESNI() || cpufeatures.HasSIMD() {
+		return "blake3"
+	}
+	return "sha256"
+}
+
 func initChecksumStrategies() {
 	strategies = map[string]ChecksumStrategy{
 		"sha256":     &SHA256Checksum{},
@@ -57,6 +66,9 @@ func initChecksumStrategies() {
 func GetChecksumStrategy(algo string) ChecksumStrategy {
 	initOnce.Do(initChecksumStrategies)
 	a := strings.ToLower(algo)
+	if a == "" || a == StrategyAuto {
+		a = detectChecksumAlgorithm()
+	}
 	if s, ok := strategies[a]; ok {
 		return s
 	}
