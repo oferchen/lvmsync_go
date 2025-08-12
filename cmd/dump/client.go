@@ -36,33 +36,36 @@ var (
 	openFile     = os.OpenFile
 )
 
+var copyBufferPool = sync.Pool{New: func() any {
+	buf := make([]byte, 32*1024)
+	return &buf
+}}
+
+type contextReader struct {
+	ctx context.Context
+	r   io.Reader
+}
+
+func (c *contextReader) Read(p []byte) (int, error) {
+	select {
+	case <-c.ctx.Done():
+		return 0, c.ctx.Err()
+	default:
+		return c.r.Read(p)
+	}
+}
+
 // CopyPipeAsync copies data from src to dst in a new goroutine and returns a channel with the result.
 func CopyPipeAsync(ctx context.Context, dst io.Writer, src io.Reader) <-chan error {
 	errCh := make(chan error, 1)
 	go func() {
 		defer close(errCh)
-		const chunkSize = int64(32 * 1024)
-		for {
-			select {
-			case <-ctx.Done():
-				errCh <- ctx.Err()
-				return
-			default:
-				n, err := io.Copy(dst, io.LimitReader(src, chunkSize))
-				if err != nil {
-					if errors.Is(err, io.EOF) {
-						errCh <- nil
-					} else {
-						errCh <- err
-					}
-					return
-				}
-				if n < chunkSize {
-					errCh <- nil
-					return
-				}
-			}
-		}
+		bufAny := copyBufferPool.Get()
+		buf := *(bufAny.(*[]byte))
+		defer copyBufferPool.Put(&buf)
+
+		_, err := io.CopyBuffer(dst, &contextReader{ctx: ctx, r: src}, buf)
+		errCh <- err
 	}()
 	return errCh
 }
