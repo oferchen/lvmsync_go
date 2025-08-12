@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"go.uber.org/zap"
+
 	"lvmsync_go/config"
 )
 
@@ -13,7 +15,8 @@ func TestHandle(t *testing.T) {
 	sigCh := make(chan os.Signal, 1)
 	errCh := make(chan error, 1)
 	var snap string
-	go Handle(cfg, sigCh, &snap, errCh)
+	logger := zap.NewNop()
+	go Handle(cfg, logger, sigCh, &snap, errCh)
 	sigCh <- os.Interrupt
 	err := <-errCh
 	if err == nil || !strings.Contains(err.Error(), "received signal") {

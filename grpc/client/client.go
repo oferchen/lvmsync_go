@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"strings"
 	"time"
 
 	"google.golang.org/grpc"
@@ -50,7 +51,11 @@ func Dial(addr string, conf Config, opts ...grpc.DialOption) (*grpc.ClientConn, 
 		}
 		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(tlsCfg)))
 	}
-	return grpc.Dial(addr, opts...)
+	target := addr
+	if !strings.Contains(addr, "://") {
+		target = "passthrough:///" + addr
+	}
+	return grpc.NewClient(target, opts...)
 }
 
 func Handshake(ctx context.Context, c proto.ReplicationClient, hs *proto.HandshakeRequest) (*proto.HandshakeResponse, error) {
