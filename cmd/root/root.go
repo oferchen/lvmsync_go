@@ -1,8 +1,11 @@
 package root
 
 import (
+	"context"
 	"fmt"
+	"os"
 	"os/signal"
+	"syscall"
 
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
@@ -100,7 +103,9 @@ func ExecuteClient(cfg *config.Config, snapshotPath, destPath string, sigErrCh, 
 // Run orchestrates the command execution.
 func Run(cfg *config.Config, logger *zap.Logger) error {
 	if cfg.Serve {
-		return runServe(cfg, logger)
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		return runServe(ctx, cfg, logger)
 	}
 
 	defer lvm.Cleanup()
