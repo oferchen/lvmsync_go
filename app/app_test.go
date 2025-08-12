@@ -46,7 +46,8 @@ func TestStartGRPCServerSuccess(t *testing.T) {
 	srv := &fakeServer{}
 	newServer = func(conf grpcserver.Config, agent lvmlib.Agent) (grpcServer, error) { return srv, nil }
 
-	cleanup, err := StartGRPCServer(cfg, logger)
+	ctx, cancel := context.WithCancel(context.Background())
+	cleanup, errCh, err := StartGRPCServer(ctx, cfg, logger)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -55,8 +56,12 @@ func TestStartGRPCServerSuccess(t *testing.T) {
 		t.Fatalf("server not started")
 	}
 	cleanup()
+	cancel()
 	if !srv.stopped.Load() {
 		t.Fatalf("server not stopped")
+	}
+	if err := <-errCh; err != nil {
+		t.Fatalf("unexpected server error: %v", err)
 	}
 }
 
@@ -67,7 +72,7 @@ func TestStartGRPCServerListenError(t *testing.T) {
 	defer func() { listen = origListen }()
 	listen = func(network, addr string) (net.Listener, error) { return nil, errors.New("boom") }
 
-	if _, err := StartGRPCServer(cfg, logger); err == nil {
+	if _, _, err := StartGRPCServer(context.Background(), cfg, logger); err == nil {
 		t.Fatalf("expected error")
 	}
 }

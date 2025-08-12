@@ -75,17 +75,22 @@ func Configure() (*config.Config, *zap.Logger, error) {
 }
 
 // SetupGRPC starts the server and performs client handshake returning cleanup functions and heartbeat error channel.
-func SetupGRPC(cfg *config.Config, logger *zap.Logger) (func(), func(), chan error, error) {
-	cleanupSrv, err := startGRPCServer(cfg, logger)
+func SetupGRPC(ctx context.Context, cfg *config.Config, logger *zap.Logger) (func(), func(), chan error, error) {
+	cleanupSrv, srvErrCh, err := startGRPCServer(ctx, cfg, logger)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 	cleanupClient, hbErrCh, err := clientHandshake(cfg, logger)
 	if err != nil {
 		cleanupSrv()
+		<-srvErrCh
 		return nil, nil, nil, err
 	}
-	return cleanupSrv, cleanupClient, hbErrCh, nil
+	wrappedSrvCleanup := func() {
+		cleanupSrv()
+		<-srvErrCh
+	}
+	return wrappedSrvCleanup, cleanupClient, hbErrCh, nil
 }
 
 // PrepareSnapshot wraps snapshot preparation.
@@ -121,11 +126,16 @@ func Run(cfg *config.Config, logger *zap.Logger) error {
 		return err
 	}
 
-	cleanupSrv, cleanupClient, hbErrCh, err := SetupGRPC(cfg, logger)
+	ctx, cancel := context.WithCancel(context.Background())
+	cleanupSrv, cleanupClient, hbErrCh, err := SetupGRPC(ctx, cfg, logger)
 	if err != nil {
+		cancel()
 		return err
 	}
-	defer cleanupSrv()
+	defer func() {
+		cancel()
+		cleanupSrv()
+	}()
 	defer cleanupClient()
 	_ = hbErrCh
 

@@ -1,8 +1,10 @@
 package root
 
 import (
+	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"lvmsync_go/config"
 
@@ -22,18 +24,30 @@ func TestSetupGRPCSuccess(t *testing.T) {
 		clientHandshake = origClient
 	}()
 
-	startGRPCServer = func(_ *config.Config, _ *zap.Logger) (func(), error) {
-		return func() { srvCleanCalled = true }, nil
+	srvErrCh := make(chan error)
+	startGRPCServer = func(_ context.Context, _ *config.Config, _ *zap.Logger) (func(), <-chan error, error) {
+		return func() { srvCleanCalled = true }, srvErrCh, nil
 	}
 	clientHandshake = func(_ *config.Config, _ *zap.Logger) (func(), chan error, error) {
 		return func() { clientCleanCalled = true }, make(chan error), nil
 	}
 
-	cleanupSrv, cleanupClient, hbErrCh, err := SetupGRPC(cfg, logger)
+	cleanupSrv, cleanupClient, hbErrCh, err := SetupGRPC(context.Background(), cfg, logger)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	cleanupSrv()
+	done := make(chan struct{})
+	go func() {
+		cleanupSrv()
+		close(done)
+	}()
+	select {
+	case <-done:
+		t.Fatalf("cleanupSrv returned before errCh signal")
+	case <-time.After(10 * time.Millisecond):
+	}
+	srvErrCh <- nil
+	<-done
 	cleanupClient()
 	if hbErrCh == nil {
 		t.Fatalf("expected heartbeat channel")
@@ -48,10 +62,10 @@ func TestSetupGRPCServerError(t *testing.T) {
 	logger := zap.NewNop()
 	origStart := startGRPCServer
 	defer func() { startGRPCServer = origStart }()
-	startGRPCServer = func(_ *config.Config, _ *zap.Logger) (func(), error) {
-		return nil, errors.New("srv fail")
+	startGRPCServer = func(_ context.Context, _ *config.Config, _ *zap.Logger) (func(), <-chan error, error) {
+		return nil, nil, errors.New("srv fail")
 	}
-	if _, _, _, err := SetupGRPC(cfg, logger); err == nil {
+	if _, _, _, err := SetupGRPC(context.Background(), cfg, logger); err == nil {
 		t.Fatalf("expected error")
 	}
 }
@@ -66,15 +80,28 @@ func TestSetupGRPCClientError(t *testing.T) {
 		startGRPCServer = origStart
 		clientHandshake = origClient
 	}()
-	startGRPCServer = func(_ *config.Config, _ *zap.Logger) (func(), error) {
-		return func() { srvCleanupCalled = true }, nil
+	srvErrCh := make(chan error)
+	startGRPCServer = func(_ context.Context, _ *config.Config, _ *zap.Logger) (func(), <-chan error, error) {
+		return func() { srvCleanupCalled = true }, srvErrCh, nil
 	}
 	clientHandshake = func(_ *config.Config, _ *zap.Logger) (func(), chan error, error) {
 		return nil, nil, errors.New("client fail")
 	}
-	if _, _, _, err := SetupGRPC(cfg, logger); err == nil {
-		t.Fatalf("expected error")
+	done := make(chan struct{})
+	go func() {
+		_, _, _, err := SetupGRPC(context.Background(), cfg, logger)
+		if err == nil {
+			t.Errorf("expected error")
+		}
+		close(done)
+	}()
+	select {
+	case <-done:
+		t.Fatalf("SetupGRPC returned before errCh signal")
+	case <-time.After(10 * time.Millisecond):
 	}
+	srvErrCh <- nil
+	<-done
 	if !srvCleanupCalled {
 		t.Fatalf("server cleanup not called on error")
 	}
