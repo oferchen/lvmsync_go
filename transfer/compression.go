@@ -10,6 +10,7 @@ import (
 	"github.com/pierrec/lz4/v4"
 
 	"lvmsync_go/internal/compressiondetect"
+	cpufeatures "lvmsync_go/internal/cpufeatures"
 )
 
 const (
@@ -17,9 +18,9 @@ const (
 	compressionZSTD = "zstd"
 )
 
-// hasAVX2 reports whether the current CPU supports AVX2 instructions. It is
-// a variable to allow tests to override the detection behavior.
-var hasAVX2 = compressiondetect.HasAVX2
+// supportsSIMD reports whether the CPU has SIMD acceleration. It is
+// a variable to allow tests to override detection behavior.
+var supportsSIMD = cpufeatures.HasSIMD
 
 // No shared state is kept between decompression readers.
 
@@ -78,7 +79,7 @@ func selectAlgorithm(chunkLen int, compress string, level int) (string, int) {
 			}
 			return compressionLZ4, level
 		}
-		if hasAVX2() {
+		if supportsSIMD() {
 			return compressionZSTD, defaultZstdLv
 		}
 		if level == 0 {

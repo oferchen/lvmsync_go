@@ -14,6 +14,8 @@ import (
 	"golang.org/x/sys/cpu"
 
 	zstd "github.com/klauspost/compress/zstd"
+
+	cpufeatures "lvmsync_go/internal/cpufeatures"
 )
 
 var (
@@ -39,7 +41,7 @@ func DetectOptimalCompression() string {
 			cacheSize += cpuid.CPU.Cache.L2
 		}
 
-		if cpu.X86.HasAVX512F || cpu.X86.HasAVX2 || cpu.X86.HasBMI2 || cpu.X86.HasSSE42 || (cores >= 4 && cacheSize >= 2<<20) {
+		if cpufeatures.HasAVX512() || cpufeatures.HasAVX2() || cpufeatures.HasNEON() || cpu.X86.HasBMI2 || cpu.X86.HasSSE42 || (cores >= 4 && cacheSize >= 2<<20) {
 			detected = "zstd"
 		} else {
 			detected = benchmarkCached(cores, cacheSize)
@@ -146,9 +148,4 @@ func ResetForTest() {
 	benchMu.Lock()
 	benchCache = make(map[string]string)
 	benchMu.Unlock()
-}
-
-// HasAVX2 reports whether the current CPU supports AVX2 instructions.
-func HasAVX2() bool {
-	return cpu.X86.HasAVX2
 }

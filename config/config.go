@@ -32,7 +32,7 @@ var (
 	SupportedCompression        = []string{"none", "lz4", Zstd, Auto}
 	SupportedDedupStrategies    = []string{"none", Auto, "checksum", "rolling_hash", "bloom"}
 	SupportedDedupModes         = []string{"fixed", "cdc", "hybrid"}
-	SupportedChecksumAlgorithms = []string{"sha256", "blake3", "blake3-512"}
+	SupportedChecksumAlgorithms = []string{"sha256", "blake3", "blake3-512", Auto}
 )
 
 // FlagSets groups the flag sets for different configuration areas.
@@ -346,7 +346,7 @@ func (b *Builder) validateCompression(conf *Config) error {
 func (b *Builder) finalizeConfig(conf *Config) error {
 	algo := strings.ToLower(conf.ChecksumAlgorithm)
 	switch algo {
-	case "sha256", "blake3", "blake3-512":
+	case "sha256", "blake3", "blake3-512", Auto:
 		conf.ChecksumAlgorithm = algo
 	default:
 		return fmt.Errorf("unsupported checksum algorithm: %s", conf.ChecksumAlgorithm)
@@ -440,7 +440,7 @@ func DefaultConfig() (*Config, error) {
 		CompressThreshold:     0.9,
 		Speed:                 "100MB",
 		VerifyChecksum:        false,
-		ChecksumAlgorithm:     "sha256",
+		ChecksumAlgorithm:     Auto,
 		Verbose:               0,
 		SkipSnapshotCreation:  false,
 		SkipDiskCheck:         false,

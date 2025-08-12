@@ -172,8 +172,8 @@ func TestCompressChunkThreshold(t *testing.T) {
 // TestCompressChunkAutoSelects verifies that automatic compression selects the
 // expected algorithm based on chunk size and CPU capabilities.
 func TestCompressChunkAutoSelects(t *testing.T) {
-	orig := hasAVX2
-	defer func() { hasAVX2 = orig }()
+	orig := supportsSIMD
+	defer func() { supportsSIMD = orig }()
 
 	small := bytes.Repeat([]byte("a"), 64*1024)
 	large := bytes.Repeat([]byte("a"), 300*1024)
@@ -181,17 +181,17 @@ func TestCompressChunkAutoSelects(t *testing.T) {
 	cases := []struct {
 		name   string
 		data   []byte
-		avx2   bool
+		simd   bool
 		expect string
 	}{
-		{"smallAvx2", small, true, compressionLZ4},
-		{"largeAvx2", large, true, compressionZSTD},
-		{"largeNoAvx2", large, false, compressionLZ4},
+		{"smallSIMD", small, true, compressionLZ4},
+		{"largeSIMD", large, true, compressionZSTD},
+		{"largeNoSIMD", large, false, compressionLZ4},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			hasAVX2 = func() bool { return tc.avx2 }
+			supportsSIMD = func() bool { return tc.simd }
 			_, algo, err := CompressChunk(tc.data, StrategyAuto, 0, 1, 1.0)
 			if err != nil {
 				t.Fatalf("compress chunk: %v", err)
@@ -204,21 +204,21 @@ func TestCompressChunkAutoSelects(t *testing.T) {
 }
 
 func TestSelectAlgorithm(t *testing.T) {
-	orig := hasAVX2
-	defer func() { hasAVX2 = orig }()
+	orig := supportsSIMD
+	defer func() { supportsSIMD = orig }()
 
 	algo, lvl := selectAlgorithm(64*1024, StrategyAuto, 0)
 	if algo != compressionLZ4 || lvl != int(lz4.Level1) {
 		t.Fatalf("expected lz4 level1, got %s level %d", algo, lvl)
 	}
 
-	hasAVX2 = func() bool { return true }
+	supportsSIMD = func() bool { return true }
 	algo, lvl = selectAlgorithm(300*1024, StrategyAuto, 0)
 	if algo != compressionZSTD || lvl != defaultZstdLv {
 		t.Fatalf("expected zstd level %d, got %s level %d", defaultZstdLv, algo, lvl)
 	}
 
-	hasAVX2 = func() bool { return false }
+	supportsSIMD = func() bool { return false }
 	algo, lvl = selectAlgorithm(300*1024, StrategyAuto, 0)
 	if algo != compressionLZ4 || lvl != int(lz4.Level1) {
 		t.Fatalf("expected lz4 level1 fallback, got %s level %d", algo, lvl)
