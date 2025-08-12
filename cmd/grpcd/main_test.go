@@ -178,6 +178,9 @@ func TestMainLogsErrorAndExits(t *testing.T) {
 	// end TestMainLogsErrorAndExits
 }
 
+	main()
+}
+
 type fakeListener struct{}
 
 func (fakeListener) Accept() (net.Conn, error) { return nil, errors.New("not implemented") }
