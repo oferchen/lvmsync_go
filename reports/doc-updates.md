@@ -1,0 +1,2 @@
+- Removed reference to unsupported sync interval option in Throughput Mode section of README.md.
+- Relabeled non-compilable Go snippets as plain code blocks to keep README example build passing.

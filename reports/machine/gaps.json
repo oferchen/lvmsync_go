@@ -1,0 +1,10 @@
+[
+  {
+    "type": "doc-missing",
+    "component": "README.md",
+    "evidence": "Throughput mode referenced unsupported sync interval option",
+    "impact": "Users could expect flag that does not exist",
+    "fix": "Removed reference from README; code unaffected",
+    "priority": "P2"
+  }
+]
