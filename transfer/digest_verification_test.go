@@ -41,10 +41,13 @@ func TestIterateBlocksFinalSHA(t *testing.T) {
 	w.Close()
 	raw := bytes.Repeat([]byte{1}, int(blockSize))
 	want := sha256.Sum256(raw)
-	if manifest.FinalSHA256 != want {
+	if !bytes.Equal(manifest.FinalDigest, want[:]) {
 		t.Fatalf("sha mismatch")
 	}
 	if !manifest.Verify([][]byte{raw}) {
 		t.Fatalf("verify failed")
+	}
+	if err := manifest.VerifyDevice(src); err != nil {
+		t.Fatalf("verify device: %v", err)
 	}
 }
