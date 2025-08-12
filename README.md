@@ -830,7 +830,7 @@ lvmsync /dev/vg0/snap0 /dev/vg0/data
 
 #### Remote Transfer
 
-Replicate data to a remote host (the destination is specified as `<user@host>:<device>`):
+Replicate data to a remote host. The destination must be specified in `host:device` format (optionally including a username, e.g., `user@host:/dev/vg0/data`):
 
 ```sh
 lvmsync /dev/vg0/snap0 user@remote:/dev/vg0/data

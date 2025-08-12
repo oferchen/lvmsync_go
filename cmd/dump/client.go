@@ -108,7 +108,7 @@ func RunLocalDump(cfg *config.Config, snapshotDevice, originDevice, dest string,
 
 // SetupSSHClient creates an SSH client for remote operations.
 func SetupSSHClient(ctx context.Context, cfg *config.Config, destHost string, logger *zap.Logger) (*remote.SSHClient, context.CancelFunc, error) {
-	ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel := context.WithTimeout(ctx, cfg.SSHTimeout)
 	client, err := newSSHClient(ctx, destHost, cfg.SSHUser, cfg.SSHKeyPath, cfg.SSHPort, cfg.KnownHosts, cfg.StrictHostKeyCheck, cfg.SSHTimeout, cfg.SSHKeepAliveInterval, cfg.MaxRetries, logger)
 	if err != nil {
 		cancel()
@@ -223,6 +223,9 @@ func ExecuteRemoteCommand(ctx context.Context, cfg *config.Config, client *remot
 // RunRemoteDump streams snapshot data to a remote host over SSH.
 func RunRemoteDump(ctx context.Context, cfg *config.Config, snapshotDevice, originDevice, dest string, logger *zap.Logger) (err error) {
 	parts := strings.SplitN(dest, ":", 2)
+	if len(parts) != 2 {
+		return fmt.Errorf("invalid destination %q: expected host:device", dest)
+	}
 	destHost, destDevice := parts[0], parts[1]
 	client, cancel, err := SetupSSHClient(ctx, cfg, destHost, logger)
 	if err != nil {
