@@ -8,6 +8,8 @@ import (
 	"io"
 	"net"
 	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -141,14 +143,26 @@ func dialWithRetry(logger *zap.Logger, addr string, config *ssh.ClientConfig, ho
 }
 
 // ValidateRemoteCommand ensures that the provided command exists and is
-// executable on the remote host by attempting to run it with a --version flag.
-// It returns an error if the command is missing or cannot be executed.
+// executable on the remote host by running `<cmd> --version`.
+//
+// The command is sanitized before execution: only the basename is used and it
+// must match `^[a-zA-Z0-9._-]+$`. Any shell metacharacters in the original
+// string cause validation to fail to prevent injection.
+//
+// It returns an error if the command is empty, contains disallowed characters,
+// or cannot be executed on the remote host.
 func (c *SSHClient) ValidateRemoteCommand(remoteCmd string) error {
+	if strings.ContainsAny(remoteCmd, "&|;<>$`\"'!*") {
+		return fmt.Errorf("remote command contains shell metacharacters")
+	}
 	tokens := strings.Fields(remoteCmd)
 	if len(tokens) == 0 {
 		return fmt.Errorf("remote command is empty")
 	}
-	cmd := tokens[0]
+	cmd := filepath.Base(tokens[0])
+	if !regexp.MustCompile(`^[a-zA-Z0-9._-]+$`).MatchString(cmd) {
+		return fmt.Errorf("remote command %s contains invalid characters", cmd)
+	}
 	session, err := c.NewSession()
 	if err != nil {
 		return fmt.Errorf("failed to create SSH session for validation: %w", err)
