@@ -3,7 +3,6 @@ package transport
 import (
 	"context"
 	"fmt"
-	"io"
 	"strings"
 	"sync"
 
@@ -12,18 +11,19 @@ import (
 	"lvmsync_go/config"
 )
 
-// Sender pushes data to a remote peer.
-type Sender interface {
-	Send(ctx context.Context, r io.Reader) error
+// Transport defines the common data-plane operations used by LVMSync
+// transports. Implementations may stream chunks to a remote peer and
+// receive bitmap responses.
+type Transport interface {
+	Open(ctx context.Context) error
+	SendChunk(index uint64, flags uint16, hash []byte, payload []byte) error
+	RecvBitmap(ctx context.Context) ([]byte, error)
+	Flush() error
+	Close() error
 }
 
-// Receiver accepts data from a remote peer.
-type Receiver interface {
-	Receive(ctx context.Context, w io.Writer) error
-}
-
-// Factory constructs a sender/receiver pair using the provided configuration and logger.
-type Factory func(cfg *config.Config, logger *zap.Logger) (Sender, Receiver, error)
+// Factory constructs a transport using the provided configuration and logger.
+type Factory func(cfg *config.Config, logger *zap.Logger) (Transport, error)
 
 var (
 	mu       sync.RWMutex
@@ -46,11 +46,7 @@ func Get(name string) (Factory, bool) {
 }
 
 // Select returns the first transport in order that initializes successfully.
-// It logs lifecycle events for each attempt.
-func Select(cfg *config.Config, order []string, logger *zap.Logger) (Sender, Receiver, string, error) {
-	if logger == nil {
-		logger = zap.NewNop()
-	}
+func Select(cfg *config.Config, order []string, logger *zap.Logger) (Transport, string, error) {
 	for _, name := range order {
 		logger.Info("initializing transport", zap.String("transport", name))
 		f, ok := Get(name)
@@ -58,47 +54,49 @@ func Select(cfg *config.Config, order []string, logger *zap.Logger) (Sender, Rec
 			logger.Warn("transport not registered", zap.String("transport", name))
 			continue
 		}
-		s, r, err := f(cfg, logger)
+		t, err := f(cfg, logger)
 		if err == nil {
-			logger.Info("transport initialized", zap.String("transport", name))
-			return s, r, name, nil
+			return t, name, nil
 		}
 		logger.Warn("transport init failed", zap.String("transport", name), zap.Error(err))
 	}
-	logger.Error("no working transport", zap.Strings("transports", order))
-	return nil, nil, "", fmt.Errorf("no working transport")
+	return nil, "", fmt.Errorf("no working transport")
 }
 
-// NopSender is a no-op sender implementation used by placeholder transports.
-type NopSender struct{}
+// NopTransport is a no-op implementation used by placeholder transports and tests.
+type NopTransport struct{}
 
-// Send implements the Sender interface.
-func (NopSender) Send(ctx context.Context, r io.Reader) error {
+// Open implements Transport.
+func (NopTransport) Open(ctx context.Context) error {
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
 	default:
-	}
-	if r == nil {
 		return nil
 	}
-	_, err := io.Copy(io.Discard, r)
-	return err
 }
 
-// NopReceiver is a no-op receiver implementation used by placeholder transports.
-type NopReceiver struct{}
+// SendChunk implements Transport.
+func (NopTransport) SendChunk(index uint64, flags uint16, hash []byte, payload []byte) error {
+	_ = index
+	_ = flags
+	_ = hash
+	_ = payload
+	return nil
+}
 
-// Receive implements the Receiver interface.
-func (NopReceiver) Receive(ctx context.Context, w io.Writer) error {
+// RecvBitmap implements Transport.
+func (NopTransport) RecvBitmap(ctx context.Context) ([]byte, error) {
 	select {
 	case <-ctx.Done():
-		return ctx.Err()
+		return nil, ctx.Err()
 	default:
+		return nil, nil
 	}
-	if w == nil {
-		return nil
-	}
-	_, err := w.Write(nil)
-	return err
 }
+
+// Flush implements Transport.
+func (NopTransport) Flush() error { return nil }
+
+// Close implements Transport.
+func (NopTransport) Close() error { return nil }
