@@ -88,7 +88,7 @@ func (f *fakeStream) Send(*proto.Ack) error { return nil }
 func (f *fakeStream) CloseSend() error      { f.closed = true; return nil }
 
 func TestClientHandshakeSuccess(t *testing.T) {
-	cfg := &config.Config{GRPCConnect: "addr", Parallel: 1}
+	cfg := &config.Config{GRPCConnect: "addr", Parallel: 1, GRPCDialTimeout: time.Second}
 	logger := zap.NewNop()
 
 	fc := &fakeConn{}
@@ -103,7 +103,7 @@ func TestClientHandshakeSuccess(t *testing.T) {
 		createSession = origCreateSession
 		ackStream = origAckStream
 	}()
-	dial = func(addr string, conf grpcclient.Config) (closeableConn, error) { return fc, nil }
+	dial = func(context.Context, string, grpcclient.Config) (closeableConn, error) { return fc, nil }
 	handshake = func(context.Context, proto.ReplicationClient, *proto.HandshakeRequest) (*proto.HandshakeResponse, error) {
 		return &proto.HandshakeResponse{}, nil
 	}
@@ -123,11 +123,13 @@ func TestClientHandshakeSuccess(t *testing.T) {
 }
 
 func TestClientHandshakeDialError(t *testing.T) {
-	cfg := &config.Config{GRPCConnect: "addr"}
+	cfg := &config.Config{GRPCConnect: "addr", GRPCDialTimeout: time.Second}
 	logger := zap.NewNop()
 	origDial := dial
 	defer func() { dial = origDial }()
-	dial = func(string, grpcclient.Config) (closeableConn, error) { return nil, errors.New("dial fail") }
+	dial = func(context.Context, string, grpcclient.Config) (closeableConn, error) {
+		return nil, errors.New("dial fail")
+	}
 
 	if _, err := ClientHandshake(cfg, logger); err == nil {
 		t.Fatalf("expected error")
