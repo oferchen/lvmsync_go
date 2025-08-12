@@ -3,6 +3,7 @@ package ssh
 import (
 	"context"
 	"io"
+	"sync"
 
 	"go.uber.org/zap"
 
@@ -15,15 +16,30 @@ func init() {
 	transport.Register("ssh", New)
 }
 
+type sshClientWrapper struct {
+	*remote.SSHClient
+	cancel context.CancelFunc
+	once   sync.Once
+}
+
+func (w *sshClientWrapper) Close() error {
+	var err error
+	w.once.Do(func() {
+		w.cancel()
+		err = w.SSHClient.Close()
+	})
+	return err
+}
+
 type sshSender struct {
-	client *remote.SSHClient
+	client *sshClientWrapper
 	host   string
 	port   int
 	logger *zap.Logger
 }
 
 type sshReceiver struct {
-	client *remote.SSHClient
+	client *sshClientWrapper
 	host   string
 	port   int
 	logger *zap.Logger
@@ -39,16 +55,35 @@ func New(cfg *config.Config, logger *zap.Logger) (transport.Sender, transport.Re
 		host = "localhost"
 	}
 	logger.Info("ssh connection attempt", zap.String("host", host), zap.Int("port", cfg.SSHPort))
-	client, err := remote.NewSSHClient(host, cfg.SSHUser, cfg.SSHKeyPath, cfg.SSHPort, cfg.KnownHosts, cfg.StrictHostKeyCheck, cfg.SSHTimeout, cfg.SSHKeepAliveInterval, cfg.MaxRetries, logger)
+	ctx, cancel := context.WithCancel(context.Background())
+	client, err := remote.NewSSHClient(
+		ctx,
+		host,
+		cfg.SSHUser,
+		cfg.SSHKeyPath,
+		cfg.SSHPort,
+		cfg.KnownHosts,
+		cfg.StrictHostKeyCheck,
+		cfg.SSHTimeout,
+		cfg.SSHKeepAliveInterval,
+		cfg.MaxRetries,
+		logger,
+	)
 	if err != nil {
+		cancel()
 		logger.Error("ssh authentication failed", zap.String("host", host), zap.Int("port", cfg.SSHPort), zap.Error(err))
 		return nil, nil, err
 	}
 	logger.Info("ssh connection established", zap.String("host", host), zap.Int("port", cfg.SSHPort))
-	sender := &sshSender{client: client, host: host, port: cfg.SSHPort, logger: logger}
-	receiver := &sshReceiver{client: client, host: host, port: cfg.SSHPort, logger: logger}
+	wrapper := &sshClientWrapper{SSHClient: client, cancel: cancel}
+	sender := &sshSender{client: wrapper, host: host, port: cfg.SSHPort, logger: logger}
+	receiver := &sshReceiver{client: wrapper, host: host, port: cfg.SSHPort, logger: logger}
 	return sender, receiver, nil
 }
+
+func (s *sshSender) Close() error { return s.client.Close() }
+
+func (r *sshReceiver) Close() error { return r.client.Close() }
 
 func (s *sshSender) Send(ctx context.Context, r io.Reader) error {
 	if err := ctx.Err(); err != nil {

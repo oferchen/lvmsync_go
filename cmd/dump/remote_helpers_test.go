@@ -1,6 +1,7 @@
 package dump
 
 import (
+	"context"
 	"errors"
 	"io"
 	"strings"
@@ -22,7 +23,7 @@ func TestSetupSSHClient(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		dummy := &remote.SSHClient{}
 		called := false
-		newSSHClient = func(host, user, keyPath string, port int, knownHostsPath string, verify bool, timeout, keepAliveInterval time.Duration, retries int, logger *zap.Logger) (*remote.SSHClient, error) {
+		newSSHClient = func(ctx context.Context, host, user, keyPath string, port int, knownHostsPath string, verify bool, timeout, keepAliveInterval time.Duration, retries int, logger *zap.Logger) (*remote.SSHClient, error) {
 			called = true
 			if host != "dest" {
 				t.Fatalf("unexpected host %s", host)
@@ -31,7 +32,7 @@ func TestSetupSSHClient(t *testing.T) {
 		}
 		defer func() { newSSHClient = remote.NewSSHClient }()
 
-		client, err := SetupSSHClient(cfg, "dest", zap.NewNop())
+		client, cancel, err := SetupSSHClient(cfg, "dest", zap.NewNop())
 		if err != nil {
 			t.Fatalf("SetupSSHClient returned error: %v", err)
 		}
@@ -41,15 +42,16 @@ func TestSetupSSHClient(t *testing.T) {
 		if !called {
 			t.Fatalf("newSSHClient was not called")
 		}
+		cancel()
 	})
 
 	t.Run("failure", func(t *testing.T) {
-		newSSHClient = func(host, user, keyPath string, port int, knownHostsPath string, verify bool, timeout, keepAliveInterval time.Duration, retries int, logger *zap.Logger) (*remote.SSHClient, error) {
+		newSSHClient = func(ctx context.Context, host, user, keyPath string, port int, knownHostsPath string, verify bool, timeout, keepAliveInterval time.Duration, retries int, logger *zap.Logger) (*remote.SSHClient, error) {
 			return nil, errors.New("fail")
 		}
 		defer func() { newSSHClient = remote.NewSSHClient }()
 
-		_, err := SetupSSHClient(cfg, "dest", zap.NewNop())
+		_, _, err := SetupSSHClient(cfg, "dest", zap.NewNop())
 		if err == nil || !strings.Contains(err.Error(), "failed to create SSH client") {
 			t.Fatalf("expected wrapped error, got %v", err)
 		}

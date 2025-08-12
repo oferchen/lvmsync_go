@@ -161,6 +161,10 @@ func setupTransport(t *testing.T, srv *mockServer) (transport.Sender, transport.
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
+	t.Cleanup(func() {
+		_ = s.(*sshSender).Close()
+		_ = r.(*sshReceiver).Close()
+	})
 	return s, r
 }
 
@@ -202,7 +206,7 @@ func TestSSHNew(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Atoi: %v", err)
 	}
-	_, _, err = New(&config.Config{
+	s, r, err := New(&config.Config{
 		SSHUser:              "test",
 		SSHKeyPath:           remotetest.CreateTempKey(t),
 		SSHPort:              port,
@@ -213,6 +217,8 @@ func TestSSHNew(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
+	_ = s.(*sshSender).Close()
+	_ = r.(*sshReceiver).Close()
 }
 
 func TestSSHContextCancel(t *testing.T) {

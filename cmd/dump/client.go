@@ -1,6 +1,7 @@
 package dump
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -77,12 +78,14 @@ func RunLocalDump(cfg *config.Config, snapshotDevice, originDevice, dest string,
 }
 
 // SetupSSHClient creates an SSH client for remote operations.
-func SetupSSHClient(cfg *config.Config, destHost string, logger *zap.Logger) (*remote.SSHClient, error) {
-	client, err := newSSHClient(destHost, cfg.SSHUser, cfg.SSHKeyPath, cfg.SSHPort, cfg.KnownHosts, cfg.StrictHostKeyCheck, cfg.SSHTimeout, cfg.SSHKeepAliveInterval, cfg.MaxRetries, logger)
+func SetupSSHClient(cfg *config.Config, destHost string, logger *zap.Logger) (*remote.SSHClient, context.CancelFunc, error) {
+	ctx, cancel := context.WithCancel(context.Background())
+	client, err := newSSHClient(ctx, destHost, cfg.SSHUser, cfg.SSHKeyPath, cfg.SSHPort, cfg.KnownHosts, cfg.StrictHostKeyCheck, cfg.SSHTimeout, cfg.SSHKeepAliveInterval, cfg.MaxRetries, logger)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create SSH client: %w", err)
+		cancel()
+		return nil, nil, fmt.Errorf("failed to create SSH client: %w", err)
 	}
-	return client, nil
+	return client, cancel, nil
 }
 
 func closeSession(session *ssh.Session, errp *error) {
@@ -192,11 +195,12 @@ func ExecuteRemoteCommand(cfg *config.Config, client *remote.SSHClient, destDevi
 func RunRemoteDump(cfg *config.Config, snapshotDevice, originDevice, dest string, logger *zap.Logger) (err error) {
 	parts := strings.SplitN(dest, ":", 2)
 	destHost, destDevice := parts[0], parts[1]
-	client, err := SetupSSHClient(cfg, destHost, logger)
+	client, cancel, err := SetupSSHClient(cfg, destHost, logger)
 	if err != nil {
 		return err
 	}
 	defer func() {
+		cancel()
 		if err2 := client.Close(); err2 != nil && !errors.Is(err2, io.EOF) {
 			if err == nil {
 				err = fmt.Errorf("failed to close SSH client: %w", err2)
