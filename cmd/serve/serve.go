@@ -14,7 +14,8 @@ import (
 )
 
 // acceptFunc allows tests to override the listener and stream acceptance logic.
-var acceptFunc = func(cfg *config.Config) (io.ReadWriteCloser, error) {
+// The provided context controls cancellation for listener and stream accepts.
+var acceptFunc = func(ctx context.Context, cfg *config.Config) (io.ReadWriteCloser, error) {
 	tlsConf, err := qn.NewTLSConfig(qn.Config{
 		TLSCert:       cfg.TLSCert,
 		TLSKey:        cfg.TLSKey,
@@ -28,11 +29,11 @@ var acceptFunc = func(cfg *config.Config) (io.ReadWriteCloser, error) {
 	if err != nil {
 		return nil, err
 	}
-	conn, err := l.Accept(context.Background())
+	conn, err := l.Accept(ctx)
 	if err != nil {
 		return nil, err
 	}
-	stream, err := conn.AcceptStream(context.Background())
+	stream, err := conn.AcceptStream(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -40,8 +41,9 @@ var acceptFunc = func(cfg *config.Config) (io.ReadWriteCloser, error) {
 }
 
 // Run starts the QUIC server, negotiates parameters, and enforces the transfer policy.
-func Run(cfg *config.Config, logger *zap.Logger) error {
-	stream, err := acceptFunc(cfg)
+// The context allows callers to cancel pending accept operations and shut down gracefully.
+func Run(ctx context.Context, cfg *config.Config, logger *zap.Logger) error {
+	stream, err := acceptFunc(ctx, cfg)
 	if err != nil {
 		return err
 	}

@@ -2,6 +2,7 @@ package serve
 
 import (
 	"bufio"
+	"context"
 	"io"
 	"net"
 	"os"
@@ -17,12 +18,12 @@ import (
 func TestRunAcceptsTransfer(t *testing.T) {
 	server, client := net.Pipe()
 	orig := acceptFunc
-	acceptFunc = func(cfg *config.Config) (io.ReadWriteCloser, error) { return server, nil }
+	acceptFunc = func(ctx context.Context, cfg *config.Config) (io.ReadWriteCloser, error) { return server, nil }
 	defer func() { acceptFunc = orig }()
 
 	cfg := &config.Config{ServeProtocol: "proto", ServeAlgorithm: "alg", ServeTestSpace: "ts", ServePolicy: "accept"}
 	errCh := make(chan error, 1)
-	go func() { errCh <- Run(cfg, zap.NewNop()) }()
+	go func() { errCh <- Run(context.Background(), cfg, zap.NewNop()) }()
 
 	hs := qn.Negotiation{Protocol: "proto", Algorithm: "alg", TestSpace: "ts"}
 	if err := qn.WriteNegotiation(client, hs); err != nil {
@@ -61,12 +62,12 @@ func TestServeFlagParsing(t *testing.T) {
 func TestRunNegotiationMismatch(t *testing.T) {
 	server, client := net.Pipe()
 	orig := acceptFunc
-	acceptFunc = func(cfg *config.Config) (io.ReadWriteCloser, error) { return server, nil }
+	acceptFunc = func(ctx context.Context, cfg *config.Config) (io.ReadWriteCloser, error) { return server, nil }
 	defer func() { acceptFunc = orig }()
 
 	cfg := &config.Config{ServeProtocol: "proto", ServeAlgorithm: "alg", ServeTestSpace: "ts", ServePolicy: "accept"}
 	errCh := make(chan error, 1)
-	go func() { errCh <- Run(cfg, zap.NewNop()) }()
+	go func() { errCh <- Run(context.Background(), cfg, zap.NewNop()) }()
 
 	if err := qn.WriteNegotiation(client, qn.Negotiation{Protocol: "proto", Algorithm: "other", TestSpace: "ts"}); err != nil {
 		t.Fatalf("write negotiation: %v", err)
@@ -80,12 +81,12 @@ func TestRunNegotiationMismatch(t *testing.T) {
 func TestRunRejectsPolicy(t *testing.T) {
 	server, client := net.Pipe()
 	orig := acceptFunc
-	acceptFunc = func(cfg *config.Config) (io.ReadWriteCloser, error) { return server, nil }
+	acceptFunc = func(ctx context.Context, cfg *config.Config) (io.ReadWriteCloser, error) { return server, nil }
 	defer func() { acceptFunc = orig }()
 
 	cfg := &config.Config{ServeProtocol: "proto", ServeAlgorithm: "alg", ServeTestSpace: "ts", ServePolicy: "deny"}
 	errCh := make(chan error, 1)
-	go func() { errCh <- Run(cfg, zap.NewNop()) }()
+	go func() { errCh <- Run(context.Background(), cfg, zap.NewNop()) }()
 
 	hs := qn.Negotiation{Protocol: "proto", Algorithm: "alg", TestSpace: "ts"}
 	if err := qn.WriteNegotiation(client, hs); err != nil {
