@@ -1,6 +1,7 @@
 package signals
 
 import (
+	"context"
 	"os"
 	"strings"
 	"testing"
@@ -16,7 +17,7 @@ func TestHandle(t *testing.T) {
 	errCh := make(chan error, 1)
 	var snap string
 	logger := zap.NewNop()
-	go Handle(cfg, logger, sigCh, &snap, errCh)
+	go Handle(context.Background(), cfg, logger, sigCh, &snap, errCh)
 	sigCh <- os.Interrupt
 	err := <-errCh
 	if err == nil || !strings.Contains(err.Error(), "received signal") {

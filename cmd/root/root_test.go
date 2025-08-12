@@ -217,9 +217,8 @@ func TestRunHeartbeatError(t *testing.T) {
 	selectTransport = func(*config.Config, *zap.Logger) error { return nil }
 
 	sigErrCh := make(chan error, 1)
-	signalCh := make(chan os.Signal)
-	setupSignalHandle = func(*config.Config, *string, *zap.Logger) (chan os.Signal, chan error) {
-		return signalCh, sigErrCh
+	setupSignalHandle = func(_ context.Context, _ *config.Config, _ *string, _ *zap.Logger) (chan os.Signal, chan error) {
+		return nil, sigErrCh
 	}
 	prepareSnapshotFn = func(ctx context.Context, _ *config.Config, _ string, _ *zap.Logger) (string, chan error, func(), error) {
 		return "snap", nil, func() {}, nil

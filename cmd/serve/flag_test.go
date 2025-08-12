@@ -15,8 +15,12 @@ import (
 
 func TestServeFlagBindingSuccess(t *testing.T) {
 	resetFlags([]string{"--serve", "--serve_listen", "localhost:9900", "--serve_protocol", "p", "--serve_algorithm", "a", "--serve_test_space", "t", "--serve_policy", "accept"})
-	fs := config.NewFlagSets(&config.Config{})
-	cfg, err := config.LoadConfig(fs, &config.Config{})
+	defaults, err := config.DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	flagSets := config.NewFlagSets(defaults)
+	cfg, err := config.LoadConfig(flagSets, defaults)
 	if err != nil {
 		t.Fatalf("LoadConfig: %v", err)
 	}
@@ -49,8 +53,12 @@ func TestServeFlagBindingSuccess(t *testing.T) {
 
 func TestServeFlagBindingInvalidPolicy(t *testing.T) {
 	resetFlags([]string{"--serve", "--serve_listen", "localhost:9900", "--serve_protocol", "p", "--serve_algorithm", "a", "--serve_test_space", "t", "--serve_policy", "deny"})
-	fs := config.NewFlagSets(&config.Config{})
-	cfg, err := config.LoadConfig(fs, &config.Config{})
+	defaults, err := config.DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	flagSets := config.NewFlagSets(defaults)
+	cfg, err := config.LoadConfig(flagSets, defaults)
 	if err != nil {
 		t.Fatalf("LoadConfig: %v", err)
 	}

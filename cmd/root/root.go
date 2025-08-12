@@ -152,7 +152,7 @@ func Run(cfg *config.Config, logger *zap.Logger) error {
 	defer cleanupClient()
 
 	var snapshotPath string
-	signals, sigErrCh := setupSignalHandle(cfg, &snapshotPath, logger)
+	signals, sigErrCh := setupSignalHandle(ctx, cfg, &snapshotPath, logger)
 	defer signal.Stop(signals)
 
 	go func() {
