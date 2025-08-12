@@ -282,13 +282,13 @@ func TestSetupSignalHandling(t *testing.T) {
 	called := make(chan struct{})
 	origHandle := handleSignals
 	defer func() { handleSignals = origHandle }()
-	handleSignals = func(cfg *config.Config, _ *zap.Logger, sigs <-chan os.Signal, p *string, errCh chan<- error) {
+	handleSignals = func(ctx context.Context, cfg *config.Config, _ *zap.Logger, sigs <-chan os.Signal, p *string, errCh chan<- error) {
 		<-sigs
 		*p = "set"
 		close(called)
 	}
 	logger := zap.NewNop()
-	signals, sigErrCh := SetupSignalHandling(cfg, &path, logger)
+	signals, sigErrCh := SetupSignalHandling(context.Background(), cfg, &path, logger)
 	signals <- os.Interrupt
 	select {
 	case <-called:
@@ -313,11 +313,11 @@ func TestSetupSignalHandlingError(t *testing.T) {
 	var path string
 	origHandle := handleSignals
 	defer func() { handleSignals = origHandle }()
-	handleSignals = func(cfg *config.Config, _ *zap.Logger, sigs <-chan os.Signal, p *string, errCh chan<- error) {
+	handleSignals = func(ctx context.Context, cfg *config.Config, _ *zap.Logger, sigs <-chan os.Signal, p *string, errCh chan<- error) {
 		errCh <- errors.New("boom")
 	}
 	logger := zap.NewNop()
-	_, sigErrCh := SetupSignalHandling(cfg, &path, logger)
+	_, sigErrCh := SetupSignalHandling(context.Background(), cfg, &path, logger)
 	if err := <-sigErrCh; err == nil {
 		t.Fatalf("expected error")
 	}

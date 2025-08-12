@@ -215,7 +215,7 @@ func TestRunHeartbeatError(t *testing.T) {
 	selectTransport = func(*config.Config, *zap.Logger) error { return nil }
 
 	sigErrCh := make(chan error, 1)
-	setupSignalHandle = func(*config.Config, *string, *zap.Logger) (chan os.Signal, chan error) {
+	setupSignalHandle = func(_ context.Context, _ *config.Config, _ *string, _ *zap.Logger) (chan os.Signal, chan error) {
 		return nil, sigErrCh
 	}
 	prepareSnapshotFn = func(*config.Config, string, *zap.Logger) (string, chan error, func(), error) {
