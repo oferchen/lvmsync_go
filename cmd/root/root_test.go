@@ -49,8 +49,8 @@ func TestSetupGRPCSuccess(t *testing.T) {
 	srvErrCh <- nil
 	<-done
 	cleanupClient()
-	if hbErrCh == nil {
-		t.Fatalf("expected heartbeat channel")
+	if errCh == nil {
+		t.Fatalf("expected error channel")
 	}
 	if !srvCleanCalled || !clientCleanCalled {
 		t.Fatalf("cleanup functions not called")
@@ -104,6 +104,33 @@ func TestSetupGRPCClientError(t *testing.T) {
 	<-done
 	if !srvCleanupCalled {
 		t.Fatalf("server cleanup not called on error")
+	}
+}
+
+func TestSetupGRPCServeFailurePropagation(t *testing.T) {
+	cfg := &config.Config{}
+	logger := zap.NewNop()
+	srvCleanupCalled := false
+	origStart := startGRPCServer
+	origClient := clientHandshake
+	defer func() {
+		startGRPCServer = origStart
+		clientHandshake = origClient
+	}()
+	startGRPCServer = func(_ *config.Config, _ *zap.Logger) (func(), chan error, error) {
+		ch := make(chan error, 1)
+		ch <- errors.New("serve boom")
+		return func() { srvCleanupCalled = true; close(ch) }, ch, nil
+	}
+	clientHandshake = func(_ *config.Config, _ *zap.Logger) (func(), chan error, error) {
+		t.Fatalf("client handshake should not be called")
+		return nil, nil, nil
+	}
+	if _, _, _, err := SetupGRPC(cfg, logger); err == nil {
+		t.Fatalf("expected error from serve failure")
+	}
+	if !srvCleanupCalled {
+		t.Fatalf("server cleanup not called on serve failure")
 	}
 }
 

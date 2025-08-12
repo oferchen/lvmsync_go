@@ -35,10 +35,11 @@ var (
 	ackStream     = func(ctx context.Context, c proto.ReplicationClient, id string) (ackStreamClient, error) {
 		return grpcclient.AckStream(ctx, c, id)
 	}
-	handleSignals     = signalspkg.Handle
-	prepareSnapshot   = clientpkg.PrepareSnapshot
-	newTicker         = time.NewTicker
-	heartbeatInterval = 30 * time.Second
+	handleSignals        = signalspkg.Handle
+	prepareSnapshot      = clientpkg.PrepareSnapshot
+	newTicker            = time.NewTicker
+	heartbeatInterval    = 30 * time.Second
+	heartbeatSendTimeout = 5 * time.Second
 )
 
 type grpcServer interface {
@@ -90,6 +91,7 @@ func StartGRPCServer(ctx context.Context, cfg *config.Config, logger *zap.Logger
 	cleanup := func() {
 		srv.GracefulStop()
 		ln.Close()
+		close(errCh)
 	}
 	return cleanup, errCh, nil
 }
@@ -142,9 +144,24 @@ func ClientHandshake(cfg *config.Config, logger *zap.Logger) (func(), chan error
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				if err := stream.Send(&proto.Ack{SessionId: id, Ok: true, Message: "ping"}); err != nil {
-					logger.Error("heartbeat send failed", zap.Error(err))
-					hbErrCh <- err
+				sendCtx, sendCancel := context.WithTimeout(ctx, heartbeatSendTimeout)
+				errCh := make(chan error, 1)
+				go func() {
+					errCh <- stream.Send(&proto.Ack{SessionId: id, Ok: true, Message: "ping"})
+				}()
+				select {
+				case err := <-errCh:
+					sendCancel()
+					if err != nil {
+						logger.Error("heartbeat send failed", zap.Error(err))
+						hbErrCh <- err
+						cancel()
+						return
+					}
+				case <-sendCtx.Done():
+					sendCancel()
+					logger.Error("heartbeat send timeout", zap.Error(sendCtx.Err()))
+					hbErrCh <- sendCtx.Err()
 					cancel()
 					return
 				}

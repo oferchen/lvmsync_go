@@ -80,6 +80,14 @@ func SetupGRPC(ctx context.Context, cfg *config.Config, logger *zap.Logger) (fun
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	select {
+	case err, ok := <-srvErrCh:
+		if ok && err != nil {
+			cleanupSrv()
+			return nil, nil, nil, fmt.Errorf("gRPC serve: %w", err)
+		}
+	default:
+	}
 	cleanupClient, hbErrCh, err := clientHandshake(cfg, logger)
 	if err != nil {
 		cleanupSrv()
