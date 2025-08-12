@@ -3,15 +3,16 @@ package hash
 import (
 	"hash"
 
-	"github.com/klauspost/cpuid/v2"
 	"github.com/zeebo/blake3"
 	"github.com/zeebo/xxh3"
+
+	cpufeatures "lvmsync_go/internal/cpufeatures"
 )
 
 var hasSIMD bool
 
 func init() {
-	hasSIMD = cpuid.CPU.Supports(cpuid.AVX512F) || cpuid.CPU.Supports(cpuid.AVX2) || cpuid.CPU.Supports(cpuid.SSE4)
+	hasSIMD = cpufeatures.HasSIMD()
 }
 
 // HasSIMD reports whether CPU SIMD features are available.
