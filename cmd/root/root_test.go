@@ -7,8 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/spf13/pflag"
 	"lvmsync_go/config"
+
+	"github.com/spf13/pflag"
 
 	"go.uber.org/zap"
 )
