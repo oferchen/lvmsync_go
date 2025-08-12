@@ -107,8 +107,8 @@ func SetupGRPC(ctx context.Context, cfg *config.Config, logger *zap.Logger) (fun
 }
 
 // PrepareSnapshot wraps snapshot preparation.
-func PrepareSnapshot(cfg *config.Config, originalVolume string, logger *zap.Logger) (string, chan error, func(), error) {
-	return prepareSnapshotFn(cfg, originalVolume, logger)
+func PrepareSnapshot(ctx context.Context, cfg *config.Config, originalVolume string, logger *zap.Logger) (string, chan error, func(), error) {
+	return prepareSnapshotFn(ctx, cfg, originalVolume, logger)
 }
 
 // ExecuteClient runs the client transfer logic.
@@ -174,7 +174,7 @@ func Run(cfg *config.Config, logger *zap.Logger) error {
 	}
 
 	var monitorErrCh chan error
-	snapshotPath, monitorErrCh, cleanup, err := PrepareSnapshot(cfg, originalVolume, logger)
+	snapshotPath, monitorErrCh, cleanup, err := PrepareSnapshot(ctx, cfg, originalVolume, logger)
 	if err != nil {
 		return err
 	}

@@ -11,6 +11,7 @@ import (
 
 	"lvmsync_go/config"
 	remotetest "lvmsync_go/remote/testutil"
+	"lvmsync_go/transfer"
 )
 
 // TestRunRemoteDump executes a remote apply command through SSH.
@@ -50,7 +51,7 @@ func TestRunRemoteDump(t *testing.T) {
 	cfg.Parallel = 1
 
 	origDump := dumpChangesSequential
-	dumpChangesSequential = func(c *config.Config, snap, origin string, out io.Writer) error {
+	dumpChangesSequential = func(_ *transfer.Transfer, c *config.Config, snap, origin string, out io.Writer) error {
 		if snap != "snap" || origin != "origin" {
 			t.Fatalf("unexpected devices: %s %s", snap, origin)
 		}
@@ -107,7 +108,7 @@ func TestRunRemoteDumpError(t *testing.T) {
 	cfg.Parallel = 1
 
 	origDump := dumpChangesSequential
-	dumpChangesSequential = func(c *config.Config, snap, origin string, out io.Writer) error {
+	dumpChangesSequential = func(_ *transfer.Transfer, c *config.Config, snap, origin string, out io.Writer) error {
 		return nil
 	}
 	defer func() { dumpChangesSequential = origDump }()

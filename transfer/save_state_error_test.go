@@ -3,6 +3,7 @@ package transfer
 import (
 	"bytes"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"lvmsync_go/config"
@@ -14,8 +15,7 @@ import (
 func TestDumpChangesLogsSaveStateError(t *testing.T) {
 	core, observed := observer.New(zap.ErrorLevel)
 	logger := zap.New(core)
-	SetLogger(logger)
-	defer SetLogger(nil)
+	tr := NewTransfer(logger, &sync.WaitGroup{})
 
 	blockSize := int64(1024)
 	changed := []int{0}
@@ -23,7 +23,7 @@ func TestDumpChangesLogsSaveStateError(t *testing.T) {
 
 	cfg := &config.Config{BlockSize: int(blockSize), Compress: "none", DedupStrategy: "checksum", DedupStateFile: filepath.Join(t.TempDir(), "missing", "state"), MaxRetries: 1}
 	var buf bytes.Buffer
-	if dumpErr := DumpChanges(cfg, snapshot, src, &buf); dumpErr != nil {
+	if dumpErr := tr.DumpChanges(cfg, snapshot, src, &buf); dumpErr != nil {
 		t.Fatalf("DumpChanges failed: %v", dumpErr)
 	}
 	logs := observed.FilterMessage("Failed to save dedup state").All()

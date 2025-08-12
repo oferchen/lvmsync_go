@@ -12,6 +12,7 @@ import (
 
 	"lvmsync_go/config"
 	"lvmsync_go/remote"
+	"lvmsync_go/transfer"
 )
 
 func TestSetupSSHClient(t *testing.T) {
@@ -158,7 +159,7 @@ func TestStreamToRemote(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			dumpChangesSequential = func(c *config.Config, snapshot, origin string, out io.Writer) error {
+			dumpChangesSequential = func(_ *transfer.Transfer, c *config.Config, snapshot, origin string, out io.Writer) error {
 				return tc.dumpErr
 			}
 			remoteStdin := &mockWriteCloser{Writer: io.Discard, closeErr: tc.closeErr}

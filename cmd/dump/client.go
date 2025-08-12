@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"sync"
 
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
@@ -19,11 +20,17 @@ import (
 )
 
 var (
-	dumpChangesSequential        = transfer.DumpChangesSequential
-	dumpChangesParallel          = transfer.DumpChangesParallel
-	dumpChangesWithDeduplication = transfer.DumpChangesWithDeduplication
-	newSSHClient                 = remote.NewSSHClient
-	openFile                     = os.OpenFile
+	dumpChangesSequential = func(t *transfer.Transfer, cfg *config.Config, snap, origin string, out io.Writer) error {
+		return t.DumpChangesSequential(cfg, snap, origin, out)
+	}
+	dumpChangesParallel = func(t *transfer.Transfer, cfg *config.Config, snap, origin string, out io.Writer) error {
+		return t.DumpChangesParallel(cfg, snap, origin, out)
+	}
+	dumpChangesWithDeduplication = func(t *transfer.Transfer, cfg *config.Config, snap, origin string, out io.Writer, d transfer.DeduplicationStrategy) error {
+		return t.DumpChangesWithDeduplication(cfg, snap, origin, out, d)
+	}
+	newSSHClient = remote.NewSSHClient
+	openFile     = os.OpenFile
 )
 
 // CopyPipeAsync copies data from src to dst in a new goroutine and returns a channel with the result.
@@ -38,6 +45,7 @@ func CopyPipeAsync(dst io.Writer, src io.Reader) <-chan error {
 
 // ExecuteDump selects the appropriate dump implementation based on configuration.
 func ExecuteDump(cfg *config.Config, snapshotDevice, originDevice string, out io.Writer, logger *zap.Logger) error {
+	t := transfer.NewTransfer(logger, &sync.WaitGroup{})
 	dedup := transfer.NewDeduplicationStrategy(cfg)
 	if dedup != nil {
 		defer func() {
@@ -45,12 +53,12 @@ func ExecuteDump(cfg *config.Config, snapshotDevice, originDevice string, out io
 				logger.Error("Failed to save dedup state", zap.Error(err))
 			}
 		}()
-		return dumpChangesWithDeduplication(cfg, snapshotDevice, originDevice, out, dedup)
+		return dumpChangesWithDeduplication(t, cfg, snapshotDevice, originDevice, out, dedup)
 	}
 	if cfg.Parallel <= 1 {
-		return dumpChangesSequential(cfg, snapshotDevice, originDevice, out)
+		return dumpChangesSequential(t, cfg, snapshotDevice, originDevice, out)
 	}
-	return dumpChangesParallel(cfg, snapshotDevice, originDevice, out)
+	return dumpChangesParallel(t, cfg, snapshotDevice, originDevice, out)
 }
 
 // Run executes client mode transferring data to dest.
@@ -162,7 +170,7 @@ func WaitForRemoteCompletion(session waitSession, stdoutErrCh, stderrErrCh <-cha
 
 // ExecuteRemoteCommand runs the remote apply command over SSH.
 func ExecuteRemoteCommand(cfg *config.Config, client *remote.SSHClient, destDevice, snapshotDevice, originDevice string, logger *zap.Logger) (err error) {
-	if err = client.ValidateRemoteCommand(cfg.LVMSyncPath); err != nil {
+	if err = client.ValidateRemoteCommand(context.Background(), cfg.LVMSyncPath); err != nil {
 		return fmt.Errorf("remote command validation failed: %w", err)
 	}
 
@@ -210,14 +218,15 @@ func RunRemoteDump(cfg *config.Config, snapshotDevice, originDevice, dest string
 		}
 	}()
 
+	ctx := context.Background()
 	if cfg.RemotePreScript != "" {
-		if err = client.RunRemoteScript(cfg.RemotePreScript); err != nil {
+		if err = client.RunRemoteScript(ctx, cfg.RemotePreScript); err != nil {
 			return fmt.Errorf("remote pre-script failed: %w", err)
 		}
 	}
 	if cfg.RemotePostScript != "" {
 		defer func() {
-			if err2 := client.RunRemoteScript(cfg.RemotePostScript); err2 != nil {
+			if err2 := client.RunRemoteScript(ctx, cfg.RemotePostScript); err2 != nil {
 				if err == nil {
 					err = fmt.Errorf("remote post-script failed: %w", err2)
 				} else {
@@ -235,7 +244,6 @@ func SelectTransport(cfg *config.Config, logger *zap.Logger) error {
 	if cfg.Transport == "" {
 		return nil
 	}
-	defer logger.Sync()
 	order := strings.Split(cfg.Transport, ",")
 	_, _, name, err := transport.Select(cfg, order, logger)
 	if err != nil {

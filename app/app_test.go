@@ -330,10 +330,10 @@ func TestPrepareSnapshot(t *testing.T) {
 	logger := zap.NewNop()
 	orig := prepareSnapshot
 	defer func() { prepareSnapshot = orig }()
-	prepareSnapshot = func(c *config.Config, v string, l *zap.Logger) (string, chan error, func(), error) {
+	prepareSnapshot = func(ctx context.Context, c *config.Config, v string, l *zap.Logger) (string, chan error, func(), error) {
 		return "snap", nil, func() {}, nil
 	}
-	snap, ch, cleanup, err := PrepareSnapshot(cfg, "vol", logger)
+	snap, ch, cleanup, err := PrepareSnapshot(context.Background(), cfg, "vol", logger)
 	if err != nil || snap != "snap" || ch != nil || cleanup == nil {
 		t.Fatalf("unexpected result")
 	}
@@ -344,10 +344,10 @@ func TestPrepareSnapshotError(t *testing.T) {
 	logger := zap.NewNop()
 	orig := prepareSnapshot
 	defer func() { prepareSnapshot = orig }()
-	prepareSnapshot = func(c *config.Config, v string, l *zap.Logger) (string, chan error, func(), error) {
+	prepareSnapshot = func(ctx context.Context, c *config.Config, v string, l *zap.Logger) (string, chan error, func(), error) {
 		return "", nil, nil, errors.New("fail")
 	}
-	if _, _, _, err := PrepareSnapshot(cfg, "vol", logger); err == nil {
+	if _, _, _, err := PrepareSnapshot(context.Background(), cfg, "vol", logger); err == nil {
 		t.Fatalf("expected error")
 	}
 }

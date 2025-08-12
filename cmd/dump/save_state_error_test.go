@@ -24,7 +24,7 @@ func TestRunLogsSaveStateError(t *testing.T) {
 	cfg.MaxRetries = 1
 
 	original := dumpChangesWithDeduplication
-	dumpChangesWithDeduplication = func(c *config.Config, snapshot, source string, out io.Writer, dedup transfer.DeduplicationStrategy) error {
+	dumpChangesWithDeduplication = func(_ *transfer.Transfer, c *config.Config, snapshot, source string, out io.Writer, dedup transfer.DeduplicationStrategy) error {
 		return nil
 	}
 	defer func() { dumpChangesWithDeduplication = original }()

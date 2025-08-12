@@ -185,6 +185,6 @@ func SetupSignalHandling(ctx context.Context, cfg *config.Config, snapshotPath *
 }
 
 // PrepareSnapshot wraps the snapshot preparation logic.
-func PrepareSnapshot(cfg *config.Config, originalVolume string, logger *zap.Logger) (string, chan error, func(), error) {
-	return prepareSnapshot(cfg, originalVolume, logger)
+func PrepareSnapshot(ctx context.Context, cfg *config.Config, originalVolume string, logger *zap.Logger) (string, chan error, func(), error) {
+	return prepareSnapshot(ctx, cfg, originalVolume, logger)
 }

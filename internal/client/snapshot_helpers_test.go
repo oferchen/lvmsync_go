@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"errors"
 	"math"
 	"testing"
@@ -43,7 +44,7 @@ func TestEnsureVolumeGroups(t *testing.T) {
 
 	t.Run("sets missing volume group", func(t *testing.T) {
 		cfg := &config.Config{}
-		if err := ensureVolumeGroups(cfg, "/dev/sourcevg/lv1", logger); err != nil {
+		if err := ensureVolumeGroups(context.Background(), cfg, "/dev/sourcevg/lv1", logger); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		if cfg.VolumeGroup != "sourcevg" {
@@ -53,7 +54,7 @@ func TestEnsureVolumeGroups(t *testing.T) {
 
 	t.Run("preserves existing volume group", func(t *testing.T) {
 		cfg := &config.Config{VolumeGroup: "existing"}
-		if err := ensureVolumeGroups(cfg, "/dev/othervg/lv", logger); err != nil {
+		if err := ensureVolumeGroups(context.Background(), cfg, "/dev/othervg/lv", logger); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		if cfg.VolumeGroup != "existing" {
