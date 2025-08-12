@@ -82,6 +82,7 @@ target_vgs: [ ]  # Candidate target VGs for auto-selection
 # Command used to re-execute the program with elevated privileges
 # when required
 lvm_escalation: "sudo -n"
+lvm_timeout: 10s  # Timeout for LVM operations
 progress: true  # Enable progress display during transfer
 # Block size for LVM operations ('auto' or 0 for automatic detection)
 block_size: "auto"

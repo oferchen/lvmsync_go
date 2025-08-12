@@ -45,6 +45,23 @@ func (f *fakeBackend) ListVolumeGroups(_ context.Context, candidates []string) (
 	return res, nil
 }
 
+type timeoutBackend struct{}
+
+func (timeoutBackend) CreateSnapshot(context.Context, string, string, string) error { return nil }
+func (timeoutBackend) RemoveSnapshot(context.Context, string) error                 { return nil }
+func (timeoutBackend) GetSnapshotUsage(context.Context, string) (float64, error)    { return 0, nil }
+func (timeoutBackend) GetVolumeGroupFreeSpace(ctx context.Context, _ string) (uint64, error) {
+	select {
+	case <-ctx.Done():
+		return 0, ctx.Err()
+	case <-time.After(10 * time.Millisecond):
+		return 0, nil
+	}
+}
+func (timeoutBackend) ListVolumeGroups(context.Context, []string) ([]lvm.VolumeGroup, error) {
+	return nil, nil
+}
+
 func TestDefaultConfigCompress(t *testing.T) {
 	cfg, err := DefaultConfig()
 	if err != nil {
@@ -284,7 +301,7 @@ func TestConfigValidate(t *testing.T) {
 		defer restore()
 		restorePriv := lvm.SetPrivilegeChecker(func() error { return nil })
 		defer restorePriv()
-		cfg := &Config{VolumeGroup: "vg0", LVMEscalation: "sudo", SSHKeepAliveInterval: time.Second}
+		cfg := &Config{VolumeGroup: "vg0", LVMEscalation: "sudo", SSHKeepAliveInterval: time.Second, LVMTimeout: time.Second}
 		if err := cfg.Validate(); err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
@@ -296,7 +313,7 @@ func TestConfigValidate(t *testing.T) {
 		defer restore()
 		restorePriv := lvm.SetPrivilegeChecker(func() error { return nil })
 		defer restorePriv()
-		cfg := &Config{VolumeGroup: "vg0", LVMEscalation: "sudo", SSHKeepAliveInterval: time.Second}
+		cfg := &Config{VolumeGroup: "vg0", LVMEscalation: "sudo", SSHKeepAliveInterval: time.Second, LVMTimeout: time.Second}
 		if err := cfg.Validate(); err == nil {
 			t.Fatalf("expected error")
 		}
@@ -306,6 +323,17 @@ func TestConfigValidate(t *testing.T) {
 		cfg := &Config{SSHKeepAliveInterval: 0}
 		if err := cfg.Validate(); err == nil {
 			t.Fatalf("expected error")
+		}
+	})
+
+	t.Run("timeout", func(t *testing.T) {
+		restore := lvm.SetBackend(timeoutBackend{})
+		defer restore()
+		restorePriv := lvm.SetPrivilegeChecker(func() error { return nil })
+		defer restorePriv()
+		cfg := &Config{VolumeGroup: "vg0", LVMEscalation: "sudo", SSHKeepAliveInterval: time.Second, LVMTimeout: time.Millisecond}
+		if err := cfg.Validate(); err == nil {
+			t.Fatalf("expected timeout error")
 		}
 	})
 }
