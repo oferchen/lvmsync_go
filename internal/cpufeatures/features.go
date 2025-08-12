@@ -17,6 +17,21 @@ func HasAVX512() bool {
 	return cpu.X86.HasAVX512F
 }
 
+// HasAVX reports AVX support on x86 CPUs.
+func HasAVX() bool {
+	return cpu.X86.HasAVX
+}
+
+// HasSSE41 reports SSE4.1 support on x86 CPUs.
+func HasSSE41() bool {
+	return cpu.X86.HasSSE41
+}
+
+// HasSSE2 reports SSE2 support on x86 CPUs.
+func HasSSE2() bool {
+	return cpu.X86.HasSSE2
+}
+
 // HasNEON reports whether the CPU has NEON/ASIMD support.
 func HasNEON() bool {
 	return cpu.ARM64.HasASIMD || cpu.ARM.HasNEON
@@ -24,5 +39,5 @@ func HasNEON() bool {
 
 // HasSIMD reports if any major SIMD extension is present.
 func HasSIMD() bool {
-	return HasAVX512() || HasAVX2() || HasNEON()
+	return HasAVX512() || HasAVX2() || HasAVX() || HasSSE41() || HasSSE2() || HasNEON()
 }
