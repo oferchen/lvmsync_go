@@ -1,6 +1,7 @@
 package remote
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -29,21 +30,22 @@ func TestStartKeepAlive(t *testing.T) {
 
 	client := &SSHClient{Client: rawClient, Logger: zap.NewNop()}
 
+	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
-		client.startKeepAlive("host", 10*time.Millisecond)
+		client.startKeepAlive(ctx, "host", 10*time.Millisecond)
 		close(done)
 	}()
 
 	time.Sleep(30 * time.Millisecond)
-	if err := client.Close(); err != nil {
-		t.Fatalf("client.Close error: %v", err)
-	}
-
+	cancel()
 	select {
 	case <-done:
 	case <-time.After(100 * time.Millisecond):
 		t.Fatalf("startKeepAlive did not exit")
+	}
+	if err := client.Close(); err != nil {
+		t.Fatalf("client.Close error: %v", err)
 	}
 
 	if len(server.GlobalRequests()) == 0 {
@@ -54,11 +56,13 @@ func TestStartKeepAlive(t *testing.T) {
 func TestNewSSHClient(t *testing.T) {
 	server, host, port, knownHosts := newSSHServer(t, func(_ string) int { return 0 }) // cmd is unused
 	keyPath := remotetest.CreateTempKey(t)
-	client, err := NewSSHClient(host, "test", keyPath, port, knownHosts, true, time.Second, 10*time.Millisecond, 0, zap.NewNop())
+	ctx, cancel := context.WithCancel(context.Background())
+	client, err := NewSSHClient(ctx, host, "test", keyPath, port, knownHosts, true, time.Second, 10*time.Millisecond, 0, zap.NewNop())
 	if err != nil {
 		t.Fatalf("NewSSHClient error: %v", err)
 	}
 	time.Sleep(20 * time.Millisecond)
+	cancel()
 	if err := client.Close(); err != nil {
 		t.Fatalf("client.Close error: %v", err)
 	}

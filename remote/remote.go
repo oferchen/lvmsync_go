@@ -2,6 +2,7 @@
 package remote
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -30,7 +31,16 @@ type SSHClient struct {
 // private key or the local SSH agent for authentication. The connection is
 // configured with a keep-alive mechanism and host key verification based on the
 // provided known_hosts file.
-func NewSSHClient(host, user, keyPath string, port int, knownHostsPath string, verify bool, timeout, keepAliveInterval time.Duration, retries int, logger *zap.Logger) (*SSHClient, error) {
+func NewSSHClient(
+	ctx context.Context,
+	host, user, keyPath string,
+	port int,
+	knownHostsPath string,
+	verify bool,
+	timeout, keepAliveInterval time.Duration,
+	retries int,
+	logger *zap.Logger,
+) (*SSHClient, error) {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
@@ -57,7 +67,7 @@ func NewSSHClient(host, user, keyPath string, port int, knownHostsPath string, v
 	}
 
 	sshClient := &SSHClient{Client: client, Logger: logger}
-	go sshClient.startKeepAlive(host, keepAliveInterval)
+	go sshClient.startKeepAlive(ctx, host, keepAliveInterval)
 
 	return sshClient, nil
 }

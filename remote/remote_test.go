@@ -1,6 +1,7 @@
 package remote
 
 import (
+	"context"
 	"os"
 	"strings"
 	"testing"
@@ -44,7 +45,7 @@ func TestNewSSHClientNoAuth(t *testing.T) {
 	}()
 
 	knownHosts := remotetest.CreateEmptyKnownHosts(t)
-	_, err := NewSSHClient("localhost", "root", "", 22, knownHosts, true, time.Second, time.Second, 0, zap.NewNop())
+	_, err := NewSSHClient(context.Background(), "localhost", "root", "", 22, knownHosts, true, time.Second, time.Second, 0, zap.NewNop())
 	if err == nil || !strings.Contains(err.Error(), "no SSH authentication methods configured") {
 		t.Fatalf("expected error for missing auth methods, got %v", err)
 	}

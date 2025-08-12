@@ -2,18 +2,24 @@
 package remote
 
 import (
+	"context"
 	"time"
 
 	"go.uber.org/zap"
 )
 
-func (c *SSHClient) startKeepAlive(host string, interval time.Duration) {
+func (c *SSHClient) startKeepAlive(ctx context.Context, host string, interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		if err := c.sendKeepAlive(host); err != nil {
-			break
+	for {
+		select {
+		case <-ticker.C:
+			if err := c.sendKeepAlive(host); err != nil {
+				return
+			}
+		case <-ctx.Done():
+			return
 		}
 	}
 }
