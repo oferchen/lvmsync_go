@@ -26,6 +26,10 @@ var supportsSIMD = cpufeatures.HasSIMD
 // a variable to allow tests to override the detection behavior.
 var hasNEON = compressiondetect.HasNEON
 
+// hasAVX2 reports whether the current CPU supports AVX2 instructions. It is
+// a variable to allow tests to override the detection behavior.
+var hasAVX2 = compressiondetect.HasAVX2
+
 // No shared state is kept between decompression readers.
 
 // NewCompressionWriter creates a compression writer that wraps the destination
@@ -77,29 +81,33 @@ const (
 // selectAlgorithm chooses a compression algorithm and level based on the
 // requested strategy, chunk size, and CPU capabilities.
 func selectAlgorithm(chunkLen int, compress string, level int) (string, int) {
-	if compress == StrategyAuto {
-		if chunkLen < lz4MaxChunk {
-			if level == 0 {
-				level = int(lz4.Level1)
-			}
-			return compressionLZ4, level
-		}
-		if supportsSIMD() {
-			return compressionZSTD, defaultZstdLv
-		if hasAVX2() || hasNEON() {
-			if level <= 0 {
-				level = defaultZstdLv
-			} else if level > maxAutoZstdLv {
-				level = maxAutoZstdLv
-			}
-			return compressionZSTD, level
-		}
+	if compress != StrategyAuto {
+		return compress, level
+	}
+	if chunkLen < lz4MaxChunk {
 		if level == 0 {
 			level = int(lz4.Level1)
 		}
 		return compressionLZ4, level
 	}
-	return compress, level
+	if supportsSIMD() {
+		if level <= 0 {
+			level = defaultZstdLv
+		}
+		return compressionZSTD, level
+	}
+	if hasAVX2() || hasNEON() {
+		if level <= 0 {
+			level = defaultZstdLv
+		} else if level > maxAutoZstdLv {
+			level = maxAutoZstdLv
+		}
+		return compressionZSTD, level
+	}
+	if level == 0 {
+		level = int(lz4.Level1)
+	}
+	return compressionLZ4, level
 }
 
 // estimateRatio compresses a sample of the data using the selected algorithm

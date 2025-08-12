@@ -56,9 +56,11 @@ func Dial(ctx context.Context, addr string, conf Config, opts ...grpc.DialOption
 	if !strings.Contains(addr, "://") {
 		target = "passthrough:///" + addr
 	}
-	dctx, cancel := context.WithTimeout(ctx, conf.DialTimeout)
-	defer cancel()
-	return grpc.DialContext(dctx, target, opts...)
+	conn, err := grpc.NewClient(target, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return conn, nil
 }
 
 func Handshake(ctx context.Context, c proto.ReplicationClient, hs *proto.HandshakeRequest) (*proto.HandshakeResponse, error) {

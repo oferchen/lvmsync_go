@@ -1,10 +1,26 @@
 [
   {
+    "type": "deprecated-api",
+    "component": "grpc/client/client.go",
+    "evidence": "used grpc.DialContext deprecated API",
+    "impact": "future gRPC releases could break dialing",
+    "fix": "replaced with grpc.NewClient",
+    "priority": "P1"
+  },
+  {
+    "type": "unreachable",
+    "component": "internal/transport",
+    "evidence": "package unused and failing vet",
+    "impact": "dead code increased maintenance",
+    "fix": "removed package and callers",
+    "priority": "P1"
+  },
+  {
     "type": "doc-missing",
     "component": "README.md",
-    "evidence": "Throughput mode referenced unsupported sync interval option",
-    "impact": "Users could expect flag that does not exist",
-    "fix": "Removed reference from README; code unaffected",
+    "evidence": "--transport flag documented but not implemented",
+    "impact": "users misled about transport selection",
+    "fix": "docs note flag is ignored",
     "priority": "P2"
   }
 ]
