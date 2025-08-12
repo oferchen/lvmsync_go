@@ -56,32 +56,38 @@ type ackStreamClient interface {
 	CloseSend() error
 }
 
-// StartGRPCServer starts the gRPC server if configured and returns a cleanup function.
-func StartGRPCServer(cfg *config.Config, logger *zap.Logger) (func(), error) {
+// StartGRPCServer starts the gRPC server if configured and returns a cleanup function and error channel.
+func StartGRPCServer(cfg *config.Config, logger *zap.Logger) (func(), chan error, error) {
+	errCh := make(chan error, 1)
 	if cfg.GRPCListen == "" {
-		return func() {}, nil
+		close(errCh)
+		return func() {}, errCh, nil
 	}
 
 	srvCfg := grpcserver.Config{TLSCert: cfg.TLSCert, TLSKey: cfg.TLSKey, CACert: cfg.CACert, AllowInsecure: cfg.AllowInsecure}
 	ln, err := listen("tcp", cfg.GRPCListen)
 	if err != nil {
-		return nil, fmt.Errorf("gRPC listen: %w", err)
+		close(errCh)
+		return nil, nil, fmt.Errorf("gRPC listen: %w", err)
 	}
 	srv, err := newServer(srvCfg, nil)
 	if err != nil {
 		ln.Close()
-		return nil, fmt.Errorf("gRPC server: %w", err)
+		close(errCh)
+		return nil, nil, fmt.Errorf("gRPC server: %w", err)
 	}
 	go func() {
 		if err := srv.Serve(ln); err != nil {
 			logger.Error("grpc server", zap.Error(err))
+			errCh <- err
 		}
 	}()
 	cleanup := func() {
 		srv.GracefulStop()
 		ln.Close()
+		close(errCh)
 	}
-	return cleanup, nil
+	return cleanup, errCh, nil
 }
 
 // ClientHandshake performs the gRPC client handshake and returns a cleanup function and heartbeat error channel.

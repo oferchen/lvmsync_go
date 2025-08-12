@@ -46,7 +46,7 @@ func TestStartGRPCServerSuccess(t *testing.T) {
 	srv := &fakeServer{}
 	newServer = func(conf grpcserver.Config, agent lvmlib.Agent) (grpcServer, error) { return srv, nil }
 
-	cleanup, err := StartGRPCServer(cfg, logger)
+	cleanup, errCh, err := StartGRPCServer(cfg, logger)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -58,6 +58,9 @@ func TestStartGRPCServerSuccess(t *testing.T) {
 	if !srv.stopped.Load() {
 		t.Fatalf("server not stopped")
 	}
+	if _, ok := <-errCh; ok {
+		t.Fatalf("expected closed channel")
+	}
 }
 
 func TestStartGRPCServerListenError(t *testing.T) {
@@ -67,10 +70,41 @@ func TestStartGRPCServerListenError(t *testing.T) {
 	defer func() { listen = origListen }()
 	listen = func(network, addr string) (net.Listener, error) { return nil, errors.New("boom") }
 
-	if _, err := StartGRPCServer(cfg, logger); err == nil {
+	if _, _, err := StartGRPCServer(cfg, logger); err == nil {
 		t.Fatalf("expected error")
 	}
 }
+
+func TestStartGRPCServerServeError(t *testing.T) {
+	cfg := &config.Config{GRPCListen: "127.0.0.1:0"}
+	logger := zap.NewNop()
+	origListen := listen
+	origNewServer := newServer
+	defer func() { listen = origListen; newServer = origNewServer }()
+	listen = func(network, addr string) (net.Listener, error) { return &fakeListener{}, nil }
+	srvErr := errors.New("serve boom")
+	newServer = func(conf grpcserver.Config, agent lvmlib.Agent) (grpcServer, error) {
+		return &failingServer{err: srvErr}, nil
+	}
+	cleanup, errCh, err := StartGRPCServer(cfg, logger)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	defer cleanup()
+	select {
+	case err := <-errCh:
+		if !errors.Is(err, srvErr) {
+			t.Fatalf("unexpected serve error: %v", err)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Fatalf("timeout waiting for serve error")
+	}
+}
+
+type failingServer struct{ err error }
+
+func (f *failingServer) Serve(net.Listener) error { return f.err }
+func (f *failingServer) GracefulStop()            {}
 
 // ClientHandshake tests
 

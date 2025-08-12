@@ -76,16 +76,52 @@ func Configure() (*config.Config, *zap.Logger, error) {
 
 // SetupGRPC starts the server and performs client handshake returning cleanup functions and heartbeat error channel.
 func SetupGRPC(cfg *config.Config, logger *zap.Logger) (func(), func(), chan error, error) {
-	cleanupSrv, err := startGRPCServer(cfg, logger)
+	cleanupSrv, srvErrCh, err := startGRPCServer(cfg, logger)
 	if err != nil {
 		return nil, nil, nil, err
+	}
+	select {
+	case err, ok := <-srvErrCh:
+		if ok && err != nil {
+			cleanupSrv()
+			return nil, nil, nil, fmt.Errorf("gRPC serve: %w", err)
+		}
+	default:
 	}
 	cleanupClient, hbErrCh, err := clientHandshake(cfg, logger)
 	if err != nil {
 		cleanupSrv()
 		return nil, nil, nil, err
 	}
-	return cleanupSrv, cleanupClient, hbErrCh, nil
+
+	errCh := make(chan error, 1)
+	go func() {
+		defer close(errCh)
+		for srvErrCh != nil || hbErrCh != nil {
+			select {
+			case err, ok := <-srvErrCh:
+				if !ok {
+					srvErrCh = nil
+					continue
+				}
+				if err != nil {
+					errCh <- err
+					return
+				}
+			case err, ok := <-hbErrCh:
+				if !ok {
+					hbErrCh = nil
+					continue
+				}
+				if err != nil {
+					errCh <- err
+					return
+				}
+			}
+		}
+	}()
+
+	return cleanupSrv, cleanupClient, errCh, nil
 }
 
 // PrepareSnapshot wraps snapshot preparation.
