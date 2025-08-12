@@ -17,6 +17,10 @@ import (
 	qn "lvmsync_go/quic"
 )
 
+type nopRWCloser struct{ io.ReadCloser }
+
+func (nopRWCloser) Write(p []byte) (int, error) { return len(p), nil }
+
 func TestRunAcceptsTransfer(t *testing.T) {
 	server, client := net.Pipe()
 	orig := acceptFunc
@@ -119,7 +123,7 @@ func (f *fakeListener) Close() error {
 
 func TestQuicStreamCloseClosesResources(t *testing.T) {
 	qs := &quicStream{
-		ReadWriteCloser: io.NopCloser(strings.NewReader("")),
+		ReadWriteCloser: nopRWCloser{io.NopCloser(strings.NewReader(""))},
 		conn:            &fakeConn{},
 		listener:        &fakeListener{},
 	}

@@ -44,15 +44,24 @@ type agent struct {
 	lvm lvmAPI
 }
 
-// NewSudoAgent returns an Agent implementation that ensures root privileges
-// before invoking LVM commands. An optional ensureRoot function can be provided
-// (primarily for tests). When nil, privilege.New().Ensure is used.
-func NewSudoAgent(sudoPath string, l lvmlib.API, ensureRoot func() error) Agent {
-	api, _ := l.(lvmAPI)
-	if ensureRoot == nil {
-		ensureRoot = privilege.New().Ensure
+// NewAgent constructs an Agent that delegates LVM operations to the provided
+// lvmAPI and ensures privileges using the given Escalator. When esc is nil,
+// privilege.New() supplies a default implementation.
+func NewAgent(lvm lvmAPI, esc privilege.Escalator) Agent {
+	if esc == nil {
+		esc = privilege.New()
 	}
-	return &agent{esc: esc, lvm: api}
+	return &agent{esc: esc, lvm: lvm}
+}
+
+// NewSudoAgent wraps the public LVM API with a privilege-enforcing Agent. The
+// sudoPath and ensureRoot parameters are retained for compatibility but are
+// currently unused.
+func NewSudoAgent(sudoPath string, l lvmlib.API, ensureRoot func() error) Agent { //nolint:revive // sudoPath kept for future use
+	_ = sudoPath
+	_ = ensureRoot
+	api, _ := l.(lvmAPI)
+	return NewAgent(api, nil)
 }
 
 func (a *agent) Lock(ctx context.Context, volume, requester string) error {

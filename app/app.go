@@ -142,11 +142,11 @@ func ClientHandshake(cfg *config.Config, logger *zap.Logger) (func(), error) {
 }
 
 // SetupSignalHandling configures signal handling and returns the signal and error channels.
-func SetupSignalHandling(cfg *config.Config, snapshotPath *string) (chan os.Signal, chan error) {
+func SetupSignalHandling(cfg *config.Config, snapshotPath *string, logger *zap.Logger) (chan os.Signal, chan error) {
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
 	sigErrCh := make(chan error, 1)
-	go handleSignals(cfg, signals, snapshotPath, sigErrCh)
+	go handleSignals(cfg, logger, signals, snapshotPath, sigErrCh)
 	return signals, sigErrCh
 }
 
