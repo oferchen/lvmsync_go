@@ -1058,6 +1058,27 @@ Before starting, LVMSync validates key configuration parameters:
 
 Invalid configurations will cause the tool to abort with a clear error message.
 
+## Exit Codes
+
+LVMSync returns conventional exit codes to indicate overall status:
+
+| Code | Meaning |
+|------|---------|
+| `0` | Success |
+| `1` | Configuration or runtime failure |
+
+Example shell usage:
+
+```sh
+lvmsync "$@"
+rc=$?
+case $rc in
+  0) echo "transfer completed successfully" ;;
+  1) echo "configuration or runtime failure" ;;
+  *) echo "unexpected exit code: $rc" ;;
+esac
+```
+
 ## Credits
 
 LVMSync is written in Go by Ofer Chen, inspired by [mpalmer/lvmsync](https://github.com/mpalmer/lvmsync).
