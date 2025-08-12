@@ -33,6 +33,10 @@ LVMSync is a high-performance incremental data replication tool for LVM snapshot
 - **Flexible Configuration**: Flags, environment variables, or `config.yaml`. See [Configuration](#configuration).
 - **Configuration Validation**: Checks key parameters (e.g., volume group existence, escalation command) before starting operations.
 
+## Supported Platforms
+
+LVMSync targets Linux systems only. Builds are tested on the `amd64` and `arm64` architectures.
+
 ## Roadmap
 
 - gRPC control plane with mTLS and configurable ports
@@ -328,6 +332,7 @@ LVMSYNC_GRPC_GRPC_PORT=9443 LVMSYNC_GRPC_TLS_CERT=cert.pem lvmsync-grpcd
 | `--grpc_listen` | `LVMSYNC_GRPC_LISTEN` | `grpc_listen` | gRPC listen address |
 | `--grpc_connect` | `LVMSYNC_GRPC_CONNECT` | `grpc_connect` | gRPC server address to connect to |
 | `--grpc_port` | `LVMSYNC_GRPC_PORT` | `grpc_port` | gRPC port to listen on |
+| `--grpc_dial_timeout` | `LVMSYNC_GRPC_DIAL_TIMEOUT` | `grpc_dial_timeout` | gRPC dial timeout |
 | `--tls_cert` | `LVMSYNC_TLS_CERT` | `tls_cert` | TLS certificate file |
 | `--tls_key` | `LVMSYNC_TLS_KEY` | `tls_key` | TLS key file |
 | `--ca_cert` | `LVMSYNC_CA_CERT` | `ca_cert` | CA certificate file |
@@ -786,6 +791,7 @@ sender, receiver, err := ssh.New(cfg, logger)
 | Option             | Description                  | Default         |
 | ------------------ | ---------------------------- | --------------- |
 | `--grpc_port`      | gRPC port to listen on       | `8443`          |
+| `--grpc_dial_timeout` | gRPC dial timeout          | `5s`            |
 | `--tls_cert`       | TLS certificate file         | `""`            |
 | `--tls_key`        | TLS key file                 | `""`            |
 | `--ca_cert`        | CA certificate file          | `""`            |

@@ -1,4 +1,6 @@
 [Unit]
+# LVMSync gRPC daemon service
+# Supported Platforms: Linux only, tested on amd64 and arm64
 Description=LVMSync gRPC daemon
 
 [Service]

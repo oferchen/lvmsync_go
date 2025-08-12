@@ -74,18 +74,18 @@ func Configure() (*config.Config, *zap.Logger, error) {
 	return cfg, logger, nil
 }
 
-// SetupGRPC starts the server and performs client handshake returning cleanup functions.
-func SetupGRPC(cfg *config.Config, logger *zap.Logger) (func(), func(), error) {
+// SetupGRPC starts the server and performs client handshake returning cleanup functions and heartbeat error channel.
+func SetupGRPC(cfg *config.Config, logger *zap.Logger) (func(), func(), chan error, error) {
 	cleanupSrv, err := startGRPCServer(cfg, logger)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	cleanupClient, err := clientHandshake(cfg, logger)
+	cleanupClient, hbErrCh, err := clientHandshake(cfg, logger)
 	if err != nil {
 		cleanupSrv()
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	return cleanupSrv, cleanupClient, nil
+	return cleanupSrv, cleanupClient, hbErrCh, nil
 }
 
 // PrepareSnapshot wraps snapshot preparation.
@@ -121,12 +121,13 @@ func Run(cfg *config.Config, logger *zap.Logger) error {
 		return err
 	}
 
-	cleanupSrv, cleanupClient, err := SetupGRPC(cfg, logger)
+	cleanupSrv, cleanupClient, hbErrCh, err := SetupGRPC(cfg, logger)
 	if err != nil {
 		return err
 	}
 	defer cleanupSrv()
 	defer cleanupClient()
+	_ = hbErrCh
 
 	var snapshotPath string
 	signals, sigErrCh := setupSignalHandle(cfg, &snapshotPath, logger)

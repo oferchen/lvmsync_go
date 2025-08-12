@@ -320,7 +320,7 @@ func TestConfigValidate(t *testing.T) {
 	})
 
 	t.Run("invalidKeepalive", func(t *testing.T) {
-		cfg := &Config{SSHKeepAliveInterval: 0}
+		cfg := &Config{SSHKeepAliveInterval: 0, GRPCDialTimeout: time.Second}
 		if err := cfg.Validate(); err == nil {
 			t.Fatalf("expected error")
 		}
@@ -399,7 +399,7 @@ func TestValidateEscalationCommandPath(t *testing.T) {
 	}
 	os.Setenv("PATH", dir)
 
-	cfg := &Config{LVMEscalation: "sudo", SSHKeepAliveInterval: time.Second}
+	cfg := &Config{LVMEscalation: "sudo", SSHKeepAliveInterval: time.Second, GRPCDialTimeout: time.Second}
 	if err := cfg.Validate(); err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}

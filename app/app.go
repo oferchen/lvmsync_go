@@ -27,16 +27,18 @@ var (
 	newServer = func(cfg grpcserver.Config, agent lvmlib.Agent) (grpcServer, error) {
 		return grpcserver.New(cfg, agent)
 	}
-	dial = func(addr string, conf grpcclient.Config) (closeableConn, error) {
-		return grpcclient.Dial(addr, conf)
+	dial = func(ctx context.Context, addr string, conf grpcclient.Config) (closeableConn, error) {
+		return grpcclient.Dial(ctx, addr, conf)
 	}
 	handshake     = grpcclient.Handshake
 	createSession = grpcclient.CreateSession
 	ackStream     = func(ctx context.Context, c proto.ReplicationClient, id string) (ackStreamClient, error) {
 		return grpcclient.AckStream(ctx, c, id)
 	}
-	handleSignals   = signalspkg.Handle
-	prepareSnapshot = clientpkg.PrepareSnapshot
+	handleSignals     = signalspkg.Handle
+	prepareSnapshot   = clientpkg.PrepareSnapshot
+	newTicker         = time.NewTicker
+	heartbeatInterval = 30 * time.Second
 )
 
 type grpcServer interface {
@@ -82,45 +84,48 @@ func StartGRPCServer(cfg *config.Config, logger *zap.Logger) (func(), error) {
 	return cleanup, nil
 }
 
-// ClientHandshake performs the gRPC client handshake and returns a cleanup function.
-func ClientHandshake(cfg *config.Config, logger *zap.Logger) (func(), error) {
+// ClientHandshake performs the gRPC client handshake and returns a cleanup function and heartbeat error channel.
+func ClientHandshake(cfg *config.Config, logger *zap.Logger) (func(), chan error, error) {
 	if cfg.GRPCConnect == "" {
-		return func() {}, nil
+		return func() {}, nil, nil
 	}
-	conn, err := dial(cfg.GRPCConnect, grpcclient.Config{
+	ctx, cancel := context.WithCancel(context.Background())
+	conn, err := dial(ctx, cfg.GRPCConnect, grpcclient.Config{
 		TLSCert:       cfg.TLSCert,
 		TLSKey:        cfg.TLSKey,
 		CACert:        cfg.CACert,
 		AllowInsecure: cfg.AllowInsecure,
+		DialTimeout:   cfg.GRPCDialTimeout,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("gRPC dial: %w", err)
+		cancel()
+		return nil, nil, fmt.Errorf("gRPC dial: %w", err)
 	}
 	c := proto.NewReplicationClient(conn)
 	hs := &proto.HandshakeRequest{SectorSize: 512, Alignment: 512, MaxConcurrency: uint32(cfg.Parallel), DedupSupported: true, CompressionSupported: true}
-	ctx, cancel := context.WithCancel(context.Background())
 	hsCtx, hsCancel := context.WithTimeout(ctx, 10*time.Second)
 	if _, err := handshake(hsCtx, c, hs); err != nil {
 		hsCancel()
 		cancel()
 		conn.Close()
-		return nil, fmt.Errorf("handshake failed: %w", err)
+		return nil, nil, fmt.Errorf("handshake failed: %w", err)
 	}
 	sess, err := createSession(hsCtx, c, "vol", "dev")
 	hsCancel()
 	if err != nil {
 		cancel()
 		conn.Close()
-		return nil, fmt.Errorf("create session: %w", err)
+		return nil, nil, fmt.Errorf("create session: %w", err)
 	}
 	stream, err := ackStream(ctx, c, sess.GetSessionId())
 	if err != nil {
 		cancel()
 		conn.Close()
-		return nil, fmt.Errorf("ack stream: %w", err)
+		return nil, nil, fmt.Errorf("ack stream: %w", err)
 	}
+	hbErrCh := make(chan error, 1)
 	go func(id string) {
-		ticker := time.NewTicker(30 * time.Second)
+		ticker := newTicker(heartbeatInterval)
 		defer ticker.Stop()
 		for {
 			select {
@@ -128,6 +133,9 @@ func ClientHandshake(cfg *config.Config, logger *zap.Logger) (func(), error) {
 				return
 			case <-ticker.C:
 				if err := stream.Send(&proto.Ack{SessionId: id, Ok: true, Message: "ping"}); err != nil {
+					logger.Error("heartbeat send failed", zap.Error(err))
+					hbErrCh <- err
+					cancel()
 					return
 				}
 			}
@@ -137,8 +145,9 @@ func ClientHandshake(cfg *config.Config, logger *zap.Logger) (func(), error) {
 		cancel()
 		stream.CloseSend()
 		conn.Close()
+		close(hbErrCh)
 	}
-	return cleanup, nil
+	return cleanup, hbErrCh, nil
 }
 
 // SetupSignalHandling configures signal handling and returns the signal and error channels.

@@ -106,6 +106,7 @@ type Config struct {
 	GRPCPort              int           `mapstructure:"grpc_port"`
 	GRPCListen            string        `mapstructure:"grpc_listen"`
 	GRPCConnect           string        `mapstructure:"grpc_connect"`
+	GRPCDialTimeout       time.Duration `mapstructure:"grpc_dial_timeout"` // gRPC dial timeout
 	TLSCert               string        `mapstructure:"tls_cert"`
 	TLSKey                string        `mapstructure:"tls_key"`
 	CACert                string        `mapstructure:"ca_cert"`
@@ -432,6 +433,7 @@ func DefaultConfig() (*Config, error) {
 		GRPCPort:              8443,
 		GRPCListen:            "",
 		GRPCConnect:           "",
+		GRPCDialTimeout:       5 * time.Second,
 		TLSCert:               "",
 		TLSKey:                "",
 		CACert:                "",
@@ -540,6 +542,7 @@ func initGRPCFlags(cfg *Config) *pflag.FlagSet {
 	fs.Int("grpc_port", cfg.GRPCPort, "gRPC port to listen on")
 	fs.String("grpc_listen", cfg.GRPCListen, "gRPC listen address")
 	fs.String("grpc_connect", cfg.GRPCConnect, "gRPC server address to connect to")
+	fs.Duration("grpc_dial_timeout", cfg.GRPCDialTimeout, "gRPC dial timeout")
 	fs.String("tls_cert", cfg.TLSCert, "TLS certificate file")
 	fs.String("tls_key", cfg.TLSKey, "TLS key file")
 	fs.String("ca_cert", cfg.CACert, "CA certificate file")
@@ -674,6 +677,9 @@ func LoadConfig() (*Config, error) {
 func (c *Config) Validate() error {
 	if c.SSHKeepAliveInterval <= 0 {
 		return fmt.Errorf("ssh keepalive interval must be > 0")
+	}
+	if c.GRPCDialTimeout <= 0 {
+		return fmt.Errorf("grpc dial timeout must be > 0")
 	}
 	if c.VolumeGroup != "" {
 		ctx, cancel := context.WithTimeout(context.Background(), c.LVMTimeout)
