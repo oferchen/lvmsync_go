@@ -34,7 +34,8 @@ func TestRegisterFlags(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
-	registerFlags(cfg)
+	fs := NewFlagSets(cfg)
+	registerFlags(fs)
 	names := []string{"parallel", "ssh_user", "grpc_port"}
 	for _, name := range names {
 		if f := pflag.CommandLine.Lookup(name); f == nil {
@@ -52,9 +53,10 @@ func TestBuildViperPrecedence(t *testing.T) {
 		if err != nil {
 			t.Fatalf("DefaultConfig: %v", err)
 		}
-		registerFlags(cfg)
+		fs := NewFlagSets(cfg)
+		registerFlags(fs)
 		pflag.Parse()
-		v, err := buildViper()
+		v, err := buildViper(fs)
 		if err != nil {
 			t.Fatalf("buildViper: %v", err)
 		}
@@ -70,9 +72,10 @@ func TestBuildViperPrecedence(t *testing.T) {
 		if err != nil {
 			t.Fatalf("DefaultConfig: %v", err)
 		}
-		registerFlags(cfg)
+		fs := NewFlagSets(cfg)
+		registerFlags(fs)
 		pflag.Parse()
-		v, err := buildViper()
+		v, err := buildViper(fs)
 		if err != nil {
 			t.Fatalf("buildViper: %v", err)
 		}
@@ -88,9 +91,10 @@ func TestBuildViperPrecedence(t *testing.T) {
 		if err != nil {
 			t.Fatalf("DefaultConfig: %v", err)
 		}
-		registerFlags(cfg)
+		fs := NewFlagSets(cfg)
+		registerFlags(fs)
 		pflag.Parse()
-		v, err := buildViper()
+		v, err := buildViper(fs)
 		if err != nil {
 			t.Fatalf("buildViper: %v", err)
 		}
@@ -106,7 +110,8 @@ func TestUsageOutput(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
-	registerFlags(cfg)
+	fs := NewFlagSets(cfg)
+	registerFlags(fs)
 	buf := &bytes.Buffer{}
 	pflag.CommandLine.SetOutput(buf)
 	pflag.Usage()

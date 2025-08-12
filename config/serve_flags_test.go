@@ -4,7 +4,12 @@ import "testing"
 
 func TestServeFlagParsing(t *testing.T) {
 	resetFlags([]string{"--serve", "--serve_listen", "localhost:9900", "--serve_protocol", "p", "--serve_algorithm", "a", "--serve_test_space", "t", "--serve_policy", "accept"})
-	cfg, err := LoadConfig()
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	fs := NewFlagSets(defaults)
+	cfg, err := LoadConfig(fs, defaults)
 	if err != nil {
 		t.Fatalf("LoadConfig: %v", err)
 	}

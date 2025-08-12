@@ -41,7 +41,12 @@ func SyncLogger(logger *zap.Logger) {
 
 // Configure loads configuration, ensures privileges, validates, and sets up logging.
 func Configure() (*config.Config, *zap.Logger, error) {
-	cfg, err := config.LoadConfig()
+	defaults, err := config.DefaultConfig()
+	if err != nil {
+		return nil, nil, fmt.Errorf("configuration error: %w", err)
+	}
+	flagSets := config.NewFlagSets(defaults)
+	cfg, err := config.LoadConfig(flagSets, defaults)
 	if err != nil {
 		return nil, nil, fmt.Errorf("configuration error: %w", err)
 	}

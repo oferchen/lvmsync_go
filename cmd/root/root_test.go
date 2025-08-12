@@ -207,7 +207,8 @@ func TestRunHeartbeatError(t *testing.T) {
 	hbErrCh <- errors.New("hb fail")
 
 	startGRPCServer = func(context.Context, *config.Config, *zap.Logger) (func(), <-chan error, error) {
-		return func() {}, make(chan error), nil
+		ch := make(chan error)
+		return func() { close(ch) }, ch, nil
 	}
 	clientHandshake = func(*config.Config, *zap.Logger) (func(), chan error, error) {
 		return func() {}, hbErrCh, nil
