@@ -338,6 +338,8 @@ LVMSYNC_GRPC_GRPC_PORT=9443 LVMSYNC_GRPC_TLS_CERT=cert.pem lvmsync-grpcd
 | `--grpc_connect` | `LVMSYNC_GRPC_CONNECT` | `grpc_connect` | gRPC server address to connect to |
 | `--grpc_port` | `LVMSYNC_GRPC_PORT` | `grpc_port` | gRPC port to listen on |
 | `--grpc_dial_timeout` | `LVMSYNC_GRPC_DIAL_TIMEOUT` | `grpc_dial_timeout` | gRPC dial timeout |
+| `--grpc_heartbeat_interval` | `LVMSYNC_GRPC_HEARTBEAT_INTERVAL` | `grpc_heartbeat_interval` | gRPC heartbeat interval |
+| `--grpc_heartbeat_send_timeout` | `LVMSYNC_GRPC_HEARTBEAT_SEND_TIMEOUT` | `grpc_heartbeat_send_timeout` | gRPC heartbeat send timeout |
 | `--tls_cert` | `LVMSYNC_TLS_CERT` | `tls_cert` | TLS certificate file |
 | `--tls_key` | `LVMSYNC_TLS_KEY` | `tls_key` | TLS key file |
 | `--ca_cert` | `LVMSYNC_CA_CERT` | `ca_cert` | CA certificate file |
@@ -799,6 +801,8 @@ sender, receiver, err := ssh.New(cfg, logger)
 | ------------------ | ---------------------------- | --------------- |
 | `--grpc_port`      | gRPC port to listen on       | `8443`          |
 | `--grpc_dial_timeout` | gRPC dial timeout          | `5s`            |
+| `--grpc_heartbeat_interval` | gRPC heartbeat interval | `30s`          |
+| `--grpc_heartbeat_send_timeout` | gRPC heartbeat send timeout | `5s` |
 | `--tls_cert`       | TLS certificate file         | `""`            |
 | `--tls_key`        | TLS key file                 | `""`            |
 | `--ca_cert`        | CA certificate file          | `""`            |

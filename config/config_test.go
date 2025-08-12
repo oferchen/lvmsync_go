@@ -92,6 +92,16 @@ func TestDefaultConfigStrictHostKeyCheck(t *testing.T) {
 	}
 }
 
+func TestDefaultConfigHeartbeat(t *testing.T) {
+	cfg, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig returned error: %v", err)
+	}
+	if cfg.HeartbeatInterval != 30*time.Second || cfg.HeartbeatSendTimeout != 5*time.Second {
+		t.Fatalf("unexpected heartbeat defaults %v %v", cfg.HeartbeatInterval, cfg.HeartbeatSendTimeout)
+	}
+}
+
 func TestHumanBlockSize(t *testing.T) {
 	c := &Config{BlockSize: 0}
 	if c.HumanBlockSize() != Auto {
@@ -307,6 +317,8 @@ func TestConfigValidate(t *testing.T) {
 			SSHKeepAliveInterval: time.Second,
 			LVMTimeout:           time.Second,
 			GRPCDialTimeout:      time.Second,
+			HeartbeatInterval:    time.Second,
+			HeartbeatSendTimeout: time.Second,
 		}
 		if err := cfg.Validate(); err != nil {
 			t.Fatalf("expected no error, got %v", err)
@@ -326,7 +338,21 @@ func TestConfigValidate(t *testing.T) {
 	})
 
 	t.Run("invalidKeepalive", func(t *testing.T) {
-		cfg := &Config{SSHKeepAliveInterval: 0, GRPCDialTimeout: time.Second}
+		cfg := &Config{SSHKeepAliveInterval: 0, GRPCDialTimeout: time.Second, HeartbeatInterval: time.Second, HeartbeatSendTimeout: time.Second}
+		if err := cfg.Validate(); err == nil {
+			t.Fatalf("expected error")
+		}
+	})
+
+	t.Run("invalidHeartbeatInterval", func(t *testing.T) {
+		cfg := &Config{SSHKeepAliveInterval: time.Second, GRPCDialTimeout: time.Second, HeartbeatInterval: 0, HeartbeatSendTimeout: time.Second}
+		if err := cfg.Validate(); err == nil {
+			t.Fatalf("expected error")
+		}
+	})
+
+	t.Run("invalidHeartbeatSendTimeout", func(t *testing.T) {
+		cfg := &Config{SSHKeepAliveInterval: time.Second, GRPCDialTimeout: time.Second, HeartbeatInterval: time.Second, HeartbeatSendTimeout: 0}
 		if err := cfg.Validate(); err == nil {
 			t.Fatalf("expected error")
 		}
@@ -405,7 +431,7 @@ func TestValidateEscalationCommandPath(t *testing.T) {
 	}
 	os.Setenv("PATH", dir)
 
-	cfg := &Config{LVMEscalation: "sudo", SSHKeepAliveInterval: time.Second, GRPCDialTimeout: time.Second}
+	cfg := &Config{LVMEscalation: "sudo", SSHKeepAliveInterval: time.Second, GRPCDialTimeout: time.Second, HeartbeatInterval: time.Second, HeartbeatSendTimeout: time.Second}
 	if err := cfg.Validate(); err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}

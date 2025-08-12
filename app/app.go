@@ -35,11 +35,9 @@ var (
 	ackStream     = func(ctx context.Context, c proto.ReplicationClient, id string) (ackStreamClient, error) {
 		return grpcclient.AckStream(ctx, c, id)
 	}
-	handleSignals        = signalspkg.Handle
-	prepareSnapshot      = clientpkg.PrepareSnapshot
-	newTicker            = time.NewTicker
-	heartbeatInterval    = 30 * time.Second
-	heartbeatSendTimeout = 5 * time.Second
+	handleSignals   = signalspkg.Handle
+	prepareSnapshot = clientpkg.PrepareSnapshot
+	newTicker       = time.NewTicker
 )
 
 type grpcServer interface {
@@ -137,14 +135,14 @@ func ClientHandshake(cfg *config.Config, logger *zap.Logger) (func(), chan error
 	}
 	hbErrCh := make(chan error, 1)
 	go func(id string) {
-		ticker := newTicker(heartbeatInterval)
+		ticker := newTicker(cfg.HeartbeatInterval)
 		defer ticker.Stop()
 		for {
 			select {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				sendCtx, sendCancel := context.WithTimeout(ctx, heartbeatSendTimeout)
+				sendCtx, sendCancel := context.WithTimeout(ctx, cfg.HeartbeatSendTimeout)
 				errCh := make(chan error, 1)
 				go func() {
 					errCh <- stream.Send(&proto.Ack{SessionId: id, Ok: true, Message: "ping"})

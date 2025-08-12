@@ -88,7 +88,7 @@ func TestStartGRPCServerServeError(t *testing.T) {
 	newServer = func(conf grpcserver.Config, agent lvmlib.Agent) (grpcServer, error) {
 		return &failingServer{err: srvErr}, nil
 	}
-	cleanup, errCh, err := StartGRPCServer(cfg, logger)
+	cleanup, errCh, err := StartGRPCServer(context.Background(), cfg, logger)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -124,7 +124,7 @@ func (f *fakeStream) Send(*proto.Ack) error { return nil }
 func (f *fakeStream) CloseSend() error      { f.closed = true; return nil }
 
 func TestClientHandshakeSuccess(t *testing.T) {
-	cfg := &config.Config{GRPCConnect: "addr", Parallel: 1, GRPCDialTimeout: time.Second}
+	cfg := &config.Config{GRPCConnect: "addr", Parallel: 1, GRPCDialTimeout: time.Second, HeartbeatInterval: time.Second, HeartbeatSendTimeout: time.Second}
 	logger := zap.NewNop()
 
 	fc := &fakeConn{}
@@ -162,7 +162,7 @@ func TestClientHandshakeSuccess(t *testing.T) {
 }
 
 func TestClientHandshakeDialError(t *testing.T) {
-	cfg := &config.Config{GRPCConnect: "addr", GRPCDialTimeout: time.Second}
+	cfg := &config.Config{GRPCConnect: "addr", GRPCDialTimeout: time.Second, HeartbeatInterval: time.Second, HeartbeatSendTimeout: time.Second}
 	logger := zap.NewNop()
 	origDial := dial
 	defer func() { dial = origDial }()
@@ -176,7 +176,7 @@ func TestClientHandshakeDialError(t *testing.T) {
 }
 
 func TestClientHandshakeHeartbeatFailure(t *testing.T) {
-	cfg := &config.Config{GRPCConnect: "addr", Parallel: 1}
+	cfg := &config.Config{GRPCConnect: "addr", Parallel: 1, HeartbeatInterval: 10 * time.Millisecond, HeartbeatSendTimeout: time.Second}
 	logger := zap.NewNop()
 
 	fc := &fakeConn{}
@@ -185,13 +185,11 @@ func TestClientHandshakeHeartbeatFailure(t *testing.T) {
 	origHandshake := handshake
 	origCreateSession := createSession
 	origAckStream := ackStream
-	origInterval := heartbeatInterval
 	defer func() {
 		dial = origDial
 		handshake = origHandshake
 		createSession = origCreateSession
 		ackStream = origAckStream
-		heartbeatInterval = origInterval
 	}()
 	dial = func(ctx context.Context, addr string, conf grpcclient.Config) (closeableConn, error) {
 		return fc, nil
@@ -203,7 +201,6 @@ func TestClientHandshakeHeartbeatFailure(t *testing.T) {
 		return &proto.SessionResponse{SessionId: "id"}, nil
 	}
 	ackStream = func(context.Context, proto.ReplicationClient, string) (ackStreamClient, error) { return fs, nil }
-	heartbeatInterval = 10 * time.Millisecond
 
 	cleanup, hbErrCh, err := ClientHandshake(cfg, logger)
 	if err != nil {
@@ -221,7 +218,7 @@ func TestClientHandshakeHeartbeatFailure(t *testing.T) {
 }
 
 func TestClientHandshakeHeartbeatTimeout(t *testing.T) {
-	cfg := &config.Config{GRPCConnect: "addr", Parallel: 1}
+	cfg := &config.Config{GRPCConnect: "addr", Parallel: 1, HeartbeatInterval: 10 * time.Millisecond, HeartbeatSendTimeout: 20 * time.Millisecond}
 	logger := zap.NewNop()
 
 	fc := &fakeConn{}
@@ -231,15 +228,11 @@ func TestClientHandshakeHeartbeatTimeout(t *testing.T) {
 	origHandshake := handshake
 	origCreateSession := createSession
 	origAckStream := ackStream
-	origInterval := heartbeatInterval
-	origTimeout := heartbeatSendTimeout
 	defer func() {
 		dial = origDial
 		handshake = origHandshake
 		createSession = origCreateSession
 		ackStream = origAckStream
-		heartbeatInterval = origInterval
-		heartbeatSendTimeout = origTimeout
 	}()
 	dial = func(ctx context.Context, addr string, conf grpcclient.Config) (closeableConn, error) {
 		return fc, nil
@@ -251,8 +244,6 @@ func TestClientHandshakeHeartbeatTimeout(t *testing.T) {
 		return &proto.SessionResponse{SessionId: "id"}, nil
 	}
 	ackStream = func(context.Context, proto.ReplicationClient, string) (ackStreamClient, error) { return fs, nil }
-	heartbeatInterval = 10 * time.Millisecond
-	heartbeatSendTimeout = 20 * time.Millisecond
 
 	cleanup, hbErrCh, err := ClientHandshake(cfg, logger)
 	if err != nil {
