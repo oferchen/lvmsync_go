@@ -225,7 +225,7 @@ incoming client. The server listens on `--serve_listen` (default `:9000`) and
 expects the client to present matching `--serve_protocol`, `--serve_algorithm`,
 and optional `--serve_test_space` values. A mismatched value aborts the
 connection. Transfers proceed only when `--serve_policy` is `accept` (the
-default). The server closes the stream, QUIC connection, and listener when the transfer completes and exits gracefully when it receives `SIGINT` or `SIGTERM`.
+default). The server closes the stream, QUIC connection, and listener when the transfer completes, logging any shutdown errors at `warn` level, and exits gracefully when it receives `SIGINT` or `SIGTERM`.
 
 ```sh
 lvmsync --serve --serve_listen :9000

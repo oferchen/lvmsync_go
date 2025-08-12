@@ -3,6 +3,7 @@ package serve
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"io"
 	"net"
 	"os"
@@ -12,6 +13,7 @@ import (
 	q "github.com/quic-go/quic-go"
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 
 	"lvmsync_go/config"
 	qn "lvmsync_go/quic"
@@ -104,6 +106,40 @@ func TestRunRejectsPolicy(t *testing.T) {
 	client.Close()
 	if err := <-errCh; err == nil {
 		t.Fatalf("expected error")
+	}
+}
+
+type errCloseConn struct{ net.Conn }
+
+func (e errCloseConn) Close() error { return fmt.Errorf("close fail") }
+
+func TestRunLogsStreamCloseError(t *testing.T) {
+	server, client := net.Pipe()
+	orig := acceptFunc
+	acceptFunc = func(ctx context.Context, cfg *config.Config) (io.ReadWriteCloser, error) {
+		return errCloseConn{server}, nil
+	}
+	defer func() { acceptFunc = orig }()
+
+	cfg := &config.Config{ServeProtocol: "proto", ServeAlgorithm: "alg", ServeTestSpace: "ts", ServePolicy: "accept"}
+	core, logs := observer.New(zap.WarnLevel)
+	errCh := make(chan error, 1)
+	go func() { errCh <- Run(context.Background(), cfg, zap.New(core)) }()
+
+	hs := qn.Negotiation{Protocol: "proto", Algorithm: "alg", TestSpace: "ts"}
+	if err := qn.WriteNegotiation(client, hs); err != nil {
+		t.Fatalf("write negotiation: %v", err)
+	}
+	if _, err := qn.ReadNegotiation(bufio.NewReader(client)); err != nil {
+		t.Fatalf("read negotiation: %v", err)
+	}
+	client.Close()
+
+	if err := <-errCh; err != nil {
+		t.Fatalf("Run error: %v", err)
+	}
+	if logs.FilterMessage("serve: stream close").Len() != 1 {
+		t.Fatalf("expected stream close warning log")
 	}
 }
 
