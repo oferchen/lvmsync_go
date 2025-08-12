@@ -35,7 +35,7 @@ func TestSetupGRPCSuccess(t *testing.T) {
 		return func() { clientCleanCalled = true }, make(chan error), nil
 	}
 
-	cleanupSrv, cleanupClient, hbErrCh, err := SetupGRPC(context.Background(), cfg, logger)
+	cleanupSrv, cleanupClient, errCh, err := SetupGRPC(context.Background(), cfg, logger)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -52,7 +52,7 @@ func TestSetupGRPCSuccess(t *testing.T) {
 	srvErrCh <- nil
 	<-done
 	cleanupClient()
-	if hbErrCh == nil {
+	if errCh == nil {
 		t.Fatalf("expected error channel")
 	}
 	if !srvCleanCalled || !clientCleanCalled {
