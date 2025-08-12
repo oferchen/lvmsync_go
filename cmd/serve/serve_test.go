@@ -6,8 +6,10 @@ import (
 	"io"
 	"net"
 	"os"
+	"strings"
 	"testing"
 
+	q "github.com/quic-go/quic-go"
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
 
@@ -98,5 +100,33 @@ func TestRunRejectsPolicy(t *testing.T) {
 	client.Close()
 	if err := <-errCh; err == nil {
 		t.Fatalf("expected error")
+	}
+}
+
+type fakeConn struct{ closed bool }
+
+func (f *fakeConn) CloseWithError(code q.ApplicationErrorCode, msg string) error {
+	f.closed = true
+	return nil
+}
+
+type fakeListener struct{ closed bool }
+
+func (f *fakeListener) Close() error {
+	f.closed = true
+	return nil
+}
+
+func TestQuicStreamCloseClosesResources(t *testing.T) {
+	qs := &quicStream{
+		ReadWriteCloser: io.NopCloser(strings.NewReader("")),
+		conn:            &fakeConn{},
+		listener:        &fakeListener{},
+	}
+	if err := qs.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	if !qs.conn.(*fakeConn).closed || !qs.listener.(*fakeListener).closed {
+		t.Fatalf("expected conn and listener closed")
 	}
 }

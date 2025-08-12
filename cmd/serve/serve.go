@@ -31,13 +31,39 @@ var acceptFunc = func(ctx context.Context, cfg *config.Config) (io.ReadWriteClos
 	}
 	conn, err := l.Accept(ctx)
 	if err != nil {
+		_ = l.Close()
 		return nil, err
 	}
 	stream, err := conn.AcceptStream(ctx)
 	if err != nil {
+		_ = conn.CloseWithError(0, "")
+		_ = l.Close()
 		return nil, err
 	}
-	return stream, nil
+	return &quicStream{ReadWriteCloser: stream, conn: conn, listener: l}, nil
+}
+
+// quicStream wraps a QUIC stream and ensures the connection and listener are
+// closed when the stream is closed.
+type connCloser interface {
+	CloseWithError(code q.ApplicationErrorCode, msg string) error
+}
+
+type listenerCloser interface {
+	Close() error
+}
+
+type quicStream struct {
+	io.ReadWriteCloser
+	conn     connCloser
+	listener listenerCloser
+}
+
+// Close closes the stream, connection, and listener, ignoring connection errors.
+func (qs *quicStream) Close() error {
+	_ = qs.conn.CloseWithError(0, "")
+	_ = qs.listener.Close()
+	return qs.ReadWriteCloser.Close()
 }
 
 // Run starts the QUIC server, negotiates parameters, and enforces the transfer policy.
