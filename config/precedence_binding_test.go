@@ -224,3 +224,111 @@ func TestSSHHostEnvOverridesConfig(t *testing.T) {
 		t.Fatalf("expected ssh_host env, got %s", conf.SSHHost)
 	}
 }
+
+func TestTransportCLIOverridesEnvAndConfig(t *testing.T) {
+	cfgPath := writeTempConfig(t, "transport: quic\n")
+	resetFlags([]string{"--config", cfgPath, "--transport", "h2"})
+	t.Setenv("LVMSYNC_TRANSPORT", "tcp+tls")
+
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	fs := NewFlagSets(defaults)
+	registerFlags(fs)
+	pflag.Parse()
+
+	v, err := buildViper(fs)
+	if err != nil {
+		t.Fatalf("buildViper: %v", err)
+	}
+	builder := &Builder{v: v, defaults: defaults}
+	conf, err := builder.Build()
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if conf.Transport != "h2" {
+		t.Fatalf("expected transport h2, got %s", conf.Transport)
+	}
+}
+
+func TestTransportEnvOverridesConfig(t *testing.T) {
+	cfgPath := writeTempConfig(t, "transport: quic\n")
+	resetFlags([]string{"--config", cfgPath})
+	t.Setenv("LVMSYNC_TRANSPORT", "tcp+tls")
+
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	fs := NewFlagSets(defaults)
+	registerFlags(fs)
+	pflag.Parse()
+
+	v, err := buildViper(fs)
+	if err != nil {
+		t.Fatalf("buildViper: %v", err)
+	}
+	builder := &Builder{v: v, defaults: defaults}
+	conf, err := builder.Build()
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if conf.Transport != "tcp+tls" {
+		t.Fatalf("expected transport tcp+tls, got %s", conf.Transport)
+	}
+}
+
+func TestConcurrencyCLIOverridesEnvAndConfig(t *testing.T) {
+	cfgPath := writeTempConfig(t, "concurrency: 1\n")
+	resetFlags([]string{"--config", cfgPath, "--concurrency", "3"})
+	t.Setenv("LVMSYNC_CONCURRENCY", "2")
+
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	fs := NewFlagSets(defaults)
+	registerFlags(fs)
+	pflag.Parse()
+
+	v, err := buildViper(fs)
+	if err != nil {
+		t.Fatalf("buildViper: %v", err)
+	}
+	builder := &Builder{v: v, defaults: defaults}
+	conf, err := builder.Build()
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if conf.Concurrency != 3 {
+		t.Fatalf("expected concurrency 3, got %d", conf.Concurrency)
+	}
+}
+
+func TestConcurrencyEnvOverridesConfig(t *testing.T) {
+	cfgPath := writeTempConfig(t, "concurrency: 1\n")
+	resetFlags([]string{"--config", cfgPath})
+	t.Setenv("LVMSYNC_CONCURRENCY", "2")
+
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	fs := NewFlagSets(defaults)
+	registerFlags(fs)
+	pflag.Parse()
+
+	v, err := buildViper(fs)
+	if err != nil {
+		t.Fatalf("buildViper: %v", err)
+	}
+	builder := &Builder{v: v, defaults: defaults}
+	conf, err := builder.Build()
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if conf.Concurrency != 2 {
+		t.Fatalf("expected concurrency 2, got %d", conf.Concurrency)
+	}
+}
