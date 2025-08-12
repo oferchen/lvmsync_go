@@ -2,6 +2,7 @@ package config
 
 import (
 	"testing"
+	"time"
 
 	"github.com/spf13/pflag"
 )
@@ -69,6 +70,8 @@ func TestFlagSetsBindToViper(t *testing.T) {
 		"--compress", "lz4",
 		"--skip_snapshot_creation=true",
 		"--grpc_port", "9999",
+		"--grpc_heartbeat_interval", "2s",
+		"--grpc_heartbeat_send_timeout", "1s",
 	}
 	resetFlags(args)
 
@@ -105,6 +108,12 @@ func TestFlagSetsBindToViper(t *testing.T) {
 	}
 	if got := v.GetInt("grpc_port"); got != 9999 {
 		t.Fatalf("grpc_port got %d want 9999", got)
+	}
+	if got := v.GetDuration("grpc_heartbeat_interval"); got != 2*time.Second {
+		t.Fatalf("grpc_heartbeat_interval got %v want 2s", got)
+	}
+	if got := v.GetDuration("grpc_heartbeat_send_timeout"); got != time.Second {
+		t.Fatalf("grpc_heartbeat_send_timeout got %v want 1s", got)
 	}
 }
 

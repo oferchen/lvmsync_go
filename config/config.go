@@ -136,6 +136,8 @@ type Config struct {
 	GRPCListen            string        `mapstructure:"grpc_listen"`
 	GRPCConnect           string        `mapstructure:"grpc_connect"`
 	GRPCDialTimeout       time.Duration `mapstructure:"grpc_dial_timeout"` // gRPC dial timeout
+	HeartbeatInterval     time.Duration `mapstructure:"grpc_heartbeat_interval"`
+	HeartbeatSendTimeout  time.Duration `mapstructure:"grpc_heartbeat_send_timeout"`
 	TLSCert               string        `mapstructure:"tls_cert"`
 	TLSKey                string        `mapstructure:"tls_key"`
 	CACert                string        `mapstructure:"ca_cert"`
@@ -463,6 +465,8 @@ func DefaultConfig() (*Config, error) {
 		GRPCListen:            "",
 		GRPCConnect:           "",
 		GRPCDialTimeout:       5 * time.Second,
+		HeartbeatInterval:     30 * time.Second,
+		HeartbeatSendTimeout:  5 * time.Second,
 		TLSCert:               "",
 		TLSKey:                "",
 		CACert:                "",
@@ -572,6 +576,8 @@ func initGRPCFlags(cfg *Config) *pflag.FlagSet {
 	fs.String("grpc_listen", cfg.GRPCListen, "gRPC listen address")
 	fs.String("grpc_connect", cfg.GRPCConnect, "gRPC server address to connect to")
 	fs.Duration("grpc_dial_timeout", cfg.GRPCDialTimeout, "gRPC dial timeout")
+	fs.Duration("grpc_heartbeat_interval", cfg.HeartbeatInterval, "gRPC heartbeat interval")
+	fs.Duration("grpc_heartbeat_send_timeout", cfg.HeartbeatSendTimeout, "gRPC heartbeat send timeout")
 	fs.String("tls_cert", cfg.TLSCert, "TLS certificate file")
 	fs.String("tls_key", cfg.TLSKey, "TLS key file")
 	fs.String("ca_cert", cfg.CACert, "CA certificate file")
@@ -681,6 +687,12 @@ func (c *Config) ValidateWith(geteuid func() int) error {
 	}
 	if c.GRPCDialTimeout <= 0 {
 		return fmt.Errorf("grpc dial timeout must be > 0")
+	}
+	if c.HeartbeatInterval <= 0 {
+		return fmt.Errorf("grpc heartbeat interval must be > 0")
+	}
+	if c.HeartbeatSendTimeout <= 0 {
+		return fmt.Errorf("grpc heartbeat send timeout must be > 0")
 	}
 	if c.VolumeGroup != "" {
 		ctx, cancel := context.WithTimeout(context.Background(), c.LVMTimeout)
