@@ -14,7 +14,8 @@ import (
 )
 
 // acceptFunc allows tests to override the listener and stream acceptance logic.
-// The provided context controls cancellation for listener and stream accepts.
+// The context controls cancellation for both the listener and the stream accepts
+// and must be honored by implementations.
 var acceptFunc = func(ctx context.Context, cfg *config.Config) (io.ReadWriteCloser, error) {
 	tlsConf, err := qn.NewTLSConfig(qn.Config{
 		TLSCert:       cfg.TLSCert,
@@ -43,8 +44,8 @@ var acceptFunc = func(ctx context.Context, cfg *config.Config) (io.ReadWriteClos
 	return &quicStream{ReadWriteCloser: stream, conn: conn, listener: l}, nil
 }
 
-// quicStream wraps a QUIC stream and ensures the connection and listener are
-// closed when the stream is closed.
+// quicStream wraps a QUIC stream and ensures the QUIC connection and listener
+// are closed when the stream is closed.
 type connCloser interface {
 	CloseWithError(code q.ApplicationErrorCode, msg string) error
 }
@@ -59,7 +60,8 @@ type quicStream struct {
 	listener listenerCloser
 }
 
-// Close closes the stream, connection, and listener, ignoring connection errors.
+// Close closes the stream, connection, and listener, ignoring connection
+// errors so shutdown paths can proceed.
 func (qs *quicStream) Close() error {
 	_ = qs.conn.CloseWithError(0, "")
 	_ = qs.listener.Close()
@@ -73,7 +75,11 @@ func Run(ctx context.Context, cfg *config.Config, logger *zap.Logger) error {
 	if err != nil {
 		return err
 	}
-	defer stream.Close()
+	defer func() {
+		if cerr := stream.Close(); cerr != nil {
+			logger.Warn("serve: stream close", zap.Error(cerr))
+		}
+	}()
 
 	expected := qn.Negotiation{
 		Protocol:  cfg.ServeProtocol,
