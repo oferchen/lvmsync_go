@@ -170,7 +170,7 @@ func TestRunRemoteDumpTimeout(t *testing.T) {
 	defer func() { dumpChangesSequential = origDump }()
 
 	dest := host + ":/dev/null"
-	err = RunRemoteDump(cfg, "snap", "origin", dest, zap.NewNop())
+	err = RunRemoteDump(context.Background(), cfg, "snap", "origin", dest, zap.NewNop())
 	if err == nil || !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("expected context deadline exceeded, got %v", err)
 	}
@@ -181,5 +181,18 @@ func TestRunRemoteDumpTimeout(t *testing.T) {
 	}
 	if cmdCount != 1 {
 		t.Fatalf("expected only validation command, got %d", cmdCount)
+	}
+}
+
+// TestRunRemoteDumpInvalidDest verifies that an invalid destination format returns an error.
+func TestRunRemoteDumpInvalidDest(t *testing.T) {
+	cfg, err := config.DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig returned error: %v", err)
+	}
+	dest := "invalid"
+	err = RunRemoteDump(context.Background(), cfg, "snap", "origin", dest, zap.NewNop())
+	if err == nil || !strings.Contains(err.Error(), "host:device") {
+		t.Fatalf("expected host:device format error, got %v", err)
 	}
 }

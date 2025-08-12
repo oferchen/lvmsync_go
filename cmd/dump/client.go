@@ -223,6 +223,9 @@ func ExecuteRemoteCommand(ctx context.Context, cfg *config.Config, client *remot
 // RunRemoteDump streams snapshot data to a remote host over SSH.
 func RunRemoteDump(ctx context.Context, cfg *config.Config, snapshotDevice, originDevice, dest string, logger *zap.Logger) (err error) {
 	parts := strings.SplitN(dest, ":", 2)
+	if len(parts) != 2 {
+		return fmt.Errorf("invalid destination %q: expected host:device", dest)
+	}
 	destHost, destDevice := parts[0], parts[1]
 	client, cancel, err := SetupSSHClient(cfg, destHost, logger)
 	if err != nil {
