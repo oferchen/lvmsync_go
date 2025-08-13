@@ -1,0 +1,120 @@
+package main
+
+import (
+	"context"
+	"fmt"
+	"net"
+	"strings"
+
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+	"go.uber.org/zap"
+
+	grpcserver "lvmsync_go/grpc/server"
+)
+
+// Options holds configuration for the gRPC daemon.
+type Options struct {
+	GRPCPort      int
+	TLSCert       string
+	TLSKey        string
+	CACert        string
+	AllowInsecure bool
+}
+
+// startFunc allows tests to stub server startup.
+var startFunc = func(ctx context.Context, opts Options, logger *zap.Logger) error {
+	addr := fmt.Sprintf(":%d", opts.GRPCPort)
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		return err
+	}
+	cfg := grpcserver.Config{
+		TLSCert:       opts.TLSCert,
+		TLSKey:        opts.TLSKey,
+		CACert:        opts.CACert,
+		AllowInsecure: opts.AllowInsecure,
+	}
+	srv, err := grpcserver.New(cfg, nil)
+	if err != nil {
+		ln.Close()
+		return fmt.Errorf("init gRPC server: %w", err)
+	}
+	go func() {
+		if err := srv.Serve(ln); err != nil {
+			logger.Error("grpc serve", zap.Error(err))
+		}
+	}()
+	<-ctx.Done()
+	srv.GracefulStop()
+	ln.Close()
+	return nil
+}
+
+func bindFlags(cmd *cobra.Command, v *viper.Viper) {
+	fs := cmd.Flags()
+	fs.Int("grpc-port", 9443, "gRPC listen port")
+	fs.String("tls-cert", "", "TLS certificate file")
+	fs.String("tls-key", "", "TLS key file")
+	fs.String("ca-cert", "", "CA certificate file")
+	fs.Bool("allow-insecure", false, "allow plaintext gRPC")
+	fs.String("config", "", "config file")
+
+	v.BindPFlags(fs)
+	v.SetEnvPrefix("LVMSYNC_GRPC")
+	v.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
+	v.AutomaticEnv()
+}
+
+func loadConfig(v *viper.Viper) (Options, error) {
+	cfgFile := v.GetString("config")
+	if cfgFile != "" {
+		v.SetConfigFile(cfgFile)
+	} else {
+		v.SetConfigName("grpcd")
+		v.AddConfigPath(".")
+	}
+	if err := v.ReadInConfig(); err != nil {
+		if _, ok := err.(viper.ConfigFileNotFoundError); !ok && cfgFile != "" {
+			return Options{}, err
+		}
+	}
+	return Options{
+		GRPCPort:      v.GetInt("grpc-port"),
+		TLSCert:       v.GetString("tls-cert"),
+		TLSKey:        v.GetString("tls-key"),
+		CACert:        v.GetString("ca-cert"),
+		AllowInsecure: v.GetBool("allow-insecure"),
+	}, nil
+}
+
+// NewCmd creates the root cobra command.
+func NewCmd(logger *zap.Logger) *cobra.Command {
+	v := viper.New()
+	cmd := &cobra.Command{
+		Use:   "lvmsync-grpcd",
+		Short: "LVMSync gRPC daemon",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			opts, err := loadConfig(v)
+			if err != nil {
+				return err
+			}
+			ctx := cmd.Context()
+			if ctx == nil {
+				ctx = context.Background()
+			}
+			return startFunc(ctx, opts, logger)
+		},
+	}
+	bindFlags(cmd, v)
+	return cmd
+}
+
+// Execute runs the command with provided args.
+func Execute(args []string, logger *zap.Logger) error {
+	cmd := NewCmd(logger)
+	if args != nil {
+		cmd.SetArgs(args)
+	}
+	return cmd.Execute()
+}

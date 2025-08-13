@@ -530,6 +530,27 @@ func TestNewRPCsMTLS(t *testing.T) {
 	}
 }
 
+func TestPlaintextRejected(t *testing.T) {
+	cfg, _, _ := generateTLS(t)
+	lis := bufconn.Listen(bufSize)
+	srv, err := New(cfg, nil)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	go srv.Serve(lis)
+	dialer := func(context.Context, string) (net.Conn, error) { return lis.Dial() }
+	conn, err := grpc.NewClient("passthrough:///bufnet", grpc.WithContextDialer(dialer), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	client := proto.NewReplicationClient(conn)
+	if _, err := client.Ping(ctxWithRole("replicator"), &proto.Empty{}); err == nil {
+		t.Fatalf("expected handshake failure")
+	}
+	conn.Close()
+	srv.Stop()
+}
+
 func dummyCert(t *testing.T) []byte {
 	t.Helper()
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
