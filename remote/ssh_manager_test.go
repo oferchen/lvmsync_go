@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"go.uber.org/zap/zaptest"
+	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 
 	"lvmsync_go/remote/testutil"
@@ -93,5 +94,28 @@ func TestSSHAgentAuthSuccess(t *testing.T) {
 	}
 	if auth == nil {
 		t.Fatal("expected auth method")
+	}
+}
+
+func TestLoadPrivateKeyZeroesSlice(t *testing.T) {
+	keyPath := testutil.CreateTempKey(t)
+	var captured []byte
+	parsePrivateKey = func(data []byte) (ssh.Signer, error) {
+		captured = data
+		return ssh.ParsePrivateKey(data)
+	}
+	t.Cleanup(func() { parsePrivateKey = ssh.ParsePrivateKey })
+
+	signer, err := loadPrivateKey(keyPath)
+	if err != nil {
+		t.Fatalf("loadPrivateKey: %v", err)
+	}
+	if signer == nil {
+		t.Fatal("expected signer")
+	}
+	for _, b := range captured {
+		if b != 0 {
+			t.Fatal("key data not zeroed")
+		}
 	}
 }

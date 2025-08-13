@@ -16,6 +16,9 @@ import (
 	"golang.org/x/crypto/ssh/knownhosts"
 )
 
+// parsePrivateKey is a variable to allow test stubbing.
+var parsePrivateKey = ssh.ParsePrivateKey
+
 // SSHManager maintains SSH client connections for reuse and ensures
 // consistent host key verification.
 //
@@ -154,7 +157,12 @@ func loadPrivateKey(keyPath string) (ssh.Signer, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read private key: %w", err)
 	}
-	return ssh.ParsePrivateKey(keyData)
+	signer, err := parsePrivateKey(keyData)
+	// Zero the key material to avoid leaving it in memory.
+	for i := range keyData {
+		keyData[i] = 0
+	}
+	return signer, err
 }
 
 func sshAgentAuth(ctx context.Context, timeout time.Duration, logger *zap.Logger) (ssh.AuthMethod, error) {
