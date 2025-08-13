@@ -48,6 +48,11 @@ type Handshake struct {
 	DedupMode     string
 	ResumeToken   string
 	ODirect       bool
+	Transports    []string
+	Compressors   []string
+	Digests       []string
+	Transport     string
+	Digest        string
 }
 
 // NativeEndianness reports the platform byte order as "little" or "big".
@@ -92,22 +97,31 @@ func WriteHandshake(w io.Writer, h Handshake) error {
 		tokens = append(tokens, "odirect")
 	}
 
+	if len(h.Transports) > 0 {
+		tokens = append(tokens, "transports:"+strings.Join(h.Transports, ","))
+	}
+	if len(h.Compressors) > 0 {
+		tokens = append(tokens, "compressors:"+strings.Join(h.Compressors, ","))
+	}
+	if len(h.Digests) > 0 {
+		tokens = append(tokens, "digests:"+strings.Join(h.Digests, ","))
+	}
+
 	if h.ChecksumDedup {
 		tokens = append(tokens, "checksum-dedup")
 	} else if h.Checksum {
 		tokens = append(tokens, "checksum")
 	}
-	if len(h.Transports) > 0 {
-		tokens = append(tokens, "transport:"+strings.Join(h.Transports, ","))
+
+	if h.Transport != "" {
+		tokens = append(tokens, "transport:"+h.Transport)
 	}
-	if len(h.Compress) == 0 {
-		h.Compress = []string{"none"}
-	}
-	tokens = append(tokens, "compress:"+strings.Join(h.Compress, ","))
-	if len(h.Digests) > 0 {
-		tokens = append(tokens, "digest:"+strings.Join(h.Digests, ","))
-	}
+	if h.Compress == "" {
+		h.Compress = "none"
 	tokens = append(tokens, "compress:"+h.Compress)
+	if h.Digest != "" {
+		tokens = append(tokens, "digest:"+h.Digest)
+	}
 	if h.CompressLevel != 0 {
 		tokens = append(tokens, fmt.Sprintf("level:%d", h.CompressLevel))
 	}
@@ -137,9 +151,23 @@ func ReadHandshake(r *bufio.Reader) (Handshake, error) {
 		case strings.HasPrefix(t, "transport:"):
 			h.Transports = splitNonEmpty(strings.TrimPrefix(t, "transport:"))
 		case strings.HasPrefix(t, "compress:"):
-			h.Compress = splitNonEmpty(strings.TrimPrefix(t, "compress:"))
+			h.Compress = strings.TrimPrefix(t, "compress:")
+		case strings.HasPrefix(t, "transport:"):
+			h.Transport = strings.TrimPrefix(t, "transport:")
+		case strings.HasPrefix(t, "transports:"):
+			h.Transports = strings.Split(strings.TrimPrefix(t, "transports:"), ",")
+		case strings.HasPrefix(t, "compressors:"):
+			h.Compressors = strings.Split(strings.TrimPrefix(t, "compressors:"), ",")
+		case strings.HasPrefix(t, "digests:"):
+			h.Digests = strings.Split(strings.TrimPrefix(t, "digests:"), ",")
 		case strings.HasPrefix(t, "digest:"):
-			h.Digests = splitNonEmpty(strings.TrimPrefix(t, "digest:"))
+			h.Digest = strings.TrimPrefix(t, "digest:")
+		case strings.HasPrefix(t, "level:"):
+			lvl, err := strconv.Atoi(strings.TrimPrefix(t, "level:"))
+			if err != nil {
+				return Handshake{}, fmt.Errorf("invalid compression level: %w", err)
+			}
+			h.CompressLevel = lvl
 		case strings.HasPrefix(t, "endian:"):
 			h.Endianness = strings.TrimPrefix(t, "endian:")
 		case strings.HasPrefix(t, "block:"):
@@ -169,6 +197,22 @@ func ReadHandshake(r *bufio.Reader) (Handshake, error) {
 	return h, nil
 }
 
+// SelectBest returns the first element from local that is also present in remote.
+// If no common element exists, the first element of local is returned or an empty
+// string if local is empty.
+func SelectBest(local, remote []string) string {
+	for _, l := range local {
+		for _, r := range remote {
+			if l == r {
+				return l
+			}
+		}
+	}
+	if len(local) > 0 {
+		return local[0]
+	}
+	return ""
+
 func splitNonEmpty(v string) []string {
 	if v == "" {
 		return nil
@@ -182,4 +226,5 @@ func splitNonEmpty(v string) []string {
 		}
 	}
 	return out
+
 }
