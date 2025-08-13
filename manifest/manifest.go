@@ -41,6 +41,8 @@ type Index struct {
 	hdr  Header
 }
 
+var closeHook = func() {}
+
 func headerMAC(h *Header) [32]byte {
 	var buf [headerSize - 32]byte
 	binary.LittleEndian.PutUint32(buf[0:4], h.Version)
@@ -82,6 +84,7 @@ func (i *Index) readHeader() error {
 
 // Close flushes the mmap and closes the underlying file.
 func (i *Index) Close() error {
+	defer closeHook()
 	if i.data != nil {
 		if err := unix.Msync(i.data, unix.MS_SYNC); err != nil {
 			_ = unix.Munmap(i.data)
@@ -232,5 +235,5 @@ func Rebuild(devicePath, output string) error {
 			break
 		}
 	}
-	return idx.Close()
+	return nil
 }

@@ -93,3 +93,32 @@ func TestRebuild(t *testing.T) {
 		t.Fatalf("close manifest: %v", err)
 	}
 }
+
+func TestRebuildCloseOnce(t *testing.T) {
+	dir := t.TempDir()
+	file, err := os.CreateTemp(dir, "dev-*.img")
+	if err != nil {
+		t.Fatalf("temp file: %v", err)
+	}
+	data := make([]byte, 4096)
+	if _, err := rand.Read(data); err != nil {
+		t.Fatalf("rand: %v", err)
+	}
+	if _, err := file.Write(data); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	file.Close()
+	prevUUID := device.SetUUIDFunc(func(string) (string, error) { return "uuid-test", nil })
+	defer device.SetUUIDFunc(prevUUID)
+	manPath := filepath.Join(dir, "closeonce.man")
+	prevHook := closeHook
+	count := 0
+	closeHook = func() { count++ }
+	defer func() { closeHook = prevHook }()
+	if err := Rebuild(file.Name(), manPath); err != nil {
+		t.Fatalf("rebuild: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("expected close called once, got %d", count)
+	}
+}
