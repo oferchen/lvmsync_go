@@ -53,6 +53,50 @@ func TestSSHManagerGetClientReuse(t *testing.T) {
 	}
 }
 
+func TestSSHManagerGetClientRefresh(t *testing.T) {
+	server := testutil.NewMockSSHServer(t, func(string) int { return 0 })
+	defer server.Close()
+	knownHosts := testutil.CreateKnownHostsFile(t, server)
+	keyPath := testutil.CreateTempKey(t)
+
+	mgr, err := NewSSHManager("user", keyPath, time.Second, knownHosts, zaptest.NewLogger(t))
+	if err != nil {
+		t.Fatalf("NewSSHManager: %v", err)
+	}
+
+	host, portStr, err := net.SplitHostPort(server.Addr)
+	if err != nil {
+		t.Fatalf("SplitHostPort: %v", err)
+	}
+	port, _ := strconv.Atoi(portStr)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	c1, err := mgr.GetClient(ctx, host, port)
+	if err != nil {
+		t.Fatalf("GetClient first: %v", err)
+	}
+	if server.ConnectionCount() != 1 {
+		t.Fatalf("expected 1 connection, got %d", server.ConnectionCount())
+	}
+
+	c1.Close()
+
+	c2, err := mgr.GetClient(ctx, host, port)
+	if err != nil {
+		t.Fatalf("GetClient second: %v", err)
+	}
+	if c1 == c2 {
+		t.Fatal("expected new connection after close")
+	}
+	if server.ConnectionCount() != 2 {
+		t.Fatalf("expected 2 connections, got %d", server.ConnectionCount())
+	}
+	if err := mgr.CloseAll(); err != nil {
+		t.Fatalf("CloseAll: %v", err)
+	}
+}
+
 func TestSSHAgentAuthTimeout(t *testing.T) {
 	tmpSock := filepath.Join(t.TempDir(), "agent.sock")
 	os.Setenv("SSH_AUTH_SOCK", tmpSock)
