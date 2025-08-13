@@ -7,8 +7,9 @@ import (
 
 	"go.uber.org/zap"
 
-	"lvmsync_go/config"
 	"syscall"
+
+	"lvmsync_go/config"
 )
 
 func prepareTestFile(size int) (*os.File, func(), error) {
