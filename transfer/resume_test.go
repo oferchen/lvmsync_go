@@ -50,7 +50,7 @@ func parseOffsets(t *testing.T, data []byte, blockSize int64) []int64 {
 	if err != nil {
 		t.Fatalf("failed to read handshake: %v", err)
 	}
-	if len(hs.Compress) != 1 || hs.Compress[0] != "none" {
+	if hs.Compress != "none" {
 		t.Fatalf("unexpected handshake %+v", hs)
 	}
 	var offsets []int64

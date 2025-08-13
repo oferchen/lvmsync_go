@@ -65,7 +65,7 @@ func TestDumpChangesSequential(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to read handshake: %v", err)
 	}
-	if len(hs.Compress) != 1 || hs.Compress[0] != "none" {
+	if hs.Compress != "none" {
 		t.Fatalf("unexpected handshake %+v", hs)
 	}
 	offsets := parseOffsetsNoHandshake(t, reader)
@@ -100,7 +100,7 @@ func TestDumpChangesWithDeduplication(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to read handshake: %v", err)
 	}
-	if !hs.ChecksumDedup || len(hs.Compress) != 1 || hs.Compress[0] != "none" {
+	if !hs.ChecksumDedup || hs.Compress != "none" {
 		t.Fatalf("unexpected handshake %+v", hs)
 	}
 	offsets := parseOffsetsNoHandshake(t, reader)
@@ -145,7 +145,7 @@ func TestProcessDumpDataAutoDecompression(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to read handshake: %v", err)
 	}
-	if !hs.Checksum || len(hs.Compress) != 1 || hs.Compress[0] != "zstd" {
+	if !hs.Checksum || hs.Compress != "zstd" {
 		t.Fatalf("unexpected handshake %+v", hs)
 	}
 

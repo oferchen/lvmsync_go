@@ -10,37 +10,19 @@ import (
 )
 
 // Handshake describes protocol negotiation parameters exchanged at the start
-// of a transfer. The format is a single line of space separated tokens:
-//
-//	lvmsync PROTO[3] [endian:<little|big>] [block:<bytes>]
-//	        [dedup:<fixed|cdc|hybrid>] [resume:<token>] [odirect]
-//	        [checksum|checksum-dedup] compress:<algo> [level:<n>]
-//
-// Additional tokens may be added in the future while preserving backward
-// compatibility. The receiver must ignore unknown tokens to allow for
-// extension.
-//
-// Compress specifies the compression algorithm in use. Checksum indicates
-// whether chunk checksums are included. When ChecksumDedup is true the
-// checksum list also doubles as a deduplication map. Endianness advertises the
-// sender's byte order, BlockSize conveys the preferred chunk size, DedupMode
-// announces the deduplication strategy, ResumeToken resumes interrupted
-// transfers, and ODirect signals support for `O_DIRECT` I/O.
-//
-// Version will always be set to ProtocolVersion on successful parsing.
-//
-// Handshake is deliberately simple to mirror rsync's textual negotiation
-// while remaining easy to extend and debug.
-//
-// This package aims to centralize handshake formatting and parsing to keep
-// transfer/ code focused on business logic and improve maintainability.
-// Handshake represents the negotiated parameters between peers.
+// of a transfer. It is a simple space separated list of key/value tokens that
+// mirrors rsync's textual negotiation.
 type Handshake struct {
-	Version       string
-	Transports    []string
-	Compress      []string
+	Version     string
+	Transports  []string
+	Compressors []string
+	Digests     []string
+
+	Transport     string
+	Compress      string
 	CompressLevel int
-	Digests       []string
+	Digest        string
+
 	Checksum      bool
 	ChecksumDedup bool
 	Endianness    string
@@ -48,11 +30,6 @@ type Handshake struct {
 	DedupMode     string
 	ResumeToken   string
 	ODirect       bool
-	Transports    []string
-	Compressors   []string
-	Digests       []string
-	Transport     string
-	Digest        string
 }
 
 // NativeEndianness reports the platform byte order as "little" or "big".
@@ -65,9 +42,8 @@ func NativeEndianness() string {
 	return "big"
 }
 
-// String reconstructs the textual representation of the handshake. It is
-// primarily intended for diagnostics and mirrors the line emitted by
-// WriteHandshake without the trailing newline.
+// String reconstructs the textual representation of the handshake. It mirrors
+// the line emitted by WriteHandshake without the trailing newline.
 func (h Handshake) String() string {
 	var sb strings.Builder
 	if err := WriteHandshake(&sb, h); err != nil {
@@ -118,6 +94,7 @@ func WriteHandshake(w io.Writer, h Handshake) error {
 	}
 	if h.Compress == "" {
 		h.Compress = "none"
+	}
 	tokens = append(tokens, "compress:"+h.Compress)
 	if h.Digest != "" {
 		tokens = append(tokens, "digest:"+h.Digest)
@@ -132,9 +109,9 @@ func WriteHandshake(w io.Writer, h Handshake) error {
 	return nil
 }
 
-// ReadHandshake parses a handshake from r. r must be a bufio.Reader so that
-// the caller can continue reading the remaining stream after the handshake
-// has been consumed.
+// ReadHandshake parses a handshake from r.
+// r must be a bufio.Reader so the caller can continue reading the remaining
+// stream after the handshake has been consumed.
 func ReadHandshake(r *bufio.Reader) (Handshake, error) {
 	line, err := r.ReadString('\n')
 	if err != nil {
@@ -149,19 +126,17 @@ func ReadHandshake(r *bufio.Reader) (Handshake, error) {
 	for _, t := range strings.Fields(rest) {
 		switch {
 		case strings.HasPrefix(t, "transport:"):
-			h.Transports = splitNonEmpty(strings.TrimPrefix(t, "transport:"))
-		case strings.HasPrefix(t, "compress:"):
-			h.Compress = strings.TrimPrefix(t, "compress:")
-		case strings.HasPrefix(t, "transport:"):
 			h.Transport = strings.TrimPrefix(t, "transport:")
 		case strings.HasPrefix(t, "transports:"):
-			h.Transports = strings.Split(strings.TrimPrefix(t, "transports:"), ",")
+			h.Transports = splitNonEmpty(strings.TrimPrefix(t, "transports:"))
+		case strings.HasPrefix(t, "compress:"):
+			h.Compress = strings.TrimPrefix(t, "compress:")
 		case strings.HasPrefix(t, "compressors:"):
-			h.Compressors = strings.Split(strings.TrimPrefix(t, "compressors:"), ",")
-		case strings.HasPrefix(t, "digests:"):
-			h.Digests = strings.Split(strings.TrimPrefix(t, "digests:"), ",")
+			h.Compressors = splitNonEmpty(strings.TrimPrefix(t, "compressors:"))
 		case strings.HasPrefix(t, "digest:"):
 			h.Digest = strings.TrimPrefix(t, "digest:")
+		case strings.HasPrefix(t, "digests:"):
+			h.Digests = splitNonEmpty(strings.TrimPrefix(t, "digests:"))
 		case strings.HasPrefix(t, "level:"):
 			lvl, err := strconv.Atoi(strings.TrimPrefix(t, "level:"))
 			if err != nil {
@@ -187,19 +162,17 @@ func ReadHandshake(r *bufio.Reader) (Handshake, error) {
 		case t == "checksum-dedup":
 			h.Checksum = true
 			h.ChecksumDedup = true
-		default:
-			// Ignore unknown tokens to preserve forward compatibility.
 		}
 	}
-	if len(h.Compress) == 0 {
-		h.Compress = []string{"none"}
+	if h.Compress == "" {
+		h.Compress = "none"
 	}
 	return h, nil
 }
 
-// SelectBest returns the first element from local that is also present in remote.
-// If no common element exists, the first element of local is returned or an empty
-// string if local is empty.
+// SelectBest returns the first element from local that is also present in
+// remote. If no common element exists, the first element of local is returned or
+// an empty string if local is empty.
 func SelectBest(local, remote []string) string {
 	for _, l := range local {
 		for _, r := range remote {
@@ -212,6 +185,7 @@ func SelectBest(local, remote []string) string {
 		return local[0]
 	}
 	return ""
+}
 
 func splitNonEmpty(v string) []string {
 	if v == "" {
@@ -226,5 +200,4 @@ func splitNonEmpty(v string) []string {
 		}
 	}
 	return out
-
 }
