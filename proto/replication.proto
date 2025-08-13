@@ -65,6 +65,27 @@ message Ack {
   string message = 3;
 }
 
+message ProbeRequest { string volume_name = 1; }
+
+message StartSyncRequest {
+  string volume_name = 1;
+  string requester = 2;
+}
+
+message CancelRequest { string session_id = 1; }
+
+message ProgressRequest { string session_id = 1; }
+
+message Progress {
+  string session_id = 1;
+  uint64 completed = 2;
+  uint64 total = 3;
+}
+
+message BuildManifestRequest { string session_id = 1; }
+
+message VerifyRequest { string session_id = 1; }
+
 service Replication {
   rpc LockVolume(LockRequest) returns (StatusResponse);
   rpc GetVolumeMetadata(LockRequest) returns (VolumeMetadata);
@@ -79,4 +100,10 @@ service Replication {
   rpc SendFinalManifest(ManifestMessage) returns (StatusResponse);
   rpc Finalize(FinalizeRequest) returns (StatusResponse);
   rpc AckStream(stream Ack) returns (stream Ack);
+  rpc Probe(ProbeRequest) returns (StatusResponse);
+  rpc StartSync(StartSyncRequest) returns (StatusResponse);
+  rpc Cancel(CancelRequest) returns (StatusResponse);
+  rpc ProgressStream(ProgressRequest) returns (stream Progress);
+  rpc BuildManifest(BuildManifestRequest) returns (StatusResponse);
+  rpc Verify(VerifyRequest) returns (StatusResponse);
 }

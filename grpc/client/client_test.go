@@ -291,6 +291,30 @@ func (stubClient) AckStream(context.Context, ...grpc.CallOption) (proto.Replicat
 	return nil, nil
 }
 
+func (stubClient) Probe(context.Context, *proto.ProbeRequest, ...grpc.CallOption) (*proto.StatusResponse, error) {
+	return nil, nil
+}
+
+func (stubClient) StartSync(context.Context, *proto.StartSyncRequest, ...grpc.CallOption) (*proto.StatusResponse, error) {
+	return nil, nil
+}
+
+func (stubClient) Cancel(context.Context, *proto.CancelRequest, ...grpc.CallOption) (*proto.StatusResponse, error) {
+	return nil, nil
+}
+
+func (stubClient) ProgressStream(context.Context, *proto.ProgressRequest, ...grpc.CallOption) (proto.Replication_ProgressStreamClient, error) {
+	return nil, nil
+}
+
+func (stubClient) BuildManifest(context.Context, *proto.BuildManifestRequest, ...grpc.CallOption) (*proto.StatusResponse, error) {
+	return nil, nil
+}
+
+func (stubClient) Verify(context.Context, *proto.VerifyRequest, ...grpc.CallOption) (*proto.StatusResponse, error) {
+	return nil, nil
+}
+
 func (fakeHandshakeClient) Handshake(context.Context, *proto.HandshakeRequest, ...grpc.CallOption) (*proto.HandshakeResponse, error) {
 	return nil, errors.New("fail")
 }
