@@ -180,6 +180,7 @@ func ioctlGetUint64(fd int, req uint) (uint64, error) {
 }
 
 func GetVolumeSize(volumePath string, logger *zap.Logger) (uint64, error) {
+	deviceFDCache.SetLogger(logger)
 	fd, err := deviceFDCache.getFD(volumePath)
 	if err != nil {
 		return 0, err

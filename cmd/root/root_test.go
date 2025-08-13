@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"lvmsync_go/config"
+	"lvmsync_go/transport"
 
 	"go.uber.org/goleak"
 	"go.uber.org/zap"
@@ -242,7 +243,7 @@ func TestRunHeartbeatError(t *testing.T) {
 	clientHandshake = func(context.Context, *config.Config, *zap.Logger) (func(), chan error, error) {
 		return func() {}, hbErrCh, nil
 	}
-	selectTransport = func(*config.Config, *zap.Logger) error { return nil }
+	selectTransport = func(*config.Config, *zap.Logger) (transport.Interface, error) { return nil, nil }
 
 	sigErrCh := make(chan error, 1)
 	setupSignalHandle = func(_ context.Context, _ *config.Config, _ *string, _ *zap.Logger) (chan os.Signal, chan error) {
@@ -314,7 +315,7 @@ func TestRunGRPCConnectGoroutineLeak(t *testing.T) {
 				return nil, make(chan error, 1)
 			}
 
-			selectTransport = func(*config.Config, *zap.Logger) error { return nil }
+			selectTransport = func(*config.Config, *zap.Logger) (transport.Interface, error) { return nil, nil }
 
 			prepareSnapshotFn = func(context.Context, *config.Config, string, *zap.Logger) (string, chan error, func(), error) {
 				return "snap", nil, func() {}, nil

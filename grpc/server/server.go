@@ -34,6 +34,7 @@ type Config struct {
 func New(conf Config, a lvmagent.Agent) (*grpc.Server, error) {
 	opts := []grpc.ServerOption{
 		grpc.UnaryInterceptor(authorizeInterceptor),
+		grpc.StreamInterceptor(authorizeStreamInterceptor),
 	}
 
 	if !conf.AllowInsecure {
@@ -76,6 +77,20 @@ func authorizeInterceptor(ctx context.Context, req any, _ *grpc.UnaryServerInfo,
 		}
 	}
 	return nil, status.Error(codes.PermissionDenied, "unauthorized role")
+}
+
+func authorizeStreamInterceptor(srv any, ss grpc.ServerStream, _ *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+	md, ok := metadata.FromIncomingContext(ss.Context())
+	if !ok {
+		return status.Error(codes.PermissionDenied, "missing metadata")
+	}
+	roles := md.Get("role")
+	for _, r := range roles {
+		if r == "replicator" {
+			return handler(srv, ss)
+		}
+	}
+	return status.Error(codes.PermissionDenied, "unauthorized role")
 }
 
 type replicationServer struct {
@@ -218,4 +233,30 @@ func (s *replicationServer) AckStream(stream proto.Replication_AckStreamServer) 
 			return err
 		}
 	}
+}
+
+func (s *replicationServer) Probe(_ context.Context, req *proto.ProbeRequest) (*proto.StatusResponse, error) {
+	return &proto.StatusResponse{Ok: true, Message: "probe " + req.GetVolumeName()}, nil
+}
+
+func (s *replicationServer) StartSync(ctx context.Context, req *proto.StartSyncRequest) (*proto.StatusResponse, error) {
+	return s.agentAction(func(a lvmagent.Agent) error {
+		return a.StartTransferSession(ctx, req.GetVolumeName(), req.GetRequester())
+	}), nil
+}
+
+func (s *replicationServer) Cancel(_ context.Context, req *proto.CancelRequest) (*proto.StatusResponse, error) {
+	return &proto.StatusResponse{Ok: true, Message: "cancelled " + req.GetSessionId()}, nil
+}
+
+func (s *replicationServer) ProgressStream(req *proto.ProgressRequest, stream proto.Replication_ProgressStreamServer) error {
+	return stream.Send(&proto.Progress{SessionId: req.GetSessionId(), Completed: 1, Total: 1})
+}
+
+func (s *replicationServer) BuildManifest(_ context.Context, req *proto.BuildManifestRequest) (*proto.StatusResponse, error) {
+	return &proto.StatusResponse{Ok: true, Message: "manifest built " + req.GetSessionId()}, nil
+}
+
+func (s *replicationServer) Verify(_ context.Context, req *proto.VerifyRequest) (*proto.StatusResponse, error) {
+	return &proto.StatusResponse{Ok: true, Message: "verified " + req.GetSessionId()}, nil
 }

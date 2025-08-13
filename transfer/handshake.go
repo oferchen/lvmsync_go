@@ -36,9 +36,15 @@ func setupOutput(cfg *config.Config, out io.Writer, handshake string, logger *za
 }
 
 func prepareParallelHandshake(cfg *config.Config) string {
-	htokens := []string{common.ProtocolVersion}
+	mode := ""
 	if cfg.VerifyChecksum {
-		htokens = append(htokens, StrategyChecksum)
+		mode = StrategyChecksum
+	}
+	hs := composeHandshake(cfg, mode)
+	var sb strings.Builder
+	// WriteHandshake always appends a newline; trim for reuse.
+	if err := common.WriteHandshake(&sb, hs); err != nil {
+		return ""
 	}
 	htokens = append(htokens, "compress:"+strings.Join(splitCompression(cfg.Compress), ","))
 	htokens = append(htokens, "digest:"+strings.Join(splitDigests(cfg.ChecksumAlgorithm), ","))
@@ -78,6 +84,22 @@ func readAndValidateHandshake(cfg *config.Config, bufReader *bufio.Reader, dedup
 	}
 	cfg.ChecksumAlgorithm = digest
 	hs.Digests = []string{digest}
+
+	if hs.Endianness != "" && hs.Endianness != common.NativeEndianness() {
+		return hs, fmt.Errorf("endianness mismatch: %s", hs.Endianness)
+	}
+	if cfg.BlockSize > 0 && hs.BlockSize != 0 && hs.BlockSize != cfg.BlockSize {
+		return hs, fmt.Errorf("block size mismatch: %d", hs.BlockSize)
+	}
+	if cfg.DedupMode != "" && hs.DedupMode != "" && hs.DedupMode != cfg.DedupMode {
+		return hs, fmt.Errorf("dedup mode mismatch: %s", hs.DedupMode)
+	}
+	if cfg.ODirect && !hs.ODirect {
+		return hs, fmt.Errorf("remote lacks O_DIRECT support")
+	}
+	if cfg.CompressLevel != 0 && hs.CompressLevel != 0 && hs.CompressLevel != cfg.CompressLevel {
+		return hs, fmt.Errorf("compression level mismatch: %d", hs.CompressLevel)
+	}
 	return hs, nil
 }
 

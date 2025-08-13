@@ -421,6 +421,115 @@ func TestHandshakeFailure(t *testing.T) {
 	}
 }
 
+func TestNewRPCPermissions(t *testing.T) {
+	client, cleanup := newInsecureClient(t, nil)
+	defer cleanup()
+
+	t.Run("probe", func(t *testing.T) {
+		if _, err := client.Probe(ctxWithRole("replicator"), &proto.ProbeRequest{VolumeName: "vol"}); err != nil {
+			t.Fatalf("Probe: %v", err)
+		}
+		if _, err := client.Probe(context.Background(), &proto.ProbeRequest{VolumeName: "vol"}); status.Code(err) != codes.PermissionDenied {
+			t.Fatalf("expected permission denied, got %v", err)
+		}
+	})
+
+	t.Run("startsync", func(t *testing.T) {
+		agent := &mockAgent{startSess: func(_ context.Context, v, r string) error {
+			if v != "vol" || r != "req" {
+				t.Fatalf("unexpected params %s %s", v, r)
+			}
+			return nil
+		}}
+		client, cleanup := newInsecureClient(t, agent)
+		defer cleanup()
+		if _, err := client.StartSync(ctxWithRole("replicator"), &proto.StartSyncRequest{VolumeName: "vol", Requester: "req"}); err != nil {
+			t.Fatalf("StartSync: %v", err)
+		}
+		if _, err := client.StartSync(context.Background(), &proto.StartSyncRequest{VolumeName: "vol", Requester: "req"}); status.Code(err) != codes.PermissionDenied {
+			t.Fatalf("expected permission denied, got %v", err)
+		}
+	})
+
+	t.Run("cancel", func(t *testing.T) {
+		if _, err := client.Cancel(ctxWithRole("replicator"), &proto.CancelRequest{SessionId: "s"}); err != nil {
+			t.Fatalf("Cancel: %v", err)
+		}
+		if _, err := client.Cancel(context.Background(), &proto.CancelRequest{SessionId: "s"}); status.Code(err) != codes.PermissionDenied {
+			t.Fatalf("expected permission denied, got %v", err)
+		}
+	})
+
+	t.Run("progress", func(t *testing.T) {
+		stream, err := client.ProgressStream(ctxWithRole("replicator"), &proto.ProgressRequest{SessionId: "s"})
+		if err != nil {
+			t.Fatalf("ProgressStream: %v", err)
+		}
+		if _, err := stream.Recv(); err != nil {
+			t.Fatalf("Progress recv: %v", err)
+		}
+		unauth, err := client.ProgressStream(context.Background(), &proto.ProgressRequest{SessionId: "s"})
+		if err == nil {
+			if _, err := unauth.Recv(); status.Code(err) != codes.PermissionDenied {
+				t.Fatalf("expected permission denied, got %v", err)
+			}
+		}
+	})
+
+	t.Run("buildmanifest", func(t *testing.T) {
+		if _, err := client.BuildManifest(ctxWithRole("replicator"), &proto.BuildManifestRequest{SessionId: "s"}); err != nil {
+			t.Fatalf("BuildManifest: %v", err)
+		}
+		if _, err := client.BuildManifest(context.Background(), &proto.BuildManifestRequest{SessionId: "s"}); status.Code(err) != codes.PermissionDenied {
+			t.Fatalf("expected permission denied, got %v", err)
+		}
+	})
+
+	t.Run("verify", func(t *testing.T) {
+		if _, err := client.Verify(ctxWithRole("replicator"), &proto.VerifyRequest{SessionId: "s"}); err != nil {
+			t.Fatalf("Verify: %v", err)
+		}
+		if _, err := client.Verify(context.Background(), &proto.VerifyRequest{SessionId: "s"}); status.Code(err) != codes.PermissionDenied {
+			t.Fatalf("expected permission denied, got %v", err)
+		}
+	})
+}
+
+func TestNewRPCsMTLS(t *testing.T) {
+	cfg, good, bad := generateTLS(t)
+	client, cleanup := newClient(t, cfg, nil, credentials.NewTLS(good))
+	defer cleanup()
+	ctx := ctxWithRole("replicator")
+	if _, err := client.Probe(ctx, &proto.ProbeRequest{VolumeName: "vol"}); err != nil {
+		t.Fatalf("Probe: %v", err)
+	}
+	if _, err := client.StartSync(ctx, &proto.StartSyncRequest{VolumeName: "vol", Requester: "req"}); err != nil {
+		t.Fatalf("StartSync: %v", err)
+	}
+	if _, err := client.Cancel(ctx, &proto.CancelRequest{SessionId: "s"}); err != nil {
+		t.Fatalf("Cancel: %v", err)
+	}
+	ps, err := client.ProgressStream(ctx, &proto.ProgressRequest{SessionId: "s"})
+	if err != nil {
+		t.Fatalf("ProgressStream: %v", err)
+	}
+	if _, err := ps.Recv(); err != nil {
+		t.Fatalf("Progress recv: %v", err)
+	}
+	if _, err := client.BuildManifest(ctx, &proto.BuildManifestRequest{SessionId: "s"}); err != nil {
+		t.Fatalf("BuildManifest: %v", err)
+	}
+	if _, err := client.Verify(ctx, &proto.VerifyRequest{SessionId: "s"}); err != nil {
+		t.Fatalf("Verify: %v", err)
+	}
+
+	badClient, badCleanup := newClient(t, cfg, nil, credentials.NewTLS(bad))
+	defer badCleanup()
+	if _, err := badClient.Probe(ctx, &proto.ProbeRequest{VolumeName: "vol"}); err == nil {
+		t.Fatalf("expected handshake failure")
+	}
+}
+
 func dummyCert(t *testing.T) []byte {
 	t.Helper()
 	key, err := rsa.GenerateKey(rand.Reader, 2048)

@@ -5,6 +5,7 @@
 # and apply to destination device
 apply: ""
 stdout: false  # Write change dump to STDOUT
+dry_run: false  # Print actions without executing (same as --dry-run)
 parallel: 4  # Number of concurrent workers
 # Enable zero-copy transfers (only in sequential mode)
 zerocopy: false
@@ -85,6 +86,6 @@ progress: true  # Enable progress display during transfer
 block_size: "auto"
 
 # Transport Options
-transport: "tcp+tls,ssh"  # Ordered transports to try
+transport: "tcp+tls,ssh"  # Ordered transports to try (comma-separated)
 concurrency: 0  # Stream concurrency (0 to autotune)
 tcp_port: 0  # TCP+TLS port

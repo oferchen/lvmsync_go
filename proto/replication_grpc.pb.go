@@ -33,6 +33,12 @@ const (
 	Replication_SendFinalManifest_FullMethodName    = "/replication.Replication/SendFinalManifest"
 	Replication_Finalize_FullMethodName             = "/replication.Replication/Finalize"
 	Replication_AckStream_FullMethodName            = "/replication.Replication/AckStream"
+	Replication_Probe_FullMethodName                = "/replication.Replication/Probe"
+	Replication_StartSync_FullMethodName            = "/replication.Replication/StartSync"
+	Replication_Cancel_FullMethodName               = "/replication.Replication/Cancel"
+	Replication_ProgressStream_FullMethodName       = "/replication.Replication/ProgressStream"
+	Replication_BuildManifest_FullMethodName        = "/replication.Replication/BuildManifest"
+	Replication_Verify_FullMethodName               = "/replication.Replication/Verify"
 )
 
 // ReplicationClient is the client API for Replication service.
@@ -52,6 +58,12 @@ type ReplicationClient interface {
 	SendFinalManifest(ctx context.Context, in *ManifestMessage, opts ...grpc.CallOption) (*StatusResponse, error)
 	Finalize(ctx context.Context, in *FinalizeRequest, opts ...grpc.CallOption) (*StatusResponse, error)
 	AckStream(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[Ack, Ack], error)
+	Probe(ctx context.Context, in *ProbeRequest, opts ...grpc.CallOption) (*StatusResponse, error)
+	StartSync(ctx context.Context, in *StartSyncRequest, opts ...grpc.CallOption) (*StatusResponse, error)
+	Cancel(ctx context.Context, in *CancelRequest, opts ...grpc.CallOption) (*StatusResponse, error)
+	ProgressStream(ctx context.Context, in *ProgressRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Progress], error)
+	BuildManifest(ctx context.Context, in *BuildManifestRequest, opts ...grpc.CallOption) (*StatusResponse, error)
+	Verify(ctx context.Context, in *VerifyRequest, opts ...grpc.CallOption) (*StatusResponse, error)
 }
 
 type replicationClient struct {
@@ -198,6 +210,75 @@ func (c *replicationClient) AckStream(ctx context.Context, opts ...grpc.CallOpti
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type Replication_AckStreamClient = grpc.BidiStreamingClient[Ack, Ack]
 
+func (c *replicationClient) Probe(ctx context.Context, in *ProbeRequest, opts ...grpc.CallOption) (*StatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(StatusResponse)
+	err := c.cc.Invoke(ctx, Replication_Probe_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *replicationClient) StartSync(ctx context.Context, in *StartSyncRequest, opts ...grpc.CallOption) (*StatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(StatusResponse)
+	err := c.cc.Invoke(ctx, Replication_StartSync_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *replicationClient) Cancel(ctx context.Context, in *CancelRequest, opts ...grpc.CallOption) (*StatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(StatusResponse)
+	err := c.cc.Invoke(ctx, Replication_Cancel_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *replicationClient) ProgressStream(ctx context.Context, in *ProgressRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Progress], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &Replication_ServiceDesc.Streams[2], Replication_ProgressStream_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[ProgressRequest, Progress]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type Replication_ProgressStreamClient = grpc.ServerStreamingClient[Progress]
+
+func (c *replicationClient) BuildManifest(ctx context.Context, in *BuildManifestRequest, opts ...grpc.CallOption) (*StatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(StatusResponse)
+	err := c.cc.Invoke(ctx, Replication_BuildManifest_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *replicationClient) Verify(ctx context.Context, in *VerifyRequest, opts ...grpc.CallOption) (*StatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(StatusResponse)
+	err := c.cc.Invoke(ctx, Replication_Verify_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ReplicationServer is the server API for Replication service.
 // All implementations must embed UnimplementedReplicationServer
 // for forward compatibility.
@@ -215,6 +296,12 @@ type ReplicationServer interface {
 	SendFinalManifest(context.Context, *ManifestMessage) (*StatusResponse, error)
 	Finalize(context.Context, *FinalizeRequest) (*StatusResponse, error)
 	AckStream(grpc.BidiStreamingServer[Ack, Ack]) error
+	Probe(context.Context, *ProbeRequest) (*StatusResponse, error)
+	StartSync(context.Context, *StartSyncRequest) (*StatusResponse, error)
+	Cancel(context.Context, *CancelRequest) (*StatusResponse, error)
+	ProgressStream(*ProgressRequest, grpc.ServerStreamingServer[Progress]) error
+	BuildManifest(context.Context, *BuildManifestRequest) (*StatusResponse, error)
+	Verify(context.Context, *VerifyRequest) (*StatusResponse, error)
 	mustEmbedUnimplementedReplicationServer()
 }
 
@@ -263,6 +350,24 @@ func (UnimplementedReplicationServer) Finalize(context.Context, *FinalizeRequest
 }
 func (UnimplementedReplicationServer) AckStream(grpc.BidiStreamingServer[Ack, Ack]) error {
 	return status.Errorf(codes.Unimplemented, "method AckStream not implemented")
+}
+func (UnimplementedReplicationServer) Probe(context.Context, *ProbeRequest) (*StatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Probe not implemented")
+}
+func (UnimplementedReplicationServer) StartSync(context.Context, *StartSyncRequest) (*StatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method StartSync not implemented")
+}
+func (UnimplementedReplicationServer) Cancel(context.Context, *CancelRequest) (*StatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Cancel not implemented")
+}
+func (UnimplementedReplicationServer) ProgressStream(*ProgressRequest, grpc.ServerStreamingServer[Progress]) error {
+	return status.Errorf(codes.Unimplemented, "method ProgressStream not implemented")
+}
+func (UnimplementedReplicationServer) BuildManifest(context.Context, *BuildManifestRequest) (*StatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BuildManifest not implemented")
+}
+func (UnimplementedReplicationServer) Verify(context.Context, *VerifyRequest) (*StatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Verify not implemented")
 }
 func (UnimplementedReplicationServer) mustEmbedUnimplementedReplicationServer() {}
 func (UnimplementedReplicationServer) testEmbeddedByValue()                     {}
@@ -497,6 +602,107 @@ func _Replication_AckStream_Handler(srv interface{}, stream grpc.ServerStream) e
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type Replication_AckStreamServer = grpc.BidiStreamingServer[Ack, Ack]
 
+func _Replication_Probe_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ProbeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ReplicationServer).Probe(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Replication_Probe_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ReplicationServer).Probe(ctx, req.(*ProbeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Replication_StartSync_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StartSyncRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ReplicationServer).StartSync(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Replication_StartSync_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ReplicationServer).StartSync(ctx, req.(*StartSyncRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Replication_Cancel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CancelRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ReplicationServer).Cancel(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Replication_Cancel_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ReplicationServer).Cancel(ctx, req.(*CancelRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Replication_ProgressStream_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ProgressRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ReplicationServer).ProgressStream(m, &grpc.GenericServerStream[ProgressRequest, Progress]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type Replication_ProgressStreamServer = grpc.ServerStreamingServer[Progress]
+
+func _Replication_BuildManifest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BuildManifestRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ReplicationServer).BuildManifest(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Replication_BuildManifest_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ReplicationServer).BuildManifest(ctx, req.(*BuildManifestRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Replication_Verify_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(VerifyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ReplicationServer).Verify(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Replication_Verify_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ReplicationServer).Verify(ctx, req.(*VerifyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Replication_ServiceDesc is the grpc.ServiceDesc for Replication service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -548,6 +754,26 @@ var Replication_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "Finalize",
 			Handler:    _Replication_Finalize_Handler,
 		},
+		{
+			MethodName: "Probe",
+			Handler:    _Replication_Probe_Handler,
+		},
+		{
+			MethodName: "StartSync",
+			Handler:    _Replication_StartSync_Handler,
+		},
+		{
+			MethodName: "Cancel",
+			Handler:    _Replication_Cancel_Handler,
+		},
+		{
+			MethodName: "BuildManifest",
+			Handler:    _Replication_BuildManifest_Handler,
+		},
+		{
+			MethodName: "Verify",
+			Handler:    _Replication_Verify_Handler,
+		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
@@ -560,6 +786,11 @@ var Replication_ServiceDesc = grpc.ServiceDesc{
 			Handler:       _Replication_AckStream_Handler,
 			ServerStreams: true,
 			ClientStreams: true,
+		},
+		{
+			StreamName:    "ProgressStream",
+			Handler:       _Replication_ProgressStream_Handler,
+			ServerStreams: true,
 		},
 	},
 	Metadata: "proto/replication.proto",

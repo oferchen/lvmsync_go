@@ -12,6 +12,7 @@ import (
 	"lvmsync_go/app"
 	applycmd "lvmsync_go/cmd/apply"
 	dumpcmd "lvmsync_go/cmd/dump"
+	manifestcmd "lvmsync_go/cmd/manifest"
 	"lvmsync_go/config"
 	clientpkg "lvmsync_go/internal/client"
 	"lvmsync_go/internal/privilege"
@@ -120,6 +121,10 @@ func ExecuteClient(ctx context.Context, cfg *config.Config, snapshotPath, destPa
 func Run(cfg *config.Config, args []string, logger *zap.Logger) error {
 	defer lvm.Cleanup()
 
+	if len(args) > 0 && args[0] == "manifest" {
+		return manifestcmd.Run(cfg, args[1:], logger)
+	}
+
 	if cfg.ApplyMode != "" {
 		if err := applycmd.Run(cfg, cfg.ApplyMode, args, logger); err != nil {
 			return fmt.Errorf("apply operation failed: %w", err)
@@ -127,7 +132,7 @@ func Run(cfg *config.Config, args []string, logger *zap.Logger) error {
 		return nil
 	}
 
-	if err := selectTransport(cfg, logger); err != nil {
+	if _, err := selectTransport(cfg, logger); err != nil {
 		return fmt.Errorf("select transport: %w", err)
 	}
 
