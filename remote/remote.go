@@ -112,7 +112,10 @@ func selectAuthMethods(logger *zap.Logger, keyPath string) ([]ssh.AuthMethod, er
 	return authMethods, nil
 }
 
-func setupHostKeyCallback(_ bool, knownHostsPath string) (ssh.HostKeyCallback, error) {
+func setupHostKeyCallback(verify bool, knownHostsPath string) (ssh.HostKeyCallback, error) {
+	if !verify {
+		return ssh.InsecureIgnoreHostKey(), nil
+	}
 	hostKeyCallback, err := knownhosts.New(knownHostsPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create knownhosts callback: %w", err)
