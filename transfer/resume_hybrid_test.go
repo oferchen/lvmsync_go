@@ -62,40 +62,40 @@ func resumeHybridFromDigest(data []byte, fixed, min, avg, max int, resume [32]by
 }
 
 func TestResumeHybrid(t *testing.T) {
-        fixed := 64
-        min, avg, max := 64, 64, 64
-        data := bytes.Repeat([]byte("b"), 512)
+	fixed := 64
+	min, avg, max := 64, 64, 64
+	data := bytes.Repeat([]byte("b"), 512)
 
-        hybridAll, err := collectHybridDigests(data, fixed, min, avg, max)
-        if err != nil {
-                t.Fatalf("collect hybrid digests: %v", err)
-        }
-        cdcAll, err := collectCDCDigests(data, min, avg, max)
-        if err != nil {
-                t.Fatalf("collect CDC digests: %v", err)
-        }
-        if len(hybridAll) < 2 || len(cdcAll) < 2 {
-                t.Fatalf("expected at least two chunks per mode")
-        }
+	hybridAll, err := collectHybridDigests(data, fixed, min, avg, max)
+	if err != nil {
+		t.Fatalf("collect hybrid digests: %v", err)
+	}
+	cdcAll, err := collectCDCDigests(data, min, avg, max)
+	if err != nil {
+		t.Fatalf("collect CDC digests: %v", err)
+	}
+	if len(hybridAll) < 2 || len(cdcAll) < 2 {
+		t.Fatalf("expected at least two chunks per mode")
+	}
 
-        resume := hybridAll[0]
-        if resume != cdcAll[0] {
-                t.Fatalf("resume digest mismatch: %x vs %x", resume, cdcAll[0])
-        }
+	resume := hybridAll[0]
+	if resume != cdcAll[0] {
+		t.Fatalf("resume digest mismatch: %x vs %x", resume, cdcAll[0])
+	}
 
-        resumedHybrid, err := resumeHybridFromDigest(data, fixed, min, avg, max, resume)
-        if err != nil {
-                t.Fatalf("resume hybrid: %v", err)
-        }
-        if !reflect.DeepEqual(resumedHybrid, hybridAll[1:]) {
-                t.Fatalf("hybrid resumed digests %v, expected %v", resumedHybrid, hybridAll[1:])
-        }
+	resumedHybrid, err := resumeHybridFromDigest(data, fixed, min, avg, max, resume)
+	if err != nil {
+		t.Fatalf("resume hybrid: %v", err)
+	}
+	if !reflect.DeepEqual(resumedHybrid, hybridAll[1:]) {
+		t.Fatalf("hybrid resumed digests %v, expected %v", resumedHybrid, hybridAll[1:])
+	}
 
-        resumedCDC, err := resumeCDCFromDigest(data, min, avg, max, resume)
-        if err != nil {
-                t.Fatalf("resume CDC: %v", err)
-        }
-        if !reflect.DeepEqual(resumedCDC, cdcAll[1:]) {
-                t.Fatalf("CDC resumed digests %v, expected %v", resumedCDC, cdcAll[1:])
-        }
+	resumedCDC, err := resumeCDCFromDigest(data, min, avg, max, resume)
+	if err != nil {
+		t.Fatalf("resume CDC: %v", err)
+	}
+	if !reflect.DeepEqual(resumedCDC, cdcAll[1:]) {
+		t.Fatalf("CDC resumed digests %v, expected %v", resumedCDC, cdcAll[1:])
+	}
 }
