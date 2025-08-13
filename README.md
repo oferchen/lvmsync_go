@@ -312,7 +312,7 @@ LVMSYNC_GRPC_GRPC_PORT=9443 LVMSYNC_GRPC_TLS_CERT=cert.pem lvmsync-grpcd
 | `--ssh_timeout` | `LVMSYNC_SSH_TIMEOUT` | `ssh_timeout` | SSH connection timeout |
 | `--ssh_keepalive` | `LVMSYNC_SSH_KEEPALIVE` | `ssh_keepalive` | SSH keepalive interval |
 | `--known_hosts` | `LVMSYNC_KNOWN_HOSTS` | `known_hosts` | Path to known_hosts file |
-| `--strict_host_key_checking` | `LVMSYNC_STRICT_HOST_KEY_CHECKING` | `strict_host_key_checking` | Require host keys to be present in `known_hosts` |
+| `--strict_host_key_checking` | `LVMSYNC_STRICT_HOST_KEY_CHECKING` | `strict_host_key_checking` | Require host keys to be present in `known_hosts`; when `false`, host key verification is disabled |
 | `--lvmsync_path` | `LVMSYNC_LVMSYNC_PATH` | `lvmsync_path` | Remote command to run (basename sanitized; only `[a-zA-Z0-9._-]+` allowed) |
 | `--remote_pre_script` | `LVMSYNC_REMOTE_PRE_SCRIPT` | `remote_pre_script` | Remote script to run before transfer (times out after `ssh_timeout`) |
 | `--remote_post_script` | `LVMSYNC_REMOTE_POST_SCRIPT` | `remote_post_script` | Remote script to run after transfer (separate `ssh_timeout`) |
@@ -761,7 +761,7 @@ The tool supports both local and remote transfers, as well as an "apply mode" fo
 | `--ssh_key`               | Path to SSH private key or use the SSH agent                    | `""`                     |
 | `--ssh_port`              | SSH port number                                                 | `22`                     |
 | `--known_hosts`           | Path to known_hosts file (defaults to `$HOME/.ssh/known_hosts`) | `$HOME/.ssh/known_hosts` |
-| `--strict_host_key_checking` | Require host keys to be present in `known_hosts`            | `true`                   |
+| `--strict_host_key_checking` | Require host keys to be present in `known_hosts`; when `false`, host key verification is disabled | `true`                   |
 
 Programmatic use of the SSH transport requires a configuration populated with
 fields like `SSHUser`, `SSHKeyPath`, `SSHPort`, `KnownHosts`,

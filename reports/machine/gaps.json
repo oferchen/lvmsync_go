@@ -22,5 +22,13 @@
     "impact": "users misled about transport selection",
     "fix": "docs note flag is ignored",
     "priority": "P2"
+  },
+  {
+    "type": "bug",
+    "component": "remote/remote.go",
+    "evidence": "setupHostKeyCallback ignored verify flag",
+    "impact": "users could not disable host key verification",
+    "fix": "respect flag and use ssh.InsecureIgnoreHostKey when false",
+    "priority": "P1"
   }
 ]
