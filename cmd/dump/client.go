@@ -281,10 +281,13 @@ func RunRemoteDump(ctx context.Context, cfg *config.Config, snapshotDevice, orig
 	return ExecuteRemoteCommand(validationCtx, cfg, client, destDevice, snapshotDevice, originDevice, logger)
 }
 
-// SelectTransport chooses and logs the transport if configured.
+// SelectTransport returns an error when a transport is requested because
+// transport negotiation is not yet implemented. The selected transport is
+// logged for visibility.
 func SelectTransport(cfg *config.Config, logger *zap.Logger) error {
 	if cfg.Transport != "" {
-		logger.Warn("transport selection not implemented", zap.String("transport", cfg.Transport))
+		logger.Error("transport selection not implemented", zap.String("transport", cfg.Transport))
+		return fmt.Errorf("transport %q not implemented", cfg.Transport)
 	}
 	return nil
 }

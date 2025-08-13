@@ -291,6 +291,7 @@ golangci-lint run
 - [x] Implement full transport registry with working QUIC, HTTP/2, TCP+TLS, and SSH backends and accompanying tests.
 - [x] Finalize hybrid deduplication and document CDC tuning knobs.
 - [x] Integrate adaptive compression sampling with configurable thresholds and unit benchmarks.
+- [x] Fail fast when unsupported transports are requested and document `--transport` as reserved.
 ## Roadmap
 
 - [ ] Implement gRPC control plane with mTLS and port configurability.

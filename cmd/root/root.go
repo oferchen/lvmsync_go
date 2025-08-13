@@ -136,7 +136,7 @@ func Run(cfg *config.Config, logger *zap.Logger) error {
 	}
 
 	if err := selectTransport(cfg, logger); err != nil {
-		return err
+		return fmt.Errorf("select transport: %w", err)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

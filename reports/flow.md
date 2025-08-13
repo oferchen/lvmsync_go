@@ -8,8 +8,8 @@ NewSSHClient -> setupHostKeyCallback (verify ignored) -> knownhosts.New -> dialW
 
 ## After
 ```
-main -> Configure -> SetupGRPC -> ExecuteClient -> SyncLogger
+main -> Configure -> selectTransport -> SetupGRPC -> ExecuteClient -> SyncLogger
 NewSSHClient -> [key provided: loadPrivateKey | none: sshAgentAuth (context timeout)] -> setupHostKeyCallback (honors verify) -> [verify true: knownhosts.New, verify false: ssh.InsecureIgnoreHostKey] -> dialWithRetry
 ```
 
-`selectTransport` previously depended on an unused transport package. The new flow removes the unused dependency and warns when a transport is requested.
+`selectTransport` now fails fast when a transport is specified, preventing silent misconfiguration.
