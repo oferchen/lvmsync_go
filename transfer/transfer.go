@@ -4,6 +4,7 @@ package transfer
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/gob"
@@ -720,7 +721,7 @@ func (t *Transfer) processDumpDataCore(cfg *config.Config, in io.Reader, destPat
 	reader := bufio.NewReader(decReader)
 
 	if cfg.DeviceUUID != "" {
-		uuid, err2 := device.GetUUID(destPath)
+		uuid, err2 := device.GetUUID(context.Background(), destPath)
 		if err2 != nil {
 			return fmt.Errorf("read destination uuid: %w", err2)
 		}
@@ -799,7 +800,7 @@ func openApplyReader(applyFile string) (io.ReadCloser, error) {
 
 func (t *Transfer) applyData(cfg *config.Config, in io.Reader, destDevice string) error {
 	if cfg.DeviceUUID != "" {
-		uuid, err := device.GetUUID(destDevice)
+		uuid, err := device.GetUUID(context.Background(), destDevice)
 		if err != nil {
 			return fmt.Errorf("read destination uuid: %w", err)
 		}

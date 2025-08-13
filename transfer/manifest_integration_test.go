@@ -3,6 +3,7 @@ package transfer
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"crypto/rand"
 	"os"
 	"path/filepath"
@@ -29,7 +30,7 @@ func TestIterateBlocksUsesManifest(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 	dev.Close()
-	prev := device.SetUUIDFunc(func(string) (string, error) { return "id", nil })
+	prev := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "id", nil })
 	defer device.SetUUIDFunc(prev)
 	manPath := filepath.Join(dir, "dev.man")
 	if err := manifestpkg.Rebuild(dev.Name(), manPath); err != nil {

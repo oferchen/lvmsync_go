@@ -2,6 +2,7 @@ package transfer
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"path/filepath"
 	"sync"
@@ -23,7 +24,7 @@ func minimalStream(t *testing.T) []byte {
 }
 
 func TestProcessDumpDataUUIDMismatch(t *testing.T) {
-	prevUUID := device.SetUUIDFunc(func(string) (string, error) { return "actual", nil })
+	prevUUID := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "actual", nil })
 	defer device.SetUUIDFunc(prevUUID)
 	prevMount := device.SetMountFunc(func(string) (bool, error) { return false, nil })
 	defer device.SetMountFunc(prevMount)
@@ -48,7 +49,7 @@ func TestProcessDumpDataUUIDMismatch(t *testing.T) {
 }
 
 func TestProcessDumpDataMountedDevice(t *testing.T) {
-	prevUUID := device.SetUUIDFunc(func(string) (string, error) { return "id", nil })
+	prevUUID := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "id", nil })
 	defer device.SetUUIDFunc(prevUUID)
 	prevMount := device.SetMountFunc(func(string) (bool, error) { return true, nil })
 	defer device.SetMountFunc(prevMount)
@@ -79,7 +80,7 @@ func TestProcessDumpDataMountedDevice(t *testing.T) {
 }
 
 func TestApplyDataUUIDMismatch(t *testing.T) {
-	prevUUID := device.SetUUIDFunc(func(string) (string, error) { return "actual", nil })
+	prevUUID := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "actual", nil })
 	defer device.SetUUIDFunc(prevUUID)
 	prevMount := device.SetMountFunc(func(string) (bool, error) { return false, nil })
 	defer device.SetMountFunc(prevMount)
@@ -104,7 +105,7 @@ func TestApplyDataUUIDMismatch(t *testing.T) {
 }
 
 func TestApplyDataMountedDevice(t *testing.T) {
-	prevUUID := device.SetUUIDFunc(func(string) (string, error) { return "id", nil })
+	prevUUID := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "id", nil })
 	defer device.SetUUIDFunc(prevUUID)
 	prevMount := device.SetMountFunc(func(string) (bool, error) { return true, nil })
 	defer device.SetMountFunc(prevMount)

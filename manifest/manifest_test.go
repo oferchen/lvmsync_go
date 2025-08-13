@@ -2,6 +2,7 @@ package manifest
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"os"
 	"path/filepath"
@@ -65,7 +66,7 @@ func TestRebuild(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 	file.Close()
-	prev := device.SetUUIDFunc(func(string) (string, error) { return "uuid-test", nil })
+	prev := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "uuid-test", nil })
 	defer device.SetUUIDFunc(prev)
 	manPath := filepath.Join(dir, "rebuild.man")
 	if err := Rebuild(file.Name(), manPath); err != nil {
