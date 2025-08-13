@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"strings"
 	"sync"
 	"testing"
 
@@ -62,13 +61,13 @@ func TestDumpChangesSequential(t *testing.T) {
 		t.Fatalf("DumpChangesSequential failed: %v", err)
 	}
 	reader := bufio.NewReader(bytes.NewReader(buf.Bytes()))
-	line, err := reader.ReadString('\n')
+	var hs common.Handshake
+	hs, err := common.ReadHandshake(reader)
 	if err != nil {
 		t.Fatalf("failed to read handshake: %v", err)
 	}
-	expectedHS := common.ProtocolVersion + " endian:" + common.NativeEndianness() + " block:" + fmt.Sprint(blockSize) + " compress:none"
-	if strings.TrimSpace(line) != expectedHS {
-		t.Fatalf("unexpected handshake %q", strings.TrimSpace(line))
+	if len(hs.Compress) != 1 || hs.Compress[0] != "none" {
+		t.Fatalf("unexpected handshake %+v", hs)
 	}
 	offsets := parseOffsetsNoHandshake(t, reader)
 	expected := []int64{0, 2 * blockSize}
@@ -96,13 +95,14 @@ func TestDumpChangesWithDeduplication(t *testing.T) {
 		t.Fatalf("DumpChangesWithDeduplication failed: %v", err)
 	}
 	reader := bufio.NewReader(bytes.NewReader(buf.Bytes()))
-	line, err := reader.ReadString('\n')
+	var hs common.Handshake
+	var err error
+	hs, err = common.ReadHandshake(reader)
 	if err != nil {
 		t.Fatalf("failed to read handshake: %v", err)
 	}
-	expectedHS := common.ProtocolVersion + " endian:" + common.NativeEndianness() + " block:" + fmt.Sprint(blockSize) + " checksum-dedup compress:none"
-	if strings.TrimSpace(line) != expectedHS {
-		t.Fatalf("unexpected handshake %q", strings.TrimSpace(line))
+	if !hs.ChecksumDedup || len(hs.Compress) != 1 || hs.Compress[0] != "none" {
+		t.Fatalf("unexpected handshake %+v", hs)
 	}
 	offsets := parseOffsetsNoHandshake(t, reader)
 	expected := []int64{1 * blockSize}
@@ -142,13 +142,12 @@ func TestProcessDumpDataAutoDecompression(t *testing.T) {
 
 	data := buf.Bytes()
 	reader := bufio.NewReader(bytes.NewReader(data))
-	line, err := reader.ReadString('\n')
+	hs, err := common.ReadHandshake(reader)
 	if err != nil {
 		t.Fatalf("failed to read handshake: %v", err)
 	}
-	expectedHS := common.ProtocolVersion + " endian:" + common.NativeEndianness() + " block:" + fmt.Sprint(blockSize) + " checksum compress:zstd level:1"
-	if strings.TrimSpace(line) != expectedHS {
-		t.Fatalf("unexpected handshake %q", strings.TrimSpace(line))
+	if !hs.Checksum || len(hs.Compress) != 1 || hs.Compress[0] != "zstd" {
+		t.Fatalf("unexpected handshake %+v", hs)
 	}
 
 	dest := filepath.Join(t.TempDir(), "dest")
@@ -165,7 +164,7 @@ func TestProcessDumpDataAutoDecompression(t *testing.T) {
 	}
 	destFile.Close()
 
-	cfgProcess := &config.Config{BlockSize: int(blockSize), Compress: "zstd", CompressLevel: 1, MaxRetries: 1}
+	cfgProcess := &config.Config{BlockSize: int(blockSize), Compress: "zstd,lz4", MaxRetries: 1}
 	if err = tr.ProcessDumpData(cfgProcess, bytes.NewReader(data), dest); err != nil {
 		t.Fatalf("ProcessDumpData failed: %v", err)
 	}

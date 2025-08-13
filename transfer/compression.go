@@ -24,11 +24,11 @@ var supportsSIMD = cpufeatures.HasSIMD
 
 // hasNEON reports whether the current CPU supports NEON instructions. It is
 // a variable to allow tests to override the detection behavior.
-var hasNEON = compressiondetect.HasNEON
+var hasNEON = cpufeatures.HasNEON
 
 // hasAVX2 reports whether the current CPU supports AVX2 instructions. It is
 // a variable to allow tests to override the detection behavior.
-var hasAVX2 = compressiondetect.HasAVX2
+var hasAVX2 = cpufeatures.HasAVX2
 
 // No shared state is kept between decompression readers.
 

@@ -10,9 +10,9 @@ import (
 )
 
 func TestComposeHandshake(t *testing.T) {
-	cfg := &config.Config{Compress: "zstd", CompressLevel: 1, BlockSize: 4096, DedupMode: "fixed", ResumeState: "r", ODirect: true}
+	cfg := &config.Config{Compress: "zstd", Transport: "ssh", ChecksumAlgorithm: "sha256"}
 	hs := composeHandshake(cfg, "")
-	if hs.Compress != "zstd" || hs.CompressLevel != 1 || hs.BlockSize != 4096 || hs.DedupMode != "fixed" || hs.ResumeToken != "r" || !hs.ODirect || hs.Checksum || hs.ChecksumDedup {
+	if len(hs.Compress) != 1 || hs.Compress[0] != "zstd" || len(hs.Transports) != 1 || hs.Transports[0] != "ssh" {
 		t.Fatalf("unexpected handshake: %+v", hs)
 	}
 	hs = composeHandshake(cfg, StrategyChecksum)
@@ -27,10 +27,9 @@ func TestComposeHandshake(t *testing.T) {
 
 func TestReadAndValidateHandshake(t *testing.T) {
 	buf := &bytes.Buffer{}
-	cfg := &config.Config{BlockSize: 4096, DedupMode: "fixed", Compress: "none", CompressLevel: 0, ODirect: true}
-	h := common.Handshake{Checksum: true, BlockSize: 4096, DedupMode: "fixed", Compress: "none", ODirect: true, Endianness: common.NativeEndianness()}
-	common.WriteHandshake(buf, h)
-	hs, err := readAndValidateHandshake(bufio.NewReader(buf), cfg, nil, true)
+	common.WriteHandshake(buf, common.Handshake{Transports: []string{"ssh"}, Compress: []string{"zstd"}, Digests: []string{"sha256"}, Checksum: true})
+	cfg := &config.Config{Transport: "ssh", Compress: "zstd", ChecksumAlgorithm: "sha256"}
+	hs, err := readAndValidateHandshake(cfg, bufio.NewReader(buf), nil, true)
 	if err != nil || !hs.Checksum {
 		t.Fatalf("expected valid handshake, got %v %v", hs, err)
 	}
@@ -38,10 +37,27 @@ func TestReadAndValidateHandshake(t *testing.T) {
 
 func TestReadAndValidateHandshakeError(t *testing.T) {
 	buf := &bytes.Buffer{}
-	cfg := &config.Config{Compress: "none"}
-	common.WriteHandshake(buf, common.Handshake{Checksum: false, Compress: "none"})
-	_, err := readAndValidateHandshake(bufio.NewReader(buf), cfg, nil, true)
+	common.WriteHandshake(buf, common.Handshake{Transports: []string{"ssh"}, Compress: []string{"zstd"}, Digests: []string{"sha256"}, Checksum: false})
+	cfg := &config.Config{Transport: "ssh", Compress: "zstd", ChecksumAlgorithm: "sha256"}
+	_, err := readAndValidateHandshake(cfg, bufio.NewReader(buf), nil, true)
 	if err == nil {
 		t.Fatal("expected error for missing checksum")
+	}
+}
+
+func TestHandshakeNegotiation(t *testing.T) {
+	buf := &bytes.Buffer{}
+	// remote supports ssh and tcp+tls, prefers ssh
+	common.WriteHandshake(buf, common.Handshake{Transports: []string{"ssh", "tcp+tls"}, Compress: []string{"lz4", "zstd"}, Digests: []string{"sha256", "blake3"}, Checksum: true})
+	cfg := &config.Config{Transport: "tcp+tls,ssh", Compress: "zstd,lz4", ChecksumAlgorithm: "blake3,sha256"}
+	hs, err := readAndValidateHandshake(cfg, bufio.NewReader(buf), nil, true)
+	if err != nil {
+		t.Fatalf("negotiation failed: %v", err)
+	}
+	if cfg.Transport != "tcp+tls" || cfg.Compress != "zstd" || cfg.ChecksumAlgorithm != "blake3" {
+		t.Fatalf("unexpected negotiation result: %+v", cfg)
+	}
+	if hs.Transports[0] != "tcp+tls" || hs.Compress[0] != "zstd" || hs.Digests[0] != "blake3" {
+		t.Fatalf("unexpected handshake result: %+v", hs)
 	}
 }
