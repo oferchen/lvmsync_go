@@ -113,6 +113,20 @@ func TestDial(t *testing.T) {
 	}
 }
 
+func TestDialTimeoutExceeded(t *testing.T) {
+	slowDialer := func(ctx context.Context, s string) (net.Conn, error) {
+		time.Sleep(50 * time.Millisecond)
+		return nil, errors.New("no connection")
+	}
+	_, err := Dial(context.Background(), "slow", Config{AllowInsecure: true, DialTimeout: 10 * time.Millisecond}, grpc.WithContextDialer(slowDialer))
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected deadline exceeded, got %v", err)
+	}
+}
+
 type fakeSessionClient struct {
 	stubClient
 	resp *proto.SessionResponse
