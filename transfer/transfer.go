@@ -668,7 +668,7 @@ func applyBlocks(cfg *config.Config, reader *bufio.Reader, destFile *os.File, de
 func (t *Transfer) processDumpDataCore(cfg *config.Config, in io.Reader, destPath string, dedup DeduplicationStrategy, verify bool) (err error) {
 	bufReader := bufio.NewReader(in)
 	var hs common.Handshake
-	hs, err = readAndValidateHandshake(bufReader, dedup, verify)
+	hs, err = readAndValidateHandshake(bufReader, cfg, dedup, verify)
 	if err != nil {
 		return err
 	}

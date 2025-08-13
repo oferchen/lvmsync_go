@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -65,7 +66,8 @@ func TestDumpChangesSequential(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to read handshake: %v", err)
 	}
-	if strings.TrimSpace(line) != common.ProtocolVersion+" compress:none" {
+	expectedHS := common.ProtocolVersion + " endian:" + common.NativeEndianness() + " block:" + fmt.Sprint(blockSize) + " compress:none"
+	if strings.TrimSpace(line) != expectedHS {
 		t.Fatalf("unexpected handshake %q", strings.TrimSpace(line))
 	}
 	offsets := parseOffsetsNoHandshake(t, reader)
@@ -98,7 +100,8 @@ func TestDumpChangesWithDeduplication(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to read handshake: %v", err)
 	}
-	if strings.TrimSpace(line) != common.ProtocolVersion+" checksum-dedup compress:none" {
+	expectedHS := common.ProtocolVersion + " endian:" + common.NativeEndianness() + " block:" + fmt.Sprint(blockSize) + " checksum-dedup compress:none"
+	if strings.TrimSpace(line) != expectedHS {
 		t.Fatalf("unexpected handshake %q", strings.TrimSpace(line))
 	}
 	offsets := parseOffsetsNoHandshake(t, reader)
@@ -143,7 +146,8 @@ func TestProcessDumpDataAutoDecompression(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to read handshake: %v", err)
 	}
-	if strings.TrimSpace(line) != common.ProtocolVersion+" checksum compress:zstd" {
+	expectedHS := common.ProtocolVersion + " endian:" + common.NativeEndianness() + " block:" + fmt.Sprint(blockSize) + " checksum compress:zstd level:1"
+	if strings.TrimSpace(line) != expectedHS {
 		t.Fatalf("unexpected handshake %q", strings.TrimSpace(line))
 	}
 
@@ -161,7 +165,7 @@ func TestProcessDumpDataAutoDecompression(t *testing.T) {
 	}
 	destFile.Close()
 
-	cfgProcess := &config.Config{BlockSize: int(blockSize), Compress: "none", MaxRetries: 1}
+	cfgProcess := &config.Config{BlockSize: int(blockSize), Compress: "zstd", CompressLevel: 1, MaxRetries: 1}
 	if err = tr.ProcessDumpData(cfgProcess, bytes.NewReader(data), dest); err != nil {
 		t.Fatalf("ProcessDumpData failed: %v", err)
 	}
