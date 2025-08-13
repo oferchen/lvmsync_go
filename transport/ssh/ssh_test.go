@@ -53,3 +53,36 @@ func TestSSHTransportHandshake(t *testing.T) {
 	conn.Close()
 	<-done
 }
+
+func TestSSHTransportHandshakeError(t *testing.T) {
+	tr := New()
+	ctx := context.Background()
+	ln, err := tr.Listen(ctx, "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer ln.Close()
+
+	done := make(chan struct{})
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			t.Errorf("accept: %v", err)
+			return
+		}
+		// send an invalid handshake to trigger negotiation failure
+		conn.Write([]byte("bad\n"))
+		conn.Close()
+		close(done)
+	}()
+
+	conn, err := tr.Dial(ctx, ln.Addr().String())
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	if err := tr.Negotiate(ctx, conn, transport.Client); err == nil {
+		t.Fatalf("expected negotiate error")
+	}
+	conn.Close()
+	<-done
+}
