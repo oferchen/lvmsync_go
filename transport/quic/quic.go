@@ -16,7 +16,11 @@ type Transport struct{}
 // New returns a new Transport.
 func New() transport.Interface { return &Transport{} }
 
-func init() { transport.Register("quic", New) }
+func init() {
+	if err := transport.Register("quic", New); err != nil {
+		panic(err)
+	}
+}
 
 func (t *Transport) Name() string { return "quic" }
 

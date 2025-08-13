@@ -31,7 +31,11 @@ func New() transport.Interface {
 	}
 }
 
-func init() { transport.Register("tcp+tls", New) }
+func init() {
+	if err := transport.Register("tcp+tls", New); err != nil {
+		panic(err)
+	}
+}
 
 func (t *Transport) Name() string { return "tcp+tls" }
 
