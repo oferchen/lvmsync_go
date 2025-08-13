@@ -1067,21 +1067,19 @@ LVMSync commands such as `lvmsync` and `lvmsync-grpcd` return conventional exit 
 
 | Code | Meaning |
 |------|---------|
-| `0` | Success |
-| `1` | Configuration or runtime failure |
+| `0`  | Success |
+| `1`  | Configuration or runtime failure |
+| other | Subcommand-specific codes (see individual command docs) |
 
-Exit code handling lives in [main.go](main.go#L21-L37), with configuration errors bubbling up from [cmd/root/root.go](cmd/root/root.go#L42-L52) and runtime errors from [cmd/root/root.go](cmd/root/root.go#L121-L186).
+Exit code handling lives in [main.go](main.go#L21-L37), with configuration errors bubbling up from [cmd/root/root.go](cmd/root/root.go#L42-L52) and runtime errors from [cmd/root/root.go](cmd/root/root.go#L121-L186). Subcommands may return additional exit codes to communicate their own failure modes.
 
-Example shell usage:
+Shell scripts can rely on `set -e` to abort on non-zero exit codes:
 
 ```sh
+#!/bin/sh
+set -e
 lvmsync "$@"
-rc=$?
-case $rc in
-  0) echo "transfer completed successfully" ;;
-  1) echo "configuration or runtime failure" ;;
-  *) echo "unexpected exit code: $rc" ;;
-esac
+echo "transfer completed successfully"
 ```
 
 ## Credits
