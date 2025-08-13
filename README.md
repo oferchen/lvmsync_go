@@ -35,6 +35,14 @@ LVMSync is a high-performance incremental data replication tool for LVM snapshot
 - **Flexible Configuration**: Flags, environment variables, or `config.yaml`. See [Configuration](#configuration).
 - **Configuration Validation**: Checks key parameters (e.g., volume group existence, escalation command) before starting operations.
 
+## Device Support Matrix
+
+| Device type     | Source | Destination |
+|-----------------|:------:|:-----------:|
+| LVM snapshot    |   ✅   |      ❌      |
+| Raw block device|   ✅   |      ✅      |
+| Regular file    |   ✅   |      ✅      |
+
 ## Supported Platforms
 
 LVMSync targets Linux systems only. Builds are tested on the `amd64` and `arm64` architectures.
@@ -459,14 +467,17 @@ transports to attempt (for example `tcp+tls,ssh`). The flags below configure tra
 
 ### Flags and environment variables
 
-| Flag | Environment variable | Description |
-|------|----------------------|-------------|
-| `--transport` | `LVMSYNC_TRANSPORT` | Ordered transports to try (e.g., `tcp+tls,ssh`) |
-| `--concurrency` | `LVMSYNC_CONCURRENCY` | Stream concurrency (0 to autotune based on BDP) |
-| `--tcp_port` | `LVMSYNC_TCP_PORT` | TCP+TLS port |
-| `--tcp_parallel` | `LVMSYNC_TCP_PARALLEL` | Number of parallel TCP connections |
-| `--tcp_lowat` | `LVMSYNC_TCP_LOWAT` | TCP_NOTSENT_LOWAT in bytes |
-| `--ssh_port` | `LVMSYNC_SSH_PORT` | SSH port |
+| Flag | Environment variable | Description | mTLS |
+|------|----------------------|-------------|------|
+| `--transport` | `LVMSYNC_TRANSPORT` | Ordered transports to try (e.g., `tcp+tls,ssh`) | n/a |
+| `--concurrency` | `LVMSYNC_CONCURRENCY` | Stream concurrency (0 to autotune based on BDP) | n/a |
+| `--tcp_port` | `LVMSYNC_TCP_PORT` | TCP+TLS port | ✅ |
+| `--ssh_port` | `LVMSYNC_SSH_PORT` | SSH port | ❌ |
+| `--tls_cert` | `LVMSYNC_TLS_CERT` | TLS certificate file | ✅ |
+| `--tls_key` | `LVMSYNC_TLS_KEY` | TLS key file | ✅ |
+| `--ca_cert` | `LVMSYNC_CA_CERT` | CA certificate file | ✅ |
+| `--tcp_parallel` | `LVMSYNC_TCP_PARALLEL` | Number of parallel TCP connections | n/a |
+| `--tcp_lowat` | `LVMSYNC_TCP_LOWAT` | TCP_NOTSENT_LOWAT in bytes | n/a |
 
 ### Usage examples
 
@@ -488,7 +499,13 @@ LVMSYNC_TRANSPORT=ssh LVMSYNC_SSH_PORT=2222 lvmsync run backup@host:/dev/vg1/tar
 
 ## Hybrid Deduplication and Adaptive Compression
 
-Hybrid dedup combines fixed-size and content-defined chunking. Enable it with `--dedup hybrid` and tune the CDC window with `--cdc_min`, `--cdc_avg`, and `--cdc_max`.
+Hybrid dedup combines fixed-size and content-defined chunking. Enable it with `--dedup hybrid` and tune FastCDC with `--cdc-min`, `--cdc-avg`, and `--cdc-max` (flags use underscores in the CLI: `--cdc_min`, `--cdc_avg`, `--cdc_max`).
+
+| Flag (`--cdc-*`) | Environment variable | Config key | Description |
+|------------------|----------------------|------------|-------------|
+| `--cdc-min`      | `LVMSYNC_CDC_MIN`    | `cdc_min`  | Minimum chunk size |
+| `--cdc-avg`      | `LVMSYNC_CDC_AVG`    | `cdc_avg`  | Target average chunk size |
+| `--cdc-max`      | `LVMSYNC_CDC_MAX`    | `cdc_max`  | Maximum chunk size |
 
 The Bloom filter de-duplicates previously seen chunks. Size it with `--bloom_entries` and desired false positive rate via `--bloom_fp_rate`. For an mmap-backed index, `--bloom_mbits` controls the bitmap size in megabits.
 
@@ -663,15 +680,19 @@ lvmsync run [--dry_run] [--transport tcp+tls,ssh] <snapshot|lvm device> <destina
 
 The tool supports both local and remote transfers, as well as an "apply mode" for applying change dumps. Use `--dry_run` to print planned actions without executing and `--transport` to provide an ordered list of transports to try.
 
-### Manifest Operations
+## Resume, Manifest, and Verify
+
+Resume an interrupted transfer using a checkpointed state file:
+
+```sh
+lvmsync run --resume statefile /dev/vg0/snap0 /dev/vg0/data
+```
 
 Rebuild a manifest index for an existing device:
 
 ```sh
 lvmsync manifest rebuild /dev/vg0/lv0
 ```
-
-### Verification
 
 Verify that a source and destination match:
 
