@@ -662,6 +662,14 @@ lvmsync [options] <snapshot|lvm device> <destination>
 
 The tool supports both local and remote transfers, as well as an "apply mode" for applying change dumps.
 
+### Manifest Operations
+
+Rebuild a manifest index for an existing device:
+
+```sh
+lvmsync manifest rebuild /dev/vg0/lv0
+```
+
 ### Options
 
 #### General Options

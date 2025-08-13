@@ -13,6 +13,8 @@ import (
 	"go.uber.org/zap"
 
 	"lvmsync_go/config"
+	hashutil "lvmsync_go/hash"
+	manifestpkg "lvmsync_go/manifest"
 )
 
 func validateOffsetAndSize(offset uint64, size int) (int64, uint32, error) {
@@ -31,6 +33,15 @@ func iterateBlocks(cfg *config.Config, ranges []Range, srcFile *os.File, bufOut 
 	var header [12]byte
 	manifest := &Manifest{}
 	h := newDigestHasher(cfg.ChecksumAlgorithm)
+	var idx *manifestpkg.Index
+	if cfg.ManifestPath != "" {
+		var err error
+		idx, err = manifestpkg.Open(cfg.ManifestPath)
+		if err != nil {
+			return totalBytes, skippedBlocks, manifest, fmt.Errorf("open manifest: %w", err)
+		}
+		defer idx.Close()
+	}
 	for _, r := range ranges {
 		offset, blockSize, err := validateOffsetAndSize(r.Start, cfg.BlockSize)
 		if err != nil {
@@ -39,6 +50,12 @@ func iterateBlocks(cfg *config.Config, ranges []Range, srcFile *os.File, bufOut 
 		data, err := ReadBlockWithRetries(cfg, srcFile, offset, cfg.ZeroCopy, pipeFds, logger)
 		if err != nil {
 			return totalBytes, skippedBlocks, manifest, fmt.Errorf("error reading block at offset %d: %w", r.Start, err)
+		}
+		sum := blake3.Sum256(data)
+		if idx != nil && idx.Match(r.Start, blockSize, sum) {
+			skippedBlocks++
+			putBlockBuffer(data)
+			continue
 		}
 		if dedup != nil {
 			if !dedup.ShouldTransfer(offset, data) {
@@ -49,6 +66,7 @@ func iterateBlocks(cfg *config.Config, ranges []Range, srcFile *os.File, bufOut 
 			dedup.RecordTransfer(offset, data)
 		}
 
+		xx := hashutil.SumXXH3(data)
 		binary.BigEndian.PutUint64(header[0:8], r.Start)
 		if isAllZero(data) {
 			binary.BigEndian.PutUint32(header[8:12], 0)
@@ -58,6 +76,9 @@ func iterateBlocks(cfg *config.Config, ranges []Range, srcFile *os.File, bufOut 
 			}
 			zh := zeroHash(int(blockSize))
 			saveResumeState(cfg, zh, int64(blockSize), logger)
+			if idx != nil {
+				idx.Set(r.Start, blockSize, xx, sum)
+			}
 			putBlockBuffer(data)
 			totalBytes += int64(blockSize)
 			continue
@@ -73,8 +94,10 @@ func iterateBlocks(cfg *config.Config, ranges []Range, srcFile *os.File, bufOut 
 		}
 
 		h.Write(data)
-		sum := blake3.Sum256(data)
 		manifest.Append(sum, int64(r.Start), int(blockSize))
+		if idx != nil {
+			idx.Set(r.Start, blockSize, xx, sum)
+		}
 		saveResumeState(cfg, sum, int64(blockSize), logger)
 
 		putBlockBuffer(data)
@@ -125,9 +148,22 @@ func processParallelResults(
 	var totalBytesTransferred int64
 	h := newDigestHasher(cfg.ChecksumAlgorithm)
 	manifest := &Manifest{}
+	var idx *manifestpkg.Index
+	if cfg.ManifestPath != "" {
+		var err error
+		idx, err = manifestpkg.Open(cfg.ManifestPath)
+		if err != nil {
+			return totalBytesTransferred, manifest, fmt.Errorf("open manifest: %w", err)
+		}
+		defer idx.Close()
+	}
 	for res := range results {
 		if res.Err != nil {
 			return totalBytesTransferred, manifest, fmt.Errorf("error in block %d: %w", res.Index, res.Err)
+		}
+		if idx != nil && res.Data != nil && idx.Match(res.Offset, res.Size, res.ChunkID) {
+			putBlockBuffer(res.Data)
+			continue
 		}
 
 		n := prepareResultHeader(cfg, checksum, res, header)
@@ -140,9 +176,17 @@ func processParallelResults(
 		if res.Data != nil {
 			h.Write(res.Data)
 			manifest.Append(res.ChunkID, int64(res.Offset), int(res.Size))
+			if idx != nil {
+				xx := hashutil.SumXXH3(res.Data)
+				idx.Set(res.Offset, res.Size, xx, res.ChunkID)
+			}
 			saveResumeState(cfg, res.ChunkID, int64(res.Size), logger)
 			putBlockBuffer(res.Data)
 		} else {
+			if idx != nil {
+				xx := hashutil.SumXXH3(nil)
+				idx.Set(res.Offset, res.Size, xx, res.ChunkID)
+			}
 			saveResumeState(cfg, res.ChunkID, 0, logger)
 		}
 
