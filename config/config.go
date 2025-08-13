@@ -45,7 +45,6 @@ type FlagSets struct {
 	LVM         *pflag.FlagSet
 	GRPC        *pflag.FlagSet
 	Transport   *pflag.FlagSet
-	Serve       *pflag.FlagSet
 }
 
 // NewFlagSets constructs grouped flag sets using the provided defaults.
@@ -59,7 +58,6 @@ func NewFlagSets(cfg *Config) *FlagSets {
 		LVM:         initLVMFlags(cfg),
 		GRPC:        initGRPCFlags(cfg),
 		Transport:   initTransportFlags(cfg),
-		Serve:       initServeFlags(cfg),
 	}
 }
 
@@ -74,7 +72,6 @@ func (f *FlagSets) All() []*pflag.FlagSet {
 		f.LVM,
 		f.GRPC,
 		f.Transport,
-		f.Serve,
 	}
 }
 
@@ -150,14 +147,6 @@ type Config struct {
 	SyncInterval         string        `mapstructure:"sync_interval"`
 	CheckpointInterval   time.Duration `mapstructure:"checkpoint_interval"`
 	SyncIntervalBytes    int           `mapstructure:"-"`
-
-	Serve              bool          `mapstructure:"serve"`
-	ServeListen        string        `mapstructure:"serve_listen"`
-	ServeProtocol      string        `mapstructure:"serve_protocol"`
-	ServeAlgorithm     string        `mapstructure:"serve_algorithm"`
-	ServeTestSpace     string        `mapstructure:"serve_test_space"`
-	ServePolicy        string        `mapstructure:"serve_policy"`
-	ServeAcceptTimeout time.Duration `mapstructure:"serve_accept_timeout"`
 }
 
 func FormatBlockSize(blockSize int) (string, error) {
@@ -476,13 +465,6 @@ func DefaultConfig() (*Config, error) {
 		SyncInterval:         "1GB",
 		CheckpointInterval:   0,
 		SyncIntervalBytes:    1000000000,
-		Serve:                false,
-		ServeListen:          ":9000",
-		ServeProtocol:        "lvmsync",
-		ServeAlgorithm:       "sha256",
-		ServeTestSpace:       "",
-		ServePolicy:          "accept",
-		ServeAcceptTimeout:   30 * time.Second,
 	}, nil
 }
 
@@ -590,18 +572,6 @@ func initTransportFlags(cfg *Config) *pflag.FlagSet {
 	fs.Int("tcp_port", cfg.TCPPort, "TCP+TLS port")
 	fs.Int("tcp_parallel", cfg.TCPParallel, "Number of parallel TCP connections")
 	fs.Int("tcp_lowat", cfg.TCPNotSentLowAt, "TCP_NOTSENT_LOWAT in bytes")
-	return fs
-}
-
-func initServeFlags(cfg *Config) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("Serve Options", pflag.ExitOnError)
-	fs.Bool("serve", cfg.Serve, "Run in serve mode")
-	fs.String("serve_listen", cfg.ServeListen, "Server listen address")
-	fs.String("serve_protocol", cfg.ServeProtocol, "Protocol to negotiate")
-	fs.String("serve_algorithm", cfg.ServeAlgorithm, "Algorithm to negotiate")
-	fs.String("serve_test_space", cfg.ServeTestSpace, "Test-space option")
-	fs.String("serve_policy", cfg.ServePolicy, "Transfer policy")
-	fs.Duration("serve_accept_timeout", cfg.ServeAcceptTimeout, "Timeout for accepting connection and stream")
 	return fs
 }
 

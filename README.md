@@ -221,20 +221,6 @@ Recent refactors added several configuration options:
 - `--checkpoint_interval` sets how often resume state is persisted.
 - `--block_size` sets the transfer block size (use `auto` for detection).
 
-### Serve command
-
-Run the built‑in QUIC server with `--serve` to negotiate parameters with an
-incoming client. The server listens on `--serve_listen` (default `:9000`) and
-expects the client to present matching `--serve_protocol`, `--serve_algorithm`,
-and optional `--serve_test_space` values. A mismatched value aborts the
-connection. Transfers proceed only when `--serve_policy` is `accept` (the
-default). The server closes the stream, QUIC connection, and listener when the transfer completes, logging any shutdown errors at `warn` level, and exits gracefully when it receives `SIGINT` or `SIGTERM`.
-Pending accept operations time out after `--serve_accept_timeout` (default `30s`).
-
-```sh
-lvmsync --serve --serve_listen :9000
-```
-
 ### I/O tuning
 
 - `--odirect` uses O_DIRECT with block-size aligned buffers.
@@ -343,39 +329,6 @@ If `--ssh_key` is empty, lvmsync contacts the SSH agent referenced by `SSH_AUTH_
 | `--tls_key` | `LVMSYNC_TLS_KEY` | `tls_key` | TLS key file |
 | `--ca_cert` | `LVMSYNC_CA_CERT` | `ca_cert` | CA certificate file |
 | `--allow_insecure` | `LVMSYNC_ALLOW_INSECURE` | `allow_insecure` | Allow insecure (no TLS) |
-
-### Serve options
-
-| Flag | Environment variable | Config key | Default | Description |
-|------|----------------------|------------|---------|-------------|
-| `--serve` | `LVMSYNC_SERVE` | `serve` | `false` | Run QUIC server instead of client |
-| `--serve_listen` | `LVMSYNC_SERVE_LISTEN` | `serve_listen` | `:9000` | QUIC listen address |
-| `--serve_protocol` | `LVMSYNC_SERVE_PROTOCOL` | `serve_protocol` | `lvmsync` | Protocol name to negotiate |
-| `--serve_algorithm` | `LVMSYNC_SERVE_ALGORITHM` | `serve_algorithm` | `sha256` | Algorithm identifier to negotiate |
-| `--serve_test_space` | `LVMSYNC_SERVE_TEST_SPACE` | `serve_test_space` | `""` | Optional test-space string |
-| `--serve_policy` | `LVMSYNC_SERVE_POLICY` | `serve_policy` | `accept` | Transfer policy (non-`accept` rejects) |
-| `--serve_accept_timeout` | `LVMSYNC_SERVE_ACCEPT_TIMEOUT` | `serve_accept_timeout` | `30s` | Timeout for accept operations |
-
-CLI:
-
-```sh
-lvmsync --serve --serve_listen :9900
-```
-
-Environment:
-
-```sh
-LVMSYNC_SERVE=true LVMSYNC_SERVE_LISTEN=:9900 lvmsync
-```
-
-Environment variables mirror the CLI flags with the `LVMSYNC_SERVE_` prefix.
-
-`config.yaml`:
-
-```yaml
-serve: true
-serve_listen: ":9900"
-```
 
 ### Common deployment scenarios
 
@@ -813,18 +766,6 @@ timeouts or cancellations are reported separately.
 | `--tls_key`        | TLS key file                 | `""`            |
 | `--ca_cert`        | CA certificate file          | `""`            |
 | `--allow_insecure` | Allow insecure (disable TLS) | `false`         |
-
-#### Serve Options
-
-| Option | Description | Default |
-| ------ | ----------- | ------- |
-| `--serve` | Run QUIC server instead of client | `false` |
-| `--serve_listen` | QUIC listen address | `:9000` |
-| `--serve_protocol` | Protocol name to negotiate | `lvmsync` |
-| `--serve_algorithm` | Algorithm identifier to negotiate | `sha256` |
-| `--serve_test_space` | Optional test-space string | `""` |
-| `--serve_policy` | Transfer policy (non-`accept` rejects) | `accept` |
-| `--serve_accept_timeout` | Timeout for listener and stream acceptance | `30s` |
 
 ### Examples
 

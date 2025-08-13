@@ -23,14 +23,6 @@ tls_key: ""  # TLS key file
 ca_cert: ""  # CA certificate file
 allow_insecure: false  # Allow running without TLS
 
-# Serve Options
-serve: false  # Enable built-in server
-serve_listen: ":9000"  # Server listen address
-serve_protocol: lvmsync  # Server protocol
-serve_algorithm: sha256  # Hash algorithm for served data
-serve_policy: accept  # Client acceptance policy
-serve_accept_timeout: 30s  # Timeout for accepting connection and stream
-
 # Deduplication Options
 # Strategy: "none", "auto", "checksum", "rolling_hash", or "bloom"
 # (use "none" to disable)
