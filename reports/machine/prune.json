@@ -22,5 +22,13 @@
     "impact": "clean test run",
     "action": "git rm transfer/compression_test.go",
     "owner": "@maintainer"
+  },
+  {
+    "path": "cmd/serve",
+    "reason": "Stubbed serve command; no implementation",
+    "evidence": "serve mode not implemented error",
+    "impact": "lighter CLI surface",
+    "action": "git rm -r cmd/serve",
+    "owner": "@maintainer"
   }
 ]

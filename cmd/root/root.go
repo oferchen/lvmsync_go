@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"syscall"
 
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
@@ -13,7 +12,6 @@ import (
 	"lvmsync_go/app"
 	applycmd "lvmsync_go/cmd/apply"
 	dumpcmd "lvmsync_go/cmd/dump"
-	servecmd "lvmsync_go/cmd/serve"
 	"lvmsync_go/config"
 	clientpkg "lvmsync_go/internal/client"
 	"lvmsync_go/internal/privilege"
@@ -29,7 +27,6 @@ var (
 	executeClientFn   = clientpkg.ExecuteClient
 	selectTransport   = dumpcmd.SelectTransport
 	runDump           = dumpcmd.Run
-	runServe          = servecmd.Run
 )
 
 // SyncLogger flushes buffered log entries and logs if syncing fails.
@@ -121,12 +118,6 @@ func ExecuteClient(ctx context.Context, cfg *config.Config, snapshotPath, destPa
 
 // Run orchestrates the command execution.
 func Run(cfg *config.Config, args []string, logger *zap.Logger) error {
-	if cfg.Serve {
-		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-		defer stop()
-		return runServe(ctx, cfg, logger)
-	}
-
 	defer lvm.Cleanup()
 
 	if cfg.ApplyMode != "" {
