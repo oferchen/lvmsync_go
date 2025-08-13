@@ -22,7 +22,9 @@ func TestSSHManagerGetClientReuse(t *testing.T) {
 	knownHosts := testutil.CreateKnownHostsFile(t, server)
 	keyPath := testutil.CreateTempKey(t)
 
-	mgr, err := NewSSHManager("user", keyPath, time.Second, knownHosts, zaptest.NewLogger(t))
+	initCtx, initCancel := context.WithTimeout(context.Background(), time.Second)
+	defer initCancel()
+	mgr, err := NewSSHManager(initCtx, "user", keyPath, time.Second, knownHosts, zaptest.NewLogger(t))
 	if err != nil {
 		t.Fatalf("NewSSHManager: %v", err)
 	}
@@ -60,7 +62,9 @@ func TestSSHManagerGetClientRefresh(t *testing.T) {
 	knownHosts := testutil.CreateKnownHostsFile(t, server)
 	keyPath := testutil.CreateTempKey(t)
 
-	mgr, err := NewSSHManager("user", keyPath, time.Second, knownHosts, zaptest.NewLogger(t))
+	initCtx, initCancel := context.WithTimeout(context.Background(), time.Second)
+	defer initCancel()
+	mgr, err := NewSSHManager(initCtx, "user", keyPath, time.Second, knownHosts, zaptest.NewLogger(t))
 	if err != nil {
 		t.Fatalf("NewSSHManager: %v", err)
 	}

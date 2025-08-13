@@ -42,13 +42,14 @@ type SSHManager struct {
 // specifies a private key to use for authentication; if empty, the SSH agent
 // will be consulted. All host keys are verified against the provided
 // knownHostsPath. The timeout applies to establishing new connections.
-func NewSSHManager(user, keyPath string, timeout time.Duration, knownHostsPath string, logger *zap.Logger) (*SSHManager, error) {
+//
+// The provided ctx controls cancellation for initialization steps such as
+// retrieving authentication methods. It should include a deadline.
+func NewSSHManager(ctx context.Context, user, keyPath string, timeout time.Duration, knownHostsPath string, logger *zap.Logger) (*SSHManager, error) {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
 	authMethods, err := getSSHAuthMethods(ctx, keyPath, timeout, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize authentication: %w", err)
