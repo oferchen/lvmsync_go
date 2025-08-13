@@ -22,9 +22,14 @@ import (
 // It caches established connections keyed by host and port so that
 // subsequent requests to the same destination reuse existing sessions.
 // The manager is safe for concurrent use.
+type sshClientEntry struct {
+	client *ssh.Client
+	done   chan error
+}
+
 type SSHManager struct {
 	mu        sync.Mutex
-	clients   map[string]*ssh.Client
+	clients   map[string]*sshClientEntry
 	sshConfig *ssh.ClientConfig
 	timeout   time.Duration
 	logger    *zap.Logger
@@ -59,7 +64,7 @@ func NewSSHManager(user, keyPath string, timeout time.Duration, knownHostsPath s
 	}
 
 	return &SSHManager{
-		clients:   make(map[string]*ssh.Client),
+		clients:   make(map[string]*sshClientEntry),
 		sshConfig: sshConfig,
 		timeout:   timeout,
 		logger:    logger,
@@ -74,8 +79,15 @@ func (s *SSHManager) GetClient(ctx context.Context, host string, port int) (*ssh
 	defer s.mu.Unlock()
 
 	addr := fmt.Sprintf("%s:%d", host, port)
-	if client, exists := s.clients[addr]; exists {
-		return client, nil
+	if entry, exists := s.clients[addr]; exists {
+		select {
+		case err := <-entry.done:
+			s.logger.Debug("ssh connection closed", zap.String("addr", addr), zap.Error(err))
+			entry.client.Close() //nolint:errcheck
+			delete(s.clients, addr)
+		default:
+			return entry.client, nil
+		}
 	}
 
 	client, err := dialSSH(ctx, addr, s.sshConfig, s.timeout)
@@ -83,7 +95,9 @@ func (s *SSHManager) GetClient(ctx context.Context, host string, port int) (*ssh
 		return nil, fmt.Errorf("failed to establish SSH connection: %w", err)
 	}
 
-	s.clients[addr] = client
+	done := make(chan error, 1)
+	go func(c *ssh.Client) { done <- c.Conn.Wait() }(client)
+	s.clients[addr] = &sshClientEntry{client: client, done: done}
 	return client, nil
 }
 
@@ -94,8 +108,8 @@ func (s *SSHManager) CloseAll() error {
 	defer s.mu.Unlock()
 
 	var errs error
-	for addr, client := range s.clients {
-		if err := client.Close(); err != nil {
+	for addr, entry := range s.clients {
+		if err := entry.client.Close(); err != nil {
 			s.logger.Warn("client close error", zap.String("addr", addr), zap.Error(err))
 			errs = multierr.Append(errs, fmt.Errorf("%s: %w", addr, err))
 		}
