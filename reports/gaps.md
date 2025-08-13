@@ -6,3 +6,4 @@
 | bug | remote/remote.go | `setupHostKeyCallback` ignored verify flag | users could not disable host key verification | respect flag and use `ssh.InsecureIgnoreHostKey` when false | P1 |
 | bug | remote/ssh_manager.go | `sshAgentAuth` used `net.Dial` without context or timeout | unresponsive SSH agent could hang start-up | added context-aware dial with timeout and tests | P1 |
 | bug | cmd/dump/client.go | `SelectTransport` ignored configured transport | misconfiguration silently ignored | return error and log unsupported transport | P1 |
+<!-- serve mode gap resolved -->

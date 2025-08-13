@@ -223,13 +223,17 @@ Recent refactors added several configuration options:
 
 ### Serve command
 
-Run the built‑in QUIC server with `--serve` to negotiate parameters with an
-incoming client. The server listens on `--serve_listen` (default `:9000`) and
-expects the client to present matching `--serve_protocol`, `--serve_algorithm`,
-and optional `--serve_test_space` values. A mismatched value aborts the
-connection. Transfers proceed only when `--serve_policy` is `accept` (the
-default). The server closes the stream, QUIC connection, and listener when the transfer completes, logging any shutdown errors at `warn` level, and exits gracefully when it receives `SIGINT` or `SIGTERM`.
-Pending accept operations time out after `--serve_accept_timeout` (default `30s`).
+Run the built‑in gRPC/QUIC server with `--serve` to negotiate parameters with an
+incoming client. The server listens on `--serve_listen` (default `:9000`),
+validates the negotiated ALPN protocol against `--serve_protocol`, and expects
+the first opened stream to send a line in the form `ALGORITHM|TESTSPACE`. The
+values must match `--serve_algorithm` and `--serve_test_space` or the server
+aborts the connection. Transfers proceed only when `--serve_policy` is
+`accept`. The server closes the stream, QUIC connection, and listener when the
+context is canceled, logging any shutdown errors at `warn` level. Pending
+accept operations time out after `--serve_accept_timeout` (default `30s`).
+Successful operation exits with code 0; mismatched handshakes or listener
+errors exit non‑zero.
 
 ```sh
 lvmsync --serve --serve_listen :9000
