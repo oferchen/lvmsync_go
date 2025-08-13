@@ -247,9 +247,11 @@ Run these commands locally before opening a pull request:
 
 - [x] Run lint checks to keep style and correctness issues from creeping in for transports.
 
-  ```sh
-  golangci-lint run
-  ```
+```sh
+golangci-lint run
+```
+
+- [x] Ensure SSH agent connections use context timeouts and cover SSHManager reuse in tests.
 
 - [ ] Review CLI argument parsing: prefer `pflag`, bind flags to `viper`, and group related options into reusable `FlagSet`s. Further flag-binding audits remain for commands beyond `config` and `cmd/grpcd`.
 - [ ] Implement QUIC `serve` command with minimal flags and `zap`-only logging.

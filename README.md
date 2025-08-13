@@ -318,6 +318,8 @@ LVMSYNC_GRPC_GRPC_PORT=9443 LVMSYNC_GRPC_TLS_CERT=cert.pem lvmsync-grpcd
 | `--remote_post_script` | `LVMSYNC_REMOTE_POST_SCRIPT` | `remote_post_script` | Remote script to run after transfer (separate `ssh_timeout`) |
 | `--dedup_strategy` | `LVMSYNC_DEDUP_STRATEGY` | `dedup_strategy` | Deduplication strategy: `none`, `auto`, `checksum`, `rolling_hash`, or `bloom` |
 | `--dedup_state_file` | `LVMSYNC_DEDUP_STATE_FILE` | `dedup_state_file` | Path to deduplication state file |
+
+If `--ssh_key` is empty, lvmsync contacts the SSH agent referenced by `SSH_AUTH_SOCK`. The agent connection uses `--ssh_timeout` as its deadline.
 | `--bloom_entries` | `LVMSYNC_BLOOM_ENTRIES` | `bloom_entries` | Estimated number of entries for bloom filter |
 | `--bloom_fp_rate` | `LVMSYNC_BLOOM_FP_RATE` | `bloom_fp_rate` | False positive rate for bloom filter |
 | `--bloom_mbits` | `LVMSYNC_BLOOM_MBITS` | `bloom_mbits` | Bloom filter m bits power |

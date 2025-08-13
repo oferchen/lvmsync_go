@@ -39,7 +39,7 @@ func NewSSHManager(user, keyPath string, timeout time.Duration, knownHostsPath s
 		logger = zap.NewNop()
 	}
 
-	authMethods, err := getSSHAuthMethods(keyPath, logger)
+	authMethods, err := getSSHAuthMethods(context.Background(), keyPath, timeout, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize authentication: %w", err)
 	}
@@ -103,7 +103,7 @@ func (s *SSHManager) CloseAll() error {
 	return errs
 }
 
-func getSSHAuthMethods(keyPath string, logger *zap.Logger) ([]ssh.AuthMethod, error) {
+func getSSHAuthMethods(ctx context.Context, keyPath string, timeout time.Duration, logger *zap.Logger) ([]ssh.AuthMethod, error) {
 	authMethods := []ssh.AuthMethod{}
 
 	if keyPath != "" {
@@ -113,7 +113,7 @@ func getSSHAuthMethods(keyPath string, logger *zap.Logger) ([]ssh.AuthMethod, er
 		}
 		authMethods = append(authMethods, ssh.PublicKeys(signer))
 	} else {
-		agentAuth, err := sshAgentAuth(logger)
+		agentAuth, err := sshAgentAuth(ctx, timeout, logger)
 		if err != nil {
 			return nil, err
 		}
@@ -155,13 +155,14 @@ func loadPrivateKey(keyPath string) (ssh.Signer, error) {
 	return ssh.ParsePrivateKey(keyData)
 }
 
-func sshAgentAuth(logger *zap.Logger) (ssh.AuthMethod, error) {
+func sshAgentAuth(ctx context.Context, timeout time.Duration, logger *zap.Logger) (ssh.AuthMethod, error) {
 	agentSock := os.Getenv("SSH_AUTH_SOCK")
 	if agentSock == "" {
 		return nil, fmt.Errorf("SSH_AUTH_SOCK is not set")
 	}
 
-	conn, err := net.Dial("unix", agentSock)
+	d := net.Dialer{Timeout: timeout}
+	conn, err := d.DialContext(ctx, "unix", agentSock)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to SSH agent: %w", err)
 	}
