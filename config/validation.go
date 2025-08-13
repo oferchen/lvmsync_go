@@ -15,6 +15,12 @@ func (c *Config) ValidateWith(geteuid func() int) error {
 	if c.Mode != "default" && c.Mode != "throughput" {
 		return fmt.Errorf("invalid mode %q: must be \"default\" or \"throughput\"", c.Mode)
 	}
+	if c.SourceType != "" && c.SourceType != "auto" && c.SourceType != "file" && c.SourceType != "raw" && c.SourceType != "lvm" {
+		return fmt.Errorf("invalid source type %q", c.SourceType)
+	}
+	if c.DestType != "" && c.DestType != "auto" && c.DestType != "file" && c.DestType != "raw" && c.DestType != "lvm" {
+		return fmt.Errorf("invalid dest type %q", c.DestType)
+	}
 	if c.SSHKeepAliveInterval <= 0 {
 		return fmt.Errorf("ssh keepalive interval must be > 0")
 	}
