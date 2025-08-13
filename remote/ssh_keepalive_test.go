@@ -75,7 +75,9 @@ func TestNewSSHClient(t *testing.T) {
 func TestSSHManager(t *testing.T) {
 	server, host, port, knownHosts := newSSHServer(t, func(_ string) int { return 0 }) // cmd is unused
 	keyPath := remotetest.CreateTempKey(t)
-	mgr, err := NewSSHManager("test", keyPath, time.Second, knownHosts, zap.NewNop())
+	initCtx, initCancel := context.WithTimeout(context.Background(), time.Second)
+	defer initCancel()
+	mgr, err := NewSSHManager(initCtx, "test", keyPath, time.Second, knownHosts, zap.NewNop())
 	if err != nil {
 		t.Fatalf("NewSSHManager error: %v", err)
 	}

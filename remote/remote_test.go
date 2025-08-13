@@ -16,7 +16,9 @@ import (
 
 func TestNewSSHManagerInvalidKey(t *testing.T) {
 	knownHosts := remotetest.CreateEmptyKnownHosts(t)
-	_, err := NewSSHManager("root", "no_such_key", time.Second, knownHosts, zap.NewNop())
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	_, err := NewSSHManager(ctx, "root", "no_such_key", time.Second, knownHosts, zap.NewNop())
 	if err == nil {
 		t.Fatal("expected error for missing key")
 	}
@@ -27,7 +29,9 @@ func TestNewSSHManagerNoAgent(t *testing.T) {
 		t.Fatalf("Unsetenv: %v", err)
 	}
 	knownHosts := remotetest.CreateEmptyKnownHosts(t)
-	_, err := NewSSHManager("root", "", time.Second, knownHosts, zap.NewNop())
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	_, err := NewSSHManager(ctx, "root", "", time.Second, knownHosts, zap.NewNop())
 	if err == nil {
 		t.Fatal("expected error when SSH_AUTH_SOCK not set")
 	}
