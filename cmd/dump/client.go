@@ -16,6 +16,11 @@ import (
 	"lvmsync_go/config"
 	"lvmsync_go/remote"
 	"lvmsync_go/transfer"
+	"lvmsync_go/transport"
+	_ "lvmsync_go/transport/h2"
+	_ "lvmsync_go/transport/quic"
+	_ "lvmsync_go/transport/ssh"
+	_ "lvmsync_go/transport/tcp_tls"
 )
 
 // ErrRemoteCommand indicates that execution of the remote command failed.
@@ -281,13 +286,22 @@ func RunRemoteDump(ctx context.Context, cfg *config.Config, snapshotDevice, orig
 	return ExecuteRemoteCommand(validationCtx, cfg, client, destDevice, snapshotDevice, originDevice, logger)
 }
 
-// SelectTransport returns an error when a transport is requested because
-// transport negotiation is not yet implemented. The selected transport is
-// logged for visibility.
-func SelectTransport(cfg *config.Config, logger *zap.Logger) error {
-	if cfg.Transport != "" {
-		logger.Error("transport selection not implemented", zap.String("transport", cfg.Transport))
-		return fmt.Errorf("transport %q not implemented", cfg.Transport)
+// SelectTransport chooses the first supported transport from cfg.Transport and
+// logs the selected implementation. Unknown transports are skipped with a
+// warning and an error is returned if none are supported.
+func SelectTransport(cfg *config.Config, logger *zap.Logger) (transport.Interface, error) {
+	if cfg.Transport == "" {
+		return nil, nil
 	}
-	return nil
+	for _, name := range strings.Split(cfg.Transport, ",") {
+		name = strings.TrimSpace(name)
+		tr, err := transport.Get(name)
+		if err != nil {
+			logger.Warn("unsupported transport", zap.String("transport", name))
+			continue
+		}
+		logger.Info("selected transport", zap.String("transport", name))
+		return tr, nil
+	}
+	return nil, fmt.Errorf("no supported transports: %s", cfg.Transport)
 }
