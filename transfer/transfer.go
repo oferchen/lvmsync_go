@@ -707,7 +707,7 @@ func (t *Transfer) processDumpDataCore(cfg *config.Config, in io.Reader, destPat
 		return err
 	}
 
-	decReader, err := NewDecompressionReader(bufReader, hs.Compress[0], cfg.CompressConcurrency)
+	decReader, err := NewDecompressionReader(bufReader, hs.Compress, cfg.CompressConcurrency)
 	if err != nil {
 		return fmt.Errorf("failed to create decompression reader: %w", err)
 	}

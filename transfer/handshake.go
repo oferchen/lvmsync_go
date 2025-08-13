@@ -13,10 +13,12 @@ import (
 )
 
 func composeHandshake(cfg *config.Config, mode string) common.Handshake {
+	comps := splitCompression(cfg.Compress)
 	hs := common.Handshake{
-		Transports: splitList(cfg.Transport),
-		Compress:   splitCompression(cfg.Compress),
-		Digests:    splitDigests(cfg.ChecksumAlgorithm),
+		Transports:  splitList(cfg.Transport),
+		Compress:    comps[0],
+		Compressors: comps,
+		Digests:     splitDigests(cfg.ChecksumAlgorithm),
 	}
 	switch mode {
 	case StrategyChecksum:
@@ -46,6 +48,7 @@ func prepareParallelHandshake(cfg *config.Config) string {
 	if err := common.WriteHandshake(&sb, hs); err != nil {
 		return ""
 	}
+	htokens := strings.Fields(strings.TrimSpace(sb.String()))
 	htokens = append(htokens, "compress:"+strings.Join(splitCompression(cfg.Compress), ","))
 	htokens = append(htokens, "digest:"+strings.Join(splitDigests(cfg.ChecksumAlgorithm), ","))
 	return strings.Join(htokens, " ")
@@ -72,12 +75,17 @@ func readAndValidateHandshake(cfg *config.Config, bufReader *bufio.Reader, dedup
 		cfg.Transport = transport
 		hs.Transports = []string{transport}
 	}
-	compress, err := negotiate(splitCompression(cfg.Compress), hs.Compress)
+	compressList := hs.Compressors
+	if len(compressList) == 0 && hs.Compress != "" {
+		compressList = []string{hs.Compress}
+	}
+	compress, err := negotiate(splitCompression(cfg.Compress), compressList)
 	if err != nil {
 		return hs, fmt.Errorf("no common compression algorithm")
 	}
 	cfg.Compress = compress
-	hs.Compress = []string{compress}
+	hs.Compress = compress
+	hs.Compressors = []string{compress}
 	digest, err := negotiate(splitDigests(cfg.ChecksumAlgorithm), hs.Digests)
 	if err != nil {
 		return hs, fmt.Errorf("no common digest algorithm")

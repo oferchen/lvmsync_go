@@ -41,8 +41,8 @@ func TestHandshakeRoundTrip(t *testing.T) {
 }
 
 func TestHandshakeString(t *testing.T) {
-	h := common.Handshake{Transports: []string{"ssh"}, Compress: []string{"none"}, Digests: []string{"blake3"}, Checksum: true, ChecksumDedup: true}
-	expected := "lvmsync PROTO[3] checksum-dedup transport:ssh compress:none digest:blake3"
+	h := common.Handshake{Transports: []string{"ssh"}, Compress: "none", Digests: []string{"blake3"}, Digest: "blake3", Checksum: true, ChecksumDedup: true}
+	expected := "lvmsync PROTO[3] transports:ssh digests:blake3 checksum-dedup compress:none digest:blake3"
 	if h.String() != expected {
 		t.Fatalf("unexpected string: %s", h.String())
 	}

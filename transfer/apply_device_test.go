@@ -16,7 +16,7 @@ import (
 
 func minimalStream(t *testing.T) []byte {
 	var buf bytes.Buffer
-	if err := common.WriteHandshake(&buf, common.Handshake{Compress: "none", Checksum: true}); err != nil {
+	if err := common.WriteHandshake(&buf, common.Handshake{Compress: "none", Checksum: true, Digests: []string{"sha256"}, Digest: "sha256"}); err != nil {
 		t.Fatalf("handshake: %v", err)
 	}
 	return buf.Bytes()
