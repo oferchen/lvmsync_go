@@ -11,7 +11,7 @@ func TestRunCommandFlags(t *testing.T) {
 	}
 	t.Cleanup(func() { runCommand = func(src, dst string, opts RunOptions) error { return nil } })
 
-	if err := Execute([]string{"run", "--dry-run", "--transport", "tcp,ssh", "src", "dst"}); err != nil {
+	if err := Execute([]string{"run", "--dry_run", "--transport", "tcp,ssh", "src", "dst"}); err != nil {
 		t.Fatalf("execute run: %v", err)
 	}
 	if gotSrc != "src" || gotDst != "dst" {
@@ -55,7 +55,7 @@ func TestManifestRebuildRoutes(t *testing.T) {
 	}
 	t.Cleanup(func() { manifestRebuild = func(device string, dryRun bool) error { return nil } })
 
-	if err := Execute([]string{"manifest", "rebuild", "--dry-run", "/dev/vg0"}); err != nil {
+	if err := Execute([]string{"manifest", "rebuild", "--dry_run", "/dev/vg0"}); err != nil {
 		t.Fatalf("execute rebuild: %v", err)
 	}
 	if gotDevice != "/dev/vg0" {

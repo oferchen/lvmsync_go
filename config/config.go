@@ -79,6 +79,7 @@ type Config struct {
 	ConfigFile           string        `mapstructure:"config"`
 	ApplyMode            string        `mapstructure:"apply"`
 	StdoutMode           bool          `mapstructure:"stdout"`
+	DryRun               bool          `mapstructure:"dry_run"`
 	Force                bool          `mapstructure:"force"`
 	Mode                 string        `mapstructure:"mode"`
 	Parallel             int           `mapstructure:"parallel"`
@@ -403,6 +404,7 @@ func DefaultConfig() (*Config, error) {
 		Mode:                 "default",
 		ApplyMode:            "",
 		StdoutMode:           false,
+		DryRun:               false,
 		Force:                false,
 		Parallel:             4,
 		Concurrency:          0,
@@ -478,6 +480,7 @@ func initGeneralFlags(cfg *Config) *pflag.FlagSet {
 	fs.String("config", "", "Path to config YAML file")
 	fs.String("apply", cfg.ApplyMode, "Apply mode: read change dump from file ('-' for STDIN) and apply to destination device")
 	fs.Bool("stdout", cfg.StdoutMode, "Write change dump to STDOUT")
+	fs.Bool("dry_run", cfg.DryRun, "Print actions without executing")
 	fs.Bool("force", cfg.Force, "Override safety checks and proceed on mounted destination")
 	fs.String("mode", cfg.Mode, "Preset mode: default or throughput")
 	fs.Int("parallel", cfg.Parallel, "Number of concurrent workers")
