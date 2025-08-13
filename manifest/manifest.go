@@ -10,6 +10,8 @@ import (
 	"github.com/zeebo/blake3"
 	"github.com/zeebo/xxh3"
 	"golang.org/x/sys/unix"
+
+	"lvmsync_go/device"
 )
 
 const (
@@ -191,9 +193,9 @@ func (i *Index) Entry(idx int) (offset uint64, length uint32, xxh uint64, digest
 }
 
 // Rebuild creates a manifest index for device at output path.
-// DeviceID is set to the device path. The device is read sequentially using blockSize-sized chunks.
-func Rebuild(device, output string) error {
-	f, err := os.Open(device)
+// DeviceID is determined via device.GetUUID. The device is read sequentially using blockSize-sized chunks.
+func Rebuild(devicePath, output string) error {
+	f, err := os.Open(devicePath)
 	if err != nil {
 		return err
 	}
@@ -204,7 +206,11 @@ func Rebuild(device, output string) error {
 	}
 	blockSize := uint32(4096)
 	size := uint64(st.Size())
-	idx, err := Create(output, device, size, blockSize)
+	id, err := device.GetUUID(devicePath)
+	if err != nil {
+		return err
+	}
+	idx, err := Create(output, id, size, blockSize)
 	if err != nil {
 		return err
 	}
