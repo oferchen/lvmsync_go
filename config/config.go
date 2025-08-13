@@ -79,6 +79,7 @@ type Config struct {
 	ConfigFile           string        `mapstructure:"config"`
 	ApplyMode            string        `mapstructure:"apply"`
 	StdoutMode           bool          `mapstructure:"stdout"`
+	Force                bool          `mapstructure:"force"`
 	Mode                 string        `mapstructure:"mode"`
 	Parallel             int           `mapstructure:"parallel"`
 	Concurrency          int           `mapstructure:"concurrency"`
@@ -87,6 +88,7 @@ type Config struct {
 	NumaPin              bool          `mapstructure:"numa_pin"`
 	MaxRetries           int           `mapstructure:"max_retries"`
 	ResumeState          string        `mapstructure:"resume"`
+	DeviceUUID           string        `mapstructure:"device_uuid"`
 	SSHHost              string        `mapstructure:"ssh_host"`
 	SSHUser              string        `mapstructure:"ssh_user"`
 	SSHKeyPath           string        `mapstructure:"ssh_key"`
@@ -400,6 +402,7 @@ func DefaultConfig() (*Config, error) {
 		Mode:                 "default",
 		ApplyMode:            "",
 		StdoutMode:           false,
+		Force:                false,
 		Parallel:             4,
 		Concurrency:          0,
 		ZeroCopy:             false,
@@ -407,6 +410,7 @@ func DefaultConfig() (*Config, error) {
 		NumaPin:              false,
 		MaxRetries:           3,
 		ResumeState:          "",
+		DeviceUUID:           "",
 		SSHHost:              "localhost",
 		SSHUser:              "root",
 		SSHKeyPath:           "",
@@ -473,6 +477,7 @@ func initGeneralFlags(cfg *Config) *pflag.FlagSet {
 	fs.String("config", "", "Path to config YAML file")
 	fs.String("apply", cfg.ApplyMode, "Apply mode: read change dump from file ('-' for STDIN) and apply to destination device")
 	fs.Bool("stdout", cfg.StdoutMode, "Write change dump to STDOUT")
+	fs.Bool("force", cfg.Force, "Override safety checks and proceed on mounted destination")
 	fs.String("mode", cfg.Mode, "Preset mode: default or throughput")
 	fs.Int("parallel", cfg.Parallel, "Number of concurrent workers")
 	fs.Bool("zerocopy", cfg.ZeroCopy, "Enable zero-copy transfers")
