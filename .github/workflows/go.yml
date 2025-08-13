@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        go-version: [ "${{ vars.GO_VERSION || '1.24' }}" ]
+        go-version: [ "${{ vars.GO_VERSION || '1.22' }}" ]
     permissions:
       contents: write
     env:
@@ -40,6 +40,15 @@ jobs:
         with:
           go-version: ${{ matrix.go-version }}
           cache: true
+
+      - name: Verify Go version
+        run: |
+          required=$(grep '^go ' go.mod | awk '{print $2}')
+          version=$(go env GOVERSION)
+          if [ "$version" != "$required" ]; then
+            echo "go version $version does not match required $required"
+            exit 1
+          fi
 
       - name: Auto-fix gofmt/goimports
         run: |

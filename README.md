@@ -664,7 +664,7 @@ Logs are emitted with [zap](https://github.com/uber-go/zap) to stderr. Progress 
 
 ### Requirements
 
-- Go 1.18+
+- Go 1.22+
 - Linux only (tested on `amd64` and `arm64` architectures)
 - LVM2 with development headers providing `liblvm2cmd` (`liblvm2-dev`)
   - A recent LVM2 release providing the modern `liblvm2cmd` API (e.g., 2.03.21+) is required.
