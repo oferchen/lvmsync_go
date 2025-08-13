@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"testing"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 type mockBackend struct{ calls []string }
@@ -53,11 +55,12 @@ func TestCreateAndRemoveSnapshot(t *testing.T) {
 	snapName := "snap"
 	size := "1G"
 
-	if err := CreateSnapshot(context.Background(), lvPath, snapName, size); err != nil {
+	logger := zap.NewNop()
+	if err := CreateSnapshot(context.Background(), lvPath, snapName, size, logger); err != nil {
 		t.Fatalf("CreateSnapshot failed: %v", err)
 	}
 	snapPath := "/dev/vg0/" + snapName
-	if err := RemoveSnapshot(context.Background(), snapPath); err != nil {
+	if err := RemoveSnapshot(context.Background(), snapPath, logger); err != nil {
 		t.Fatalf("RemoveSnapshot failed: %v", err)
 	}
 
@@ -78,7 +81,7 @@ func TestCreateSnapshotPrivilegeError(t *testing.T) {
 	checkPrivs = func() error { return errPriv }
 	t.Cleanup(func() { checkPrivs = orig })
 
-	err := CreateSnapshot(context.Background(), "/dev/vg0/origin", "snap", "1G")
+	err := CreateSnapshot(context.Background(), "/dev/vg0/origin", "snap", "1G", zap.NewNop())
 	if !errors.Is(err, errPriv) {
 		t.Fatalf("expected privilege error, got %v", err)
 	}
@@ -100,7 +103,7 @@ func TestCreateSnapshotContextCancel(t *testing.T) {
 	snapName := "snap"
 	size := "1G"
 
-	err := CreateSnapshot(ctx, lvPath, snapName, size)
+	err := CreateSnapshot(ctx, lvPath, snapName, size, zap.NewNop())
 	if err == nil || !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("expected context deadline exceeded, got %v", err)
 	}
