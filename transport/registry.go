@@ -1,19 +1,33 @@
 package transport
 
-import "fmt"
+import (
+	"fmt"
+	"sync"
+)
 
 // Factory creates a transport implementation.
 type Factory func() Interface
 
-var registry = map[string]Factory{}
+var (
+	registry = map[string]Factory{}
+	regMu    sync.RWMutex
+)
 
 // Register adds a transport factory to the registry.
-func Register(name string, f Factory) {
+func Register(name string, f Factory) error {
+	regMu.Lock()
+	defer regMu.Unlock()
+	if _, exists := registry[name]; exists {
+		return fmt.Errorf("transport %q already registered", name)
+	}
 	registry[name] = f
+	return nil
 }
 
 // Get returns a transport from the registry by name.
 func Get(name string) (Interface, error) {
+	regMu.RLock()
+	defer regMu.RUnlock()
 	if f, ok := registry[name]; ok {
 		return f(), nil
 	}
