@@ -15,6 +15,7 @@ sync_interval: "1GB"  # Bytes between fdatasync calls
 # gRPC Options
 grpc_port: 8443  # gRPC port to listen on
 grpc_dial_timeout: 5s  # gRPC dial timeout
+grpc_setup_timeout: 10s  # gRPC setup timeout
 grpc_heartbeat_interval: 30s  # gRPC heartbeat interval
 grpc_heartbeat_send_timeout: 5s  # gRPC heartbeat send timeout
 tls_cert: ""  # TLS certificate file

@@ -182,6 +182,7 @@ func TestInitGRPCFlags(t *testing.T) {
 		{"grpc_listen", cfg.GRPCListen},
 		{"grpc_connect", cfg.GRPCConnect},
 		{"grpc_dial_timeout", cfg.GRPCDialTimeout.String()},
+		{"grpc_setup_timeout", cfg.GRPCSetupTimeout.String()},
 		{"grpc_heartbeat_interval", cfg.HeartbeatInterval.String()},
 		{"grpc_heartbeat_send_timeout", cfg.HeartbeatSendTimeout.String()},
 		{"tls_cert", cfg.TLSCert},

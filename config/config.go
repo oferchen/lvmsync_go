@@ -136,6 +136,7 @@ type Config struct {
 	GRPCListen           string        `mapstructure:"grpc_listen"`
 	GRPCConnect          string        `mapstructure:"grpc_connect"`
 	GRPCDialTimeout      time.Duration `mapstructure:"grpc_dial_timeout"` // gRPC dial timeout
+	GRPCSetupTimeout     time.Duration `mapstructure:"grpc_setup_timeout"`
 	HeartbeatInterval    time.Duration `mapstructure:"grpc_heartbeat_interval"`
 	HeartbeatSendTimeout time.Duration `mapstructure:"grpc_heartbeat_send_timeout"`
 	TLSCert              string        `mapstructure:"tls_cert"`
@@ -461,6 +462,7 @@ func DefaultConfig() (*Config, error) {
 		GRPCListen:           "",
 		GRPCConnect:          "",
 		GRPCDialTimeout:      5 * time.Second,
+		GRPCSetupTimeout:     10 * time.Second,
 		HeartbeatInterval:    30 * time.Second,
 		HeartbeatSendTimeout: 5 * time.Second,
 		TLSCert:              "",
@@ -571,6 +573,7 @@ func initGRPCFlags(cfg *Config) *pflag.FlagSet {
 	fs.String("grpc_listen", cfg.GRPCListen, "gRPC listen address")
 	fs.String("grpc_connect", cfg.GRPCConnect, "gRPC server address to connect to")
 	fs.Duration("grpc_dial_timeout", cfg.GRPCDialTimeout, "gRPC dial timeout")
+	fs.Duration("grpc_setup_timeout", cfg.GRPCSetupTimeout, "gRPC setup timeout")
 	fs.Duration("grpc_heartbeat_interval", cfg.HeartbeatInterval, "gRPC heartbeat interval")
 	fs.Duration("grpc_heartbeat_send_timeout", cfg.HeartbeatSendTimeout, "gRPC heartbeat send timeout")
 	fs.String("tls_cert", cfg.TLSCert, "TLS certificate file")
@@ -693,6 +696,9 @@ func (c *Config) ValidateWith(geteuid func() int) error {
 	}
 	if c.GRPCDialTimeout <= 0 {
 		return fmt.Errorf("grpc dial timeout must be > 0")
+	}
+	if c.GRPCSetupTimeout <= 0 {
+		return fmt.Errorf("grpc setup timeout must be > 0")
 	}
 	if c.HeartbeatInterval <= 0 {
 		return fmt.Errorf("grpc heartbeat interval must be > 0")
