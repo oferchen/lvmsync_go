@@ -658,10 +658,10 @@ journalctl -u lvmsync-grpcd
 ### Basic Syntax
 
 ```sh
-lvmsync run [options] <snapshot|lvm device> <destination>
+lvmsync run [--dry-run] [--transport tcp+tls,ssh] <snapshot|lvm device> <destination>
 ```
 
-The tool supports both local and remote transfers, as well as an "apply mode" for applying change dumps.
+The tool supports both local and remote transfers, as well as an "apply mode" for applying change dumps. Use `--dry-run` to print planned actions without executing and `--transport` to provide an ordered list of transports to try.
 
 ### Manifest Operations
 
@@ -669,6 +669,14 @@ Rebuild a manifest index for an existing device:
 
 ```sh
 lvmsync manifest rebuild /dev/vg0/lv0
+```
+
+### Verification
+
+Verify that a source and destination match:
+
+```sh
+lvmsync verify /dev/vg0/source /dev/vg1/target
 ```
 
 ### Options
@@ -689,6 +697,8 @@ lvmsync manifest rebuild /dev/vg0/lv0
 | `--verify_checksum` | Enable checksum verification for data integrity                                                         | `false`   |
 | `--progress`        | Show progress percentage during the transfer                                                            | `true`    |
 | `--block_size`      | Block size for data transfer (e.g., `"4K"`, `"64K"`, `"512K"`, `"1M"`), use `0` for automatic detection | `"4K"`    |
+| `--dry-run`         | Print actions without executing | `false`   |
+| `--transport`       | Ordered transports to try (e.g., `tcp+tls,ssh`) | `""`      |
 
 #### SSH Options
 

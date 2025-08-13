@@ -25,6 +25,27 @@ func TestRunCommandFlags(t *testing.T) {
 	}
 }
 
+func TestRunCommandEnv(t *testing.T) {
+	t.Setenv("LVMSYNC_DRY_RUN", "true")
+	t.Setenv("LVMSYNC_TRANSPORT", "ssh")
+	var opts RunOptions
+	runCommand = func(src, dst string, o RunOptions) error {
+		opts = o
+		return nil
+	}
+	t.Cleanup(func() { runCommand = func(src, dst string, opts RunOptions) error { return nil } })
+
+	if err := Execute([]string{"run", "src", "dst"}); err != nil {
+		t.Fatalf("execute run with env: %v", err)
+	}
+	if !opts.DryRun {
+		t.Fatalf("expected dry-run from env")
+	}
+	if opts.Transport != "ssh" {
+		t.Fatalf("unexpected transport %q", opts.Transport)
+	}
+}
+
 func TestManifestRebuildRoutes(t *testing.T) {
 	var gotDevice string
 	var dry bool

@@ -1,6 +1,8 @@
 package lvmsync
 
 import (
+	"strings"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -22,6 +24,7 @@ var (
 func newViper() *viper.Viper {
 	v := viper.New()
 	v.SetEnvPrefix("LVMSYNC")
+	v.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	v.AutomaticEnv()
 	return v
 }
