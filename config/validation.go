@@ -1,0 +1,91 @@
+package config
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"lvmsync_go/lvm"
+)
+
+// ValidateWith verifies configuration values using the provided geteuid function.
+func (c *Config) ValidateWith(geteuid func() int) error {
+	if c.Mode != "default" && c.Mode != "throughput" {
+		return fmt.Errorf("invalid mode %q: must be \"default\" or \"throughput\"", c.Mode)
+	}
+	if c.SSHKeepAliveInterval <= 0 {
+		return fmt.Errorf("ssh keepalive interval must be > 0")
+	}
+	if c.GRPCDialTimeout <= 0 {
+		return fmt.Errorf("grpc dial timeout must be > 0")
+	}
+	if c.GRPCSetupTimeout <= 0 {
+		return fmt.Errorf("grpc setup timeout must be > 0")
+	}
+	if c.HeartbeatInterval <= 0 {
+		return fmt.Errorf("grpc heartbeat interval must be > 0")
+	}
+	if c.HeartbeatSendTimeout <= 0 {
+		return fmt.Errorf("grpc heartbeat send timeout must be > 0")
+	}
+	if c.TCPParallel < 1 || c.TCPParallel > 4 {
+		return fmt.Errorf("tcp_parallel must be between 1 and 4")
+	}
+	if c.TCPNotSentLowAt < 0 {
+		return fmt.Errorf("tcp_lowat must be >= 0")
+	}
+	if c.VolumeGroup != "" {
+		ctx, cancel := context.WithTimeout(context.Background(), c.LVMTimeout)
+		defer cancel()
+		if _, err := lvm.GetVolumeGroupFreeSpace(ctx, c.VolumeGroup); err != nil {
+			return fmt.Errorf("volume group %q does not exist or is inaccessible: %w", c.VolumeGroup, err)
+		}
+	}
+	if c.TargetVolumeGroup != "" {
+		ctx, cancel := context.WithTimeout(context.Background(), c.LVMTimeout)
+		defer cancel()
+		if _, err := lvm.GetVolumeGroupFreeSpace(ctx, c.TargetVolumeGroup); err != nil {
+			return fmt.Errorf("target volume group %q does not exist or is inaccessible: %w", c.TargetVolumeGroup, err)
+		}
+	}
+	if geteuid() != 0 {
+		parts := strings.Fields(c.LVMEscalation)
+		if len(parts) == 0 {
+			return fmt.Errorf("lvm escalation command is empty")
+		}
+		if _, err := findInPath(parts[0]); err != nil {
+			return fmt.Errorf("lvm escalation command %q not found: %w", parts[0], err)
+		}
+	}
+	return nil
+}
+
+func findInPath(name string) (string, error) {
+	if strings.ContainsRune(name, os.PathSeparator) {
+		info, err := os.Stat(name)
+		if err != nil {
+			return "", err
+		}
+		if info.IsDir() || info.Mode().Perm()&0o111 == 0 {
+			return "", fmt.Errorf("%s is not executable", name)
+		}
+		return name, nil
+	}
+	pathEnv := os.Getenv("PATH")
+	for _, dir := range filepath.SplitList(pathEnv) {
+		if dir == "" {
+			continue
+		}
+		full := filepath.Join(dir, name)
+		info, err := os.Stat(full)
+		if err != nil {
+			continue
+		}
+		if !info.IsDir() && info.Mode().Perm()&0o111 != 0 {
+			return full, nil
+		}
+	}
+	return "", fmt.Errorf("executable %q not found in $PATH", name)
+}
