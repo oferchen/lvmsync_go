@@ -208,12 +208,8 @@ func TestInitTransportFlags(t *testing.T) {
 	fs := initTransportFlags(cfg)
 	cases := []struct{ name, want string }{
 		{"transport", cfg.Transport},
-		{"quic_listen", cfg.QUICListen},
-		{"quic_connect", cfg.QUICConnect},
-		{"quic_cc", cfg.QUICCongestionControl},
 		{"concurrency", strconv.Itoa(cfg.Concurrency)},
 		{"tcp_port", strconv.Itoa(cfg.TCPPort)},
-		{"h2_port", strconv.Itoa(cfg.H2Port)},
 		{"tcp_parallel", strconv.Itoa(cfg.TCPParallel)},
 		{"tcp_lowat", strconv.Itoa(cfg.TCPNotSentLowAt)},
 	}

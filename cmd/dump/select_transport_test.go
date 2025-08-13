@@ -18,7 +18,7 @@ func TestSelectTransportNoConfig(t *testing.T) {
 }
 
 func TestSelectTransportError(t *testing.T) {
-	cfg := &config.Config{Transport: "quic"}
+	cfg := &config.Config{Transport: "tcp+tls"}
 	logger := zap.NewNop()
 	err := SelectTransport(cfg, logger)
 	if err == nil || !strings.Contains(err.Error(), "not implemented") {

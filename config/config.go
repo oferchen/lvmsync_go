@@ -79,80 +79,76 @@ func (f *FlagSets) All() []*pflag.FlagSet {
 }
 
 type Config struct {
-	ConfigFile            string        `mapstructure:"config"`
-	ApplyMode             string        `mapstructure:"apply"`
-	StdoutMode            bool          `mapstructure:"stdout"`
-	Mode                  string        `mapstructure:"mode"`
-	Parallel              int           `mapstructure:"parallel"`
-	Concurrency           int           `mapstructure:"concurrency"`
-	ZeroCopy              bool          `mapstructure:"zerocopy"`
-	ODirect               bool          `mapstructure:"odirect"`
-	NumaPin               bool          `mapstructure:"numa_pin"`
-	MaxRetries            int           `mapstructure:"max_retries"`
-	ResumeState           string        `mapstructure:"resume"`
-	SSHHost               string        `mapstructure:"ssh_host"`
-	SSHUser               string        `mapstructure:"ssh_user"`
-	SSHKeyPath            string        `mapstructure:"ssh_key"`
-	SSHPort               int           `mapstructure:"ssh_port"`
-	SSHTimeout            time.Duration `mapstructure:"ssh_timeout"`
-	SSHKeepAliveInterval  time.Duration `mapstructure:"ssh_keepalive"`
-	KnownHosts            string        `mapstructure:"known_hosts"`
-	StrictHostKeyCheck    bool          `mapstructure:"strict_host_key_checking"`
-	LVMSyncPath           string        `mapstructure:"lvmsync_path"`
-	RemotePreScript       string        `mapstructure:"remote_pre_script"`
-	RemotePostScript      string        `mapstructure:"remote_post_script"`
-	Compress              string        `mapstructure:"compress"`
-	ZstdLevel             int           `mapstructure:"zstd_level"`
-	LZ4Level              string        `mapstructure:"lz4_level"`
-	CompressLevel         int           `mapstructure:"-"`
-	CompressConcurrency   int           `mapstructure:"compress_concurrency"`
-	CompressThreshold     float64       `mapstructure:"compress_threshold"`
-	Speed                 string        `mapstructure:"speed"`
-	SpeedLimit            int           `mapstructure:"-"`
-	VerifyChecksum        bool          `mapstructure:"verify_checksum"`
-	ChecksumAlgorithm     string        `mapstructure:"checksum_algorithm"`
-	Verbose               int           `mapstructure:"verbose"`
-	SkipSnapshotCreation  bool          `mapstructure:"skip_snapshot_creation"`
-	SkipDiskCheck         bool          `mapstructure:"skip_disk_check"`
-	SnapshotSize          string        `mapstructure:"snapshot_size"`
-	VolumeGroup           string        `mapstructure:"volume_group"`
-	TargetVolumeGroup     string        `mapstructure:"target_volume_group"`
-	TargetVGCandidates    []string      `mapstructure:"target_vgs"`
-	LVMEscalation         string        `mapstructure:"lvm_escalation"`
-	LVMTimeout            time.Duration `mapstructure:"lvm_timeout"`
-	Progress              bool          `mapstructure:"progress"`
-	BlockSize             int           `mapstructure:"-"`
-	BlockSizeRaw          string        `mapstructure:"-"`
-	DedupMode             string        `mapstructure:"dedup"`
-	CDCMin                int           `mapstructure:"cdc_min"`
-	CDCAvg                int           `mapstructure:"cdc_avg"`
-	CDCMax                int           `mapstructure:"cdc_max"`
-	DedupStrategy         string        `mapstructure:"dedup_strategy"`
-	DedupStateFile        string        `mapstructure:"dedup_state_file"`
-	BloomEntries          int           `mapstructure:"bloom_entries"`
-	BloomFpRate           float64       `mapstructure:"bloom_fp_rate"`
-	BloomMBits            uint          `mapstructure:"bloom_mbits"`
-	GRPCPort              int           `mapstructure:"grpc_port"`
-	GRPCListen            string        `mapstructure:"grpc_listen"`
-	GRPCConnect           string        `mapstructure:"grpc_connect"`
-	GRPCDialTimeout       time.Duration `mapstructure:"grpc_dial_timeout"` // gRPC dial timeout
-	HeartbeatInterval     time.Duration `mapstructure:"grpc_heartbeat_interval"`
-	HeartbeatSendTimeout  time.Duration `mapstructure:"grpc_heartbeat_send_timeout"`
-	TLSCert               string        `mapstructure:"tls_cert"`
-	TLSKey                string        `mapstructure:"tls_key"`
-	CACert                string        `mapstructure:"ca_cert"`
-	AllowInsecure         bool          `mapstructure:"allow_insecure"`
-	Transport             string        `mapstructure:"transport"`
-	QUICListen            string        `mapstructure:"quic_listen"`
-	QUICConnect           string        `mapstructure:"quic_connect"`
-	TCPPort               int           `mapstructure:"tcp_port"`
-	H2Port                int           `mapstructure:"h2_port"`
-	TCPParallel           int           `mapstructure:"tcp_parallel"`
-	TCPNotSentLowAt       int           `mapstructure:"tcp_lowat"`
-	SyncInterval          string        `mapstructure:"sync_interval"`
-	CheckpointInterval    time.Duration `mapstructure:"checkpoint_interval"`
-	QUICCongestionControl string        `mapstructure:"quic_cc"`
-	SyncIntervalBytes     int           `mapstructure:"-"`
+	ConfigFile           string        `mapstructure:"config"`
+	ApplyMode            string        `mapstructure:"apply"`
+	StdoutMode           bool          `mapstructure:"stdout"`
+	Mode                 string        `mapstructure:"mode"`
+	Parallel             int           `mapstructure:"parallel"`
+	Concurrency          int           `mapstructure:"concurrency"`
+	ZeroCopy             bool          `mapstructure:"zerocopy"`
+	ODirect              bool          `mapstructure:"odirect"`
+	NumaPin              bool          `mapstructure:"numa_pin"`
+	MaxRetries           int           `mapstructure:"max_retries"`
+	ResumeState          string        `mapstructure:"resume"`
+	SSHHost              string        `mapstructure:"ssh_host"`
+	SSHUser              string        `mapstructure:"ssh_user"`
+	SSHKeyPath           string        `mapstructure:"ssh_key"`
+	SSHPort              int           `mapstructure:"ssh_port"`
+	SSHTimeout           time.Duration `mapstructure:"ssh_timeout"`
+	SSHKeepAliveInterval time.Duration `mapstructure:"ssh_keepalive"`
+	KnownHosts           string        `mapstructure:"known_hosts"`
+	StrictHostKeyCheck   bool          `mapstructure:"strict_host_key_checking"`
+	LVMSyncPath          string        `mapstructure:"lvmsync_path"`
+	RemotePreScript      string        `mapstructure:"remote_pre_script"`
+	RemotePostScript     string        `mapstructure:"remote_post_script"`
+	Compress             string        `mapstructure:"compress"`
+	ZstdLevel            int           `mapstructure:"zstd_level"`
+	LZ4Level             string        `mapstructure:"lz4_level"`
+	CompressLevel        int           `mapstructure:"-"`
+	CompressConcurrency  int           `mapstructure:"compress_concurrency"`
+	CompressThreshold    float64       `mapstructure:"compress_threshold"`
+	Speed                string        `mapstructure:"speed"`
+	SpeedLimit           int           `mapstructure:"-"`
+	VerifyChecksum       bool          `mapstructure:"verify_checksum"`
+	ChecksumAlgorithm    string        `mapstructure:"checksum_algorithm"`
+	Verbose              int           `mapstructure:"verbose"`
+	SkipSnapshotCreation bool          `mapstructure:"skip_snapshot_creation"`
+	SkipDiskCheck        bool          `mapstructure:"skip_disk_check"`
+	SnapshotSize         string        `mapstructure:"snapshot_size"`
+	VolumeGroup          string        `mapstructure:"volume_group"`
+	TargetVolumeGroup    string        `mapstructure:"target_volume_group"`
+	TargetVGCandidates   []string      `mapstructure:"target_vgs"`
+	LVMEscalation        string        `mapstructure:"lvm_escalation"`
+	LVMTimeout           time.Duration `mapstructure:"lvm_timeout"`
+	Progress             bool          `mapstructure:"progress"`
+	BlockSize            int           `mapstructure:"-"`
+	BlockSizeRaw         string        `mapstructure:"-"`
+	DedupMode            string        `mapstructure:"dedup"`
+	CDCMin               int           `mapstructure:"cdc_min"`
+	CDCAvg               int           `mapstructure:"cdc_avg"`
+	CDCMax               int           `mapstructure:"cdc_max"`
+	DedupStrategy        string        `mapstructure:"dedup_strategy"`
+	DedupStateFile       string        `mapstructure:"dedup_state_file"`
+	BloomEntries         int           `mapstructure:"bloom_entries"`
+	BloomFpRate          float64       `mapstructure:"bloom_fp_rate"`
+	BloomMBits           uint          `mapstructure:"bloom_mbits"`
+	GRPCPort             int           `mapstructure:"grpc_port"`
+	GRPCListen           string        `mapstructure:"grpc_listen"`
+	GRPCConnect          string        `mapstructure:"grpc_connect"`
+	GRPCDialTimeout      time.Duration `mapstructure:"grpc_dial_timeout"` // gRPC dial timeout
+	HeartbeatInterval    time.Duration `mapstructure:"grpc_heartbeat_interval"`
+	HeartbeatSendTimeout time.Duration `mapstructure:"grpc_heartbeat_send_timeout"`
+	TLSCert              string        `mapstructure:"tls_cert"`
+	TLSKey               string        `mapstructure:"tls_key"`
+	CACert               string        `mapstructure:"ca_cert"`
+	AllowInsecure        bool          `mapstructure:"allow_insecure"`
+	Transport            string        `mapstructure:"transport"`
+	TCPPort              int           `mapstructure:"tcp_port"`
+	TCPParallel          int           `mapstructure:"tcp_parallel"`
+	TCPNotSentLowAt      int           `mapstructure:"tcp_lowat"`
+	SyncInterval         string        `mapstructure:"sync_interval"`
+	CheckpointInterval   time.Duration `mapstructure:"checkpoint_interval"`
+	SyncIntervalBytes    int           `mapstructure:"-"`
 
 	Serve              bool          `mapstructure:"serve"`
 	ServeListen        string        `mapstructure:"serve_listen"`
@@ -276,7 +272,7 @@ func (b *Builder) applyDefaults(conf *Config) error {
 
 func (b *Builder) applyThroughput(conf *Config) {
 	if !b.v.IsSet("transport") {
-		conf.Transport = "quic,h2,tcp+tls"
+		conf.Transport = "tcp+tls"
 	}
 	if !b.v.IsSet("parallel") {
 		conf.Parallel = 8
@@ -312,9 +308,6 @@ func (b *Builder) applyThroughput(conf *Config) {
 	}
 	if !b.v.IsSet("checkpoint_interval") && conf.CheckpointInterval == 0 {
 		conf.CheckpointInterval = 10 * time.Second
-	}
-	if conf.QUICCongestionControl == "" {
-		conf.QUICCongestionControl = "bbr"
 	}
 }
 
@@ -414,84 +407,80 @@ func DefaultConfig() (*Config, error) {
 		return nil, fmt.Errorf("failed to get user home directory: %w", err)
 	}
 	return &Config{
-		Mode:                  "default",
-		ApplyMode:             "",
-		StdoutMode:            false,
-		Parallel:              4,
-		Concurrency:           0,
-		ZeroCopy:              false,
-		ODirect:               false,
-		NumaPin:               false,
-		MaxRetries:            3,
-		ResumeState:           "",
-		SSHHost:               "localhost",
-		SSHUser:               "root",
-		SSHKeyPath:            "",
-		SSHPort:               22,
-		SSHTimeout:            10 * time.Second,
-		SSHKeepAliveInterval:  30 * time.Second,
-		KnownHosts:            filepath.Join(homeDir, ".ssh", "known_hosts"),
-		StrictHostKeyCheck:    true,
-		LVMSyncPath:           "lvmsync",
-		RemotePreScript:       "",
-		RemotePostScript:      "",
-		Compress:              Auto,
-		ZstdLevel:             1,
-		LZ4Level:              "fast",
-		CompressConcurrency:   runtime.GOMAXPROCS(0),
-		CompressThreshold:     0.9,
-		Speed:                 "100MB",
-		VerifyChecksum:        false,
-		ChecksumAlgorithm:     Auto,
-		Verbose:               0,
-		SkipSnapshotCreation:  false,
-		SkipDiskCheck:         false,
-		SnapshotSize:          "20%",
-		VolumeGroup:           "",
-		TargetVolumeGroup:     "",
-		TargetVGCandidates:    []string{},
-		LVMEscalation:         "sudo -n",
-		LVMTimeout:            10 * time.Second,
-		Progress:              true,
-		BlockSize:             0,
-		BlockSizeRaw:          Auto,
-		DedupMode:             "fixed",
-		CDCMin:                4 * 1024,
-		CDCAvg:                64 * 1024,
-		CDCMax:                1 * 1024 * 1024,
-		DedupStrategy:         "none",
-		DedupStateFile:        filepath.Join(homeDir, ".lvmsync_dedup"),
-		BloomEntries:          1000000,
-		BloomFpRate:           0.01,
-		BloomMBits:            0,
-		GRPCPort:              8443,
-		GRPCListen:            "",
-		GRPCConnect:           "",
-		GRPCDialTimeout:       5 * time.Second,
-		HeartbeatInterval:     30 * time.Second,
-		HeartbeatSendTimeout:  5 * time.Second,
-		TLSCert:               "",
-		TLSKey:                "",
-		CACert:                "",
-		AllowInsecure:         false,
-		Transport:             "quic,h2,tcp+tls,ssh",
-		QUICListen:            "",
-		QUICConnect:           "",
-		TCPPort:               0,
-		H2Port:                0,
-		TCPParallel:           1,
-		TCPNotSentLowAt:       0,
-		SyncInterval:          "1GB",
-		CheckpointInterval:    0,
-		QUICCongestionControl: "",
-		SyncIntervalBytes:     1000000000,
-		Serve:                 false,
-		ServeListen:           ":9000",
-		ServeProtocol:         "lvmsync",
-		ServeAlgorithm:        "sha256",
-		ServeTestSpace:        "",
-		ServePolicy:           "accept",
-		ServeAcceptTimeout:    30 * time.Second,
+		Mode:                 "default",
+		ApplyMode:            "",
+		StdoutMode:           false,
+		Parallel:             4,
+		Concurrency:          0,
+		ZeroCopy:             false,
+		ODirect:              false,
+		NumaPin:              false,
+		MaxRetries:           3,
+		ResumeState:          "",
+		SSHHost:              "localhost",
+		SSHUser:              "root",
+		SSHKeyPath:           "",
+		SSHPort:              22,
+		SSHTimeout:           10 * time.Second,
+		SSHKeepAliveInterval: 30 * time.Second,
+		KnownHosts:           filepath.Join(homeDir, ".ssh", "known_hosts"),
+		StrictHostKeyCheck:   true,
+		LVMSyncPath:          "lvmsync",
+		RemotePreScript:      "",
+		RemotePostScript:     "",
+		Compress:             Auto,
+		ZstdLevel:            1,
+		LZ4Level:             "fast",
+		CompressConcurrency:  runtime.GOMAXPROCS(0),
+		CompressThreshold:    0.9,
+		Speed:                "100MB",
+		VerifyChecksum:       false,
+		ChecksumAlgorithm:    Auto,
+		Verbose:              0,
+		SkipSnapshotCreation: false,
+		SkipDiskCheck:        false,
+		SnapshotSize:         "20%",
+		VolumeGroup:          "",
+		TargetVolumeGroup:    "",
+		TargetVGCandidates:   []string{},
+		LVMEscalation:        "sudo -n",
+		LVMTimeout:           10 * time.Second,
+		Progress:             true,
+		BlockSize:            0,
+		BlockSizeRaw:         Auto,
+		DedupMode:            "fixed",
+		CDCMin:               4 * 1024,
+		CDCAvg:               64 * 1024,
+		CDCMax:               1 * 1024 * 1024,
+		DedupStrategy:        "none",
+		DedupStateFile:       filepath.Join(homeDir, ".lvmsync_dedup"),
+		BloomEntries:         1000000,
+		BloomFpRate:          0.01,
+		BloomMBits:           0,
+		GRPCPort:             8443,
+		GRPCListen:           "",
+		GRPCConnect:          "",
+		GRPCDialTimeout:      5 * time.Second,
+		HeartbeatInterval:    30 * time.Second,
+		HeartbeatSendTimeout: 5 * time.Second,
+		TLSCert:              "",
+		TLSKey:               "",
+		CACert:               "",
+		AllowInsecure:        false,
+		Transport:            "tcp+tls,ssh",
+		TCPPort:              0,
+		TCPParallel:          1,
+		TCPNotSentLowAt:      0,
+		SyncInterval:         "1GB",
+		CheckpointInterval:   0,
+		SyncIntervalBytes:    1000000000,
+		Serve:                false,
+		ServeListen:          ":9000",
+		ServeProtocol:        "lvmsync",
+		ServeAlgorithm:       "sha256",
+		ServeTestSpace:       "",
+		ServePolicy:          "accept",
+		ServeAcceptTimeout:   30 * time.Second,
 	}, nil
 }
 
@@ -593,13 +582,9 @@ func initGRPCFlags(cfg *Config) *pflag.FlagSet {
 
 func initTransportFlags(cfg *Config) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("Transport Options", pflag.ExitOnError)
-	fs.String("transport", cfg.Transport, "Ordered transports to try (e.g. 'quic,h2,tcp+tls,ssh')")
-	fs.String("quic_listen", cfg.QUICListen, "QUIC listen address")
-	fs.String("quic_connect", cfg.QUICConnect, "QUIC connect address")
-	fs.String("quic_cc", cfg.QUICCongestionControl, "QUIC congestion control algorithm")
+	fs.String("transport", cfg.Transport, "Ordered transports to try (e.g. 'tcp+tls,ssh')")
 	fs.Int("concurrency", cfg.Concurrency, "Stream concurrency (0 to autotune)")
 	fs.Int("tcp_port", cfg.TCPPort, "TCP+TLS port")
-	fs.Int("h2_port", cfg.H2Port, "HTTP/2 TLS port")
 	fs.Int("tcp_parallel", cfg.TCPParallel, "Number of parallel TCP connections")
 	fs.Int("tcp_lowat", cfg.TCPNotSentLowAt, "TCP_NOTSENT_LOWAT in bytes")
 	return fs
@@ -608,7 +593,7 @@ func initTransportFlags(cfg *Config) *pflag.FlagSet {
 func initServeFlags(cfg *Config) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("Serve Options", pflag.ExitOnError)
 	fs.Bool("serve", cfg.Serve, "Run in serve mode")
-	fs.String("serve_listen", cfg.ServeListen, "QUIC listen address")
+	fs.String("serve_listen", cfg.ServeListen, "Server listen address")
 	fs.String("serve_protocol", cfg.ServeProtocol, "Protocol to negotiate")
 	fs.String("serve_algorithm", cfg.ServeAlgorithm, "Algorithm to negotiate")
 	fs.String("serve_test_space", cfg.ServeTestSpace, "Test-space option")
@@ -652,12 +637,8 @@ func buildViper(flagSets *FlagSets) (*viper.Viper, error) {
 	v.AutomaticEnv()
 	keys := []string{
 		"transport",
-		"quic_listen",
-		"quic_connect",
-		"quic_cc",
 		"concurrency",
 		"tcp_port",
-		"h2_port",
 	}
 	for _, k := range keys {
 		if err := v.BindEnv(k); err != nil {
