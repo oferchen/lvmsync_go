@@ -3,13 +3,11 @@ package config
 import (
 	"testing"
 	"time"
-
-	"github.com/spf13/pflag"
 )
 
 func TestCLIFlagsOverrideEnvAndConfig(t *testing.T) {
 	cfgPath := writeTempConfig(t, "parallel: 1\n")
-	resetFlags([]string{"--config", cfgPath, "--parallel", "3"})
+	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--parallel", "3"})
 	t.Setenv("LVMSYNC_PARALLEL", "2")
 
 	defaults, err := DefaultConfig()
@@ -17,8 +15,10 @@ func TestCLIFlagsOverrideEnvAndConfig(t *testing.T) {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
 	fs := NewFlagSets(defaults)
-	registerFlags(fs)
-	pflag.Parse()
+	registerFlags(fs, rootFS)
+	if err := rootFS.Parse(args); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
 
 	v, err := buildViper(fs)
 	if err != nil {
@@ -36,7 +36,7 @@ func TestCLIFlagsOverrideEnvAndConfig(t *testing.T) {
 
 func TestEnvOverridesConfig(t *testing.T) {
 	cfgPath := writeTempConfig(t, "parallel: 1\n")
-	resetFlags([]string{"--config", cfgPath})
+	rootFS, args := newFlagSet([]string{"--config", cfgPath})
 	t.Setenv("LVMSYNC_PARALLEL", "2")
 
 	defaults, err := DefaultConfig()
@@ -44,8 +44,10 @@ func TestEnvOverridesConfig(t *testing.T) {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
 	fs := NewFlagSets(defaults)
-	registerFlags(fs)
-	pflag.Parse()
+	registerFlags(fs, rootFS)
+	if err := rootFS.Parse(args); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
 
 	v, err := buildViper(fs)
 	if err != nil {
@@ -73,15 +75,17 @@ func TestFlagSetsBindToViper(t *testing.T) {
 		"--grpc_heartbeat_interval", "2s",
 		"--grpc_heartbeat_send_timeout", "1s",
 	}
-	resetFlags(args)
+	rootFS, parseArgs := newFlagSet(args)
 
 	defaults, err := DefaultConfig()
 	if err != nil {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
 	fs := NewFlagSets(defaults)
-	registerFlags(fs)
-	pflag.Parse()
+	registerFlags(fs, rootFS)
+	if err := rootFS.Parse(parseArgs); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
 
 	v, err := buildViper(fs)
 	if err != nil {
@@ -119,7 +123,7 @@ func TestFlagSetsBindToViper(t *testing.T) {
 
 func TestSSHUserCLIOverridesEnvAndConfig(t *testing.T) {
 	cfgPath := writeTempConfig(t, "ssh_user: config\n")
-	resetFlags([]string{"--config", cfgPath, "--ssh_user", "cli"})
+	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--ssh_user", "cli"})
 	t.Setenv("LVMSYNC_SSH_USER", "env")
 
 	defaults, err := DefaultConfig()
@@ -127,8 +131,10 @@ func TestSSHUserCLIOverridesEnvAndConfig(t *testing.T) {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
 	fs := NewFlagSets(defaults)
-	registerFlags(fs)
-	pflag.Parse()
+	registerFlags(fs, rootFS)
+	if err := rootFS.Parse(args); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
 
 	v, err := buildViper(fs)
 	if err != nil {
@@ -146,7 +152,7 @@ func TestSSHUserCLIOverridesEnvAndConfig(t *testing.T) {
 
 func TestSSHUserEnvOverridesConfig(t *testing.T) {
 	cfgPath := writeTempConfig(t, "ssh_user: config\n")
-	resetFlags([]string{"--config", cfgPath})
+	rootFS, args := newFlagSet([]string{"--config", cfgPath})
 	t.Setenv("LVMSYNC_SSH_USER", "env")
 
 	defaults, err := DefaultConfig()
@@ -154,8 +160,10 @@ func TestSSHUserEnvOverridesConfig(t *testing.T) {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
 	fs := NewFlagSets(defaults)
-	registerFlags(fs)
-	pflag.Parse()
+	registerFlags(fs, rootFS)
+	if err := rootFS.Parse(args); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
 
 	v, err := buildViper(fs)
 	if err != nil {
@@ -173,7 +181,7 @@ func TestSSHUserEnvOverridesConfig(t *testing.T) {
 
 func TestSSHHostCLIOverridesEnvAndConfig(t *testing.T) {
 	cfgPath := writeTempConfig(t, "ssh_host: config\n")
-	resetFlags([]string{"--config", cfgPath, "--ssh_host", "cli"})
+	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--ssh_host", "cli"})
 	t.Setenv("LVMSYNC_SSH_HOST", "env")
 
 	defaults, err := DefaultConfig()
@@ -181,8 +189,10 @@ func TestSSHHostCLIOverridesEnvAndConfig(t *testing.T) {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
 	fs := NewFlagSets(defaults)
-	registerFlags(fs)
-	pflag.Parse()
+	registerFlags(fs, rootFS)
+	if err := rootFS.Parse(args); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
 
 	v, err := buildViper(fs)
 	if err != nil {
@@ -200,7 +210,7 @@ func TestSSHHostCLIOverridesEnvAndConfig(t *testing.T) {
 
 func TestSSHHostEnvOverridesConfig(t *testing.T) {
 	cfgPath := writeTempConfig(t, "ssh_host: config\n")
-	resetFlags([]string{"--config", cfgPath})
+	rootFS, args := newFlagSet([]string{"--config", cfgPath})
 	t.Setenv("LVMSYNC_SSH_HOST", "env")
 
 	defaults, err := DefaultConfig()
@@ -208,8 +218,10 @@ func TestSSHHostEnvOverridesConfig(t *testing.T) {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
 	fs := NewFlagSets(defaults)
-	registerFlags(fs)
-	pflag.Parse()
+	registerFlags(fs, rootFS)
+	if err := rootFS.Parse(args); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
 
 	v, err := buildViper(fs)
 	if err != nil {
@@ -227,7 +239,7 @@ func TestSSHHostEnvOverridesConfig(t *testing.T) {
 
 func TestTransportCLIOverridesEnvAndConfig(t *testing.T) {
 	cfgPath := writeTempConfig(t, "transport: tcp+tls\n")
-	resetFlags([]string{"--config", cfgPath, "--transport", "ssh"})
+	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--transport", "ssh"})
 	t.Setenv("LVMSYNC_TRANSPORT", "tcp+tls")
 
 	defaults, err := DefaultConfig()
@@ -235,8 +247,10 @@ func TestTransportCLIOverridesEnvAndConfig(t *testing.T) {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
 	fs := NewFlagSets(defaults)
-	registerFlags(fs)
-	pflag.Parse()
+	registerFlags(fs, rootFS)
+	if err := rootFS.Parse(args); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
 
 	v, err := buildViper(fs)
 	if err != nil {
@@ -254,7 +268,7 @@ func TestTransportCLIOverridesEnvAndConfig(t *testing.T) {
 
 func TestTransportEnvOverridesConfig(t *testing.T) {
 	cfgPath := writeTempConfig(t, "transport: tcp+tls\n")
-	resetFlags([]string{"--config", cfgPath})
+	rootFS, args := newFlagSet([]string{"--config", cfgPath})
 	t.Setenv("LVMSYNC_TRANSPORT", "ssh")
 
 	defaults, err := DefaultConfig()
@@ -262,8 +276,10 @@ func TestTransportEnvOverridesConfig(t *testing.T) {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
 	fs := NewFlagSets(defaults)
-	registerFlags(fs)
-	pflag.Parse()
+	registerFlags(fs, rootFS)
+	if err := rootFS.Parse(args); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
 
 	v, err := buildViper(fs)
 	if err != nil {
@@ -281,7 +297,7 @@ func TestTransportEnvOverridesConfig(t *testing.T) {
 
 func TestConcurrencyCLIOverridesEnvAndConfig(t *testing.T) {
 	cfgPath := writeTempConfig(t, "concurrency: 1\n")
-	resetFlags([]string{"--config", cfgPath, "--concurrency", "3"})
+	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--concurrency", "3"})
 	t.Setenv("LVMSYNC_CONCURRENCY", "2")
 
 	defaults, err := DefaultConfig()
@@ -289,8 +305,10 @@ func TestConcurrencyCLIOverridesEnvAndConfig(t *testing.T) {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
 	fs := NewFlagSets(defaults)
-	registerFlags(fs)
-	pflag.Parse()
+	registerFlags(fs, rootFS)
+	if err := rootFS.Parse(args); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
 
 	v, err := buildViper(fs)
 	if err != nil {
@@ -308,7 +326,7 @@ func TestConcurrencyCLIOverridesEnvAndConfig(t *testing.T) {
 
 func TestConcurrencyEnvOverridesConfig(t *testing.T) {
 	cfgPath := writeTempConfig(t, "concurrency: 1\n")
-	resetFlags([]string{"--config", cfgPath})
+	rootFS, args := newFlagSet([]string{"--config", cfgPath})
 	t.Setenv("LVMSYNC_CONCURRENCY", "2")
 
 	defaults, err := DefaultConfig()
@@ -316,8 +334,10 @@ func TestConcurrencyEnvOverridesConfig(t *testing.T) {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
 	fs := NewFlagSets(defaults)
-	registerFlags(fs)
-	pflag.Parse()
+	registerFlags(fs, rootFS)
+	if err := rootFS.Parse(args); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
 
 	v, err := buildViper(fs)
 	if err != nil {

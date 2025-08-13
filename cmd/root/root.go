@@ -40,26 +40,27 @@ func SyncLogger(logger *zap.Logger) {
 }
 
 // Configure loads configuration, ensures privileges, validates, and sets up logging.
-func Configure() (*config.Config, *zap.Logger, error) {
+func Configure() (*config.Config, []string, *zap.Logger, error) {
 	defaults, err := config.DefaultConfig()
 	if err != nil {
-		return nil, nil, fmt.Errorf("configuration error: %w", err)
+		return nil, nil, nil, fmt.Errorf("configuration error: %w", err)
 	}
 	flagSets := config.NewFlagSets(defaults)
-	cfg, err := config.LoadConfig(flagSets, defaults)
+	fs := pflag.NewFlagSet(os.Args[0], pflag.ContinueOnError)
+	cfg, args, err := config.LoadConfig(flagSets, defaults, fs, os.Args[1:])
 	if err != nil {
-		return nil, nil, fmt.Errorf("configuration error: %w", err)
+		return nil, nil, nil, fmt.Errorf("configuration error: %w", err)
 	}
 	esc := privilege.New()
 	if err = esc.Ensure(); err != nil {
-		return nil, nil, fmt.Errorf("privilege check failed: %w", err)
+		return nil, nil, nil, fmt.Errorf("privilege check failed: %w", err)
 	}
 	if err = cfg.Validate(); err != nil {
-		return nil, nil, fmt.Errorf("configuration validation error: %w", err)
+		return nil, nil, nil, fmt.Errorf("configuration validation error: %w", err)
 	}
 	logger, err := zap.NewProduction()
 	if err != nil {
-		return nil, nil, fmt.Errorf("logger initialization error: %w", err)
+		return nil, nil, nil, fmt.Errorf("logger initialization error: %w", err)
 	}
 	logger.Info("Effective configuration",
 		zap.String("block_size", cfg.HumanBlockSize()),
@@ -76,7 +77,7 @@ func Configure() (*config.Config, *zap.Logger, error) {
 		zap.String("grpc_listen", cfg.GRPCListen),
 		zap.String("grpc_connect", cfg.GRPCConnect),
 	)
-	return cfg, logger, nil
+	return cfg, args, logger, nil
 }
 
 // SetupGRPC starts the server and performs client handshake returning cleanup functions and heartbeat error channel.
@@ -119,7 +120,7 @@ func ExecuteClient(ctx context.Context, cfg *config.Config, snapshotPath, destPa
 }
 
 // Run orchestrates the command execution.
-func Run(cfg *config.Config, logger *zap.Logger) error {
+func Run(cfg *config.Config, args []string, logger *zap.Logger) error {
 	if cfg.Serve {
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
@@ -129,7 +130,7 @@ func Run(cfg *config.Config, logger *zap.Logger) error {
 	defer lvm.Cleanup()
 
 	if cfg.ApplyMode != "" {
-		if err := applycmd.Run(cfg, cfg.ApplyMode, pflag.Args(), logger); err != nil {
+		if err := applycmd.Run(cfg, cfg.ApplyMode, args, logger); err != nil {
 			return fmt.Errorf("apply operation failed: %w", err)
 		}
 		return nil
@@ -187,11 +188,11 @@ func Run(cfg *config.Config, logger *zap.Logger) error {
 
 // Execute is a helper that configures and runs the root command.
 func Execute() error {
-	cfg, logger, err := Configure()
+	cfg, args, logger, err := Configure()
 	if err != nil {
 		return err
 	}
-	if err := Run(cfg, logger); err != nil {
+	if err := Run(cfg, args, logger); err != nil {
 		logger.Error("run failed", zap.Error(err))
 		SyncLogger(logger)
 		return err

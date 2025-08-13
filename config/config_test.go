@@ -724,14 +724,14 @@ func TestDefaultCDCTunables(t *testing.T) {
 
 func TestLoadConfigPrecedence(t *testing.T) {
 	cfgPath := writeTempConfig(t, "parallel: 1\n")
-	resetFlags([]string{"--config", cfgPath, "--parallel", "3"})
+	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--parallel", "3"})
 	t.Setenv("LVMSYNC_PARALLEL", "2")
 	defaults, err := DefaultConfig()
 	if err != nil {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
 	fs := NewFlagSets(defaults)
-	conf, err := LoadConfig(fs, defaults)
+	conf, _, err := LoadConfig(fs, defaults, rootFS, args)
 	if err != nil {
 		t.Fatalf("LoadConfig: %v", err)
 	}
@@ -742,14 +742,14 @@ func TestLoadConfigPrecedence(t *testing.T) {
 
 func TestLoadConfigInvalidPath(t *testing.T) {
 	missing := filepath.Join(t.TempDir(), "missing.yaml")
-	resetFlags([]string{"--config", missing})
+	rootFS, args := newFlagSet([]string{"--config", missing})
 
 	defaults, err := DefaultConfig()
 	if err != nil {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
 	fs := NewFlagSets(defaults)
-	if _, err := LoadConfig(fs, defaults); err == nil || !strings.Contains(err.Error(), "error reading config file") {
+	if _, _, err := LoadConfig(fs, defaults, rootFS, args); err == nil || !strings.Contains(err.Error(), "error reading config file") {
 		t.Fatalf("expected config file error, got %v", err)
 	}
 }

@@ -6,13 +6,13 @@ import (
 )
 
 func TestServeFlagParsing(t *testing.T) {
-	resetFlags([]string{"--serve", "--serve_listen", "localhost:9900", "--serve_protocol", "p", "--serve_algorithm", "a", "--serve_test_space", "t", "--serve_policy", "accept", "--serve_accept_timeout", "5s"})
+	rootFS, args := newFlagSet([]string{"--serve", "--serve_listen", "localhost:9900", "--serve_protocol", "p", "--serve_algorithm", "a", "--serve_test_space", "t", "--serve_policy", "accept", "--serve_accept_timeout", "5s"})
 	defaults, err := DefaultConfig()
 	if err != nil {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
 	fs := NewFlagSets(defaults)
-	cfg, err := LoadConfig(fs, defaults)
+	cfg, _, err := LoadConfig(fs, defaults, rootFS, args)
 	if err != nil {
 		t.Fatalf("LoadConfig: %v", err)
 	}
