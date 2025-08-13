@@ -29,7 +29,9 @@ import (
 // transfer/ code focused on business logic and improve maintainability.
 type Handshake struct {
 	Version       string
-	Compress      string
+	Transports    []string
+	Compress      []string
+	Digests       []string
 	Checksum      bool
 	ChecksumDedup bool
 }
@@ -54,10 +56,16 @@ func WriteHandshake(w io.Writer, h Handshake) error {
 	} else if h.Checksum {
 		tokens = append(tokens, "checksum")
 	}
-	if h.Compress == "" {
-		h.Compress = "none"
+	if len(h.Transports) > 0 {
+		tokens = append(tokens, "transport:"+strings.Join(h.Transports, ","))
 	}
-	tokens = append(tokens, "compress:"+h.Compress)
+	if len(h.Compress) == 0 {
+		h.Compress = []string{"none"}
+	}
+	tokens = append(tokens, "compress:"+strings.Join(h.Compress, ","))
+	if len(h.Digests) > 0 {
+		tokens = append(tokens, "digest:"+strings.Join(h.Digests, ","))
+	}
 	if _, err := fmt.Fprintln(w, strings.Join(tokens, " ")); err != nil {
 		return fmt.Errorf("write handshake: %w", err)
 	}
@@ -77,11 +85,15 @@ func ReadHandshake(r *bufio.Reader) (Handshake, error) {
 		return Handshake{}, fmt.Errorf("unexpected protocol handshake: %s", line)
 	}
 	rest := strings.TrimSpace(strings.TrimPrefix(line, ProtocolVersion))
-	h := Handshake{Version: ProtocolVersion, Compress: "none"}
+	h := Handshake{Version: ProtocolVersion}
 	for _, t := range strings.Fields(rest) {
 		switch {
+		case strings.HasPrefix(t, "transport:"):
+			h.Transports = splitNonEmpty(strings.TrimPrefix(t, "transport:"))
 		case strings.HasPrefix(t, "compress:"):
-			h.Compress = strings.TrimPrefix(t, "compress:")
+			h.Compress = splitNonEmpty(strings.TrimPrefix(t, "compress:"))
+		case strings.HasPrefix(t, "digest:"):
+			h.Digests = splitNonEmpty(strings.TrimPrefix(t, "digest:"))
 		case t == "checksum":
 			h.Checksum = true
 		case t == "checksum-dedup":
@@ -91,5 +103,23 @@ func ReadHandshake(r *bufio.Reader) (Handshake, error) {
 			return Handshake{}, fmt.Errorf("unexpected token in handshake: %s", t)
 		}
 	}
+	if len(h.Compress) == 0 {
+		h.Compress = []string{"none"}
+	}
 	return h, nil
+}
+
+func splitNonEmpty(v string) []string {
+	if v == "" {
+		return nil
+	}
+	parts := strings.Split(v, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }

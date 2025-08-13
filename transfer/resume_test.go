@@ -4,15 +4,14 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/binary"
-	"encoding/hex"
 	"io"
-	"os"
 	"path/filepath"
 	"reflect"
 	"sort"
-	"strings"
 	"sync"
 	"testing"
+
+	"crypto/sha256"
 
 	"github.com/zeebo/blake3"
 
@@ -22,7 +21,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func createTestFiles(t *testing.T, blockSize int64, blockCount int) (srcPath, snapshot, resumePath string) {
+func createTestFiles(t *testing.T, blockSize int64, blockCount int, algo string) (srcPath, snapshot, resumePath string) {
 	t.Helper()
 	changed := make([]int, blockCount)
 	for i := 0; i < blockCount; i++ {
@@ -32,22 +31,27 @@ func createTestFiles(t *testing.T, blockSize int64, blockCount int) (srcPath, sn
 	dir, srcPath := createVolumeFiles(t, snapshot, blockSize, changed)
 
 	resumePath = filepath.Join(dir, "resume")
-	digest := blake3.Sum256(bytes.Repeat([]byte{2}, int(blockSize)))
-	if err := os.WriteFile(resumePath, []byte(hex.EncodeToString(digest[:])), 0644); err != nil {
-		t.Fatalf("failed to write resume state: %v", err)
+	var digest [32]byte
+	if algo == "sha256" {
+		sum := sha256.Sum256(bytes.Repeat([]byte{2}, int(blockSize)))
+		digest = [32]byte(sum)
+	} else {
+		digest = blake3.Sum256(bytes.Repeat([]byte{2}, int(blockSize)))
 	}
+	cfg := &config.Config{Transport: "ssh", Compress: "none", ChecksumAlgorithm: algo}
+	writeResumeState(cfg, zap.NewNop(), resumePath, digest)
 	return srcPath, snapshot, resumePath
 }
 
 func parseOffsets(t *testing.T, data []byte, blockSize int64) []int64 {
 	t.Helper()
 	reader := bufio.NewReader(bytes.NewReader(data))
-	line, err := reader.ReadString('\n')
+	hs, err := common.ReadHandshake(reader)
 	if err != nil {
 		t.Fatalf("failed to read handshake: %v", err)
 	}
-	if strings.TrimSpace(line) != common.ProtocolVersion+" compress:none" {
-		t.Fatalf("unexpected handshake %q", strings.TrimSpace(line))
+	if len(hs.Compress) != 1 || hs.Compress[0] != "none" {
+		t.Fatalf("unexpected handshake %+v", hs)
 	}
 	var offsets []int64
 	for {
@@ -71,9 +75,9 @@ func parseOffsets(t *testing.T, data []byte, blockSize int64) []int64 {
 func TestResumeSequential(t *testing.T) {
 	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{})
 	blockSize := int64(1024)
-	src, snapshot, resume := createTestFiles(t, blockSize, 4)
+	src, snapshot, resume := createTestFiles(t, blockSize, 4, "blake3")
 
-	cfg := &config.Config{BlockSize: int(blockSize), Compress: "none", Parallel: 1, ResumeState: resume, MaxRetries: 1}
+	cfg := &config.Config{BlockSize: int(blockSize), Compress: "none", Parallel: 1, ResumeState: resume, MaxRetries: 1, ChecksumAlgorithm: "blake3", Transport: "ssh"}
 
 	var buf bytes.Buffer
 	if err := tr.DumpChangesParallel(cfg, snapshot, src, &buf); err != nil {
@@ -95,9 +99,9 @@ func TestResumeSequential(t *testing.T) {
 func TestResumeParallel(t *testing.T) {
 	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{})
 	blockSize := int64(1024)
-	src, snapshot, resume := createTestFiles(t, blockSize, 4)
+	src, snapshot, resume := createTestFiles(t, blockSize, 4, "blake3")
 
-	cfg := &config.Config{BlockSize: int(blockSize), Compress: "none", Parallel: 2, ResumeState: resume, MaxRetries: 1}
+	cfg := &config.Config{BlockSize: int(blockSize), Compress: "none", Parallel: 2, ResumeState: resume, MaxRetries: 1, ChecksumAlgorithm: "blake3", Transport: "ssh"}
 
 	var buf bytes.Buffer
 	if err := tr.DumpChangesParallel(cfg, snapshot, src, &buf); err != nil {

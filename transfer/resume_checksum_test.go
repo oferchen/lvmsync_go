@@ -15,8 +15,8 @@ import (
 func TestResumeFinalChecksum(t *testing.T) {
 	logger := zap.NewNop()
 	blockSize := int64(1024)
-	src, snapshot, resume := createTestFiles(t, blockSize, 4)
-	cfg := &config.Config{BlockSize: int(blockSize), Compress: "none", ResumeState: resume, MaxRetries: 1, ChecksumAlgorithm: "sha256"}
+	src, snapshot, resume := createTestFiles(t, blockSize, 4, "sha256")
+	cfg := &config.Config{BlockSize: int(blockSize), Compress: "none", ResumeState: resume, MaxRetries: 1, ChecksumAlgorithm: "sha256", Transport: "ssh"}
 	ranges, err := gatherChangedRanges(snapshot, blockSize, logger)
 	if err != nil {
 		t.Fatalf("gather ranges: %v", err)

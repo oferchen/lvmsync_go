@@ -3,7 +3,6 @@ package transfer
 import (
 	"bytes"
 	"encoding/hex"
-	"os"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -53,11 +52,9 @@ func TestReadResumeDigestLogField(t *testing.T) {
 	tmp := t.TempDir()
 	stateFile := filepath.Join(tmp, "resume")
 	digest := blake3.Sum256([]byte("data"))
-	if err := os.WriteFile(stateFile, []byte(hex.EncodeToString(digest[:])), 0o600); err != nil {
-		t.Fatalf("write resume state: %v", err)
-	}
+	cfg := &config.Config{ResumeState: stateFile, Compress: "none", ChecksumAlgorithm: "blake3"}
+	writeResumeState(cfg, logger, stateFile, digest)
 
-	cfg := &config.Config{ResumeState: stateFile}
 	val := readResumeDigest(cfg, logger)
 	if val != digest {
 		t.Fatalf("expected digest match")
