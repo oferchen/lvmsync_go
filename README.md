@@ -291,6 +291,7 @@ LVMSYNC_GRPC_GRPC_PORT=9443 LVMSYNC_GRPC_TLS_CERT=cert.pem lvmsync-grpcd
 | `--config` | `LVMSYNC_CONFIG` | `config` | Path to config YAML file |
 | `--apply` | `LVMSYNC_APPLY` | `apply` | Apply mode: read change dump from file ('-' for STDIN) and apply to destination device |
 | `--stdout` | `LVMSYNC_STDOUT` | `stdout` | Write change dump to STDOUT |
+| `--mode` | `LVMSYNC_MODE` | `mode` | Configuration preset: `default` or `throughput`; unknown modes fail validation |
 | `--parallel` | `LVMSYNC_PARALLEL` | `parallel` | Number of concurrent workers |
 | `--concurrency` | `LVMSYNC_CONCURRENCY` | `concurrency` | Stream concurrency (0 to autotune based on BDP) |
 | `--zerocopy` | `LVMSYNC_ZEROCOPY` | `zerocopy` | Enable zero-copy transfers |
@@ -625,6 +626,8 @@ are resolved with the following precedence (highest first):
 | `--ram_bytes` | `LVMSYNC_RAM_BYTES` | `ram_bytes` | RAM budget for the Bloom filter | `1073741824` |
 | `--volume_size` | `LVMSYNC_VOLUME_SIZE` | `volume_size` | Size of the volume being processed | `0` |
 | `--hash_key` | `LVMSYNC_HASH_KEY` | `hash_key` | Optional hex-encoded key for BLAKE3 hashing | `""` |
+
+Two presets are available via `--mode`: `default` and `throughput`. Any other value causes configuration validation to fail.
 
 ## Throughput Mode Presets
 
