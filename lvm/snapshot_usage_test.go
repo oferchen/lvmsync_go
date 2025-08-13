@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
 )
 
@@ -33,7 +34,7 @@ func TestGetSnapshotUsage(t *testing.T) {
 	restore := SetBackend(fb)
 	t.Cleanup(restore)
 
-	usage, err := GetSnapshotUsage(context.Background(), "/dev/vg0/snap")
+	usage, err := GetSnapshotUsage(context.Background(), "/dev/vg0/snap", zap.NewNop())
 	if err != nil {
 		t.Fatalf("GetSnapshotUsage failed: %v", err)
 	}
@@ -51,7 +52,7 @@ func TestMonitorSnapshot(t *testing.T) {
 	restore := SetBackend(fb)
 	t.Cleanup(restore)
 
-	err := MonitorSnapshot(context.Background(), "/dev/vg0/snap", 80, 10*time.Millisecond)
+	err := MonitorSnapshot(context.Background(), "/dev/vg0/snap", 80, 10*time.Millisecond, zap.NewNop())
 	if err == nil {
 		t.Fatalf("MonitorSnapshot expected error, got nil")
 	}
@@ -66,7 +67,7 @@ func TestCheckDiskSpace(t *testing.T) {
 	}
 	defer func() { statfsFunc = orig }()
 
-	available, err := CheckDiskSpace("/mnt")
+	available, err := CheckDiskSpace("/mnt", zap.NewNop())
 	if err != nil {
 		t.Fatalf("CheckDiskSpace failed: %v", err)
 	}

@@ -26,7 +26,7 @@ var (
 
 // SetParseSnapshotSizeForTest overrides the parseSnapshotSize helper for tests
 // and returns a function to restore the original behavior.
-func SetParseSnapshotSizeForTest(f func(string, string) (uint64, error)) func() {
+func SetParseSnapshotSizeForTest(f func(string, string, *zap.Logger) (uint64, error)) func() {
 	orig := parseSnapshotSize
 	parseSnapshotSize = f
 	return func() { parseSnapshotSize = orig }
@@ -34,7 +34,7 @@ func SetParseSnapshotSizeForTest(f func(string, string) (uint64, error)) func() 
 
 // SetCreateSnapshotForTest overrides the createSnapshot helper for tests and
 // returns a function to restore the original behavior.
-func SetCreateSnapshotForTest(f func(context.Context, string, string, string) error) func() {
+func SetCreateSnapshotForTest(f func(context.Context, string, string, string, *zap.Logger) error) func() {
 	orig := createSnapshot
 	createSnapshot = f
 	return func() { createSnapshot = orig }
@@ -42,7 +42,7 @@ func SetCreateSnapshotForTest(f func(context.Context, string, string, string) er
 
 // SetGetSnapshotDevicePathForTest overrides the getSnapshotDevicePath helper
 // for tests and returns a function to restore the original behavior.
-func SetGetSnapshotDevicePathForTest(f func(string, string) string) func() {
+func SetGetSnapshotDevicePathForTest(f func(string, string, *zap.Logger) string) func() {
 	orig := getSnapshotDevicePath
 	getSnapshotDevicePath = f
 	return func() { getSnapshotDevicePath = orig }
@@ -50,7 +50,7 @@ func SetGetSnapshotDevicePathForTest(f func(string, string) string) func() {
 
 // SetMonitorSnapshotForTest overrides the monitorSnapshot helper for tests and
 // returns a function to restore the original behavior.
-func SetMonitorSnapshotForTest(f func(context.Context, string, float64, time.Duration) error) func() {
+func SetMonitorSnapshotForTest(f func(context.Context, string, float64, time.Duration, *zap.Logger) error) func() {
 	orig := monitorSnapshot
 	monitorSnapshot = f
 	return func() { monitorSnapshot = orig }
@@ -58,7 +58,7 @@ func SetMonitorSnapshotForTest(f func(context.Context, string, float64, time.Dur
 
 // SetRemoveSnapshotForTest overrides the removeSnapshot helper for tests and
 // returns a function to restore the original behavior.
-func SetRemoveSnapshotForTest(f func(context.Context, string) error) func() {
+func SetRemoveSnapshotForTest(f func(context.Context, string, *zap.Logger) error) func() {
 	orig := removeSnapshot
 	removeSnapshot = f
 	return func() { removeSnapshot = orig }
@@ -67,7 +67,7 @@ func SetRemoveSnapshotForTest(f func(context.Context, string) error) func() {
 // PrepareSnapshot sets up a snapshot for the given original volume. It returns the snapshot path,
 // an optional monitor error channel, a cleanup function, and any error encountered.
 func PrepareSnapshot(ctx context.Context, cfg *config.Config, originalVolume string, logger *zap.Logger) (string, chan error, func(), error) {
-	snapshotBytes, err := calculateSnapshotSize(cfg, originalVolume)
+	snapshotBytes, err := calculateSnapshotSize(cfg, originalVolume, logger)
 	if err != nil {
 		return "", nil, nil, err
 	}
@@ -83,8 +83,8 @@ func PrepareSnapshot(ctx context.Context, cfg *config.Config, originalVolume str
 	return createSnapshotIfNeeded(ctx, cfg, originalVolume, snapshotBytes, logger)
 }
 
-func calculateSnapshotSize(cfg *config.Config, originalVolume string) (uint64, error) {
-	snapshotBytes, err := parseSnapshotSize(cfg.SnapshotSize, originalVolume)
+func calculateSnapshotSize(cfg *config.Config, originalVolume string, logger *zap.Logger) (uint64, error) {
+	snapshotBytes, err := parseSnapshotSize(cfg.SnapshotSize, originalVolume, logger)
 	if err != nil {
 		return 0, fmt.Errorf("failed to parse snapshot size: %w", err)
 	}
@@ -102,7 +102,7 @@ func ensureVolumeGroups(ctx context.Context, cfg *config.Config, originalVolume 
 	}
 
 	if cfg.TargetVolumeGroup == "" && len(cfg.TargetVGCandidates) > 0 {
-		lvSize, err := getVolumeSize(originalVolume)
+		lvSize, err := getVolumeSize(originalVolume, logger)
 		if err != nil {
 			return fmt.Errorf("failed to determine volume size: %w", err)
 		}
@@ -120,14 +120,14 @@ func checkDiskSpaceForSnapshot(cfg *config.Config, snapshotBytes uint64, logger 
 	if cfg.SkipDiskCheck {
 		return nil
 	}
-	freeSpace, err := checkDiskSpace("/")
+	freeSpace, err := checkDiskSpace("/", logger)
 	if err != nil {
 		return fmt.Errorf("disk space check failed: %w", err)
 	}
 	if freeSpace < snapshotBytes {
 		return fmt.Errorf("insufficient disk space for snapshot: free %d required %d", freeSpace, snapshotBytes)
 	}
-	logger.Info("Disk space check passed", zap.Uint64("free", freeSpace))
+	logger.Info("Disk space check passed", zap.Uint64("free_bytes", freeSpace))
 	return nil
 }
 
@@ -142,17 +142,17 @@ func createSnapshotIfNeeded(ctx context.Context, cfg *config.Config, originalVol
 
 	monitorErrCh = make(chan error, 1)
 	snapshotName := fmt.Sprintf("snap-%d", time.Now().Unix())
-	if err := createSnapshot(ctx, originalVolume, snapshotName, strconv.FormatUint(snapshotBytes, 10)); err != nil {
+	if err := createSnapshot(ctx, originalVolume, snapshotName, strconv.FormatUint(snapshotBytes, 10), logger); err != nil {
 		return "", nil, nil, fmt.Errorf("snapshot creation failed: %w", err)
 	}
-	snapshotPath = getSnapshotDevicePath(snapshotName, cfg.VolumeGroup)
+	snapshotPath = getSnapshotDevicePath(snapshotName, cfg.VolumeGroup, logger)
 	logger.Info("Snapshot created", zap.String("snapshot", snapshotPath))
 
 	monitorCtx, cancel := context.WithCancel(ctx)
 	mon := monitorSnapshot
 	go func() {
 		defer close(monitorErrCh)
-		if err := mon(monitorCtx, snapshotPath, 80.0, 10*time.Second); err != nil && err != context.Canceled {
+		if err := mon(monitorCtx, snapshotPath, 80.0, 10*time.Second, logger); err != nil && err != context.Canceled {
 			logger.Error("Snapshot monitor error", zap.Error(err))
 			select {
 			case monitorErrCh <- err:
@@ -165,7 +165,7 @@ func createSnapshotIfNeeded(ctx context.Context, cfg *config.Config, originalVol
 		cancel()
 		removeCtx, removeCancel := context.WithTimeout(ctx, 10*time.Second)
 		defer removeCancel()
-		if err := removeSnapshot(removeCtx, snapshotPath); err != nil {
+		if err := removeSnapshot(removeCtx, snapshotPath, logger); err != nil {
 			logger.Warn("Failed to remove snapshot", zap.Error(err))
 		} else {
 			logger.Info("Snapshot removed", zap.String("snapshot", snapshotPath))

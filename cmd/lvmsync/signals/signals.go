@@ -23,7 +23,7 @@ func Handle(ctx context.Context, cfg *config.Config, logger *zap.Logger, signals
 	if !cfg.SkipSnapshotCreation && *snapshotPath != "" && *snapshotPath != pflag.Arg(0) {
 		rmCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 		defer cancel()
-		if err := removeSnapshot(rmCtx, *snapshotPath); err != nil {
+		if err := removeSnapshot(rmCtx, *snapshotPath, logger); err != nil {
 			logger.Warn("failed to remove snapshot on shutdown", zap.Error(err))
 		} else {
 			logger.Info("snapshot removed on shutdown", zap.String("snapshot", *snapshotPath))

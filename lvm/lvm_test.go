@@ -4,10 +4,12 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"go.uber.org/zap"
 )
 
 func TestGetSnapshotDevicePath(t *testing.T) {
-	got := GetSnapshotDevicePath("snap", "vg0")
+	got := GetSnapshotDevicePath("snap", "vg0", zap.NewNop())
 	if got != "/dev/vg0/snap" {
 		t.Fatalf("unexpected path %s", got)
 	}
@@ -47,7 +49,7 @@ func TestParseSnapshotSize(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := ParseSnapshotSize(tt.input, tmpFile)
+			got, err := ParseSnapshotSize(tt.input, tmpFile, zap.NewNop())
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("ParseSnapshotSize error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -67,7 +69,7 @@ func TestGetVolumeSize(t *testing.T) {
 			t.Fatalf("failed to create temp volume: %v", err)
 		}
 
-		size, err := GetVolumeSize(tmpFile)
+		size, err := GetVolumeSize(tmpFile, zap.NewNop())
 		if err != nil {
 			t.Fatalf("GetVolumeSize failed: %v", err)
 		}
@@ -87,7 +89,7 @@ func TestGetVolumeSize(t *testing.T) {
 			t.Fatalf("truncate failed: %v", err)
 		}
 
-		size, err := GetVolumeSize(tmpFile)
+		size, err := GetVolumeSize(tmpFile, zap.NewNop())
 		if err != nil {
 			t.Fatalf("GetVolumeSize failed: %v", err)
 		}
@@ -113,7 +115,7 @@ func TestGetVolumeSizeIoctlLarge(t *testing.T) {
 	}
 	defer func() { ioctlGetUint64Func = orig }()
 
-	size, err := GetVolumeSize(tmpFile)
+	size, err := GetVolumeSize(tmpFile, zap.NewNop())
 	if err != nil {
 		t.Fatalf("GetVolumeSize failed: %v", err)
 	}
@@ -147,7 +149,7 @@ func TestGetVolumeAttributes(t *testing.T) {
 		}
 	}
 
-	got, err := GetVolumeAttributes("/dev/testdev")
+	got, err := GetVolumeAttributes("/dev/testdev", zap.NewNop())
 	if err != nil {
 		t.Fatalf("GetVolumeAttributes failed: %v", err)
 	}

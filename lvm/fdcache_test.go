@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
 )
 
@@ -86,7 +87,7 @@ func TestGetVolumeSizeCachesFD(t *testing.T) {
 		t.Fatalf("write file: %v", err)
 	}
 
-	size, err := GetVolumeSize(tmpFile)
+	size, err := GetVolumeSize(tmpFile, zap.NewNop())
 	if err != nil {
 		t.Fatalf("GetVolumeSize failed: %v", err)
 	}
@@ -104,7 +105,7 @@ func TestGetVolumeSizeCachesFD(t *testing.T) {
 	}
 	fd := entry.fd
 
-	size, err = GetVolumeSize(tmpFile)
+	size, err = GetVolumeSize(tmpFile, zap.NewNop())
 	if err != nil {
 		t.Fatalf("second GetVolumeSize failed: %v", err)
 	}

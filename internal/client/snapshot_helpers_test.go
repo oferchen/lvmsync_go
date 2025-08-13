@@ -15,10 +15,10 @@ func TestCalculateSnapshotSize(t *testing.T) {
 	t.Run("valid", func(t *testing.T) {
 		cfg := &config.Config{SnapshotSize: "1024"}
 		origParse := parseSnapshotSize
-		parseSnapshotSize = func(string, string) (uint64, error) { return 1024, nil }
+		parseSnapshotSize = func(string, string, *zap.Logger) (uint64, error) { return 1024, nil }
 		defer func() { parseSnapshotSize = origParse }()
 
-		size, err := calculateSnapshotSize(cfg, "/dev/vg/lv")
+		size, err := calculateSnapshotSize(cfg, "/dev/vg/lv", zap.NewNop())
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -30,10 +30,10 @@ func TestCalculateSnapshotSize(t *testing.T) {
 	t.Run("invalid", func(t *testing.T) {
 		cfg := &config.Config{SnapshotSize: "bad"}
 		origParse := parseSnapshotSize
-		parseSnapshotSize = func(string, string) (uint64, error) { return 0, errors.New("bad") }
+		parseSnapshotSize = func(string, string, *zap.Logger) (uint64, error) { return 0, errors.New("bad") }
 		defer func() { parseSnapshotSize = origParse }()
 
-		if _, err := calculateSnapshotSize(cfg, "/dev/vg/lv"); err == nil {
+		if _, err := calculateSnapshotSize(cfg, "/dev/vg/lv", zap.NewNop()); err == nil {
 			t.Fatalf("expected error for invalid size")
 		}
 	})

@@ -60,7 +60,7 @@ func SetBackend(b lvmBackend) func() {
 	return func() { backend = orig }
 }
 
-func CreateSnapshot(ctx context.Context, lvPath, snapshotName, size string) error {
+func CreateSnapshot(ctx context.Context, lvPath, snapshotName, size string, logger *zap.Logger) error {
 	if err := checkPrivs(); err != nil {
 		return err
 	}
@@ -74,7 +74,7 @@ func CreateSnapshot(ctx context.Context, lvPath, snapshotName, size string) erro
 			snapshotName, lvPath, size, err)
 	}
 
-	zap.L().Info("Snapshot created successfully",
+	logger.Info("snapshot created successfully",
 		zap.String("lv_path", lvPath),
 		zap.String("snapshot_name", snapshotName),
 		zap.String("size", size))
@@ -82,7 +82,7 @@ func CreateSnapshot(ctx context.Context, lvPath, snapshotName, size string) erro
 	return nil
 }
 
-func RemoveSnapshot(ctx context.Context, snapshotPath string) error {
+func RemoveSnapshot(ctx context.Context, snapshotPath string, logger *zap.Logger) error {
 	if err := checkPrivs(); err != nil {
 		return err
 	}
@@ -95,13 +95,13 @@ func RemoveSnapshot(ctx context.Context, snapshotPath string) error {
 		return fmt.Errorf("failed to remove snapshot [%s]: %w", snapshotPath, err)
 	}
 
-	zap.L().Info("Snapshot removed successfully",
+	logger.Info("snapshot removed successfully",
 		zap.String("snapshot_path", snapshotPath))
 
 	return nil
 }
 
-func GetSnapshotUsage(ctx context.Context, snapshotPath string) (float64, error) {
+func GetSnapshotUsage(ctx context.Context, snapshotPath string, logger *zap.Logger) (float64, error) {
 	if err := checkPrivs(); err != nil {
 		return 0, err
 	}
@@ -115,14 +115,14 @@ func GetSnapshotUsage(ctx context.Context, snapshotPath string) (float64, error)
 		return 0, fmt.Errorf("failed to get snapshot usage for %s: %w", snapshotPath, err)
 	}
 
-	zap.L().Info("Snapshot usage retrieved",
+	logger.Info("snapshot usage retrieved",
 		zap.String("snapshot", snapshotPath),
 		zap.Float64("usage_percent", usage))
 
 	return usage, nil
 }
 
-func MonitorSnapshot(ctx context.Context, snapshotPath string, threshold float64, interval time.Duration) error {
+func MonitorSnapshot(ctx context.Context, snapshotPath string, threshold float64, interval time.Duration, logger *zap.Logger) error {
 	if err := checkPrivs(); err != nil {
 		return err
 	}
@@ -137,7 +137,7 @@ func MonitorSnapshot(ctx context.Context, snapshotPath string, threshold float64
 	for {
 		select {
 		case <-ticker.C:
-			usage, err := GetSnapshotUsage(ctx, snapshotPath)
+			usage, err := GetSnapshotUsage(ctx, snapshotPath, logger)
 			if err != nil {
 				return err
 			}
@@ -146,13 +146,13 @@ func MonitorSnapshot(ctx context.Context, snapshotPath string, threshold float64
 				return fmt.Errorf("snapshot usage (%.2f%%) exceeds threshold (%.2f%%)", usage, threshold)
 			}
 		case <-ctx.Done():
-			zap.L().Info("Snapshot monitoring stopped", zap.String("snapshot", snapshotPath))
+			logger.Info("snapshot monitoring stopped", zap.String("snapshot", snapshotPath))
 			return ctx.Err()
 		}
 	}
 }
 
-func CheckDiskSpace(mountPoint string) (uint64, error) {
+func CheckDiskSpace(mountPoint string, logger *zap.Logger) (uint64, error) {
 	var stat unix.Statfs_t
 	if err := statfsFunc(mountPoint, &stat); err != nil {
 		return 0, fmt.Errorf("failed to get disk stats for %q: %w", mountPoint, err)
@@ -163,7 +163,7 @@ func CheckDiskSpace(mountPoint string) (uint64, error) {
 	}
 
 	available := stat.Bavail * uint64(stat.Bsize)
-	zap.L().Debug("Disk space check",
+	logger.Debug("disk space check",
 		zap.String("mount_point", mountPoint),
 		zap.Uint64("available_bytes", available))
 
@@ -179,7 +179,7 @@ func ioctlGetUint64(fd int, req uint) (uint64, error) {
 	return value, nil
 }
 
-func GetVolumeSize(volumePath string) (uint64, error) {
+func GetVolumeSize(volumePath string, logger *zap.Logger) (uint64, error) {
 	fd, err := deviceFDCache.getFD(volumePath)
 	if err != nil {
 		return 0, err
@@ -202,7 +202,7 @@ func GetVolumeSize(volumePath string) (uint64, error) {
 		}
 	}
 
-	zap.L().Debug("Volume size retrieved",
+	logger.Debug("volume size retrieved",
 		zap.String("volume_path", volumePath),
 		zap.Uint64("size_bytes", size))
 
@@ -223,11 +223,11 @@ type VolumeAttributes struct {
 	Removable bool
 }
 
-func readUintAttr(sysfsPath, name string) (uint64, error) {
+func readUintAttr(sysfsPath, name string, logger *zap.Logger) (uint64, error) {
 	path := filepath.Join(sysfsPath, name)
 	data, err := os.ReadFile(path)
 	if err != nil {
-		zap.L().Warn("Failed to read attribute",
+		logger.Warn("failed to read attribute",
 			zap.String("device", filepath.Base(sysfsPath)),
 			zap.String("attribute", name),
 			zap.Error(err))
@@ -236,7 +236,7 @@ func readUintAttr(sysfsPath, name string) (uint64, error) {
 
 	val, err := strconv.ParseUint(strings.TrimSpace(string(data)), 10, 64)
 	if err != nil {
-		zap.L().Warn("Failed to parse attribute",
+		logger.Warn("failed to parse attribute",
 			zap.String("device", filepath.Base(sysfsPath)),
 			zap.String("attribute", name),
 			zap.Error(err))
@@ -245,8 +245,8 @@ func readUintAttr(sysfsPath, name string) (uint64, error) {
 	return val, nil
 }
 
-func readBoolAttr(sysfsPath, name string) (bool, error) {
-	val, err := readUintAttr(sysfsPath, name)
+func readBoolAttr(sysfsPath, name string, logger *zap.Logger) (bool, error) {
+	val, err := readUintAttr(sysfsPath, name, logger)
 	if err != nil {
 		return false, err
 	}
@@ -258,7 +258,7 @@ func readBoolAttr(sysfsPath, name string) (bool, error) {
 		return true, nil
 	default:
 		err := fmt.Errorf("invalid boolean value %d", val)
-		zap.L().Warn("Invalid boolean attribute",
+		logger.Warn("invalid boolean attribute",
 			zap.String("device", filepath.Base(sysfsPath)),
 			zap.String("attribute", name),
 			zap.Error(err))
@@ -266,7 +266,7 @@ func readBoolAttr(sysfsPath, name string) (bool, error) {
 	}
 }
 
-func GetVolumeAttributes(volumePath string) (*VolumeAttributes, error) {
+func GetVolumeAttributes(volumePath string, logger *zap.Logger) (*VolumeAttributes, error) {
 	devName := filepath.Base(volumePath)
 	sysfsPath := filepath.Join(sysBlockPath, devName)
 
@@ -290,31 +290,31 @@ func GetVolumeAttributes(volumePath string) (*VolumeAttributes, error) {
 			}
 		}
 	} else {
-		zap.L().Warn("Failed to read attribute",
+		logger.Warn("failed to read attribute",
 			zap.String("device", devName),
 			zap.String("attribute", "dev"),
 			zap.Error(err))
 	}
 
 	// size
-	if size, err := readUintAttr(sysfsPath, "size"); err == nil {
+	if size, err := readUintAttr(sysfsPath, "size", logger); err == nil {
 		attrs.Size = size
 	}
 
 	// read-only flag
-	if ro, err := readBoolAttr(sysfsPath, "ro"); err == nil {
+	if ro, err := readBoolAttr(sysfsPath, "ro", logger); err == nil {
 		attrs.ReadOnly = ro
 	}
 
 	// removable flag
-	if removable, err := readBoolAttr(sysfsPath, "removable"); err == nil {
+	if removable, err := readBoolAttr(sysfsPath, "removable", logger); err == nil {
 		attrs.Removable = removable
 	}
 
 	return attrs, nil
 }
 
-func ParseSnapshotSize(sizeStr, volumePath string) (uint64, error) {
+func ParseSnapshotSize(sizeStr, volumePath string, logger *zap.Logger) (uint64, error) {
 	sizeStr = strings.TrimSpace(sizeStr)
 
 	val, isPercent, err := sizeparse.Parse(sizeStr)
@@ -327,7 +327,7 @@ func ParseSnapshotSize(sizeStr, volumePath string) (uint64, error) {
 			return 0, fmt.Errorf("percentage must be between 0 and 100, got %v", val)
 		}
 
-		volSize, err := GetVolumeSize(volumePath)
+		volSize, err := GetVolumeSize(volumePath, logger)
 		if err != nil {
 			return 0, fmt.Errorf("failed to get volume size for %q: %w", volumePath, err)
 		}
@@ -338,7 +338,7 @@ func ParseSnapshotSize(sizeStr, volumePath string) (uint64, error) {
 			return 0, fmt.Errorf("snapshot size %q overflows uint64", sizeStr)
 		}
 
-		zap.L().Debug("Parsed snapshot size from percentage",
+		logger.Debug("parsed snapshot size from percentage",
 			zap.String("input", sizeStr),
 			zap.Uint64("calculated_bytes", parsedSize))
 
@@ -350,16 +350,16 @@ func ParseSnapshotSize(sizeStr, volumePath string) (uint64, error) {
 		return 0, fmt.Errorf("snapshot size %q overflows uint64", sizeStr)
 	}
 
-	zap.L().Debug("Parsed snapshot size",
+	logger.Debug("parsed snapshot size",
 		zap.String("input", sizeStr),
 		zap.Uint64("bytes", parsedSize))
 
 	return parsedSize, nil
 }
 
-func GetSnapshotDevicePath(snapshotName, volumeGroup string) string {
+func GetSnapshotDevicePath(snapshotName, volumeGroup string, logger *zap.Logger) string {
 	path := fmt.Sprintf("/dev/%s/%s", volumeGroup, snapshotName)
-	zap.L().Debug("Constructed snapshot device path", zap.String("path", path))
+	logger.Debug("constructed snapshot device path", zap.String("path", path))
 	return path
 }
 
