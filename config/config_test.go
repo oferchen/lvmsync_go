@@ -476,6 +476,7 @@ func TestValidateMode(t *testing.T) {
 	base := Config{
 		SSHKeepAliveInterval: time.Second,
 		GRPCDialTimeout:      time.Second,
+		GRPCSetupTimeout:     time.Second,
 		HeartbeatInterval:    time.Second,
 		HeartbeatSendTimeout: time.Second,
 		TCPParallel:          1,
