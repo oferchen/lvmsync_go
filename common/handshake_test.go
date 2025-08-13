@@ -20,6 +20,11 @@ func TestHandshakeRoundTrip(t *testing.T) {
 		DedupMode:     "fixed",
 		ResumeToken:   "token",
 		ODirect:       true,
+		Transports:    []string{"ssh", "tcp+tls"},
+		Compressors:   []string{"lz4", "zstd"},
+		Digests:       []string{"sha256", "blake3"},
+		Transport:     "ssh",
+		Digest:        "blake3",
 	}
 	var buf bytes.Buffer
 	if err := common.WriteHandshake(&buf, original); err != nil {
@@ -49,5 +54,19 @@ func TestHandshakeString(t *testing.T) {
 	expected := "lvmsync PROTO[3] endian:little block:1024 dedup:cdc resume:r odirect checksum-dedup compress:none level:1"
 	if h.String() != expected {
 		t.Fatalf("unexpected string: %s", h.String())
+	}
+}
+
+func TestSelectBest(t *testing.T) {
+	local := []string{"zstd", "lz4"}
+	remote := []string{"lz4", "gzip"}
+	if best := common.SelectBest(local, remote); best != "lz4" {
+		t.Fatalf("expected lz4, got %s", best)
+	}
+	if best := common.SelectBest(local, []string{"br"}); best != "zstd" {
+		t.Fatalf("expected fallback zstd, got %s", best)
+	}
+	if best := common.SelectBest([]string{}, remote); best != "" {
+		t.Fatalf("expected empty, got %s", best)
 	}
 }
