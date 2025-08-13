@@ -38,8 +38,8 @@ func createTestFiles(t *testing.T, blockSize int64, blockCount int, algo string)
 	} else {
 		digest = blake3.Sum256(bytes.Repeat([]byte{2}, int(blockSize)))
 	}
-	cfg := &config.Config{Transport: "ssh", Compress: "none", ChecksumAlgorithm: algo}
-	writeResumeState(cfg, zap.NewNop(), resumePath, digest)
+	cfg := &config.Config{Transport: "ssh", Compress: "none", ChecksumAlgorithm: algo, DedupMode: "fixed"}
+	writeResumeState(cfg, zap.NewNop(), resumePath, 0, uint32(blockSize), digest)
 	return srcPath, snapshot, resumePath
 }
 
@@ -77,7 +77,7 @@ func TestResumeSequential(t *testing.T) {
 	blockSize := int64(1024)
 	src, snapshot, resume := createTestFiles(t, blockSize, 4, "blake3")
 
-	cfg := &config.Config{BlockSize: int(blockSize), Compress: "none", Parallel: 1, ResumeState: resume, MaxRetries: 1, ChecksumAlgorithm: "blake3", Transport: "ssh"}
+	cfg := &config.Config{BlockSize: int(blockSize), Compress: "none", Parallel: 1, ResumeState: resume, MaxRetries: 1, ChecksumAlgorithm: "blake3", Transport: "ssh", DedupMode: "fixed"}
 
 	var buf bytes.Buffer
 	if err := tr.DumpChangesParallel(cfg, snapshot, src, &buf); err != nil {
@@ -101,7 +101,7 @@ func TestResumeParallel(t *testing.T) {
 	blockSize := int64(1024)
 	src, snapshot, resume := createTestFiles(t, blockSize, 4, "blake3")
 
-	cfg := &config.Config{BlockSize: int(blockSize), Compress: "none", Parallel: 2, ResumeState: resume, MaxRetries: 1, ChecksumAlgorithm: "blake3", Transport: "ssh"}
+	cfg := &config.Config{BlockSize: int(blockSize), Compress: "none", Parallel: 2, ResumeState: resume, MaxRetries: 1, ChecksumAlgorithm: "blake3", Transport: "ssh", DedupMode: "fixed"}
 
 	var buf bytes.Buffer
 	if err := tr.DumpChangesParallel(cfg, snapshot, src, &buf); err != nil {

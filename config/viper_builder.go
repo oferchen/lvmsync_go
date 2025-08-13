@@ -80,6 +80,15 @@ func (b *Builder) applyDefaults(conf *Config) error {
 		conf.SyncInterval = b.defaults.SyncInterval
 	}
 
+	cb, err := b.parseBytesOrFallback("checkpoint_bytes", b.defaults.CheckpointBytesRaw)
+	if err != nil {
+		return err
+	}
+	conf.CheckpointBytes = cb
+	if conf.CheckpointBytesRaw == "" {
+		conf.CheckpointBytesRaw = b.defaults.CheckpointBytesRaw
+	}
+
 	if conf.CompressConcurrency <= 0 {
 		conf.CompressConcurrency = runtime.GOMAXPROCS(0)
 	}

@@ -221,6 +221,7 @@ Recent refactors added several configuration options:
 - `--tcp_lowat` sets TCP_NOTSENT_LOWAT to limit unsent bytes.
 - `--sync_interval` controls how many bytes are written between `fdatasync` calls.
 - `--checkpoint_interval` sets how often resume state is persisted.
+- `--checkpoint_bytes` sets how many bytes are written between resume checkpoints.
 - `--block_size` sets the transfer block size (use `auto` for detection).
 
 ### I/O tuning
@@ -276,9 +277,10 @@ LVMSYNC_GRPC_GRPC_PORT=9443 LVMSYNC_GRPC_TLS_CERT=cert.pem lvmsync-grpcd
 | `--odirect` | `LVMSYNC_ODIRECT` | `odirect` | Use O_DIRECT for device I/O when possible |
 | `--numa_pin` | `LVMSYNC_NUMA_PIN` | `numa_pin` | Pin worker goroutines to device NUMA node |
 | `--max_retries` | `LVMSYNC_MAX_RETRIES` | `max_retries` | Maximum number of retries per block |
-| `--resume` | `LVMSYNC_RESUME` | `resume` | Path to resume state file (checkpointed every 1 GiB or 10 s) |
+| `--resume` | `LVMSYNC_RESUME` | `resume` | Path to resume state file (records dedup mode and last chunk boundary) |
 | `--speed` | `LVMSYNC_SPEED` | `speed` | Transfer speed limit |
 | `--sync_interval` | `LVMSYNC_SYNC_INTERVAL` | `sync_interval` | Bytes between fdatasync calls |
+| `--checkpoint_bytes` | `LVMSYNC_CHECKPOINT_BYTES` | `checkpoint_bytes` | Bytes between resume checkpoints |
 | `--checkpoint_interval` | `LVMSYNC_CHECKPOINT_INTERVAL` | `checkpoint_interval` | Duration between checkpoints |
 | `--block_size` | `LVMSYNC_BLOCK_SIZE` | `block_size` | Block size for data transfer; specify 'auto' or 0 for automatic detection |
 | `--verbose` | `LVMSYNC_VERBOSE` | `verbose` | Verbosity level |
@@ -836,7 +838,7 @@ lvmsync run --speed 50MB /dev/vg0/snap0 /dev/vg0/data
 
 #### Resuming a Transfer
 
-Resume an interrupted transfer using a resume state file. The file stores the last successful CDC chunk digest and is checkpointed every 1 GiB or 10 s:
+Resume an interrupted transfer using a resume state file. The file records the deduplication mode, the digest of the last successful chunk, and its CDC boundaries. Progress is checkpointed every `--checkpoint-bytes` or `--checkpoint-interval`, and the resume file is removed on successful completion:
 
 ```sh
 lvmsync run --resume statefile /dev/vg0/snap0 /dev/vg0/data

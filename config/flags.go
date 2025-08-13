@@ -62,6 +62,7 @@ func initGeneralFlags(cfg *Config) *pflag.FlagSet {
 	fs.String("resume", cfg.ResumeState, "Path to resume state file")
 	fs.String("speed", cfg.Speed, "Transfer speed limit")
 	fs.String("sync_interval", cfg.SyncInterval, "Bytes between fdatasync calls")
+	fs.String("checkpoint_bytes", cfg.CheckpointBytesRaw, "Bytes between resume checkpoints")
 	fs.Duration("checkpoint_interval", cfg.CheckpointInterval, "Duration between checkpoints")
 	fs.String("block_size", cfg.BlockSizeRaw, "Block size for data transfer; specify 'auto' or 0 for automatic detection")
 	fs.CountP("verbose", "v", "Verbosity level")
