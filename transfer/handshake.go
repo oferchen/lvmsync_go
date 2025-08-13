@@ -14,13 +14,9 @@ import (
 
 func composeHandshake(cfg *config.Config, mode string) common.Handshake {
 	hs := common.Handshake{
-		Compress:      cfg.Compress,
-		CompressLevel: cfg.CompressLevel,
-		BlockSize:     cfg.BlockSize,
-		DedupMode:     cfg.DedupMode,
-		ResumeToken:   cfg.ResumeState,
-		ODirect:       cfg.ODirect,
-		Endianness:    common.NativeEndianness(),
+		Transports: splitList(cfg.Transport),
+		Compress:   splitCompression(cfg.Compress),
+		Digests:    splitDigests(cfg.ChecksumAlgorithm),
 	}
 	switch mode {
 	case StrategyChecksum:
@@ -50,7 +46,9 @@ func prepareParallelHandshake(cfg *config.Config) string {
 	if err := common.WriteHandshake(&sb, hs); err != nil {
 		return ""
 	}
-	return strings.TrimSpace(sb.String())
+	htokens = append(htokens, "compress:"+strings.Join(splitCompression(cfg.Compress), ","))
+	htokens = append(htokens, "digest:"+strings.Join(splitDigests(cfg.ChecksumAlgorithm), ","))
+	return strings.Join(htokens, " ")
 }
 
 func writeParallelHandshake(cfg *config.Config, out io.Writer) error {
@@ -58,7 +56,7 @@ func writeParallelHandshake(cfg *config.Config, out io.Writer) error {
 	return err
 }
 
-func readAndValidateHandshake(bufReader *bufio.Reader, cfg *config.Config, dedup DeduplicationStrategy, verify bool) (common.Handshake, error) {
+func readAndValidateHandshake(cfg *config.Config, bufReader *bufio.Reader, dedup DeduplicationStrategy, verify bool) (common.Handshake, error) {
 	hs, err := common.ReadHandshake(bufReader)
 	if err != nil {
 		return common.Handshake{}, fmt.Errorf("failed to read protocol handshake: %w", err)
@@ -69,6 +67,23 @@ func readAndValidateHandshake(bufReader *bufio.Reader, cfg *config.Config, dedup
 	if dedup != nil && !hs.ChecksumDedup {
 		return hs, fmt.Errorf("unexpected protocol handshake: %s", hs.String())
 	}
+	transport, err := negotiate(splitList(cfg.Transport), hs.Transports)
+	if err == nil && transport != "" {
+		cfg.Transport = transport
+		hs.Transports = []string{transport}
+	}
+	compress, err := negotiate(splitCompression(cfg.Compress), hs.Compress)
+	if err != nil {
+		return hs, fmt.Errorf("no common compression algorithm")
+	}
+	cfg.Compress = compress
+	hs.Compress = []string{compress}
+	digest, err := negotiate(splitDigests(cfg.ChecksumAlgorithm), hs.Digests)
+	if err != nil {
+		return hs, fmt.Errorf("no common digest algorithm")
+	}
+	cfg.ChecksumAlgorithm = digest
+	hs.Digests = []string{digest}
 
 	if hs.Endianness != "" && hs.Endianness != common.NativeEndianness() {
 		return hs, fmt.Errorf("endianness mismatch: %s", hs.Endianness)
@@ -82,11 +97,48 @@ func readAndValidateHandshake(bufReader *bufio.Reader, cfg *config.Config, dedup
 	if cfg.ODirect && !hs.ODirect {
 		return hs, fmt.Errorf("remote lacks O_DIRECT support")
 	}
-	if cfg.Compress != "" && hs.Compress != cfg.Compress {
-		return hs, fmt.Errorf("compression mismatch: %s", hs.Compress)
-	}
 	if cfg.CompressLevel != 0 && hs.CompressLevel != 0 && hs.CompressLevel != cfg.CompressLevel {
 		return hs, fmt.Errorf("compression level mismatch: %d", hs.CompressLevel)
 	}
 	return hs, nil
+}
+
+func splitList(s string) []string {
+	return commonSplit(s)
+}
+
+func splitCompression(s string) []string {
+	if s == StrategyAuto || s == "" {
+		return []string{"zstd", "lz4"}
+	}
+	return commonSplit(s)
+}
+
+func splitDigests(s string) []string {
+	if s == "" {
+		return []string{"blake3", "sha256"}
+	}
+	return commonSplit(s)
+}
+
+func commonSplit(s string) []string {
+	var out []string
+	for _, v := range strings.Split(s, ",") {
+		v = strings.TrimSpace(v)
+		if v != "" {
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
+func negotiate(preferred, supported []string) (string, error) {
+	for _, p := range preferred {
+		for _, s := range supported {
+			if p == s {
+				return p, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("no match")
 }

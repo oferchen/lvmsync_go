@@ -1,6 +1,7 @@
 package manifest
 
 import (
+	"bytes"
 	"crypto/rand"
 	"os"
 	"path/filepath"
@@ -8,6 +9,8 @@ import (
 
 	"github.com/zeebo/blake3"
 	"github.com/zeebo/xxh3"
+
+	"lvmsync_go/device"
 )
 
 func TestIndexCRUD(t *testing.T) {
@@ -62,6 +65,8 @@ func TestRebuild(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 	file.Close()
+	prev := device.SetUUIDFunc(func(string) (string, error) { return "uuid-test", nil })
+	defer device.SetUUIDFunc(prev)
 	manPath := filepath.Join(dir, "rebuild.man")
 	if err := Rebuild(file.Name(), manPath); err != nil {
 		t.Fatalf("rebuild: %v", err)
@@ -72,6 +77,9 @@ func TestRebuild(t *testing.T) {
 	}
 	if idx.hdr.BlockSize != 4096 || idx.hdr.ChunkCount != 2 || idx.hdr.SizeBytes != 8192 {
 		t.Fatalf("header mismatch: %+v", idx.hdr)
+	}
+	if id := string(bytes.TrimRight(idx.hdr.DeviceID[:], "\x00")); id != "uuid-test" {
+		t.Fatalf("device id mismatch: %s", id)
 	}
 	_, l1, xx1, b31 := idx.Entry(0)
 	if l1 != 4096 || xx1 != xxh3.Hash(data1) || b31 != blake3.Sum256(data1) {

@@ -29,7 +29,7 @@ func TestProcessDumpDataUUIDMismatch(t *testing.T) {
 	defer device.SetMountFunc(prevMount)
 
 	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{})
-	cfg := &config.Config{BlockSize: 1024, Compress: "none", MaxRetries: 1, DeviceUUID: "expected"}
+	cfg := &config.Config{BlockSize: 1024, Compress: "none", MaxRetries: 1, DeviceUUID: "expected", DedupStrategy: "none", VerifyChecksum: true}
 
 	dest := filepath.Join(t.TempDir(), "dest")
 	f, err := os.Create(dest)
@@ -54,7 +54,7 @@ func TestProcessDumpDataMountedDevice(t *testing.T) {
 	defer device.SetMountFunc(prevMount)
 
 	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{})
-	cfg := &config.Config{BlockSize: 1024, Compress: "none", MaxRetries: 1, DeviceUUID: "id"}
+	cfg := &config.Config{BlockSize: 1024, Compress: "none", MaxRetries: 1, DeviceUUID: "id", DedupStrategy: "none", VerifyChecksum: true}
 
 	dest := filepath.Join(t.TempDir(), "dest")
 	f, err := os.Create(dest)
@@ -75,5 +75,55 @@ func TestProcessDumpDataMountedDevice(t *testing.T) {
 	err = tr.ProcessDumpData(cfg, bytes.NewReader(minimalStream(t)), dest)
 	if err != nil {
 		t.Fatalf("unexpected error with force: %v", err)
+	}
+}
+
+func TestApplyDataUUIDMismatch(t *testing.T) {
+	prevUUID := device.SetUUIDFunc(func(string) (string, error) { return "actual", nil })
+	defer device.SetUUIDFunc(prevUUID)
+	prevMount := device.SetMountFunc(func(string) (bool, error) { return false, nil })
+	defer device.SetMountFunc(prevMount)
+
+	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{})
+	cfg := &config.Config{BlockSize: 1024, Compress: "none", MaxRetries: 1, DeviceUUID: "expected"}
+
+	dest := filepath.Join(t.TempDir(), "dest")
+	f, err := os.Create(dest)
+	if err != nil {
+		t.Fatalf("create dest: %v", err)
+	}
+	if err := f.Truncate(1024); err != nil {
+		t.Fatalf("truncate: %v", err)
+	}
+	f.Close()
+
+	err = tr.applyData(cfg, bytes.NewReader(minimalStream(t)), dest)
+	if err == nil {
+		t.Fatalf("expected error for uuid mismatch")
+	}
+}
+
+func TestApplyDataMountedDevice(t *testing.T) {
+	prevUUID := device.SetUUIDFunc(func(string) (string, error) { return "id", nil })
+	defer device.SetUUIDFunc(prevUUID)
+	prevMount := device.SetMountFunc(func(string) (bool, error) { return true, nil })
+	defer device.SetMountFunc(prevMount)
+
+	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{})
+	cfg := &config.Config{BlockSize: 1024, Compress: "none", MaxRetries: 1, DeviceUUID: "id"}
+
+	dest := filepath.Join(t.TempDir(), "dest")
+	f, err := os.Create(dest)
+	if err != nil {
+		t.Fatalf("create dest: %v", err)
+	}
+	if err := f.Truncate(1024); err != nil {
+		t.Fatalf("truncate: %v", err)
+	}
+	f.Close()
+
+	err = tr.applyData(cfg, bytes.NewReader(minimalStream(t)), dest)
+	if err == nil {
+		t.Fatalf("expected error for mounted device")
 	}
 }

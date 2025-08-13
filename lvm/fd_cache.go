@@ -42,6 +42,14 @@ func NewFDCache(size int, logger *zap.Logger) *FDCache {
 	}
 }
 
+// SetLogger updates the logger used by the cache.
+func (c *FDCache) SetLogger(logger *zap.Logger) {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+	c.logger = logger
+}
+
 // getFD retrieves an open file descriptor for the specified device path.
 // It reuses descriptors when possible and evicts the least recently used entry
 // when the cache reaches its capacity.
@@ -99,4 +107,4 @@ func (c *FDCache) Close() {
 }
 
 // deviceFDCache is the global cache used by volume operations.
-var deviceFDCache = NewFDCache(fdCacheSize, zap.L())
+var deviceFDCache = NewFDCache(fdCacheSize, zap.NewNop())

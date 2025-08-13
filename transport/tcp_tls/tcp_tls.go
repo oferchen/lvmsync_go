@@ -7,6 +7,7 @@ import (
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"math/big"
 	"net"
 	"time"
@@ -48,17 +49,27 @@ func (t *Transport) Listen(ctx context.Context, address string) (net.Listener, e
 }
 
 func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport.Role) error {
-	hs := common.Handshake{Version: common.ProtocolVersion}
+	hs := common.Handshake{Version: common.ProtocolVersion, Endianness: common.NativeEndianness()}
 	switch role {
 	case transport.Client:
 		if err := common.WriteHandshake(conn, hs); err != nil {
 			return err
 		}
-		_, err := common.ReadHandshake(bufio.NewReader(conn))
-		return err
-	case transport.Server:
-		if _, err := common.ReadHandshake(bufio.NewReader(conn)); err != nil {
+		peer, err := common.ReadHandshake(bufio.NewReader(conn))
+		if err != nil {
 			return err
+		}
+		if peer.Endianness != "" && peer.Endianness != hs.Endianness {
+			return fmt.Errorf("endianness mismatch: %s", peer.Endianness)
+		}
+		return nil
+	case transport.Server:
+		peer, err := common.ReadHandshake(bufio.NewReader(conn))
+		if err != nil {
+			return err
+		}
+		if peer.Endianness != "" && peer.Endianness != hs.Endianness {
+			return fmt.Errorf("endianness mismatch: %s", peer.Endianness)
 		}
 		return common.WriteHandshake(conn, hs)
 	default:

@@ -12,7 +12,9 @@ import (
 // Handshake describes protocol negotiation parameters exchanged at the start
 // of a transfer. The format is a single line of space separated tokens:
 //
-//	lvmsync PROTO[3] compress:<algo> [checksum|checksum-dedup]
+//	lvmsync PROTO[3] [endian:<little|big>] [block:<bytes>]
+//	        [dedup:<fixed|cdc|hybrid>] [resume:<token>] [odirect]
+//	        [checksum|checksum-dedup] compress:<algo> [level:<n>]
 //
 // Additional tokens may be added in the future while preserving backward
 // compatibility. The receiver must ignore unknown tokens to allow for
@@ -20,7 +22,10 @@ import (
 //
 // Compress specifies the compression algorithm in use. Checksum indicates
 // whether chunk checksums are included. When ChecksumDedup is true the
-// checksum list also doubles as a deduplication map.
+// checksum list also doubles as a deduplication map. Endianness advertises the
+// sender's byte order, BlockSize conveys the preferred chunk size, DedupMode
+// announces the deduplication strategy, ResumeToken resumes interrupted
+// transfers, and ODirect signals support for `O_DIRECT` I/O.
 //
 // Version will always be set to ProtocolVersion on successful parsing.
 //
@@ -32,8 +37,10 @@ import (
 // Handshake represents the negotiated parameters between peers.
 type Handshake struct {
 	Version       string
-	Compress      string
+	Transports    []string
+	Compress      []string
 	CompressLevel int
+	Digests       []string
 	Checksum      bool
 	ChecksumDedup bool
 	Endianness    string
@@ -111,7 +118,6 @@ func WriteHandshake(w io.Writer, h Handshake) error {
 	}
 	if h.Compress == "" {
 		h.Compress = "none"
-	}
 	tokens = append(tokens, "compress:"+h.Compress)
 	if h.Digest != "" {
 		tokens = append(tokens, "digest:"+h.Digest)
@@ -139,9 +145,11 @@ func ReadHandshake(r *bufio.Reader) (Handshake, error) {
 		return Handshake{}, fmt.Errorf("unexpected protocol handshake: %s", line)
 	}
 	rest := strings.TrimSpace(strings.TrimPrefix(line, ProtocolVersion))
-	h := Handshake{Version: ProtocolVersion, Compress: "none"}
+	h := Handshake{Version: ProtocolVersion}
 	for _, t := range strings.Fields(rest) {
 		switch {
+		case strings.HasPrefix(t, "transport:"):
+			h.Transports = splitNonEmpty(strings.TrimPrefix(t, "transport:"))
 		case strings.HasPrefix(t, "compress:"):
 			h.Compress = strings.TrimPrefix(t, "compress:")
 		case strings.HasPrefix(t, "transport:"):
@@ -183,6 +191,9 @@ func ReadHandshake(r *bufio.Reader) (Handshake, error) {
 			// Ignore unknown tokens to preserve forward compatibility.
 		}
 	}
+	if len(h.Compress) == 0 {
+		h.Compress = []string{"none"}
+	}
 	return h, nil
 }
 
@@ -201,4 +212,19 @@ func SelectBest(local, remote []string) string {
 		return local[0]
 	}
 	return ""
+
+func splitNonEmpty(v string) []string {
+	if v == "" {
+		return nil
+	}
+	parts := strings.Split(v, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
+
 }

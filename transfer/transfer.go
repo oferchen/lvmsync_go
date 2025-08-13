@@ -4,14 +4,15 @@ package transfer
 import (
 	"bufio"
 	"bytes"
+	"crypto/sha256"
 	"encoding/binary"
 	"encoding/gob"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"math"
 	"os"
-	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -321,9 +322,28 @@ var (
 	resumeChunk [32]byte
 )
 
-func writeResumeState(logger *zap.Logger, path string, chunk [32]byte) {
-	err := os.WriteFile(path, []byte(hex.EncodeToString(chunk[:])), 0o600)
+type resumeState struct {
+	Transport         string `json:"transport"`
+	Compress          string `json:"compress"`
+	ChecksumAlgorithm string `json:"checksum_algorithm"`
+	Chunk             string `json:"chunk"`
+}
+
+func writeResumeState(cfg *config.Config, logger *zap.Logger, path string, chunk [32]byte) {
+	rs := resumeState{
+		Transport:         cfg.Transport,
+		Compress:          cfg.Compress,
+		ChecksumAlgorithm: cfg.ChecksumAlgorithm,
+		Chunk:             hex.EncodeToString(chunk[:]),
+	}
+	data, err := json.Marshal(rs)
 	if err != nil {
+		if logger != nil {
+			logger.Warn("Failed to marshal resume state", zap.Error(err))
+		}
+		return
+	}
+	if err := os.WriteFile(path, data, 0o600); err != nil {
 		if logger != nil {
 			logger.Warn("Failed to update resume state", zap.Error(err))
 		}
@@ -342,7 +362,7 @@ func saveResumeState(cfg *config.Config, chunk [32]byte, size int64, logger *zap
 	resumeBytes += size
 	resumeChunk = chunk
 	if resumeBytes >= 1<<30 || time.Since(resumeLast) >= 10*time.Second {
-		writeResumeState(logger, cfg.ResumeState, resumeChunk)
+		writeResumeState(cfg, logger, cfg.ResumeState, resumeChunk)
 		resumeBytes = 0
 		resumeLast = time.Now()
 	}
@@ -357,7 +377,7 @@ func finalizeResumeState(cfg *config.Config, logger *zap.Logger) {
 	if resumeLast.IsZero() {
 		return
 	}
-	writeResumeState(logger, cfg.ResumeState, resumeChunk)
+	writeResumeState(cfg, logger, cfg.ResumeState, resumeChunk)
 	resumeBytes = 0
 }
 
@@ -370,7 +390,14 @@ func readResumeDigest(cfg *config.Config, logger *zap.Logger) [32]byte {
 	if err != nil {
 		return out
 	}
-	b, err := hex.DecodeString(strings.TrimSpace(string(data)))
+	var rs resumeState
+	if err := json.Unmarshal(data, &rs); err != nil {
+		return out
+	}
+	if rs.Transport != cfg.Transport || rs.Compress != cfg.Compress || rs.ChecksumAlgorithm != cfg.ChecksumAlgorithm {
+		return out
+	}
+	b, err := hex.DecodeString(rs.Chunk)
 	if err != nil || len(b) != 32 {
 		return out
 	}
@@ -394,7 +421,13 @@ func findResumeIndex(cfg *config.Config, srcFile *os.File, ranges []Range, diges
 		if err != nil {
 			continue
 		}
-		sum := blake3.Sum256(data)
+		var sum [32]byte
+		if cfg.ChecksumAlgorithm == "sha256" {
+			sumArr := sha256.Sum256(data)
+			sum = [32]byte(sumArr)
+		} else {
+			sum = blake3.Sum256(data)
+		}
 		putBlockBuffer(data)
 		if sum == digest {
 			if logger != nil {
@@ -669,12 +702,12 @@ func applyBlocks(cfg *config.Config, reader *bufio.Reader, destFile *os.File, de
 func (t *Transfer) processDumpDataCore(cfg *config.Config, in io.Reader, destPath string, dedup DeduplicationStrategy, verify bool) (err error) {
 	bufReader := bufio.NewReader(in)
 	var hs common.Handshake
-	hs, err = readAndValidateHandshake(bufReader, cfg, dedup, verify)
+	hs, err = readAndValidateHandshake(cfg, bufReader, dedup, verify)
 	if err != nil {
 		return err
 	}
 
-	decReader, err := NewDecompressionReader(bufReader, hs.Compress, cfg.CompressConcurrency)
+	decReader, err := NewDecompressionReader(bufReader, hs.Compress[0], cfg.CompressConcurrency)
 	if err != nil {
 		return fmt.Errorf("failed to create decompression reader: %w", err)
 	}
@@ -765,6 +798,22 @@ func openApplyReader(applyFile string) (io.ReadCloser, error) {
 }
 
 func (t *Transfer) applyData(cfg *config.Config, in io.Reader, destDevice string) error {
+	if cfg.DeviceUUID != "" {
+		uuid, err := device.GetUUID(destDevice)
+		if err != nil {
+			return fmt.Errorf("read destination uuid: %w", err)
+		}
+		if uuid != cfg.DeviceUUID {
+			return fmt.Errorf("destination device uuid %s does not match expected %s", uuid, cfg.DeviceUUID)
+		}
+	}
+	mounted, err := device.IsMountedRW(destDevice)
+	if err != nil {
+		return fmt.Errorf("check mount status: %w", err)
+	}
+	if mounted && !cfg.Force {
+		return fmt.Errorf("destination device %s is mounted read-write", destDevice)
+	}
 	dedup := NewDeduplicationStrategy(cfg, t.Logger)
 	if dedup != nil {
 		if t.Logger != nil {
