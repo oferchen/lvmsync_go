@@ -109,7 +109,7 @@ func TestRebuildCloseOnce(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 	file.Close()
-	prevUUID := device.SetUUIDFunc(func(string) (string, error) { return "uuid-test", nil })
+	prevUUID := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "uuid-test", nil })
 	defer device.SetUUIDFunc(prevUUID)
 	manPath := filepath.Join(dir, "closeonce.man")
 	prevHook := closeHook

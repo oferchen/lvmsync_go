@@ -1,6 +1,10 @@
 package lvmsync
 
-import "testing"
+import (
+	"testing"
+
+	verifycmd "lvmsync_go/cmd/verify"
+)
 
 func TestRunCommandFlags(t *testing.T) {
 	var gotSrc, gotDst string
@@ -67,17 +71,17 @@ func TestManifestRebuildRoutes(t *testing.T) {
 }
 
 func TestVerifyRoutes(t *testing.T) {
-	var src, dst string
-	verifyCommand = func(s, d string) error {
-		src, dst = s, d
+	var got []string
+	verifyRun = func(a []string) error {
+		got = append([]string{}, a...)
 		return nil
 	}
-	t.Cleanup(func() { verifyCommand = func(src, dst string) error { return nil } })
+	t.Cleanup(func() { verifyRun = func(args []string) error { return verifycmd.Run(args, nil) } })
 
 	if err := Execute([]string{"verify", "a", "b"}); err != nil {
 		t.Fatalf("execute verify: %v", err)
 	}
-	if src != "a" || dst != "b" {
-		t.Fatalf("unexpected args %q %q", src, dst)
+	if len(got) != 2 || got[0] != "a" || got[1] != "b" {
+		t.Fatalf("unexpected args %v", got)
 	}
 }

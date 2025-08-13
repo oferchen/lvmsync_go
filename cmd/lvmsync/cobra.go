@@ -6,6 +6,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
+	verifycmd "lvmsync_go/cmd/verify"
 	"lvmsync_go/config"
 )
 
@@ -19,7 +20,7 @@ var (
 	// These function variables allow tests to stub command behavior.
 	runCommand      = func(src, dst string, opts RunOptions) error { return nil }
 	manifestRebuild = func(device string, dryRun bool) error { return nil }
-	verifyCommand   = func(src, dst string) error { return nil }
+	verifyRun       = func(args []string) error { return verifycmd.Run(args, nil) }
 )
 
 // NewRootCmd creates the root cobra command with all subcommands wired.
@@ -86,11 +87,11 @@ func NewRootCmd() *cobra.Command {
 	manifestCmd.AddCommand(rebuildCmd)
 
 	verifyCmd := &cobra.Command{
-		Use:   "verify <source> <dest>",
-		Short: "Verify that source and destination match",
-		Args:  cobra.ExactArgs(2),
+		Use:                "verify [flags] <source> <dest>",
+		Short:              "Verify that source and destination match",
+		DisableFlagParsing: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return verifyCommand(args[0], args[1])
+			return verifyRun(args)
 		},
 	}
 
