@@ -2,6 +2,7 @@ package manifest
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -206,7 +207,7 @@ func Rebuild(devicePath, output string) error {
 	}
 	blockSize := uint32(4096)
 	size := uint64(st.Size())
-	id, err := device.GetUUID(devicePath)
+	id, err := device.GetUUID(context.Background(), devicePath)
 	if err != nil {
 		return err
 	}

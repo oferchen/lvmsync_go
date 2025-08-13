@@ -2,11 +2,15 @@ package device
 
 import (
 	"bufio"
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 )
+
+const uuidTimeout = 5 * time.Second
 
 var (
 	uuidFunc  = defaultUUIDFunc
@@ -15,21 +19,32 @@ var (
 
 // SetUUIDFunc allows tests to override the implementation used to lookup a
 // device's UUID or serial. It returns the previous function for restoration.
-func SetUUIDFunc(f func(string) (string, error)) func(string) (string, error) {
+func SetUUIDFunc(f func(context.Context, string) (string, error)) func(context.Context, string) (string, error) {
 	prev := uuidFunc
 	uuidFunc = f
 	return prev
 }
 
 // GetUUID returns the UUID or GPT serial of the device at path.
-func GetUUID(path string) (string, error) { return uuidFunc(path) }
+// If ctx has no deadline, a default timeout is applied.
+func GetUUID(ctx context.Context, path string) (string, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if _, ok := ctx.Deadline(); !ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, uuidTimeout)
+		defer cancel()
+	}
+	return uuidFunc(ctx, path)
+}
 
-func defaultUUIDFunc(path string) (string, error) {
-	out, err := exec.Command("blkid", "-o", "value", "-s", "UUID", path).Output()
+func defaultUUIDFunc(ctx context.Context, path string) (string, error) {
+	out, err := exec.CommandContext(ctx, "blkid", "-o", "value", "-s", "UUID", path).Output()
 	if err == nil && len(out) > 0 {
 		return strings.TrimSpace(string(out)), nil
 	}
-	out, err = exec.Command("blkid", "-o", "value", "-s", "PARTUUID", path).Output()
+	out, err = exec.CommandContext(ctx, "blkid", "-o", "value", "-s", "PARTUUID", path).Output()
 	if err != nil {
 		return "", err
 	}
