@@ -4,8 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"go.uber.org/zap"
 	"lvmsync_go/config"
+
+	"go.uber.org/zap"
 )
 
 func TestSelectTransportNoConfig(t *testing.T) {
