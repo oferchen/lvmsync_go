@@ -30,5 +30,13 @@
     "impact": "users could not disable host key verification",
     "fix": "respect flag and use ssh.InsecureIgnoreHostKey when false",
     "priority": "P1"
+  },
+  {
+    "type": "bug",
+    "component": "remote/ssh_manager.go",
+    "evidence": "sshAgentAuth used net.Dial without context or timeout",
+    "impact": "unresponsive SSH agent could hang start-up",
+    "fix": "add context-aware dial with timeout and tests",
+    "priority": "P1"
   }
 ]
