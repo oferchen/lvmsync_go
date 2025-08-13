@@ -361,7 +361,7 @@ If `--ssh_key` is empty, lvmsync contacts the SSH agent referenced by `SSH_AUTH_
 
 ## gRPC Control Plane
 
-The optional gRPC daemon exposes snapshot management and replication over a mutually authenticated channel.
+The optional gRPC daemon exposes snapshot management and replication over a mutually authenticated channel. Plaintext connections are rejected unless `--allow-insecure` is explicitly set.
 
 `StartGRPCServer` accepts a `context.Context` and runs the server in a goroutine, returning a buffered error channel. Cancel the context or invoke the cleanup function to stop the server and wait on the channel during shutdown to surface any serve errors.
 
@@ -371,11 +371,15 @@ The optional gRPC daemon exposes snapshot management and replication over a mutu
 4. **Ack/Ping Stream** – a bidirectional stream of `Ack` messages per session provides keep-alives and progress confirmation.
 5. **Finalization** – the client requests completion using the session ID when replication is done.
 
+Configuration comes from flags, `LVMSYNC_GRPC_*` environment variables, or a YAML file with flags taking precedence.
+
 Run the daemon with TLS:
 
 ```sh
 lvmsync-grpcd --grpc-port 9443 --tls-cert cert.pem --tls-key key.pem --ca-cert ca.pem
 ```
+
+Disabling TLS with `--allow-insecure` is supported for development but is unsafe for production deployments.
 
 On failure, `lvmsync-grpcd` logs the error and exits with status `1` so calling scripts can inspect `$?`.
 

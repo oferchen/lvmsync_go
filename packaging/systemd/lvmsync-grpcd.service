@@ -5,7 +5,7 @@ Description=LVMSync gRPC daemon
 
 [Service]
 User=lvmsync
-ExecStart=/usr/bin/lvmsync_grpcd --config /etc/lvmsync.yaml
+ExecStart=/usr/bin/lvmsync_grpcd --config /etc/grpcd.yaml
 Restart=on-failure
 StandardOutput=journal
 StandardError=journal
