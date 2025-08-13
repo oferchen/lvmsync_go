@@ -14,7 +14,7 @@ var (
 	runFunc           = rootcmd.Run
 	syncLoggerFunc    = rootcmd.SyncLogger
 	exitFunc          = os.Exit
-	exampleLoggerFunc = func() *zap.Logger { return zap.NewExample() }
+	exampleLoggerFunc = func() *zap.Logger { return zap.NewProduction() }
 	runtimeGOOS       = runtime.GOOS
 )
 
@@ -24,7 +24,9 @@ func main() {
 	if runtimeGOOS != "linux" {
 		tmpLogger := exampleLoggerFunc()
 		tmpLogger.Error("unsupported platform", zap.String("goos", runtimeGOOS))
-		_ = tmpLogger.Sync()
+		if err := tmpLogger.Sync(); err != nil {
+			tmpLogger.Error("Logger sync error", zap.Error(err))
+		}
 		exitFunc(1)
 		return
 	}
@@ -33,7 +35,9 @@ func main() {
 	if err != nil {
 		tmpLogger := exampleLoggerFunc()
 		tmpLogger.Error("configuration failed", zap.Error(err))
-		_ = tmpLogger.Sync()
+		if err := tmpLogger.Sync(); err != nil {
+			tmpLogger.Error("Logger sync error", zap.Error(err))
+		}
 		exitFunc(1)
 		return
 	}
