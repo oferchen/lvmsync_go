@@ -798,6 +798,22 @@ func openApplyReader(applyFile string) (io.ReadCloser, error) {
 }
 
 func (t *Transfer) applyData(cfg *config.Config, in io.Reader, destDevice string) error {
+	if cfg.DeviceUUID != "" {
+		uuid, err := device.GetUUID(destDevice)
+		if err != nil {
+			return fmt.Errorf("read destination uuid: %w", err)
+		}
+		if uuid != cfg.DeviceUUID {
+			return fmt.Errorf("destination device uuid %s does not match expected %s", uuid, cfg.DeviceUUID)
+		}
+	}
+	mounted, err := device.IsMountedRW(destDevice)
+	if err != nil {
+		return fmt.Errorf("check mount status: %w", err)
+	}
+	if mounted && !cfg.Force {
+		return fmt.Errorf("destination device %s is mounted read-write", destDevice)
+	}
 	dedup := NewDeduplicationStrategy(cfg, t.Logger)
 	if dedup != nil {
 		if t.Logger != nil {
