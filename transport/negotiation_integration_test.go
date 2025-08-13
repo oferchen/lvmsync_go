@@ -3,9 +3,17 @@ package transport_test
 import (
 	"bufio"
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"math/big"
+	"net"
 	"testing"
+	"time"
 
+	"go.uber.org/zap"
 	"lvmsync_go/common"
 	"lvmsync_go/transport"
 	_ "lvmsync_go/transport/ssh"
@@ -73,7 +81,17 @@ func handshakeRoundTrip(t transport.Interface, tname string) error {
 func TestNegotiationTCPAndSSH(t *testing.T) {
 	names := []string{"tcp+tls", "ssh"}
 	for _, name := range names {
-		tr, err := transport.Get(name)
+		cfg := transport.Config{Logger: zap.NewNop()}
+		if name == "tcp+tls" {
+			cert, _ := generateCert()
+			root := x509.NewCertPool()
+			if c, err := x509.ParseCertificate(cert.Certificate[0]); err == nil {
+				root.AddCert(c)
+			}
+			cfg.ClientCert = cert
+			cfg.Roots = root
+		}
+		tr, err := transport.Get(name, cfg)
 		if err != nil {
 			t.Fatalf("get transport %s: %v", name, err)
 		}
@@ -81,4 +99,23 @@ func TestNegotiationTCPAndSSH(t *testing.T) {
 			t.Fatalf("%s negotiation: %v", name, err)
 		}
 	}
+}
+
+func generateCert() (tls.Certificate, error) {
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+	tmpl := x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		NotBefore:    time.Now(),
+		NotAfter:     time.Now().Add(time.Hour),
+		IPAddresses:  []net.IP{net.ParseIP("127.0.0.1")},
+	}
+	der, err := x509.CreateCertificate(rand.Reader, &tmpl, &tmpl, &key.PublicKey, key)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+	cert := tls.Certificate{Certificate: [][]byte{der}, PrivateKey: key}
+	return cert, nil
 }

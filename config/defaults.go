@@ -201,7 +201,7 @@ func DefaultConfig() (*Config, error) {
 		TLSKey:               "",
 		CACert:               "",
 		AllowInsecure:        false,
-		Transport:            "tcp+tls,ssh",
+		Transport:            "quic,h2,tcp+tls,ssh",
 		TCPPort:              0,
 		TCPParallel:          1,
 		TCPNotSentLowAt:      0,

@@ -5,11 +5,14 @@ import (
 	"io"
 	"testing"
 
+	"go.uber.org/zap"
+	"lvmsync_go/common"
 	"lvmsync_go/transport"
 )
 
 func TestH2TransportHandshake(t *testing.T) {
-	tr := New()
+	trIface, _ := New(transport.Config{Logger: zap.NewNop()})
+	tr := trIface.(*Transport)
 	ctx := context.Background()
 	ln, err := tr.Listen(ctx, "127.0.0.1:0")
 	if err != nil {
@@ -24,7 +27,7 @@ func TestH2TransportHandshake(t *testing.T) {
 			t.Errorf("accept: %v", err)
 			return
 		}
-		if err := tr.Negotiate(ctx, conn, transport.Server); err != nil {
+		if _, err := tr.Negotiate(ctx, conn, transport.Server, common.Handshake{}); err != nil {
 			t.Errorf("server negotiate: %v", err)
 			return
 		}
@@ -39,7 +42,7 @@ func TestH2TransportHandshake(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
-	if err := tr.Negotiate(ctx, conn, transport.Client); err != nil {
+	if _, err := tr.Negotiate(ctx, conn, transport.Client, common.Handshake{}); err != nil {
 		t.Fatalf("client negotiate: %v", err)
 	}
 	if _, err := conn.Write([]byte("ping")); err != nil {
@@ -55,7 +58,8 @@ func TestH2TransportHandshake(t *testing.T) {
 }
 
 func TestH2TransportHandshakeError(t *testing.T) {
-	tr := New()
+	trIface, _ := New(transport.Config{Logger: zap.NewNop()})
+	tr := trIface.(*Transport)
 	ctx := context.Background()
 	ln, err := tr.Listen(ctx, "127.0.0.1:0")
 	if err != nil {
@@ -80,7 +84,7 @@ func TestH2TransportHandshakeError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
-	if err := tr.Negotiate(ctx, conn, transport.Client); err == nil {
+	if _, err := tr.Negotiate(ctx, conn, transport.Client, common.Handshake{}); err == nil {
 		t.Fatalf("expected negotiate error")
 	}
 	conn.Close()

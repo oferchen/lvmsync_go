@@ -6,7 +6,7 @@ import (
 )
 
 // Factory creates a transport implementation.
-type Factory func() Interface
+type Factory func(Config) (Interface, error)
 
 var (
 	registry = map[string]Factory{}
@@ -25,11 +25,11 @@ func Register(name string, f Factory) error {
 }
 
 // Get returns a transport from the registry by name.
-func Get(name string) (Interface, error) {
+func Get(name string, cfg Config) (Interface, error) {
 	regMu.RLock()
 	defer regMu.RUnlock()
 	if f, ok := registry[name]; ok {
-		return f(), nil
+		return f(cfg)
 	}
 	return nil, fmt.Errorf("transport %q not registered", name)
 }

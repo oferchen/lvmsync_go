@@ -3,6 +3,8 @@ package transport
 import (
 	"context"
 	"net"
+
+	"lvmsync_go/common"
 )
 
 // Role identifies which side of the connection is performing negotiation.
@@ -24,5 +26,5 @@ type Interface interface {
 	Name() string
 	Dial(ctx context.Context, address string) (net.Conn, error)
 	Listen(ctx context.Context, address string) (net.Listener, error)
-	Negotiate(ctx context.Context, conn net.Conn, role Role) error
+	Negotiate(ctx context.Context, conn net.Conn, role Role, hs common.Handshake) (common.Handshake, error)
 }

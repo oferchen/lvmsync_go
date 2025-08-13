@@ -30,6 +30,7 @@ type Handshake struct {
 	DedupMode     string
 	ResumeToken   string
 	ODirect       bool
+	MaxInFlight   int
 }
 
 // NativeEndianness reports the platform byte order as "little" or "big".
@@ -71,6 +72,9 @@ func WriteHandshake(w io.Writer, h Handshake) error {
 	}
 	if h.ODirect {
 		tokens = append(tokens, "odirect")
+	}
+	if h.MaxInFlight > 0 {
+		tokens = append(tokens, fmt.Sprintf("inflight:%d", h.MaxInFlight))
 	}
 
 	if len(h.Transports) > 0 {
@@ -157,6 +161,12 @@ func ReadHandshake(r *bufio.Reader) (Handshake, error) {
 			h.ResumeToken = strings.TrimPrefix(t, "resume:")
 		case t == "odirect":
 			h.ODirect = true
+		case strings.HasPrefix(t, "inflight:"):
+			m, err := strconv.Atoi(strings.TrimPrefix(t, "inflight:"))
+			if err != nil {
+				return Handshake{}, fmt.Errorf("invalid max in-flight: %w", err)
+			}
+			h.MaxInFlight = m
 		case t == "checksum":
 			h.Checksum = true
 		case t == "checksum-dedup":

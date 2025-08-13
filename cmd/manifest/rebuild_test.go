@@ -1,6 +1,7 @@
 package manifest
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -18,7 +19,7 @@ func TestRunDefaultOutputPath(t *testing.T) {
 		t.Fatalf("write device: %v", err)
 	}
 
-	restore := device.SetUUIDFunc(func(string) (string, error) { return "uuid", nil })
+	restore := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "uuid", nil })
 	defer device.SetUUIDFunc(restore)
 
 	cfg, err := config.DefaultConfig()
@@ -43,7 +44,7 @@ func TestRunOutputFlag(t *testing.T) {
 		t.Fatalf("write device: %v", err)
 	}
 
-	restore := device.SetUUIDFunc(func(string) (string, error) { return "uuid", nil })
+	restore := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "uuid", nil })
 	defer device.SetUUIDFunc(restore)
 
 	cfg, err := config.DefaultConfig()

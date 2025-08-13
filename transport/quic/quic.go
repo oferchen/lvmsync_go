@@ -11,10 +11,12 @@ import (
 )
 
 // Transport is a placeholder QUIC transport using plain TCP.
-type Transport struct{}
+type Transport struct {
+	cfg transport.Config
+}
 
 // New returns a new Transport.
-func New() transport.Interface { return &Transport{} }
+func New(cfg transport.Config) (transport.Interface, error) { return &Transport{cfg: cfg}, nil }
 
 func init() {
 	if err := transport.Register("quic", New); err != nil {
@@ -33,31 +35,37 @@ func (t *Transport) Listen(ctx context.Context, address string) (net.Listener, e
 	return net.Listen("tcp", address)
 }
 
-func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport.Role) error {
-	hs := common.Handshake{Version: common.ProtocolVersion, Endianness: common.NativeEndianness()}
+func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport.Role, hs common.Handshake) (common.Handshake, error) {
+	hs.Version = common.ProtocolVersion
+	if hs.Endianness == "" {
+		hs.Endianness = common.NativeEndianness()
+	}
 	switch role {
 	case transport.Client:
 		if err := common.WriteHandshake(conn, hs); err != nil {
-			return err
+			return common.Handshake{}, err
 		}
 		peer, err := common.ReadHandshake(bufio.NewReader(conn))
 		if err != nil {
-			return err
+			return common.Handshake{}, err
 		}
 		if peer.Endianness != "" && peer.Endianness != hs.Endianness {
-			return fmt.Errorf("endianness mismatch: %s", peer.Endianness)
+			return peer, fmt.Errorf("endianness mismatch: %s", peer.Endianness)
 		}
-		return nil
+		return peer, nil
 	case transport.Server:
 		peer, err := common.ReadHandshake(bufio.NewReader(conn))
 		if err != nil {
-			return err
+			return common.Handshake{}, err
 		}
 		if peer.Endianness != "" && peer.Endianness != hs.Endianness {
-			return fmt.Errorf("endianness mismatch: %s", peer.Endianness)
+			return peer, fmt.Errorf("endianness mismatch: %s", peer.Endianness)
 		}
-		return common.WriteHandshake(conn, hs)
+		if err := common.WriteHandshake(conn, hs); err != nil {
+			return peer, err
+		}
+		return peer, nil
 	default:
-		return nil
+		return common.Handshake{}, nil
 	}
 }
