@@ -14,6 +14,7 @@ LVMSync is a high-performance incremental data replication tool for LVM snapshot
 - **Compression**: Samples 8 KiB per chunk, skipping compression when the ratio exceeds a threshold. Auto mode selects LZ4 for chunks <256 KiB and Zstd level 1 for larger chunks on CPUs with AVX2, AVX-512, or NEON support.
 - **Checksum Verification**: Ensures data integrity using SHA-256 or BLAKE3, automatically selecting BLAKE3 on CPUs with AES-NI, AVX2/AVX-512, or NEON.
 - **Native LVM2 Integration**: Uses Go bindings to `liblvm2cmd` instead of shelling out.
+- **Generic Block Device Support**: Access raw `/dev/*` paths and loopback images through a unified device abstraction.
 - **Deduplication Strategies**: Detect unchanged blocks using checksum, rolling hash, or a Bloom filter with optional FastCDC content-defined chunking and mmap-backed index.
 - **Hashing**: Hardware-accelerated XXH3 provides fast deduplication hints while BLAKE3 digests are stored in manifests for integrity.
 - **Remote Execution via SSH**: Replicates data over SSH with support for pre/post-scripts.
@@ -53,6 +54,7 @@ See AGENTS.md for contributor tasks and design guidelines.
 LVMSync is organized into modular packages to keep concerns separated:
 
 - `lvm` – manages snapshot creation, monitoring, and cleanup.
+- `device` – opens and queries generic block devices such as raw `/dev/*` paths.
 - `transfer` – performs block-level synchronization, compression, deduplication, and resume logic.
   - Internally split into focused modules: `progress.go`, `handshake.go`, and `block_writer.go` for clearer responsibilities.
 - `remote` – wraps SSH functionality for running commands on remote hosts and coordinating transfers. Callers must provide a `context.Context` with a timeout when starting the privileged helper to allow cancellation if the remote command fails to launch.
