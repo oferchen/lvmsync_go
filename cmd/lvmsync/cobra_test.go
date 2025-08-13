@@ -1,0 +1,62 @@
+package lvmsync
+
+import "testing"
+
+func TestRunCommandFlags(t *testing.T) {
+	var gotSrc, gotDst string
+	var gotOpts RunOptions
+	runCommand = func(src, dst string, opts RunOptions) error {
+		gotSrc, gotDst, gotOpts = src, dst, opts
+		return nil
+	}
+	t.Cleanup(func() { runCommand = func(src, dst string, opts RunOptions) error { return nil } })
+
+	if err := Execute([]string{"run", "--dry-run", "--transport", "tcp,ssh", "src", "dst"}); err != nil {
+		t.Fatalf("execute run: %v", err)
+	}
+	if gotSrc != "src" || gotDst != "dst" {
+		t.Fatalf("unexpected args %q %q", gotSrc, gotDst)
+	}
+	if !gotOpts.DryRun {
+		t.Fatalf("expected dry-run true")
+	}
+	if gotOpts.Transport != "tcp,ssh" {
+		t.Fatalf("unexpected transport %q", gotOpts.Transport)
+	}
+}
+
+func TestManifestRebuildRoutes(t *testing.T) {
+	var gotDevice string
+	var dry bool
+	manifestRebuild = func(device string, d bool) error {
+		gotDevice, dry = device, d
+		return nil
+	}
+	t.Cleanup(func() { manifestRebuild = func(device string, dryRun bool) error { return nil } })
+
+	if err := Execute([]string{"manifest", "rebuild", "--dry-run", "/dev/vg0"}); err != nil {
+		t.Fatalf("execute rebuild: %v", err)
+	}
+	if gotDevice != "/dev/vg0" {
+		t.Fatalf("unexpected device %q", gotDevice)
+	}
+	if !dry {
+		t.Fatalf("expected dry-run true")
+	}
+}
+
+func TestVerifyRoutes(t *testing.T) {
+	var src, dst string
+	verifyCommand = func(s, d string) error {
+		src, dst = s, d
+		return nil
+	}
+	t.Cleanup(func() { verifyCommand = func(src, dst string) error { return nil } })
+
+	if err := Execute([]string{"verify", "a", "b"}); err != nil {
+		t.Fatalf("execute verify: %v", err)
+	}
+	if src != "a" || dst != "b" {
+		t.Fatalf("unexpected args %q %q", src, dst)
+	}
+}
