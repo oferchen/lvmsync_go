@@ -1,13 +1,5 @@
 [
   {
-    "type": "deprecated-api",
-    "component": "grpc/client/client.go",
-    "evidence": "used grpc.DialContext deprecated API",
-    "impact": "future gRPC releases could break dialing",
-    "fix": "replaced with grpc.NewClient",
-    "priority": "P1"
-  },
-  {
     "type": "unreachable",
     "component": "internal/transport",
     "evidence": "package unused and failing vet",

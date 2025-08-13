@@ -755,6 +755,9 @@ timeouts or cancellations are reported separately.
 
 #### gRPC Options
 
+The client aborts dialing if a connection cannot be established within
+`--grpc_dial_timeout`, which defaults to `5s`.
+
 | Option             | Description                  | Default         |
 | ------------------ | ---------------------------- | --------------- |
 | `--grpc_port`      | gRPC port to listen on       | `8443`          |
