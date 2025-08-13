@@ -26,6 +26,8 @@ var (
 )
 
 type Config struct {
+	SourceType           string        `mapstructure:"source-type"`
+	DestType             string        `mapstructure:"dest-type"`
 	ConfigFile           string        `mapstructure:"config"`
 	ApplyMode            string        `mapstructure:"apply"`
 	StdoutMode           bool          `mapstructure:"stdout"`
@@ -173,6 +175,8 @@ func DefaultConfig() (*Config, error) {
 		SkipSnapshotCreation: false,
 		SkipDiskCheck:        false,
 		SnapshotSize:         "20%",
+		SourceType:           "auto",
+		DestType:             "auto",
 		VolumeGroup:          "",
 		TargetVolumeGroup:    "",
 		TargetVGCandidates:   []string{},

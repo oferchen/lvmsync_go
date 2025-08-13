@@ -234,13 +234,15 @@ func buildViper(flagSets *FlagSets) (*viper.Viper, error) {
 	v.SetConfigName("config")
 	v.SetConfigType("yaml")
 	v.AddConfigPath(".")
-	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
 	v.SetEnvPrefix("LVMSYNC")
 	v.AutomaticEnv()
 	keys := []string{
 		"transport",
 		"concurrency",
 		"tcp_port",
+		"source-type",
+		"dest-type",
 	}
 	for _, k := range keys {
 		if err := v.BindEnv(k); err != nil {

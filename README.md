@@ -237,6 +237,26 @@ Recent refactors added several configuration options:
 - `--sync_interval` sets how many bytes are written between `fdatasync` calls.
 - `--numa_pin` pins worker goroutines to CPUs local to the source device's NUMA node.
 
+### Device types
+
+LVMSync works with three kinds of source and destination devices. Auto-detection
+examines the path to select the correct handling:
+
+| Type | Detection | Notes |
+|------|-----------|-------|
+| `lvm` | `/dev/<vg>/<lv>` or `/dev/mapper/<vg>-<lv>` | A snapshot is created and removed automatically |
+| `raw` | Other block devices | Require `--skip_snapshot_creation` or external freeze hooks |
+| `file` | Regular files | Used as-is with no snapshot |
+
+Override detection with `--source-type` and `--dest-type` when necessary.
+
+Examples:
+
+```sh
+lvmsync --source-type lvm /dev/vg0/origin /tmp/dump
+lvmsync --dest-type raw dumpfile /dev/sdb
+```
+
 ### Configuration sources and precedence
 
 LVMSync uses [`pflag`](https://github.com/spf13/pflag) and [`viper`](https://github.com/spf13/viper) so every option can be
@@ -277,6 +297,8 @@ LVMSYNC_GRPC_GRPC_PORT=9443 LVMSYNC_GRPC_TLS_CERT=cert.pem lvmsync-grpcd
 | `--config` | `LVMSYNC_CONFIG` | `config` | Path to config YAML file |
 | `--apply` | `LVMSYNC_APPLY` | `apply` | Apply mode: read change dump from file ('-' for STDIN) and apply to destination device |
 | `--stdout` | `LVMSYNC_STDOUT` | `stdout` | Write change dump to STDOUT |
+| `--source-type` | `LVMSYNC_SOURCE_TYPE` | `source-type` | Source device type: `auto`, `file`, `raw`, or `lvm` |
+| `--dest-type` | `LVMSYNC_DEST_TYPE` | `dest-type` | Destination device type: `auto`, `file`, `raw`, or `lvm` |
 | `--mode` | `LVMSYNC_MODE` | `mode` | Configuration preset: `default` or `throughput`; unknown modes fail validation |
 | `--parallel` | `LVMSYNC_PARALLEL` | `parallel` | Number of concurrent workers |
 | `--concurrency` | `LVMSYNC_CONCURRENCY` | `concurrency` | Stream concurrency (0 to autotune based on BDP) |

@@ -53,6 +53,8 @@ func initGeneralFlags(cfg *Config) *pflag.FlagSet {
 	fs.Bool("stdout", cfg.StdoutMode, "Write change dump to STDOUT")
 	fs.Bool("dry_run", cfg.DryRun, "Print actions without executing")
 	fs.Bool("force", cfg.Force, "Override safety checks and proceed on mounted destination")
+	fs.String("source-type", cfg.SourceType, "Source device type (auto,file,raw,lvm)")
+	fs.String("dest-type", cfg.DestType, "Destination device type (auto,file,raw,lvm)")
 	fs.String("mode", cfg.Mode, "Preset mode: default or throughput")
 	fs.Int("parallel", cfg.Parallel, "Number of concurrent workers")
 	fs.Bool("zerocopy", cfg.ZeroCopy, "Enable zero-copy transfers")
