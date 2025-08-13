@@ -685,6 +685,9 @@ func (c *Config) Validate() error { return c.ValidateWith(os.Geteuid) }
 
 // ValidateWith verifies configuration values using the provided geteuid function.
 func (c *Config) ValidateWith(geteuid func() int) error {
+	if c.Mode != "default" && c.Mode != "throughput" {
+		return fmt.Errorf("invalid mode %q: must be \"default\" or \"throughput\"", c.Mode)
+	}
 	if c.SSHKeepAliveInterval <= 0 {
 		return fmt.Errorf("ssh keepalive interval must be > 0")
 	}
