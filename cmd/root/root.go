@@ -127,7 +127,7 @@ func Run(cfg *config.Config, args []string, logger *zap.Logger) error {
 		return nil
 	}
 
-	if err := selectTransport(cfg, logger); err != nil {
+	if _, err := selectTransport(cfg, logger); err != nil {
 		return fmt.Errorf("select transport: %w", err)
 	}
 
