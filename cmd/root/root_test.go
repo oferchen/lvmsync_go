@@ -30,7 +30,7 @@ func TestSetupGRPCSuccess(t *testing.T) {
 	startGRPCServer = func(_ context.Context, _ *config.Config, _ *zap.Logger) (func(), <-chan error, error) {
 		return func() { srvCleanCalled = true }, srvErrCh, nil
 	}
-	clientHandshake = func(_ *config.Config, _ *zap.Logger) (func(), chan error, error) {
+	clientHandshake = func(_ context.Context, _ *config.Config, _ *zap.Logger) (func(), chan error, error) {
 		return func() { clientCleanCalled = true }, make(chan error), nil
 	}
 
@@ -86,7 +86,7 @@ func TestSetupGRPCClientError(t *testing.T) {
 	startGRPCServer = func(_ context.Context, _ *config.Config, _ *zap.Logger) (func(), <-chan error, error) {
 		return func() { srvCleanupCalled = true }, srvErrCh, nil
 	}
-	clientHandshake = func(_ *config.Config, _ *zap.Logger) (func(), chan error, error) {
+	clientHandshake = func(_ context.Context, _ *config.Config, _ *zap.Logger) (func(), chan error, error) {
 		return nil, nil, errors.New("client fail")
 	}
 	done := make(chan struct{})
@@ -109,6 +109,35 @@ func TestSetupGRPCClientError(t *testing.T) {
 	}
 }
 
+func TestSetupGRPCTimeout(t *testing.T) {
+	cfg := &config.Config{}
+	logger := zap.NewNop()
+	srvCleanupCalled := false
+	origStart := startGRPCServer
+	origClient := clientHandshake
+	defer func() {
+		startGRPCServer = origStart
+		clientHandshake = origClient
+	}()
+	startGRPCServer = func(ctx context.Context, _ *config.Config, _ *zap.Logger) (func(), <-chan error, error) {
+		ch := make(chan error, 1)
+		go func() { <-ctx.Done(); ch <- ctx.Err() }()
+		return func() { srvCleanupCalled = true }, ch, nil
+	}
+	clientHandshake = func(ctx context.Context, _ *config.Config, _ *zap.Logger) (func(), chan error, error) {
+		<-ctx.Done()
+		return func() {}, nil, ctx.Err()
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+	if _, _, _, err := SetupGRPC(ctx, cfg, logger); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected deadline exceeded, got %v", err)
+	}
+	if !srvCleanupCalled {
+		t.Fatalf("server cleanup not called on timeout")
+	}
+}
+
 func TestSetupGRPCServeFailurePropagation(t *testing.T) {
 	cfg := &config.Config{}
 	logger := zap.NewNop()
@@ -124,7 +153,7 @@ func TestSetupGRPCServeFailurePropagation(t *testing.T) {
 		errCh <- errors.New("serve boom")
 		return func() { srvCleanupCalled = true; close(errCh) }, errCh, nil
 	}
-	clientHandshake = func(_ *config.Config, _ *zap.Logger) (func(), chan error, error) {
+	clientHandshake = func(_ context.Context, _ *config.Config, _ *zap.Logger) (func(), chan error, error) {
 		t.Fatalf("client handshake should not be called")
 		return nil, nil, nil
 	}
@@ -184,7 +213,7 @@ func TestExecuteClient(t *testing.T) {
 }
 
 func TestRunHeartbeatError(t *testing.T) {
-	cfg := &config.Config{StdoutMode: true}
+	cfg := &config.Config{StdoutMode: true, GRPCSetupTimeout: time.Second}
 	logger := zap.NewNop()
 
 	origStart := startGRPCServer
@@ -210,7 +239,7 @@ func TestRunHeartbeatError(t *testing.T) {
 		close(ch)
 		return func() {}, ch, nil
 	}
-	clientHandshake = func(*config.Config, *zap.Logger) (func(), chan error, error) {
+	clientHandshake = func(context.Context, *config.Config, *zap.Logger) (func(), chan error, error) {
 		return func() {}, hbErrCh, nil
 	}
 	selectTransport = func(*config.Config, *zap.Logger) error { return nil }
@@ -246,7 +275,7 @@ func TestRunGRPCConnectGoroutineLeak(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			defer goleak.VerifyNone(t)
 
-			cfg := &config.Config{StdoutMode: true, GRPCConnect: tc.grpcConnect}
+			cfg := &config.Config{StdoutMode: true, GRPCConnect: tc.grpcConnect, GRPCSetupTimeout: time.Second}
 			logger := zap.NewNop()
 
 			origStart := startGRPCServer
@@ -272,11 +301,11 @@ func TestRunGRPCConnectGoroutineLeak(t *testing.T) {
 
 			if tc.hbChannel {
 				hbErrCh := make(chan error)
-				clientHandshake = func(*config.Config, *zap.Logger) (func(), chan error, error) {
+				clientHandshake = func(context.Context, *config.Config, *zap.Logger) (func(), chan error, error) {
 					return func() { close(hbErrCh) }, hbErrCh, nil
 				}
 			} else {
-				clientHandshake = func(*config.Config, *zap.Logger) (func(), chan error, error) {
+				clientHandshake = func(context.Context, *config.Config, *zap.Logger) (func(), chan error, error) {
 					return func() {}, nil, nil
 				}
 			}

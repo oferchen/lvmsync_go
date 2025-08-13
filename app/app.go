@@ -95,11 +95,11 @@ func StartGRPCServer(ctx context.Context, cfg *config.Config, logger *zap.Logger
 }
 
 // ClientHandshake performs the gRPC client handshake and returns a cleanup function and heartbeat error channel.
-func ClientHandshake(cfg *config.Config, logger *zap.Logger) (func(), chan error, error) {
+func ClientHandshake(ctx context.Context, cfg *config.Config, logger *zap.Logger) (func(), chan error, error) {
 	if cfg.GRPCConnect == "" {
 		return func() {}, nil, nil
 	}
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(ctx)
 	conn, err := dial(ctx, cfg.GRPCConnect, grpcclient.Config{
 		TLSCert:       cfg.TLSCert,
 		TLSKey:        cfg.TLSKey,

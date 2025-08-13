@@ -336,6 +336,7 @@ If `--ssh_key` is empty, lvmsync contacts the SSH agent referenced by `SSH_AUTH_
 | `--grpc_connect` | `LVMSYNC_GRPC_CONNECT` | `grpc_connect` | gRPC server address to connect to |
 | `--grpc_port` | `LVMSYNC_GRPC_PORT` | `grpc_port` | gRPC port to listen on |
 | `--grpc_dial_timeout` | `LVMSYNC_GRPC_DIAL_TIMEOUT` | `grpc_dial_timeout` | gRPC dial timeout |
+| `--grpc_setup_timeout` | `LVMSYNC_GRPC_SETUP_TIMEOUT` | `grpc_setup_timeout` | gRPC setup timeout |
 | `--grpc_heartbeat_interval` | `LVMSYNC_GRPC_HEARTBEAT_INTERVAL` | `grpc_heartbeat_interval` | gRPC heartbeat interval |
 | `--grpc_heartbeat_send_timeout` | `LVMSYNC_GRPC_HEARTBEAT_SEND_TIMEOUT` | `grpc_heartbeat_send_timeout` | gRPC heartbeat send timeout |
 | `--tls_cert` | `LVMSYNC_TLS_CERT` | `tls_cert` | TLS certificate file |
@@ -805,6 +806,7 @@ timeouts or cancellations are reported separately.
 | ------------------ | ---------------------------- | --------------- |
 | `--grpc_port`      | gRPC port to listen on       | `8443`          |
 | `--grpc_dial_timeout` | gRPC dial timeout          | `5s`            |
+| `--grpc_setup_timeout` | gRPC setup timeout        | `10s`           |
 | `--grpc_heartbeat_interval` | gRPC heartbeat interval | `30s`          |
 | `--grpc_heartbeat_send_timeout` | gRPC heartbeat send timeout | `5s` |
 | `--tls_cert`       | TLS certificate file         | `""`            |

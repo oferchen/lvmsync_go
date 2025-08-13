@@ -94,7 +94,7 @@ func SetupGRPC(ctx context.Context, cfg *config.Config, logger *zap.Logger) (fun
 		}
 	default:
 	}
-	cleanupClient, hbErrCh, err := clientHandshake(cfg, logger)
+	cleanupClient, hbErrCh, err := clientHandshake(ctx, cfg, logger)
 	if err != nil {
 		cleanupSrv()
 		<-srvErrCh
@@ -140,7 +140,7 @@ func Run(cfg *config.Config, args []string, logger *zap.Logger) error {
 		return fmt.Errorf("select transport: %w", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.GRPCSetupTimeout)
 	cleanupSrv, cleanupClient, hbErrCh, err := SetupGRPC(ctx, cfg, logger)
 	if err != nil {
 		cancel()

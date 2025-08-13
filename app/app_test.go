@@ -148,7 +148,7 @@ func TestClientHandshakeSuccess(t *testing.T) {
 	}
 	ackStream = func(context.Context, proto.ReplicationClient, string) (ackStreamClient, error) { return fs, nil }
 
-	cleanup, hbErrCh, err := ClientHandshake(cfg, logger)
+	cleanup, hbErrCh, err := ClientHandshake(context.Background(), cfg, logger)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -170,7 +170,7 @@ func TestClientHandshakeDialError(t *testing.T) {
 		return nil, errors.New("dial fail")
 	}
 
-	if _, _, err := ClientHandshake(cfg, logger); err == nil {
+	if _, _, err := ClientHandshake(context.Background(), cfg, logger); err == nil {
 		t.Fatalf("expected error")
 	}
 }
@@ -202,7 +202,7 @@ func TestClientHandshakeHeartbeatFailure(t *testing.T) {
 	}
 	ackStream = func(context.Context, proto.ReplicationClient, string) (ackStreamClient, error) { return fs, nil }
 
-	cleanup, hbErrCh, err := ClientHandshake(cfg, logger)
+	cleanup, hbErrCh, err := ClientHandshake(context.Background(), cfg, logger)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -245,7 +245,7 @@ func TestClientHandshakeHeartbeatTimeout(t *testing.T) {
 	}
 	ackStream = func(context.Context, proto.ReplicationClient, string) (ackStreamClient, error) { return fs, nil }
 
-	cleanup, hbErrCh, err := ClientHandshake(cfg, logger)
+	cleanup, hbErrCh, err := ClientHandshake(context.Background(), cfg, logger)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
