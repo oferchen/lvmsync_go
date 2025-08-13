@@ -30,7 +30,7 @@ func TestStartKeepAlive(t *testing.T) {
 
 	client := &SSHClient{Client: rawClient, Logger: zap.NewNop()}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	done := make(chan struct{})
 	go func() {
 		client.startKeepAlive(ctx, "host", 10*time.Millisecond)
@@ -56,7 +56,7 @@ func TestStartKeepAlive(t *testing.T) {
 func TestNewSSHClient(t *testing.T) {
 	server, host, port, knownHosts := newSSHServer(t, func(_ string) int { return 0 }) // cmd is unused
 	keyPath := remotetest.CreateTempKey(t)
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	client, err := NewSSHClient(ctx, host, "test", keyPath, port, knownHosts, true, time.Second, 10*time.Millisecond, 0, zap.NewNop())
 	if err != nil {
 		t.Fatalf("NewSSHClient error: %v", err)
@@ -80,12 +80,14 @@ func TestSSHManager(t *testing.T) {
 		t.Fatalf("NewSSHManager error: %v", err)
 	}
 
-	client1, err := mgr.GetClient(context.Background(), host, port)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	client1, err := mgr.GetClient(ctx, host, port)
 	if err != nil {
 		t.Fatalf("GetClient error: %v", err)
 	}
 
-	client2, err := mgr.GetClient(context.Background(), host, port)
+	client2, err := mgr.GetClient(ctx, host, port)
 	if err != nil {
 		t.Fatalf("GetClient second error: %v", err)
 	}
@@ -98,7 +100,9 @@ func TestSSHManager(t *testing.T) {
 		t.Fatalf("CloseAll error: %v", err)
 	}
 
-	client3, err := mgr.GetClient(context.Background(), host, port)
+	ctx2, cancel2 := context.WithTimeout(context.Background(), time.Second)
+	defer cancel2()
+	client3, err := mgr.GetClient(ctx2, host, port)
 	if err != nil {
 		t.Fatalf("GetClient after CloseAll error: %v", err)
 	}

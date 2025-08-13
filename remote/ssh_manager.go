@@ -39,7 +39,9 @@ func NewSSHManager(user, keyPath string, timeout time.Duration, knownHostsPath s
 		logger = zap.NewNop()
 	}
 
-	authMethods, err := getSSHAuthMethods(context.Background(), keyPath, timeout, logger)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	authMethods, err := getSSHAuthMethods(ctx, keyPath, timeout, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize authentication: %w", err)
 	}

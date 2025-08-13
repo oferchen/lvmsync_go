@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 	"testing"
+	"time"
 )
 
 func BenchmarkCopyPipeAsync(b *testing.B) {
@@ -12,7 +13,9 @@ func BenchmarkCopyPipeAsync(b *testing.B) {
 	b.SetBytes(int64(len(data)))
 	for i := 0; i < b.N; i++ {
 		src := bytes.NewReader(data)
-		errCh := CopyPipeAsync(context.Background(), io.Discard, src)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		errCh := CopyPipeAsync(ctx, io.Discard, src)
+		cancel()
 		if err := <-errCh; err != nil {
 			b.Fatal(err)
 		}

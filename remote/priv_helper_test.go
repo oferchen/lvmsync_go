@@ -1,10 +1,12 @@
 package remote
 
 import (
+	"context"
 	"crypto/sha256"
 	"io"
 	"os"
 	"testing"
+	"time"
 
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
@@ -25,7 +27,9 @@ func TestPrivilegedHelperACKNACK(t *testing.T) {
 		return 0
 	}
 	_, client := newSSHServerClientWithChannel(t, handler)
-	privClient, err := StartPrivHelper(client, "privhelper", zap.NewNop())
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	privClient, err := StartPrivHelper(ctx, client, "privhelper", zap.NewNop())
 	if err != nil {
 		t.Fatalf("StartPrivHelper: %v", err)
 	}

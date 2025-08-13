@@ -12,7 +12,7 @@ import (
 
 // TestDialSSHContextCancel ensures dialSSH respects context cancellation.
 func TestDialSSHContextCancel(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	cancel()
 	cfg := &ssh.ClientConfig{
 		User:            "test",
@@ -27,7 +27,8 @@ func TestDialSSHContextCancel(t *testing.T) {
 
 // TestDialSSHTimeout ensures dialSSH respects dial timeouts.
 func TestDialSSHTimeout(t *testing.T) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
 	cfg := &ssh.ClientConfig{
 		User:            "test",
 		Auth:            []ssh.AuthMethod{ssh.Password("")},

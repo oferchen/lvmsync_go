@@ -174,7 +174,9 @@ func TestRunRemoteDumpTimeout(t *testing.T) {
 	defer func() { dumpChangesSequential = origDump }()
 
 	dest := host + ":/dev/null"
-	err = RunRemoteDump(context.Background(), cfg, "snap", "origin", dest, zap.NewNop())
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	err = RunRemoteDump(ctx, cfg, "snap", "origin", dest, zap.NewNop())
 	if err == nil || !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("expected context deadline exceeded, got %v", err)
 	}
@@ -195,7 +197,9 @@ func TestRunRemoteDumpInvalidDest(t *testing.T) {
 		t.Fatalf("DefaultConfig returned error: %v", err)
 	}
 	dest := "invalid"
-	err = RunRemoteDump(context.Background(), cfg, "snap", "origin", dest, zap.NewNop())
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	err = RunRemoteDump(ctx, cfg, "snap", "origin", dest, zap.NewNop())
 	if err == nil || !strings.Contains(err.Error(), "host:device") {
 		t.Fatalf("expected host:device format error, got %v", err)
 	}

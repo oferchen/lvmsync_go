@@ -2,6 +2,7 @@ package remote
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
@@ -22,7 +23,9 @@ type PrivHelperClient struct {
 
 // StartPrivHelper starts the remote privileged helper using the provided SSH client.
 // The helper reads (index, payload, hash) messages and performs pwrite operations.
-func StartPrivHelper(client *ssh.Client, command string, logger *zap.Logger) (*PrivHelperClient, error) {
+// The provided context controls the lifetime of the startup; if it is canceled
+// before the remote command begins executing, an error is returned.
+func StartPrivHelper(ctx context.Context, client *ssh.Client, command string, logger *zap.Logger) (*PrivHelperClient, error) {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
@@ -41,10 +44,19 @@ func StartPrivHelper(client *ssh.Client, command string, logger *zap.Logger) (*P
 		session.Close() //nolint:errcheck
 		return nil, err
 	}
-	if err := session.Start(command); err != nil {
+	errCh := make(chan error, 1)
+	go func() { errCh <- session.Start(command) }()
+	select {
+	case <-ctx.Done():
 		stdin.Close()   //nolint:errcheck
 		session.Close() //nolint:errcheck
-		return nil, err
+		return nil, ctx.Err()
+	case err := <-errCh:
+		if err != nil {
+			stdin.Close()   //nolint:errcheck
+			session.Close() //nolint:errcheck
+			return nil, err
+		}
 	}
 	return &PrivHelperClient{stdin: stdin, stdout: stdout, session: session, logger: logger}, nil
 }

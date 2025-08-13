@@ -3,6 +3,7 @@ package remote
 import (
 	"context"
 	"testing"
+	"time"
 
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
@@ -28,7 +29,9 @@ func TestRunRemoteScriptNoLogger(t *testing.T) {
 	sshClient := &SSHClient{Client: client, Logger: zap.NewNop()}
 
 	script := "echo hi"
-	if scriptErr := sshClient.RunRemoteScript(context.Background(), script); scriptErr != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if scriptErr := sshClient.RunRemoteScript(ctx, script); scriptErr != nil {
 		t.Fatalf("RunRemoteScript error: %v", scriptErr)
 	}
 }
