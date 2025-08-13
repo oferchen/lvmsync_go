@@ -1,3 +1,6 @@
+//go:build linux
+// +build linux
+
 // Package privilege implements capability detection to avoid unnecessary sudo
 // usage. Only the capabilities required for LVM and direct I/O operations are
 // checked.
