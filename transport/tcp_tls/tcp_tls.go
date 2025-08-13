@@ -12,6 +12,8 @@ import (
 	"net"
 	"time"
 
+	"go.uber.org/zap"
+
 	"lvmsync_go/common"
 	"lvmsync_go/transport"
 )
@@ -20,14 +22,16 @@ import (
 type Transport struct {
 	serverConf *tls.Config
 	clientConf *tls.Config
+	logger     *zap.Logger
 }
 
 // New creates a Transport with a self-signed certificate for tests.
-func New() transport.Interface {
+func New(logger *zap.Logger) transport.Interface {
 	cert, _ := generateSelfSignedCert()
 	return &Transport{
 		serverConf: &tls.Config{Certificates: []tls.Certificate{cert}},
 		clientConf: &tls.Config{InsecureSkipVerify: true},
+		logger:     logger,
 	}
 }
 
@@ -40,11 +44,13 @@ func init() {
 func (t *Transport) Name() string { return "tcp+tls" }
 
 func (t *Transport) Dial(ctx context.Context, address string) (net.Conn, error) {
+	t.logger.Info("dial", zap.String("address", address))
 	d := net.Dialer{}
 	return tls.DialWithDialer(&d, "tcp", address, t.clientConf)
 }
 
 func (t *Transport) Listen(ctx context.Context, address string) (net.Listener, error) {
+	t.logger.Info("listen", zap.String("address", address))
 	ln, err := net.Listen("tcp", address)
 	if err != nil {
 		return nil, err
@@ -64,6 +70,7 @@ func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport
 			return err
 		}
 		if peer.Endianness != "" && peer.Endianness != hs.Endianness {
+			t.logger.Warn("endianness_mismatch", zap.String("peer_endianness", peer.Endianness), zap.String("local_endianness", hs.Endianness))
 			return fmt.Errorf("endianness mismatch: %s", peer.Endianness)
 		}
 		return nil
@@ -73,6 +80,7 @@ func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport
 			return err
 		}
 		if peer.Endianness != "" && peer.Endianness != hs.Endianness {
+			t.logger.Warn("endianness_mismatch", zap.String("peer_endianness", peer.Endianness), zap.String("local_endianness", hs.Endianness))
 			return fmt.Errorf("endianness mismatch: %s", peer.Endianness)
 		}
 		return common.WriteHandshake(conn, hs)

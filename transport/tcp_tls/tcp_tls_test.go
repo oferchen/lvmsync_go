@@ -6,10 +6,14 @@ import (
 	"testing"
 
 	"lvmsync_go/transport"
+
+	"go.uber.org/zap/zaptest"
 )
 
 func TestTCPTLSTransportHandshake(t *testing.T) {
-	tr := New()
+	logger := zaptest.NewLogger(t)
+	defer logger.Sync()
+	tr := New(logger)
 	ctx := context.Background()
 	ln, err := tr.Listen(ctx, "127.0.0.1:0")
 	if err != nil {
@@ -55,7 +59,9 @@ func TestTCPTLSTransportHandshake(t *testing.T) {
 }
 
 func TestTCPTLSTransportHandshakeError(t *testing.T) {
-	tr := New()
+	logger := zaptest.NewLogger(t)
+	defer logger.Sync()
+	tr := New(logger)
 	ctx := context.Background()
 	ln, err := tr.Listen(ctx, "127.0.0.1:0")
 	if err != nil {

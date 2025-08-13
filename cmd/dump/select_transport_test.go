@@ -7,12 +7,13 @@ import (
 	"lvmsync_go/config"
 	_ "lvmsync_go/transport/ssh"
 
-	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 )
 
 func TestSelectTransportNoConfig(t *testing.T) {
 	cfg := &config.Config{}
-	logger := zap.NewNop()
+	logger := zaptest.NewLogger(t)
+	defer logger.Sync()
 	tr, err := SelectTransport(cfg, logger)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -24,7 +25,8 @@ func TestSelectTransportNoConfig(t *testing.T) {
 
 func TestSelectTransportError(t *testing.T) {
 	cfg := &config.Config{Transport: "bogus"}
-	logger := zap.NewNop()
+	logger := zaptest.NewLogger(t)
+	defer logger.Sync()
 	_, err := SelectTransport(cfg, logger)
 	if err == nil || !strings.Contains(err.Error(), "no supported") {
 		t.Fatalf("expected transport error, got %v", err)
@@ -33,7 +35,8 @@ func TestSelectTransportError(t *testing.T) {
 
 func TestSelectTransportOrder(t *testing.T) {
 	cfg := &config.Config{Transport: "bogus,ssh"}
-	logger := zap.NewNop()
+	logger := zaptest.NewLogger(t)
+	defer logger.Sync()
 	tr, err := SelectTransport(cfg, logger)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

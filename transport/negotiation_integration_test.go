@@ -10,6 +10,8 @@ import (
 	"lvmsync_go/transport"
 	_ "lvmsync_go/transport/ssh"
 	_ "lvmsync_go/transport/tcp_tls"
+
+	"go.uber.org/zap/zaptest"
 )
 
 func handshakeRoundTrip(t transport.Interface, tname string) error {
@@ -73,7 +75,9 @@ func handshakeRoundTrip(t transport.Interface, tname string) error {
 func TestNegotiationTCPAndSSH(t *testing.T) {
 	names := []string{"tcp+tls", "ssh"}
 	for _, name := range names {
-		tr, err := transport.Get(name)
+		logger := zaptest.NewLogger(t)
+		defer logger.Sync()
+		tr, err := transport.Get(name, logger)
 		if err != nil {
 			t.Fatalf("get transport %s: %v", name, err)
 		}
