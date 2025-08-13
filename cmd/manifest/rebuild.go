@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
 	"go.uber.org/zap"
 
 	"lvmsync_go/config"
@@ -13,25 +12,35 @@ import (
 
 // Run executes manifest subcommands. Currently only "rebuild" is supported.
 func Run(cfg *config.Config, args []string, logger *zap.Logger) error {
-	fs := pflag.NewFlagSet("manifest", pflag.ContinueOnError)
-	output := fs.String("output", "", "manifest output file")
-	if err := fs.Parse(args); err != nil {
-		return err
-	}
-	v := viper.New()
-	_ = v.BindPFlags(fs)
-	remaining := fs.Args()
-	if len(remaining) < 2 || remaining[0] != "rebuild" {
+	if len(args) == 0 || args[0] != "rebuild" {
+		fs := pflag.NewFlagSet("manifest", pflag.ContinueOnError)
 		fs.Usage()
 		return fmt.Errorf("usage: lvmsync manifest rebuild <device>")
 	}
-	device := remaining[1]
+	flagSets := config.NewFlagSets(cfg)
+	fs := pflag.NewFlagSet("manifest rebuild", pflag.ContinueOnError)
+	output := fs.String("output", "", "manifest output file")
+	conf, remaining, err := config.LoadConfig(flagSets, cfg, fs, args[1:])
+	if err != nil {
+		return err
+	}
+	if len(remaining) != 1 {
+		fs.Usage()
+		return fmt.Errorf("usage: lvmsync manifest rebuild <device>")
+	}
+	device := remaining[0]
 	path := *output
 	if path == "" {
 		path = device + ".manifest"
 	}
 	if logger != nil {
 		logger.Info("rebuilding manifest", zap.String("device", device), zap.String("output", path))
+	}
+	if conf.DryRun {
+		if logger != nil {
+			logger.Info("dry run - skipping rebuild")
+		}
+		return nil
 	}
 	if err := manifestpkg.Rebuild(device, path); err != nil {
 		if logger != nil {

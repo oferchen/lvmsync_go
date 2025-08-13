@@ -5,7 +5,7 @@
 # and apply to destination device
 apply: ""
 stdout: false  # Write change dump to STDOUT
-dry_run: false  # Print actions without executing (same as --dry-run)
+dry_run: false  # Print actions without executing (same as --dry_run)
 parallel: 4  # Number of concurrent workers
 # Enable zero-copy transfers (only in sequential mode)
 zerocopy: false

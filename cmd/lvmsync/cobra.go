@@ -1,10 +1,12 @@
 package lvmsync
 
 import (
-	"strings"
+	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
+	"github.com/spf13/pflag"
+
+	"lvmsync_go/config"
 )
 
 // RunOptions collects flags for the run command.
@@ -21,51 +23,66 @@ var (
 )
 
 // NewRootCmd creates the root cobra command with all subcommands wired.
-func newViper() *viper.Viper {
-	v := viper.New()
-	v.SetEnvPrefix("LVMSYNC")
-	v.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
-	v.AutomaticEnv()
-	return v
-}
-
 func NewRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "lvmsync",
 		Short: "LVMSync command line tool",
 	}
-	runV := newViper()
+
 	runCmd := &cobra.Command{
-		Use:   "run <source> <dest>",
-		Short: "Synchronize source to destination",
-		Args:  cobra.ExactArgs(2),
+		Use:                "run [flags] <source> <dest>",
+		Short:              "Synchronize source to destination",
+		DisableFlagParsing: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			opts := RunOptions{
-				DryRun:    runV.GetBool("dry-run"),
-				Transport: runV.GetString("transport"),
+			defaults, err := config.DefaultConfig()
+			if err != nil {
+				return err
 			}
-			return runCommand(args[0], args[1], opts)
+			fs := pflag.NewFlagSet("run", pflag.ContinueOnError)
+			flagSets := config.NewFlagSets(defaults)
+			cfg, remaining, err := config.LoadConfig(flagSets, defaults, fs, args)
+			if err != nil {
+				return err
+			}
+			if len(remaining) != 2 {
+				fs.Usage()
+				return fmt.Errorf("usage: lvmsync run [flags] <source> <dest>")
+			}
+			opts := RunOptions{
+				DryRun:    cfg.DryRun,
+				Transport: cfg.Transport,
+			}
+			return runCommand(remaining[0], remaining[1], opts)
 		},
 	}
-	runCmd.Flags().Bool("dry-run", false, "print actions without executing")
-	runCmd.Flags().String("transport", "", "ordered transports to try (e.g. 'tcp+tls,ssh')")
-	runV.BindPFlags(runCmd.Flags())
 
 	manifestCmd := &cobra.Command{
 		Use:   "manifest",
 		Short: "Manage manifests",
 	}
-	rebuildV := newViper()
+
 	rebuildCmd := &cobra.Command{
-		Use:   "rebuild <device>",
-		Short: "Rebuild manifest for device",
-		Args:  cobra.ExactArgs(1),
+		Use:                "rebuild [flags] <device>",
+		Short:              "Rebuild manifest for device",
+		DisableFlagParsing: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return manifestRebuild(args[0], rebuildV.GetBool("dry-run"))
+			defaults, err := config.DefaultConfig()
+			if err != nil {
+				return err
+			}
+			fs := pflag.NewFlagSet("rebuild", pflag.ContinueOnError)
+			flagSets := config.NewFlagSets(defaults)
+			cfg, remaining, err := config.LoadConfig(flagSets, defaults, fs, args)
+			if err != nil {
+				return err
+			}
+			if len(remaining) != 1 {
+				fs.Usage()
+				return fmt.Errorf("usage: lvmsync manifest rebuild [flags] <device>")
+			}
+			return manifestRebuild(remaining[0], cfg.DryRun)
 		},
 	}
-	rebuildCmd.Flags().Bool("dry-run", false, "print actions without executing")
-	rebuildV.BindPFlags(rebuildCmd.Flags())
 	manifestCmd.AddCommand(rebuildCmd)
 
 	verifyCmd := &cobra.Command{
