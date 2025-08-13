@@ -62,14 +62,14 @@ func (c *Chunker) NextChunk(r io.Reader) (Chunk, error) {
 			if n == 0 {
 				return Chunk{}, io.EOF
 			}
-			return Chunk{Offset: 0, Length: n, Data: buf[:n]}, io.EOF
+			return Chunk{Length: n, Data: buf[:n]}, io.EOF
 		}
 		return Chunk{}, err
 	}
 
 	size := c.Min
 	var h uint64
-	var offset int64
+	var b [1]byte
 
 	// initialize entropy window
 	copy(c.window[:], buf[size-64:size])
@@ -79,8 +79,7 @@ func (c *Chunker) NextChunk(r io.Reader) (Chunk, error) {
 	}
 
 	for size < c.Max {
-		b := make([]byte, 1)
-		_, err = r.Read(b)
+		_, err = r.Read(b[:])
 		if err != nil {
 			if err == io.EOF {
 				break
@@ -99,7 +98,7 @@ func (c *Chunker) NextChunk(r io.Reader) (Chunk, error) {
 			break
 		}
 	}
-	return Chunk{Offset: offset, Length: size, Data: buf[:size]}, nil
+	return Chunk{Length: size, Data: buf[:size]}, nil
 }
 
 // updateEntropy updates the rolling entropy window with the new byte and
