@@ -19,21 +19,26 @@ type fdCacheEntry struct {
 
 // FDCache provides a simple LRU cache for file descriptors.
 type FDCache struct {
-	fds   map[string]*list.Element
-	order *list.List
-	mutex sync.Mutex
-	size  int
+	fds    map[string]*list.Element
+	order  *list.List
+	mutex  sync.Mutex
+	size   int
+	logger *zap.Logger
 }
 
 // NewFDCache returns an initialized file descriptor cache with the given capacity.
-func NewFDCache(size int) *FDCache {
+func NewFDCache(size int, logger *zap.Logger) *FDCache {
 	if size <= 0 {
 		size = fdCacheSize
 	}
+	if logger == nil {
+		logger = zap.NewNop()
+	}
 	return &FDCache{
-		fds:   make(map[string]*list.Element, size),
-		order: list.New(),
-		size:  size,
+		fds:    make(map[string]*list.Element, size),
+		order:  list.New(),
+		size:   size,
+		logger: logger,
 	}
 }
 
@@ -62,7 +67,7 @@ func (c *FDCache) getFD(devicePath string) (int, error) {
 		if back := c.order.Back(); back != nil {
 			if entry, ok := back.Value.(*fdCacheEntry); ok {
 				if err := unix.Close(entry.fd); err != nil {
-					zap.L().Warn("failed to close fd", zap.String("path", entry.path), zap.Error(err))
+					c.logger.Warn("failed to close fd", zap.String("path", entry.path), zap.Error(err))
 				}
 				delete(c.fds, entry.path)
 			}
@@ -86,7 +91,7 @@ func (c *FDCache) Close() {
 			continue
 		}
 		if err := unix.Close(entry.fd); err != nil {
-			zap.L().Warn("failed to close fd", zap.String("path", entry.path), zap.Error(err))
+			c.logger.Warn("failed to close fd", zap.String("path", entry.path), zap.Error(err))
 		}
 	}
 	c.fds = make(map[string]*list.Element, c.size)
@@ -94,4 +99,4 @@ func (c *FDCache) Close() {
 }
 
 // deviceFDCache is the global cache used by volume operations.
-var deviceFDCache = NewFDCache(fdCacheSize)
+var deviceFDCache = NewFDCache(fdCacheSize, zap.L())

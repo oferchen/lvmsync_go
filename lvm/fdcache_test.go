@@ -11,7 +11,7 @@ import (
 )
 
 func TestFDCacheEvictionOrder(t *testing.T) {
-	cache := NewFDCache(fdCacheSize)
+	cache := NewFDCache(fdCacheSize, zap.NewNop())
 
 	tmpDir := t.TempDir()
 	var fd0, fd1 int
@@ -55,7 +55,7 @@ func TestFDCacheEvictionOrder(t *testing.T) {
 }
 
 func TestFDCacheCloseClosesAll(t *testing.T) {
-	cache := NewFDCache(fdCacheSize)
+	cache := NewFDCache(fdCacheSize, zap.NewNop())
 	tmpDir := t.TempDir()
 	var fds []int
 	for i := 0; i < 3; i++ {
