@@ -29,7 +29,10 @@ var (
 	executeClientFn   = clientpkg.ExecuteClient
 	selectTransport   = dumpcmd.SelectTransport
 	runDump           = dumpcmd.Run
-	runServe          = servecmd.Run
+	runServe          = func(ctx context.Context, cfg *config.Config, logger *zap.Logger) error {
+		_, err := servecmd.Run(ctx, cfg, logger)
+		return err
+	}
 )
 
 // SyncLogger flushes buffered log entries and logs if syncing fails.

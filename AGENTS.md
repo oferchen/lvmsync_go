@@ -258,6 +258,7 @@ golangci-lint run
 - [ ] Audit `serve` and related CLI flags for simplification and consistency.
 - [ ] Update `README` and configuration docs for `serve` mode and flag changes.
 - [ ] Add unit tests for the `serve` command and flag parsing.
+- [ ] Note serve-mode graceful shutdown patterns for future contributions.
 
   ```sh
   go build ./...
