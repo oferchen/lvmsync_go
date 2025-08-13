@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"sort"
-	"strings"
 	"sync"
 	"testing"
 
@@ -42,12 +41,12 @@ func createTestFiles(t *testing.T, blockSize int64, blockCount int) (srcPath, sn
 func parseOffsets(t *testing.T, data []byte, blockSize int64) []int64 {
 	t.Helper()
 	reader := bufio.NewReader(bytes.NewReader(data))
-	line, err := reader.ReadString('\n')
+	hs, err := common.ReadHandshake(reader)
 	if err != nil {
 		t.Fatalf("failed to read handshake: %v", err)
 	}
-	if strings.TrimSpace(line) != common.ProtocolVersion+" compress:none" {
-		t.Fatalf("unexpected handshake %q", strings.TrimSpace(line))
+	if hs.Compress != "none" {
+		t.Fatalf("unexpected handshake %q", hs.String())
 	}
 	var offsets []int64
 	for {

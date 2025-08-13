@@ -4,7 +4,9 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
+	"unsafe"
 )
 
 // Handshake describes protocol negotiation parameters exchanged at the start
@@ -27,11 +29,28 @@ import (
 //
 // This package aims to centralize handshake formatting and parsing to keep
 // transfer/ code focused on business logic and improve maintainability.
+// Handshake represents the negotiated parameters between peers.
 type Handshake struct {
 	Version       string
 	Compress      string
+	CompressLevel int
 	Checksum      bool
 	ChecksumDedup bool
+	Endianness    string
+	BlockSize     int
+	DedupMode     string
+	ResumeToken   string
+	ODirect       bool
+}
+
+// NativeEndianness reports the platform byte order as "little" or "big".
+func NativeEndianness() string {
+	var i uint16 = 1
+	b := (*[2]byte)(unsafe.Pointer(&i))
+	if b[0] == 1 {
+		return "little"
+	}
+	return "big"
 }
 
 // String reconstructs the textual representation of the handshake. It is
@@ -49,15 +68,37 @@ func (h Handshake) String() string {
 // newline is always written.
 func WriteHandshake(w io.Writer, h Handshake) error {
 	tokens := []string{ProtocolVersion}
+
+	if h.Endianness != "" {
+		tokens = append(tokens, "endian:"+h.Endianness)
+	}
+	if h.BlockSize > 0 {
+		tokens = append(tokens, fmt.Sprintf("block:%d", h.BlockSize))
+	}
+	if h.DedupMode != "" {
+		tokens = append(tokens, "dedup:"+h.DedupMode)
+	}
+	if h.ResumeToken != "" {
+		tokens = append(tokens, "resume:"+h.ResumeToken)
+	}
+	if h.ODirect {
+		tokens = append(tokens, "odirect")
+	}
+
 	if h.ChecksumDedup {
 		tokens = append(tokens, "checksum-dedup")
 	} else if h.Checksum {
 		tokens = append(tokens, "checksum")
 	}
+
 	if h.Compress == "" {
 		h.Compress = "none"
 	}
 	tokens = append(tokens, "compress:"+h.Compress)
+	if h.CompressLevel != 0 {
+		tokens = append(tokens, fmt.Sprintf("level:%d", h.CompressLevel))
+	}
+
 	if _, err := fmt.Fprintln(w, strings.Join(tokens, " ")); err != nil {
 		return fmt.Errorf("write handshake: %w", err)
 	}
@@ -82,13 +123,33 @@ func ReadHandshake(r *bufio.Reader) (Handshake, error) {
 		switch {
 		case strings.HasPrefix(t, "compress:"):
 			h.Compress = strings.TrimPrefix(t, "compress:")
+		case strings.HasPrefix(t, "level:"):
+			lvl, err := strconv.Atoi(strings.TrimPrefix(t, "level:"))
+			if err != nil {
+				return Handshake{}, fmt.Errorf("invalid compression level: %w", err)
+			}
+			h.CompressLevel = lvl
+		case strings.HasPrefix(t, "endian:"):
+			h.Endianness = strings.TrimPrefix(t, "endian:")
+		case strings.HasPrefix(t, "block:"):
+			bs, err := strconv.Atoi(strings.TrimPrefix(t, "block:"))
+			if err != nil {
+				return Handshake{}, fmt.Errorf("invalid block size: %w", err)
+			}
+			h.BlockSize = bs
+		case strings.HasPrefix(t, "dedup:"):
+			h.DedupMode = strings.TrimPrefix(t, "dedup:")
+		case strings.HasPrefix(t, "resume:"):
+			h.ResumeToken = strings.TrimPrefix(t, "resume:")
+		case t == "odirect":
+			h.ODirect = true
 		case t == "checksum":
 			h.Checksum = true
 		case t == "checksum-dedup":
 			h.Checksum = true
 			h.ChecksumDedup = true
 		default:
-			return Handshake{}, fmt.Errorf("unexpected token in handshake: %s", t)
+			// Ignore unknown tokens to preserve forward compatibility.
 		}
 	}
 	return h, nil
