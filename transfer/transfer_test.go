@@ -42,8 +42,8 @@ func TestIterateBlocksOversizedBlockSize(t *testing.T) {
 
 func TestSaveResumeStatePermissions(t *testing.T) {
 	dir := t.TempDir()
-	cfg := &config.Config{ResumeState: filepath.Join(dir, "resume")}
-	saveResumeState(cfg, [32]byte{}, 1<<30, zap.NewNop())
+	cfg := &config.Config{ResumeState: filepath.Join(dir, "resume"), CheckpointBytes: 1}
+	saveResumeState(cfg, 0, [32]byte{}, 1, zap.NewNop())
 
 	info, err := os.Stat(cfg.ResumeState)
 	if err != nil {

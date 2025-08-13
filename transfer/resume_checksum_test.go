@@ -16,7 +16,7 @@ func TestResumeFinalChecksum(t *testing.T) {
 	logger := zap.NewNop()
 	blockSize := int64(1024)
 	src, snapshot, resume := createTestFiles(t, blockSize, 4, "sha256")
-	cfg := &config.Config{BlockSize: int(blockSize), Compress: "none", ResumeState: resume, MaxRetries: 1, ChecksumAlgorithm: "sha256", Transport: "ssh"}
+	cfg := &config.Config{BlockSize: int(blockSize), Compress: "none", ResumeState: resume, MaxRetries: 1, ChecksumAlgorithm: "sha256", Transport: "ssh", DedupMode: "fixed"}
 	ranges, err := gatherChangedRanges(snapshot, blockSize, logger)
 	if err != nil {
 		t.Fatalf("gather ranges: %v", err)
@@ -26,8 +26,8 @@ func TestResumeFinalChecksum(t *testing.T) {
 		t.Fatalf("open src: %v", err)
 	}
 	defer srcFile.Close()
-	resumeDigest := readResumeDigest(cfg, logger)
-	start := findResumeIndex(cfg, srcFile, ranges, resumeDigest, logger)
+	checkpoint := readResumeState(cfg, logger)
+	start := findResumeIndex(cfg, srcFile, ranges, checkpoint, logger)
 	w := bufio.NewWriter(io.Discard)
 	_, _, manifest, err := iterateBlocks(cfg, ranges[start:], srcFile, w, nil, [2]int{-1, -1}, logger)
 	if err != nil {
