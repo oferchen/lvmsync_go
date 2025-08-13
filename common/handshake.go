@@ -12,7 +12,9 @@ import (
 // Handshake describes protocol negotiation parameters exchanged at the start
 // of a transfer. The format is a single line of space separated tokens:
 //
-//	lvmsync PROTO[3] compress:<algo> [checksum|checksum-dedup]
+//	lvmsync PROTO[3] [endian:<little|big>] [block:<bytes>]
+//	        [dedup:<fixed|cdc|hybrid>] [resume:<token>] [odirect]
+//	        [checksum|checksum-dedup] compress:<algo> [level:<n>]
 //
 // Additional tokens may be added in the future while preserving backward
 // compatibility. The receiver must ignore unknown tokens to allow for
@@ -20,7 +22,10 @@ import (
 //
 // Compress specifies the compression algorithm in use. Checksum indicates
 // whether chunk checksums are included. When ChecksumDedup is true the
-// checksum list also doubles as a deduplication map.
+// checksum list also doubles as a deduplication map. Endianness advertises the
+// sender's byte order, BlockSize conveys the preferred chunk size, DedupMode
+// announces the deduplication strategy, ResumeToken resumes interrupted
+// transfers, and ODirect signals support for `O_DIRECT` I/O.
 //
 // Version will always be set to ProtocolVersion on successful parsing.
 //

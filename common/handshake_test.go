@@ -15,6 +15,7 @@ func TestHandshakeRoundTrip(t *testing.T) {
 		Compress:      "gzip",
 		CompressLevel: 2,
 		Checksum:      true,
+		ChecksumDedup: true,
 		Endianness:    common.NativeEndianness(),
 		BlockSize:     4096,
 		DedupMode:     "fixed",
