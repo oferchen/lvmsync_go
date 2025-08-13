@@ -31,7 +31,7 @@ func main() {
 		return
 	}
 
-	cfg, logger, err := configureFunc()
+	cfg, args, logger, err := configureFunc()
 	if err != nil {
 		tmpLogger := exampleLoggerFunc()
 		tmpLogger.Error("configuration failed", zap.Error(err))
@@ -41,7 +41,7 @@ func main() {
 		exitFunc(1)
 		return
 	}
-	if err := runFunc(cfg, logger); err != nil {
+	if err := runFunc(cfg, args, logger); err != nil {
 		logger.Error("run failed", zap.Error(err))
 		syncLogger(logger)
 		exitFunc(1)

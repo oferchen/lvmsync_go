@@ -28,7 +28,7 @@ func (c *syncCheckCore) Sync() error {
 func TestMainLogsStructuredError(t *testing.T) {
 	// stub run to force an error
 	oldRun := runFunc
-	runFunc = func(_ *config.Config, _ *zap.Logger) error { return errors.New("boom") }
+	runFunc = func(_ *config.Config, _ []string, _ *zap.Logger) error { return errors.New("boom") }
 	defer func() { runFunc = oldRun }()
 
 	// capture exit code
@@ -43,7 +43,7 @@ func TestMainLogsStructuredError(t *testing.T) {
 	logger := zap.New(&syncCheckCore{Core: core, synced: &synced, err: syncErr})
 
 	oldConfigure := configureFunc
-	configureFunc = func() (*config.Config, *zap.Logger, error) { return &config.Config{}, logger, nil }
+	configureFunc = func() (*config.Config, []string, *zap.Logger, error) { return &config.Config{}, nil, logger, nil }
 	defer func() { configureFunc = oldConfigure }()
 
 	main()
@@ -74,7 +74,7 @@ func TestMainLogsStructuredError(t *testing.T) {
 func TestMainLogsConfigError(t *testing.T) {
 	// stub configure to return an error
 	oldConfigure := configureFunc
-	configureFunc = func() (*config.Config, *zap.Logger, error) { return nil, nil, errors.New("cfg fail") }
+	configureFunc = func() (*config.Config, []string, *zap.Logger, error) { return nil, nil, nil, errors.New("cfg fail") }
 	defer func() { configureFunc = oldConfigure }()
 
 	// capture exit code

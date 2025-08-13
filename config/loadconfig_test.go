@@ -11,11 +11,10 @@ import (
 	"github.com/spf13/pflag"
 )
 
-// resetFlags replaces the global command line flags and sets os.Args.
-func resetFlags(args []string) {
-	pflag.CommandLine = pflag.NewFlagSet(os.Args[0], pflag.ContinueOnError)
-	pflag.CommandLine.SetOutput(io.Discard)
-	os.Args = append([]string{"test"}, args...)
+func newFlagSet(args []string) (*pflag.FlagSet, []string) {
+	fs := pflag.NewFlagSet(os.Args[0], pflag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	return fs, args
 }
 
 func writeTempConfig(t *testing.T, content string) string {
@@ -29,16 +28,16 @@ func writeTempConfig(t *testing.T, content string) string {
 }
 
 func TestRegisterFlags(t *testing.T) {
-	resetFlags(nil)
+	rootFS, _ := newFlagSet(nil)
 	cfg, err := DefaultConfig()
 	if err != nil {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
 	fs := NewFlagSets(cfg)
-	registerFlags(fs)
+	registerFlags(fs, rootFS)
 	names := []string{"parallel", "ssh_user", "grpc_port"}
 	for _, name := range names {
-		if f := pflag.CommandLine.Lookup(name); f == nil {
+		if f := rootFS.Lookup(name); f == nil {
 			t.Fatalf("missing %s flag", name)
 		}
 	}
@@ -48,14 +47,16 @@ func TestBuildViperPrecedence(t *testing.T) {
 	cfgPath := writeTempConfig(t, "parallel: 1\n")
 
 	t.Run("config_overrides_defaults", func(t *testing.T) {
-		resetFlags([]string{"--config", cfgPath})
+		rootFS, args := newFlagSet([]string{"--config", cfgPath})
 		cfg, err := DefaultConfig()
 		if err != nil {
 			t.Fatalf("DefaultConfig: %v", err)
 		}
 		fs := NewFlagSets(cfg)
-		registerFlags(fs)
-		pflag.Parse()
+		registerFlags(fs, rootFS)
+		if err := rootFS.Parse(args); err != nil {
+			t.Fatalf("parse: %v", err)
+		}
 		v, err := buildViper(fs)
 		if err != nil {
 			t.Fatalf("buildViper: %v", err)
@@ -66,15 +67,17 @@ func TestBuildViperPrecedence(t *testing.T) {
 	})
 
 	t.Run("env_overrides_config", func(t *testing.T) {
-		resetFlags([]string{"--config", cfgPath})
+		rootFS, args := newFlagSet([]string{"--config", cfgPath})
 		t.Setenv("LVMSYNC_PARALLEL", "2")
 		cfg, err := DefaultConfig()
 		if err != nil {
 			t.Fatalf("DefaultConfig: %v", err)
 		}
 		fs := NewFlagSets(cfg)
-		registerFlags(fs)
-		pflag.Parse()
+		registerFlags(fs, rootFS)
+		if err := rootFS.Parse(args); err != nil {
+			t.Fatalf("parse: %v", err)
+		}
 		v, err := buildViper(fs)
 		if err != nil {
 			t.Fatalf("buildViper: %v", err)
@@ -85,15 +88,17 @@ func TestBuildViperPrecedence(t *testing.T) {
 	})
 
 	t.Run("flags_override_env", func(t *testing.T) {
-		resetFlags([]string{"--config", cfgPath, "--parallel", "3"})
+		rootFS, args := newFlagSet([]string{"--config", cfgPath, "--parallel", "3"})
 		t.Setenv("LVMSYNC_PARALLEL", "2")
 		cfg, err := DefaultConfig()
 		if err != nil {
 			t.Fatalf("DefaultConfig: %v", err)
 		}
 		fs := NewFlagSets(cfg)
-		registerFlags(fs)
-		pflag.Parse()
+		registerFlags(fs, rootFS)
+		if err := rootFS.Parse(args); err != nil {
+			t.Fatalf("parse: %v", err)
+		}
 		v, err := buildViper(fs)
 		if err != nil {
 			t.Fatalf("buildViper: %v", err)
@@ -105,16 +110,16 @@ func TestBuildViperPrecedence(t *testing.T) {
 }
 
 func TestUsageOutput(t *testing.T) {
-	resetFlags(nil)
+	rootFS, _ := newFlagSet(nil)
 	cfg, err := DefaultConfig()
 	if err != nil {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
 	fs := NewFlagSets(cfg)
-	registerFlags(fs)
+	registerFlags(fs, rootFS)
 	buf := &bytes.Buffer{}
-	pflag.CommandLine.SetOutput(buf)
-	pflag.Usage()
+	rootFS.SetOutput(buf)
+	rootFS.Usage()
 	out := buf.String()
 	wants := []string{
 		"General Options:", "--config",

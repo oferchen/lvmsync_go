@@ -201,11 +201,13 @@ func initConfig() *viper.Viper {
 This groups related flags once and lets Viper merge values from flags, `LVMSYNC_*` variables, and the
 `config.yaml` file.
 
-The overall loading flow works in three stages:
+The overall loading flow now passes an explicit `FlagSet` and argument slice:
 
-1. `registerFlags()` adds all flag groups to the command line.
-2. `buildViper()` binds flags, `LVMSYNC_*` environment variables, and an optional `config.yaml` into a single configuration source.
-3. `LoadConfig()` merges those values with built-in defaults and validates the result.
+1. `registerFlags(flagSets, fs)` adds all flag groups to the provided flag set.
+2. `LoadConfig(flagSets, defaults, fs, args)` parses the arguments, binds flags and `LVMSYNC_*` environment variables with Viper,
+   merges them with defaults, and returns the effective configuration along with any leftover positional arguments.
+
+`cmd/root.Configure` surfaces those leftover arguments so `Run` operates purely on provided inputs.
 
 ### New and updated flags
 

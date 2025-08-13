@@ -9,8 +9,6 @@ import (
 
 	"lvmsync_go/config"
 
-	"github.com/spf13/pflag"
-
 	"go.uber.org/goleak"
 	"go.uber.org/zap"
 )
@@ -228,10 +226,7 @@ func TestRunHeartbeatError(t *testing.T) {
 		return <-sigErrCh
 	}
 
-	pflag.CommandLine = pflag.NewFlagSet("test", pflag.ContinueOnError)
-	pflag.CommandLine.Parse([]string{"vol"})
-
-	err := Run(cfg, logger)
+	err := Run(cfg, []string{"vol"}, logger)
 	if err == nil || err.Error() != "hb fail" {
 		t.Fatalf("expected heartbeat error, got %v", err)
 	}
@@ -300,10 +295,7 @@ func TestRunGRPCConnectGoroutineLeak(t *testing.T) {
 				return nil
 			}
 
-			pflag.CommandLine = pflag.NewFlagSet("test", pflag.ContinueOnError)
-			pflag.CommandLine.Parse([]string{"vol"})
-
-			if err := Run(cfg, logger); err != nil {
+			if err := Run(cfg, []string{"vol"}, logger); err != nil {
 				t.Fatalf("Run returned error: %v", err)
 			}
 

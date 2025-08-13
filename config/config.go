@@ -612,19 +612,19 @@ func printFlagSetUsage(out io.Writer, fs *pflag.FlagSet) {
 	fmt.Fprintln(out)
 }
 
-func registerFlags(flagSets *FlagSets) {
-	for _, fs := range flagSets.All() {
-		pflag.CommandLine.AddFlagSet(fs)
+func registerFlags(flagSets *FlagSets, fs *pflag.FlagSet) {
+	for _, s := range flagSets.All() {
+		fs.AddFlagSet(s)
 	}
-	pflag.CommandLine.Usage = func() {
-		out := pflag.CommandLine.Output()
+	fs.Usage = func() {
+		out := fs.Output()
 		fmt.Fprintln(out, "Usage of", os.Args[0]+":")
 		fmt.Fprintln(out)
-		for _, fs := range flagSets.All() {
-			printFlagSetUsage(out, fs)
+		for _, s := range flagSets.All() {
+			printFlagSetUsage(out, s)
 		}
 	}
-	pflag.Usage = pflag.CommandLine.Usage
+	pflag.Usage = fs.Usage
 }
 
 func buildViper(flagSets *FlagSets) (*viper.Viper, error) {
@@ -659,13 +659,15 @@ func buildViper(flagSets *FlagSets) (*viper.Viper, error) {
 	return v, nil
 }
 
-func LoadConfig(flagSets *FlagSets, defaults *Config) (*Config, error) {
-	registerFlags(flagSets)
-	pflag.Parse()
+func LoadConfig(flagSets *FlagSets, defaults *Config, fs *pflag.FlagSet, args []string) (*Config, []string, error) {
+	registerFlags(flagSets, fs)
+	if err := fs.Parse(args); err != nil {
+		return nil, nil, err
+	}
 
 	v, err := buildViper(flagSets)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	builder := &Builder{
@@ -674,10 +676,10 @@ func LoadConfig(flagSets *FlagSets, defaults *Config) (*Config, error) {
 	}
 	conf, err := builder.Build()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return conf, nil
+	return conf, fs.Args(), nil
 }
 
 // Validate verifies configuration values using the real OS euid.
