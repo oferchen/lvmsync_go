@@ -704,6 +704,17 @@ Verify that a source and destination match:
 lvmsync verify /dev/vg0/source /dev/vg1/target
 ```
 
+Supply options such as block size or deduplication mode to control how data is
+compared. For example, to verify using 4 KiB blocks and a manifest generated
+earlier:
+
+```sh
+lvmsync verify --block_size 4K --manifest snapshot.manifest /dev/vg0/source /dev/vg1/target
+```
+
+Flags are parsed via Viper, so the same settings can be provided through
+`LVMSYNC_*` environment variables or a `config.yaml` file.
+
 ### Options
 
 #### General Options
