@@ -1,6 +1,7 @@
 module lvmsync_go
 
-go 1.23.0
+go 1.22
+
 
 require (
 	github.com/bits-and-blooms/bitset v1.10.0
