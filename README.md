@@ -210,7 +210,7 @@ The overall loading flow works in three stages:
 
 Recent refactors added several configuration options:
 
-- `--transport` selects the ordered list of transports to try (currently ignored).
+- `--transport` is reserved for future use; specifying it returns an error.
 - `--quic_listen` and `--quic_connect` configure QUIC addresses.
 - `--tcp_port`, `--h2_port`, and `--ssh_port` expose TCP+TLS, HTTP/2, and SSH endpoints.
 - `--tcp_parallel` controls the number of parallel TCP connections (2–4).
@@ -219,14 +219,15 @@ Recent refactors added several configuration options:
 - `--checkpoint_interval` sets how often resume state is persisted.
 - `--block_size` sets the transfer block size (use `auto` for detection).
 
-### QUIC transport
+### QUIC transport (planned)
 
-Include `quic` in the `--transport` list or configuration to enable the QUIC data plane.
-Use `--quic_listen` (`LVMSYNC_QUIC_LISTEN` / `quic_listen`) to bind a listener and `--quic_connect`
-(`LVMSYNC_QUIC_CONNECT` / `quic_connect`) to dial a peer. Select the congestion control algorithm with
-`--quic_cc` or `LVMSYNC_QUIC_CC` (defaults to `bbr`).
+Transport negotiation is not implemented. Future versions will allow enabling the QUIC data plane with
+`--transport quic`. Planned options include `--quic_listen` (`LVMSYNC_QUIC_LISTEN` / `quic_listen`) to bind a
+listener and `--quic_connect` (`LVMSYNC_QUIC_CONNECT` / `quic_connect`) to dial a peer. Congestion control will
+be selected using `--quic_cc` or `LVMSYNC_QUIC_CC` (default `bbr`).
 
 ```sh
+# planned example - currently returns "transport not implemented"
 lvmsync --transport quic --quic_listen :9000
 ```
 
@@ -336,7 +337,7 @@ If `--ssh_key` is empty, lvmsync contacts the SSH agent referenced by `SSH_AUTH_
 | `--volume_group` | `LVMSYNC_VOLUME_GROUP` | `volume_group` | Source volume group; derived from the source device path when empty |
 | `--target_volume_group` | `LVMSYNC_TARGET_VOLUME_GROUP` | `target_volume_group` | Volume group name of the target LVM volume |
 | `--target_vgs` | `LVMSYNC_TARGET_VGS` | `target_vgs` | Candidate target volume groups for auto-selection |
-| `--transport` | `LVMSYNC_TRANSPORT` | `transport` | Ordered transports to try (e.g., `quic,h2,tcp+tls,ssh`) (currently ignored) |
+| `--transport` | `LVMSYNC_TRANSPORT` | `transport` | Ordered transports to try (e.g., `quic,h2,tcp+tls,ssh`) (reserved; specifying returns an error) |
 | `--quic_listen` | `LVMSYNC_QUIC_LISTEN` | `quic_listen` | QUIC listen address |
 | `--quic_connect` | `LVMSYNC_QUIC_CONNECT` | `quic_connect` | QUIC connect address |
 | `--tcp_port` | `LVMSYNC_TCP_PORT` | `tcp_port` | TCP+TLS port |
@@ -508,13 +509,14 @@ lvmsync --config config.yaml /dev/vg0/snap0 /mnt/backup
 
 ## Transport Registry
 
-Transport selection is currently not implemented; the `--transport` flag is accepted but ignored.
+Transport selection is currently not implemented; specifying `--transport` results in an error. The flags below
+are reserved for future work and the examples will fail with "transport not implemented".
 
 ### Flags and environment variables
 
 | Flag | Environment variable | Description |
 |------|----------------------|-------------|
-| `--transport` | `LVMSYNC_TRANSPORT` | Ordered transports to try (e.g., `quic,h2,tcp+tls,ssh`) (currently ignored) |
+| `--transport` | `LVMSYNC_TRANSPORT` | Ordered transports to try (e.g., `quic,h2,tcp+tls,ssh`) (reserved; specifying returns an error) |
 | `--quic_listen` | `LVMSYNC_QUIC_LISTEN` | QUIC listen address |
 | `--quic_connect` | `LVMSYNC_QUIC_CONNECT` | QUIC connect address |
 | `--quic_cc` | `LVMSYNC_QUIC_CC` | QUIC congestion control algorithm |

@@ -38,5 +38,13 @@
     "impact": "unresponsive SSH agent could hang start-up",
     "fix": "add context-aware dial with timeout and tests",
     "priority": "P1"
+  },
+  {
+    "type": "bug",
+    "component": "cmd/dump/client.go",
+    "evidence": "SelectTransport ignored configured transport",
+    "impact": "misconfiguration silently ignored",
+    "fix": "return error and log unsupported transport",
+    "priority": "P1"
   }
 ]

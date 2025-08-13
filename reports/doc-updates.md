@@ -1,3 +1,4 @@
 - README.md: removed transport selection example and marked `--transport` flag as currently ignored in option list and configuration tables.
+- README.md: document `--transport` as reserved; examples note "transport not implemented" error.
 - README.md: clarified `--strict_host_key_checking` flag; disabling it now skips SSH host key verification.
 - README.md: documented SSH agent usage when `--ssh_key` is unset and that the connection respects `--ssh_timeout`.
