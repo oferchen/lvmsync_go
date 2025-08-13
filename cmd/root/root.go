@@ -165,7 +165,6 @@ func Run(cfg *config.Config, args []string, logger *zap.Logger) error {
 		}()
 	}
 
-	args := pflag.Args()
 	if (cfg.StdoutMode && len(args) < 1) || (!cfg.StdoutMode && len(args) < 2) {
 		pflag.Usage()
 		return fmt.Errorf("invalid arguments")
