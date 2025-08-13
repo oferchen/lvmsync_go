@@ -1,101 +1,87 @@
 package manifest
 
 import (
+	"crypto/rand"
 	"os"
+	"path/filepath"
 	"testing"
 
-	"github.com/bits-and-blooms/bitset"
 	"github.com/zeebo/blake3"
+	"github.com/zeebo/xxh3"
 )
 
-func TestSaveLoadRoundTrip(t *testing.T) {
-	m := &Manifest{
-		LVUUID:      "1234-5678",
-		SizeBytes:   1024,
-		ChunkSize:   256,
-		TotalChunks: 4,
-		Bitmap:      bitset.New(4),
-		Version:     Version,
+func TestIndexCRUD(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "test.man")
+	idx, err := Create(path, "dev", 8192, 4096)
+	if err != nil {
+		t.Fatalf("Create: %v", err)
 	}
-	h0 := blake3.Sum256([]byte("chunk0"))
-	h2 := blake3.Sum256([]byte("chunk2"))
-	m.Bitmap.Set(0)
-	m.Bitmap.Set(2)
-	m.PerChunkHash = [][]byte{h0[:], nil, h2[:]}
+	data := make([]byte, 4096)
+	if _, err := rand.Read(data); err != nil {
+		t.Fatalf("rand: %v", err)
+	}
+	xx := xxh3.Hash(data)
+	b3 := blake3.Sum256(data)
+	idx.Set(0, 4096, xx, b3)
+	if !idx.Match(0, 4096, b3) {
+		t.Fatalf("Match failed")
+	}
+	if err := idx.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
 
-	f, err := os.CreateTemp(t.TempDir(), "manifest-*.json")
+	idx2, err := Open(path)
 	if err != nil {
-		t.Fatalf("temp file: %v", err)
+		t.Fatalf("Open: %v", err)
 	}
-	f.Close()
-	if err := m.Save(f.Name()); err != nil {
-		t.Fatalf("save: %v", err)
+	off, length, xx2, b32 := idx2.Entry(0)
+	if off != 0 || length != 4096 || xx2 != xx || b32 != b3 {
+		t.Fatalf("entry mismatch")
 	}
-	loaded, err := Load(f.Name())
-	if err != nil {
-		t.Fatalf("load: %v", err)
-	}
-	if !loaded.Bitmap.Equal(m.Bitmap) {
-		t.Fatalf("bitmap mismatch")
-	}
-	if len(loaded.PerChunkHash) != len(m.PerChunkHash) {
-		t.Fatalf("per chunk hash length mismatch")
-	}
-	if string(loaded.PerChunkHash[0]) != string(h0[:]) || string(loaded.PerChunkHash[2]) != string(h2[:]) {
-		t.Fatalf("hashes mismatch")
-	}
-	if loaded.LVUUID != m.LVUUID || loaded.SizeBytes != m.SizeBytes || loaded.ChunkSize != m.ChunkSize || loaded.TotalChunks != m.TotalChunks || loaded.Version != m.Version {
-		t.Fatalf("fields mismatch")
+	if err := idx2.Close(); err != nil {
+		t.Fatalf("close2: %v", err)
 	}
 }
 
-func TestLoadPartialManifest(t *testing.T) {
-	m := &Manifest{
-		LVUUID:      "partial",
-		SizeBytes:   2048,
-		ChunkSize:   512,
-		TotalChunks: 4,
-		Bitmap:      bitset.New(4),
-		Version:     Version,
-	}
-	h0 := blake3.Sum256([]byte("chunk0"))
-	m.Bitmap.Set(0)
-	m.PerChunkHash = [][]byte{h0[:]}
-
-	f, err := os.CreateTemp(t.TempDir(), "manifest-partial-*.json")
+func TestRebuild(t *testing.T) {
+	dir := t.TempDir()
+	file, err := os.CreateTemp(dir, "dev-*.img")
 	if err != nil {
 		t.Fatalf("temp file: %v", err)
 	}
-	f.Close()
-	if err := m.Save(f.Name()); err != nil {
-		t.Fatalf("save: %v", err)
+	data1 := make([]byte, 4096)
+	data2 := make([]byte, 4096)
+	if _, err := rand.Read(data1); err != nil {
+		t.Fatalf("rand1: %v", err)
 	}
-	loaded, err := Load(f.Name())
+	if _, err := rand.Read(data2); err != nil {
+		t.Fatalf("rand2: %v", err)
+	}
+	if _, err := file.Write(append(data1, data2...)); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	file.Close()
+	manPath := filepath.Join(dir, "rebuild.man")
+	if err := Rebuild(file.Name(), manPath); err != nil {
+		t.Fatalf("rebuild: %v", err)
+	}
+	idx, err := Open(manPath)
 	if err != nil {
-		t.Fatalf("load: %v", err)
+		t.Fatalf("open manifest: %v", err)
 	}
-	if len(loaded.PerChunkHash) != 1 {
-		t.Fatalf("expected 1 hash, got %d", len(loaded.PerChunkHash))
+	if idx.hdr.BlockSize != 4096 || idx.hdr.ChunkCount != 2 || idx.hdr.SizeBytes != 8192 {
+		t.Fatalf("header mismatch: %+v", idx.hdr)
 	}
-	if !loaded.Bitmap.Test(0) {
-		t.Fatalf("expected bit 0 set")
+	_, l1, xx1, b31 := idx.Entry(0)
+	if l1 != 4096 || xx1 != xxh3.Hash(data1) || b31 != blake3.Sum256(data1) {
+		t.Fatalf("chunk1 mismatch")
 	}
-}
-
-func TestLoadCorruptManifest(t *testing.T) {
-	m := &Manifest{LVUUID: "bad", Bitmap: bitset.New(1), Version: Version}
-	f, err := os.CreateTemp(t.TempDir(), "manifest-corrupt-*.json")
-	if err != nil {
-		t.Fatalf("temp file: %v", err)
+	_, l2, xx2, b32 := idx.Entry(1)
+	if l2 != 4096 || xx2 != xxh3.Hash(data2) || b32 != blake3.Sum256(data2) {
+		t.Fatalf("chunk2 mismatch")
 	}
-	f.Close()
-	if err := m.Save(f.Name()); err != nil {
-		t.Fatalf("save: %v", err)
-	}
-	if err := os.WriteFile(f.Name(), []byte("not json"), 0o600); err != nil {
-		t.Fatalf("corrupt: %v", err)
-	}
-	if _, err := Load(f.Name()); err == nil {
-		t.Fatalf("expected error on corrupt manifest")
+	if err := idx.Close(); err != nil {
+		t.Fatalf("close manifest: %v", err)
 	}
 }

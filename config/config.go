@@ -129,6 +129,7 @@ type Config struct {
 	BloomEntries         int           `mapstructure:"bloom_entries"`
 	BloomFpRate          float64       `mapstructure:"bloom_fp_rate"`
 	BloomMBits           uint          `mapstructure:"bloom_mbits"`
+	ManifestPath         string        `mapstructure:"manifest_path"`
 	GRPCPort             int           `mapstructure:"grpc_port"`
 	GRPCListen           string        `mapstructure:"grpc_listen"`
 	GRPCConnect          string        `mapstructure:"grpc_connect"`
