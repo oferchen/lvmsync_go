@@ -168,3 +168,37 @@ func TestLoadPrivateKeyZeroesSlice(t *testing.T) {
 		}
 	}
 }
+
+func TestLoadPrivateKeyPermissions(t *testing.T) {
+	goodKey := testutil.CreateTempKey(t)
+	openKey := testutil.CreateTempKey(t)
+	if err := os.Chmod(openKey, 0o644); err != nil {
+		t.Fatalf("Chmod: %v", err)
+	}
+	missingKey := filepath.Join(t.TempDir(), "missing")
+
+	tests := []struct {
+		name    string
+		path    string
+		wantErr bool
+	}{
+		{name: "correct", path: goodKey, wantErr: false},
+		{name: "too_open", path: openKey, wantErr: true},
+		{name: "missing", path: missingKey, wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := loadPrivateKey(tt.path)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("expected error for %s", tt.name)
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("unexpected error for %s: %v", tt.name, err)
+				}
+			}
+		})
+	}
+}
