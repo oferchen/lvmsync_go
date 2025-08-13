@@ -40,7 +40,7 @@ type Handshake struct {
 	Transports    []string
 	Compress      []string
 	CompressLevel int
-  Digests       []string
+	Digests       []string
 	Checksum      bool
 	ChecksumDedup bool
 	Endianness    string
