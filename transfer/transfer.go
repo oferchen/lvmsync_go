@@ -21,6 +21,7 @@ import (
 
 	"lvmsync_go/common"
 	"lvmsync_go/config"
+	"lvmsync_go/device"
 	"lvmsync_go/internal/blocksize"
 )
 
@@ -684,6 +685,23 @@ func (t *Transfer) processDumpDataCore(cfg *config.Config, in io.Reader, destPat
 	}()
 
 	reader := bufio.NewReader(decReader)
+
+	if cfg.DeviceUUID != "" {
+		uuid, err2 := device.GetUUID(destPath)
+		if err2 != nil {
+			return fmt.Errorf("read destination uuid: %w", err2)
+		}
+		if uuid != cfg.DeviceUUID {
+			return fmt.Errorf("destination device uuid %s does not match expected %s", uuid, cfg.DeviceUUID)
+		}
+	}
+	mounted, err2 := device.IsMountedRW(destPath)
+	if err2 != nil {
+		return fmt.Errorf("check mount status: %w", err2)
+	}
+	if mounted && !cfg.Force {
+		return fmt.Errorf("destination device %s is mounted read-write", destPath)
+	}
 
 	var destFile *os.File
 	if cfg.ODirect {
