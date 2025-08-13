@@ -82,6 +82,7 @@ func TestSSHManagerGetClientRefresh(t *testing.T) {
 	}
 
 	c1.Close()
+	time.Sleep(50 * time.Millisecond)
 
 	c2, err := mgr.GetClient(ctx, host, port)
 	if err != nil {

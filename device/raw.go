@@ -3,6 +3,7 @@ package device
 import (
 	"fmt"
 	"os"
+	"unsafe"
 
 	"golang.org/x/sys/unix"
 )
@@ -27,7 +28,7 @@ func OpenRaw(path string) (*RawDevice, error) {
 	if err != nil {
 		return nil, err
 	}
-	size, err := unix.IoctlGetUint64(int(f.Fd()), unix.BLKGETSIZE64)
+	size, err := ioctlGetUint64(int(f.Fd()), unix.BLKGETSIZE64)
 	if err != nil {
 		f.Close()
 		return nil, err
@@ -51,3 +52,13 @@ func (d *RawDevice) BlockSize() uint64 { return d.blockSize }
 
 // Close closes the underlying file descriptor.
 func (d *RawDevice) Close() error { return d.f.Close() }
+
+// ioctlGetUint64 performs an ioctl call expecting a 64-bit unsigned result.
+func ioctlGetUint64(fd int, req uint) (uint64, error) {
+	var v uint64
+	_, _, errno := unix.Syscall(unix.SYS_IOCTL, uintptr(fd), uintptr(req), uintptr(unsafe.Pointer(&v)))
+	if errno != 0 {
+		return 0, errno
+	}
+	return v, nil
+}
