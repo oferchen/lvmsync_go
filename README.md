@@ -55,7 +55,7 @@ LVMSync is organized into modular packages to keep concerns separated:
 - `lvm` – manages snapshot creation, monitoring, and cleanup.
 - `transfer` – performs block-level synchronization, compression, deduplication, and resume logic.
   - Internally split into focused modules: `progress.go`, `handshake.go`, and `block_writer.go` for clearer responsibilities.
-- `remote` – wraps SSH functionality for running commands on remote hosts and coordinating transfers.
+- `remote` – wraps SSH functionality for running commands on remote hosts and coordinating transfers. Callers must provide a `context.Context` with a timeout when starting the privileged helper to allow cancellation if the remote command fails to launch.
 - `config` – parses and validates configuration files and CLI options.
 - `dedup` – houses Bloom filter helpers, chunking logic, and other deduplication utilities.
 - `grpc` – provides the gRPC server and authentication helpers used by the remote daemon.

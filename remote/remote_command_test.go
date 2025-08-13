@@ -23,10 +23,14 @@ func TestValidateRemoteCommand(t *testing.T) {
 	})
 
 	client := &SSHClient{Client: rawClient, Logger: zap.NewNop()}
-	if err := client.ValidateRemoteCommand(context.Background(), "echo"); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := client.ValidateRemoteCommand(ctx, "echo"); err != nil {
 		t.Fatalf("expected success, got %v", err)
 	}
-	if err := client.ValidateRemoteCommand(context.Background(), "nonexistent"); err == nil {
+	ctx2, cancel2 := context.WithTimeout(context.Background(), time.Second)
+	defer cancel2()
+	if err := client.ValidateRemoteCommand(ctx2, "nonexistent"); err == nil {
 		t.Fatalf("expected error for nonexistent command")
 	}
 }
@@ -41,7 +45,9 @@ func TestRunRemoteScript(t *testing.T) {
 	client := &SSHClient{Client: rawClient, Logger: logger}
 
 	script := "echo hi"
-	if err := client.RunRemoteScript(context.Background(), script); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := client.RunRemoteScript(ctx, script); err != nil {
 		t.Fatalf("RunRemoteScript error: %v", err)
 	}
 

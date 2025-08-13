@@ -33,7 +33,8 @@ func TestSetupSSHClient(t *testing.T) {
 		}
 		defer func() { newSSHClient = remote.NewSSHClient }()
 
-		client, cancel, err := SetupSSHClient(context.Background(), cfg, "dest", zap.NewNop())
+		ctx, outerCancel := context.WithTimeout(context.Background(), time.Second)
+		client, cancel, err := SetupSSHClient(ctx, cfg, "dest", zap.NewNop())
 		if err != nil {
 			t.Fatalf("SetupSSHClient returned error: %v", err)
 		}
@@ -44,6 +45,7 @@ func TestSetupSSHClient(t *testing.T) {
 			t.Fatalf("newSSHClient was not called")
 		}
 		cancel()
+		outerCancel()
 	})
 
 	t.Run("failure", func(t *testing.T) {
@@ -52,7 +54,9 @@ func TestSetupSSHClient(t *testing.T) {
 		}
 		defer func() { newSSHClient = remote.NewSSHClient }()
 
-		_, _, err := SetupSSHClient(context.Background(), cfg, "dest", zap.NewNop())
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_, _, err := SetupSSHClient(ctx, cfg, "dest", zap.NewNop())
 		if err == nil || !strings.Contains(err.Error(), "failed to create SSH client") {
 			t.Fatalf("expected wrapped error, got %v", err)
 		}
@@ -121,7 +125,9 @@ func TestSetupSessionStreamsPipeErrors(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			_, _, _, err := SetupSessionStreams(context.Background(), tc.sess)
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+			_, _, _, err := SetupSessionStreams(ctx, tc.sess)
 			if err == nil || !strings.Contains(err.Error(), tc.want) {
 				t.Fatalf("expected %s error, got %v", tc.want, err)
 			}

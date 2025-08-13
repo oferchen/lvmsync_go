@@ -32,7 +32,8 @@ func TestSSHManagerGetClientReuse(t *testing.T) {
 	}
 	port, _ := strconv.Atoi(portStr)
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
 	c1, err := mgr.GetClient(ctx, host, port)
 	if err != nil {
 		t.Fatalf("GetClient first: %v", err)
@@ -57,7 +58,8 @@ func TestSSHAgentAuthTimeout(t *testing.T) {
 	os.Setenv("SSH_AUTH_SOCK", tmpSock)
 	defer os.Unsetenv("SSH_AUTH_SOCK")
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
 	_, err := sshAgentAuth(ctx, 50*time.Millisecond, zaptest.NewLogger(t))
 	if err == nil {
 		t.Fatal("expected timeout error")
@@ -83,7 +85,8 @@ func TestSSHAgentAuthSuccess(t *testing.T) {
 	os.Setenv("SSH_AUTH_SOCK", sock)
 	defer os.Unsetenv("SSH_AUTH_SOCK")
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
 	auth, err := sshAgentAuth(ctx, time.Second, zaptest.NewLogger(t))
 	if err != nil {
 		t.Fatalf("sshAgentAuth: %v", err)

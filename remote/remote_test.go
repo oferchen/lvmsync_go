@@ -47,14 +47,16 @@ func TestNewSSHClientNoAuth(t *testing.T) {
 	}()
 
 	knownHosts := remotetest.CreateEmptyKnownHosts(t)
-	_, err := NewSSHClient(context.Background(), "localhost", "root", "", 22, knownHosts, true, time.Second, time.Second, 0, zap.NewNop())
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	_, err := NewSSHClient(ctx, "localhost", "root", "", 22, knownHosts, true, time.Second, time.Second, 0, zap.NewNop())
 	if err == nil || !strings.Contains(err.Error(), "no SSH authentication methods configured") {
 		t.Fatalf("expected error for missing auth methods, got %v", err)
 	}
 }
 
 func TestDialWithRetryContextCancel(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	config := &ssh.ClientConfig{
 		User:            "test",
 		Auth:            []ssh.AuthMethod{ssh.Password("")},
