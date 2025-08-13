@@ -14,8 +14,14 @@ var (
 	runFunc           = rootcmd.Run
 	syncLoggerFunc    = rootcmd.SyncLogger
 	exitFunc          = os.Exit
-	exampleLoggerFunc = func() *zap.Logger { return zap.NewProduction() }
-	runtimeGOOS       = runtime.GOOS
+	exampleLoggerFunc = func() *zap.Logger {
+		logger, err := zap.NewProduction()
+		if err != nil {
+			return zap.NewNop()
+		}
+		return logger
+	}
+	runtimeGOOS = runtime.GOOS
 )
 
 func syncLogger(logger *zap.Logger) { syncLoggerFunc(logger) }
