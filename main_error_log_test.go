@@ -14,10 +14,14 @@ import (
 type syncCheckCore struct {
 	zapcore.Core
 	synced *bool
+	err    error
 }
 
 func (c *syncCheckCore) Sync() error {
 	*c.synced = true
+	if c.err != nil {
+		return c.err
+	}
 	return c.Core.Sync()
 }
 
@@ -33,9 +37,10 @@ func TestMainLogsStructuredError(t *testing.T) {
 	exitFunc = func(c int) { code = c }
 	defer func() { exitFunc = oldExit }()
 
+	syncErr := errors.New("sync fail")
 	core, logs := observer.New(zap.ErrorLevel)
 	synced := false
-	logger := zap.New(&syncCheckCore{Core: core, synced: &synced})
+	logger := zap.New(&syncCheckCore{Core: core, synced: &synced, err: syncErr})
 
 	oldConfigure := configureFunc
 	configureFunc = func() (*config.Config, *zap.Logger, error) { return &config.Config{}, logger, nil }
@@ -50,6 +55,15 @@ func TestMainLogsStructuredError(t *testing.T) {
 	entries := logs.FilterMessage("run failed").All()
 	if len(entries) != 1 {
 		t.Fatalf("expected one log entry, got %d", len(entries))
+	}
+
+	syncEntries := logs.FilterMessage("Logger sync error").All()
+	if len(syncEntries) != 1 {
+		t.Fatalf("expected logger sync error entry, got %d", len(syncEntries))
+	}
+	errStr, ok := syncEntries[0].ContextMap()["error"].(string)
+	if !ok || errStr != syncErr.Error() {
+		t.Fatalf("expected error %q in log, got %v", syncErr.Error(), syncEntries[0].ContextMap()["error"])
 	}
 
 	if !synced {
@@ -69,9 +83,10 @@ func TestMainLogsConfigError(t *testing.T) {
 	exitFunc = func(c int) { code = c }
 	defer func() { exitFunc = oldExit }()
 
+	syncErr := errors.New("sync fail")
 	core, logs := observer.New(zap.ErrorLevel)
 	synced := false
-	tmpLogger := zap.New(&syncCheckCore{Core: core, synced: &synced})
+	tmpLogger := zap.New(&syncCheckCore{Core: core, synced: &synced, err: syncErr})
 
 	oldExample := exampleLoggerFunc
 	exampleLoggerFunc = func() *zap.Logger { return tmpLogger }
@@ -86,6 +101,15 @@ func TestMainLogsConfigError(t *testing.T) {
 	entries := logs.FilterMessage("configuration failed").All()
 	if len(entries) != 1 {
 		t.Fatalf("expected one log entry, got %d", len(entries))
+	}
+
+	syncEntries := logs.FilterMessage("Logger sync error").All()
+	if len(syncEntries) != 1 {
+		t.Fatalf("expected logger sync error entry, got %d", len(syncEntries))
+	}
+	errStr, ok := syncEntries[0].ContextMap()["error"].(string)
+	if !ok || errStr != syncErr.Error() {
+		t.Fatalf("expected error %q in log, got %v", syncErr.Error(), syncEntries[0].ContextMap()["error"])
 	}
 
 	if !synced {
@@ -103,9 +127,10 @@ func TestMainErrorsOnNonLinux(t *testing.T) {
 	exitFunc = func(c int) { code = c }
 	defer func() { exitFunc = oldExit }()
 
+	syncErr := errors.New("sync fail")
 	core, logs := observer.New(zap.ErrorLevel)
 	synced := false
-	tmpLogger := zap.New(&syncCheckCore{Core: core, synced: &synced})
+	tmpLogger := zap.New(&syncCheckCore{Core: core, synced: &synced, err: syncErr})
 
 	oldExample := exampleLoggerFunc
 	exampleLoggerFunc = func() *zap.Logger { return tmpLogger }
@@ -120,6 +145,15 @@ func TestMainErrorsOnNonLinux(t *testing.T) {
 	entries := logs.FilterMessage("unsupported platform").All()
 	if len(entries) != 1 {
 		t.Fatalf("expected one log entry, got %d", len(entries))
+	}
+
+	syncEntries := logs.FilterMessage("Logger sync error").All()
+	if len(syncEntries) != 1 {
+		t.Fatalf("expected logger sync error entry, got %d", len(syncEntries))
+	}
+	errStr, ok := syncEntries[0].ContextMap()["error"].(string)
+	if !ok || errStr != syncErr.Error() {
+		t.Fatalf("expected error %q in log, got %v", syncErr.Error(), syncEntries[0].ContextMap()["error"])
 	}
 
 	if !synced {
