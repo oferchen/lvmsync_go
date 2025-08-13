@@ -226,8 +226,8 @@ func TestSSHHostEnvOverridesConfig(t *testing.T) {
 }
 
 func TestTransportCLIOverridesEnvAndConfig(t *testing.T) {
-	cfgPath := writeTempConfig(t, "transport: quic\n")
-	resetFlags([]string{"--config", cfgPath, "--transport", "h2"})
+	cfgPath := writeTempConfig(t, "transport: tcp+tls\n")
+	resetFlags([]string{"--config", cfgPath, "--transport", "ssh"})
 	t.Setenv("LVMSYNC_TRANSPORT", "tcp+tls")
 
 	defaults, err := DefaultConfig()
@@ -247,15 +247,15 @@ func TestTransportCLIOverridesEnvAndConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Build: %v", err)
 	}
-	if conf.Transport != "h2" {
-		t.Fatalf("expected transport h2, got %s", conf.Transport)
+	if conf.Transport != "ssh" {
+		t.Fatalf("expected transport ssh, got %s", conf.Transport)
 	}
 }
 
 func TestTransportEnvOverridesConfig(t *testing.T) {
-	cfgPath := writeTempConfig(t, "transport: quic\n")
+	cfgPath := writeTempConfig(t, "transport: tcp+tls\n")
 	resetFlags([]string{"--config", cfgPath})
-	t.Setenv("LVMSYNC_TRANSPORT", "tcp+tls")
+	t.Setenv("LVMSYNC_TRANSPORT", "ssh")
 
 	defaults, err := DefaultConfig()
 	if err != nil {
@@ -274,8 +274,8 @@ func TestTransportEnvOverridesConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Build: %v", err)
 	}
-	if conf.Transport != "tcp+tls" {
-		t.Fatalf("expected transport tcp+tls, got %s", conf.Transport)
+	if conf.Transport != "ssh" {
+		t.Fatalf("expected transport ssh, got %s", conf.Transport)
 	}
 }
 

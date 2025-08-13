@@ -211,25 +211,12 @@ The overall loading flow works in three stages:
 Recent refactors added several configuration options:
 
 - `--transport` is reserved for future use; specifying it returns an error.
-- `--quic_listen` and `--quic_connect` configure QUIC addresses.
-- `--tcp_port`, `--h2_port`, and `--ssh_port` expose TCP+TLS, HTTP/2, and SSH endpoints.
+- `--tcp_port` and `--ssh_port` expose TCP+TLS and SSH endpoints.
 - `--tcp_parallel` controls the number of parallel TCP connections (2–4).
 - `--tcp_lowat` sets TCP_NOTSENT_LOWAT to limit unsent bytes.
 - `--sync_interval` controls how many bytes are written between `fdatasync` calls.
 - `--checkpoint_interval` sets how often resume state is persisted.
 - `--block_size` sets the transfer block size (use `auto` for detection).
-
-### QUIC transport (planned)
-
-Transport negotiation is not implemented. Future versions will allow enabling the QUIC data plane with
-`--transport quic`. Planned options include `--quic_listen` (`LVMSYNC_QUIC_LISTEN` / `quic_listen`) to bind a
-listener and `--quic_connect` (`LVMSYNC_QUIC_CONNECT` / `quic_connect`) to dial a peer. Congestion control will
-be selected using `--quic_cc` or `LVMSYNC_QUIC_CC` (default `bbr`).
-
-```sh
-# planned example - currently returns "transport not implemented"
-lvmsync --transport quic --quic_listen :9000
-```
 
 ### Serve command
 
@@ -337,11 +324,8 @@ If `--ssh_key` is empty, lvmsync contacts the SSH agent referenced by `SSH_AUTH_
 | `--volume_group` | `LVMSYNC_VOLUME_GROUP` | `volume_group` | Source volume group; derived from the source device path when empty |
 | `--target_volume_group` | `LVMSYNC_TARGET_VOLUME_GROUP` | `target_volume_group` | Volume group name of the target LVM volume |
 | `--target_vgs` | `LVMSYNC_TARGET_VGS` | `target_vgs` | Candidate target volume groups for auto-selection |
-| `--transport` | `LVMSYNC_TRANSPORT` | `transport` | Ordered transports to try (e.g., `quic,h2,tcp+tls,ssh`) (reserved; specifying returns an error) |
-| `--quic_listen` | `LVMSYNC_QUIC_LISTEN` | `quic_listen` | QUIC listen address |
-| `--quic_connect` | `LVMSYNC_QUIC_CONNECT` | `quic_connect` | QUIC connect address |
+| `--transport` | `LVMSYNC_TRANSPORT` | `transport` | Ordered transports to try (e.g., `tcp+tls,ssh`) (reserved; specifying returns an error) |
 | `--tcp_port` | `LVMSYNC_TCP_PORT` | `tcp_port` | TCP+TLS port |
-| `--h2_port` | `LVMSYNC_H2_PORT` | `h2_port` | HTTP/2 TLS port |
 | `--tcp_parallel` | `LVMSYNC_TCP_PARALLEL` | `tcp_parallel` | Number of parallel TCP connections |
 | `--tcp_lowat` | `LVMSYNC_TCP_LOWAT` | `tcp_lowat` | TCP_NOTSENT_LOWAT in bytes |
 | `--grpc_listen` | `LVMSYNC_GRPC_LISTEN` | `grpc_listen` | gRPC listen address |
@@ -408,10 +392,10 @@ serve_listen: ":9900"
   lvmsync --grpc_connect backup:9443 /dev/vg0/source /dev/vg1/target
   ```
 
-- **Throughput-optimized QUIC transfer**:
+- **Throughput-optimized transfer**:
 
   ```sh
-  lvmsync --mode throughput --transport quic --quic_connect host:9000 /dev/vg0/source /dev/vg1/target
+  lvmsync --mode throughput /dev/vg0/source /dev/vg1/target
   ```
 
 ## gRPC Control Plane
@@ -516,34 +500,14 @@ are reserved for future work and the examples will fail with "transport not impl
 
 | Flag | Environment variable | Description |
 |------|----------------------|-------------|
-| `--transport` | `LVMSYNC_TRANSPORT` | Ordered transports to try (e.g., `quic,h2,tcp+tls,ssh`) (reserved; specifying returns an error) |
-| `--quic_listen` | `LVMSYNC_QUIC_LISTEN` | QUIC listen address |
-| `--quic_connect` | `LVMSYNC_QUIC_CONNECT` | QUIC connect address |
-| `--quic_cc` | `LVMSYNC_QUIC_CC` | QUIC congestion control algorithm |
+| `--transport` | `LVMSYNC_TRANSPORT` | Ordered transports to try (e.g., `tcp+tls,ssh`) (reserved; specifying returns an error) |
 | `--concurrency` | `LVMSYNC_CONCURRENCY` | Stream concurrency (0 to autotune based on BDP) |
-| `--h2_port` | `LVMSYNC_H2_PORT` | HTTP/2 TLS port |
 | `--tcp_port` | `LVMSYNC_TCP_PORT` | TCP+TLS port |
 | `--tcp_parallel` | `LVMSYNC_TCP_PARALLEL` | Number of parallel TCP connections |
 | `--tcp_lowat` | `LVMSYNC_TCP_LOWAT` | TCP_NOTSENT_LOWAT in bytes |
 | `--ssh_port` | `LVMSYNC_SSH_PORT` | SSH port |
 
 ### Usage examples
-
-**QUIC**
-
-```sh
-lvmsync --transport quic --quic_listen :9000
-# or
-LVMSYNC_TRANSPORT=quic LVMSYNC_QUIC_LISTEN=:9000 lvmsync
-```
-
-**HTTP/2**
-
-```sh
-lvmsync --transport h2 --h2_port 9443
-# or
-LVMSYNC_TRANSPORT=h2 LVMSYNC_H2_PORT=9443 lvmsync
-```
 
 **TCP+TLS**
 
@@ -630,12 +594,11 @@ are resolved with the following precedence (highest first):
 
 `--mode throughput` applies a set of options tuned for high-bandwidth links:
 
-- transport order `quic,h2,tcp+tls,ssh`
+- transport order `tcp+tls,ssh`
 - concurrency `8`
 - deduplication mode `hybrid`
 - compression `auto`
 - enables `--odirect`
-- QUIC congestion control `bbr`
 
 CLI:
 

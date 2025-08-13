@@ -406,7 +406,7 @@ func TestApplyThroughputMode(t *testing.T) {
 	if err := b.applyDefaults(conf); err != nil {
 		t.Fatalf("applyDefaults returned error: %v", err)
 	}
-	if conf.Transport != "quic,h2,tcp+tls" {
+	if conf.Transport != "tcp+tls" {
 		t.Fatalf("transport order %s", conf.Transport)
 	}
 	if conf.Parallel != 8 {
@@ -435,9 +435,6 @@ func TestApplyThroughputMode(t *testing.T) {
 	}
 	if conf.CheckpointInterval != 10*time.Second {
 		t.Fatalf("checkpoint interval %v", conf.CheckpointInterval)
-	}
-	if conf.QUICCongestionControl != "bbr" {
-		t.Fatalf("quic cc %s", conf.QUICCongestionControl)
 	}
 }
 

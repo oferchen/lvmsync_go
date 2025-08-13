@@ -92,9 +92,6 @@ progress: true  # Enable progress display during transfer
 block_size: "auto"
 
 # Transport Options
-transport: "quic,h2,tcp+tls,ssh"  # Ordered transports to try
-quic_listen: ""  # QUIC listen address
-quic_connect: ""  # QUIC connect address
+transport: "tcp+tls,ssh"  # Ordered transports to try
 concurrency: 0  # Stream concurrency (0 to autotune)
 tcp_port: 0  # TCP+TLS port
-h2_port: 0  # HTTP/2 TLS port
