@@ -167,6 +167,14 @@ func dialSSH(ctx context.Context, addr string, sshConfig *ssh.ClientConfig, time
 }
 
 func loadPrivateKey(keyPath string) (ssh.Signer, error) {
+	info, err := os.Stat(keyPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to stat private key: %w", err)
+	}
+	if info.Mode().Perm() != 0o600 {
+		return nil, fmt.Errorf("private key permissions %o are too open, want 0600", info.Mode().Perm())
+	}
+
 	keyData, err := os.ReadFile(keyPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read private key: %w", err)
