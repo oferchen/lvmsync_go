@@ -2,23 +2,46 @@ package h2
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"crypto/tls"
 	"fmt"
+	"io"
 	"net"
+	"sync"
 	"time"
 
 	"go.uber.org/zap"
+	"golang.org/x/net/http2"
 
 	"lvmsync_go/common"
 	"lvmsync_go/transport"
 )
+
+const maxFrameSize = 1 << 14
 
 // Transport implements HTTP/2 over TLS1.3 with mutual authentication.
 type Transport struct {
 	clientConf *tls.Config
 	serverConf *tls.Config
 	logger     *zap.Logger
+}
+
+// Conn wraps a single HTTP/2 stream to satisfy net.Conn.
+type Conn struct {
+	net.Conn
+	fr       *http2.Framer
+	streamID uint32
+	tlsState tls.ConnectionState
+	readMu   sync.Mutex
+	writeMu  sync.Mutex
+	readBuf  bytes.Buffer
+	closed   bool
+}
+
+// listener adapts a TLS listener and performs HTTP/2 handshakes.
+type listener struct {
+	ln net.Listener
 }
 
 // New returns a new Transport.
@@ -60,6 +83,7 @@ func init() {
 
 func (t *Transport) Name() string { return "h2" }
 
+// Dial establishes a TLS1.3 connection and performs an HTTP/2 handshake.
 func (t *Transport) Dial(ctx context.Context, address string) (net.Conn, error) {
 	role := "client"
 	t.logger.Info("dial_start",
@@ -80,11 +104,62 @@ func (t *Transport) Dial(ctx context.Context, address string) (net.Conn, error) 
 	}
 	if err != nil {
 		fields = append(fields, zap.Error(err))
+		t.logger.Info("dial_end", fields...)
+		return nil, err
+	}
+	fr := http2.NewFramer(conn, conn)
+	if _, err := conn.Write([]byte(http2.ClientPreface)); err != nil {
+		fields = append(fields, zap.Error(err))
+		t.logger.Info("dial_end", fields...)
+		conn.Close()
+		return nil, err
+	}
+	if err := fr.WriteSettings(); err != nil {
+		fields = append(fields, zap.Error(err))
+		t.logger.Info("dial_end", fields...)
+		conn.Close()
+		return nil, err
+	}
+	if f, err := fr.ReadFrame(); err != nil {
+		fields = append(fields, zap.Error(err))
+		t.logger.Info("dial_end", fields...)
+		conn.Close()
+		return nil, err
+	} else if _, ok := f.(*http2.SettingsFrame); !ok {
+		err = fmt.Errorf("expected settings frame")
+		fields = append(fields, zap.Error(err))
+		t.logger.Info("dial_end", fields...)
+		conn.Close()
+		return nil, err
+	}
+	if err := fr.WriteSettingsAck(); err != nil {
+		fields = append(fields, zap.Error(err))
+		t.logger.Info("dial_end", fields...)
+		conn.Close()
+		return nil, err
+	}
+	if f, err := fr.ReadFrame(); err != nil {
+		fields = append(fields, zap.Error(err))
+		t.logger.Info("dial_end", fields...)
+		conn.Close()
+		return nil, err
+	} else if sf, ok := f.(*http2.SettingsFrame); !ok || !sf.IsAck() {
+		err = fmt.Errorf("expected settings ack")
+		fields = append(fields, zap.Error(err))
+		t.logger.Info("dial_end", fields...)
+		conn.Close()
+		return nil, err
 	}
 	t.logger.Info("dial_end", fields...)
-	return conn, err
+	return &Conn{
+		Conn:     conn,
+		fr:       fr,
+		streamID: 1,
+		tlsState: conn.ConnectionState(),
+	}, nil
 }
 
+// Listen starts a TLS listener that negotiates HTTP/2 connections.
 func (t *Transport) Listen(ctx context.Context, address string) (net.Listener, error) {
 	role := "server"
 	t.logger.Info("listen_start",
@@ -106,9 +181,70 @@ func (t *Transport) Listen(ctx context.Context, address string) (net.Listener, e
 		fields = append(fields, zap.Error(err))
 	}
 	t.logger.Info("listen_end", fields...)
-	return ln, err
+	if err != nil {
+		return nil, err
+	}
+	return &listener{ln: ln}, nil
 }
 
+func (l *listener) Accept() (net.Conn, error) {
+	conn, err := l.ln.Accept()
+	if err != nil {
+		return nil, err
+	}
+	tlsConn, ok := conn.(*tls.Conn)
+	if !ok {
+		conn.Close()
+		return nil, fmt.Errorf("expected tls.Conn")
+	}
+	if err := tlsConn.Handshake(); err != nil {
+		conn.Close()
+		return nil, err
+	}
+	fr := http2.NewFramer(tlsConn, tlsConn)
+	preface := make([]byte, len(http2.ClientPreface))
+	if _, err := io.ReadFull(tlsConn, preface); err != nil {
+		conn.Close()
+		return nil, err
+	}
+	if string(preface) != http2.ClientPreface {
+		conn.Close()
+		return nil, fmt.Errorf("invalid preface")
+	}
+	if f, err := fr.ReadFrame(); err != nil {
+		conn.Close()
+		return nil, err
+	} else if _, ok := f.(*http2.SettingsFrame); !ok {
+		conn.Close()
+		return nil, fmt.Errorf("expected settings frame")
+	}
+	if err := fr.WriteSettings(); err != nil {
+		conn.Close()
+		return nil, err
+	}
+	if err := fr.WriteSettingsAck(); err != nil {
+		conn.Close()
+		return nil, err
+	}
+	if f, err := fr.ReadFrame(); err != nil {
+		conn.Close()
+		return nil, err
+	} else if sf, ok := f.(*http2.SettingsFrame); !ok || !sf.IsAck() {
+		conn.Close()
+		return nil, fmt.Errorf("expected settings ack")
+	}
+	return &Conn{
+		Conn:     tlsConn,
+		fr:       fr,
+		streamID: 1,
+		tlsState: tlsConn.ConnectionState(),
+	}, nil
+}
+
+func (l *listener) Close() error   { return l.ln.Close() }
+func (l *listener) Addr() net.Addr { return l.ln.Addr() }
+
+// Negotiate exchanges LVMSync handshake messages over the HTTP/2 stream.
 func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport.Role, hs common.Handshake) (peer common.Handshake, err error) {
 	roleStr := roleString(role)
 	address := conn.RemoteAddr().String()
@@ -130,10 +266,10 @@ func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport
 		t.logger.Info("negotiate_end", fields...)
 	}()
 
-	if tlsConn, ok := conn.(*tls.Conn); ok {
-		if err := tlsConn.HandshakeContext(ctx); err != nil {
-			return peer, err
-		}
+	if h2c, ok := conn.(*Conn); ok {
+		hs.ALPN = h2c.tlsState.NegotiatedProtocol
+		hs.TLSVersion = tlsVersionString(h2c.tlsState.Version)
+	} else if tlsConn, ok := conn.(*tls.Conn); ok {
 		state := tlsConn.ConnectionState()
 		hs.ALPN = state.NegotiatedProtocol
 		hs.TLSVersion = tlsVersionString(state.Version)
@@ -171,6 +307,60 @@ func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport
 		return peer, nil
 	}
 }
+
+// Conn implements net.Conn using HTTP/2 DATA frames.
+func (c *Conn) Read(p []byte) (int, error) {
+	c.readMu.Lock()
+	defer c.readMu.Unlock()
+	if c.readBuf.Len() == 0 && c.closed {
+		return 0, io.EOF
+	}
+	for c.readBuf.Len() == 0 {
+		f, err := c.fr.ReadFrame()
+		if err != nil {
+			return 0, err
+		}
+		df, ok := f.(*http2.DataFrame)
+		if !ok || df.Header().StreamID != c.streamID {
+			continue
+		}
+		c.readBuf.Write(df.Data())
+		if df.StreamEnded() {
+			c.closed = true
+			break
+		}
+	}
+	return c.readBuf.Read(p)
+}
+
+func (c *Conn) Write(p []byte) (int, error) {
+	c.writeMu.Lock()
+	defer c.writeMu.Unlock()
+	written := 0
+	for len(p) > 0 {
+		n := len(p)
+		if n > maxFrameSize {
+			n = maxFrameSize
+		}
+		if err := c.fr.WriteData(c.streamID, false, p[:n]); err != nil {
+			return written, err
+		}
+		written += n
+		p = p[n:]
+	}
+	return written, nil
+}
+
+func (c *Conn) Close() error {
+	c.writeMu.Lock()
+	_ = c.fr.WriteData(c.streamID, true, nil)
+	c.writeMu.Unlock()
+	return c.Conn.Close()
+}
+
+func (c *Conn) SetDeadline(t time.Time) error      { return c.Conn.SetDeadline(t) }
+func (c *Conn) SetReadDeadline(t time.Time) error  { return c.Conn.SetReadDeadline(t) }
+func (c *Conn) SetWriteDeadline(t time.Time) error { return c.Conn.SetWriteDeadline(t) }
 
 func tlsVersionString(v uint16) string {
 	switch v {
