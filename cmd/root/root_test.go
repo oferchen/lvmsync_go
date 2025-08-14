@@ -1,13 +1,18 @@
 package root
 
 import (
+	"bufio"
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"io"
 	"os"
 	"testing"
 	"time"
 
 	"lvmsync_go/config"
+	privilege "lvmsync_go/internal/privilege"
 	"lvmsync_go/transport"
 
 	"go.uber.org/goleak"
@@ -57,6 +62,62 @@ func TestSetupGRPCSuccess(t *testing.T) {
 	}
 	if !srvCleanCalled || !clientCleanCalled {
 		t.Fatalf("cleanup functions not called")
+	}
+}
+
+func TestConfigureLogsBlockSizeBytes(t *testing.T) {
+	origArgs := os.Args
+	os.Args = []string{origArgs[0], "--block_size", "4KB"}
+	defer func() { os.Args = origArgs }()
+
+	origCaps := privilege.HasCaps
+	privilege.HasCaps = func() bool { return true }
+	defer func() { privilege.HasCaps = origCaps }()
+
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	origStderr := os.Stderr
+	os.Stderr = w
+	defer func() { os.Stderr = origStderr }()
+
+	cfg, _, logger, err := Configure()
+	if err != nil {
+		t.Fatalf("Configure error: %v", err)
+	}
+
+	SyncLogger(logger)
+	w.Close()
+	data, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+
+	scan := bufio.NewScanner(bytes.NewReader(data))
+	found := false
+	for scan.Scan() {
+		var m map[string]any
+		if err := json.Unmarshal(scan.Bytes(), &m); err != nil {
+			continue
+		}
+		if m["msg"] == "Effective configuration" {
+			v, ok := m["block_size_bytes"].(float64)
+			if !ok || uint64(v) != cfg.BlockSizeBytes() {
+				t.Fatalf("expected block_size_bytes %d, got %v", cfg.BlockSizeBytes(), m["block_size_bytes"])
+			}
+			if _, ok := m["block_size"].(string); !ok {
+				t.Fatalf("missing block_size")
+			}
+			found = true
+			break
+		}
+	}
+	if err := scan.Err(); err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+	if !found {
+		t.Fatalf("Effective configuration log not found")
 	}
 }
 
