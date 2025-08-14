@@ -416,6 +416,8 @@ If `--ssh_key` is empty, lvmsync contacts the SSH agent referenced by `SSH_AUTH_
 
 The optional gRPC daemon exposes snapshot management and replication over a mutually authenticated channel. Plaintext connections are rejected unless `--allow-insecure` is explicitly set.
 
+TLS mode requires explicit certificates. Provide `--tls-cert`, `--tls-key`, and `--ca-cert`; the daemon fails to start if any are missing and does not generate self-signed certificates.
+
 `StartGRPCServer` accepts a `context.Context` and runs the server in a goroutine, returning a buffered error channel. Cancel the context or invoke the cleanup function to stop the server and wait on the channel during shutdown to surface any serve errors.
 
 1. **Handshake** – clients advertise `sector_size`, `alignment`, `max_concurrency`, and whether deduplication and compression are supported.

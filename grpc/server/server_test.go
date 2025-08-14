@@ -381,8 +381,8 @@ func TestSessionFlow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateSession: %v", err)
 	}
-	if len(sess.GetPsk()) == 0 || len(sess.GetServerCert()) == 0 {
-		t.Fatalf("expected psk and cert in session response")
+	if len(sess.GetPsk()) == 0 {
+		t.Fatalf("expected psk in session response")
 	}
 	bmp, err := client.SendResumeBitmap(ctx)
 	if err != nil {
@@ -566,28 +566,40 @@ func dummyCert(t *testing.T) []byte {
 }
 
 func TestNewTLSFailures(t *testing.T) {
-	t.Run("missing key pair", func(t *testing.T) {
-		if _, err := New(Config{TLSCert: "nope", TLSKey: "nope", CACert: "nope"}, nil); err == nil {
+	cfg, _, _ := generateTLS(t)
+
+	t.Run("missing cert", func(t *testing.T) {
+		bad := cfg
+		bad.TLSCert = ""
+		if _, err := New(bad, nil); err == nil {
+			t.Fatalf("expected error")
+		}
+	})
+
+	t.Run("missing key", func(t *testing.T) {
+		bad := cfg
+		bad.TLSKey = ""
+		if _, err := New(bad, nil); err == nil {
 			t.Fatalf("expected error")
 		}
 	})
 
 	t.Run("missing CA", func(t *testing.T) {
-		cfg, _, _ := generateTLS(t)
-		cfg.CACert = "nope"
-		if _, err := New(cfg, nil); err == nil {
+		bad := cfg
+		bad.CACert = ""
+		if _, err := New(bad, nil); err == nil {
 			t.Fatalf("expected error")
 		}
 	})
 
 	t.Run("invalid CA", func(t *testing.T) {
-		cfg, _, _ := generateTLS(t)
-		badCA := filepath.Join(t.TempDir(), "bad.pem")
-		if err := os.WriteFile(badCA, []byte("invalid"), 0600); err != nil {
+		bad := cfg
+		invalid := filepath.Join(t.TempDir(), "bad.pem")
+		if err := os.WriteFile(invalid, []byte("invalid"), 0600); err != nil {
 			t.Fatalf("WriteFile: %v", err)
 		}
-		cfg.CACert = badCA
-		if _, err := New(cfg, nil); err == nil {
+		bad.CACert = invalid
+		if _, err := New(bad, nil); err == nil {
 			t.Fatalf("expected error")
 		}
 	})

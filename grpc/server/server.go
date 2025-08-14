@@ -3,16 +3,12 @@ package server
 import (
 	"context"
 	"crypto/rand"
-	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
-	"crypto/x509/pkix"
 	"fmt"
 	"io"
-	"math/big"
 	"os"
-	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -38,6 +34,9 @@ func New(conf Config, a lvmagent.Agent) (*grpc.Server, error) {
 	}
 
 	if !conf.AllowInsecure {
+		if conf.TLSCert == "" || conf.TLSKey == "" || conf.CACert == "" {
+			return nil, fmt.Errorf("TLSCert, TLSKey, and CACert must be provided when AllowInsecure is false")
+		}
 		cert, err := tls.LoadX509KeyPair(conf.TLSCert, conf.TLSKey)
 		if err != nil {
 			return nil, fmt.Errorf("load TLS key pair: %w", err)
@@ -188,16 +187,7 @@ func (s *replicationServer) CreateSession(_ context.Context, req *proto.SessionR
 	h.Write([]byte(req.GetDeviceUuid()))
 	h.Write(seed)
 	psk := h.Sum(nil)
-	key, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		return nil, err
-	}
-	tmpl := &x509.Certificate{SerialNumber: big.NewInt(time.Now().UnixNano()), Subject: pkix.Name{CommonName: sessionID}, NotBefore: time.Now(), NotAfter: time.Now().Add(time.Hour)}
-	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
-	if err != nil {
-		return nil, err
-	}
-	return &proto.SessionResponse{SessionId: sessionID, Psk: psk, ServerCert: der}, nil
+	return &proto.SessionResponse{SessionId: sessionID, Psk: psk}, nil
 }
 
 func (s *replicationServer) SendResumeBitmap(stream proto.Replication_SendResumeBitmapServer) error {
