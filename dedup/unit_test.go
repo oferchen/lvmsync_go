@@ -93,3 +93,32 @@ func TestBloomSizing(t *testing.T) {
 		t.Fatalf("unexpected sizing avg=%d chunks=%d", avg, chunks)
 	}
 }
+
+func TestChunkerBufferReuse(t *testing.T) {
+	data := bytes.Repeat([]byte("a"), 1<<10)
+	ch := NewChunker(64, 128, 256)
+	r := bytes.NewReader(data)
+
+	c1, err := ch.NextChunk(r)
+	if err != nil && err != io.EOF {
+		t.Fatalf("next chunk: %v", err)
+	}
+	if !bytes.Equal(c1.Data, data[:c1.Length]) {
+		t.Fatalf("unexpected chunk data")
+	}
+	ptr := &c1.Data[0]
+
+	c2, err := ch.NextChunk(r)
+	if err != nil && err != io.EOF {
+		t.Fatalf("next chunk: %v", err)
+	}
+	if c2.Length == 0 {
+		t.Fatalf("expected second chunk")
+	}
+	if &c2.Data[0] != ptr {
+		t.Fatalf("buffer not reused")
+	}
+	if !bytes.Equal(c2.Data, data[c1.Length:c1.Length+c2.Length]) {
+		t.Fatalf("unexpected chunk data")
+	}
+}

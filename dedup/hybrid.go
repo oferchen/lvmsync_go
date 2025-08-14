@@ -14,6 +14,8 @@ type HybridChunker struct {
 	cdcAvg  int
 	cdcMax  int
 	pending []Chunk
+	// reusable buffer for fixed-size block reads
+	buf []byte
 }
 
 // NewHybridChunker returns a HybridChunker configured with the given block
@@ -34,7 +36,10 @@ func (h *HybridChunker) NextChunk(r io.Reader) (Chunk, error) {
 		return c, nil
 	}
 
-	buf := make([]byte, h.fixed)
+	if cap(h.buf) < h.fixed {
+		h.buf = make([]byte, h.fixed)
+	}
+	buf := h.buf[:h.fixed]
 	n, err := io.ReadFull(r, buf)
 	if err != nil {
 		if err == io.ErrUnexpectedEOF || err == io.EOF {

@@ -27,6 +27,9 @@ type Chunker struct {
 	maskHigh   uint64
 	maskLow    uint64
 	window     [64]byte // used for entropy estimation
+
+	// reusable buffer to avoid per-chunk allocations
+	buf []byte
 }
 
 // NewChunker returns a new chunker configured with the provided
@@ -63,7 +66,10 @@ func NewChunkerFromHandshake(h common.Handshake) *Chunker {
 //
 //nolint:revive // algorithmic complexity required for chunking
 func (c *Chunker) NextChunk(r io.Reader) (Chunk, error) {
-	buf := make([]byte, c.Max)
+	if cap(c.buf) < c.Max {
+		c.buf = make([]byte, c.Max)
+	}
+	buf := c.buf[:c.Max]
 	n, err := io.ReadFull(r, buf[:c.Min])
 	if err != nil {
 		if err == io.ErrUnexpectedEOF || err == io.EOF {
