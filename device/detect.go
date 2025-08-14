@@ -11,12 +11,8 @@ import (
 // Detect inspects the path and returns the appropriate Device implementation.
 // Regular files return FileDevice, block devices are classified as either LVM
 // logical volumes or raw devices based on LVM metadata.
-func Detect(path string, offline bool, fsFreezeCmd string) (Device, error) {
-	resolved, err := filepath.EvalSymlinks(path)
-	if err != nil {
-		return nil, err
-	}
-	info, err := os.Stat(resolved)
+func Detect(path string, offline bool, fsFreezeCmd, fsThawCmd string) (Device, error) {
+	info, err := os.Stat(path)
 	if err != nil {
 		return nil, err
 	}
@@ -27,7 +23,7 @@ func Detect(path string, offline bool, fsFreezeCmd string) (Device, error) {
 		if _, err := lvm.GetVolumeGroupName(resolved); err == nil {
 			return OpenLVM(resolved)
 		}
-		return OpenRaw(resolved, offline, fsFreezeCmd)
+		return OpenRaw(path, offline, fsFreezeCmd, fsThawCmd)
 	}
 	return nil, fmt.Errorf("unsupported path type: %s", resolved)
 }

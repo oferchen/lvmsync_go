@@ -60,6 +60,7 @@ func initGeneralFlags(cfg *Config) *pflag.FlagSet {
 	fs.Bool("force", cfg.Force, "Override safety checks and proceed on mounted destination")
 	fs.Bool("offline", cfg.Offline, "Assume source raw device is offline")
 	fs.String("fs-freeze-command", cfg.FSFreezeCommand, "Command to freeze filesystem before reading raw source")
+	fs.String("fs-thaw-command", cfg.FSThawCommand, "Command to thaw filesystem after reading raw source")
 	fs.String("source-type", cfg.SourceType, "Source device type (auto,file,raw,lvm)")
 	fs.String("dest-type", cfg.DestType, "Destination device type (auto,file,raw,lvm)")
 	fs.String("mode", cfg.Mode, "Preset mode: default or throughput")

@@ -36,7 +36,7 @@ func TestDetectFile(t *testing.T) {
 		t.Fatalf("temp file: %v", err)
 	}
 	f.Close()
-	dev, err := Detect(f.Name(), true, "")
+	dev, err := Detect(f.Name(), true, "", "")
 	if err != nil {
 		t.Fatalf("detect: %v", err)
 	}
@@ -72,7 +72,7 @@ func TestDetectRaw(t *testing.T) {
 	}
 	loop, cleanup := setupLoop(t, 1<<20)
 	defer cleanup()
-	dev, err := Detect(loop, true, "")
+	dev, err := Detect(loop, true, "", "")
 	if err != nil {
 		t.Fatalf("detect: %v", err)
 	}
@@ -115,7 +115,7 @@ func TestDetectLVMSymlink(t *testing.T) {
 	defer os.Remove(lvPath)
 	defer os.Remove(vgDir)
 
-	dev, err := Detect(lvPath, true, "")
+	dev, err := Detect(lvPath, true, "", "")
 	if err != nil {
 		t.Fatalf("detect: %v", err)
 	}
