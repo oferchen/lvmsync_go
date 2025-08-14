@@ -109,7 +109,6 @@ type Config struct {
 	CheckpointBytesRaw       string        `mapstructure:"checkpoint_bytes"`
 	SyncIntervalBytes        int           `mapstructure:"-"`
 	CheckpointBytes          int           `mapstructure:"-"`
-
 }
 
 func FormatBlockSize(blockSize int) (string, error) {
