@@ -18,6 +18,10 @@ LVMSync runs on Linux only and is validated on the `amd64` and `arm64` architect
 
 The planned `serve` subcommand will expose a QUIC listener for incoming replication requests. It follows an argument simplification philosophy, surfacing only essential flags while relying on configuration binding for advanced tuning. All logging for this command must use the structured `zap` logger.
 
+### gRPC Certificate Configuration
+
+The gRPC server requires externally supplied certificates. When TLS is enabled (the default), `TLSCert`, `TLSKey`, and `CACert` must all be configured; the daemon fails to start if any are missing and does not generate self-signed certificates automatically. Use `AllowInsecure` only for development.
+
 ## Identified Gaps
 
 1. **Deduplication State Loading** – deduplication strategies save state but never load existing state files on startup.
