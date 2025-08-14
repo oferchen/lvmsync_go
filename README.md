@@ -178,6 +178,7 @@ Flags are grouped in the CLI help:
 - **LVM Options** – snapshot management and privilege escalation.
 - **gRPC Options** – parameters for the optional gRPC daemon.
 - **Transport Options** – configure data transports (QUIC, HTTP/2, TCP+TLS, SSH).
+- **Manifest Options** – manifest path overrides and related settings.
 
 Internally, each group is set up through a dedicated helper such as
 `initGeneralFlags`, `initSSHFlags`, or `initCompressionFlags`, keeping flag
@@ -338,6 +339,7 @@ LVMSYNC_GRPC_GRPC_PORT=9443 LVMSYNC_GRPC_TLS_CERT=cert.pem lvmsync-grpcd
 | `--verify_checksum` | `LVMSYNC_VERIFY_CHECKSUM` | `verify_checksum` | Enable checksum verification |
 | `--checksum_algorithm` | `LVMSYNC_CHECKSUM_ALGORITHM` | `checksum_algorithm` | Checksum algorithm: `auto`, `sha256`, `blake3`, or `blake3-512` |
 | `--progress` | `LVMSYNC_PROGRESS` | `progress` | Show progress during transfer |
+| `--manifest_path` | `LVMSYNC_MANIFEST_PATH` | `manifest_path` | Path to manifest file |
 | `--ssh_host` | `LVMSYNC_SSH_HOST` | `ssh_host` | SSH host |
 | `--ssh_user` | `LVMSYNC_SSH_USER` | `ssh_user` | SSH username |
 | `--ssh_key` | `LVMSYNC_SSH_KEY` | `ssh_key` | Path to SSH private key or use agent |

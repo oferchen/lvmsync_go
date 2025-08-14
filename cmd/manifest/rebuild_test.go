@@ -37,7 +37,7 @@ func TestRunDefaultOutputPath(t *testing.T) {
 	}
 }
 
-func TestRunOutputFlag(t *testing.T) {
+func TestRunManifestPathFlag(t *testing.T) {
 	dir := t.TempDir()
 	devicePath := filepath.Join(dir, "dev.img")
 	if err := os.WriteFile(devicePath, []byte("data"), 0o600); err != nil {
@@ -53,7 +53,7 @@ func TestRunOutputFlag(t *testing.T) {
 	}
 
 	outputPath := filepath.Join(dir, "custom.manifest")
-	args := []string{"rebuild", "--output", outputPath, devicePath}
+	args := []string{"rebuild", "--manifest_path", outputPath, devicePath}
 	if err := Run(cfg, args, zap.NewNop()); err != nil {
 		t.Fatalf("Run: %v", err)
 	}

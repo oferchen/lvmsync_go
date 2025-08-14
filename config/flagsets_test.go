@@ -206,6 +206,21 @@ func TestInitGRPCFlags(t *testing.T) {
 	}
 }
 
+func TestInitManifestFlags(t *testing.T) {
+	cfg, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	fs := initManifestFlags(cfg)
+	f := fs.Lookup("manifest_path")
+	if f == nil {
+		t.Fatalf("missing manifest_path flag")
+	}
+	if f.DefValue != cfg.ManifestPath {
+		t.Fatalf("manifest_path default %s want %s", f.DefValue, cfg.ManifestPath)
+	}
+}
+
 func TestInitTransportFlags(t *testing.T) {
 	cfg, err := DefaultConfig()
 	if err != nil {
