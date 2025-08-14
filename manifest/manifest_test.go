@@ -208,7 +208,7 @@ func TestRebuildNonDefaultBlockSize(t *testing.T) {
 	prevUUID := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "uuid-bs", nil })
 	defer device.SetUUIDFunc(prevUUID)
 	prevDetect := detectDevice
-	detectDevice = func(string) (device.Device, error) {
+	detectDevice = func(context.Context, string, *zap.Logger) (device.Device, error) {
 		return &mockDevice{path: file.Name(), size: uint64(2 * bs), blockSize: uint64(bs)}, nil
 	}
 	defer func() { detectDevice = prevDetect }()

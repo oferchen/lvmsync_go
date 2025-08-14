@@ -189,7 +189,7 @@ func Run(cfg *config.Config, args []string, logger *zap.Logger) error {
 	)
 
 	if cfg.SourceType == "" || cfg.SourceType == "auto" {
-		dev, err := device.Detect(originalVolume, cfg.Offline, cfg.FSFreezeCommand, cfg.FSThawCommand)
+		dev, err := device.Detect(ctx, originalVolume, cfg.Offline, cfg.FSFreezeCommand, cfg.FSThawCommand, logger)
 		if err != nil {
 			return err
 		}
