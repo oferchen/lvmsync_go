@@ -20,6 +20,7 @@ func TestInitGeneralFlags(t *testing.T) {
 		{"force", strconv.FormatBool(cfg.Force)},
 		{"offline", strconv.FormatBool(cfg.Offline)},
 		{"fs-freeze-command", cfg.FSFreezeCommand},
+		{"fs-thaw-command", cfg.FSThawCommand},
 		{"mode", cfg.Mode},
 		{"parallel", strconv.Itoa(cfg.Parallel)},
 		{"zerocopy", strconv.FormatBool(cfg.ZeroCopy)},

@@ -109,7 +109,7 @@ func Run(ctx context.Context, cfg *config.Config, snapshotDevice, dest string, l
 // RunLocalDump dumps changes to a local destination device.
 func RunLocalDump(cfg *config.Config, snapshotDevice, originDevice, dest string, logger *zap.Logger) (err error) {
 	if cfg.DestType == "auto" {
-		if dev, err := device.Detect(dest, true, ""); err == nil {
+		if dev, err := device.Detect(dest, true, "", ""); err == nil {
 			switch dev.(type) {
 			case *device.RawDevice:
 				if !cfg.SkipSnapshotCreation {
