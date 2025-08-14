@@ -14,12 +14,17 @@ import (
 
 // Transport implements the transport.Interface over plain TCP for now.
 type Transport struct {
-	cfg transport.Config
+	cfg    transport.Config
+	logger *zap.Logger
 }
 
 // New returns a new Transport.
 func New(cfg transport.Config) (transport.Interface, error) {
-	return &Transport{cfg: cfg}, nil
+	logger := cfg.Logger
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+	return &Transport{cfg: cfg, logger: logger}, nil
 }
 
 func init() {

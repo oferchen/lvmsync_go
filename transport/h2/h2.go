@@ -14,11 +14,18 @@ import (
 
 // Transport is a placeholder HTTP/2 transport using plain TCP.
 type Transport struct {
-	cfg transport.Config
+	cfg    transport.Config
+	logger *zap.Logger
 }
 
 // New returns a new Transport.
-func New(cfg transport.Config) (transport.Interface, error) { return &Transport{cfg: cfg}, nil }
+func New(cfg transport.Config) (transport.Interface, error) {
+	logger := cfg.Logger
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+	return &Transport{cfg: cfg, logger: logger}, nil
+}
 
 func init() {
 	if err := transport.Register("h2", New); err != nil {
