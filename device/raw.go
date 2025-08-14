@@ -1,6 +1,7 @@
 package device
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -63,6 +64,12 @@ func (d *RawDevice) BlockSize() uint64 { return d.blockSize }
 
 // Close closes the underlying file descriptor.
 func (d *RawDevice) Close() error { return d.f.Close() }
+
+// Snapshot returns the device itself for raw block devices.
+func (d *RawDevice) Snapshot(context.Context) (Device, error) { return d, nil }
+
+// Cleanup is a no-op for raw block devices.
+func (d *RawDevice) Cleanup(context.Context) error { return nil }
 
 // ioctlGetUint64 performs an ioctl call expecting a 64-bit unsigned result.
 func ioctlGetUint64(fd int, req uint) (uint64, error) {
