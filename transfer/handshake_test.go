@@ -27,14 +27,14 @@ func TestComposeHandshake(t *testing.T) {
 
 func TestReadAndValidateHandshake(t *testing.T) {
 	buf := &bytes.Buffer{}
-	common.WriteHandshake(buf, common.Handshake{Transports: []string{"ssh"}, Compress: "zstd", Compressors: []string{"zstd"}, Digests: []string{"sha256"}, Checksum: true, CDCMin: 64, CDCAvg: 128, CDCMax: 256})
+	common.WriteHandshake(buf, common.Handshake{Transports: []string{"ssh"}, Compress: "zstd", Compressors: []string{"zstd"}, Digests: []string{"sha256"}, Checksum: true, CDCMin: 64, CDCAvg: 128, CDCMax: 256, ResumeToken: "tok", MaxInFlight: 8})
 	cfg := &config.Config{Transport: "ssh", Compress: "zstd", ChecksumAlgorithm: "sha256"}
 	hs, err := readAndValidateHandshake(cfg, bufio.NewReader(buf), nil, true)
 	if err != nil || !hs.Checksum {
 		t.Fatalf("expected valid handshake, got %v %v", hs, err)
 	}
-	if cfg.CDCMin != 64 || cfg.CDCAvg != 128 || cfg.CDCMax != 256 {
-		t.Fatalf("cdc values not propagated: %+v", cfg)
+	if cfg.CDCMin != 64 || cfg.CDCAvg != 128 || cfg.CDCMax != 256 || cfg.ResumeToken != "tok" || cfg.Concurrency != 8 {
+		t.Fatalf("values not propagated: %+v", cfg)
 	}
 }
 
@@ -45,6 +45,24 @@ func TestReadAndValidateHandshakeError(t *testing.T) {
 	_, err := readAndValidateHandshake(cfg, bufio.NewReader(buf), nil, true)
 	if err == nil {
 		t.Fatal("expected error for missing checksum")
+	}
+}
+
+func TestReadAndValidateResumeTokenMismatch(t *testing.T) {
+	buf := &bytes.Buffer{}
+	common.WriteHandshake(buf, common.Handshake{Transports: []string{"ssh"}, Compress: "zstd", Compressors: []string{"zstd"}, Digests: []string{"sha256"}, ResumeToken: "remote"})
+	cfg := &config.Config{Transport: "ssh", Compress: "zstd", ChecksumAlgorithm: "sha256", ResumeToken: "local"}
+	if _, err := readAndValidateHandshake(cfg, bufio.NewReader(buf), nil, false); err == nil {
+		t.Fatal("expected resume token mismatch error")
+	}
+}
+
+func TestReadAndValidateMaxInFlightMismatch(t *testing.T) {
+	buf := &bytes.Buffer{}
+	common.WriteHandshake(buf, common.Handshake{Transports: []string{"ssh"}, Compress: "zstd", Compressors: []string{"zstd"}, Digests: []string{"sha256"}, MaxInFlight: 4})
+	cfg := &config.Config{Transport: "ssh", Compress: "zstd", ChecksumAlgorithm: "sha256", Concurrency: 8}
+	if _, err := readAndValidateHandshake(cfg, bufio.NewReader(buf), nil, false); err == nil {
+		t.Fatal("expected max in-flight mismatch error")
 	}
 }
 

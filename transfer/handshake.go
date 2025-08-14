@@ -22,6 +22,8 @@ func composeHandshake(cfg *config.Config, mode string) common.Handshake {
 		CDCMin:      cfg.CDCMin,
 		CDCAvg:      cfg.CDCAvg,
 		CDCMax:      cfg.CDCMax,
+		ResumeToken: cfg.ResumeToken,
+		MaxInFlight: cfg.Concurrency,
 	}
 	switch mode {
 	case StrategyChecksum:
@@ -122,6 +124,18 @@ func readAndValidateHandshake(cfg *config.Config, bufReader *bufio.Reader, dedup
 	}
 	if hs.CDCMax > 0 {
 		cfg.CDCMax = hs.CDCMax
+	}
+	if cfg.ResumeToken != "" && hs.ResumeToken != "" && hs.ResumeToken != cfg.ResumeToken {
+		return hs, fmt.Errorf("resume token mismatch: %s", hs.ResumeToken)
+	}
+	if hs.ResumeToken != "" {
+		cfg.ResumeToken = hs.ResumeToken
+	}
+	if cfg.Concurrency > 0 && hs.MaxInFlight > 0 && hs.MaxInFlight != cfg.Concurrency {
+		return hs, fmt.Errorf("max in-flight mismatch: %d", hs.MaxInFlight)
+	}
+	if hs.MaxInFlight > 0 {
+		cfg.Concurrency = hs.MaxInFlight
 	}
 	if cfg.ODirect && !hs.ODirect {
 		return hs, fmt.Errorf("remote lacks O_DIRECT support")

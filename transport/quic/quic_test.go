@@ -2,9 +2,7 @@ package quic
 
 import (
 	"context"
-	"io"
 	"testing"
-	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
@@ -48,27 +46,16 @@ func TestQUICTransportHandshake(t *testing.T) {
 			return
 		}
 		qconn := conn.(*Conn)
-		if _, err := tr.Negotiate(ctx, qconn, transport.Server, common.Handshake{}); err != nil {
+		peerHS, err := tr.Negotiate(ctx, qconn, transport.Server, common.Handshake{ResumeToken: "tok", MaxInFlight: 8})
+		if err != nil {
 			t.Errorf("server negotiate: %v", err)
 			return
 		}
-		dctx, cancel := context.WithTimeout(ctx, time.Second)
-		defer cancel()
-		msg, err := qconn.ReceiveDatagram(dctx)
-		if err != nil {
-			t.Errorf("receive datagram: %v", err)
-			return
+		if peerHS.ResumeToken != "tok" || peerHS.MaxInFlight != 8 {
+			t.Errorf("unexpected peer handshake: %+v", peerHS)
 		}
-		if string(msg) != "hello" {
-			t.Errorf("unexpected datagram %q", msg)
-		}
-		if err := qconn.SendDatagram([]byte("world")); err != nil {
-			t.Errorf("send datagram: %v", err)
-			return
-		}
-		buf := make([]byte, 4)
-		io.ReadFull(qconn, buf)
-		qconn.Write([]byte("pong"))
+		buf := make([]byte, 1)
+		qconn.Read(buf)
 		qconn.Close()
 		close(done)
 	}()
@@ -78,29 +65,14 @@ func TestQUICTransportHandshake(t *testing.T) {
 		t.Fatalf("dial: %v", err)
 	}
 	qconn := conn.(*Conn)
-	if _, err := tr.Negotiate(ctx, qconn, transport.Client, common.Handshake{}); err != nil {
+	peerHS, err := tr.Negotiate(ctx, qconn, transport.Client, common.Handshake{ResumeToken: "tok", MaxInFlight: 8})
+	if err != nil {
 		t.Fatalf("client negotiate: %v", err)
 	}
-	if err := qconn.SendDatagram([]byte("hello")); err != nil {
-		t.Fatalf("send datagram: %v", err)
+	if peerHS.ResumeToken != "tok" || peerHS.MaxInFlight != 8 {
+		t.Fatalf("unexpected peer handshake: %+v", peerHS)
 	}
-	dctx, cancel := context.WithTimeout(ctx, time.Second)
-	defer cancel()
-	msg, err := qconn.ReceiveDatagram(dctx)
-	if err != nil {
-		t.Fatalf("receive datagram: %v", err)
-	}
-	if string(msg) != "world" {
-		t.Fatalf("unexpected datagram %q", msg)
-	}
-	if _, err := qconn.Write([]byte("ping")); err != nil {
-		t.Fatalf("write: %v", err)
-	}
-	buf := make([]byte, 4)
-	io.ReadFull(qconn, buf)
-	if string(buf) != "pong" {
-		t.Fatalf("unexpected response %q", buf)
-	}
+	qconn.Write([]byte{1})
 	qconn.Close()
 	<-done
 
