@@ -775,6 +775,9 @@ Rebuild a manifest index for an existing device:
 lvmsync manifest rebuild /dev/vg0/lv0
 ```
 
+Manifests embed a persistent device identifier in a fixed 64-byte field. The
+`manifest rebuild` command fails if the identifier exceeds this limit.
+
 Verify that a source and destination match:
 
 ```sh
