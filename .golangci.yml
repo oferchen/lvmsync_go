@@ -4180,6 +4180,9 @@ output:
   # Default: ""
   path-mode: "abs"
 
+  # Sort lint results before applying sort-order.
+  sort-results: true
+
   # Order to use when sorting results.
   # Possible values: `file`, `linter`, and `severity`.
   #
