@@ -40,8 +40,10 @@ LVMSync is a high-performance incremental data replication tool for LVM snapshot
 | Device type     | Source | Destination |
 |-----------------|:------:|:-----------:|
 | LVM snapshot    |   ✅   |      ❌      |
-| Raw block device|   ✅   |      ✅      |
+| Raw block device|   ✅*  |      ✅      |
 | Regular file    |   ✅   |      ✅      |
+
+*Requires `--offline` or `--fs-freeze-command` when used as a source.*
 
 ## Supported Platforms
 
@@ -246,7 +248,7 @@ examines the path to select the correct handling:
 | Type | Detection | Notes |
 |------|-----------|-------|
 | `lvm` | `/dev/<vg>/<lv>` or `/dev/mapper/<vg>-<lv>` | A snapshot is created and removed automatically |
-| `raw` | Other block devices | Require `--skip_snapshot_creation` or external freeze hooks |
+| `raw` | Other block devices | Require `--skip_snapshot_creation` and either `--offline` or `--fs-freeze-command` |
 | `file` | Regular files | Used as-is with no snapshot |
 
 Override detection with `--source-type` and `--dest-type` when necessary.
@@ -256,6 +258,8 @@ Examples:
 ```sh
 lvmsync --source-type lvm /dev/vg0/origin /tmp/dump
 lvmsync --dest-type raw dumpfile /dev/sdb
+lvmsync --source-type raw --offline /dev/sdb /tmp/dump
+lvmsync --source-type raw --fs-freeze-command "fsfreeze -f /mnt && fsfreeze -u /mnt" /dev/sdb /tmp/dump
 ```
 
 ### Configuration sources and precedence

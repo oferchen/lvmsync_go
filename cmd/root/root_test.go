@@ -15,7 +15,7 @@ import (
 )
 
 func TestSetupGRPCSuccess(t *testing.T) {
-	cfg := &config.Config{}
+	cfg := &config.Config{SourceType: "file"}
 	logger := zap.NewNop()
 	srvCleanCalled := false
 	clientCleanCalled := false
@@ -61,7 +61,7 @@ func TestSetupGRPCSuccess(t *testing.T) {
 }
 
 func TestSetupGRPCServerError(t *testing.T) {
-	cfg := &config.Config{}
+	cfg := &config.Config{SourceType: "file"}
 	logger := zap.NewNop()
 	origStart := startGRPCServer
 	defer func() { startGRPCServer = origStart }()
@@ -74,7 +74,7 @@ func TestSetupGRPCServerError(t *testing.T) {
 }
 
 func TestSetupGRPCClientError(t *testing.T) {
-	cfg := &config.Config{}
+	cfg := &config.Config{SourceType: "file"}
 	logger := zap.NewNop()
 	srvCleanupCalled := false
 	origStart := startGRPCServer
@@ -214,7 +214,7 @@ func TestExecuteClient(t *testing.T) {
 }
 
 func TestRunHeartbeatError(t *testing.T) {
-	cfg := &config.Config{StdoutMode: true, GRPCSetupTimeout: time.Second}
+	cfg := &config.Config{StdoutMode: true, GRPCSetupTimeout: time.Second, SourceType: "file"}
 	logger := zap.NewNop()
 
 	origStart := startGRPCServer
@@ -276,7 +276,7 @@ func TestRunGRPCConnectGoroutineLeak(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			defer goleak.VerifyNone(t)
 
-			cfg := &config.Config{StdoutMode: true, GRPCConnect: tc.grpcConnect, GRPCSetupTimeout: time.Second}
+			cfg := &config.Config{StdoutMode: true, GRPCConnect: tc.grpcConnect, GRPCSetupTimeout: time.Second, SourceType: "file"}
 			logger := zap.NewNop()
 
 			origStart := startGRPCServer

@@ -18,6 +18,8 @@ func TestInitGeneralFlags(t *testing.T) {
 		{"stdout", strconv.FormatBool(cfg.StdoutMode)},
 		{"dry-run", strconv.FormatBool(cfg.DryRun)},
 		{"force", strconv.FormatBool(cfg.Force)},
+		{"offline", strconv.FormatBool(cfg.Offline)},
+		{"fs-freeze-command", cfg.FSFreezeCommand},
 		{"mode", cfg.Mode},
 		{"parallel", strconv.Itoa(cfg.Parallel)},
 		{"zerocopy", strconv.FormatBool(cfg.ZeroCopy)},
