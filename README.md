@@ -40,7 +40,7 @@ LVMSync is a high-performance incremental data replication tool for LVM snapshot
 | Device type      | Source | Destination | Notes |
 |------------------|:------:|:-----------:|-------|
 | LVM snapshot     |   ✅   |      ❌      | snapshots are auto-created |
-| Raw block device |   ✅   |      ✅      | requires `--offline` or `--fs-freeze-command` when used as a source |
+| Raw block device |   ✅   |      ✅      | requires `--offline` or `--fs-freeze-command`/`--fs-thaw-command` when used as a source |
 | Regular file     |   ✅   |      ✅      | includes loopback images |
 
 ## Supported Platforms
@@ -98,6 +98,7 @@ tooling to track transfer completion.
 
 - Use `zap` for all logging and avoid `fmt.Print*` or `log.*` calls.
 - Log field keys in `snake_case` and include units where relevant (for example, `duration_ms`).
+- Provide raw byte values alongside human-readable sizes (for example, `block_size` and `block_size_bytes`).
 - Always defer `syncLogger(logger)` to flush buffers and log if the sync fails.
 
 The example below demonstrates these conventions:
@@ -249,7 +250,7 @@ examines the path to select the correct handling:
 | Type | Detection | Notes |
 |------|-----------|-------|
 | `lvm` | `/dev/<vg>/<lv>` or `/dev/mapper/<vg>-<lv>` | A snapshot is created and removed automatically |
-| `raw` | Other block devices | Require `--skip_snapshot_creation` and either `--offline` or `--fs-freeze-command` |
+| `raw` | Other block devices | Require `--skip_snapshot_creation` and either `--offline` or `--fs-freeze-command`/`--fs-thaw-command` |
 | `file` | Regular files | Used as-is with no snapshot |
 
 Override detection with `--source-type` and `--dest-type` when necessary.
@@ -258,7 +259,7 @@ Snapshots provide a crash-consistent view of a device. LVM volumes are
 snapshotted automatically and removed after transfer. Raw block devices and
 regular files do not have a snapshot mechanism; to avoid inconsistent reads you
 must either take them offline with `--offline` or freeze the filesystem with
-`--fs-freeze-command`. Snapshot creation requires root privileges, so non-root
+`--fs-freeze-command` and `--fs-thaw-command`. Snapshot creation requires root privileges, so non-root
 invocations must permit escalation via `sudo -n`.
 
 Examples:
@@ -267,7 +268,7 @@ Examples:
 lvmsync --source-type lvm /dev/vg0/origin /tmp/dump
 lvmsync --dest-type raw dumpfile /dev/sdb
 lvmsync --source-type raw --offline /dev/sdb /tmp/dump
-lvmsync --source-type raw --fs-freeze-command "fsfreeze -f /mnt && fsfreeze -u /mnt" /dev/sdb /tmp/dump
+lvmsync --source-type raw --fs-freeze-command "fsfreeze -f /mnt" --fs-thaw-command "fsfreeze -u /mnt" /dev/sdb /tmp/dump
 ```
 
 ### Raw device safety
@@ -275,13 +276,14 @@ lvmsync --source-type raw --fs-freeze-command "fsfreeze -f /mnt && fsfreeze -u /
 Reading from a live block device can corrupt data if writes occur during the transfer. Ensure a consistent view with one of the following options:
 
 - `--offline` – assert that no process will write to the source device.
-- `--fs-freeze-command` – run a command that freezes the filesystem and thaws it after the read.
+- `--fs-freeze-command`/`--fs-thaw-command` – run commands that freeze and thaw the filesystem around the read.
 
 Example using the provided scripts:
 
 ```sh
 lvmsync --source-type raw \
-  --fs-freeze-command "./docs/fsfreeze-freeze.sh /mnt && ./docs/fsfreeze-thaw.sh /mnt" \
+  --fs-freeze-command "./docs/fsfreeze-freeze.sh /mnt" \
+  --fs-thaw-command "./docs/fsfreeze-thaw.sh /mnt" \
   /dev/sdb /tmp/dump
 ```
 
@@ -776,6 +778,9 @@ Rebuild a manifest index for an existing device:
 lvmsync manifest rebuild /dev/vg0/lv0
 ```
 Progress logs are emitted every 10s by default; adjust with `--manifest-progress-interval`.
+
+Manifests embed a persistent device identifier in a fixed 64-byte field. The
+`manifest rebuild` command fails if the identifier exceeds this limit.
 
 Verify that a source and destination match:
 

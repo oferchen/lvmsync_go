@@ -64,6 +64,7 @@ func Configure() (*config.Config, []string, *zap.Logger, error) {
 	}
 	logger.Info("Effective configuration",
 		zap.String("block_size", cfg.HumanBlockSize()),
+		zap.Uint64("block_size_bytes", cfg.BlockSizeBytes()),
 		zap.Int("parallel", cfg.Parallel),
 		zap.String("transport", cfg.Transport),
 		zap.Int("concurrency", cfg.Concurrency),
@@ -188,7 +189,7 @@ func Run(cfg *config.Config, args []string, logger *zap.Logger) error {
 	)
 
 	if cfg.SourceType == "" || cfg.SourceType == "auto" {
-		dev, err := device.Detect(originalVolume, cfg.Offline, cfg.FSFreezeCommand)
+		dev, err := device.Detect(originalVolume, cfg.Offline, cfg.FSFreezeCommand, cfg.FSThawCommand)
 		if err != nil {
 			return err
 		}
@@ -210,7 +211,7 @@ func Run(cfg *config.Config, args []string, logger *zap.Logger) error {
 		}
 	case "raw":
 		if !cfg.SkipSnapshotCreation {
-			return fmt.Errorf("raw sources require --skip_snapshot_creation and either --offline or --fs-freeze-command")
+			return fmt.Errorf("raw sources require --skip_snapshot_creation and either --offline or --fs-freeze-command/--fs-thaw-command")
 		}
 	case "file":
 	default:

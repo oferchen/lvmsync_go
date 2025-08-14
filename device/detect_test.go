@@ -36,7 +36,27 @@ func TestDetectFile(t *testing.T) {
 		t.Fatalf("temp file: %v", err)
 	}
 	f.Close()
-	dev, err := Detect(f.Name(), true, "")
+	dev, err := Detect(f.Name(), true, "", "")
+	if err != nil {
+		t.Fatalf("detect: %v", err)
+	}
+	if _, ok := dev.(*FileDevice); !ok {
+		t.Fatalf("expected FileDevice, got %T", dev)
+	}
+	dev.Close()
+}
+
+func TestDetectFileSymlink(t *testing.T) {
+	f, err := os.CreateTemp(t.TempDir(), "file")
+	if err != nil {
+		t.Fatalf("temp file: %v", err)
+	}
+	f.Close()
+	link := filepath.Join(t.TempDir(), "filelink")
+	if err := os.Symlink(f.Name(), link); err != nil {
+		t.Fatalf("symlink: %v", err)
+	}
+	dev, err := Detect(link, true, "")
 	if err != nil {
 		t.Fatalf("detect: %v", err)
 	}
@@ -52,7 +72,7 @@ func TestDetectRaw(t *testing.T) {
 	}
 	loop, cleanup := setupLoop(t, 1<<20)
 	defer cleanup()
-	dev, err := Detect(loop, true, "")
+	dev, err := Detect(loop, true, "", "")
 	if err != nil {
 		t.Fatalf("detect: %v", err)
 	}
@@ -62,7 +82,27 @@ func TestDetectRaw(t *testing.T) {
 	dev.Close()
 }
 
-func TestDetectLVM(t *testing.T) {
+func TestDetectRawSymlink(t *testing.T) {
+	if os.Geteuid() != 0 {
+		t.Skip("requires root")
+	}
+	loop, cleanup := setupLoop(t, 1<<20)
+	defer cleanup()
+	link := filepath.Join(t.TempDir(), "rawlink")
+	if err := os.Symlink(loop, link); err != nil {
+		t.Fatalf("symlink: %v", err)
+	}
+	dev, err := Detect(link, true, "")
+	if err != nil {
+		t.Fatalf("detect: %v", err)
+	}
+	if _, ok := dev.(*RawDevice); !ok {
+		t.Fatalf("expected RawDevice, got %T", dev)
+	}
+	dev.Close()
+}
+
+func TestDetectLVMSymlink(t *testing.T) {
 	if os.Geteuid() != 0 {
 		t.Skip("requires root")
 	}
@@ -75,12 +115,12 @@ func TestDetectLVM(t *testing.T) {
 	defer os.Remove(lvPath)
 	defer os.Remove(vgDir)
 
-	dev, err := Detect(lvPath, true, "")
+	dev, err := Detect(lvPath, true, "", "")
 	if err != nil {
 		t.Fatalf("detect: %v", err)
 	}
-	if _, ok := dev.(*LVMDevice); !ok {
-		t.Fatalf("expected LVMDevice, got %T", dev)
+	if _, ok := dev.(*RawDevice); !ok {
+		t.Fatalf("expected RawDevice, got %T", dev)
 	}
 	dev.Close()
 }

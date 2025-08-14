@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/zeebo/blake3"
@@ -60,6 +61,20 @@ func TestIndexCRUD(t *testing.T) {
 	}
 	if err := idx2.Close(); err != nil {
 		t.Fatalf("close2: %v", err)
+	}
+}
+
+func TestDeviceIDLength(t *testing.T) {
+	dir := t.TempDir()
+	good := strings.Repeat("a", 64)
+	goodPath := filepath.Join(dir, "good.man")
+	if _, err := Create(goodPath, good, 4096, 4096); err != nil {
+		t.Fatalf("expected success for 64-byte id: %v", err)
+	}
+	bad := strings.Repeat("b", 65)
+	badPath := filepath.Join(dir, "bad.man")
+	if _, err := Create(badPath, bad, 4096, 4096); err == nil {
+		t.Fatalf("expected error for id >64 bytes")
 	}
 }
 

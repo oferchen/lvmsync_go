@@ -47,7 +47,7 @@ type Index struct {
 var closeHook = func() {}
 
 var detectDevice = func(path string) (device.Device, error) {
-	return device.Detect(path, true, "")
+	return device.Detect(path, true, "", "")
 }
 
 func headerMAC(h *Header) [32]byte {
@@ -108,6 +108,9 @@ func (i *Index) Close() error {
 
 // Create initializes a new manifest index at path for the given device.
 func Create(path, deviceID string, size uint64, blockSize uint32) (*Index, error) {
+	if len(deviceID) > 64 {
+		return nil, fmt.Errorf("manifest: device ID exceeds 64 bytes")
+	}
 	chunkCount := (size + uint64(blockSize) - 1) / uint64(blockSize)
 	total := headerSize + entrySize*chunkCount
 	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600)

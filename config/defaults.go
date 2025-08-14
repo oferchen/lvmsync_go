@@ -109,6 +109,7 @@ type Config struct {
 	CheckpointBytesRaw       string        `mapstructure:"checkpoint_bytes"`
 	SyncIntervalBytes        int           `mapstructure:"-"`
 	CheckpointBytes          int           `mapstructure:"-"`
+
 }
 
 func FormatBlockSize(blockSize int) (string, error) {
@@ -137,6 +138,15 @@ func (c *Config) HumanBlockSize() string {
 		return ""
 	}
 	return bs
+}
+
+// BlockSizeBytes returns the configured block size in bytes.
+// A zero or negative block size yields zero.
+func (c *Config) BlockSizeBytes() uint64 {
+	if c.BlockSize <= 0 {
+		return 0
+	}
+	return uint64(c.BlockSize)
 }
 
 func DefaultConfig() (*Config, error) {

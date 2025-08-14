@@ -30,6 +30,9 @@ Each subsequent entry describes one chunk and also uses little‑endian encoding
 The header `version` field allows future format changes without breaking
 backwards compatibility.
 
+Device identifiers are stored in a fixed 64-byte field; creation fails if the
+ID exceeds this limit.
+
 ## Resume Tokens
 
 During a transfer handshake the sender may advertise a `resume:<token>` token.
@@ -67,8 +70,8 @@ Working on a live block device can lead to inconsistent manifests if writes
 occur during the scan. To ensure a stable view:
 
 - `--offline` asserts that no process will modify the device while it is read.
-- `--fs-freeze-command` runs a command that freezes the filesystem and thaws it
-  once the read completes.
+- `--fs-freeze-command`/`--fs-thaw-command` run commands that freeze the
+  filesystem and thaw it once the read completes.
 
 Example scripts in this repository:
 
@@ -78,5 +81,5 @@ Example scripts in this repository:
 Use them together:
 
 ```sh
-lvmsync manifest rebuild --fs-freeze-command "./docs/fsfreeze-freeze.sh /mnt && ./docs/fsfreeze-thaw.sh /mnt" /dev/sdb
+lvmsync manifest rebuild --fs-freeze-command "./docs/fsfreeze-freeze.sh /mnt" --fs-thaw-command "./docs/fsfreeze-thaw.sh /mnt" /dev/sdb
 ```
