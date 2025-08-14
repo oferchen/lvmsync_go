@@ -44,6 +44,8 @@ type Index struct {
 
 var closeHook = func() {}
 
+var detectDevice = device.Detect
+
 func headerMAC(h *Header) [32]byte {
 	var buf [headerSize - 32]byte
 	binary.LittleEndian.PutUint32(buf[0:4], h.Version)
@@ -199,21 +201,22 @@ func (i *Index) Entry(idx int) (offset uint64, length uint32, xxh uint64, digest
 // Rebuild creates a manifest index for device at output path.
 // DeviceID is determined via device.GetUUID. The device is read sequentially using blockSize-sized chunks.
 func Rebuild(devicePath, output string) error {
-	f, err := os.Open(devicePath)
+	dev, err := detectDevice(devicePath)
+	if err != nil {
+		return err
+	}
+	defer dev.Close()
+	blockSize := uint32(dev.BlockSize())
+	size := dev.SizeBytes()
+	id, err := device.GetUUID(context.Background(), dev.Path())
+	if err != nil {
+		return err
+	}
+	f, err := os.Open(dev.Path())
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-	st, err := f.Stat()
-	if err != nil {
-		return err
-	}
-	blockSize := uint32(4096)
-	size := uint64(st.Size())
-	id, err := device.GetUUID(context.Background(), devicePath)
-	if err != nil {
-		return err
-	}
 	idx, err := Create(output, id, size, blockSize)
 	if err != nil {
 		return err
