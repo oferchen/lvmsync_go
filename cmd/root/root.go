@@ -188,19 +188,19 @@ func Run(cfg *config.Config, args []string, logger *zap.Logger) error {
 	)
 
 	if cfg.SourceType == "" || cfg.SourceType == "auto" {
-		if dev, err := device.Detect(originalVolume); err == nil {
-			switch dev.(type) {
-			case *device.LVMDevice:
-				cfg.SourceType = "lvm"
-			case *device.RawDevice:
-				cfg.SourceType = "raw"
-			case *device.FileDevice:
-				cfg.SourceType = "file"
-			}
-			dev.Close()
-		} else {
+		dev, err := device.Detect(originalVolume, cfg.Offline, cfg.FSFreezeCommand)
+		if err != nil {
+			return err
+		}
+		switch dev.(type) {
+		case *device.LVMDevice:
+			cfg.SourceType = "lvm"
+		case *device.RawDevice:
+			cfg.SourceType = "raw"
+		case *device.FileDevice:
 			cfg.SourceType = "file"
 		}
+		dev.Close()
 	}
 	switch cfg.SourceType {
 	case "lvm":
@@ -210,7 +210,7 @@ func Run(cfg *config.Config, args []string, logger *zap.Logger) error {
 		}
 	case "raw":
 		if !cfg.SkipSnapshotCreation {
-			return fmt.Errorf("raw sources require --skip_snapshot_creation or external freeze hooks")
+			return fmt.Errorf("raw sources require --skip_snapshot_creation and either --offline or --fs-freeze-command")
 		}
 	case "file":
 	default:

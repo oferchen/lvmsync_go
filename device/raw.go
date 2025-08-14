@@ -3,6 +3,7 @@ package device
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
@@ -16,7 +17,17 @@ type RawDevice struct {
 }
 
 // OpenRaw opens a block device at the given path and queries its size and block size.
-func OpenRaw(path string) (*RawDevice, error) {
+// If offline is false, fsFreezeCmd must be a command that successfully freezes the
+// filesystem before accessing the device.
+func OpenRaw(path string, offline bool, fsFreezeCmd string) (*RawDevice, error) {
+	if !offline {
+		if fsFreezeCmd == "" {
+			return nil, fmt.Errorf("raw sources require --offline or --fs-freeze-command")
+		}
+		if err := exec.Command("sh", "-c", fsFreezeCmd).Run(); err != nil {
+			return nil, fmt.Errorf("freeze command failed: %w", err)
+		}
+	}
 	info, err := os.Stat(path)
 	if err != nil {
 		return nil, err

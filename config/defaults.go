@@ -33,6 +33,8 @@ type Config struct {
 	StdoutMode           bool          `mapstructure:"stdout"`
 	DryRun               bool          `mapstructure:"dry-run"`
 	Force                bool          `mapstructure:"force"`
+	Offline              bool          `mapstructure:"offline"`
+	FSFreezeCommand      string        `mapstructure:"fs-freeze-command"`
 	Mode                 string        `mapstructure:"mode"`
 	Parallel             int           `mapstructure:"parallel"`
 	Concurrency          int           `mapstructure:"concurrency"`
@@ -146,6 +148,8 @@ func DefaultConfig() (*Config, error) {
 		StdoutMode:           false,
 		DryRun:               false,
 		Force:                false,
+		Offline:              false,
+		FSFreezeCommand:      "",
 		Parallel:             4,
 		Concurrency:          0,
 		ZeroCopy:             false,

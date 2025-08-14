@@ -44,7 +44,9 @@ type Index struct {
 
 var closeHook = func() {}
 
-var detectDevice = device.Detect
+var detectDevice = func(path string) (device.Device, error) {
+	return device.Detect(path, true, "")
+}
 
 func headerMAC(h *Header) [32]byte {
 	var buf [headerSize - 32]byte
