@@ -3,7 +3,6 @@ package device
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"lvmsync_go/lvm"
 )
