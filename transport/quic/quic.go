@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net"
 
+	"go.uber.org/zap"
+
 	"lvmsync_go/common"
 	"lvmsync_go/transport"
 )
@@ -27,11 +29,13 @@ func init() {
 func (t *Transport) Name() string { return "quic" }
 
 func (t *Transport) Dial(ctx context.Context, address string) (net.Conn, error) {
+	t.logger.Info("dial", zap.String("address", address))
 	d := net.Dialer{}
 	return d.DialContext(ctx, "tcp", address)
 }
 
 func (t *Transport) Listen(ctx context.Context, address string) (net.Listener, error) {
+	t.logger.Info("listen", zap.String("address", address))
 	return net.Listen("tcp", address)
 }
 

@@ -27,6 +27,7 @@ func TestInitGeneralFlags(t *testing.T) {
 		{"resume", cfg.ResumeState},
 		{"speed", cfg.Speed},
 		{"sync_interval", cfg.SyncInterval},
+		{"checkpoint_bytes", cfg.CheckpointBytesRaw},
 		{"checkpoint_interval", cfg.CheckpointInterval.String()},
 		{"block_size", cfg.BlockSizeRaw},
 		{"verbose", "0"},

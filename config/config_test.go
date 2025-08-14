@@ -442,6 +442,9 @@ func TestApplyThroughputMode(t *testing.T) {
 	if conf.SyncIntervalBytes != 1000000000 {
 		t.Fatalf("sync interval bytes %d", conf.SyncIntervalBytes)
 	}
+	if conf.CheckpointBytes != 1000000000 {
+		t.Fatalf("checkpoint bytes %d", conf.CheckpointBytes)
+	}
 	if conf.CheckpointInterval != 10*time.Second {
 		t.Fatalf("checkpoint interval %v", conf.CheckpointInterval)
 	}

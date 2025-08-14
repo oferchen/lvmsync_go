@@ -80,6 +80,15 @@ func (b *Builder) applyDefaults(conf *Config) error {
 		conf.SyncInterval = b.defaults.SyncInterval
 	}
 
+	cb, err := b.parseBytesOrFallback("checkpoint_bytes", b.defaults.CheckpointBytesRaw)
+	if err != nil {
+		return err
+	}
+	conf.CheckpointBytes = cb
+	if conf.CheckpointBytesRaw == "" {
+		conf.CheckpointBytesRaw = b.defaults.CheckpointBytesRaw
+	}
+
 	if conf.CompressConcurrency <= 0 {
 		conf.CompressConcurrency = runtime.GOMAXPROCS(0)
 	}
@@ -234,13 +243,15 @@ func buildViper(flagSets *FlagSets) (*viper.Viper, error) {
 	v.SetConfigName("config")
 	v.SetConfigType("yaml")
 	v.AddConfigPath(".")
-	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
 	v.SetEnvPrefix("LVMSYNC")
 	v.AutomaticEnv()
 	keys := []string{
 		"transport",
 		"concurrency",
 		"tcp_port",
+		"source-type",
+		"dest-type",
 	}
 	for _, k := range keys {
 		if err := v.BindEnv(k); err != nil {

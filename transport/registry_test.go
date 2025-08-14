@@ -27,6 +27,7 @@ func TestConcurrentRegister(t *testing.T) {
 		if _, err := Get(name, Config{Logger: zap.NewNop()}); err != nil {
 			t.Errorf("get %s: %v", name, err)
 		}
+		logger.Sync()
 	}
 }
 

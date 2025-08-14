@@ -7,6 +7,7 @@ import (
 	"go.uber.org/zap"
 
 	"lvmsync_go/config"
+	"lvmsync_go/device"
 	"lvmsync_go/transfer"
 )
 
@@ -23,5 +24,22 @@ func Run(cfg *config.Config, applyFile string, args []string, logger *zap.Logger
 		return fmt.Errorf("no destination device specified for apply mode")
 	}
 	destDevice := args[0]
+	if cfg.DestType == "auto" {
+		if dev, err := device.Detect(destDevice); err == nil {
+			switch dev.(type) {
+			case *device.RawDevice:
+				if !cfg.SkipSnapshotCreation {
+					dev.Close()
+					return fmt.Errorf("raw destinations require --skip_snapshot_creation or external freeze hooks")
+				}
+				cfg.DestType = "raw"
+			case *device.LVMDevice:
+				cfg.DestType = "lvm"
+			case *device.FileDevice:
+				cfg.DestType = "file"
+			}
+			dev.Close()
+		}
+	}
 	return applyFunc(cfg, applyFile, destDevice, logger)
 }

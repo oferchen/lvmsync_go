@@ -12,6 +12,8 @@ import (
 	"net"
 	"time"
 
+	"go.uber.org/zap"
+
 	"lvmsync_go/common"
 	"lvmsync_go/transport"
 )
@@ -20,6 +22,7 @@ import (
 type Transport struct {
 	serverConf *tls.Config
 	clientConf *tls.Config
+	logger     *zap.Logger
 }
 
 // New creates a Transport using provided TLS roots and client certificate.
@@ -56,11 +59,13 @@ func init() {
 func (t *Transport) Name() string { return "tcp+tls" }
 
 func (t *Transport) Dial(ctx context.Context, address string) (net.Conn, error) {
+	t.logger.Info("dial", zap.String("address", address))
 	d := net.Dialer{}
 	return tls.DialWithDialer(&d, "tcp", address, t.clientConf)
 }
 
 func (t *Transport) Listen(ctx context.Context, address string) (net.Listener, error) {
+	t.logger.Info("listen", zap.String("address", address))
 	ln, err := net.Listen("tcp", address)
 	if err != nil {
 		return nil, err

@@ -75,7 +75,7 @@ func iterateBlocks(cfg *config.Config, ranges []Range, srcFile *os.File, bufOut 
 				return totalBytes, skippedBlocks, manifest, fmt.Errorf("failed to write header: %w", err)
 			}
 			zh := zeroHash(int(blockSize))
-			saveResumeState(cfg, zh, int64(blockSize), logger)
+			saveResumeState(cfg, r.Start, zh, int64(blockSize), logger)
 			if idx != nil {
 				idx.Set(r.Start, blockSize, xx, sum)
 			}
@@ -98,7 +98,7 @@ func iterateBlocks(cfg *config.Config, ranges []Range, srcFile *os.File, bufOut 
 		if idx != nil {
 			idx.Set(r.Start, blockSize, xx, sum)
 		}
-		saveResumeState(cfg, sum, int64(blockSize), logger)
+		saveResumeState(cfg, r.Start, sum, int64(blockSize), logger)
 
 		putBlockBuffer(data)
 
@@ -180,14 +180,14 @@ func processParallelResults(
 				xx := hashutil.SumXXH3(res.Data)
 				idx.Set(res.Offset, res.Size, xx, res.ChunkID)
 			}
-			saveResumeState(cfg, res.ChunkID, int64(res.Size), logger)
+			saveResumeState(cfg, res.Offset, res.ChunkID, int64(res.Size), logger)
 			putBlockBuffer(res.Data)
 		} else {
 			if idx != nil {
 				xx := hashutil.SumXXH3(nil)
 				idx.Set(res.Offset, res.Size, xx, res.ChunkID)
 			}
-			saveResumeState(cfg, res.ChunkID, 0, logger)
+			saveResumeState(cfg, res.Offset, res.ChunkID, 0, logger)
 		}
 
 		totalBytesTransferred += int64(res.Size)

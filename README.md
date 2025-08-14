@@ -35,6 +35,14 @@ LVMSync is a high-performance incremental data replication tool for LVM snapshot
 - **Flexible Configuration**: Flags, environment variables, or `config.yaml`. See [Configuration](#configuration).
 - **Configuration Validation**: Checks key parameters (e.g., volume group existence, escalation command) before starting operations.
 
+## Device Support Matrix
+
+| Device type     | Source | Destination |
+|-----------------|:------:|:-----------:|
+| LVM snapshot    |   ✅   |      ❌      |
+| Raw block device|   ✅   |      ✅      |
+| Regular file    |   ✅   |      ✅      |
+
 ## Supported Platforms
 
 LVMSync targets Linux systems only. Builds are tested on the `amd64` and `arm64` architectures.
@@ -221,6 +229,7 @@ Recent refactors added several configuration options:
 - `--tcp_lowat` sets TCP_NOTSENT_LOWAT to limit unsent bytes.
 - `--sync_interval` controls how many bytes are written between `fdatasync` calls.
 - `--checkpoint_interval` sets how often resume state is persisted.
+- `--checkpoint_bytes` sets how many bytes are written between resume checkpoints.
 - `--block_size` sets the transfer block size (use `auto` for detection).
 
 ### I/O tuning
@@ -228,6 +237,26 @@ Recent refactors added several configuration options:
 - `--odirect` uses O_DIRECT with block-size aligned buffers.
 - `--sync_interval` sets how many bytes are written between `fdatasync` calls.
 - `--numa_pin` pins worker goroutines to CPUs local to the source device's NUMA node.
+
+### Device types
+
+LVMSync works with three kinds of source and destination devices. Auto-detection
+examines the path to select the correct handling:
+
+| Type | Detection | Notes |
+|------|-----------|-------|
+| `lvm` | `/dev/<vg>/<lv>` or `/dev/mapper/<vg>-<lv>` | A snapshot is created and removed automatically |
+| `raw` | Other block devices | Require `--skip_snapshot_creation` or external freeze hooks |
+| `file` | Regular files | Used as-is with no snapshot |
+
+Override detection with `--source-type` and `--dest-type` when necessary.
+
+Examples:
+
+```sh
+lvmsync --source-type lvm /dev/vg0/origin /tmp/dump
+lvmsync --dest-type raw dumpfile /dev/sdb
+```
 
 ### Configuration sources and precedence
 
@@ -269,6 +298,8 @@ LVMSYNC_GRPC_GRPC_PORT=9443 LVMSYNC_GRPC_TLS_CERT=cert.pem lvmsync-grpcd
 | `--config` | `LVMSYNC_CONFIG` | `config` | Path to config YAML file |
 | `--apply` | `LVMSYNC_APPLY` | `apply` | Apply mode: read change dump from file ('-' for STDIN) and apply to destination device |
 | `--stdout` | `LVMSYNC_STDOUT` | `stdout` | Write change dump to STDOUT |
+| `--source-type` | `LVMSYNC_SOURCE_TYPE` | `source-type` | Source device type: `auto`, `file`, `raw`, or `lvm` |
+| `--dest-type` | `LVMSYNC_DEST_TYPE` | `dest-type` | Destination device type: `auto`, `file`, `raw`, or `lvm` |
 | `--mode` | `LVMSYNC_MODE` | `mode` | Configuration preset: `default` or `throughput`; unknown modes fail validation |
 | `--parallel` | `LVMSYNC_PARALLEL` | `parallel` | Number of concurrent workers |
 | `--concurrency` | `LVMSYNC_CONCURRENCY` | `concurrency` | Stream concurrency (0 to autotune based on BDP) |
@@ -276,9 +307,10 @@ LVMSYNC_GRPC_GRPC_PORT=9443 LVMSYNC_GRPC_TLS_CERT=cert.pem lvmsync-grpcd
 | `--odirect` | `LVMSYNC_ODIRECT` | `odirect` | Use O_DIRECT for device I/O when possible |
 | `--numa_pin` | `LVMSYNC_NUMA_PIN` | `numa_pin` | Pin worker goroutines to device NUMA node |
 | `--max_retries` | `LVMSYNC_MAX_RETRIES` | `max_retries` | Maximum number of retries per block |
-| `--resume` | `LVMSYNC_RESUME` | `resume` | Path to resume state file (checkpointed every 1 GiB or 10 s) |
+| `--resume` | `LVMSYNC_RESUME` | `resume` | Path to resume state file (records dedup mode and last chunk boundary) |
 | `--speed` | `LVMSYNC_SPEED` | `speed` | Transfer speed limit |
 | `--sync_interval` | `LVMSYNC_SYNC_INTERVAL` | `sync_interval` | Bytes between fdatasync calls |
+| `--checkpoint_bytes` | `LVMSYNC_CHECKPOINT_BYTES` | `checkpoint_bytes` | Bytes between resume checkpoints |
 | `--checkpoint_interval` | `LVMSYNC_CHECKPOINT_INTERVAL` | `checkpoint_interval` | Duration between checkpoints |
 | `--block_size` | `LVMSYNC_BLOCK_SIZE` | `block_size` | Block size for data transfer; specify 'auto' or 0 for automatic detection |
 | `--verbose` | `LVMSYNC_VERBOSE` | `verbose` | Verbosity level |
@@ -361,7 +393,7 @@ If `--ssh_key` is empty, lvmsync contacts the SSH agent referenced by `SSH_AUTH_
 
 ## gRPC Control Plane
 
-The optional gRPC daemon exposes snapshot management and replication over a mutually authenticated channel.
+The optional gRPC daemon exposes snapshot management and replication over a mutually authenticated channel. Plaintext connections are rejected unless `--allow-insecure` is explicitly set.
 
 `StartGRPCServer` accepts a `context.Context` and runs the server in a goroutine, returning a buffered error channel. Cancel the context or invoke the cleanup function to stop the server and wait on the channel during shutdown to surface any serve errors.
 
@@ -371,11 +403,15 @@ The optional gRPC daemon exposes snapshot management and replication over a mutu
 4. **Ack/Ping Stream** – a bidirectional stream of `Ack` messages per session provides keep-alives and progress confirmation.
 5. **Finalization** – the client requests completion using the session ID when replication is done.
 
+Configuration comes from flags, `LVMSYNC_GRPC_*` environment variables, or a YAML file with flags taking precedence.
+
 Run the daemon with TLS:
 
 ```sh
 lvmsync-grpcd --grpc-port 9443 --tls-cert cert.pem --tls-key key.pem --ca-cert ca.pem
 ```
+
+Disabling TLS with `--allow-insecure` is supported for development but is unsafe for production deployments.
 
 On failure, `lvmsync-grpcd` logs the error and exits with status `1` so calling scripts can inspect `$?`.
 
@@ -459,14 +495,20 @@ transports to attempt (for example `quic,h2,tcp+tls,ssh`). The flags below confi
 
 ### Flags and environment variables
 
-| Flag | Environment variable | Description |
-|------|----------------------|-------------|
+| Flag | Environment variable | Description | mTLS |
+|------|----------------------|-------------|------||
 | `--transport` | `LVMSYNC_TRANSPORT` | Ordered transports to try (e.g., `quic,h2,tcp+tls,ssh`) |
 | `--concurrency` | `LVMSYNC_CONCURRENCY` | Stream concurrency (0 to autotune based on BDP) |
 | `--tcp_port` | `LVMSYNC_TCP_PORT` | TCP+TLS port |
 | `--tcp_parallel` | `LVMSYNC_TCP_PARALLEL` | Number of parallel TCP connections |
 | `--tcp_lowat` | `LVMSYNC_TCP_LOWAT` | TCP_NOTSENT_LOWAT in bytes |
 | `--ssh_port` | `LVMSYNC_SSH_PORT` | SSH port |
+| `--ssh_port` | `LVMSYNC_SSH_PORT` | SSH port | ❌ |
+| `--tls_cert` | `LVMSYNC_TLS_CERT` | TLS certificate file | ✅ |
+| `--tls_key` | `LVMSYNC_TLS_KEY` | TLS key file | ✅ |
+| `--ca_cert` | `LVMSYNC_CA_CERT` | CA certificate file | ✅ |
+| `--tcp_parallel` | `LVMSYNC_TCP_PARALLEL` | Number of parallel TCP connections | n/a |
+| `--tcp_lowat` | `LVMSYNC_TCP_LOWAT` | TCP_NOTSENT_LOWAT in bytes | n/a |
 
 ### Usage examples
 
@@ -488,7 +530,13 @@ LVMSYNC_TRANSPORT=ssh LVMSYNC_SSH_PORT=2222 lvmsync run backup@host:/dev/vg1/tar
 
 ## Hybrid Deduplication and Adaptive Compression
 
-Hybrid dedup combines fixed-size and content-defined chunking. Enable it with `--dedup hybrid` and tune the CDC window with `--cdc_min`, `--cdc_avg`, and `--cdc_max`.
+Hybrid dedup combines fixed-size and content-defined chunking. Enable it with `--dedup hybrid` and tune FastCDC with `--cdc-min`, `--cdc-avg`, and `--cdc-max` (flags use underscores in the CLI: `--cdc_min`, `--cdc_avg`, `--cdc_max`).
+
+| Flag (`--cdc-*`) | Environment variable | Config key | Description |
+|------------------|----------------------|------------|-------------|
+| `--cdc-min`      | `LVMSYNC_CDC_MIN`    | `cdc_min`  | Minimum chunk size |
+| `--cdc-avg`      | `LVMSYNC_CDC_AVG`    | `cdc_avg`  | Target average chunk size |
+| `--cdc-max`      | `LVMSYNC_CDC_MAX`    | `cdc_max`  | Maximum chunk size |
 
 The Bloom filter de-duplicates previously seen chunks. Size it with `--bloom_entries` and desired false positive rate via `--bloom_fp_rate`. For an mmap-backed index, `--bloom_mbits` controls the bitmap size in megabits.
 
@@ -663,7 +711,13 @@ lvmsync run [--dry_run] [--transport quic,h2,tcp+tls,ssh] <snapshot|lvm device> 
 
 The tool supports both local and remote transfers, as well as an "apply mode" for applying change dumps. Use `--dry_run` to print planned actions without executing and `--transport` to provide an ordered list of transports to try.
 
-### Manifest Operations
+## Resume, Manifest, and Verify
+
+Resume an interrupted transfer using a checkpointed state file:
+
+```sh
+lvmsync run --resume statefile /dev/vg0/snap0 /dev/vg0/data
+```
 
 Rebuild a manifest index for an existing device:
 
@@ -671,13 +725,22 @@ Rebuild a manifest index for an existing device:
 lvmsync manifest rebuild /dev/vg0/lv0
 ```
 
-### Verification
-
 Verify that a source and destination match:
 
 ```sh
 lvmsync verify /dev/vg0/source /dev/vg1/target
 ```
+
+Supply options such as block size or deduplication mode to control how data is
+compared. For example, to verify using 4 KiB blocks and a manifest generated
+earlier:
+
+```sh
+lvmsync verify --block_size 4K --manifest snapshot.manifest /dev/vg0/source /dev/vg1/target
+```
+
+Flags are parsed via Viper, so the same settings can be provided through
+`LVMSYNC_*` environment variables or a `config.yaml` file.
 
 ### Options
 
@@ -836,7 +899,7 @@ lvmsync run --speed 50MB /dev/vg0/snap0 /dev/vg0/data
 
 #### Resuming a Transfer
 
-Resume an interrupted transfer using a resume state file. The file stores the last successful CDC chunk digest and is checkpointed every 1 GiB or 10 s:
+Resume an interrupted transfer using a resume state file. The file records the deduplication mode, the digest of the last successful chunk, and its CDC boundaries. Progress is checkpointed every `--checkpoint-bytes` or `--checkpoint-interval`, and the resume file is removed on successful completion:
 
 ```sh
 lvmsync run --resume statefile /dev/vg0/snap0 /dev/vg0/data

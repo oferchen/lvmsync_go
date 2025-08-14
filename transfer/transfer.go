@@ -242,8 +242,8 @@ func (t *Transfer) dumpChangesCore(cfg *config.Config, snapshot, source string, 
 	}
 	defer cleanupPipe()
 
-	resumeDigest := readResumeDigest(cfg, t.Logger)
-	startIdx := findResumeIndex(cfg, srcFile, ranges, resumeDigest, t.Logger)
+	checkpoint := readResumeState(cfg, t.Logger)
+	startIdx := findResumeIndex(cfg, srcFile, ranges, checkpoint, t.Logger)
 	if startIdx > 0 {
 		ranges = ranges[startIdx:]
 	}
@@ -317,24 +317,38 @@ func (t *Transfer) DumpChanges(cfg *config.Config, snapshot, source string, out 
 }
 
 var (
-	resumeMu    sync.Mutex
-	resumeBytes int64
-	resumeLast  time.Time
-	resumeChunk [32]byte
+	resumeMu     sync.Mutex
+	resumeBytes  int64
+	resumeLast   time.Time
+	resumeChunk  [32]byte
+	resumeOffset uint64
+	resumeLength uint32
 )
 
 type resumeState struct {
 	Transport         string `json:"transport"`
 	Compress          string `json:"compress"`
 	ChecksumAlgorithm string `json:"checksum_algorithm"`
+	DedupMode         string `json:"dedup_mode"`
+	Offset            uint64 `json:"offset"`
+	Length            uint32 `json:"length"`
 	Chunk             string `json:"chunk"`
 }
 
-func writeResumeState(cfg *config.Config, logger *zap.Logger, path string, chunk [32]byte) {
+type resumeCheckpoint struct {
+	Chunk  [32]byte
+	Offset uint64
+	Length uint32
+}
+
+func writeResumeState(cfg *config.Config, logger *zap.Logger, path string, offset uint64, length uint32, chunk [32]byte) {
 	rs := resumeState{
 		Transport:         cfg.Transport,
 		Compress:          cfg.Compress,
 		ChecksumAlgorithm: cfg.ChecksumAlgorithm,
+		DedupMode:         cfg.DedupMode,
+		Offset:            offset,
+		Length:            length,
 		Chunk:             hex.EncodeToString(chunk[:]),
 	}
 	data, err := json.Marshal(rs)
@@ -351,7 +365,7 @@ func writeResumeState(cfg *config.Config, logger *zap.Logger, path string, chunk
 	}
 }
 
-func saveResumeState(cfg *config.Config, chunk [32]byte, size int64, logger *zap.Logger) {
+func saveResumeState(cfg *config.Config, offset uint64, chunk [32]byte, size int64, logger *zap.Logger) {
 	if cfg.ResumeState == "" {
 		return
 	}
@@ -362,8 +376,11 @@ func saveResumeState(cfg *config.Config, chunk [32]byte, size int64, logger *zap
 	}
 	resumeBytes += size
 	resumeChunk = chunk
-	if resumeBytes >= 1<<30 || time.Since(resumeLast) >= 10*time.Second {
-		writeResumeState(cfg, logger, cfg.ResumeState, resumeChunk)
+	resumeOffset = offset
+	resumeLength = uint32(size)
+	if (cfg.CheckpointBytes > 0 && resumeBytes >= int64(cfg.CheckpointBytes)) ||
+		(cfg.CheckpointInterval > 0 && time.Since(resumeLast) >= cfg.CheckpointInterval) {
+		writeResumeState(cfg, logger, cfg.ResumeState, resumeOffset, resumeLength, resumeChunk)
 		resumeBytes = 0
 		resumeLast = time.Now()
 	}
@@ -378,12 +395,17 @@ func finalizeResumeState(cfg *config.Config, logger *zap.Logger) {
 	if resumeLast.IsZero() {
 		return
 	}
-	writeResumeState(cfg, logger, cfg.ResumeState, resumeChunk)
+	if err := os.Remove(cfg.ResumeState); err != nil && !os.IsNotExist(err) {
+		if logger != nil {
+			logger.Warn("Failed to remove resume state", zap.Error(err))
+		}
+	}
 	resumeBytes = 0
+	resumeLast = time.Time{}
 }
 
-func readResumeDigest(cfg *config.Config, logger *zap.Logger) [32]byte {
-	var out [32]byte
+func readResumeState(cfg *config.Config, logger *zap.Logger) resumeCheckpoint {
+	var out resumeCheckpoint
 	if cfg.ResumeState == "" {
 		return out
 	}
@@ -395,22 +417,47 @@ func readResumeDigest(cfg *config.Config, logger *zap.Logger) [32]byte {
 	if err := json.Unmarshal(data, &rs); err != nil {
 		return out
 	}
-	if rs.Transport != cfg.Transport || rs.Compress != cfg.Compress || rs.ChecksumAlgorithm != cfg.ChecksumAlgorithm {
+	if rs.Transport != cfg.Transport || rs.Compress != cfg.Compress ||
+		rs.ChecksumAlgorithm != cfg.ChecksumAlgorithm || rs.DedupMode != cfg.DedupMode {
 		return out
 	}
 	b, err := hex.DecodeString(rs.Chunk)
 	if err != nil || len(b) != 32 {
 		return out
 	}
-	copy(out[:], b)
+	copy(out.Chunk[:], b)
+	out.Offset = rs.Offset
+	out.Length = rs.Length
 	if logger != nil {
-		logger.Info("Resuming from chunk", zap.String("resume_chunk", hex.EncodeToString(out[:])))
+		logger.Info("Resuming from chunk",
+			zap.String("resume_chunk", hex.EncodeToString(out.Chunk[:])),
+			zap.Uint64("resume_offset", out.Offset),
+			zap.Uint32("resume_length", out.Length))
 	}
 	return out
 }
 
-func findResumeIndex(cfg *config.Config, srcFile *os.File, ranges []Range, digest [32]byte, logger *zap.Logger) int {
-	if cfg.ResumeState == "" || digest == [32]byte{} {
+func findResumeIndex(cfg *config.Config, srcFile *os.File, ranges []Range, chk resumeCheckpoint, logger *zap.Logger) int {
+	if cfg.ResumeState == "" {
+		return 0
+	}
+	if cfg.DedupMode == "cdc" || cfg.DedupMode == "hybrid" {
+		next := chk.Offset + uint64(chk.Length)
+		for i := range ranges {
+			if next < ranges[i].Start {
+				return i
+			}
+			if next <= ranges[i].End {
+				ranges[i].Start = next
+				if logger != nil {
+					logger.Info("Resuming after offset", zap.Uint64("resume_offset", next))
+				}
+				return i
+			}
+		}
+		return len(ranges)
+	}
+	if chk.Chunk == [32]byte{} {
 		return 0
 	}
 	for i, r := range ranges {
@@ -430,7 +477,7 @@ func findResumeIndex(cfg *config.Config, srcFile *os.File, ranges []Range, diges
 			sum = blake3.Sum256(data)
 		}
 		putBlockBuffer(data)
-		if sum == digest {
+		if sum == chk.Chunk {
 			if logger != nil {
 				logger.Info("Resuming after index", zap.Int("resume_index", i+1))
 			}
@@ -510,8 +557,8 @@ func (t *Transfer) DumpChangesParallel(cfg *config.Config, snapshot, source stri
 	}
 	defer common.CloseWithErr(srcFile, &err, "close source file")
 
-	resumeDigest := readResumeDigest(cfg, t.Logger)
-	resumeStart := findResumeIndex(cfg, srcFile, ranges, resumeDigest, t.Logger)
+	checkpoint := readResumeState(cfg, t.Logger)
+	resumeStart := findResumeIndex(cfg, srcFile, ranges, checkpoint, t.Logger)
 	results := t.startParallelWorkers(cfg, srcFile, ranges, resumeStart, t.Logger)
 
 	startTime := time.Now()

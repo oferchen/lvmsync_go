@@ -13,7 +13,9 @@ import (
 	applycmd "lvmsync_go/cmd/apply"
 	dumpcmd "lvmsync_go/cmd/dump"
 	manifestcmd "lvmsync_go/cmd/manifest"
+	verifycmd "lvmsync_go/cmd/verify"
 	"lvmsync_go/config"
+	"lvmsync_go/device"
 	clientpkg "lvmsync_go/internal/client"
 	"lvmsync_go/internal/privilege"
 	"lvmsync_go/lvm"
@@ -121,8 +123,13 @@ func ExecuteClient(ctx context.Context, cfg *config.Config, snapshotPath, destPa
 func Run(cfg *config.Config, args []string, logger *zap.Logger) error {
 	defer lvm.Cleanup()
 
-	if len(args) > 0 && args[0] == "manifest" {
-		return manifestcmd.Run(cfg, args[1:], logger)
+	if len(args) > 0 {
+		switch args[0] {
+		case "manifest":
+			return manifestcmd.Run(cfg, args[1:], logger)
+		case "verify":
+			return verifycmd.Run(args[1:], logger)
+		}
 	}
 
 	if cfg.ApplyMode != "" {
@@ -171,10 +178,40 @@ func Run(cfg *config.Config, args []string, logger *zap.Logger) error {
 		destPath = args[1]
 	}
 
-	var monitorErrCh chan error
-	snapshotPath, monitorErrCh, cleanup, err := PrepareSnapshot(ctx, cfg, originalVolume, logger)
-	if err != nil {
-		return err
+	snapshotPath = originalVolume
+	var (
+		monitorErrCh chan error
+		cleanup      = func() {}
+	)
+
+	if cfg.SourceType == "" || cfg.SourceType == "auto" {
+		if dev, err := device.Detect(originalVolume); err == nil {
+			switch dev.(type) {
+			case *device.LVMDevice:
+				cfg.SourceType = "lvm"
+			case *device.RawDevice:
+				cfg.SourceType = "raw"
+			case *device.FileDevice:
+				cfg.SourceType = "file"
+			}
+			dev.Close()
+		} else {
+			cfg.SourceType = "file"
+		}
+	}
+	switch cfg.SourceType {
+	case "lvm":
+		snapshotPath, monitorErrCh, cleanup, err = PrepareSnapshot(ctx, cfg, originalVolume, logger)
+		if err != nil {
+			return err
+		}
+	case "raw":
+		if !cfg.SkipSnapshotCreation {
+			return fmt.Errorf("raw sources require --skip_snapshot_creation or external freeze hooks")
+		}
+	case "file":
+	default:
+		return fmt.Errorf("unknown source type %q", cfg.SourceType)
 	}
 	defer cleanup()
 

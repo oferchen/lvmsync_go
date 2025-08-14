@@ -52,11 +52,11 @@ func TestReadResumeDigestLogField(t *testing.T) {
 	tmp := t.TempDir()
 	stateFile := filepath.Join(tmp, "resume")
 	digest := blake3.Sum256([]byte("data"))
-	cfg := &config.Config{ResumeState: stateFile, Compress: "none", ChecksumAlgorithm: "blake3"}
-	writeResumeState(cfg, logger, stateFile, digest)
+	cfg := &config.Config{ResumeState: stateFile, Compress: "none", ChecksumAlgorithm: "blake3", DedupMode: "fixed"}
+	writeResumeState(cfg, logger, stateFile, 0, 0, digest)
 
-	val := readResumeDigest(cfg, logger)
-	if val != digest {
+	val := readResumeState(cfg, logger)
+	if val.Chunk != digest {
 		t.Fatalf("expected digest match")
 	}
 

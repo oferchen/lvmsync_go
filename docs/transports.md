@@ -31,4 +31,3 @@ Example selecting transports and custom port:
 ```sh
 lvmsync --transport quic,h2,tcp+tls,ssh --tcp-port 9443
 ```
-

@@ -18,6 +18,8 @@ import (
 	"lvmsync_go/transport"
 	_ "lvmsync_go/transport/ssh"
 	_ "lvmsync_go/transport/tcp_tls"
+
+	"go.uber.org/zap/zaptest"
 )
 
 func handshakeRoundTrip(t transport.Interface, tname string) error {

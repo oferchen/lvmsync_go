@@ -14,6 +14,7 @@ import (
 
 	"lvmsync_go/common"
 	"lvmsync_go/config"
+	"lvmsync_go/device"
 	"lvmsync_go/remote"
 	"lvmsync_go/transfer"
 	"lvmsync_go/transport"
@@ -107,6 +108,23 @@ func Run(ctx context.Context, cfg *config.Config, snapshotDevice, dest string, l
 
 // RunLocalDump dumps changes to a local destination device.
 func RunLocalDump(cfg *config.Config, snapshotDevice, originDevice, dest string, logger *zap.Logger) (err error) {
+	if cfg.DestType == "auto" {
+		if dev, err := device.Detect(dest); err == nil {
+			switch dev.(type) {
+			case *device.RawDevice:
+				if !cfg.SkipSnapshotCreation {
+					dev.Close()
+					return fmt.Errorf("raw destinations require --skip_snapshot_creation or external freeze hooks")
+				}
+				cfg.DestType = "raw"
+			case *device.LVMDevice:
+				cfg.DestType = "lvm"
+			case *device.FileDevice:
+				cfg.DestType = "file"
+			}
+			dev.Close()
+		}
+	}
 	destFile, err := openFile(dest, os.O_RDWR, 0)
 	if err != nil {
 		return fmt.Errorf("failed to open destination device %s: %w", dest, err)
@@ -297,10 +315,10 @@ func SelectTransport(cfg *config.Config, logger *zap.Logger) (transport.Interfac
 		name = strings.TrimSpace(name)
 		tr, err := transport.Get(name, transport.Config{Logger: logger})
 		if err != nil {
-			logger.Warn("unsupported transport", zap.String("transport", name))
+			trLogger.Warn("unsupported transport", zap.String("transport", name))
 			continue
 		}
-		logger.Info("selected transport", zap.String("transport", name))
+		trLogger.Info("selected transport", zap.String("transport", name))
 		return tr, nil
 	}
 	return nil, fmt.Errorf("no supported transports: %s", cfg.Transport)

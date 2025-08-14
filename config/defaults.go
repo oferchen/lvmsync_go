@@ -26,6 +26,8 @@ var (
 )
 
 type Config struct {
+	SourceType           string        `mapstructure:"source-type"`
+	DestType             string        `mapstructure:"dest-type"`
 	ConfigFile           string        `mapstructure:"config"`
 	ApplyMode            string        `mapstructure:"apply"`
 	StdoutMode           bool          `mapstructure:"stdout"`
@@ -100,7 +102,9 @@ type Config struct {
 	TCPNotSentLowAt      int           `mapstructure:"tcp_lowat"`
 	SyncInterval         string        `mapstructure:"sync_interval"`
 	CheckpointInterval   time.Duration `mapstructure:"checkpoint_interval"`
+	CheckpointBytesRaw   string        `mapstructure:"checkpoint_bytes"`
 	SyncIntervalBytes    int           `mapstructure:"-"`
+	CheckpointBytes      int           `mapstructure:"-"`
 }
 
 func FormatBlockSize(blockSize int) (string, error) {
@@ -173,6 +177,8 @@ func DefaultConfig() (*Config, error) {
 		SkipSnapshotCreation: false,
 		SkipDiskCheck:        false,
 		SnapshotSize:         "20%",
+		SourceType:           "auto",
+		DestType:             "auto",
 		VolumeGroup:          "",
 		TargetVolumeGroup:    "",
 		TargetVGCandidates:   []string{},
@@ -207,6 +213,8 @@ func DefaultConfig() (*Config, error) {
 		TCPNotSentLowAt:      0,
 		SyncInterval:         "1GB",
 		CheckpointInterval:   0,
+		CheckpointBytesRaw:   "1GB",
 		SyncIntervalBytes:    1000000000,
+		CheckpointBytes:      1000000000,
 	}, nil
 }
