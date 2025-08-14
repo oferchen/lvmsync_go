@@ -527,10 +527,11 @@ lvmsync run --config config.yaml /dev/vg0/snap0 /mnt/backup
 
 Transport selection is controlled by the `--transport` flag, which accepts a comma-separated ordered list of
 transports to attempt (for example `quic,h2,tcp+tls,ssh`). The `quic` transport runs over TLS 1.3 with mutual
-authentication, negotiates the `lvmsync` ALPN, and exposes both bidirectional streams and datagrams. Provide
-certificates via `--tls_cert`, `--tls_key`, and `--ca_cert`. TLS transports require a trusted CA certificate and
-will refuse connections when no roots are provided unless `--allow_insecure` (or the `AllowInsecure` configuration
-flag) is set. The flags below configure transport behavior.
+authentication, negotiates the `lvmsync` ALPN, and exposes both bidirectional streams and datagrams. The `h2`
+transport also requires TLS 1.3 with client certificates and negotiates the `h2` ALPN. Provide certificates via
+`--tls_cert`, `--tls_key`, and `--ca_cert`. TLS transports require a trusted CA certificate and will refuse
+connections when no roots are provided unless `--allow_insecure` (or the `AllowInsecure` configuration flag) is
+set. The flags below configure transport behavior.
 
 ### Flags and environment variables
 
@@ -539,6 +540,7 @@ flag) is set. The flags below configure transport behavior.
 | `--transport` | `LVMSYNC_TRANSPORT_TRANSPORT` | Ordered transports to try (e.g., `quic,h2,tcp+tls,ssh`) |
 | `--concurrency` | `LVMSYNC_TRANSPORT_CONCURRENCY` | Stream concurrency (0 to autotune based on BDP) |
 | `--tcp_port` | `LVMSYNC_TRANSPORT_TCP_PORT` | TCP+TLS port |
+| `--h2-port` | `LVMSYNC_H2_PORT` | HTTP/2 port |
 | `--tcp_parallel` | `LVMSYNC_TRANSPORT_TCP_PARALLEL` | Number of parallel TCP connections |
 | `--tcp_lowat` | `LVMSYNC_TRANSPORT_TCP_LOWAT` | TCP_NOTSENT_LOWAT in bytes |
 | `--ssh_port` | `LVMSYNC_SSH_PORT` | SSH port |
@@ -571,6 +573,12 @@ LVMSYNC_TRANSPORT_TRANSPORT=quic LVMSYNC_TLS_CERT=cert.pem LVMSYNC_TLS_KEY=key.p
 lvmsync run --transport tcp+tls --tcp_port 9443
 # or
 LVMSYNC_TRANSPORT_TRANSPORT=tcp+tls LVMSYNC_TRANSPORT_TCP_PORT=9443 lvmsync run
+```
+
+**HTTP/2**
+
+```sh
+lvmsync run --transport h2 --h2-port 9443 --tls_cert cert.pem --tls_key key.pem --ca_cert ca.pem
 ```
 
 **SSH**

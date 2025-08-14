@@ -3,6 +3,7 @@ package h2
 import (
 	"bufio"
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net"
 	"time"
@@ -13,10 +14,11 @@ import (
 	"lvmsync_go/transport"
 )
 
-// Transport is a placeholder HTTP/2 transport using plain TCP.
+// Transport implements HTTP/2 over TLS1.3 with mutual authentication.
 type Transport struct {
-	cfg    transport.Config
-	logger *zap.Logger
+	clientConf *tls.Config
+	serverConf *tls.Config
+	logger     *zap.Logger
 }
 
 // New returns a new Transport.
@@ -24,7 +26,30 @@ func New(cfg transport.Config) (transport.Interface, error) {
 	if cfg.Logger == nil {
 		return nil, fmt.Errorf("logger is required")
 	}
-	return &Transport{cfg: cfg, logger: cfg.Logger}, nil
+	if cfg.Roots == nil {
+		return nil, fmt.Errorf("tls roots are required")
+	}
+	if len(cfg.ServerCert.Certificate) == 0 {
+		return nil, fmt.Errorf("server certificate is required")
+	}
+	clientConf := &tls.Config{
+		RootCAs:    cfg.Roots,
+		NextProtos: []string{"h2"},
+		MinVersion: tls.VersionTLS13,
+		MaxVersion: tls.VersionTLS13,
+	}
+	if len(cfg.ClientCert.Certificate) != 0 {
+		clientConf.Certificates = []tls.Certificate{cfg.ClientCert}
+	}
+	serverConf := &tls.Config{
+		Certificates: []tls.Certificate{cfg.ServerCert},
+		ClientCAs:    cfg.Roots,
+		ClientAuth:   tls.RequireAndVerifyClientCert,
+		MinVersion:   tls.VersionTLS13,
+		MaxVersion:   tls.VersionTLS13,
+		NextProtos:   []string{"h2"},
+	}
+	return &Transport{clientConf: clientConf, serverConf: serverConf, logger: cfg.Logger}, nil
 }
 
 func init() {
@@ -41,17 +66,22 @@ func (t *Transport) Dial(ctx context.Context, address string) (net.Conn, error) 
 		zap.String("address", address),
 		zap.String("role", role),
 		zap.Int64("duration_ms", 0),
-		zap.String("error", ""),
 	)
 	start := time.Now()
 	d := net.Dialer{}
-	conn, err := d.DialContext(ctx, "tcp", address)
-	t.logger.Info("dial_end",
+	if dl, ok := ctx.Deadline(); ok {
+		d.Deadline = dl
+	}
+	conn, err := tls.DialWithDialer(&d, "tcp", address, t.clientConf)
+	fields := []zap.Field{
 		zap.String("address", address),
 		zap.String("role", role),
 		zap.Int64("duration_ms", time.Since(start).Milliseconds()),
-		zap.String("error", errString(err)),
-	)
+	}
+	if err != nil {
+		fields = append(fields, zap.Error(err))
+	}
+	t.logger.Info("dial_end", fields...)
 	return conn, err
 }
 
@@ -61,16 +91,21 @@ func (t *Transport) Listen(ctx context.Context, address string) (net.Listener, e
 		zap.String("address", address),
 		zap.String("role", role),
 		zap.Int64("duration_ms", 0),
-		zap.String("error", ""),
 	)
 	start := time.Now()
 	ln, err := net.Listen("tcp", address)
-	t.logger.Info("listen_end",
+	if err == nil {
+		ln = tls.NewListener(ln, t.serverConf)
+	}
+	fields := []zap.Field{
 		zap.String("address", address),
 		zap.String("role", role),
 		zap.Int64("duration_ms", time.Since(start).Milliseconds()),
-		zap.String("error", errString(err)),
-	)
+	}
+	if err != nil {
+		fields = append(fields, zap.Error(err))
+	}
+	t.logger.Info("listen_end", fields...)
 	return ln, err
 }
 
@@ -81,18 +116,28 @@ func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport
 		zap.String("address", address),
 		zap.String("role", roleStr),
 		zap.Int64("duration_ms", 0),
-		zap.String("error", ""),
 	)
 	start := time.Now()
 	defer func() {
-		t.logger.Info("negotiate_end",
+		fields := []zap.Field{
 			zap.String("address", address),
 			zap.String("role", roleStr),
 			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
-			zap.String("error", errString(err)),
-		)
+		}
+		if err != nil {
+			fields = append(fields, zap.Error(err))
+		}
+		t.logger.Info("negotiate_end", fields...)
 	}()
 
+	if tlsConn, ok := conn.(*tls.Conn); ok {
+		if err := tlsConn.HandshakeContext(ctx); err != nil {
+			return peer, err
+		}
+		state := tlsConn.ConnectionState()
+		hs.ALPN = state.NegotiatedProtocol
+		hs.TLSVersion = tlsVersionString(state.Version)
+	}
 	hs.Version = common.ProtocolVersion
 	if hs.Endianness == "" {
 		hs.Endianness = common.NativeEndianness()
@@ -127,11 +172,19 @@ func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport
 	}
 }
 
-func errString(err error) string {
-	if err == nil {
+func tlsVersionString(v uint16) string {
+	switch v {
+	case tls.VersionTLS10:
+		return "1.0"
+	case tls.VersionTLS11:
+		return "1.1"
+	case tls.VersionTLS12:
+		return "1.2"
+	case tls.VersionTLS13:
+		return "1.3"
+	default:
 		return ""
 	}
-	return err.Error()
 }
 
 func roleString(r transport.Role) string {

@@ -92,6 +92,7 @@ func TestNegotiationTransports(t *testing.T) {
 				root.AddCert(c)
 			}
 			cfg.ClientCert = cert
+			cfg.ServerCert = cert
 			cfg.Roots = root
 		}
 		tr, err := transport.Get(name, cfg)

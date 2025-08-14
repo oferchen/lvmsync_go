@@ -24,6 +24,8 @@ func TestHandshakeRoundTrip(t *testing.T) {
 		CDCMin:        1024,
 		CDCAvg:        2048,
 		CDCMax:        4096,
+		ALPN:          "h2",
+		TLSVersion:    "1.3",
 		Transports:    []string{"ssh", "tcp+tls"},
 		Compressors:   []string{"lz4", "zstd"},
 		Digests:       []string{"sha256", "blake3"},

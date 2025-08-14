@@ -13,6 +13,7 @@ import (
 type Config struct {
 	Roots         *x509.CertPool
 	ClientCert    tls.Certificate
+	ServerCert    tls.Certificate
 	Logger        *zap.Logger
 	AllowInsecure bool
 }
