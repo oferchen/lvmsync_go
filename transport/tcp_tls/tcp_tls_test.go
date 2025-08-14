@@ -180,3 +180,12 @@ func TestTCPTLSTransportRequiresLogger(t *testing.T) {
 		t.Fatalf("expected error when logger is nil")
 	}
 }
+
+func TestTCPTLSTransportRequiresRootsOrAllowInsecure(t *testing.T) {
+	if _, err := New(transport.Config{Logger: zap.NewNop()}); err == nil {
+		t.Fatalf("expected error when roots are nil without AllowInsecure")
+	}
+	if _, err := New(transport.Config{Logger: zap.NewNop(), AllowInsecure: true}); err != nil {
+		t.Fatalf("allow insecure should permit missing roots: %v", err)
+	}
+}
