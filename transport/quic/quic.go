@@ -94,26 +94,29 @@ func (t *Transport) Dial(ctx context.Context, address string) (net.Conn, error) 
 		zap.String("address", address),
 		zap.String("role", role),
 		zap.Int64("duration_ms", 0),
-		zap.String("error", ""),
 	)
 	start := time.Now()
 	qconn, err := quic.DialAddr(ctx, address, t.clientTLS, t.qconf)
 	if err != nil {
-		t.logger.Info("dial_end",
+		fields := []zap.Field{
 			zap.String("address", address),
 			zap.String("role", role),
 			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
-			zap.String("error", errString(err)),
-		)
+		}
+		fields = append(fields, zap.Error(err))
+		t.logger.Info("dial_end", fields...)
 		return nil, err
 	}
 	stream, err := qconn.OpenStreamSync(ctx)
-	t.logger.Info("dial_end",
+	fields := []zap.Field{
 		zap.String("address", address),
 		zap.String("role", role),
 		zap.Int64("duration_ms", time.Since(start).Milliseconds()),
-		zap.String("error", errString(err)),
-	)
+	}
+	if err != nil {
+		fields = append(fields, zap.Error(err))
+	}
+	t.logger.Info("dial_end", fields...)
 	if err != nil {
 		qconn.CloseWithError(0, err.Error())
 		return nil, err
@@ -128,16 +131,18 @@ func (t *Transport) Listen(ctx context.Context, address string) (net.Listener, e
 		zap.String("address", address),
 		zap.String("role", role),
 		zap.Int64("duration_ms", 0),
-		zap.String("error", ""),
 	)
 	start := time.Now()
 	ql, err := quic.ListenAddr(address, t.serverTLS, t.qconf)
-	t.logger.Info("listen_end",
+	fields := []zap.Field{
 		zap.String("address", address),
 		zap.String("role", role),
 		zap.Int64("duration_ms", time.Since(start).Milliseconds()),
-		zap.String("error", errString(err)),
-	)
+	}
+	if err != nil {
+		fields = append(fields, zap.Error(err))
+	}
+	t.logger.Info("listen_end", fields...)
 	if err != nil {
 		return nil, err
 	}
@@ -170,16 +175,18 @@ func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport
 		zap.String("address", address),
 		zap.String("role", roleStr),
 		zap.Int64("duration_ms", 0),
-		zap.String("error", ""),
 	)
 	start := time.Now()
 	defer func() {
-		t.logger.Info("negotiate_end",
+		fields := []zap.Field{
 			zap.String("address", address),
 			zap.String("role", roleStr),
 			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
-			zap.String("error", errString(err)),
-		)
+		}
+		if err != nil {
+			fields = append(fields, zap.Error(err))
+		}
+		t.logger.Info("negotiate_end", fields...)
 	}()
 
 	hs.Version = common.ProtocolVersion
@@ -245,13 +252,6 @@ func (c *Conn) SetDeadline(t time.Time) error {
 }
 func (c *Conn) SetReadDeadline(t time.Time) error  { return c.stream.SetReadDeadline(t) }
 func (c *Conn) SetWriteDeadline(t time.Time) error { return c.stream.SetWriteDeadline(t) }
-
-func errString(err error) string {
-	if err == nil {
-		return ""
-	}
-	return err.Error()
-}
 
 func roleString(r transport.Role) string {
 	switch r {
