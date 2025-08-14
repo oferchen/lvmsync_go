@@ -142,6 +142,8 @@ for `run` and `verify` are provided as positional arguments after any flags:
 lvmsync run [flags] <source> <dest>
 ```
 
+When run with `--dry-run`, LVMSync loads any manifest at `--manifest_path` and samples up to 100 blocks to estimate the bytes that would be transmitted. The estimate and ETA are logged without sending data.
+
 ### Examples
 
 Set the `parallel` worker count using any configuration source:
