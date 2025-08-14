@@ -210,7 +210,7 @@ func TestLoopbackFileToFileOverTCPTLS(t *testing.T) {
 	writeResumeState(cfg, zap.NewNop(), resumePath, 0, uint32(blockSize), digest0)
 
 	ctx := context.Background()
-	tr, err := transport.Get("tcp+tls", transport.Config{Logger: zap.NewNop()})
+	tr, err := transport.Get("tcp+tls", transport.Config{Logger: zap.NewNop(), AllowInsecure: true})
 	if err != nil {
 		t.Fatalf("get transport: %v", err)
 	}
@@ -349,7 +349,7 @@ func TestLoopbackLVMToRawOverTCPTLS(t *testing.T) {
 			writeResumeState(cfg, zap.NewNop(), resumePath, 0, uint32(blockSize), digest0)
 
 			ctx := context.Background()
-			tr, err := transport.Get("tcp+tls", transport.Config{Logger: zap.NewNop()})
+			tr, err := transport.Get("tcp+tls", transport.Config{Logger: zap.NewNop(), AllowInsecure: true})
 			if err != nil {
 				t.Fatalf("get transport: %v", err)
 			}
@@ -468,7 +468,11 @@ func runRawToRawLoopback(t *testing.T, transportName string) {
 			writeResumeState(cfg, zap.NewNop(), resumePath, 0, uint32(blockSize), digest0)
 
 			ctx := context.Background()
-			tr, err := transport.Get(transportName, transport.Config{Logger: zap.NewNop()})
+			tcfg := transport.Config{Logger: zap.NewNop()}
+			if transportName == "tcp+tls" {
+				tcfg.AllowInsecure = true
+			}
+			tr, err := transport.Get(transportName, tcfg)
 			if err != nil {
 				t.Fatalf("get transport: %v", err)
 			}

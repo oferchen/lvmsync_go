@@ -49,6 +49,9 @@ func New(cfg transport.Config) (transport.Interface, error) {
 	if cfg.Logger == nil {
 		return nil, fmt.Errorf("logger is required")
 	}
+	if cfg.Roots == nil && !cfg.AllowInsecure {
+		return nil, fmt.Errorf("tls roots are required unless AllowInsecure is set")
+	}
 	cert := cfg.ClientCert
 	if len(cert.Certificate) == 0 {
 		var err error
@@ -58,7 +61,7 @@ func New(cfg transport.Config) (transport.Interface, error) {
 		}
 	}
 	clientAuth := tls.RequireAndVerifyClientCert
-	if cfg.Roots == nil {
+	if cfg.AllowInsecure {
 		clientAuth = tls.RequireAnyClientCert
 	}
 	serverTLS := &tls.Config{
@@ -71,7 +74,7 @@ func New(cfg transport.Config) (transport.Interface, error) {
 	clientTLS := &tls.Config{
 		Certificates:       []tls.Certificate{cert},
 		RootCAs:            cfg.Roots,
-		InsecureSkipVerify: cfg.Roots == nil,
+		InsecureSkipVerify: cfg.AllowInsecure,
 		MinVersion:         tls.VersionTLS13,
 		NextProtos:         []string{alpn},
 	}

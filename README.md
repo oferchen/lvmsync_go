@@ -525,7 +525,9 @@ lvmsync run --config config.yaml /dev/vg0/snap0 /mnt/backup
 Transport selection is controlled by the `--transport` flag, which accepts a comma-separated ordered list of
 transports to attempt (for example `quic,h2,tcp+tls,ssh`). The `quic` transport runs over TLS 1.3 with mutual
 authentication, negotiates the `lvmsync` ALPN, and exposes both bidirectional streams and datagrams. Provide
-certificates via `--tls_cert`, `--tls_key`, and `--ca_cert`. The flags below configure transport behavior.
+certificates via `--tls_cert`, `--tls_key`, and `--ca_cert`. TLS transports require a trusted CA certificate and
+will refuse connections when no roots are provided unless `--allow_insecure` (or the `AllowInsecure` configuration
+flag) is set. The flags below configure transport behavior.
 
 ### Flags and environment variables
 

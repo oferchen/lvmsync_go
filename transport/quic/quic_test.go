@@ -31,7 +31,7 @@ func checkLogFields(t *testing.T, logs *observer.ObservedLogs, msg string, expec
 
 func TestQUICTransportHandshake(t *testing.T) {
 	core, logs := observer.New(zap.InfoLevel)
-	trIface, err := New(transport.Config{Logger: zap.New(core)})
+	trIface, err := New(transport.Config{Logger: zap.New(core), AllowInsecure: true})
 	if err != nil {
 		t.Fatalf("new transport: %v", err)
 	}
@@ -91,7 +91,7 @@ func TestQUICTransportHandshake(t *testing.T) {
 
 func TestQUICTransportHandshakeError(t *testing.T) {
 	core, logs := observer.New(zap.InfoLevel)
-	trIface, err := New(transport.Config{Logger: zap.New(core)})
+	trIface, err := New(transport.Config{Logger: zap.New(core), AllowInsecure: true})
 	if err != nil {
 		t.Fatalf("new transport: %v", err)
 	}
@@ -138,5 +138,14 @@ func TestQUICTransportHandshakeError(t *testing.T) {
 func TestQUICTransportRequiresLogger(t *testing.T) {
 	if _, err := New(transport.Config{}); err == nil {
 		t.Fatalf("expected error when logger is nil")
+	}
+}
+
+func TestQUICTransportRequiresRootsOrAllowInsecure(t *testing.T) {
+	if _, err := New(transport.Config{Logger: zap.NewNop()}); err == nil {
+		t.Fatalf("expected error when roots are nil without AllowInsecure")
+	}
+	if _, err := New(transport.Config{Logger: zap.NewNop(), AllowInsecure: true}); err != nil {
+		t.Fatalf("allow insecure should permit missing roots: %v", err)
 	}
 }
