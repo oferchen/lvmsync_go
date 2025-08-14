@@ -198,6 +198,9 @@ func (i *Index) Entry(idx int) (offset uint64, length uint32, xxh uint64, digest
 	return
 }
 
+// ChunkCount returns the number of chunks tracked by the manifest.
+func (i *Index) ChunkCount() int { return int(i.hdr.ChunkCount) }
+
 // Rebuild creates a manifest index for device at output path.
 // DeviceID is determined via device.GetUUID. The device is read sequentially using blockSize-sized chunks.
 func Rebuild(devicePath, output string) error {

@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 
 	"lvmsync_go/config"
+	"lvmsync_go/manifest"
 	"lvmsync_go/transfer"
 )
 
@@ -53,7 +54,7 @@ func Run(args []string, logger *zap.Logger) error {
 
 func verifyDevices(cfg *config.Config, src, dst, manifest string, logger *zap.Logger) error {
 	if manifest != "" {
-		return verifyWithManifest(src, dst, manifest, logger)
+		return verifyWithManifest(src, manifest, logger)
 	}
 	return verifyFull(cfg, src, dst, logger)
 }
@@ -110,39 +111,35 @@ func verifyFull(cfg *config.Config, src, dst string, logger *zap.Logger) error {
 	return nil
 }
 
-func verifyWithManifest(src, dst, manifest string, logger *zap.Logger) error {
-	data, err := os.ReadFile(manifest)
+func verifyWithManifest(src, manifestPath string, logger *zap.Logger) error {
+	idx, err := manifest.Open(manifestPath)
 	if err != nil {
-		return fmt.Errorf("read manifest: %w", err)
+		return fmt.Errorf("open manifest: %w", err)
 	}
-	m, err := transfer.UnmarshalManifest(data)
-	if err != nil {
-		return fmt.Errorf("parse manifest: %w", err)
-	}
+	defer idx.Close()
 	fSrc, err := os.Open(src)
 	if err != nil {
 		return fmt.Errorf("open source: %w", err)
 	}
 	defer fSrc.Close()
-	fDst, err := os.Open(dst)
-	if err != nil {
-		return fmt.Errorf("open dest: %w", err)
-	}
-	defer fDst.Close()
 
 	mismatches := 0
-	for _, ch := range m.Chunks {
-		bufSrc := make([]byte, ch.Length)
-		if _, err := fSrc.ReadAt(bufSrc, ch.Offset); err != nil {
+	for i := 0; i < idx.ChunkCount(); i++ {
+		off, length, _, digest := idx.Entry(i)
+		if length == 0 {
+			continue
+		}
+		buf := make([]byte, length)
+		if _, err := fSrc.ReadAt(buf, int64(off)); err != nil {
 			return fmt.Errorf("read source: %w", err)
 		}
-		bufDst := make([]byte, ch.Length)
-		if _, err := fDst.ReadAt(bufDst, ch.Offset); err != nil {
-			return fmt.Errorf("read dest: %w", err)
-		}
-		if blake3.Sum256(bufSrc) != blake3.Sum256(bufDst) {
+		actual := blake3.Sum256(buf)
+		if actual != digest {
 			mismatches++
-			logger.Error("mismatched_block", zap.Int64("offset_bytes", ch.Offset))
+			logger.Error("digest_mismatch",
+				zap.Uint64("offset_bytes", off),
+				zap.String("expected_digest", fmt.Sprintf("%x", digest[:])),
+				zap.String("actual_digest", fmt.Sprintf("%x", actual[:])))
 		}
 	}
 	if mismatches > 0 {
