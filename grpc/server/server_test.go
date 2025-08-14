@@ -462,11 +462,16 @@ func TestSendResumeBitmap(t *testing.T) {
 		if err != nil {
 			t.Fatalf("SendResumeBitmap: %v", err)
 		}
-		if err := stream.Send(&proto.ResumeBitmap{SessionId: "s", Bitmap: []byte{1}}); err != nil {
-			t.Fatalf("send: %v", err)
-		}
-		if _, err := stream.CloseAndRecv(); err == nil {
+		// The server should close immediately when no agent is configured.
+		// The send should therefore return a non-nil error without needing to
+		// call CloseAndRecv.
+		time.Sleep(50 * time.Millisecond)
+		err = stream.Send(&proto.ResumeBitmap{SessionId: "s", Bitmap: []byte{1}})
+		if err == nil {
 			t.Fatalf("expected error")
+		}
+		if status.Code(err) == codes.OK {
+			t.Fatalf("unexpected OK code")
 		}
 	})
 }
