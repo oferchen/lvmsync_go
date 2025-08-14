@@ -2,9 +2,13 @@ package tcp_tls
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/tls"
 	"crypto/x509"
 	"errors"
 	"io"
+	"math/big"
 	"net"
 	"testing"
 	"time"
@@ -35,13 +39,7 @@ func checkLogFields(t *testing.T, logs *observer.ObservedLogs, msg string, expec
 }
 
 func TestTCPTLSTransportHandshake(t *testing.T) {
-	cert, _ := generateSelfSignedCert()
-	root := x509.NewCertPool()
-	if len(cert.Certificate) > 0 {
-		if c, err := x509.ParseCertificate(cert.Certificate[0]); err == nil {
-			root.AddCert(c)
-		}
-	}
+	cert, root := generateSelfSignedCert(t)
 	core, logs := observer.New(zap.InfoLevel)
 	trIface, err := New(transport.Config{Logger: zap.New(core), Roots: root, ClientCert: cert})
 	if err != nil {
@@ -108,11 +106,7 @@ func TestTCPTLSTransportHandshake(t *testing.T) {
 }
 
 func TestTCPTLSTransportHandshakeError(t *testing.T) {
-	cert, _ := generateSelfSignedCert()
-	root := x509.NewCertPool()
-	if c, err := x509.ParseCertificate(cert.Certificate[0]); err == nil {
-		root.AddCert(c)
-	}
+	cert, root := generateSelfSignedCert(t)
 	core, logs := observer.New(zap.InfoLevel)
 	trIface, err := New(transport.Config{Logger: zap.New(core), Roots: root, ClientCert: cert})
 	if err != nil {
@@ -158,7 +152,7 @@ func TestTCPTLSTransportHandshakeError(t *testing.T) {
 
 func TestTCPTLSCertValidation(t *testing.T) {
 	root := x509.NewCertPool()
-	cert, _ := generateSelfSignedCert()
+	cert, _ := generateSelfSignedCert(t)
 	trIface, _ := New(transport.Config{Roots: root, ClientCert: cert, Logger: zap.NewNop()})
 	tr := trIface.(*Transport)
 	ctx := context.Background()
@@ -182,11 +176,7 @@ func TestTCPTLSCertValidation(t *testing.T) {
 }
 
 func TestTCPTLSDialContextCancel(t *testing.T) {
-	cert, _ := generateSelfSignedCert()
-	root := x509.NewCertPool()
-	if c, err := x509.ParseCertificate(cert.Certificate[0]); err == nil {
-		root.AddCert(c)
-	}
+	cert, root := generateSelfSignedCert(t)
 	trIface, err := New(transport.Config{Logger: zap.NewNop(), Roots: root, ClientCert: cert})
 	if err != nil {
 		t.Fatalf("new transport: %v", err)
@@ -218,8 +208,7 @@ func TestTCPTLSDialContextCancel(t *testing.T) {
 }
 
 func TestTCPTLSTransportRequiresLogger(t *testing.T) {
-	cert, _ := generateSelfSignedCert()
-	root := x509.NewCertPool()
+	cert, root := generateSelfSignedCert(t)
 	if _, err := New(transport.Config{Roots: root, ClientCert: cert}); err == nil {
 		t.Fatalf("expected error when logger is nil")
 	}
@@ -232,4 +221,40 @@ func TestTCPTLSTransportRequiresRootsOrAllowInsecure(t *testing.T) {
 	if _, err := New(transport.Config{Logger: zap.NewNop(), AllowInsecure: true}); err != nil {
 		t.Fatalf("allow insecure should permit missing roots: %v", err)
 	}
+}
+
+func TestTCPTLSTransportRequiresClientCert(t *testing.T) {
+	root := x509.NewCertPool()
+	if _, err := New(transport.Config{Logger: zap.NewNop(), Roots: root}); err == nil {
+		t.Fatalf("expected error when client cert is nil")
+	}
+	if _, err := New(transport.Config{Logger: zap.NewNop(), Roots: root, AllowInsecure: true}); err != nil {
+		t.Fatalf("allow insecure should permit missing client cert: %v", err)
+	}
+}
+
+func generateSelfSignedCert(t *testing.T) (tls.Certificate, *x509.CertPool) {
+	t.Helper()
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("generate key: %v", err)
+	}
+	tmpl := x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		NotBefore:    time.Now(),
+		NotAfter:     time.Now().Add(time.Hour),
+		IPAddresses:  []net.IP{net.ParseIP("127.0.0.1")},
+	}
+	der, err := x509.CreateCertificate(rand.Reader, &tmpl, &tmpl, &key.PublicKey, key)
+	if err != nil {
+		t.Fatalf("create cert: %v", err)
+	}
+	cert := tls.Certificate{Certificate: [][]byte{der}, PrivateKey: key}
+	parsed, err := x509.ParseCertificate(der)
+	if err != nil {
+		t.Fatalf("parse cert: %v", err)
+	}
+	pool := x509.NewCertPool()
+	pool.AddCert(parsed)
+	return cert, pool
 }
