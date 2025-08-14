@@ -24,8 +24,8 @@ import (
 // Wrappers for external dependencies to enable test stubbing.
 var (
 	listen    = net.Listen
-	newServer = func(cfg grpcserver.Config, agent lvmlib.Agent) (grpcServer, error) {
-		return grpcserver.New(cfg, agent)
+	newServer = func(cfg grpcserver.Config, agent lvmlib.Agent, logger *zap.Logger) (grpcServer, func(), error) {
+		return grpcserver.New(cfg, agent, logger)
 	}
 	dial = func(ctx context.Context, addr string, conf grpcclient.Config) (closeableConn, error) {
 		return grpcclient.Dial(ctx, addr, conf)
@@ -68,7 +68,7 @@ func StartGRPCServer(ctx context.Context, cfg *config.Config, logger *zap.Logger
 	if err != nil {
 		return nil, nil, fmt.Errorf("gRPC listen: %w", err)
 	}
-	srv, err := newServer(srvCfg, nil)
+	srv, srvCleanup, err := newServer(srvCfg, nil, logger)
 	if err != nil {
 		ln.Close()
 		return nil, nil, fmt.Errorf("gRPC server: %w", err)
@@ -87,6 +87,7 @@ func StartGRPCServer(ctx context.Context, cfg *config.Config, logger *zap.Logger
 		errCh <- serveErr
 	}()
 	cleanup := func() {
+		srvCleanup()
 		srv.GracefulStop()
 		ln.Close()
 		close(errCh)

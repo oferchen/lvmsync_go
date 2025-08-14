@@ -35,7 +35,7 @@ var startFunc = func(ctx context.Context, opts Options, logger *zap.Logger) erro
 		CACert:        opts.CACert,
 		AllowInsecure: opts.AllowInsecure,
 	}
-	srv, err := grpcserver.New(cfg, nil)
+	srv, cleanup, err := grpcserver.New(cfg, nil, logger)
 	if err != nil {
 		ln.Close()
 		return fmt.Errorf("init gRPC server: %w", err)
@@ -48,6 +48,7 @@ var startFunc = func(ctx context.Context, opts Options, logger *zap.Logger) erro
 	<-ctx.Done()
 	srv.GracefulStop()
 	ln.Close()
+	cleanup()
 	return nil
 }
 

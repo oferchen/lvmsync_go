@@ -12,11 +12,13 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/test/bufconn"
 
 	servers "lvmsync_go/grpc/server"
+	lvmagent "lvmsync_go/internal/lvm"
 	"lvmsync_go/proto"
 )
 
@@ -31,7 +33,8 @@ func bufDialer(lis *bufconn.Listener) func(context.Context, string) (net.Conn, e
 func setupClient(t *testing.T) (proto.ReplicationClient, func()) {
 	t.Helper()
 	lis := bufconn.Listen(bufSize)
-	srv, err := servers.New(servers.Config{AllowInsecure: true}, nil)
+	agent := ackAgent{}
+	srv, srvCleanup, err := servers.New(servers.Config{AllowInsecure: true}, agent, zap.NewNop())
 	if err != nil {
 		t.Fatalf("server.New: %v", err)
 	}
@@ -45,9 +48,23 @@ func setupClient(t *testing.T) (proto.ReplicationClient, func()) {
 		cancel()
 		conn.Close()
 		srv.Stop()
+		srvCleanup()
 	}
 	return proto.NewReplicationClient(conn), cleanup
 }
+
+type ackAgent struct{}
+
+func (ackAgent) Lock(context.Context, string, string) error   { return nil }
+func (ackAgent) Unlock(context.Context, string, string) error { return nil }
+func (ackAgent) GetMetadata(context.Context, string) (lvmagent.VolumeMetadata, error) {
+	return lvmagent.VolumeMetadata{}, nil
+}
+func (ackAgent) SendMetadata(context.Context, lvmagent.VolumeMetadata) error { return nil }
+func (ackAgent) StartTransferSession(context.Context, string, string) error  { return nil }
+func (ackAgent) FinalizeSync(context.Context, string, string) error          { return nil }
+func (ackAgent) GetStatus(context.Context, string, string) (string, error)   { return "", nil }
+func (ackAgent) Ack(ctx context.Context, ack *proto.Ack) (*proto.Ack, error) { return ack, nil }
 
 func TestHandshakeAndAck(t *testing.T) {
 	client, cleanup := setupClient(t)
@@ -74,12 +91,15 @@ func TestHandshakeAndAck(t *testing.T) {
 
 func TestDial(t *testing.T) {
 	lis := bufconn.Listen(bufSize)
-	srv, err := servers.New(servers.Config{AllowInsecure: true}, nil)
+	srv, srvCleanup, err := servers.New(servers.Config{AllowInsecure: true}, nil, zap.NewNop())
 	if err != nil {
 		t.Fatalf("server.New: %v", err)
 	}
 	go srv.Serve(lis)
-	defer srv.Stop()
+	defer func() {
+		srv.Stop()
+		srvCleanup()
+	}()
 
 	cases := []struct {
 		name    string
