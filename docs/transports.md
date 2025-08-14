@@ -9,7 +9,15 @@ Default order: `quic,h2,tcp+tls,ssh`.
 
 - Uses [quic-go](https://github.com/quic-go/quic-go)
 - TLS 1.3 with mutual authentication
+- ALPN negotiation using `lvmsync`
+- Bidirectional streams and datagram support
 - BBR congestion control
+
+Example:
+
+```sh
+lvmsync --transport quic --tls_cert cert.pem --tls_key key.pem --ca_cert ca.pem
+```
 
 ## HTTP/2 (h2)
 

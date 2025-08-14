@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"testing"
+	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
@@ -46,14 +47,29 @@ func TestQUICTransportHandshake(t *testing.T) {
 			t.Errorf("accept: %v", err)
 			return
 		}
-		if _, err := tr.Negotiate(ctx, conn, transport.Server, common.Handshake{}); err != nil {
+		qconn := conn.(*Conn)
+		if _, err := tr.Negotiate(ctx, qconn, transport.Server, common.Handshake{}); err != nil {
 			t.Errorf("server negotiate: %v", err)
 			return
 		}
+		dctx, cancel := context.WithTimeout(ctx, time.Second)
+		defer cancel()
+		msg, err := qconn.ReceiveDatagram(dctx)
+		if err != nil {
+			t.Errorf("receive datagram: %v", err)
+			return
+		}
+		if string(msg) != "hello" {
+			t.Errorf("unexpected datagram %q", msg)
+		}
+		if err := qconn.SendDatagram([]byte("world")); err != nil {
+			t.Errorf("send datagram: %v", err)
+			return
+		}
 		buf := make([]byte, 4)
-		io.ReadFull(conn, buf)
-		conn.Write([]byte("pong"))
-		conn.Close()
+		io.ReadFull(qconn, buf)
+		qconn.Write([]byte("pong"))
+		qconn.Close()
 		close(done)
 	}()
 
@@ -61,18 +77,31 @@ func TestQUICTransportHandshake(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
-	if _, err := tr.Negotiate(ctx, conn, transport.Client, common.Handshake{}); err != nil {
+	qconn := conn.(*Conn)
+	if _, err := tr.Negotiate(ctx, qconn, transport.Client, common.Handshake{}); err != nil {
 		t.Fatalf("client negotiate: %v", err)
 	}
-	if _, err := conn.Write([]byte("ping")); err != nil {
+	if err := qconn.SendDatagram([]byte("hello")); err != nil {
+		t.Fatalf("send datagram: %v", err)
+	}
+	dctx, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+	msg, err := qconn.ReceiveDatagram(dctx)
+	if err != nil {
+		t.Fatalf("receive datagram: %v", err)
+	}
+	if string(msg) != "world" {
+		t.Fatalf("unexpected datagram %q", msg)
+	}
+	if _, err := qconn.Write([]byte("ping")); err != nil {
 		t.Fatalf("write: %v", err)
 	}
 	buf := make([]byte, 4)
-	io.ReadFull(conn, buf)
+	io.ReadFull(qconn, buf)
 	if string(buf) != "pong" {
 		t.Fatalf("unexpected response %q", buf)
 	}
-	conn.Close()
+	qconn.Close()
 	<-done
 
 	checkLogFields(t, logs, "dial_start", 1)
@@ -104,8 +133,9 @@ func TestQUICTransportHandshakeError(t *testing.T) {
 			t.Errorf("accept: %v", err)
 			return
 		}
-		conn.Write([]byte("bad\n"))
-		conn.Close()
+		qconn := conn.(*Conn)
+		qconn.Write([]byte("bad\n"))
+		qconn.Close()
 		close(done)
 	}()
 
@@ -113,10 +143,11 @@ func TestQUICTransportHandshakeError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
-	if _, err := tr.Negotiate(ctx, conn, transport.Client, common.Handshake{}); err == nil {
+	qconn := conn.(*Conn)
+	if _, err := tr.Negotiate(ctx, qconn, transport.Client, common.Handshake{}); err == nil {
 		t.Fatalf("expected negotiate error")
 	}
-	conn.Close()
+	qconn.Close()
 	<-done
 
 	checkLogFields(t, logs, "dial_start", 1)
