@@ -253,6 +253,13 @@ examines the path to select the correct handling:
 
 Override detection with `--source-type` and `--dest-type` when necessary.
 
+Snapshots provide a crash-consistent view of a device. LVM volumes are
+snapshotted automatically and removed after transfer. Raw block devices and
+regular files do not have a snapshot mechanism; to avoid inconsistent reads you
+must either take them offline with `--offline` or freeze the filesystem with
+`--fs-freeze-command`. Snapshot creation requires root privileges, so non-root
+invocations must permit escalation via `sudo -n`.
+
 Examples:
 
 ```sh
