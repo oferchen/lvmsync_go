@@ -6,13 +6,15 @@ import (
 	"testing"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 
 	"lvmsync_go/common"
 	"lvmsync_go/transport"
 )
 
 func TestH2TransportHandshake(t *testing.T) {
-	trIface, _ := New(transport.Config{Logger: zap.NewNop()})
+	core, logs := observer.New(zap.InfoLevel)
+	trIface, _ := New(transport.Config{Logger: zap.New(core)})
 	tr := trIface.(*Transport)
 	ctx := context.Background()
 	ln, err := tr.Listen(ctx, "127.0.0.1:0")
@@ -56,10 +58,26 @@ func TestH2TransportHandshake(t *testing.T) {
 	}
 	conn.Close()
 	<-done
+
+	dialLogs := logs.FilterMessage("dial").All()
+	if len(dialLogs) != 1 {
+		t.Fatalf("expected one dial log, got %d", len(dialLogs))
+	}
+	if _, ok := dialLogs[0].ContextMap()["address"].(string); !ok {
+		t.Fatalf("expected snake_case field 'address' in dial log")
+	}
+	listenLogs := logs.FilterMessage("listen").All()
+	if len(listenLogs) != 1 {
+		t.Fatalf("expected one listen log, got %d", len(listenLogs))
+	}
+	if _, ok := listenLogs[0].ContextMap()["address"].(string); !ok {
+		t.Fatalf("expected snake_case field 'address' in listen log")
+	}
 }
 
 func TestH2TransportHandshakeError(t *testing.T) {
-	trIface, _ := New(transport.Config{Logger: zap.NewNop()})
+	core, logs := observer.New(zap.InfoLevel)
+	trIface, _ := New(transport.Config{Logger: zap.New(core)})
 	tr := trIface.(*Transport)
 	ctx := context.Background()
 	ln, err := tr.Listen(ctx, "127.0.0.1:0")
@@ -90,4 +108,19 @@ func TestH2TransportHandshakeError(t *testing.T) {
 	}
 	conn.Close()
 	<-done
+
+	dialLogs := logs.FilterMessage("dial").All()
+	if len(dialLogs) != 1 {
+		t.Fatalf("expected one dial log, got %d", len(dialLogs))
+	}
+	if _, ok := dialLogs[0].ContextMap()["address"].(string); !ok {
+		t.Fatalf("expected snake_case field 'address' in dial log")
+	}
+	listenLogs := logs.FilterMessage("listen").All()
+	if len(listenLogs) != 1 {
+		t.Fatalf("expected one listen log, got %d", len(listenLogs))
+	}
+	if _, ok := listenLogs[0].ContextMap()["address"].(string); !ok {
+		t.Fatalf("expected snake_case field 'address' in listen log")
+	}
 }
