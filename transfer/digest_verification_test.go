@@ -33,7 +33,7 @@ func TestIterateBlocksFinalSHA(t *testing.T) {
 		t.Fatalf("compression writer: %v", err)
 	}
 	bufOut := bufio.NewWriter(w)
-	_, _, manifest, err := iterateBlocks(cfg, ranges, srcFile, bufOut, nil, [2]int{-1, -1}, logger)
+	_, _, digest, err := iterateBlocks(cfg, ranges, srcFile, bufOut, nil, [2]int{-1, -1}, logger)
 	if err != nil {
 		t.Fatalf("iterateBlocks: %v", err)
 	}
@@ -41,13 +41,20 @@ func TestIterateBlocksFinalSHA(t *testing.T) {
 	w.Close()
 	raw := bytes.Repeat([]byte{1}, int(blockSize))
 	want := sha256.Sum256(raw)
-	if !bytes.Equal(manifest.FinalDigest, want[:]) {
+	if !bytes.Equal(digest, want[:]) {
 		t.Fatalf("sha mismatch")
 	}
-	if !manifest.Verify([][]byte{raw}) {
-		t.Fatalf("verify failed")
+	// verify file digest matches
+	f, err := os.Open(src)
+	if err != nil {
+		t.Fatalf("open src for verify: %v", err)
 	}
-	if err := manifest.VerifyDevice(src); err != nil {
-		t.Fatalf("verify device: %v", err)
+	defer f.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		t.Fatalf("hash file: %v", err)
+	}
+	if !bytes.Equal(h.Sum(nil), digest) {
+		t.Fatalf("file digest mismatch")
 	}
 }

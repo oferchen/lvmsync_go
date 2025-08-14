@@ -1,18 +1,11 @@
 # Manifest Format
 
-LVMSync records transfer metadata in a manifest file. Each entry stores the chunk offset, length, and BLAKE3 digest so transfers can resume and destinations can be verified.
+LVMSync tracks chunk metadata in an mmap-backed binary manifest. Each entry records the chunk
+offset, length, XXH3 hash, and BLAKE3 digest. The manifest allows transfers to skip unchanged
+blocks and verify destinations without storing duplicate metadata in memory.
 
-For quicker comparisons, an additional XXH3 hash is stored alongside each entry. When checking a chunk, the XXH3 value is compared first and the more expensive BLAKE3 digest is only computed if the XXH3 hashes match.
-
-## Index Format
-
-Manifests are JSON lines with one object per chunk:
-
-```json
-{"offset":0,"size_bytes":4096,"digest":"<hex blake3>"}
-```
-
-The final line carries a SHA-256 digest of all chunk digests to validate completeness.
+Entries are laid out in fixed-width binary form for efficient random access. The header contains
+device information, size, block size, and a BLAKE3 MAC over the metadata.
 
 ## Rebuilding
 
@@ -24,10 +17,10 @@ lvmsync manifest rebuild /dev/vg0/lv0
 
 ## Verification
 
-Use manifests to verify that a source and destination match:
+Use manifests to verify that a source matches the recorded digests:
 
 ```sh
-lvmsync verify /dev/vg0/snap0 /mnt/backup
+lvmsync verify --manifest snapshot.manifest /dev/vg0/snap0 /dev/null
 ```
 
 ### Flags
