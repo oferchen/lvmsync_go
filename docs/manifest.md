@@ -2,6 +2,8 @@
 
 LVMSync records transfer metadata in a manifest file. Each entry stores the chunk offset, length, and BLAKE3 digest so transfers can resume and destinations can be verified.
 
+For quicker comparisons, an additional XXH3 hash is stored alongside each entry. When checking a chunk, the XXH3 value is compared first and the more expensive BLAKE3 digest is only computed if the XXH3 hashes match.
+
 ## Index Format
 
 Manifests are JSON lines with one object per chunk:
