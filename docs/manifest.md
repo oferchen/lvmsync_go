@@ -47,6 +47,7 @@ Generate a manifest for an existing device when the index is missing or stale:
 ```sh
 lvmsync manifest rebuild /dev/vg0/lv0
 ```
+Progress logs are emitted every 10s by default; adjust with `--manifest-progress-interval`.
 
 ## Verification
 

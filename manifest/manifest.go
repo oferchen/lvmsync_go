@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
 
 	"github.com/zeebo/blake3"
 	"github.com/zeebo/xxh3"
+	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
 
 	"lvmsync_go/device"
@@ -215,7 +217,8 @@ func (i *Index) ChunkCount() int { return int(i.hdr.ChunkCount) }
 
 // Rebuild creates a manifest index for device at output path.
 // DeviceID is determined via device.GetUUID. The device is read sequentially using blockSize-sized chunks.
-func Rebuild(devicePath, output string) error {
+// Progress is logged at the provided interval; set interval to 0 to log every chunk.
+func Rebuild(devicePath, output string, logger *zap.Logger, progressInterval time.Duration) error {
 	dev, err := detectDevice(devicePath)
 	if err != nil {
 		return err
@@ -237,6 +240,8 @@ func Rebuild(devicePath, output string) error {
 		return err
 	}
 	defer idx.Close()
+	start := time.Now()
+	lastLog := start
 	buf := make([]byte, blockSize)
 	for off := uint64(0); off < size; off += uint64(blockSize) {
 		n, err := f.ReadAt(buf, int64(off))
@@ -250,6 +255,13 @@ func Rebuild(devicePath, output string) error {
 		xx := xxh3.Hash(data)
 		b3 := blake3.Sum256(data)
 		idx.Set(off, uint32(n), xx, b3)
+		if logger != nil && (progressInterval == 0 || time.Since(lastLog) >= progressInterval) {
+			logger.Info("rebuild progress",
+				zap.Uint64("offset_bytes", off+uint64(n)),
+				zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+			)
+			lastLog = time.Now()
+		}
 		if err == io.EOF {
 			break
 		}

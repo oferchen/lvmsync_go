@@ -55,6 +55,9 @@ func (b *Builder) applyDefaults(conf *Config) error {
 	if conf.Transport == "" {
 		conf.Transport = b.defaults.Transport
 	}
+	if conf.ManifestProgressInterval == 0 {
+		conf.ManifestProgressInterval = b.defaults.ManifestProgressInterval
+	}
 
 	bs, raw, err := b.parseBlockSize()
 	if err != nil {

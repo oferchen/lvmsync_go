@@ -41,7 +41,7 @@ func Run(cfg *config.Config, args []string, logger *zap.Logger) error {
 		}
 		return nil
 	}
-	if err := manifestpkg.Rebuild(device, path); err != nil {
+	if err := manifestpkg.Rebuild(device, path, logger, conf.ManifestProgressInterval); err != nil {
 		if logger != nil {
 			logger.Error("rebuild failed", zap.Error(err))
 		}

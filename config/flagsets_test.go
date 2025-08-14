@@ -213,12 +213,18 @@ func TestInitManifestFlags(t *testing.T) {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
 	fs := initManifestFlags(cfg)
-	f := fs.Lookup("manifest_path")
-	if f == nil {
-		t.Fatalf("missing manifest_path flag")
+	cases := []struct{ name, want string }{
+		{"manifest_path", cfg.ManifestPath},
+		{"manifest_progress_interval", cfg.ManifestProgressInterval.String()},
 	}
-	if f.DefValue != cfg.ManifestPath {
-		t.Fatalf("manifest_path default %s want %s", f.DefValue, cfg.ManifestPath)
+	for _, tt := range cases {
+		f := fs.Lookup(tt.name)
+		if f == nil {
+			t.Fatalf("missing %s flag", tt.name)
+		}
+		if f.DefValue != tt.want {
+			t.Fatalf("%s default %s want %s", tt.name, f.DefValue, tt.want)
+		}
 	}
 }
 
