@@ -2,10 +2,13 @@ package transfer
 
 import (
 	"bufio"
+	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
+	"hash"
 	"math"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -27,29 +30,37 @@ func validateOffsetAndSize(offset uint64, size int) (int64, uint32, error) {
 	return int64(offset), uint32(size), nil
 }
 
-func iterateBlocks(cfg *config.Config, ranges []Range, srcFile *os.File, bufOut *bufio.Writer, dedup DeduplicationStrategy, pipeFds [2]int, logger *zap.Logger) (int64, int, *Manifest, error) {
+func newDigestHasher(algo string) hash.Hash {
+	switch strings.ToLower(algo) {
+	case "blake3", "blake3-256":
+		return blake3.New()
+	default:
+		return sha256.New()
+	}
+}
+
+func iterateBlocks(cfg *config.Config, ranges []Range, srcFile *os.File, bufOut *bufio.Writer, dedup DeduplicationStrategy, pipeFds [2]int, logger *zap.Logger) (int64, int, []byte, error) {
 	var totalBytes int64
 	skippedBlocks := 0
 	var header [12]byte
-	manifest := &Manifest{}
 	h := newDigestHasher(cfg.ChecksumAlgorithm)
 	var idx *manifestpkg.Index
 	if cfg.ManifestPath != "" {
 		var err error
 		idx, err = manifestpkg.Open(cfg.ManifestPath)
 		if err != nil {
-			return totalBytes, skippedBlocks, manifest, fmt.Errorf("open manifest: %w", err)
+			return totalBytes, skippedBlocks, nil, fmt.Errorf("open manifest: %w", err)
 		}
 		defer idx.Close()
 	}
 	for _, r := range ranges {
 		offset, blockSize, err := validateOffsetAndSize(r.Start, cfg.BlockSize)
 		if err != nil {
-			return totalBytes, skippedBlocks, manifest, err
+			return totalBytes, skippedBlocks, nil, err
 		}
 		data, err := ReadBlockWithRetries(cfg, srcFile, offset, cfg.ZeroCopy, pipeFds, logger)
 		if err != nil {
-			return totalBytes, skippedBlocks, manifest, fmt.Errorf("error reading block at offset %d: %w", r.Start, err)
+			return totalBytes, skippedBlocks, nil, fmt.Errorf("error reading block at offset %d: %w", r.Start, err)
 		}
 		xx := hashutil.SumXXH3(data)
 		var sum [32]byte
@@ -80,7 +91,7 @@ func iterateBlocks(cfg *config.Config, ranges []Range, srcFile *os.File, bufOut 
 			binary.BigEndian.PutUint32(header[8:12], 0)
 			if _, err := bufOut.Write(header[:]); err != nil {
 				putBlockBuffer(data)
-				return totalBytes, skippedBlocks, manifest, fmt.Errorf("failed to write header: %w", err)
+				return totalBytes, skippedBlocks, nil, fmt.Errorf("failed to write header: %w", err)
 			}
 			zh := zeroHash(int(blockSize))
 			saveResumeState(cfg, r.Start, zh, int64(blockSize), logger)
@@ -95,15 +106,14 @@ func iterateBlocks(cfg *config.Config, ranges []Range, srcFile *os.File, bufOut 
 		binary.BigEndian.PutUint32(header[8:12], blockSize)
 		if _, err := bufOut.Write(header[:]); err != nil {
 			putBlockBuffer(data)
-			return totalBytes, skippedBlocks, manifest, fmt.Errorf("failed to write header: %w", err)
+			return totalBytes, skippedBlocks, nil, fmt.Errorf("failed to write header: %w", err)
 		}
 		if _, err := bufOut.Write(data); err != nil {
 			putBlockBuffer(data)
-			return totalBytes, skippedBlocks, manifest, fmt.Errorf("failed to write block data: %w", err)
+			return totalBytes, skippedBlocks, nil, fmt.Errorf("failed to write block data: %w", err)
 		}
 
 		h.Write(data)
-		manifest.Append(sum, int64(r.Start), int(blockSize))
 		if idx != nil {
 			idx.Set(r.Start, blockSize, xx, sum)
 		}
@@ -113,9 +123,7 @@ func iterateBlocks(cfg *config.Config, ranges []Range, srcFile *os.File, bufOut 
 
 		totalBytes += int64(blockSize)
 	}
-	manifest.DigestAlgo = cfg.ChecksumAlgorithm
-	manifest.FinalDigest = h.Sum(nil)
-	return totalBytes, skippedBlocks, manifest, nil
+	return totalBytes, skippedBlocks, h.Sum(nil), nil
 }
 
 func prepareResultHeader(cfg *config.Config, checksum ChecksumStrategy, res *BlockResult, header []byte) int {
@@ -148,7 +156,7 @@ func processParallelResults(
 	totalDataSize int64,
 	startTime time.Time,
 	logger *zap.Logger,
-) (int64, *Manifest, error) {
+) (int64, []byte, error) {
 	headerSize := 12
 	if cfg.VerifyChecksum {
 		headerSize += checksum.Size()
@@ -156,19 +164,18 @@ func processParallelResults(
 	header := make([]byte, headerSize)
 	var totalBytesTransferred int64
 	h := newDigestHasher(cfg.ChecksumAlgorithm)
-	manifest := &Manifest{}
 	var idx *manifestpkg.Index
 	if cfg.ManifestPath != "" {
 		var err error
 		idx, err = manifestpkg.Open(cfg.ManifestPath)
 		if err != nil {
-			return totalBytesTransferred, manifest, fmt.Errorf("open manifest: %w", err)
+			return totalBytesTransferred, nil, fmt.Errorf("open manifest: %w", err)
 		}
 		defer idx.Close()
 	}
 	for res := range results {
 		if res.Err != nil {
-			return totalBytesTransferred, manifest, fmt.Errorf("error in block %d: %w", res.Index, res.Err)
+			return totalBytesTransferred, nil, fmt.Errorf("error in block %d: %w", res.Index, res.Err)
 		}
 		if idx != nil && res.Data != nil {
 			xx := hashutil.SumXXH3(res.Data)
@@ -183,11 +190,10 @@ func processParallelResults(
 			if res.Data != nil {
 				putBlockBuffer(res.Data)
 			}
-			return totalBytesTransferred, manifest, err
+			return totalBytesTransferred, nil, err
 		}
 		if res.Data != nil {
 			h.Write(res.Data)
-			manifest.Append(res.ChunkID, int64(res.Offset), int(res.Size))
 			if idx != nil {
 				xx := hashutil.SumXXH3(res.Data)
 				idx.Set(res.Offset, res.Size, xx, res.ChunkID)
@@ -205,9 +211,7 @@ func processParallelResults(
 		totalBytesTransferred += int64(res.Size)
 		reportProgress(cfg, totalBytesTransferred, totalDataSize, res.Index, startTime, logger)
 	}
-	manifest.DigestAlgo = cfg.ChecksumAlgorithm
-	manifest.FinalDigest = h.Sum(nil)
-	return totalBytesTransferred, manifest, nil
+	return totalBytesTransferred, h.Sum(nil), nil
 }
 
 func worker(cfg *config.Config, srcFile *os.File, tasks <-chan BlockTask, results chan<- *BlockResult, wg *sync.WaitGroup, logger *zap.Logger) {

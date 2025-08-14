@@ -111,3 +111,17 @@ func TestVerifyManifestMismatch(t *testing.T) {
 		t.Fatalf("expected and actual digests should differ")
 	}
 }
+
+func TestVerifyManifestSuccess(t *testing.T) {
+	data := make([]byte, 4096)
+	src := writeTempFile(t, data)
+	manPath := filepath.Join(t.TempDir(), "src.man")
+	prevUUID := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "uuid-test", nil })
+	defer device.SetUUIDFunc(prevUUID)
+	if err := manifest.Rebuild(src, manPath); err != nil {
+		t.Fatalf("rebuild manifest: %v", err)
+	}
+	if err := Run([]string{"--manifest", manPath, src, src}, zap.NewNop()); err != nil {
+		t.Fatalf("verify manifest success: %v", err)
+	}
+}

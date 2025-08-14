@@ -251,8 +251,8 @@ func (t *Transfer) dumpChangesCore(cfg *config.Config, snapshot, source string, 
 	startTime := time.Now()
 	var totalBytesTransferred int64
 	var skippedBlocks int
-	var manifest *Manifest
-	totalBytesTransferred, skippedBlocks, manifest, err = iterateBlocks(cfg, ranges, srcFile, bufOut, dedup, pipeFds, t.Logger)
+	var finalDigest []byte
+	totalBytesTransferred, skippedBlocks, finalDigest, err = iterateBlocks(cfg, ranges, srcFile, bufOut, dedup, pipeFds, t.Logger)
 	if err != nil {
 		return err
 	}
@@ -260,10 +260,8 @@ func (t *Transfer) dumpChangesCore(cfg *config.Config, snapshot, source string, 
 
 	logSequentialSummary(t.Logger, totalBytesTransferred, skippedBlocks, startTime)
 	finalizeResumeState(cfg, t.Logger)
-	if manifest != nil {
-		if t.Logger != nil {
-			t.Logger.Info("final checksum", zap.String("final_digest", fmt.Sprintf("%x", manifest.FinalDigest)))
-		}
+	if len(finalDigest) > 0 && t.Logger != nil {
+		t.Logger.Info("final checksum", zap.String("final_digest", fmt.Sprintf("%x", finalDigest)))
 	}
 	if t.Logger != nil {
 		_ = t.Logger.Sync()
@@ -564,16 +562,16 @@ func (t *Transfer) DumpChangesParallel(cfg *config.Config, snapshot, source stri
 	startTime := time.Now()
 	checksum := GetChecksumStrategy(cfg.ChecksumAlgorithm)
 	var totalBytesTransferred int64
-	var manifest *Manifest
-	totalBytesTransferred, manifest, err = processParallelResults(cfg, results, bufOut, checksum, totalDataSize, startTime, t.Logger)
+	var finalDigest []byte
+	totalBytesTransferred, finalDigest, err = processParallelResults(cfg, results, bufOut, checksum, totalDataSize, startTime, t.Logger)
 	if err != nil {
 		return err
 	}
 	finalizeProgress(cfg, t.Logger)
 	logParallelSummary(t.Logger, totalBytesTransferred, startTime)
 	finalizeResumeState(cfg, t.Logger)
-	if manifest != nil && t.Logger != nil {
-		t.Logger.Info("final checksum", zap.String("final_digest", fmt.Sprintf("%x", manifest.FinalDigest)))
+	if len(finalDigest) > 0 && t.Logger != nil {
+		t.Logger.Info("final checksum", zap.String("final_digest", fmt.Sprintf("%x", finalDigest)))
 	}
 	if t.Logger != nil {
 		_ = t.Logger.Sync()

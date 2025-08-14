@@ -3,6 +3,7 @@ package transfer
 import (
 	"bufio"
 	"bytes"
+	"crypto/sha256"
 	"io"
 	"os"
 	"testing"
@@ -29,14 +30,17 @@ func TestResumeFinalChecksum(t *testing.T) {
 	checkpoint := readResumeState(cfg, logger)
 	start := findResumeIndex(cfg, srcFile, ranges, checkpoint, logger)
 	w := bufio.NewWriter(io.Discard)
-	_, _, manifest, err := iterateBlocks(cfg, ranges[start:], srcFile, w, nil, [2]int{-1, -1}, logger)
+	_, _, digest, err := iterateBlocks(cfg, ranges[start:], srcFile, w, nil, [2]int{-1, -1}, logger)
 	if err != nil {
 		t.Fatalf("iterateBlocks: %v", err)
 	}
 	w.Flush()
 	raw1 := bytes.Repeat([]byte{3}, int(blockSize))
 	raw2 := bytes.Repeat([]byte{4}, int(blockSize))
-	if !manifest.Verify([][]byte{raw1, raw2}) {
+	h := sha256.New()
+	h.Write(raw1)
+	h.Write(raw2)
+	if !bytes.Equal(digest, h.Sum(nil)) {
 		t.Fatalf("verify after resume failed")
 	}
 }
