@@ -53,7 +53,7 @@ func initGeneralFlags(cfg *Config) *pflag.FlagSet {
 	fs.String("config", "", "Path to config YAML file")
 	fs.String("apply", cfg.ApplyMode, "Apply mode: read change dump from file ('-' for STDIN) and apply to destination device")
 	fs.Bool("stdout", cfg.StdoutMode, "Write change dump to STDOUT")
-	fs.Bool("dry_run", cfg.DryRun, "Print actions without executing")
+	fs.Bool("dry-run", cfg.DryRun, "Print actions without executing")
 	fs.Bool("force", cfg.Force, "Override safety checks and proceed on mounted destination")
 	fs.String("source-type", cfg.SourceType, "Source device type (auto,file,raw,lvm)")
 	fs.String("dest-type", cfg.DestType, "Destination device type (auto,file,raw,lvm)")

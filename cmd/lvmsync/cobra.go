@@ -2,9 +2,12 @@ package lvmsync
 
 import (
 	"fmt"
+	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"go.uber.org/zap"
 
 	verifycmd "lvmsync_go/cmd/verify"
 	"lvmsync_go/config"
@@ -48,6 +51,12 @@ func NewRootCmd() *cobra.Command {
 			if len(remaining) != 2 {
 				fs.Usage()
 				return fmt.Errorf("usage: lvmsync run [flags] <source> <dest>")
+			}
+			if cfg.DryRun {
+				if err := estimateTransfer(remaining[0], cfg); err != nil {
+					return err
+				}
+				return nil
 			}
 			opts := RunOptions{
 				DryRun:    cfg.DryRun,
@@ -107,4 +116,20 @@ func Execute(args []string) error {
 		cmd.SetArgs(args)
 	}
 	return cmd.Execute()
+}
+
+func estimateTransfer(src string, cfg *config.Config) error {
+	info, err := os.Stat(src)
+	if err != nil {
+		return fmt.Errorf("stat source: %w", err)
+	}
+	size := info.Size()
+	var eta time.Duration
+	if cfg.SpeedLimit > 0 {
+		eta = time.Duration(size/int64(cfg.SpeedLimit)) * time.Second
+	}
+	logger := zap.NewExample()
+	defer logger.Sync()
+	logger.Info("dry run", zap.Int64("size_bytes", size), zap.Duration("eta", eta))
+	return nil
 }

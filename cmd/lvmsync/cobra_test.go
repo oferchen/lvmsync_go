@@ -1,12 +1,14 @@
 package lvmsync
 
 import (
+	"os"
 	"testing"
 
 	verifycmd "lvmsync_go/cmd/verify"
 )
 
-func TestRunCommandFlags(t *testing.T) {
+func TestRunCommandExecutes(t *testing.T) {
+	t.Setenv("LVMSYNC_TRANSPORT_TRANSPORT", "ssh")
 	var gotSrc, gotDst string
 	var gotOpts RunOptions
 	runCommand = func(src, dst string, opts RunOptions) error {
@@ -15,38 +17,58 @@ func TestRunCommandFlags(t *testing.T) {
 	}
 	t.Cleanup(func() { runCommand = func(src, dst string, opts RunOptions) error { return nil } })
 
-	if err := Execute([]string{"run", "--dry_run", "--transport", "tcp,ssh", "src", "dst"}); err != nil {
+	if err := Execute([]string{"run", "src", "dst"}); err != nil {
 		t.Fatalf("execute run: %v", err)
 	}
 	if gotSrc != "src" || gotDst != "dst" {
 		t.Fatalf("unexpected args %q %q", gotSrc, gotDst)
 	}
-	if !gotOpts.DryRun {
-		t.Fatalf("expected dry-run true")
+	if gotOpts.DryRun {
+		t.Fatalf("expected dry-run false")
 	}
-	if gotOpts.Transport != "tcp,ssh" {
+	if gotOpts.Transport != "ssh" {
 		t.Fatalf("unexpected transport %q", gotOpts.Transport)
 	}
 }
 
-func TestRunCommandEnv(t *testing.T) {
-	t.Setenv("LVMSYNC_DRY_RUN", "true")
-	t.Setenv("LVMSYNC_TRANSPORT_TRANSPORT", "ssh")
-	var opts RunOptions
-	runCommand = func(src, dst string, o RunOptions) error {
-		opts = o
+func TestRunCommandDryRun(t *testing.T) {
+	src := t.TempDir() + "/src"
+	if err := os.WriteFile(src, []byte("data"), 0o600); err != nil {
+		t.Fatalf("write src: %v", err)
+	}
+	called := false
+	runCommand = func(src, dst string, opts RunOptions) error {
+		called = true
 		return nil
 	}
 	t.Cleanup(func() { runCommand = func(src, dst string, opts RunOptions) error { return nil } })
 
-	if err := Execute([]string{"run", "src", "dst"}); err != nil {
+	if err := Execute([]string{"run", "--dry-run", src, "dst"}); err != nil {
+		t.Fatalf("execute run dry-run: %v", err)
+	}
+	if called {
+		t.Fatalf("runCommand should not be called in dry-run")
+	}
+}
+
+func TestRunCommandDryRunEnv(t *testing.T) {
+	src := t.TempDir() + "/src"
+	if err := os.WriteFile(src, []byte("data"), 0o600); err != nil {
+		t.Fatalf("write src: %v", err)
+	}
+	t.Setenv("LVMSYNC_DRY_RUN", "true")
+	called := false
+	runCommand = func(src, dst string, o RunOptions) error {
+		called = true
+		return nil
+	}
+	t.Cleanup(func() { runCommand = func(src, dst string, opts RunOptions) error { return nil } })
+
+	if err := Execute([]string{"run", src, "dst"}); err != nil {
 		t.Fatalf("execute run with env: %v", err)
 	}
-	if !opts.DryRun {
-		t.Fatalf("expected dry-run from env")
-	}
-	if opts.Transport != "ssh" {
-		t.Fatalf("unexpected transport %q", opts.Transport)
+	if called {
+		t.Fatalf("runCommand should not be called when dry-run env set")
 	}
 }
 
@@ -59,7 +81,7 @@ func TestManifestRebuildRoutes(t *testing.T) {
 	}
 	t.Cleanup(func() { manifestRebuild = func(device string, dryRun bool) error { return nil } })
 
-	if err := Execute([]string{"manifest", "rebuild", "--dry_run", "/dev/vg0"}); err != nil {
+	if err := Execute([]string{"manifest", "rebuild", "--dry-run", "/dev/vg0"}); err != nil {
 		t.Fatalf("execute rebuild: %v", err)
 	}
 	if gotDevice != "/dev/vg0" {

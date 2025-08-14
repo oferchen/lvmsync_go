@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -44,6 +45,19 @@ func Run(args []string, logger *zap.Logger) error {
 			if len(remaining) != 2 {
 				fs.Usage()
 				return fmt.Errorf("usage: lvmsync verify [flags] <source> <dest>")
+			}
+			if cfg.DryRun {
+				info, err := os.Stat(remaining[0])
+				if err != nil {
+					return fmt.Errorf("stat source: %w", err)
+				}
+				size := info.Size()
+				var eta time.Duration
+				if cfg.SpeedLimit > 0 {
+					eta = time.Duration(size/int64(cfg.SpeedLimit)) * time.Second
+				}
+				logger.Info("dry run", zap.Int64("size_bytes", size), zap.Duration("eta", eta))
+				return nil
 			}
 			return verifyDevices(cfg, remaining[0], remaining[1], manifest, logger)
 		},

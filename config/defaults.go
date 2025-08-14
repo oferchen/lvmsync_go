@@ -31,7 +31,7 @@ type Config struct {
 	ConfigFile           string        `mapstructure:"config"`
 	ApplyMode            string        `mapstructure:"apply"`
 	StdoutMode           bool          `mapstructure:"stdout"`
-	DryRun               bool          `mapstructure:"dry_run"`
+	DryRun               bool          `mapstructure:"dry-run"`
 	Force                bool          `mapstructure:"force"`
 	Mode                 string        `mapstructure:"mode"`
 	Parallel             int           `mapstructure:"parallel"`

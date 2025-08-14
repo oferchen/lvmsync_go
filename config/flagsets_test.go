@@ -16,7 +16,7 @@ func TestInitGeneralFlags(t *testing.T) {
 		{"config", ""},
 		{"apply", cfg.ApplyMode},
 		{"stdout", strconv.FormatBool(cfg.StdoutMode)},
-		{"dry_run", strconv.FormatBool(cfg.DryRun)},
+		{"dry-run", strconv.FormatBool(cfg.DryRun)},
 		{"force", strconv.FormatBool(cfg.Force)},
 		{"mode", cfg.Mode},
 		{"parallel", strconv.Itoa(cfg.Parallel)},
