@@ -19,6 +19,9 @@ func composeHandshake(cfg *config.Config, mode string) common.Handshake {
 		Compress:    comps[0],
 		Compressors: comps,
 		Digests:     splitDigests(cfg.ChecksumAlgorithm),
+		CDCMin:      cfg.CDCMin,
+		CDCAvg:      cfg.CDCAvg,
+		CDCMax:      cfg.CDCMax,
 	}
 	switch mode {
 	case StrategyChecksum:
@@ -101,6 +104,24 @@ func readAndValidateHandshake(cfg *config.Config, bufReader *bufio.Reader, dedup
 	}
 	if cfg.DedupMode != "" && hs.DedupMode != "" && hs.DedupMode != cfg.DedupMode {
 		return hs, fmt.Errorf("dedup mode mismatch: %s", hs.DedupMode)
+	}
+	if cfg.CDCMin > 0 && hs.CDCMin > 0 && hs.CDCMin != cfg.CDCMin {
+		return hs, fmt.Errorf("cdc min mismatch: %d", hs.CDCMin)
+	}
+	if hs.CDCMin > 0 {
+		cfg.CDCMin = hs.CDCMin
+	}
+	if cfg.CDCAvg > 0 && hs.CDCAvg > 0 && hs.CDCAvg != cfg.CDCAvg {
+		return hs, fmt.Errorf("cdc avg mismatch: %d", hs.CDCAvg)
+	}
+	if hs.CDCAvg > 0 {
+		cfg.CDCAvg = hs.CDCAvg
+	}
+	if cfg.CDCMax > 0 && hs.CDCMax > 0 && hs.CDCMax != cfg.CDCMax {
+		return hs, fmt.Errorf("cdc max mismatch: %d", hs.CDCMax)
+	}
+	if hs.CDCMax > 0 {
+		cfg.CDCMax = hs.CDCMax
 	}
 	if cfg.ODirect && !hs.ODirect {
 		return hs, fmt.Errorf("remote lacks O_DIRECT support")

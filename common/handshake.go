@@ -31,6 +31,10 @@ type Handshake struct {
 	ResumeToken   string
 	ODirect       bool
 	MaxInFlight   int
+
+	CDCMin int
+	CDCAvg int
+	CDCMax int
 }
 
 // NativeEndianness reports the platform byte order as "little" or "big".
@@ -75,6 +79,15 @@ func WriteHandshake(w io.Writer, h Handshake) error {
 	}
 	if h.MaxInFlight > 0 {
 		tokens = append(tokens, fmt.Sprintf("inflight:%d", h.MaxInFlight))
+	}
+	if h.CDCMin > 0 {
+		tokens = append(tokens, fmt.Sprintf("cdcmin:%d", h.CDCMin))
+	}
+	if h.CDCAvg > 0 {
+		tokens = append(tokens, fmt.Sprintf("cdcavg:%d", h.CDCAvg))
+	}
+	if h.CDCMax > 0 {
+		tokens = append(tokens, fmt.Sprintf("cdcmax:%d", h.CDCMax))
 	}
 
 	if len(h.Transports) > 0 {
@@ -167,6 +180,24 @@ func ReadHandshake(r *bufio.Reader) (Handshake, error) {
 				return Handshake{}, fmt.Errorf("invalid max in-flight: %w", err)
 			}
 			h.MaxInFlight = m
+		case strings.HasPrefix(t, "cdcmin:"):
+			v, err := strconv.Atoi(strings.TrimPrefix(t, "cdcmin:"))
+			if err != nil {
+				return Handshake{}, fmt.Errorf("invalid cdc min: %w", err)
+			}
+			h.CDCMin = v
+		case strings.HasPrefix(t, "cdcavg:"):
+			v, err := strconv.Atoi(strings.TrimPrefix(t, "cdcavg:"))
+			if err != nil {
+				return Handshake{}, fmt.Errorf("invalid cdc avg: %w", err)
+			}
+			h.CDCAvg = v
+		case strings.HasPrefix(t, "cdcmax:"):
+			v, err := strconv.Atoi(strings.TrimPrefix(t, "cdcmax:"))
+			if err != nil {
+				return Handshake{}, fmt.Errorf("invalid cdc max: %w", err)
+			}
+			h.CDCMax = v
 		case t == "checksum":
 			h.Checksum = true
 		case t == "checksum-dedup":

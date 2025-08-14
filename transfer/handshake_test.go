@@ -27,11 +27,14 @@ func TestComposeHandshake(t *testing.T) {
 
 func TestReadAndValidateHandshake(t *testing.T) {
 	buf := &bytes.Buffer{}
-	common.WriteHandshake(buf, common.Handshake{Transports: []string{"ssh"}, Compress: "zstd", Compressors: []string{"zstd"}, Digests: []string{"sha256"}, Checksum: true})
+	common.WriteHandshake(buf, common.Handshake{Transports: []string{"ssh"}, Compress: "zstd", Compressors: []string{"zstd"}, Digests: []string{"sha256"}, Checksum: true, CDCMin: 64, CDCAvg: 128, CDCMax: 256})
 	cfg := &config.Config{Transport: "ssh", Compress: "zstd", ChecksumAlgorithm: "sha256"}
 	hs, err := readAndValidateHandshake(cfg, bufio.NewReader(buf), nil, true)
 	if err != nil || !hs.Checksum {
 		t.Fatalf("expected valid handshake, got %v %v", hs, err)
+	}
+	if cfg.CDCMin != 64 || cfg.CDCAvg != 128 || cfg.CDCMax != 256 {
+		t.Fatalf("cdc values not propagated: %+v", cfg)
 	}
 }
 
