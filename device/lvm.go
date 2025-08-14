@@ -80,14 +80,15 @@ func runLVM(ctx context.Context, name string, args ...string) error {
 	return nil
 }
 
-// Snapshot creates, activates, and opens an LVM snapshot of the device.
-func (d *LVMDevice) Snapshot(ctx context.Context) (Device, error) {
+// Snapshot creates, activates, and opens an LVM snapshot of the device using
+// the provided snapshotSize (e.g., "1G" or "20%").
+func (d *LVMDevice) Snapshot(ctx context.Context, snapshotSize string) (Device, error) {
 	vg, err := lvm.GetVolumeGroupName(d.path)
 	if err != nil {
 		return nil, err
 	}
 	snapName := generateSnapshot()
-	if err := runLVM(ctx, "lvcreate", "-s", "-n", snapName, "-L", "1G", d.path); err != nil {
+	if err := runLVM(ctx, "lvcreate", "-s", "-n", snapName, "-L", snapshotSize, d.path); err != nil {
 		return nil, err
 	}
 	snapPath := lvm.GetSnapshotDevicePath(snapName, vg, zap.NewNop())
