@@ -109,6 +109,22 @@ func TestHumanBlockSize(t *testing.T) {
 	}
 }
 
+func TestBlockSizeBytes(t *testing.T) {
+	cases := []struct {
+		in   int
+		want uint64
+	}{
+		{in: 0, want: 0},
+		{in: 4096, want: 4096},
+	}
+	for _, tc := range cases {
+		c := &Config{BlockSize: tc.in}
+		if got := c.BlockSizeBytes(); got != tc.want {
+			t.Fatalf("block size bytes for %d: %d", tc.in, got)
+		}
+	}
+}
+
 //nolint:revive // complex test cases handled in subtests
 func TestParseBytesOrFallback(t *testing.T) {
 	t.Run("valid", func(t *testing.T) {
