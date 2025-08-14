@@ -3,6 +3,7 @@ package device
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"lvmsync_go/lvm"
 )
@@ -11,18 +12,22 @@ import (
 // Regular files return FileDevice, block devices are classified as either LVM
 // logical volumes or raw devices based on LVM metadata.
 func Detect(path string, offline bool, fsFreezeCmd string) (Device, error) {
-	info, err := os.Stat(path)
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return nil, err
+	}
+	info, err := os.Stat(resolved)
 	if err != nil {
 		return nil, err
 	}
 	if info.Mode().IsRegular() {
-		return OpenFile(path)
+		return OpenFile(resolved)
 	}
 	if info.Mode()&os.ModeDevice != 0 && info.Mode()&os.ModeCharDevice == 0 {
-		if _, err := lvm.GetVolumeGroupName(path); err == nil {
-			return OpenLVM(path)
+		if _, err := lvm.GetVolumeGroupName(resolved); err == nil {
+			return OpenLVM(resolved)
 		}
-		return OpenRaw(path, offline, fsFreezeCmd)
+		return OpenRaw(resolved, offline, fsFreezeCmd)
 	}
-	return nil, fmt.Errorf("unsupported path type: %s", path)
+	return nil, fmt.Errorf("unsupported path type: %s", resolved)
 }
