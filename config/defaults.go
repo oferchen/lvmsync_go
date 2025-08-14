@@ -35,6 +35,7 @@ type Config struct {
 	Force                    bool          `mapstructure:"force"`
 	Offline                  bool          `mapstructure:"offline"`
 	FSFreezeCommand          string        `mapstructure:"fs-freeze-command"`
+	FSThawCommand            string        `mapstructure:"fs-thaw-command"`
 	Mode                     string        `mapstructure:"mode"`
 	Parallel                 int           `mapstructure:"parallel"`
 	Concurrency              int           `mapstructure:"concurrency"`
@@ -161,6 +162,7 @@ func DefaultConfig() (*Config, error) {
 		Force:                    false,
 		Offline:                  false,
 		FSFreezeCommand:          "",
+		FSThawCommand:            "",
 		Parallel:                 4,
 		Concurrency:              0,
 		ZeroCopy:                 false,

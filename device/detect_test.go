@@ -56,7 +56,7 @@ func TestDetectFileSymlink(t *testing.T) {
 	if err := os.Symlink(f.Name(), link); err != nil {
 		t.Fatalf("symlink: %v", err)
 	}
-	dev, err := Detect(link, true, "")
+	dev, err := Detect(link, true, "", "")
 	if err != nil {
 		t.Fatalf("detect: %v", err)
 	}
@@ -92,7 +92,7 @@ func TestDetectRawSymlink(t *testing.T) {
 	if err := os.Symlink(loop, link); err != nil {
 		t.Fatalf("symlink: %v", err)
 	}
-	dev, err := Detect(link, true, "")
+	dev, err := Detect(link, true, "", "")
 	if err != nil {
 		t.Fatalf("detect: %v", err)
 	}
