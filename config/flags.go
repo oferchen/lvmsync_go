@@ -2,8 +2,10 @@ package config
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 )
 
 // FlagSets groups the flag sets for different configuration areas.
@@ -171,4 +173,20 @@ func registerFlags(flagSets *FlagSets, rootFS *pflag.FlagSet) {
 			fmt.Fprintln(rootFS.Output())
 		}
 	}
+}
+
+// bindTransportEnv binds transport flag names to environment variables with the
+// LVMSYNC_TRANSPORT_ prefix.
+func bindTransportEnv(fs *pflag.FlagSet, v *viper.Viper) error {
+	var err error
+	fs.VisitAll(func(f *pflag.Flag) {
+		if err != nil {
+			return
+		}
+		env := "LVMSYNC_TRANSPORT_" + strings.ToUpper(strings.ReplaceAll(f.Name, "-", "_"))
+		if e := v.BindEnv(f.Name, env); e != nil {
+			err = e
+		}
+	})
+	return err
 }

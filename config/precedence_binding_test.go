@@ -240,7 +240,7 @@ func TestSSHHostEnvOverridesConfig(t *testing.T) {
 func TestTransportCLIOverridesEnvAndConfig(t *testing.T) {
 	cfgPath := writeTempConfig(t, "transport: tcp+tls\n")
 	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--transport", "ssh"})
-	t.Setenv("LVMSYNC_TRANSPORT", "tcp+tls")
+	t.Setenv("LVMSYNC_TRANSPORT_TRANSPORT", "tcp+tls")
 
 	defaults, err := DefaultConfig()
 	if err != nil {
@@ -269,7 +269,7 @@ func TestTransportCLIOverridesEnvAndConfig(t *testing.T) {
 func TestTransportEnvOverridesConfig(t *testing.T) {
 	cfgPath := writeTempConfig(t, "transport: tcp+tls\n")
 	rootFS, args := newFlagSet([]string{"--config", cfgPath})
-	t.Setenv("LVMSYNC_TRANSPORT", "ssh")
+	t.Setenv("LVMSYNC_TRANSPORT_TRANSPORT", "ssh")
 
 	defaults, err := DefaultConfig()
 	if err != nil {
@@ -298,7 +298,7 @@ func TestTransportEnvOverridesConfig(t *testing.T) {
 func TestConcurrencyCLIOverridesEnvAndConfig(t *testing.T) {
 	cfgPath := writeTempConfig(t, "concurrency: 1\n")
 	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--concurrency", "3"})
-	t.Setenv("LVMSYNC_CONCURRENCY", "2")
+	t.Setenv("LVMSYNC_TRANSPORT_CONCURRENCY", "2")
 
 	defaults, err := DefaultConfig()
 	if err != nil {
@@ -327,7 +327,7 @@ func TestConcurrencyCLIOverridesEnvAndConfig(t *testing.T) {
 func TestConcurrencyEnvOverridesConfig(t *testing.T) {
 	cfgPath := writeTempConfig(t, "concurrency: 1\n")
 	rootFS, args := newFlagSet([]string{"--config", cfgPath})
-	t.Setenv("LVMSYNC_CONCURRENCY", "2")
+	t.Setenv("LVMSYNC_TRANSPORT_CONCURRENCY", "2")
 
 	defaults, err := DefaultConfig()
 	if err != nil {
@@ -350,5 +350,63 @@ func TestConcurrencyEnvOverridesConfig(t *testing.T) {
 	}
 	if conf.Concurrency != 2 {
 		t.Fatalf("expected concurrency 2, got %d", conf.Concurrency)
+	}
+}
+
+func TestTCPPortCLIOverridesEnvAndConfig(t *testing.T) {
+	cfgPath := writeTempConfig(t, "tcp_port: 1111\n")
+	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--tcp_port", "3333"})
+	t.Setenv("LVMSYNC_TRANSPORT_TCP_PORT", "2222")
+
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	fs := NewFlagSets(defaults)
+	registerFlags(fs, rootFS)
+	if err := rootFS.Parse(args); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	v, err := buildViper(fs)
+	if err != nil {
+		t.Fatalf("buildViper: %v", err)
+	}
+	builder := &Builder{v: v, defaults: defaults}
+	conf, err := builder.Build()
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if conf.TCPPort != 3333 {
+		t.Fatalf("expected tcp_port 3333, got %d", conf.TCPPort)
+	}
+}
+
+func TestTCPPortEnvOverridesConfig(t *testing.T) {
+	cfgPath := writeTempConfig(t, "tcp_port: 1111\n")
+	rootFS, args := newFlagSet([]string{"--config", cfgPath})
+	t.Setenv("LVMSYNC_TRANSPORT_TCP_PORT", "2222")
+
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	fs := NewFlagSets(defaults)
+	registerFlags(fs, rootFS)
+	if err := rootFS.Parse(args); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	v, err := buildViper(fs)
+	if err != nil {
+		t.Fatalf("buildViper: %v", err)
+	}
+	builder := &Builder{v: v, defaults: defaults}
+	conf, err := builder.Build()
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if conf.TCPPort != 2222 {
+		t.Fatalf("expected tcp_port 2222, got %d", conf.TCPPort)
 	}
 }

@@ -302,7 +302,7 @@ LVMSYNC_GRPC_GRPC_PORT=9443 LVMSYNC_GRPC_TLS_CERT=cert.pem lvmsync-grpcd
 | `--dest-type` | `LVMSYNC_DEST_TYPE` | `dest-type` | Destination device type: `auto`, `file`, `raw`, or `lvm` |
 | `--mode` | `LVMSYNC_MODE` | `mode` | Configuration preset: `default` or `throughput`; unknown modes fail validation |
 | `--parallel` | `LVMSYNC_PARALLEL` | `parallel` | Number of concurrent workers |
-| `--concurrency` | `LVMSYNC_CONCURRENCY` | `concurrency` | Stream concurrency (0 to autotune based on BDP) |
+| `--concurrency` | `LVMSYNC_TRANSPORT_CONCURRENCY` | `concurrency` | Stream concurrency (0 to autotune based on BDP) |
 | `--zerocopy` | `LVMSYNC_ZEROCOPY` | `zerocopy` | Enable zero-copy transfers |
 | `--odirect` | `LVMSYNC_ODIRECT` | `odirect` | Use O_DIRECT for device I/O when possible |
 | `--numa_pin` | `LVMSYNC_NUMA_PIN` | `numa_pin` | Pin worker goroutines to device NUMA node |
@@ -349,10 +349,10 @@ If `--ssh_key` is empty, lvmsync contacts the SSH agent referenced by `SSH_AUTH_
 | `--target_volume_group` | `LVMSYNC_TARGET_VOLUME_GROUP` | `target_volume_group` | Volume group name of the target LVM volume |
 | `--target_vgs` | `LVMSYNC_TARGET_VGS` | `target_vgs` | Candidate target volume groups for auto-selection |
   | `--dry_run` | `LVMSYNC_DRY_RUN` | `dry_run` | Print actions without executing |
-| `--transport` | `LVMSYNC_TRANSPORT` | `transport` | Ordered transports to try (e.g., `quic,h2,tcp+tls,ssh`) |
-| `--tcp_port` | `LVMSYNC_TCP_PORT` | `tcp_port` | TCP+TLS port |
-| `--tcp_parallel` | `LVMSYNC_TCP_PARALLEL` | `tcp_parallel` | Number of parallel TCP connections |
-| `--tcp_lowat` | `LVMSYNC_TCP_LOWAT` | `tcp_lowat` | TCP_NOTSENT_LOWAT in bytes |
+| `--transport` | `LVMSYNC_TRANSPORT_TRANSPORT` | `transport` | Ordered transports to try (e.g., `quic,h2,tcp+tls,ssh`) |
+| `--tcp_port` | `LVMSYNC_TRANSPORT_TCP_PORT` | `tcp_port` | TCP+TLS port |
+| `--tcp_parallel` | `LVMSYNC_TRANSPORT_TCP_PARALLEL` | `tcp_parallel` | Number of parallel TCP connections |
+| `--tcp_lowat` | `LVMSYNC_TRANSPORT_TCP_LOWAT` | `tcp_lowat` | TCP_NOTSENT_LOWAT in bytes |
 | `--grpc_listen` | `LVMSYNC_GRPC_LISTEN` | `grpc_listen` | gRPC listen address |
 | `--grpc_connect` | `LVMSYNC_GRPC_CONNECT` | `grpc_connect` | gRPC server address to connect to |
 | `--grpc_port` | `LVMSYNC_GRPC_PORT` | `grpc_port` | gRPC port to listen on |
@@ -497,11 +497,11 @@ transports to attempt (for example `quic,h2,tcp+tls,ssh`). The flags below confi
 
 | Flag | Environment variable | Description | mTLS |
 |------|----------------------|-------------|------||
-| `--transport` | `LVMSYNC_TRANSPORT` | Ordered transports to try (e.g., `quic,h2,tcp+tls,ssh`) |
-| `--concurrency` | `LVMSYNC_CONCURRENCY` | Stream concurrency (0 to autotune based on BDP) |
-| `--tcp_port` | `LVMSYNC_TCP_PORT` | TCP+TLS port |
-| `--tcp_parallel` | `LVMSYNC_TCP_PARALLEL` | Number of parallel TCP connections |
-| `--tcp_lowat` | `LVMSYNC_TCP_LOWAT` | TCP_NOTSENT_LOWAT in bytes |
+| `--transport` | `LVMSYNC_TRANSPORT_TRANSPORT` | Ordered transports to try (e.g., `quic,h2,tcp+tls,ssh`) |
+| `--concurrency` | `LVMSYNC_TRANSPORT_CONCURRENCY` | Stream concurrency (0 to autotune based on BDP) |
+| `--tcp_port` | `LVMSYNC_TRANSPORT_TCP_PORT` | TCP+TLS port |
+| `--tcp_parallel` | `LVMSYNC_TRANSPORT_TCP_PARALLEL` | Number of parallel TCP connections |
+| `--tcp_lowat` | `LVMSYNC_TRANSPORT_TCP_LOWAT` | TCP_NOTSENT_LOWAT in bytes |
 | `--ssh_port` | `LVMSYNC_SSH_PORT` | SSH port |
 | `--ssh_port` | `LVMSYNC_SSH_PORT` | SSH port | ❌ |
 | `--tls_cert` | `LVMSYNC_TLS_CERT` | TLS certificate file | ✅ |
@@ -517,7 +517,7 @@ transports to attempt (for example `quic,h2,tcp+tls,ssh`). The flags below confi
 ```sh
 lvmsync run --transport tcp+tls --tcp_port 9443
 # or
-LVMSYNC_TRANSPORT=tcp+tls LVMSYNC_TCP_PORT=9443 lvmsync run
+LVMSYNC_TRANSPORT_TRANSPORT=tcp+tls LVMSYNC_TRANSPORT_TCP_PORT=9443 lvmsync run
 ```
 
 **SSH**
@@ -525,7 +525,7 @@ LVMSYNC_TRANSPORT=tcp+tls LVMSYNC_TCP_PORT=9443 lvmsync run
 ```sh
 lvmsync run --transport ssh backup@host:/dev/vg1/target --ssh_port 2222
 # or
-LVMSYNC_TRANSPORT=ssh LVMSYNC_SSH_PORT=2222 lvmsync run backup@host:/dev/vg1/target
+LVMSYNC_TRANSPORT_TRANSPORT=ssh LVMSYNC_SSH_PORT=2222 lvmsync run backup@host:/dev/vg1/target
 ```
 
 ## Hybrid Deduplication and Adaptive Compression
