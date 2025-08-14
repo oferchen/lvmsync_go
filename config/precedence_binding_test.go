@@ -410,3 +410,119 @@ func TestTCPPortEnvOverridesConfig(t *testing.T) {
 		t.Fatalf("expected tcp_port 2222, got %d", conf.TCPPort)
 	}
 }
+
+func TestGRPCPortCLIOverridesEnvAndConfig(t *testing.T) {
+	cfgPath := writeTempConfig(t, "grpc_port: 1111\n")
+	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--grpc_port", "3333"})
+	t.Setenv("LVMSYNC_GRPC_PORT", "2222")
+
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	fs := NewFlagSets(defaults)
+	registerFlags(fs, rootFS)
+	if err := rootFS.Parse(args); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	v, err := buildViper(fs)
+	if err != nil {
+		t.Fatalf("buildViper: %v", err)
+	}
+	builder := &Builder{v: v, defaults: defaults}
+	conf, err := builder.Build()
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if conf.GRPCPort != 3333 {
+		t.Fatalf("expected grpc_port 3333, got %d", conf.GRPCPort)
+	}
+}
+
+func TestGRPCPortEnvOverridesConfig(t *testing.T) {
+	cfgPath := writeTempConfig(t, "grpc_port: 1111\n")
+	rootFS, args := newFlagSet([]string{"--config", cfgPath})
+	t.Setenv("LVMSYNC_GRPC_PORT", "2222")
+
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	fs := NewFlagSets(defaults)
+	registerFlags(fs, rootFS)
+	if err := rootFS.Parse(args); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	v, err := buildViper(fs)
+	if err != nil {
+		t.Fatalf("buildViper: %v", err)
+	}
+	builder := &Builder{v: v, defaults: defaults}
+	conf, err := builder.Build()
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if conf.GRPCPort != 2222 {
+		t.Fatalf("expected grpc_port 2222, got %d", conf.GRPCPort)
+	}
+}
+
+func TestManifestPathCLIOverridesEnvAndConfig(t *testing.T) {
+	cfgPath := writeTempConfig(t, "manifest_path: cfg.manifest\n")
+	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--manifest_path", "cli.manifest"})
+	t.Setenv("LVMSYNC_MANIFEST_PATH", "env.manifest")
+
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	fs := NewFlagSets(defaults)
+	registerFlags(fs, rootFS)
+	if err := rootFS.Parse(args); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	v, err := buildViper(fs)
+	if err != nil {
+		t.Fatalf("buildViper: %v", err)
+	}
+	builder := &Builder{v: v, defaults: defaults}
+	conf, err := builder.Build()
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if conf.ManifestPath != "cli.manifest" {
+		t.Fatalf("expected manifest_path cli.manifest, got %s", conf.ManifestPath)
+	}
+}
+
+func TestManifestPathEnvOverridesConfig(t *testing.T) {
+	cfgPath := writeTempConfig(t, "manifest_path: cfg.manifest\n")
+	rootFS, args := newFlagSet([]string{"--config", cfgPath})
+	t.Setenv("LVMSYNC_MANIFEST_PATH", "env.manifest")
+
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	fs := NewFlagSets(defaults)
+	registerFlags(fs, rootFS)
+	if err := rootFS.Parse(args); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	v, err := buildViper(fs)
+	if err != nil {
+		t.Fatalf("buildViper: %v", err)
+	}
+	builder := &Builder{v: v, defaults: defaults}
+	conf, err := builder.Build()
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if conf.ManifestPath != "env.manifest" {
+		t.Fatalf("expected manifest_path env.manifest, got %s", conf.ManifestPath)
+	}
+}

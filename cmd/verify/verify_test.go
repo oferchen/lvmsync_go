@@ -85,7 +85,7 @@ func TestVerifyManifestMismatch(t *testing.T) {
 	}
 	core, observed := observer.New(zap.ErrorLevel)
 	logger := zap.New(core)
-	if err := Run([]string{"--manifest", manPath, src, dst}, logger); err == nil {
+	if err := Run([]string{"--manifest_path", manPath, src, dst}, logger); err == nil {
 		t.Fatalf("expected mismatch error")
 	}
 	logs := observed.All()

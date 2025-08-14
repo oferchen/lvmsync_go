@@ -18,6 +18,7 @@ type FlagSets struct {
 	LVM         *pflag.FlagSet
 	GRPC        *pflag.FlagSet
 	Transport   *pflag.FlagSet
+	Manifest    *pflag.FlagSet
 }
 
 // NewFlagSets constructs grouped flag sets using the provided defaults.
@@ -31,6 +32,7 @@ func NewFlagSets(cfg *Config) *FlagSets {
 		LVM:         initLVMFlags(cfg),
 		GRPC:        initGRPCFlags(cfg),
 		Transport:   initTransportFlags(cfg),
+		Manifest:    initManifestFlags(cfg),
 	}
 }
 
@@ -45,6 +47,7 @@ func (f *FlagSets) All() []*pflag.FlagSet {
 		f.LVM,
 		f.GRPC,
 		f.Transport,
+		f.Manifest,
 	}
 }
 
@@ -75,6 +78,12 @@ func initGeneralFlags(cfg *Config) *pflag.FlagSet {
 	fs.Bool("verify_checksum", cfg.VerifyChecksum, "Enable checksum verification")
 	fs.String("checksum_algorithm", cfg.ChecksumAlgorithm, fmt.Sprintf("Checksum algorithm: %v", SupportedChecksumAlgorithms))
 	fs.Bool("progress", cfg.Progress, "Show progress during transfer")
+	return fs
+}
+
+func initManifestFlags(cfg *Config) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("Manifest Options", pflag.ExitOnError)
+	fs.String("manifest_path", cfg.ManifestPath, "Path to manifest file")
 	return fs
 }
 

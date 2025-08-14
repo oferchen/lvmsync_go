@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 
@@ -51,14 +52,20 @@ var startFunc = func(ctx context.Context, opts Options, logger *zap.Logger) erro
 	return nil
 }
 
-func bindFlags(cmd *cobra.Command, v *viper.Viper) {
+func bindFlagSets(cmd *cobra.Command, v *viper.Viper) {
+	general := pflag.NewFlagSet("General Options", pflag.ExitOnError)
+	general.String("config", "", "config file")
+
+	grpc := pflag.NewFlagSet("gRPC Options", pflag.ExitOnError)
+	grpc.Int("grpc-port", 9443, "gRPC listen port")
+	grpc.String("tls-cert", "", "TLS certificate file")
+	grpc.String("tls-key", "", "TLS key file")
+	grpc.String("ca-cert", "", "CA certificate file")
+	grpc.Bool("allow-insecure", false, "allow plaintext gRPC")
+
 	fs := cmd.Flags()
-	fs.Int("grpc-port", 9443, "gRPC listen port")
-	fs.String("tls-cert", "", "TLS certificate file")
-	fs.String("tls-key", "", "TLS key file")
-	fs.String("ca-cert", "", "CA certificate file")
-	fs.Bool("allow-insecure", false, "allow plaintext gRPC")
-	fs.String("config", "", "config file")
+	fs.AddFlagSet(general)
+	fs.AddFlagSet(grpc)
 
 	v.BindPFlags(fs)
 	v.SetEnvPrefix("LVMSYNC_GRPC")
@@ -106,7 +113,7 @@ func NewCmd(logger *zap.Logger) *cobra.Command {
 			return startFunc(ctx, opts, logger)
 		},
 	}
-	bindFlags(cmd, v)
+	bindFlagSets(cmd, v)
 	return cmd
 }
 

@@ -19,7 +19,6 @@ func Run(cfg *config.Config, args []string, logger *zap.Logger) error {
 	}
 	flagSets := config.NewFlagSets(cfg)
 	fs := pflag.NewFlagSet("manifest rebuild", pflag.ContinueOnError)
-	output := fs.String("output", "", "manifest output file")
 	conf, remaining, err := config.LoadConfig(flagSets, cfg, fs, args[1:])
 	if err != nil {
 		return err
@@ -29,7 +28,7 @@ func Run(cfg *config.Config, args []string, logger *zap.Logger) error {
 		return fmt.Errorf("usage: lvmsync manifest rebuild <device>")
 	}
 	device := remaining[0]
-	path := *output
+	path := conf.ManifestPath
 	if path == "" {
 		path = device + ".manifest"
 	}
