@@ -3,12 +3,8 @@ package quic
 import (
 	"bufio"
 	"context"
-	"crypto/rand"
-	"crypto/rsa"
 	"crypto/tls"
-	"crypto/x509"
 	"fmt"
-	"math/big"
 	"net"
 	"time"
 
@@ -53,30 +49,28 @@ func New(cfg transport.Config) (transport.Interface, error) {
 		return nil, fmt.Errorf("tls roots are required unless AllowInsecure is set")
 	}
 	cert := cfg.ClientCert
-	if len(cert.Certificate) == 0 {
-		var err error
-		cert, err = generateSelfSignedCert()
-		if err != nil {
-			return nil, err
-		}
+	if len(cert.Certificate) == 0 && !cfg.AllowInsecure {
+		return nil, fmt.Errorf("client certificate is required unless AllowInsecure is set")
 	}
 	clientAuth := tls.RequireAndVerifyClientCert
 	if cfg.AllowInsecure {
 		clientAuth = tls.RequireAnyClientCert
 	}
 	serverTLS := &tls.Config{
-		Certificates: []tls.Certificate{cert},
-		ClientCAs:    cfg.Roots,
-		ClientAuth:   clientAuth,
-		MinVersion:   tls.VersionTLS13,
-		NextProtos:   []string{alpn},
+		ClientCAs:  cfg.Roots,
+		ClientAuth: clientAuth,
+		MinVersion: tls.VersionTLS13,
+		NextProtos: []string{alpn},
 	}
 	clientTLS := &tls.Config{
-		Certificates:       []tls.Certificate{cert},
 		RootCAs:            cfg.Roots,
 		InsecureSkipVerify: cfg.AllowInsecure,
 		MinVersion:         tls.VersionTLS13,
 		NextProtos:         []string{alpn},
+	}
+	if len(cert.Certificate) > 0 {
+		serverTLS.Certificates = []tls.Certificate{cert}
+		clientTLS.Certificates = []tls.Certificate{cert}
 	}
 	qconf := &quic.Config{EnableDatagrams: true}
 	return &Transport{serverTLS: serverTLS, clientTLS: clientTLS, qconf: qconf, logger: cfg.Logger}, nil
@@ -265,24 +259,4 @@ func roleString(r transport.Role) string {
 	default:
 		return ""
 	}
-}
-
-// generateSelfSignedCert creates a short-lived self-signed certificate.
-func generateSelfSignedCert() (tls.Certificate, error) {
-	key, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		return tls.Certificate{}, err
-	}
-	tmpl := x509.Certificate{
-		SerialNumber: big.NewInt(1),
-		NotBefore:    time.Now(),
-		NotAfter:     time.Now().Add(time.Hour),
-		IPAddresses:  []net.IP{net.ParseIP("127.0.0.1")},
-	}
-	der, err := x509.CreateCertificate(rand.Reader, &tmpl, &tmpl, &key.PublicKey, key)
-	if err != nil {
-		return tls.Certificate{}, err
-	}
-	cert := tls.Certificate{Certificate: [][]byte{der}, PrivateKey: key}
-	return cert, nil
 }

@@ -532,7 +532,8 @@ authentication, negotiates the `lvmsync` ALPN, and exposes both bidirectional st
 transport also requires TLS 1.3 with client certificates and negotiates the `h2` ALPN. Provide certificates via
 `--tls_cert`, `--tls_key`, and `--ca_cert`. TLS transports require a trusted CA certificate and will refuse
 connections when no roots are provided unless `--allow_insecure` (or the `AllowInsecure` configuration flag) is
-set. The flags below configure transport behavior.
+set. Client certificates must be supplied explicitly; transports no longer generate self-signed certificates
+automatically. The flags below configure transport behavior.
 
 ### Flags and environment variables
 
