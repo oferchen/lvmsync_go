@@ -76,18 +76,42 @@ func (t *Transport) Dial(ctx context.Context, address string) (net.Conn, error) 
 		zap.Int64("duration_ms", 0),
 	)
 	start := time.Now()
-	d := net.Dialer{}
-	conn, err := tls.DialWithDialer(&d, "tcp", address, t.clientConf)
+	d := &net.Dialer{}
+	tcpConn, err := d.DialContext(ctx, "tcp", address)
+	if err != nil {
+		fields := []zap.Field{
+			zap.String("address", address),
+			zap.String("role", role),
+			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+			zap.Error(err),
+		}
+		t.logger.Info("dial_end", fields...)
+		return nil, err
+	}
+	tlsConf := t.clientConf.Clone()
+	if tlsConf.ServerName == "" && !tlsConf.InsecureSkipVerify {
+		host, _, _ := net.SplitHostPort(address)
+		tlsConf.ServerName = host
+	}
+	conn := tls.Client(tcpConn, tlsConf)
+	if err := conn.HandshakeContext(ctx); err != nil {
+		tcpConn.Close()
+		fields := []zap.Field{
+			zap.String("address", address),
+			zap.String("role", role),
+			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+			zap.Error(err),
+		}
+		t.logger.Info("dial_end", fields...)
+		return nil, err
+	}
 	fields := []zap.Field{
 		zap.String("address", address),
 		zap.String("role", role),
 		zap.Int64("duration_ms", time.Since(start).Milliseconds()),
 	}
-	if err != nil {
-		fields = append(fields, zap.Error(err))
-	}
 	t.logger.Info("dial_end", fields...)
-	return conn, err
+	return conn, nil
 }
 
 func (t *Transport) Listen(ctx context.Context, address string) (net.Listener, error) {
@@ -98,9 +122,14 @@ func (t *Transport) Listen(ctx context.Context, address string) (net.Listener, e
 		zap.Int64("duration_ms", 0),
 	)
 	start := time.Now()
-	ln, err := net.Listen("tcp", address)
+	lc := net.ListenConfig{}
+	ln, err := lc.Listen(ctx, "tcp", address)
 	if err == nil {
 		ln = tls.NewListener(ln, t.serverConf)
+		go func() {
+			<-ctx.Done()
+			ln.Close()
+		}()
 	}
 	fields := []zap.Field{
 		zap.String("address", address),

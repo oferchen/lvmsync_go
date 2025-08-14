@@ -3,8 +3,11 @@ package tcp_tls
 import (
 	"context"
 	"crypto/x509"
+	"errors"
 	"io"
+	"net"
 	"testing"
+	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
@@ -176,6 +179,42 @@ func TestTCPTLSCertValidation(t *testing.T) {
 		t.Fatalf("expected cert validation error")
 	}
 	<-done
+}
+
+func TestTCPTLSDialContextCancel(t *testing.T) {
+	cert, _ := generateSelfSignedCert()
+	root := x509.NewCertPool()
+	if c, err := x509.ParseCertificate(cert.Certificate[0]); err == nil {
+		root.AddCert(c)
+	}
+	trIface, err := New(transport.Config{Logger: zap.NewNop(), Roots: root, ClientCert: cert})
+	if err != nil {
+		t.Fatalf("new transport: %v", err)
+	}
+	tr := trIface.(*Transport)
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer ln.Close()
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		io.Copy(io.Discard, conn)
+	}()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		time.Sleep(10 * time.Millisecond)
+		cancel()
+	}()
+	if _, err := tr.Dial(ctx, ln.Addr().String()); err == nil || !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context cancellation, got %v", err)
+	}
 }
 
 func TestTCPTLSTransportRequiresLogger(t *testing.T) {
