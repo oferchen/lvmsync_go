@@ -31,7 +31,7 @@ func TestRunCommandFlags(t *testing.T) {
 
 func TestRunCommandEnv(t *testing.T) {
 	t.Setenv("LVMSYNC_DRY_RUN", "true")
-	t.Setenv("LVMSYNC_TRANSPORT", "ssh")
+	t.Setenv("LVMSYNC_TRANSPORT_TRANSPORT", "ssh")
 	var opts RunOptions
 	runCommand = func(src, dst string, o RunOptions) error {
 		opts = o

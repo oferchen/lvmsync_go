@@ -247,9 +247,6 @@ func buildViper(flagSets *FlagSets) (*viper.Viper, error) {
 	v.SetEnvPrefix("LVMSYNC")
 	v.AutomaticEnv()
 	keys := []string{
-		"transport",
-		"concurrency",
-		"tcp_port",
 		"source-type",
 		"dest-type",
 	}
@@ -262,6 +259,9 @@ func buildViper(flagSets *FlagSets) (*viper.Viper, error) {
 		if err := v.BindPFlags(fs); err != nil {
 			return nil, err
 		}
+	}
+	if err := bindTransportEnv(flagSets.Transport, v); err != nil {
+		return nil, err
 	}
 	if cfgFile := v.GetString("config"); cfgFile != "" {
 		v.SetConfigFile(cfgFile)
