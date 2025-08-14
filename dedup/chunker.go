@@ -3,6 +3,8 @@ package dedup
 import (
 	"io"
 	"math"
+
+	"lvmsync_go/common"
 )
 
 // Chunk represents a block of data detected by the chunker.
@@ -46,6 +48,12 @@ func NewChunker(minSize, avgSize, maxSize int) *Chunker {
 	}
 	c.maskLow = (1 << (bits + 2)) - 1 // large chunks
 	return c
+}
+
+// NewChunkerFromHandshake constructs a Chunker using CDC parameters negotiated
+// via a protocol handshake.
+func NewChunkerFromHandshake(h common.Handshake) *Chunker {
+	return NewChunker(h.CDCMin, h.CDCAvg, h.CDCMax)
 }
 
 // NextChunk reads from r and returns the next content defined chunk. It
