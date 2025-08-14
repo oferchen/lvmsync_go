@@ -14,10 +14,8 @@ import (
 func Detect(path string, offline bool, fsFreezeCmd, fsThawCmd string) (Device, error) {
 	resolved, err := filepath.EvalSymlinks(path)
 	if err != nil {
-		return nil, fmt.Errorf("resolve %s: %w", path, err)
+		return nil, err
 	}
-	resolved = filepath.Clean(resolved)
-
 	info, err := os.Stat(resolved)
 	if err != nil {
 		return nil, err
