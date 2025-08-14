@@ -35,6 +35,9 @@ type Handshake struct {
 	CDCMin int
 	CDCAvg int
 	CDCMax int
+
+	ALPN       string
+	TLSVersion string
 }
 
 // NativeEndianness reports the platform byte order as "little" or "big".
@@ -88,6 +91,12 @@ func WriteHandshake(w io.Writer, h Handshake) error {
 	}
 	if h.CDCMax > 0 {
 		tokens = append(tokens, fmt.Sprintf("cdcmax:%d", h.CDCMax))
+	}
+	if h.ALPN != "" {
+		tokens = append(tokens, "alpn:"+h.ALPN)
+	}
+	if h.TLSVersion != "" {
+		tokens = append(tokens, "tls:"+h.TLSVersion)
 	}
 
 	if len(h.Transports) > 0 {
@@ -198,6 +207,10 @@ func ReadHandshake(r *bufio.Reader) (Handshake, error) {
 				return Handshake{}, fmt.Errorf("invalid cdc max: %w", err)
 			}
 			h.CDCMax = v
+		case strings.HasPrefix(t, "alpn:"):
+			h.ALPN = strings.TrimPrefix(t, "alpn:")
+		case strings.HasPrefix(t, "tls:"):
+			h.TLSVersion = strings.TrimPrefix(t, "tls:")
 		case t == "checksum":
 			h.Checksum = true
 		case t == "checksum-dedup":

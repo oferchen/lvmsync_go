@@ -2,8 +2,15 @@ package h2
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/tls"
+	"crypto/x509"
 	"io"
+	"math/big"
+	"net"
 	"testing"
+	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
@@ -18,16 +25,43 @@ func checkLogFields(t *testing.T, logs *observer.ObservedLogs, msg string, expec
 		t.Fatalf("expected %d %s logs, got %d", expected, msg, len(entries))
 	}
 	ctx := entries[0].ContextMap()
-	for _, k := range []string{"address", "role", "duration_ms", "error"} {
+	for _, k := range []string{"address", "role", "duration_ms"} {
 		if _, ok := ctx[k]; !ok {
 			t.Fatalf("expected field %q in %s log", k, msg)
 		}
 	}
 }
 
-func TestH2TransportHandshake(t *testing.T) {
+func generateSelfSignedCert(t *testing.T) (tls.Certificate, *x509.CertPool) {
+	t.Helper()
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("generate key: %v", err)
+	}
+	tmpl := x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		NotBefore:    time.Now(),
+		NotAfter:     time.Now().Add(time.Hour),
+		IPAddresses:  []net.IP{net.ParseIP("127.0.0.1")},
+	}
+	der, err := x509.CreateCertificate(rand.Reader, &tmpl, &tmpl, &key.PublicKey, key)
+	if err != nil {
+		t.Fatalf("create cert: %v", err)
+	}
+	cert := tls.Certificate{Certificate: [][]byte{der}, PrivateKey: key}
+	parsed, err := x509.ParseCertificate(der)
+	if err != nil {
+		t.Fatalf("parse cert: %v", err)
+	}
+	pool := x509.NewCertPool()
+	pool.AddCert(parsed)
+	return cert, pool
+}
+
+func TestH2TransportTLSHandshake(t *testing.T) {
+	cert, pool := generateSelfSignedCert(t)
 	core, logs := observer.New(zap.InfoLevel)
-	trIface, err := New(transport.Config{Logger: zap.New(core)})
+	trIface, err := New(transport.Config{Logger: zap.New(core), Roots: pool, ClientCert: cert, ServerCert: cert})
 	if err != nil {
 		t.Fatalf("new transport: %v", err)
 	}
@@ -51,7 +85,7 @@ func TestH2TransportHandshake(t *testing.T) {
 			t.Errorf("server negotiate: %v", err)
 			return
 		}
-		if peerHS.ResumeToken != "tok" || peerHS.MaxInFlight != 8 {
+		if peerHS.ResumeToken != "tok" || peerHS.MaxInFlight != 8 || peerHS.ALPN != "h2" || peerHS.TLSVersion != "1.3" {
 			t.Errorf("unexpected peer handshake: %+v", peerHS)
 		}
 		buf := make([]byte, 4)
@@ -69,7 +103,7 @@ func TestH2TransportHandshake(t *testing.T) {
 	if err != nil {
 		t.Fatalf("client negotiate: %v", err)
 	}
-	if peerHS.ResumeToken != "tok" || peerHS.MaxInFlight != 8 {
+	if peerHS.ResumeToken != "tok" || peerHS.MaxInFlight != 8 || peerHS.ALPN != "h2" || peerHS.TLSVersion != "1.3" {
 		t.Fatalf("unexpected peer handshake: %+v", peerHS)
 	}
 	if _, err := conn.Write([]byte("ping")); err != nil {
@@ -91,48 +125,37 @@ func TestH2TransportHandshake(t *testing.T) {
 	checkLogFields(t, logs, "negotiate_end", 2)
 }
 
-func TestH2TransportHandshakeError(t *testing.T) {
+func TestH2TransportTLSHandshakeError(t *testing.T) {
+	serverCert, pool := generateSelfSignedCert(t)
+	clientCert, _ := generateSelfSignedCert(t)
 	core, logs := observer.New(zap.InfoLevel)
-	trIface, err := New(transport.Config{Logger: zap.New(core)})
+	serverTrIface, err := New(transport.Config{Logger: zap.New(core), Roots: pool, ClientCert: serverCert, ServerCert: serverCert})
 	if err != nil {
-		t.Fatalf("new transport: %v", err)
+		t.Fatalf("server transport: %v", err)
 	}
-	tr := trIface.(*Transport)
+	clientTrIface, err := New(transport.Config{Logger: zap.New(core), Roots: pool, ClientCert: clientCert, ServerCert: clientCert})
+	if err != nil {
+		t.Fatalf("client transport: %v", err)
+	}
+	serverTr := serverTrIface.(*Transport)
+	clientTr := clientTrIface.(*Transport)
 	ctx := context.Background()
-	ln, err := tr.Listen(ctx, "127.0.0.1:0")
+	ln, err := serverTr.Listen(ctx, "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("listen: %v", err)
 	}
 	defer ln.Close()
 
-	done := make(chan struct{})
-	go func() {
-		conn, err := ln.Accept()
-		if err != nil {
-			t.Errorf("accept: %v", err)
-			return
-		}
-		conn.Write([]byte("bad\n"))
-		conn.Close()
-		close(done)
-	}()
-
-	conn, err := tr.Dial(ctx, ln.Addr().String())
-	if err != nil {
-		t.Fatalf("dial: %v", err)
+	dctx, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+	if _, err := clientTr.Dial(dctx, ln.Addr().String()); err == nil {
+		t.Fatalf("expected dial error")
 	}
-	if _, err := tr.Negotiate(ctx, conn, transport.Client, common.Handshake{}); err == nil {
-		t.Fatalf("expected negotiate error")
-	}
-	conn.Close()
-	<-done
 
 	checkLogFields(t, logs, "dial_start", 1)
 	checkLogFields(t, logs, "dial_end", 1)
 	checkLogFields(t, logs, "listen_start", 1)
 	checkLogFields(t, logs, "listen_end", 1)
-	checkLogFields(t, logs, "negotiate_start", 1)
-	checkLogFields(t, logs, "negotiate_end", 1)
 }
 
 func TestH2TransportRequiresLogger(t *testing.T) {

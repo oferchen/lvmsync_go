@@ -50,9 +50,10 @@ func generateSelfSignedCert(t *testing.T) (tls.Certificate, *x509.CertPool) {
 func newTransport(t *testing.T, name string) transport.Interface {
 	t.Helper()
 	cfg := transport.Config{Logger: zap.NewNop()}
-	if name == "tcp+tls" || name == "quic" {
+	if name == "tcp+tls" || name == "quic" || name == "h2" {
 		cert, pool := generateSelfSignedCert(t)
 		cfg.ClientCert = cert
+		cfg.ServerCert = cert
 		cfg.Roots = pool
 	}
 	tr, err := transport.Get(name, cfg)
