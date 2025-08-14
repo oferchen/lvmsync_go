@@ -30,6 +30,9 @@ Each subsequent entry describes one chunk and also uses little‑endian encoding
 The header `version` field allows future format changes without breaking
 backwards compatibility.
 
+Device identifiers are stored in a fixed 64-byte field; creation fails if the
+ID exceeds this limit.
+
 ## Resume Tokens
 
 During a transfer handshake the sender may advertise a `resume:<token>` token.

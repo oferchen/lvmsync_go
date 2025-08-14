@@ -64,6 +64,7 @@ func Configure() (*config.Config, []string, *zap.Logger, error) {
 	}
 	logger.Info("Effective configuration",
 		zap.String("block_size", cfg.HumanBlockSize()),
+		zap.Uint64("block_size_bytes", cfg.BlockSizeBytes()),
 		zap.Int("parallel", cfg.Parallel),
 		zap.String("transport", cfg.Transport),
 		zap.Int("concurrency", cfg.Concurrency),

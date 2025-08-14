@@ -98,6 +98,7 @@ tooling to track transfer completion.
 
 - Use `zap` for all logging and avoid `fmt.Print*` or `log.*` calls.
 - Log field keys in `snake_case` and include units where relevant (for example, `duration_ms`).
+- Provide raw byte values alongside human-readable sizes (for example, `block_size` and `block_size_bytes`).
 - Always defer `syncLogger(logger)` to flush buffers and log if the sync fails.
 
 The example below demonstrates these conventions:
@@ -775,6 +776,9 @@ Rebuild a manifest index for an existing device:
 ```sh
 lvmsync manifest rebuild /dev/vg0/lv0
 ```
+
+Manifests embed a persistent device identifier in a fixed 64-byte field. The
+`manifest rebuild` command fails if the identifier exceeds this limit.
 
 Verify that a source and destination match:
 

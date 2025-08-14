@@ -139,6 +139,15 @@ func (c *Config) HumanBlockSize() string {
 	return bs
 }
 
+// BlockSizeBytes returns the configured block size in bytes.
+// A zero or negative block size yields zero.
+func (c *Config) BlockSizeBytes() uint64 {
+	if c.BlockSize <= 0 {
+		return 0
+	}
+	return uint64(c.BlockSize)
+}
+
 func DefaultConfig() (*Config, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
