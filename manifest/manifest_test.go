@@ -10,6 +10,8 @@ import (
 
 	"github.com/zeebo/blake3"
 	"github.com/zeebo/xxh3"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 
 	"lvmsync_go/device"
 )
@@ -114,7 +116,7 @@ func TestRebuild(t *testing.T) {
 	prev := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "uuid-test", nil })
 	defer device.SetUUIDFunc(prev)
 	manPath := filepath.Join(dir, "rebuild.man")
-	if err := Rebuild(file.Name(), manPath); err != nil {
+	if err := Rebuild(file.Name(), manPath, zap.NewNop(), 0); err != nil {
 		t.Fatalf("rebuild: %v", err)
 	}
 	idx, err := Open(manPath)
@@ -161,7 +163,7 @@ func TestRebuildCloseOnce(t *testing.T) {
 	count := 0
 	closeHook = func() { count++ }
 	defer func() { closeHook = prevHook }()
-	if err := Rebuild(file.Name(), manPath); err != nil {
+	if err := Rebuild(file.Name(), manPath, zap.NewNop(), 0); err != nil {
 		t.Fatalf("rebuild: %v", err)
 	}
 	if count != 1 {
@@ -196,7 +198,7 @@ func TestRebuildNonDefaultBlockSize(t *testing.T) {
 	}
 	defer func() { detectDevice = prevDetect }()
 	manPath := filepath.Join(dir, "rebuildbs.man")
-	if err := Rebuild(file.Name(), manPath); err != nil {
+	if err := Rebuild(file.Name(), manPath, zap.NewNop(), 0); err != nil {
 		t.Fatalf("rebuild: %v", err)
 	}
 	idx, err := Open(manPath)
@@ -216,5 +218,39 @@ func TestRebuildNonDefaultBlockSize(t *testing.T) {
 	}
 	if err := idx.Close(); err != nil {
 		t.Fatalf("close manifest: %v", err)
+	}
+}
+
+func TestRebuildLogsProgress(t *testing.T) {
+	dir := t.TempDir()
+	file, err := os.CreateTemp(dir, "dev-*.img")
+	if err != nil {
+		t.Fatalf("temp file: %v", err)
+	}
+	data := make([]byte, 8192)
+	if _, err := rand.Read(data); err != nil {
+		t.Fatalf("rand: %v", err)
+	}
+	if _, err := file.Write(data); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	file.Close()
+	prevUUID := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "uuid-test", nil })
+	defer device.SetUUIDFunc(prevUUID)
+	manPath := filepath.Join(dir, "progress.man")
+	core, logs := observer.New(zap.InfoLevel)
+	logger := zap.New(core)
+	if err := Rebuild(file.Name(), manPath, logger, 0); err != nil {
+		t.Fatalf("rebuild: %v", err)
+	}
+	entries := logs.FilterMessage("rebuild progress").All()
+	if len(entries) != 2 {
+		t.Fatalf("expected 2 progress logs, got %d", len(entries))
+	}
+	if off, ok := entries[0].ContextMap()["offset_bytes"].(uint64); !ok || off != 4096 {
+		t.Fatalf("unexpected first offset %v", entries[0].ContextMap()["offset_bytes"])
+	}
+	if _, ok := entries[0].ContextMap()["duration_ms"]; !ok {
+		t.Fatalf("missing duration_ms field")
 	}
 }

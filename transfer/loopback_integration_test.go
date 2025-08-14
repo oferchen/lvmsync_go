@@ -80,7 +80,7 @@ func TestLoopbackLVMToRawOverSSH(t *testing.T) {
 	destLoop := setupLoop(t, destPath)
 
 	manifestPath := filepath.Join(t.TempDir(), "src.man")
-	if err := manifestpkg.Rebuild(srcLoop, manifestPath); err != nil {
+	if err := manifestpkg.Rebuild(srcLoop, manifestPath, zap.NewNop(), 0); err != nil {
 		t.Fatalf("rebuild manifest: %v", err)
 	}
 
@@ -191,7 +191,7 @@ func TestLoopbackFileToFileOverTCPTLS(t *testing.T) {
 	dstLoop := setupLoop(t, dstPath)
 
 	manifestPath := filepath.Join(dir, "src.man")
-	if err := manifestpkg.Rebuild(srcLoop, manifestPath); err != nil {
+	if err := manifestpkg.Rebuild(srcLoop, manifestPath, zap.NewNop(), 0); err != nil {
 		t.Fatalf("rebuild manifest: %v", err)
 	}
 
@@ -325,7 +325,7 @@ func TestLoopbackLVMToRawOverTCPTLS(t *testing.T) {
 			destLoop := setupLoop(t, destPath)
 
 			manifestPath := filepath.Join(t.TempDir(), "src.man")
-			if err := manifestpkg.Rebuild(srcLoop, manifestPath); err != nil {
+			if err := manifestpkg.Rebuild(srcLoop, manifestPath, zap.NewNop(), 0); err != nil {
 				t.Fatalf("rebuild manifest: %v", err)
 			}
 
@@ -444,7 +444,7 @@ func runRawToRawLoopback(t *testing.T, transportName string) {
 			dstLoop := setupLoop(t, dstPath)
 
 			manifestPath := filepath.Join(dir, "src.man")
-			if err := manifestpkg.Rebuild(srcLoop, manifestPath); err != nil {
+			if err := manifestpkg.Rebuild(srcLoop, manifestPath, zap.NewNop(), 0); err != nil {
 				t.Fatalf("rebuild manifest: %v", err)
 			}
 
@@ -620,7 +620,7 @@ func TestLoopbackSparseFileToFileOverSSH(t *testing.T) {
 			dstLoop := setupLoop(t, dstPath)
 
 			manifestPath := filepath.Join(dir, "src.man")
-			if err := manifestpkg.Rebuild(srcLoop, manifestPath); err != nil {
+			if err := manifestpkg.Rebuild(srcLoop, manifestPath, zap.NewNop(), 0); err != nil {
 				t.Fatalf("rebuild manifest: %v", err)
 			}
 

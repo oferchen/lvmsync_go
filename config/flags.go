@@ -84,6 +84,7 @@ func initGeneralFlags(cfg *Config) *pflag.FlagSet {
 func initManifestFlags(cfg *Config) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("Manifest Options", pflag.ExitOnError)
 	fs.String("manifest_path", cfg.ManifestPath, "Path to manifest file")
+	fs.Duration("manifest_progress_interval", cfg.ManifestProgressInterval, "Interval between progress logs during manifest rebuild")
 	return fs
 }
 

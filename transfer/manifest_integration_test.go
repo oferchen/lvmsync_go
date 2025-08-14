@@ -33,7 +33,7 @@ func TestIterateBlocksUsesManifest(t *testing.T) {
 	prev := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "id", nil })
 	defer device.SetUUIDFunc(prev)
 	manPath := filepath.Join(dir, "dev.man")
-	if err := manifestpkg.Rebuild(dev.Name(), manPath); err != nil {
+	if err := manifestpkg.Rebuild(dev.Name(), manPath, zap.NewNop(), 0); err != nil {
 		t.Fatalf("rebuild: %v", err)
 	}
 	src, err := os.Open(dev.Name())
