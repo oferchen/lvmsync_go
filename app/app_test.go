@@ -44,7 +44,9 @@ func TestStartGRPCServerSuccess(t *testing.T) {
 	defer func() { listen = origListen; newServer = origNewServer }()
 	listen = func(network, addr string) (net.Listener, error) { return &fakeListener{}, nil }
 	srv := &fakeServer{}
-	newServer = func(conf grpcserver.Config, agent lvmlib.Agent) (grpcServer, error) { return srv, nil }
+	newServer = func(conf grpcserver.Config, agent lvmlib.Agent, _ *zap.Logger) (grpcServer, func(), error) {
+		return srv, func() {}, nil
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cleanup, errCh, err := StartGRPCServer(ctx, cfg, logger)
@@ -85,8 +87,8 @@ func TestStartGRPCServerServeError(t *testing.T) {
 	defer func() { listen = origListen; newServer = origNewServer }()
 	listen = func(network, addr string) (net.Listener, error) { return &fakeListener{}, nil }
 	srvErr := errors.New("serve boom")
-	newServer = func(conf grpcserver.Config, agent lvmlib.Agent) (grpcServer, error) {
-		return &failingServer{err: srvErr}, nil
+	newServer = func(conf grpcserver.Config, agent lvmlib.Agent, _ *zap.Logger) (grpcServer, func(), error) {
+		return &failingServer{err: srvErr}, func() {}, nil
 	}
 	cleanup, errCh, err := StartGRPCServer(context.Background(), cfg, logger)
 	if err != nil {

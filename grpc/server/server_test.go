@@ -19,6 +19,7 @@ import (
 	lvmagent "lvmsync_go/internal/lvm"
 	"lvmsync_go/proto"
 
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
@@ -39,6 +40,16 @@ type mockAgent struct {
 	startSess func(ctx context.Context, volume, requester string) error
 	finalize  func(ctx context.Context, volume, requester string) error
 	status    func(ctx context.Context, volume, requester string) (string, error)
+
+	sendBitmap    func(ctx context.Context, sessionID string, bitmap []byte) error
+	sendManifest  func(ctx context.Context, sessionID string, manifest []byte) error
+	finalizeSess  func(ctx context.Context, sessionID string) error
+	ack           func(ctx context.Context, ack *proto.Ack) (*proto.Ack, error)
+	probe         func(ctx context.Context, volume string) error
+	cancel        func(ctx context.Context, sessionID string) error
+	progress      func(ctx context.Context, sessionID string) (<-chan *proto.Progress, error)
+	buildManifest func(ctx context.Context, sessionID string) error
+	verify        func(ctx context.Context, sessionID string) error
 }
 
 func (m *mockAgent) Lock(ctx context.Context, volume, requester string) error {
@@ -84,10 +95,75 @@ func (m *mockAgent) GetStatus(ctx context.Context, volume, requester string) (st
 	return "", nil
 }
 
+func (m *mockAgent) SendResumeBitmap(ctx context.Context, sessionID string, bitmap []byte) error {
+	if m.sendBitmap != nil {
+		return m.sendBitmap(ctx, sessionID, bitmap)
+	}
+	return nil
+}
+
+func (m *mockAgent) SendFinalManifest(ctx context.Context, sessionID string, manifest []byte) error {
+	if m.sendManifest != nil {
+		return m.sendManifest(ctx, sessionID, manifest)
+	}
+	return nil
+}
+
+func (m *mockAgent) Finalize(ctx context.Context, sessionID string) error {
+	if m.finalizeSess != nil {
+		return m.finalizeSess(ctx, sessionID)
+	}
+	return nil
+}
+
+func (m *mockAgent) Ack(ctx context.Context, ack *proto.Ack) (*proto.Ack, error) {
+	if m.ack != nil {
+		return m.ack(ctx, ack)
+	}
+	return ack, nil
+}
+
+func (m *mockAgent) Probe(ctx context.Context, volume string) error {
+	if m.probe != nil {
+		return m.probe(ctx, volume)
+	}
+	return nil
+}
+
+func (m *mockAgent) Cancel(ctx context.Context, sessionID string) error {
+	if m.cancel != nil {
+		return m.cancel(ctx, sessionID)
+	}
+	return nil
+}
+
+func (m *mockAgent) Progress(ctx context.Context, sessionID string) (<-chan *proto.Progress, error) {
+	if m.progress != nil {
+		return m.progress(ctx, sessionID)
+	}
+	ch := make(chan *proto.Progress)
+	close(ch)
+	return ch, nil
+}
+
+func (m *mockAgent) BuildManifest(ctx context.Context, sessionID string) error {
+	if m.buildManifest != nil {
+		return m.buildManifest(ctx, sessionID)
+	}
+	return nil
+}
+
+func (m *mockAgent) Verify(ctx context.Context, sessionID string) error {
+	if m.verify != nil {
+		return m.verify(ctx, sessionID)
+	}
+	return nil
+}
+
 func newClient(t *testing.T, cfg Config, agent lvmagent.Agent, creds credentials.TransportCredentials) (proto.ReplicationClient, func()) {
 	t.Helper()
 	lis := bufconn.Listen(bufSize)
-	srv, err := New(cfg, agent)
+	srv, srvCleanup, err := New(cfg, agent, zap.NewNop())
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -107,6 +183,7 @@ func newClient(t *testing.T, cfg Config, agent lvmagent.Agent, creds credentials
 			t.Errorf("conn.Close: %v", err)
 		}
 		srv.Stop()
+		srvCleanup()
 	}
 	return proto.NewReplicationClient(conn), cleanup
 }
@@ -262,6 +339,239 @@ func TestGetStatus(t *testing.T) {
 	})
 }
 
+func TestSendFinalManifest(t *testing.T) {
+	cases := []testCase{
+		{"success", &mockAgent{sendManifest: func(_ context.Context, id string, m []byte) error { return nil }}, true, ""},
+		{"agent error", &mockAgent{sendManifest: func(_ context.Context, _ string, _ []byte) error { return errors.New("fail") }}, false, "fail"},
+		{"no agent", nil, false, "agent not configured"},
+	}
+	runAgentTest(t, cases, func(client proto.ReplicationClient) (*proto.StatusResponse, error) {
+		return client.SendFinalManifest(ctxWithRole("replicator"), &proto.ManifestMessage{SessionId: "s", Manifest: []byte("{}")})
+	})
+}
+
+func TestFinalize(t *testing.T) {
+	cases := []testCase{
+		{"success", &mockAgent{finalizeSess: func(_ context.Context, _ string) error { return nil }}, true, ""},
+		{"agent error", &mockAgent{finalizeSess: func(_ context.Context, _ string) error { return errors.New("fail") }}, false, "fail"},
+		{"no agent", nil, false, "agent not configured"},
+	}
+	runAgentTest(t, cases, func(client proto.ReplicationClient) (*proto.StatusResponse, error) {
+		return client.Finalize(ctxWithRole("replicator"), &proto.FinalizeRequest{SessionId: "s"})
+	})
+}
+
+func TestProbe(t *testing.T) {
+	cases := []testCase{
+		{"success", &mockAgent{probe: func(_ context.Context, _ string) error { return nil }}, true, ""},
+		{"agent error", &mockAgent{probe: func(_ context.Context, _ string) error { return errors.New("fail") }}, false, "fail"},
+		{"no agent", nil, false, "agent not configured"},
+	}
+	runAgentTest(t, cases, func(client proto.ReplicationClient) (*proto.StatusResponse, error) {
+		return client.Probe(ctxWithRole("replicator"), &proto.ProbeRequest{VolumeName: "vol"})
+	})
+}
+
+func TestStartSync(t *testing.T) {
+	cases := []testCase{
+		{"success", &mockAgent{startSess: func(_ context.Context, _, _ string) error { return nil }}, true, ""},
+		{"agent error", &mockAgent{startSess: func(_ context.Context, _, _ string) error { return errors.New("fail") }}, false, "fail"},
+		{"no agent", nil, false, "agent not configured"},
+	}
+	runAgentTest(t, cases, func(client proto.ReplicationClient) (*proto.StatusResponse, error) {
+		return client.StartSync(ctxWithRole("replicator"), &proto.StartSyncRequest{VolumeName: "vol", Requester: "req"})
+	})
+}
+
+func TestCancel(t *testing.T) {
+	cases := []testCase{
+		{"success", &mockAgent{cancel: func(_ context.Context, _ string) error { return nil }}, true, ""},
+		{"agent error", &mockAgent{cancel: func(_ context.Context, _ string) error { return errors.New("fail") }}, false, "fail"},
+		{"no agent", nil, false, "agent not configured"},
+	}
+	runAgentTest(t, cases, func(client proto.ReplicationClient) (*proto.StatusResponse, error) {
+		return client.Cancel(ctxWithRole("replicator"), &proto.CancelRequest{SessionId: "s"})
+	})
+}
+
+func TestBuildManifest(t *testing.T) {
+	cases := []testCase{
+		{"success", &mockAgent{buildManifest: func(_ context.Context, _ string) error { return nil }}, true, ""},
+		{"agent error", &mockAgent{buildManifest: func(_ context.Context, _ string) error { return errors.New("fail") }}, false, "fail"},
+		{"no agent", nil, false, "agent not configured"},
+	}
+	runAgentTest(t, cases, func(client proto.ReplicationClient) (*proto.StatusResponse, error) {
+		return client.BuildManifest(ctxWithRole("replicator"), &proto.BuildManifestRequest{SessionId: "s"})
+	})
+}
+
+func TestVerify(t *testing.T) {
+	cases := []testCase{
+		{"success", &mockAgent{verify: func(_ context.Context, _ string) error { return nil }}, true, ""},
+		{"agent error", &mockAgent{verify: func(_ context.Context, _ string) error { return errors.New("fail") }}, false, "fail"},
+		{"no agent", nil, false, "agent not configured"},
+	}
+	runAgentTest(t, cases, func(client proto.ReplicationClient) (*proto.StatusResponse, error) {
+		return client.Verify(ctxWithRole("replicator"), &proto.VerifyRequest{SessionId: "s"})
+	})
+}
+
+func TestSendResumeBitmap(t *testing.T) {
+	ctx := ctxWithRole("replicator")
+	t.Run("success", func(t *testing.T) {
+		agent := &mockAgent{sendBitmap: func(_ context.Context, id string, _ []byte) error {
+			if id != "s" {
+				t.Fatalf("unexpected id %s", id)
+			}
+			return nil
+		}}
+		client, cleanup := newInsecureClient(t, agent)
+		defer cleanup()
+		stream, err := client.SendResumeBitmap(ctx)
+		if err != nil {
+			t.Fatalf("SendResumeBitmap: %v", err)
+		}
+		if err := stream.Send(&proto.ResumeBitmap{SessionId: "s", Bitmap: []byte{1}}); err != nil {
+			t.Fatalf("send: %v", err)
+		}
+		if _, err := stream.CloseAndRecv(); err != nil {
+			t.Fatalf("close: %v", err)
+		}
+	})
+
+	t.Run("agent error", func(t *testing.T) {
+		agent := &mockAgent{sendBitmap: func(_ context.Context, _ string, _ []byte) error { return errors.New("fail") }}
+		client, cleanup := newInsecureClient(t, agent)
+		defer cleanup()
+		stream, err := client.SendResumeBitmap(ctx)
+		if err != nil {
+			t.Fatalf("SendResumeBitmap: %v", err)
+		}
+		if err := stream.Send(&proto.ResumeBitmap{SessionId: "s", Bitmap: []byte{1}}); err != nil {
+			t.Fatalf("send: %v", err)
+		}
+		if _, err := stream.CloseAndRecv(); err == nil {
+			t.Fatalf("expected error")
+		}
+	})
+
+	t.Run("no agent", func(t *testing.T) {
+		client, cleanup := newInsecureClient(t, nil)
+		defer cleanup()
+		stream, err := client.SendResumeBitmap(ctx)
+		if err != nil {
+			t.Fatalf("SendResumeBitmap: %v", err)
+		}
+		if err := stream.Send(&proto.ResumeBitmap{SessionId: "s", Bitmap: []byte{1}}); err != nil {
+			t.Fatalf("send: %v", err)
+		}
+		if _, err := stream.CloseAndRecv(); err == nil {
+			t.Fatalf("expected error")
+		}
+	})
+}
+
+func TestAckStream(t *testing.T) {
+	ctx := ctxWithRole("replicator")
+	t.Run("success", func(t *testing.T) {
+		agent := &mockAgent{ack: func(_ context.Context, ack *proto.Ack) (*proto.Ack, error) { return ack, nil }}
+		client, cleanup := newInsecureClient(t, agent)
+		defer cleanup()
+		stream, err := client.AckStream(ctx)
+		if err != nil {
+			t.Fatalf("AckStream: %v", err)
+		}
+		if err := stream.Send(&proto.Ack{SessionId: "s", Ok: true}); err != nil {
+			t.Fatalf("send: %v", err)
+		}
+		if _, err := stream.Recv(); err != nil {
+			t.Fatalf("recv: %v", err)
+		}
+	})
+
+	t.Run("agent error", func(t *testing.T) {
+		agent := &mockAgent{ack: func(_ context.Context, _ *proto.Ack) (*proto.Ack, error) { return nil, errors.New("fail") }}
+		client, cleanup := newInsecureClient(t, agent)
+		defer cleanup()
+		stream, err := client.AckStream(ctx)
+		if err != nil {
+			t.Fatalf("AckStream: %v", err)
+		}
+		if err := stream.Send(&proto.Ack{SessionId: "s"}); err != nil {
+			t.Fatalf("send: %v", err)
+		}
+		if _, err := stream.Recv(); err == nil {
+			t.Fatalf("expected error")
+		}
+	})
+
+	t.Run("no agent", func(t *testing.T) {
+		client, cleanup := newInsecureClient(t, nil)
+		defer cleanup()
+		stream, err := client.AckStream(ctx)
+		if err != nil {
+			t.Fatalf("AckStream: %v", err)
+		}
+		if err := stream.Send(&proto.Ack{SessionId: "s"}); err != nil {
+			t.Fatalf("send: %v", err)
+		}
+		if _, err := stream.Recv(); err == nil {
+			t.Fatalf("expected error")
+		}
+	})
+}
+
+func TestProgressStream(t *testing.T) {
+	ctx := ctxWithRole("replicator")
+	t.Run("success", func(t *testing.T) {
+		ch := make(chan *proto.Progress, 1)
+		ch <- &proto.Progress{SessionId: "s", Completed: 1, Total: 2}
+		close(ch)
+		agent := &mockAgent{progress: func(_ context.Context, id string) (<-chan *proto.Progress, error) {
+			if id != "s" {
+				t.Fatalf("unexpected id %s", id)
+			}
+			return ch, nil
+		}}
+		client, cleanup := newInsecureClient(t, agent)
+		defer cleanup()
+		stream, err := client.ProgressStream(ctx, &proto.ProgressRequest{SessionId: "s"})
+		if err != nil {
+			t.Fatalf("ProgressStream: %v", err)
+		}
+		if _, err := stream.Recv(); err != nil {
+			t.Fatalf("recv: %v", err)
+		}
+	})
+
+	t.Run("agent error", func(t *testing.T) {
+		agent := &mockAgent{progress: func(_ context.Context, _ string) (<-chan *proto.Progress, error) {
+			return nil, errors.New("fail")
+		}}
+		client, cleanup := newInsecureClient(t, agent)
+		defer cleanup()
+		stream, err := client.ProgressStream(ctx, &proto.ProgressRequest{SessionId: "s"})
+		if err != nil {
+			t.Fatalf("ProgressStream: %v", err)
+		}
+		if _, err := stream.Recv(); err == nil {
+			t.Fatalf("expected error")
+		}
+	})
+
+	t.Run("no agent", func(t *testing.T) {
+		client, cleanup := newInsecureClient(t, nil)
+		defer cleanup()
+		stream, err := client.ProgressStream(ctx, &proto.ProgressRequest{SessionId: "s"})
+		if err != nil {
+			t.Fatalf("ProgressStream: %v", err)
+		}
+		if _, err := stream.Recv(); err == nil {
+			t.Fatalf("expected error")
+		}
+	})
+}
+
 func generateTLS(t *testing.T) (Config, *tls.Config, *tls.Config) {
 	ca := &x509.Certificate{
 		SerialNumber:          big.NewInt(1),
@@ -370,7 +680,8 @@ func TestMTLSValidation(t *testing.T) {
 }
 
 func TestSessionFlow(t *testing.T) {
-	client, cleanup := newInsecureClient(t, nil)
+	agent := &mockAgent{sendBitmap: func(_ context.Context, _ string, _ []byte) error { return nil }, sendManifest: func(_ context.Context, _ string, _ []byte) error { return nil }, finalizeSess: func(_ context.Context, _ string) error { return nil }, ack: func(_ context.Context, a *proto.Ack) (*proto.Ack, error) { return a, nil }}
+	client, cleanup := newInsecureClient(t, agent)
 	defer cleanup()
 	ctx := ctxWithRole("replicator")
 	hsResp, err := client.Handshake(ctx, &proto.HandshakeRequest{SectorSize: 512, Alignment: 512, MaxConcurrency: 1})
@@ -422,10 +733,9 @@ func TestHandshakeFailure(t *testing.T) {
 }
 
 func TestNewRPCPermissions(t *testing.T) {
-	client, cleanup := newInsecureClient(t, nil)
-	defer cleanup()
-
 	t.Run("probe", func(t *testing.T) {
+		client, cleanup := newInsecureClient(t, nil)
+		defer cleanup()
 		if _, err := client.Probe(ctxWithRole("replicator"), &proto.ProbeRequest{VolumeName: "vol"}); err != nil {
 			t.Fatalf("Probe: %v", err)
 		}
@@ -452,6 +762,8 @@ func TestNewRPCPermissions(t *testing.T) {
 	})
 
 	t.Run("cancel", func(t *testing.T) {
+		client, cleanup := newInsecureClient(t, nil)
+		defer cleanup()
 		if _, err := client.Cancel(ctxWithRole("replicator"), &proto.CancelRequest{SessionId: "s"}); err != nil {
 			t.Fatalf("Cancel: %v", err)
 		}
@@ -461,6 +773,14 @@ func TestNewRPCPermissions(t *testing.T) {
 	})
 
 	t.Run("progress", func(t *testing.T) {
+		agent := &mockAgent{progress: func(_ context.Context, _ string) (<-chan *proto.Progress, error) {
+			ch := make(chan *proto.Progress, 1)
+			ch <- &proto.Progress{SessionId: "s"}
+			close(ch)
+			return ch, nil
+		}}
+		client, cleanup := newInsecureClient(t, agent)
+		defer cleanup()
 		stream, err := client.ProgressStream(ctxWithRole("replicator"), &proto.ProgressRequest{SessionId: "s"})
 		if err != nil {
 			t.Fatalf("ProgressStream: %v", err)
@@ -477,6 +797,8 @@ func TestNewRPCPermissions(t *testing.T) {
 	})
 
 	t.Run("buildmanifest", func(t *testing.T) {
+		client, cleanup := newInsecureClient(t, nil)
+		defer cleanup()
 		if _, err := client.BuildManifest(ctxWithRole("replicator"), &proto.BuildManifestRequest{SessionId: "s"}); err != nil {
 			t.Fatalf("BuildManifest: %v", err)
 		}
@@ -486,6 +808,8 @@ func TestNewRPCPermissions(t *testing.T) {
 	})
 
 	t.Run("verify", func(t *testing.T) {
+		client, cleanup := newInsecureClient(t, nil)
+		defer cleanup()
 		if _, err := client.Verify(ctxWithRole("replicator"), &proto.VerifyRequest{SessionId: "s"}); err != nil {
 			t.Fatalf("Verify: %v", err)
 		}
@@ -497,7 +821,13 @@ func TestNewRPCPermissions(t *testing.T) {
 
 func TestNewRPCsMTLS(t *testing.T) {
 	cfg, good, bad := generateTLS(t)
-	client, cleanup := newClient(t, cfg, nil, credentials.NewTLS(good))
+	agent := &mockAgent{progress: func(_ context.Context, _ string) (<-chan *proto.Progress, error) {
+		ch := make(chan *proto.Progress, 1)
+		ch <- &proto.Progress{SessionId: "s"}
+		close(ch)
+		return ch, nil
+	}}
+	client, cleanup := newClient(t, cfg, agent, credentials.NewTLS(good))
 	defer cleanup()
 	ctx := ctxWithRole("replicator")
 	if _, err := client.Probe(ctx, &proto.ProbeRequest{VolumeName: "vol"}); err != nil {
@@ -533,7 +863,7 @@ func TestNewRPCsMTLS(t *testing.T) {
 func TestPlaintextRejected(t *testing.T) {
 	cfg, _, _ := generateTLS(t)
 	lis := bufconn.Listen(bufSize)
-	srv, err := New(cfg, nil)
+	srv, srvCleanup, err := New(cfg, nil, zap.NewNop())
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -549,6 +879,7 @@ func TestPlaintextRejected(t *testing.T) {
 	}
 	conn.Close()
 	srv.Stop()
+	srvCleanup()
 }
 
 func dummyCert(t *testing.T) []byte {
@@ -571,7 +902,7 @@ func TestNewTLSFailures(t *testing.T) {
 	t.Run("missing cert", func(t *testing.T) {
 		bad := cfg
 		bad.TLSCert = ""
-		if _, err := New(bad, nil); err == nil {
+		if _, _, err := New(bad, nil, zap.NewNop()); err == nil {
 			t.Fatalf("expected error")
 		}
 	})
@@ -579,7 +910,7 @@ func TestNewTLSFailures(t *testing.T) {
 	t.Run("missing key", func(t *testing.T) {
 		bad := cfg
 		bad.TLSKey = ""
-		if _, err := New(bad, nil); err == nil {
+		if _, _, err := New(bad, nil, zap.NewNop()); err == nil {
 			t.Fatalf("expected error")
 		}
 	})
@@ -587,7 +918,7 @@ func TestNewTLSFailures(t *testing.T) {
 	t.Run("missing CA", func(t *testing.T) {
 		bad := cfg
 		bad.CACert = ""
-		if _, err := New(bad, nil); err == nil {
+		if _, _, err := New(bad, nil, zap.NewNop()); err == nil {
 			t.Fatalf("expected error")
 		}
 	})
@@ -599,7 +930,7 @@ func TestNewTLSFailures(t *testing.T) {
 			t.Fatalf("WriteFile: %v", err)
 		}
 		bad.CACert = invalid
-		if _, err := New(bad, nil); err == nil {
+		if _, _, err := New(bad, nil, zap.NewNop()); err == nil {
 			t.Fatalf("expected error")
 		}
 	})
