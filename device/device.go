@@ -14,8 +14,10 @@ type Device interface {
 	// snapshot size (for devices that support it). The returned handle
 	// should be closed after use.
 	Snapshot(ctx context.Context, snapshotSize string) (Device, error)
-	// Cleanup releases any snapshot resources held by the device.
-	Cleanup(ctx context.Context) error
+	// Cleanup releases any snapshot resources held by the device. The
+	// provided command path and arguments are used by devices that require
+	// filesystem thaw operations.
+	Cleanup(ctx context.Context, cmdPath string, cmdArgs []string) error
 	// Close releases any resources associated with the device.
 	Close() error
 }
