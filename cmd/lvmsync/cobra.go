@@ -53,7 +53,9 @@ func NewRootCmd() *cobra.Command {
 				return fmt.Errorf("usage: lvmsync run [flags] <source> <dest>")
 			}
 			if cfg.DryRun {
-				if err := estimateTransfer(remaining[0], cfg); err != nil {
+				logger := zap.NewExample()
+				defer logger.Sync()
+				if err := estimateTransfer(remaining[0], cfg, logger); err != nil {
 					return err
 				}
 				return nil
@@ -118,7 +120,7 @@ func Execute(args []string) error {
 	return cmd.Execute()
 }
 
-func estimateTransfer(src string, cfg *config.Config) error {
+func estimateTransfer(src string, cfg *config.Config, logger *zap.Logger) error {
 	info, err := os.Stat(src)
 	if err != nil {
 		return fmt.Errorf("stat source: %w", err)
@@ -128,8 +130,6 @@ func estimateTransfer(src string, cfg *config.Config) error {
 	if cfg.SpeedLimit > 0 {
 		eta = time.Duration(size/int64(cfg.SpeedLimit)) * time.Second
 	}
-	logger := zap.NewExample()
-	defer logger.Sync()
 	logger.Info("dry run", zap.Int64("size_bytes", size), zap.Duration("eta", eta))
 	return nil
 }
