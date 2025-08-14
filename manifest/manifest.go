@@ -46,8 +46,8 @@ type Index struct {
 
 var closeHook = func() {}
 
-var detectDevice = func(path string) (device.Device, error) {
-	return device.Detect(path, true, "", "")
+var detectDevice = func(ctx context.Context, path string, logger *zap.Logger) (device.Device, error) {
+	return device.Detect(ctx, path, true, "", "", logger)
 }
 
 func headerMAC(h *Header) [32]byte {
@@ -219,7 +219,7 @@ func (i *Index) ChunkCount() int { return int(i.hdr.ChunkCount) }
 // DeviceID is determined via device.GetUUID. The device is read sequentially using blockSize-sized chunks.
 // Progress is logged at the provided interval; set interval to 0 to log every chunk.
 func Rebuild(devicePath, output string, logger *zap.Logger, progressInterval time.Duration) error {
-	dev, err := detectDevice(devicePath)
+	dev, err := detectDevice(context.Background(), devicePath, logger)
 	if err != nil {
 		return err
 	}
