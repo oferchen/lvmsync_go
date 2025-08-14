@@ -51,8 +51,17 @@ func iterateBlocks(cfg *config.Config, ranges []Range, srcFile *os.File, bufOut 
 		if err != nil {
 			return totalBytes, skippedBlocks, manifest, fmt.Errorf("error reading block at offset %d: %w", r.Start, err)
 		}
-		sum := blake3.Sum256(data)
-		if idx != nil && idx.Match(r.Start, blockSize, sum) {
+		xx := hashutil.SumXXH3(data)
+		var sum [32]byte
+		sumComputed := false
+		sumFn := func() [32]byte {
+			if !sumComputed {
+				sum = blake3.Sum256(data)
+				sumComputed = true
+			}
+			return sum
+		}
+		if idx != nil && idx.Match(r.Start, blockSize, xx, sumFn) {
 			skippedBlocks++
 			putBlockBuffer(data)
 			continue
@@ -66,7 +75,6 @@ func iterateBlocks(cfg *config.Config, ranges []Range, srcFile *os.File, bufOut 
 			dedup.RecordTransfer(offset, data)
 		}
 
-		xx := hashutil.SumXXH3(data)
 		binary.BigEndian.PutUint64(header[0:8], r.Start)
 		if isAllZero(data) {
 			binary.BigEndian.PutUint32(header[8:12], 0)
@@ -77,12 +85,13 @@ func iterateBlocks(cfg *config.Config, ranges []Range, srcFile *os.File, bufOut 
 			zh := zeroHash(int(blockSize))
 			saveResumeState(cfg, r.Start, zh, int64(blockSize), logger)
 			if idx != nil {
-				idx.Set(r.Start, blockSize, xx, sum)
+				idx.Set(r.Start, blockSize, xx, zh)
 			}
 			putBlockBuffer(data)
 			totalBytes += int64(blockSize)
 			continue
 		}
+		sum = sumFn()
 		binary.BigEndian.PutUint32(header[8:12], blockSize)
 		if _, err := bufOut.Write(header[:]); err != nil {
 			putBlockBuffer(data)
@@ -161,9 +170,12 @@ func processParallelResults(
 		if res.Err != nil {
 			return totalBytesTransferred, manifest, fmt.Errorf("error in block %d: %w", res.Index, res.Err)
 		}
-		if idx != nil && res.Data != nil && idx.Match(res.Offset, res.Size, res.ChunkID) {
-			putBlockBuffer(res.Data)
-			continue
+		if idx != nil && res.Data != nil {
+			xx := hashutil.SumXXH3(res.Data)
+			if idx.Match(res.Offset, res.Size, xx, func() [32]byte { return res.ChunkID }) {
+				putBlockBuffer(res.Data)
+				continue
+			}
 		}
 
 		n := prepareResultHeader(cfg, checksum, res, header)

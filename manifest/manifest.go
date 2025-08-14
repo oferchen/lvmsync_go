@@ -172,8 +172,10 @@ func (i *Index) Set(offset uint64, length uint32, xxh uint64, digest [32]byte) {
 	copy(i.data[off+24:off+56], digest[:])
 }
 
-// Match reports whether the manifest already has a record for the chunk at offset matching length and digest.
-func (i *Index) Match(offset uint64, length uint32, digest [32]byte) bool {
+// Match reports whether the manifest already has a record for the chunk at the
+// given offset and length. The provided digestFn is invoked to compute the
+// BLAKE3 digest only if the stored XXH3 hash matches the supplied xxh.
+func (i *Index) Match(offset uint64, length uint32, xxh uint64, digestFn func() [32]byte) bool {
 	idx := int(offset / uint64(i.hdr.BlockSize))
 	if idx < 0 || idx >= int(i.hdr.ChunkCount) {
 		return false
@@ -187,6 +189,11 @@ func (i *Index) Match(offset uint64, length uint32, digest [32]byte) bool {
 	if storedOffset != offset || storedLen != length {
 		return false
 	}
+	storedXXH := binary.LittleEndian.Uint64(i.data[off+16 : off+24])
+	if storedXXH != xxh {
+		return false
+	}
+	digest := digestFn()
 	return bytes.Equal(i.data[off+24:off+56], digest[:])
 }
 

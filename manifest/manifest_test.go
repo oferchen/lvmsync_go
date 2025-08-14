@@ -39,7 +39,7 @@ func TestIndexCRUD(t *testing.T) {
 	xx := xxh3.Hash(data)
 	b3 := blake3.Sum256(data)
 	idx.Set(0, 4096, xx, b3)
-	if !idx.Match(0, 4096, b3) {
+	if !idx.Match(0, 4096, xx, func() [32]byte { return b3 }) {
 		t.Fatalf("Match failed")
 	}
 	if err := idx.Close(); err != nil {
@@ -56,6 +56,38 @@ func TestIndexCRUD(t *testing.T) {
 	}
 	if err := idx2.Close(); err != nil {
 		t.Fatalf("close2: %v", err)
+	}
+}
+
+func TestMatchXXHShortcut(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "shortcut.man")
+	idx, err := Create(path, "dev", 4096, 4096)
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	data := make([]byte, 4096)
+	if _, err := rand.Read(data); err != nil {
+		t.Fatalf("rand: %v", err)
+	}
+	xx := xxh3.Hash(data)
+	b3 := blake3.Sum256(data)
+	idx.Set(0, 4096, xx, b3)
+
+	other := make([]byte, 4096)
+	if _, err := rand.Read(other); err != nil {
+		t.Fatalf("rand other: %v", err)
+	}
+	xxOther := xxh3.Hash(other)
+	called := false
+	if idx.Match(0, 4096, xxOther, func() [32]byte {
+		called = true
+		return blake3.Sum256(other)
+	}) {
+		t.Fatalf("unexpected match")
+	}
+	if called {
+		t.Fatalf("digest function called despite XXH3 mismatch")
 	}
 }
 
