@@ -786,7 +786,7 @@ lvmsync verify --dry-run /dev/vg0/source /dev/vg1/target
 To verify using 4 KiB blocks and a manifest generated earlier:
 
 ```sh
-lvmsync verify --block_size 4K --manifest snapshot.manifest /dev/vg0/source /dev/vg1/target
+lvmsync verify --block_size 4K --manifest_path snapshot.manifest /dev/vg0/source /dev/vg1/target
 ```
 
 Flags are parsed via Viper, so the same settings can be provided through
