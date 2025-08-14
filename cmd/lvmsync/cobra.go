@@ -2,15 +2,19 @@ package lvmsync
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"github.com/zeebo/blake3"
+	"github.com/zeebo/xxh3"
 	"go.uber.org/zap"
 
 	verifycmd "lvmsync_go/cmd/verify"
 	"lvmsync_go/config"
+	"lvmsync_go/manifest"
 )
 
 // RunOptions collects flags for the run command.
@@ -126,9 +130,69 @@ func estimateTransfer(src string, cfg *config.Config, logger *zap.Logger) error 
 		return fmt.Errorf("stat source: %w", err)
 	}
 	size := info.Size()
+	// No manifest provided; estimate full size.
+	if cfg.ManifestPath == "" {
+		var eta time.Duration
+		if cfg.SpeedLimit > 0 {
+			eta = time.Duration(size/int64(cfg.SpeedLimit)) * time.Second
+		}
+		logger.Info("dry run", zap.Int64("size_bytes", size), zap.Int64("estimated_tx_bytes", size), zap.Duration("eta", eta))
+		return nil
+	}
+
+	idx, err := manifest.Open(cfg.ManifestPath)
+	if err != nil {
+		return fmt.Errorf("open manifest: %w", err)
+	}
+	defer idx.Close()
+
+	f, err := os.Open(src)
+	if err != nil {
+		return fmt.Errorf("open source: %w", err)
+	}
+	defer f.Close()
+
+	chunks := idx.ChunkCount()
+	samples := chunks
+	if samples > 100 {
+		samples = 100
+	}
+	step := 1
+	if samples > 0 && chunks > samples {
+		step = chunks / samples
+	}
+
+	changed := 0
+	for i := 0; i < samples; i++ {
+		idxPos := i * step
+		if idxPos >= chunks {
+			idxPos = chunks - 1
+		}
+		off, length, _, _ := idx.Entry(idxPos)
+		buf := make([]byte, length)
+		n, err := f.ReadAt(buf, int64(off))
+		if err != nil && err != io.EOF {
+			return fmt.Errorf("read source: %w", err)
+		}
+		data := buf[:n]
+		xx := xxh3.Hash(data)
+		digest := blake3.Sum256(data)
+		if !idx.Match(off, uint32(n), xx, func() [32]byte { return digest }) {
+			changed++
+		}
+		if err == io.EOF {
+			break
+		}
+	}
+
+	ratio := float64(changed)
+	if samples > 0 {
+		ratio /= float64(samples)
+	}
+	est := int64(ratio * float64(size))
 	var eta time.Duration
 	if cfg.SpeedLimit > 0 {
-		eta = time.Duration(size/int64(cfg.SpeedLimit)) * time.Second
+		eta = time.Duration(est/int64(cfg.SpeedLimit)) * time.Second
 	}
 	logger.Info("dry run", zap.Int64("size_bytes", size), zap.Duration("eta", eta))
 	return nil

@@ -15,6 +15,10 @@ TLS based transports enable mutual TLS by default and restrict cipher suites to
 `TLS_AES_128_GCM_SHA256`, `TLS_AES_256_GCM_SHA384`, and
 `TLS_CHACHA20_POLY1305_SHA256`.
 
+TLS transports require an explicit set of trusted CA roots. Connections are
+rejected if no roots are provided unless the transport configuration sets
+`AllowInsecure` to skip verification.
+
 ## QUIC
 
 - Uses [quic-go](https://github.com/quic-go/quic-go)

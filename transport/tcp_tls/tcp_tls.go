@@ -30,6 +30,9 @@ func New(cfg transport.Config) (transport.Interface, error) {
 	if cfg.Logger == nil {
 		return nil, fmt.Errorf("logger is required")
 	}
+	if cfg.Roots == nil && !cfg.AllowInsecure {
+		return nil, fmt.Errorf("tls roots are required unless AllowInsecure is set")
+	}
 	cert := cfg.ClientCert
 	if len(cert.Certificate) == 0 {
 		var err error
@@ -38,16 +41,20 @@ func New(cfg transport.Config) (transport.Interface, error) {
 			return nil, err
 		}
 	}
+	clientAuth := tls.RequireAndVerifyClientCert
+	if cfg.AllowInsecure {
+		clientAuth = tls.RequireAnyClientCert
+	}
 	serverConf := &tls.Config{
 		Certificates: []tls.Certificate{cert},
 		ClientCAs:    cfg.Roots,
-		ClientAuth:   tls.RequireAndVerifyClientCert,
+		ClientAuth:   clientAuth,
 		MinVersion:   tls.VersionTLS13,
 	}
 	clientConf := &tls.Config{
 		Certificates:       []tls.Certificate{cert},
 		RootCAs:            cfg.Roots,
-		InsecureSkipVerify: cfg.Roots == nil,
+		InsecureSkipVerify: cfg.AllowInsecure,
 		MinVersion:         tls.VersionTLS13,
 	}
 	return &Transport{serverConf: serverConf, clientConf: clientConf, logger: cfg.Logger}, nil
@@ -67,17 +74,19 @@ func (t *Transport) Dial(ctx context.Context, address string) (net.Conn, error) 
 		zap.String("address", address),
 		zap.String("role", role),
 		zap.Int64("duration_ms", 0),
-		zap.String("error", ""),
 	)
 	start := time.Now()
 	d := net.Dialer{}
 	conn, err := tls.DialWithDialer(&d, "tcp", address, t.clientConf)
-	t.logger.Info("dial_end",
+	fields := []zap.Field{
 		zap.String("address", address),
 		zap.String("role", role),
 		zap.Int64("duration_ms", time.Since(start).Milliseconds()),
-		zap.String("error", errString(err)),
-	)
+	}
+	if err != nil {
+		fields = append(fields, zap.Error(err))
+	}
+	t.logger.Info("dial_end", fields...)
 	return conn, err
 }
 
@@ -87,19 +96,21 @@ func (t *Transport) Listen(ctx context.Context, address string) (net.Listener, e
 		zap.String("address", address),
 		zap.String("role", role),
 		zap.Int64("duration_ms", 0),
-		zap.String("error", ""),
 	)
 	start := time.Now()
 	ln, err := net.Listen("tcp", address)
 	if err == nil {
 		ln = tls.NewListener(ln, t.serverConf)
 	}
-	t.logger.Info("listen_end",
+	fields := []zap.Field{
 		zap.String("address", address),
 		zap.String("role", role),
 		zap.Int64("duration_ms", time.Since(start).Milliseconds()),
-		zap.String("error", errString(err)),
-	)
+	}
+	if err != nil {
+		fields = append(fields, zap.Error(err))
+	}
+	t.logger.Info("listen_end", fields...)
 	return ln, err
 }
 
@@ -110,16 +121,18 @@ func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport
 		zap.String("address", address),
 		zap.String("role", roleStr),
 		zap.Int64("duration_ms", 0),
-		zap.String("error", ""),
 	)
 	start := time.Now()
 	defer func() {
-		t.logger.Info("negotiate_end",
+		fields := []zap.Field{
 			zap.String("address", address),
 			zap.String("role", roleStr),
 			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
-			zap.String("error", errString(err)),
-		)
+		}
+		if err != nil {
+			fields = append(fields, zap.Error(err))
+		}
+		t.logger.Info("negotiate_end", fields...)
 	}()
 
 	hs.Version = common.ProtocolVersion
@@ -154,13 +167,6 @@ func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport
 	default:
 		return peer, nil
 	}
-}
-
-func errString(err error) string {
-	if err == nil {
-		return ""
-	}
-	return err.Error()
 }
 
 func roleString(r transport.Role) string {

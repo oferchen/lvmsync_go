@@ -5,6 +5,13 @@ import (
 	"testing"
 
 	verifycmd "lvmsync_go/cmd/verify"
+	"lvmsync_go/config"
+	"lvmsync_go/manifest"
+
+	"github.com/zeebo/blake3"
+	"github.com/zeebo/xxh3"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 func TestRunCommandExecutes(t *testing.T) {
@@ -105,5 +112,52 @@ func TestVerifyRoutes(t *testing.T) {
 	}
 	if len(got) != 2 || got[0] != "a" || got[1] != "b" {
 		t.Fatalf("unexpected args %v", got)
+	}
+}
+
+func TestEstimateTransferWithManifest(t *testing.T) {
+	dir := t.TempDir()
+	src := dir + "/src"
+	// two 4-byte blocks; second block differs from manifest
+	if err := os.WriteFile(src, []byte("aaaacccc"), 0o600); err != nil {
+		t.Fatalf("write src: %v", err)
+	}
+	manifestPath := dir + "/manifest"
+	idx, err := manifest.Create(manifestPath, "id", 8, 4)
+	if err != nil {
+		t.Fatalf("create manifest: %v", err)
+	}
+	xx0 := xxh3.Hash([]byte("aaaa"))
+	d0 := blake3.Sum256([]byte("aaaa"))
+	idx.Set(0, 4, xx0, d0)
+	xx1 := xxh3.Hash([]byte("bbbb"))
+	d1 := blake3.Sum256([]byte("bbbb"))
+	idx.Set(4, 4, xx1, d1)
+	idx.Close()
+
+	cfg := &config.Config{ManifestPath: manifestPath}
+	core, obs := observer.New(zap.InfoLevel)
+	logger := zap.New(core)
+	if err := estimateTransfer(src, cfg, logger); err != nil {
+		t.Fatalf("estimate transfer: %v", err)
+	}
+	logs := obs.All()
+	if len(logs) != 1 {
+		t.Fatalf("expected 1 log, got %d", len(logs))
+	}
+	v := logs[0].ContextMap()["estimated_tx_bytes"].(int64)
+	if v != 4 {
+		t.Fatalf("expected 4 estimated bytes, got %d", v)
+	}
+}
+
+func TestEstimateTransferMissingManifest(t *testing.T) {
+	src := t.TempDir() + "/src"
+	if err := os.WriteFile(src, []byte("data"), 0o600); err != nil {
+		t.Fatalf("write src: %v", err)
+	}
+	cfg := &config.Config{ManifestPath: src + "-missing"}
+	if err := estimateTransfer(src, cfg, zap.NewNop()); err == nil {
+		t.Fatalf("expected error for missing manifest")
 	}
 }
