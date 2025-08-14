@@ -48,6 +48,7 @@ type Config struct {
 	DeviceUUID               string        `mapstructure:"device_uuid"`
 	SSHHost                  string        `mapstructure:"ssh_host"`
 	SSHUser                  string        `mapstructure:"ssh_user"`
+	SSHPassword              string        `mapstructure:"ssh_password"`
 	SSHKeyPath               string        `mapstructure:"ssh_key"`
 	SSHPort                  int           `mapstructure:"ssh_port"`
 	SSHTimeout               time.Duration `mapstructure:"ssh_timeout"`
@@ -174,6 +175,7 @@ func DefaultConfig() (*Config, error) {
 		DeviceUUID:               "",
 		SSHHost:                  "localhost",
 		SSHUser:                  "root",
+		SSHPassword:              "",
 		SSHKeyPath:               "",
 		SSHPort:                  22,
 		SSHTimeout:               10 * time.Second,

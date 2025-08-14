@@ -3,28 +3,58 @@ package ssh
 import (
 	"bufio"
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
 	"fmt"
+	"io"
 	"net"
 	"time"
 
 	"go.uber.org/zap"
+	"golang.org/x/crypto/ssh"
 
 	"lvmsync_go/common"
 	"lvmsync_go/transport"
 )
 
-// Transport implements the transport.Interface over plain TCP for now.
+// Transport implements the transport.Interface over SSH.
 type Transport struct {
-	cfg    transport.Config
-	logger *zap.Logger
+	serverConf *ssh.ServerConfig
+	clientConf *ssh.ClientConfig
+	logger     *zap.Logger
 }
 
-// New returns a new Transport.
+// New returns a new Transport using username/password authentication.
 func New(cfg transport.Config) (transport.Interface, error) {
 	if cfg.Logger == nil {
 		return nil, fmt.Errorf("logger is required")
 	}
-	return &Transport{cfg: cfg, logger: cfg.Logger}, nil
+	if cfg.SSHUser == "" {
+		return nil, fmt.Errorf("ssh user is required")
+	}
+	hostKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return nil, err
+	}
+	signer, err := ssh.NewSignerFromKey(hostKey)
+	if err != nil {
+		return nil, err
+	}
+	serverConf := &ssh.ServerConfig{
+		PasswordCallback: func(c ssh.ConnMetadata, pass []byte) (*ssh.Permissions, error) {
+			if c.User() == cfg.SSHUser && string(pass) == cfg.SSHPassword {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("authentication failed")
+		},
+	}
+	serverConf.AddHostKey(signer)
+	clientConf := &ssh.ClientConfig{
+		User:            cfg.SSHUser,
+		Auth:            []ssh.AuthMethod{ssh.Password(cfg.SSHPassword)},
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+	}
+	return &Transport{serverConf: serverConf, clientConf: clientConf, logger: cfg.Logger}, nil
 }
 
 func init() {
@@ -44,15 +74,48 @@ func (t *Transport) Dial(ctx context.Context, address string) (net.Conn, error) 
 		zap.String("error", ""),
 	)
 	start := time.Now()
-	d := net.Dialer{}
-	conn, err := d.DialContext(ctx, "tcp", address)
+	d := &net.Dialer{}
+	raw, err := d.DialContext(ctx, "tcp", address)
+	if err != nil {
+		t.logger.Info("dial_end",
+			zap.String("address", address),
+			zap.String("role", role),
+			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+			zap.String("error", errString(err)),
+		)
+		return nil, err
+	}
+	cc, chans, reqs, err := ssh.NewClientConn(raw, address, t.clientConf)
+	if err != nil {
+		raw.Close()
+		t.logger.Info("dial_end",
+			zap.String("address", address),
+			zap.String("role", role),
+			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+			zap.String("error", errString(err)),
+		)
+		return nil, err
+	}
+	client := ssh.NewClient(cc, chans, reqs)
+	ch, chReqs, err := client.OpenChannel("session", nil)
+	if err != nil {
+		client.Close()
+		t.logger.Info("dial_end",
+			zap.String("address", address),
+			zap.String("role", role),
+			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+			zap.String("error", errString(err)),
+		)
+		return nil, err
+	}
+	go ssh.DiscardRequests(chReqs)
 	t.logger.Info("dial_end",
 		zap.String("address", address),
 		zap.String("role", role),
 		zap.Int64("duration_ms", time.Since(start).Milliseconds()),
-		zap.String("error", errString(err)),
+		zap.String("error", ""),
 	)
-	return conn, err
+	return &sshConn{netConn: raw, channel: ch, client: client}, nil
 }
 
 func (t *Transport) Listen(ctx context.Context, address string) (net.Listener, error) {
@@ -64,14 +127,29 @@ func (t *Transport) Listen(ctx context.Context, address string) (net.Listener, e
 		zap.String("error", ""),
 	)
 	start := time.Now()
-	ln, err := net.Listen("tcp", address)
+	lc := net.ListenConfig{}
+	tcpLn, err := lc.Listen(ctx, "tcp", address)
+	if err != nil {
+		t.logger.Info("listen_end",
+			zap.String("address", address),
+			zap.String("role", role),
+			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+			zap.String("error", errString(err)),
+		)
+		return nil, err
+	}
+	ln := &sshListener{Listener: tcpLn, config: t.serverConf, logger: t.logger}
+	go func() {
+		<-ctx.Done()
+		ln.Close()
+	}()
 	t.logger.Info("listen_end",
 		zap.String("address", address),
 		zap.String("role", role),
 		zap.Int64("duration_ms", time.Since(start).Milliseconds()),
-		zap.String("error", errString(err)),
+		zap.String("error", ""),
 	)
-	return ln, err
+	return ln, nil
 }
 
 func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport.Role, hs common.Handshake) (peer common.Handshake, err error) {
@@ -126,6 +204,73 @@ func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport
 		return peer, nil
 	}
 }
+
+type sshConn struct {
+	netConn net.Conn
+	channel ssh.Channel
+	client  *ssh.Client
+}
+
+func (s *sshConn) Read(b []byte) (int, error)  { return s.channel.Read(b) }
+func (s *sshConn) Write(b []byte) (int, error) { return s.channel.Write(b) }
+func (s *sshConn) Close() error {
+	s.channel.Close()
+	return s.client.Close()
+}
+func (s *sshConn) LocalAddr() net.Addr                { return s.netConn.LocalAddr() }
+func (s *sshConn) RemoteAddr() net.Addr               { return s.netConn.RemoteAddr() }
+func (s *sshConn) SetDeadline(t time.Time) error      { return s.netConn.SetDeadline(t) }
+func (s *sshConn) SetReadDeadline(t time.Time) error  { return s.netConn.SetReadDeadline(t) }
+func (s *sshConn) SetWriteDeadline(t time.Time) error { return s.netConn.SetWriteDeadline(t) }
+
+type sshListener struct {
+	net.Listener
+	config *ssh.ServerConfig
+	logger *zap.Logger
+}
+
+func (l *sshListener) Accept() (net.Conn, error) {
+	raw, err := l.Listener.Accept()
+	if err != nil {
+		return nil, err
+	}
+	sc, chans, reqs, err := ssh.NewServerConn(raw, l.config)
+	if err != nil {
+		raw.Close()
+		return nil, err
+	}
+	go ssh.DiscardRequests(reqs)
+	newChan, ok := <-chans
+	if !ok {
+		sc.Close()
+		return nil, io.EOF
+	}
+	ch, chReqs, err := newChan.Accept()
+	if err != nil {
+		sc.Close()
+		return nil, err
+	}
+	go ssh.DiscardRequests(chReqs)
+	return &serverConn{sshConn: sc, netConn: raw, channel: ch}, nil
+}
+
+type serverConn struct {
+	sshConn *ssh.ServerConn
+	netConn net.Conn
+	channel ssh.Channel
+}
+
+func (s *serverConn) Read(b []byte) (int, error)  { return s.channel.Read(b) }
+func (s *serverConn) Write(b []byte) (int, error) { return s.channel.Write(b) }
+func (s *serverConn) Close() error {
+	s.channel.Close()
+	return s.sshConn.Close()
+}
+func (s *serverConn) LocalAddr() net.Addr                { return s.netConn.LocalAddr() }
+func (s *serverConn) RemoteAddr() net.Addr               { return s.netConn.RemoteAddr() }
+func (s *serverConn) SetDeadline(t time.Time) error      { return s.netConn.SetDeadline(t) }
+func (s *serverConn) SetReadDeadline(t time.Time) error  { return s.netConn.SetReadDeadline(t) }
+func (s *serverConn) SetWriteDeadline(t time.Time) error { return s.netConn.SetWriteDeadline(t) }
 
 func errString(err error) string {
 	if err == nil {

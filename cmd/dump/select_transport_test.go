@@ -34,7 +34,7 @@ func TestSelectTransportError(t *testing.T) {
 }
 
 func TestSelectTransportOrder(t *testing.T) {
-	cfg := &config.Config{Transport: "bogus,ssh"}
+	cfg := &config.Config{Transport: "bogus,ssh", SSHUser: "test", SSHPassword: "pass"}
 	logger := zaptest.NewLogger(t)
 	defer logger.Sync()
 	tr, err := SelectTransport(cfg, logger)
