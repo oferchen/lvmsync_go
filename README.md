@@ -262,6 +262,23 @@ lvmsync --source-type raw --offline /dev/sdb /tmp/dump
 lvmsync --source-type raw --fs-freeze-command "fsfreeze -f /mnt && fsfreeze -u /mnt" /dev/sdb /tmp/dump
 ```
 
+### Raw device safety
+
+Reading from a live block device can corrupt data if writes occur during the transfer. Ensure a consistent view with one of the following options:
+
+- `--offline` – assert that no process will write to the source device.
+- `--fs-freeze-command` – run a command that freezes the filesystem and thaws it after the read.
+
+Example using the provided scripts:
+
+```sh
+lvmsync --source-type raw \
+  --fs-freeze-command "./docs/fsfreeze-freeze.sh /mnt && ./docs/fsfreeze-thaw.sh /mnt" \
+  /dev/sdb /tmp/dump
+```
+
+`docs/fsfreeze-freeze.sh` and `docs/fsfreeze-thaw.sh` demonstrate basic freeze and thaw operations.
+
 ### Configuration sources and precedence
 
 LVMSync uses [`pflag`](https://github.com/spf13/pflag) and [`viper`](https://github.com/spf13/viper) so every option can be
