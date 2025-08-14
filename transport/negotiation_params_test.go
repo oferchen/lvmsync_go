@@ -56,6 +56,10 @@ func newTransport(t *testing.T, name string) transport.Interface {
 		cfg.ServerCert = cert
 		cfg.Roots = pool
 	}
+	if name == "ssh" {
+		cfg.SSHUser = "test"
+		cfg.SSHPassword = "pass"
+	}
 	tr, err := transport.Get(name, cfg)
 	if err != nil {
 		t.Fatalf("get transport %s: %v", name, err)

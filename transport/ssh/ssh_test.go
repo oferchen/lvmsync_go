@@ -17,6 +17,9 @@ func checkLogFields(t *testing.T, logs *observer.ObservedLogs, msg string, expec
 	if len(entries) != expected {
 		t.Fatalf("expected %d %s logs, got %d", expected, msg, len(entries))
 	}
+	if expected == 0 {
+		return
+	}
 	ctx := entries[0].ContextMap()
 	for _, k := range []string{"address", "role", "duration_ms", "error"} {
 		if _, ok := ctx[k]; !ok {
@@ -25,15 +28,21 @@ func checkLogFields(t *testing.T, logs *observer.ObservedLogs, msg string, expec
 	}
 }
 
-func TestSSHTransportHandshake(t *testing.T) {
+func TestSSHTransportAuthSuccess(t *testing.T) {
 	core, logs := observer.New(zap.InfoLevel)
-	trIface, err := New(transport.Config{Logger: zap.New(core)})
+	cfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "pass"}
+	serverIface, err := New(cfg)
 	if err != nil {
-		t.Fatalf("new transport: %v", err)
+		t.Fatalf("new server transport: %v", err)
 	}
-	tr := trIface.(*Transport)
+	clientIface, err := New(cfg)
+	if err != nil {
+		t.Fatalf("new client transport: %v", err)
+	}
+	server := serverIface.(*Transport)
+	client := clientIface.(*Transport)
 	ctx := context.Background()
-	ln, err := tr.Listen(ctx, "127.0.0.1:0")
+	ln, err := server.Listen(ctx, "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("listen: %v", err)
 	}
@@ -46,7 +55,7 @@ func TestSSHTransportHandshake(t *testing.T) {
 			t.Errorf("accept: %v", err)
 			return
 		}
-		peerHS, err := tr.Negotiate(ctx, conn, transport.Server, common.Handshake{ResumeToken: "tok", MaxInFlight: 8})
+		peerHS, err := server.Negotiate(ctx, conn, transport.Server, common.Handshake{ResumeToken: "tok", MaxInFlight: 8})
 		if err != nil {
 			t.Errorf("server negotiate: %v", err)
 			return
@@ -61,11 +70,11 @@ func TestSSHTransportHandshake(t *testing.T) {
 		close(done)
 	}()
 
-	conn, err := tr.Dial(ctx, ln.Addr().String())
+	conn, err := client.Dial(ctx, ln.Addr().String())
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
-	peerHS, err := tr.Negotiate(ctx, conn, transport.Client, common.Handshake{ResumeToken: "tok", MaxInFlight: 8})
+	peerHS, err := client.Negotiate(ctx, conn, transport.Client, common.Handshake{ResumeToken: "tok", MaxInFlight: 8})
 	if err != nil {
 		t.Fatalf("client negotiate: %v", err)
 	}
@@ -91,15 +100,22 @@ func TestSSHTransportHandshake(t *testing.T) {
 	checkLogFields(t, logs, "negotiate_end", 2)
 }
 
-func TestSSHTransportHandshakeError(t *testing.T) {
+func TestSSHTransportAuthFailure(t *testing.T) {
 	core, logs := observer.New(zap.InfoLevel)
-	trIface, err := New(transport.Config{Logger: zap.New(core)})
+	serverCfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "pass"}
+	clientCfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "wrong"}
+	serverIface, err := New(serverCfg)
 	if err != nil {
-		t.Fatalf("new transport: %v", err)
+		t.Fatalf("new server transport: %v", err)
 	}
-	tr := trIface.(*Transport)
+	clientIface, err := New(clientCfg)
+	if err != nil {
+		t.Fatalf("new client transport: %v", err)
+	}
+	server := serverIface.(*Transport)
+	client := clientIface.(*Transport)
 	ctx := context.Background()
-	ln, err := tr.Listen(ctx, "127.0.0.1:0")
+	ln, err := server.Listen(ctx, "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("listen: %v", err)
 	}
@@ -107,36 +123,27 @@ func TestSSHTransportHandshakeError(t *testing.T) {
 
 	done := make(chan struct{})
 	go func() {
-		conn, err := ln.Accept()
-		if err != nil {
-			t.Errorf("accept: %v", err)
-			return
+		if _, err := ln.Accept(); err == nil {
+			t.Errorf("expected accept error")
 		}
-		conn.Write([]byte("bad\n"))
-		conn.Close()
 		close(done)
 	}()
 
-	conn, err := tr.Dial(ctx, ln.Addr().String())
-	if err != nil {
-		t.Fatalf("dial: %v", err)
+	if _, err := client.Dial(ctx, ln.Addr().String()); err == nil {
+		t.Fatalf("expected dial error")
 	}
-	if _, err := tr.Negotiate(ctx, conn, transport.Client, common.Handshake{}); err == nil {
-		t.Fatalf("expected negotiate error")
-	}
-	conn.Close()
 	<-done
 
 	checkLogFields(t, logs, "dial_start", 1)
 	checkLogFields(t, logs, "dial_end", 1)
 	checkLogFields(t, logs, "listen_start", 1)
 	checkLogFields(t, logs, "listen_end", 1)
-	checkLogFields(t, logs, "negotiate_start", 1)
-	checkLogFields(t, logs, "negotiate_end", 1)
+	checkLogFields(t, logs, "negotiate_start", 0)
+	checkLogFields(t, logs, "negotiate_end", 0)
 }
 
 func TestSSHTransportRequiresLogger(t *testing.T) {
-	if _, err := New(transport.Config{}); err == nil {
+	if _, err := New(transport.Config{SSHUser: "u", SSHPassword: "p"}); err == nil {
 		t.Fatalf("expected error when logger is nil")
 	}
 }

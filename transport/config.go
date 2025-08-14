@@ -16,4 +16,6 @@ type Config struct {
 	ServerCert    tls.Certificate
 	Logger        *zap.Logger
 	AllowInsecure bool
+	SSHUser       string
+	SSHPassword   string
 }
