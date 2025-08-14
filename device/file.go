@@ -53,7 +53,7 @@ func (d *FileDevice) BlockSize() uint64 { return d.blockSize }
 func (d *FileDevice) Close() error { return d.f.Close() }
 
 // Snapshot returns the device itself for regular files.
-func (d *FileDevice) Snapshot(context.Context) (Device, error) { return d, nil }
+func (d *FileDevice) Snapshot(context.Context, string) (Device, error) { return d, nil }
 
 // Cleanup is a no-op for regular files.
 func (d *FileDevice) Cleanup(context.Context) error { return nil }

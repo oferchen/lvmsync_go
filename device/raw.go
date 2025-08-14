@@ -74,7 +74,7 @@ func (d *RawDevice) BlockSize() uint64 { return d.blockSize }
 func (d *RawDevice) Close() error { return d.f.Close() }
 
 // Snapshot returns the device itself for raw block devices.
-func (d *RawDevice) Snapshot(context.Context) (Device, error) { return d, nil }
+func (d *RawDevice) Snapshot(context.Context, string) (Device, error) { return d, nil }
 
 // Cleanup thaws the filesystem if a freeze command was issued.
 func (d *RawDevice) Cleanup(ctx context.Context) error {

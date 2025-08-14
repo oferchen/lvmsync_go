@@ -48,8 +48,13 @@ func TestPrepareSnapshotCreatesSnapshot(t *testing.T) {
 	cfg.SkipDiskCheck = true
 	cfg.VolumeGroup = "vg"
 	cfg.TargetVolumeGroup = "vg2"
+	cfg.SnapshotSize = "25%"
 
-	restoreParse := client.SetParseSnapshotSizeForTest(func(string, string, *zap.Logger) (uint64, error) { return 1024, nil })
+	var parseArg string
+	restoreParse := client.SetParseSnapshotSizeForTest(func(s, _ string, _ *zap.Logger) (uint64, error) {
+		parseArg = s
+		return 1024, nil
+	})
 	defer restoreParse()
 
 	var created bool
@@ -83,6 +88,9 @@ func TestPrepareSnapshotCreatesSnapshot(t *testing.T) {
 	snap, monitorCh, cleanup, err := client.PrepareSnapshot(context.Background(), cfg, "/dev/vg/orig", logger)
 	if err != nil {
 		t.Fatalf("PrepareSnapshot error: %v", err)
+	}
+	if parseArg != cfg.SnapshotSize {
+		t.Fatalf("unexpected snapshot size arg %q", parseArg)
 	}
 	if !strings.HasPrefix(snap, "/dev/vg/snap-") {
 		t.Fatalf("unexpected snapshot path: %s", snap)

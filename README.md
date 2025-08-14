@@ -23,7 +23,8 @@ LVMSync is a high-performance incremental data replication tool for LVM snapshot
 - **Aligned I/O Buffers and NUMA Pinning**: `--odirect` allocates block-size aligned slabs from a `sync.Pool` and can pin worker goroutines to the device's NUMA node.
 - **LVM Snapshot Management**:
   - Automatic snapshot creation and removal.
-  - Configurable snapshot size (absolute or percentage-based).
+  - Configurable snapshot size (absolute or percentage-based) via `--snapshot_size`,
+    `LVMSYNC_SNAPSHOT_SIZE`, or the `snapshot_size` config key.
   - Configurable volume group for constructing the snapshot device path.
   - Auto-selection of target volume groups with sufficient free space.
   - Automatic privilege escalation (defaulting to `sudo -n`).

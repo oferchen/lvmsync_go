@@ -25,7 +25,7 @@ func TestSnapshotLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open file: %v", err)
 	}
-	fsnap, err := fd.Snapshot(ctx)
+	fsnap, err := fd.Snapshot(ctx, "")
 	if err != nil {
 		t.Fatalf("file snapshot: %v", err)
 	}
@@ -38,7 +38,7 @@ func TestSnapshotLifecycle(t *testing.T) {
 
 	// Raw device snapshot is also a no-op.
 	rd := &RawDevice{f: os.NewFile(uintptr(0), "/dev/sda")}
-	rsnap, err := rd.Snapshot(ctx)
+	rsnap, err := rd.Snapshot(ctx, "")
 	if err != nil {
 		t.Fatalf("raw snapshot: %v", err)
 	}
@@ -73,7 +73,7 @@ func TestSnapshotLifecycle(t *testing.T) {
 	defer func() { geteuid = origEuid }()
 
 	lvd := &LVMDevice{path: "/dev/vg0/origin"}
-	snap, err := lvd.Snapshot(ctx)
+	snap, err := lvd.Snapshot(ctx, "2G")
 	if err != nil {
 		t.Fatalf("lvm snapshot: %v", err)
 	}
@@ -85,7 +85,7 @@ func TestSnapshotLifecycle(t *testing.T) {
 	}
 
 	want := []string{
-		"sudo -n lvcreate -s -n snap -L 1G /dev/vg0/origin",
+		"sudo -n lvcreate -s -n snap -L 2G /dev/vg0/origin",
 		"sudo -n lvchange -ay /dev/vg0/snap",
 		"sudo -n lvremove -f /dev/vg0/snap",
 	}
