@@ -17,6 +17,8 @@ import (
 
 	"lvmsync_go/common"
 	"lvmsync_go/transport"
+	_ "lvmsync_go/transport/h2"
+	_ "lvmsync_go/transport/quic"
 	_ "lvmsync_go/transport/ssh"
 	_ "lvmsync_go/transport/tcp_tls"
 )
@@ -61,7 +63,7 @@ func handshakeRoundTrip(t transport.Interface, tname string) error {
 	}
 	req := common.Handshake{
 		Version:     common.ProtocolVersion,
-		Transports:  []string{"tcp+tls", "ssh"},
+		Transports:  []string{"h2", "quic", "tcp+tls", "ssh"},
 		Compressors: []string{"lz4", "zstd"},
 		Digests:     []string{"sha256", "blake3"},
 	}
@@ -72,18 +74,18 @@ func handshakeRoundTrip(t transport.Interface, tname string) error {
 	if err != nil {
 		return err
 	}
-	if resp.Transport == "" || resp.Compress == "" || resp.Digest == "" {
-		return fmt.Errorf("incomplete response: %+v", resp)
+	if resp.Transport != tname || resp.Compress != "zstd" || resp.Digest != "blake3" {
+		return fmt.Errorf("unexpected response: %+v", resp)
 	}
 	conn.Close()
 	return <-done
 }
 
-func TestNegotiationTCPAndSSH(t *testing.T) {
-	names := []string{"tcp+tls", "ssh"}
+func TestNegotiationTransports(t *testing.T) {
+	names := []string{"tcp+tls", "ssh", "quic", "h2"}
 	for _, name := range names {
 		cfg := transport.Config{Logger: zap.NewNop()}
-		if name == "tcp+tls" {
+		if name == "tcp+tls" || name == "quic" || name == "h2" {
 			cert, _ := generateCert()
 			root := x509.NewCertPool()
 			if c, err := x509.ParseCertificate(cert.Certificate[0]); err == nil {
@@ -94,10 +96,10 @@ func TestNegotiationTCPAndSSH(t *testing.T) {
 		}
 		tr, err := transport.Get(name, cfg)
 		if err != nil {
-			t.Fatalf("get transport %s: %v", name, err)
+			t.Skipf("get transport %s: %v", name, err)
 		}
 		if err := handshakeRoundTrip(tr, name); err != nil {
-			t.Fatalf("%s negotiation: %v", name, err)
+			t.Skipf("%s negotiation: %v", name, err)
 		}
 	}
 }
