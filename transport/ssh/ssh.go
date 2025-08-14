@@ -13,10 +13,14 @@ import (
 )
 
 // Transport implements the transport.Interface over plain TCP for now.
-type Transport struct{ logger *zap.Logger }
+type Transport struct {
+	cfg transport.Config
+}
 
 // New returns a new Transport.
-func New(logger *zap.Logger) transport.Interface { return &Transport{logger: logger} }
+func New(cfg transport.Config) (transport.Interface, error) {
+	return &Transport{cfg: cfg}, nil
+}
 
 func init() {
 	if err := transport.Register("ssh", New); err != nil {
@@ -37,33 +41,37 @@ func (t *Transport) Listen(ctx context.Context, address string) (net.Listener, e
 	return net.Listen("tcp", address)
 }
 
-func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport.Role) error {
-	hs := common.Handshake{Version: common.ProtocolVersion, Endianness: common.NativeEndianness()}
+func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport.Role, hs common.Handshake) (common.Handshake, error) {
+	hs.Version = common.ProtocolVersion
+	if hs.Endianness == "" {
+		hs.Endianness = common.NativeEndianness()
+	}
 	switch role {
 	case transport.Client:
 		if err := common.WriteHandshake(conn, hs); err != nil {
-			return err
+			return common.Handshake{}, err
 		}
 		peer, err := common.ReadHandshake(bufio.NewReader(conn))
 		if err != nil {
-			return err
+			return common.Handshake{}, err
 		}
 		if peer.Endianness != "" && peer.Endianness != hs.Endianness {
-			t.logger.Warn("endianness_mismatch", zap.String("peer_endianness", peer.Endianness), zap.String("local_endianness", hs.Endianness))
-			return fmt.Errorf("endianness mismatch: %s", peer.Endianness)
+			return peer, fmt.Errorf("endianness mismatch: %s", peer.Endianness)
 		}
-		return nil
+		return peer, nil
 	case transport.Server:
 		peer, err := common.ReadHandshake(bufio.NewReader(conn))
 		if err != nil {
-			return err
+			return common.Handshake{}, err
 		}
 		if peer.Endianness != "" && peer.Endianness != hs.Endianness {
-			t.logger.Warn("endianness_mismatch", zap.String("peer_endianness", peer.Endianness), zap.String("local_endianness", hs.Endianness))
-			return fmt.Errorf("endianness mismatch: %s", peer.Endianness)
+			return peer, fmt.Errorf("endianness mismatch: %s", peer.Endianness)
 		}
-		return common.WriteHandshake(conn, hs)
+		if err := common.WriteHandshake(conn, hs); err != nil {
+			return peer, err
+		}
+		return peer, nil
 	default:
-		return nil
+		return common.Handshake{}, nil
 	}
 }

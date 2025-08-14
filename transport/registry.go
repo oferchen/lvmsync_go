@@ -8,7 +8,7 @@ import (
 )
 
 // Factory creates a transport implementation.
-type Factory func(*zap.Logger) Interface
+type Factory func(Config) (Interface, error)
 
 var (
 	registry = map[string]Factory{}
@@ -26,12 +26,12 @@ func Register(name string, f Factory) error {
 	return nil
 }
 
-// Get returns a transport from the registry by name, constructing it with the provided logger.
-func Get(name string, logger *zap.Logger) (Interface, error) {
+// Get returns a transport from the registry by name.
+func Get(name string, cfg Config) (Interface, error) {
 	regMu.RLock()
 	defer regMu.RUnlock()
 	if f, ok := registry[name]; ok {
-		return f(logger), nil
+		return f(cfg)
 	}
 	return nil, fmt.Errorf("transport %q not registered", name)
 }

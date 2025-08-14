@@ -1,33 +1,33 @@
 # Transports
 
-LVMSync supports multiple transports selected with the `--transport` flag.
+LVMSync supports multiple transports selectable with the `--transport` flag.
+Transports are tried in order until a connection is established.
 
-## Handshake Negotiation
+Default order: `quic,h2,tcp+tls,ssh`.
 
-During connection setup the sender and receiver exchange:
+## QUIC
 
-- `sector_size`
-- `alignment`
-- `max_concurrency`
-- deduplication and compression capabilities
+- Uses [quic-go](https://github.com/quic-go/quic-go)
+- TLS 1.3 with mutual authentication
+- BBR congestion control
 
-This negotiation ensures both sides agree on block sizes and enabled features before data moves.
+## HTTP/2 (h2)
 
-## Security Defaults
+- Runs over TLS 1.3 with mutual authentication
+- Provides stream-level back-pressure
 
-- `tcp+tls` requires mutual TLS with `--tls_cert`, `--tls_key`, and a trusted `--ca_cert`.
-- `ssh` relies on user keys and host key verification; mTLS does not apply.
+## TCP+TLS
 
-## Flags
+- Plain TCP encapsulated in TLS 1.3
+- Requires mutual TLS authentication
 
-| Flag | Environment variable | Description | mTLS |
-|------|----------------------|-------------|------|
-| `--transport` | `LVMSYNC_TRANSPORT` | Ordered transports to try (e.g., `tcp+tls,ssh`) | n/a |
-| `--concurrency` | `LVMSYNC_CONCURRENCY` | Stream concurrency (0 to autotune based on BDP) | n/a |
-| `--tcp_port` | `LVMSYNC_TCP_PORT` | TCP+TLS port | ✅ |
-| `--ssh_port` | `LVMSYNC_SSH_PORT` | SSH port | ❌ |
-| `--tls_cert` | `LVMSYNC_TLS_CERT` | TLS certificate file | ✅ |
-| `--tls_key` | `LVMSYNC_TLS_KEY` | TLS key file | ✅ |
-| `--ca_cert` | `LVMSYNC_CA_CERT` | CA certificate file | ✅ |
-| `--tcp_parallel` | `LVMSYNC_TCP_PARALLEL` | Number of parallel TCP connections | n/a |
-| `--tcp_lowat` | `LVMSYNC_TCP_LOWAT` | TCP_NOTSENT_LOWAT in bytes | n/a |
+## SSH
+
+- Establishes sessions using `golang.org/x/crypto/ssh`
+- Supports `sudo -n` escalation hooks
+
+Example selecting transports and custom port:
+
+```sh
+lvmsync --transport quic,h2,tcp+tls,ssh --tcp-port 9443
+```

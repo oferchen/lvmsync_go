@@ -20,6 +20,7 @@ func TestHandshakeRoundTrip(t *testing.T) {
 		DedupMode:     "fixed",
 		ResumeToken:   "token",
 		ODirect:       true,
+		MaxInFlight:   8,
 		Transports:    []string{"ssh", "tcp+tls"},
 		Compressors:   []string{"lz4", "zstd"},
 		Digests:       []string{"sha256", "blake3"},

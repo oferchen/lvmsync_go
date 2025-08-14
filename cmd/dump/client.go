@@ -313,8 +313,7 @@ func SelectTransport(cfg *config.Config, logger *zap.Logger) (transport.Interfac
 	}
 	for _, name := range strings.Split(cfg.Transport, ",") {
 		name = strings.TrimSpace(name)
-		trLogger := logger.Named(name)
-		tr, err := transport.Get(name, trLogger)
+		tr, err := transport.Get(name, transport.Config{Logger: logger})
 		if err != nil {
 			trLogger.Warn("unsupported transport", zap.String("transport", name))
 			continue

@@ -349,7 +349,7 @@ If `--ssh_key` is empty, lvmsync contacts the SSH agent referenced by `SSH_AUTH_
 | `--target_volume_group` | `LVMSYNC_TARGET_VOLUME_GROUP` | `target_volume_group` | Volume group name of the target LVM volume |
 | `--target_vgs` | `LVMSYNC_TARGET_VGS` | `target_vgs` | Candidate target volume groups for auto-selection |
   | `--dry_run` | `LVMSYNC_DRY_RUN` | `dry_run` | Print actions without executing |
-| `--transport` | `LVMSYNC_TRANSPORT` | `transport` | Ordered transports to try (e.g., `tcp+tls,ssh`) |
+| `--transport` | `LVMSYNC_TRANSPORT` | `transport` | Ordered transports to try (e.g., `quic,h2,tcp+tls,ssh`) |
 | `--tcp_port` | `LVMSYNC_TCP_PORT` | `tcp_port` | TCP+TLS port |
 | `--tcp_parallel` | `LVMSYNC_TCP_PARALLEL` | `tcp_parallel` | Number of parallel TCP connections |
 | `--tcp_lowat` | `LVMSYNC_TCP_LOWAT` | `tcp_lowat` | TCP_NOTSENT_LOWAT in bytes |
@@ -491,15 +491,18 @@ lvmsync run --config config.yaml /dev/vg0/snap0 /mnt/backup
 ## Transport Registry
 
 Transport selection is controlled by the `--transport` flag, which accepts a comma-separated ordered list of
-transports to attempt (for example `tcp+tls,ssh`). The flags below configure transport behavior.
+transports to attempt (for example `quic,h2,tcp+tls,ssh`). The flags below configure transport behavior.
 
 ### Flags and environment variables
 
 | Flag | Environment variable | Description | mTLS |
-|------|----------------------|-------------|------|
-| `--transport` | `LVMSYNC_TRANSPORT` | Ordered transports to try (e.g., `tcp+tls,ssh`) | n/a |
-| `--concurrency` | `LVMSYNC_CONCURRENCY` | Stream concurrency (0 to autotune based on BDP) | n/a |
-| `--tcp_port` | `LVMSYNC_TCP_PORT` | TCP+TLS port | ✅ |
+|------|----------------------|-------------|------||
+| `--transport` | `LVMSYNC_TRANSPORT` | Ordered transports to try (e.g., `quic,h2,tcp+tls,ssh`) |
+| `--concurrency` | `LVMSYNC_CONCURRENCY` | Stream concurrency (0 to autotune based on BDP) |
+| `--tcp_port` | `LVMSYNC_TCP_PORT` | TCP+TLS port |
+| `--tcp_parallel` | `LVMSYNC_TCP_PARALLEL` | Number of parallel TCP connections |
+| `--tcp_lowat` | `LVMSYNC_TCP_LOWAT` | TCP_NOTSENT_LOWAT in bytes |
+| `--ssh_port` | `LVMSYNC_SSH_PORT` | SSH port |
 | `--ssh_port` | `LVMSYNC_SSH_PORT` | SSH port | ❌ |
 | `--tls_cert` | `LVMSYNC_TLS_CERT` | TLS certificate file | ✅ |
 | `--tls_key` | `LVMSYNC_TLS_KEY` | TLS key file | ✅ |
@@ -602,7 +605,7 @@ Two presets are available via `--mode`: `default` and `throughput`. Any other va
 
 `--mode throughput` applies a set of options tuned for high-bandwidth links:
 
-- transport order `tcp+tls,ssh`
+- transport order `quic,h2,tcp+tls,ssh`
 - concurrency `8`
 - deduplication mode `hybrid`
 - compression `auto`
@@ -703,7 +706,7 @@ journalctl -u lvmsync-grpcd
 ### Basic Syntax
 
 ```sh
-lvmsync run [--dry_run] [--transport tcp+tls,ssh] <snapshot|lvm device> <destination>
+lvmsync run [--dry_run] [--transport quic,h2,tcp+tls,ssh] <snapshot|lvm device> <destination>
 ```
 
 The tool supports both local and remote transfers, as well as an "apply mode" for applying change dumps. Use `--dry_run` to print planned actions without executing and `--transport` to provide an ordered list of transports to try.
@@ -758,7 +761,7 @@ Flags are parsed via Viper, so the same settings can be provided through
 | `--progress`        | Show progress percentage during the transfer                                                            | `true`    |
 | `--block_size`      | Block size for data transfer (e.g., `"4K"`, `"64K"`, `"512K"`, `"1M"`), use `0` for automatic detection | `"4K"`    |
 | `--dry_run`         | Print actions without executing | `false`   |
-| `--transport`       | Ordered transports to try (e.g., `tcp+tls,ssh`) | `""`      |
+| `--transport`       | Ordered transports to try (e.g., `quic,h2,tcp+tls,ssh`) | `""`      |
 
 #### SSH Options
 

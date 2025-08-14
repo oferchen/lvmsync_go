@@ -2,18 +2,27 @@ package tcp_tls
 
 import (
 	"context"
+	"crypto/x509"
 	"io"
 	"testing"
 
+	"go.uber.org/zap"
+	"lvmsync_go/common"
 	"lvmsync_go/transport"
 
 	"go.uber.org/zap/zaptest"
 )
 
 func TestTCPTLSTransportHandshake(t *testing.T) {
-	logger := zaptest.NewLogger(t)
-	defer logger.Sync()
-	tr := New(logger)
+	cert, _ := generateSelfSignedCert()
+	root := x509.NewCertPool()
+	if len(cert.Certificate) > 0 {
+		if c, err := x509.ParseCertificate(cert.Certificate[0]); err == nil {
+			root.AddCert(c)
+		}
+	}
+	trIface, _ := New(transport.Config{Logger: zap.NewNop(), Roots: root, ClientCert: cert})
+	tr := trIface.(*Transport)
 	ctx := context.Background()
 	ln, err := tr.Listen(ctx, "127.0.0.1:0")
 	if err != nil {
@@ -28,7 +37,7 @@ func TestTCPTLSTransportHandshake(t *testing.T) {
 			t.Errorf("accept: %v", err)
 			return
 		}
-		if err := tr.Negotiate(ctx, conn, transport.Server); err != nil {
+		if _, err := tr.Negotiate(ctx, conn, transport.Server, common.Handshake{}); err != nil {
 			t.Errorf("server negotiate: %v", err)
 			return
 		}
@@ -43,7 +52,7 @@ func TestTCPTLSTransportHandshake(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
-	if err := tr.Negotiate(ctx, conn, transport.Client); err != nil {
+	if _, err := tr.Negotiate(ctx, conn, transport.Client, common.Handshake{}); err != nil {
 		t.Fatalf("client negotiate: %v", err)
 	}
 	if _, err := conn.Write([]byte("ping")); err != nil {
@@ -59,9 +68,13 @@ func TestTCPTLSTransportHandshake(t *testing.T) {
 }
 
 func TestTCPTLSTransportHandshakeError(t *testing.T) {
-	logger := zaptest.NewLogger(t)
-	defer logger.Sync()
-	tr := New(logger)
+	cert, _ := generateSelfSignedCert()
+	root := x509.NewCertPool()
+	if c, err := x509.ParseCertificate(cert.Certificate[0]); err == nil {
+		root.AddCert(c)
+	}
+	trIface, _ := New(transport.Config{Logger: zap.NewNop(), Roots: root, ClientCert: cert})
+	tr := trIface.(*Transport)
 	ctx := context.Background()
 	ln, err := tr.Listen(ctx, "127.0.0.1:0")
 	if err != nil {
@@ -86,9 +99,35 @@ func TestTCPTLSTransportHandshakeError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
-	if err := tr.Negotiate(ctx, conn, transport.Client); err == nil {
+	if _, err := tr.Negotiate(ctx, conn, transport.Client, common.Handshake{}); err == nil {
 		t.Fatalf("expected negotiate error")
 	}
 	conn.Close()
+	<-done
+}
+
+func TestTCPTLSCertValidation(t *testing.T) {
+	// client with empty root CA should fail to verify server certificate
+	root := x509.NewCertPool()
+	cert, _ := generateSelfSignedCert()
+	trIface, _ := New(transport.Config{Roots: root, ClientCert: cert, Logger: zap.NewNop()})
+	tr := trIface.(*Transport)
+	ctx := context.Background()
+	ln, err := tr.Listen(ctx, "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer ln.Close()
+	done := make(chan struct{})
+	go func() {
+		conn, _ := ln.Accept()
+		if conn != nil {
+			conn.Close()
+		}
+		close(done)
+	}()
+	if _, err := tr.Dial(ctx, ln.Addr().String()); err == nil {
+		t.Fatalf("expected cert validation error")
+	}
 	<-done
 }
