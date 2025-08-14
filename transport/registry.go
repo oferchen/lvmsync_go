@@ -3,8 +3,6 @@ package transport
 import (
 	"fmt"
 	"sync"
-
-	"go.uber.org/zap"
 )
 
 // Factory creates a transport implementation.

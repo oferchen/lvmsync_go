@@ -7,10 +7,9 @@ import (
 	"testing"
 
 	"go.uber.org/zap"
+
 	"lvmsync_go/common"
 	"lvmsync_go/transport"
-
-	"go.uber.org/zap/zaptest"
 )
 
 func TestTCPTLSTransportHandshake(t *testing.T) {
