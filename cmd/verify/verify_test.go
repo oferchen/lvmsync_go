@@ -121,7 +121,7 @@ func TestVerifyManifestSuccess(t *testing.T) {
 	if err := manifest.Rebuild(src, manPath); err != nil {
 		t.Fatalf("rebuild manifest: %v", err)
 	}
-        if err := Run([]string{"--manifest_path", manPath, src, src}, zap.NewNop()); err != nil {
-                t.Fatalf("verify manifest success: %v", err)
-        }
+	if err := Run([]string{"--manifest_path", manPath, src, src}, zap.NewNop()); err != nil {
+		t.Fatalf("verify manifest success: %v", err)
+	}
 }
