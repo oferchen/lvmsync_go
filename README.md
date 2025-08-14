@@ -37,13 +37,11 @@ LVMSync is a high-performance incremental data replication tool for LVM snapshot
 
 ## Device Support Matrix
 
-| Device type     | Source | Destination |
-|-----------------|:------:|:-----------:|
-| LVM snapshot    |   ✅   |      ❌      |
-| Raw block device|   ✅*  |      ✅      |
-| Regular file    |   ✅   |      ✅      |
-
-*Requires `--offline` or `--fs-freeze-command` when used as a source.*
+| Device type      | Source | Destination | Notes |
+|------------------|:------:|:-----------:|-------|
+| LVM snapshot     |   ✅   |      ❌      | snapshots are auto-created |
+| Raw block device |   ✅   |      ✅      | requires `--offline` or `--fs-freeze-command` when used as a source |
+| Regular file     |   ✅   |      ✅      | includes loopback images |
 
 ## Supported Platforms
 
@@ -230,7 +228,7 @@ Recent refactors added several configuration options:
 - `--tcp_port` and `--ssh_port` expose TCP+TLS and SSH endpoints.
 - `--tcp_parallel` controls the number of parallel TCP connections (2–4).
 - `--tcp_lowat` sets TCP_NOTSENT_LOWAT to limit unsent bytes.
-- `--sync_interval` controls how many bytes are written between `fdatasync` calls.
+- `--sync-interval` controls how many bytes are written between `fdatasync` calls (flag uses underscores in the CLI: `--sync_interval`).
 - `--checkpoint_interval` sets how often resume state is persisted.
 - `--checkpoint_bytes` sets how many bytes are written between resume checkpoints.
 - `--block_size` sets the transfer block size (use `auto` for detection).
@@ -238,7 +236,7 @@ Recent refactors added several configuration options:
 ### I/O tuning
 
 - `--odirect` uses O_DIRECT with block-size aligned buffers.
-- `--sync_interval` sets how many bytes are written between `fdatasync` calls.
+- `--sync-interval` sets how many bytes are written between `fdatasync` calls (flag uses underscores in the CLI: `--sync_interval`).
 - `--numa_pin` pins worker goroutines to CPUs local to the source device's NUMA node.
 
 ### Device types
@@ -338,7 +336,7 @@ LVMSYNC_GRPC_GRPC_PORT=9443 LVMSYNC_GRPC_TLS_CERT=cert.pem lvmsync-grpcd
 | `--max_retries` | `LVMSYNC_MAX_RETRIES` | `max_retries` | Maximum number of retries per block |
 | `--resume` | `LVMSYNC_RESUME` | `resume` | Path to resume state file (records dedup mode and last chunk boundary) |
 | `--speed` | `LVMSYNC_SPEED` | `speed` | Transfer speed limit |
-| `--sync_interval` | `LVMSYNC_SYNC_INTERVAL` | `sync_interval` | Bytes between fdatasync calls |
+| `--sync-interval` | `LVMSYNC_SYNC_INTERVAL` | `sync_interval` | Bytes between fdatasync calls (CLI flag: `--sync_interval`) |
 | `--checkpoint_bytes` | `LVMSYNC_CHECKPOINT_BYTES` | `checkpoint_bytes` | Bytes between resume checkpoints |
 | `--checkpoint_interval` | `LVMSYNC_CHECKPOINT_INTERVAL` | `checkpoint_interval` | Duration between checkpoints |
 | `--block_size` | `LVMSYNC_BLOCK_SIZE` | `block_size` | Block size for data transfer; specify 'auto' or 0 for automatic detection |
@@ -545,6 +543,12 @@ certificates via `--tls_cert`, `--tls_key`, and `--ca_cert`. The flags below con
 | `--tcp_lowat` | `LVMSYNC_TCP_LOWAT` | TCP_NOTSENT_LOWAT in bytes | n/a |
 
 ### Usage examples
+
+**Multiple transports**
+
+```sh
+lvmsync run --transport quic,h2,tcp+tls,ssh --tcp_port 9443 /dev/vg0/snap0 /mnt/backup
+```
 
 **QUIC**
 
@@ -966,6 +970,26 @@ In this example, LVMSync will:
 - Perform the block-level transfer.
 - Remove the snapshot upon completion.
 - Clean up gracefully if interrupted.
+
+## Manifest Rebuild and Verification
+
+Rebuild a manifest for an existing device when the index is missing or stale:
+
+```sh
+lvmsync manifest rebuild /dev/vg0/lv0
+```
+
+Compare source and destination devices against a manifest:
+
+```sh
+lvmsync verify /dev/vg0/snap0 /mnt/backup
+```
+
+Use `--dry-run` with `verify` to inspect planned operations without modifying the destination:
+
+```sh
+lvmsync verify --dry-run /dev/vg0/source /dev/vg1/target
+```
 
 ## Configuration Sources
 

@@ -5,10 +5,15 @@ Transports are tried in order until a connection is established.
 
 Default order: `quic,h2,tcp+tls,ssh`.
 
-Each transport begins with a protocol handshake exchanging supported features.
-The handshake now includes a resume token (`resume:<token>`) to continue
-interrupted sessions and a maximum in-flight hint (`inflight:<n>`) to negotiate
-concurrency.
+Every session begins with a textual handshake starting with
+`lvmsync PROTO[3]`. Tokens advertise supported transports, compression
+algorithms and digests. The handshake also carries a resume token
+(`resume:<token>`) so interrupted sessions can continue and a maximum
+in‑flight hint (`inflight:<n>`) to negotiate concurrency.
+
+TLS based transports enable mutual TLS by default and restrict cipher suites to
+`TLS_AES_128_GCM_SHA256`, `TLS_AES_256_GCM_SHA384`, and
+`TLS_CHACHA20_POLY1305_SHA256`.
 
 ## QUIC
 
