@@ -1,22 +1,45 @@
 # Manifest Format
 
-LVMSync records transfer metadata in a manifest file. Each entry stores the chunk offset, length, and BLAKE3 digest so transfers can resume and destinations can be verified.
+LVMSync writes a binary manifest alongside each transfer. The manifest tracks
+chunk offsets and digests so that interrupted sessions can resume and completed
+copies can be verified.
 
-For quicker comparisons, an additional XXH3 hash is stored alongside each entry. When checking a chunk, the XXH3 value is compared first and the more expensive BLAKE3 digest is only computed if the XXH3 hashes match.
+## Layout and Versioning
 
-## Index Format
+The file begins with a 120 byte little‑endian header:
 
-Manifests are JSON lines with one object per chunk:
+| Field       | Size | Description |
+|-------------|-----:|-------------|
+| `version`   | 4    | Manifest format version (`1` today) |
+| `block_size`| 4    | Device block size in bytes |
+| `size_bytes`| 8    | Total device size |
+| `chunk_count` | 8 | Number of chunks tracked |
+| `device_id` | 64   | Persistent device identifier |
+| `mac`       | 32   | BLAKE3 digest of the preceding header fields |
 
-```json
-{"offset":0,"size_bytes":4096,"digest":"<hex blake3>"}
-```
+Each subsequent entry describes one chunk and also uses little‑endian encoding:
 
-The final line carries a SHA-256 digest of all chunk digests to validate completeness.
+| Field     | Size | Description |
+|-----------|-----:|-------------|
+| `offset`  | 8    | Byte offset of the chunk |
+| `length`  | 4    | Chunk length in bytes |
+| _pad_     | 4    | Reserved for future use |
+| `xxh3`    | 8    | Fast non‑cryptographic hash |
+| `blake3`  | 32   | BLAKE3 digest of the chunk |
+
+The header `version` field allows future format changes without breaking
+backwards compatibility.
+
+## Resume Tokens
+
+During a transfer handshake the sender may advertise a `resume:<token>` token.
+The token encodes the header MAC and the last fully transferred chunk. This
+prevents resuming against the wrong device and permits the receiver to skip
+already replicated chunks.
 
 ## Rebuilding
 
-Regenerate a manifest for an existing device when the index is missing or out of date:
+Generate a manifest for an existing device when the index is missing or stale:
 
 ```sh
 lvmsync manifest rebuild /dev/vg0/lv0
@@ -24,7 +47,7 @@ lvmsync manifest rebuild /dev/vg0/lv0
 
 ## Verification
 
-Use manifests to verify that a source and destination match:
+Use a manifest to verify that a source and destination match:
 
 ```sh
 lvmsync verify /dev/vg0/snap0 /mnt/backup
@@ -39,10 +62,12 @@ lvmsync verify /dev/vg0/snap0 /mnt/backup
 
 ## Raw Device Safety
 
-Working on a live block device can lead to inconsistent manifests if writes occur during the scan. To ensure a stable view:
+Working on a live block device can lead to inconsistent manifests if writes
+occur during the scan. To ensure a stable view:
 
 - `--offline` asserts that no process will modify the device while it is read.
-- `--fs-freeze-command` runs a command that freezes the filesystem and thaws it once the read completes.
+- `--fs-freeze-command` runs a command that freezes the filesystem and thaws it
+  once the read completes.
 
 Example scripts in this repository:
 
