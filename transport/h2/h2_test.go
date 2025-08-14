@@ -12,9 +12,25 @@ import (
 	"lvmsync_go/transport"
 )
 
+func checkLogFields(t *testing.T, logs *observer.ObservedLogs, msg string, expected int) {
+	entries := logs.FilterMessage(msg).All()
+	if len(entries) != expected {
+		t.Fatalf("expected %d %s logs, got %d", expected, msg, len(entries))
+	}
+	ctx := entries[0].ContextMap()
+	for _, k := range []string{"address", "role", "duration_ms", "error"} {
+		if _, ok := ctx[k]; !ok {
+			t.Fatalf("expected field %q in %s log", k, msg)
+		}
+	}
+}
+
 func TestH2TransportHandshake(t *testing.T) {
 	core, logs := observer.New(zap.InfoLevel)
-	trIface, _ := New(transport.Config{Logger: zap.New(core)})
+	trIface, err := New(transport.Config{Logger: zap.New(core)})
+	if err != nil {
+		t.Fatalf("new transport: %v", err)
+	}
 	tr := trIface.(*Transport)
 	ctx := context.Background()
 	ln, err := tr.Listen(ctx, "127.0.0.1:0")
@@ -59,25 +75,20 @@ func TestH2TransportHandshake(t *testing.T) {
 	conn.Close()
 	<-done
 
-	dialLogs := logs.FilterMessage("dial").All()
-	if len(dialLogs) != 1 {
-		t.Fatalf("expected one dial log, got %d", len(dialLogs))
-	}
-	if _, ok := dialLogs[0].ContextMap()["address"].(string); !ok {
-		t.Fatalf("expected snake_case field 'address' in dial log")
-	}
-	listenLogs := logs.FilterMessage("listen").All()
-	if len(listenLogs) != 1 {
-		t.Fatalf("expected one listen log, got %d", len(listenLogs))
-	}
-	if _, ok := listenLogs[0].ContextMap()["address"].(string); !ok {
-		t.Fatalf("expected snake_case field 'address' in listen log")
-	}
+	checkLogFields(t, logs, "dial_start", 1)
+	checkLogFields(t, logs, "dial_end", 1)
+	checkLogFields(t, logs, "listen_start", 1)
+	checkLogFields(t, logs, "listen_end", 1)
+	checkLogFields(t, logs, "negotiate_start", 2)
+	checkLogFields(t, logs, "negotiate_end", 2)
 }
 
 func TestH2TransportHandshakeError(t *testing.T) {
 	core, logs := observer.New(zap.InfoLevel)
-	trIface, _ := New(transport.Config{Logger: zap.New(core)})
+	trIface, err := New(transport.Config{Logger: zap.New(core)})
+	if err != nil {
+		t.Fatalf("new transport: %v", err)
+	}
 	tr := trIface.(*Transport)
 	ctx := context.Background()
 	ln, err := tr.Listen(ctx, "127.0.0.1:0")
@@ -93,7 +104,6 @@ func TestH2TransportHandshakeError(t *testing.T) {
 			t.Errorf("accept: %v", err)
 			return
 		}
-		// send invalid handshake to trigger failure
 		conn.Write([]byte("bad\n"))
 		conn.Close()
 		close(done)
@@ -109,18 +119,16 @@ func TestH2TransportHandshakeError(t *testing.T) {
 	conn.Close()
 	<-done
 
-	dialLogs := logs.FilterMessage("dial").All()
-	if len(dialLogs) != 1 {
-		t.Fatalf("expected one dial log, got %d", len(dialLogs))
-	}
-	if _, ok := dialLogs[0].ContextMap()["address"].(string); !ok {
-		t.Fatalf("expected snake_case field 'address' in dial log")
-	}
-	listenLogs := logs.FilterMessage("listen").All()
-	if len(listenLogs) != 1 {
-		t.Fatalf("expected one listen log, got %d", len(listenLogs))
-	}
-	if _, ok := listenLogs[0].ContextMap()["address"].(string); !ok {
-		t.Fatalf("expected snake_case field 'address' in listen log")
+	checkLogFields(t, logs, "dial_start", 1)
+	checkLogFields(t, logs, "dial_end", 1)
+	checkLogFields(t, logs, "listen_start", 1)
+	checkLogFields(t, logs, "listen_end", 1)
+	checkLogFields(t, logs, "negotiate_start", 1)
+	checkLogFields(t, logs, "negotiate_end", 1)
+}
+
+func TestH2TransportRequiresLogger(t *testing.T) {
+	if _, err := New(transport.Config{}); err == nil {
+		t.Fatalf("expected error when logger is nil")
 	}
 }

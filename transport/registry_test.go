@@ -22,13 +22,14 @@ func TestConcurrentRegister(t *testing.T) {
 		}(i)
 	}
 	wg.Wait()
+	logger := zap.NewNop()
 	for i := 0; i < goroutines; i++ {
 		name := fmt.Sprintf("test-%d", i)
-		if _, err := Get(name, Config{Logger: zap.NewNop()}); err != nil {
+		if _, err := Get(name, Config{Logger: logger}); err != nil {
 			t.Errorf("get %s: %v", name, err)
 		}
-		logger.Sync()
 	}
+	logger.Sync()
 }
 
 func TestDuplicateRegister(t *testing.T) {
