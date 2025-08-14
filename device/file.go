@@ -56,4 +56,4 @@ func (d *FileDevice) Close() error { return d.f.Close() }
 func (d *FileDevice) Snapshot(context.Context, string) (Device, error) { return d, nil }
 
 // Cleanup is a no-op for regular files.
-func (d *FileDevice) Cleanup(context.Context) error { return nil }
+func (d *FileDevice) Cleanup(context.Context, string, []string) error { return nil }
