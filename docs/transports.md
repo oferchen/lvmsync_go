@@ -5,6 +5,11 @@ Transports are tried in order until a connection is established.
 
 Default order: `quic,h2,tcp+tls,ssh`.
 
+Each transport begins with a protocol handshake exchanging supported features.
+The handshake now includes a resume token (`resume:<token>`) to continue
+interrupted sessions and a maximum in-flight hint (`inflight:<n>`) to negotiate
+concurrency.
+
 ## QUIC
 
 - Uses [quic-go](https://github.com/quic-go/quic-go)

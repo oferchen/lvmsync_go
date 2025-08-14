@@ -43,6 +43,7 @@ type Config struct {
 	NumaPin              bool          `mapstructure:"numa_pin"`
 	MaxRetries           int           `mapstructure:"max_retries"`
 	ResumeState          string        `mapstructure:"resume"`
+	ResumeToken          string        `mapstructure:"resume_token"`
 	DeviceUUID           string        `mapstructure:"device_uuid"`
 	SSHHost              string        `mapstructure:"ssh_host"`
 	SSHUser              string        `mapstructure:"ssh_user"`
@@ -157,6 +158,7 @@ func DefaultConfig() (*Config, error) {
 		NumaPin:              false,
 		MaxRetries:           3,
 		ResumeState:          "",
+		ResumeToken:          "",
 		DeviceUUID:           "",
 		SSHHost:              "localhost",
 		SSHUser:              "root",

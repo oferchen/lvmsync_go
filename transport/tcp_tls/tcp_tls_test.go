@@ -54,9 +54,13 @@ func TestTCPTLSTransportHandshake(t *testing.T) {
 			t.Errorf("accept: %v", err)
 			return
 		}
-		if _, err := tr.Negotiate(ctx, conn, transport.Server, common.Handshake{}); err != nil {
+		peerHS, err := tr.Negotiate(ctx, conn, transport.Server, common.Handshake{ResumeToken: "tok", MaxInFlight: 8})
+		if err != nil {
 			t.Errorf("server negotiate: %v", err)
 			return
+		}
+		if peerHS.ResumeToken != "tok" || peerHS.MaxInFlight != 8 {
+			t.Errorf("unexpected peer handshake: %+v", peerHS)
 		}
 		buf := make([]byte, 4)
 		io.ReadFull(conn, buf)
@@ -69,8 +73,12 @@ func TestTCPTLSTransportHandshake(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
-	if _, err := tr.Negotiate(ctx, conn, transport.Client, common.Handshake{}); err != nil {
+	peerHS, err := tr.Negotiate(ctx, conn, transport.Client, common.Handshake{ResumeToken: "tok", MaxInFlight: 8})
+	if err != nil {
 		t.Fatalf("client negotiate: %v", err)
+	}
+	if peerHS.ResumeToken != "tok" || peerHS.MaxInFlight != 8 {
+		t.Fatalf("unexpected peer handshake: %+v", peerHS)
 	}
 	if _, err := conn.Write([]byte("ping")); err != nil {
 		t.Fatalf("write: %v", err)
