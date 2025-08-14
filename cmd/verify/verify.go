@@ -33,11 +33,6 @@ func Run(args []string, logger *zap.Logger) error {
 			}
 			flagSets := config.NewFlagSets(defaults)
 			fs := pflag.NewFlagSet("verify", pflag.ContinueOnError)
-			for _, set := range flagSets.All() {
-				fs.AddFlagSet(set)
-			}
-			var manifest string
-			fs.StringVar(&manifest, "manifest", "", "Manifest file providing range hints")
 			cfg, remaining, err := config.LoadConfig(flagSets, defaults, fs, argv)
 			if err != nil {
 				return err
@@ -59,7 +54,7 @@ func Run(args []string, logger *zap.Logger) error {
 				logger.Info("dry run", zap.Int64("size_bytes", size), zap.Duration("eta", eta))
 				return nil
 			}
-			return verifyDevices(cfg, remaining[0], remaining[1], manifest, logger)
+			return verifyDevices(cfg, remaining[0], remaining[1], cfg.ManifestPath, logger)
 		},
 	}
 	cmd.SetArgs(args)

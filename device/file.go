@@ -1,6 +1,7 @@
 package device
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -50,3 +51,9 @@ func (d *FileDevice) BlockSize() uint64 { return d.blockSize }
 
 // Close closes the underlying file descriptor.
 func (d *FileDevice) Close() error { return d.f.Close() }
+
+// Snapshot returns the device itself for regular files.
+func (d *FileDevice) Snapshot(context.Context) (Device, error) { return d, nil }
+
+// Cleanup is a no-op for regular files.
+func (d *FileDevice) Cleanup(context.Context) error { return nil }

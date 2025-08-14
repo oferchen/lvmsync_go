@@ -135,8 +135,8 @@ func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport
 		if err != nil {
 			return peer, err
 		}
-		if peer.Endianness != "" && peer.Endianness != hs.Endianness {
-			return peer, fmt.Errorf("endianness mismatch: %s", peer.Endianness)
+		if err := common.ValidateHandshake(hs, peer); err != nil {
+			return peer, err
 		}
 		return peer, nil
 	case transport.Server:
@@ -144,8 +144,8 @@ func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport
 		if err != nil {
 			return peer, err
 		}
-		if peer.Endianness != "" && peer.Endianness != hs.Endianness {
-			return peer, fmt.Errorf("endianness mismatch: %s", peer.Endianness)
+		if err := common.ValidateHandshake(hs, peer); err != nil {
+			return peer, err
 		}
 		if err = common.WriteHandshake(conn, hs); err != nil {
 			return peer, err

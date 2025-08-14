@@ -50,7 +50,7 @@ lvmsync manifest rebuild /dev/vg0/lv0
 Use a manifest to verify that a source and destination match:
 
 ```sh
-lvmsync verify /dev/vg0/snap0 /mnt/backup
+lvmsync verify --manifest snapshot.manifest /dev/vg0/snap0 /dev/null
 ```
 
 ### Flags
