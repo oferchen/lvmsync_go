@@ -194,6 +194,6 @@ func estimateTransfer(src string, cfg *config.Config, logger *zap.Logger) error 
 	if cfg.SpeedLimit > 0 {
 		eta = time.Duration(est/int64(cfg.SpeedLimit)) * time.Second
 	}
-	logger.Info("dry run", zap.Int64("size_bytes", size), zap.Int("sampled_blocks", samples), zap.Int("changed_blocks", changed), zap.Int64("estimated_tx_bytes", est), zap.Duration("eta", eta))
+	logger.Info("dry run", zap.Int64("size_bytes", size), zap.Duration("eta", eta))
 	return nil
 }
