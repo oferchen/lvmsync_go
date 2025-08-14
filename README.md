@@ -491,7 +491,9 @@ lvmsync run --config config.yaml /dev/vg0/snap0 /mnt/backup
 ## Transport Registry
 
 Transport selection is controlled by the `--transport` flag, which accepts a comma-separated ordered list of
-transports to attempt (for example `quic,h2,tcp+tls,ssh`). The flags below configure transport behavior.
+transports to attempt (for example `quic,h2,tcp+tls,ssh`). The `quic` transport runs over TLS 1.3 with mutual
+authentication, negotiates the `lvmsync` ALPN, and exposes both bidirectional streams and datagrams. Provide
+certificates via `--tls_cert`, `--tls_key`, and `--ca_cert`. The flags below configure transport behavior.
 
 ### Flags and environment variables
 
@@ -511,6 +513,14 @@ transports to attempt (for example `quic,h2,tcp+tls,ssh`). The flags below confi
 | `--tcp_lowat` | `LVMSYNC_TCP_LOWAT` | TCP_NOTSENT_LOWAT in bytes | n/a |
 
 ### Usage examples
+
+**QUIC**
+
+```sh
+lvmsync run --transport quic --tls_cert cert.pem --tls_key key.pem --ca_cert ca.pem
+# or
+LVMSYNC_TRANSPORT_TRANSPORT=quic LVMSYNC_TLS_CERT=cert.pem LVMSYNC_TLS_KEY=key.pem LVMSYNC_CA_CERT=ca.pem lvmsync run
+```
 
 **TCP+TLS**
 
