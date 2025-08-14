@@ -348,7 +348,7 @@ If `--ssh_key` is empty, lvmsync contacts the SSH agent referenced by `SSH_AUTH_
 | `--volume_group` | `LVMSYNC_VOLUME_GROUP` | `volume_group` | Source volume group; derived from the source device path when empty |
 | `--target_volume_group` | `LVMSYNC_TARGET_VOLUME_GROUP` | `target_volume_group` | Volume group name of the target LVM volume |
 | `--target_vgs` | `LVMSYNC_TARGET_VGS` | `target_vgs` | Candidate target volume groups for auto-selection |
-  | `--dry_run` | `LVMSYNC_DRY_RUN` | `dry_run` | Print actions without executing |
+| `--dry-run` | `LVMSYNC_DRY_RUN` | `dry_run` | Print actions without executing |
 | `--transport` | `LVMSYNC_TRANSPORT_TRANSPORT` | `transport` | Ordered transports to try (e.g., `quic,h2,tcp+tls,ssh`) |
 | `--tcp_port` | `LVMSYNC_TRANSPORT_TCP_PORT` | `tcp_port` | TCP+TLS port |
 | `--tcp_parallel` | `LVMSYNC_TRANSPORT_TCP_PARALLEL` | `tcp_parallel` | Number of parallel TCP connections |
@@ -716,10 +716,10 @@ journalctl -u lvmsync-grpcd
 ### Basic Syntax
 
 ```sh
-lvmsync run [--dry_run] [--transport quic,h2,tcp+tls,ssh] <snapshot|lvm device> <destination>
+lvmsync run [--dry-run] [--transport quic,h2,tcp+tls,ssh] <snapshot|lvm device> <destination>
 ```
 
-The tool supports both local and remote transfers, as well as an "apply mode" for applying change dumps. Use `--dry_run` to print planned actions without executing and `--transport` to provide an ordered list of transports to try.
+The tool supports both local and remote transfers, as well as an "apply mode" for applying change dumps. Use `--dry-run` to print planned actions without executing and `--transport` to provide an ordered list of transports to try.
 
 ## Resume, Manifest, and Verify
 
@@ -741,9 +741,13 @@ Verify that a source and destination match:
 lvmsync verify /dev/vg0/source /dev/vg1/target
 ```
 
-Supply options such as block size or deduplication mode to control how data is
-compared. For example, to verify using 4 KiB blocks and a manifest generated
-earlier:
+Supply options such as block size or deduplication mode to control how data is compared. For example, to estimate verification without reading data:
+
+```sh
+lvmsync verify --dry-run /dev/vg0/source /dev/vg1/target
+```
+
+To verify using 4 KiB blocks and a manifest generated earlier:
 
 ```sh
 lvmsync verify --block_size 4K --manifest snapshot.manifest /dev/vg0/source /dev/vg1/target
@@ -770,7 +774,7 @@ Flags are parsed via Viper, so the same settings can be provided through
 | `--verify_checksum` | Enable checksum verification for data integrity                                                         | `false`   |
 | `--progress`        | Show progress percentage during the transfer                                                            | `true`    |
 | `--block_size`      | Block size for data transfer (e.g., `"4K"`, `"64K"`, `"512K"`, `"1M"`), use `0` for automatic detection | `"4K"`    |
-| `--dry_run`         | Print actions without executing | `false`   |
+| `--dry-run`         | Print actions without executing | `false`   |
 | `--transport`       | Ordered transports to try (e.g., `quic,h2,tcp+tls,ssh`) | `""`      |
 
 #### SSH Options

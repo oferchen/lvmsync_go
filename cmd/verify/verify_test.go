@@ -48,6 +48,29 @@ func TestVerifyMismatch(t *testing.T) {
 	}
 }
 
+func TestVerifyDryRun(t *testing.T) {
+	srcData := []byte{1}
+	dstData := []byte{2}
+	src := writeTempFile(t, srcData)
+	dst := writeTempFile(t, dstData)
+	core, logs := observer.New(zap.InfoLevel)
+	logger := zap.New(core)
+	if err := Run([]string{"--dry-run", src, dst}, logger); err != nil {
+		t.Fatalf("dry run verify: %v", err)
+	}
+	entries := logs.All()
+	found := false
+	for _, e := range entries {
+		if e.Message == "dry run" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected dry run log entry")
+	}
+}
+
 func TestVerifyManifestMismatch(t *testing.T) {
 	srcData := make([]byte, 4096)
 	srcData[0] = 1
