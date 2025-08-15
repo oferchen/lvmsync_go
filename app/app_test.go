@@ -141,7 +141,7 @@ func TestClientHandshakeSuccess(t *testing.T) {
 		createSession = origCreateSession
 		ackStream = origAckStream
 	}()
-	dial = func(context.Context, string, grpcclient.Config) (closeableConn, error) { return fc, nil }
+	dial = func(context.Context, string, grpcclient.Config, *zap.Logger) (closeableConn, error) { return fc, nil }
 	handshake = func(context.Context, proto.ReplicationClient, *proto.HandshakeRequest) (*proto.HandshakeResponse, error) {
 		return &proto.HandshakeResponse{}, nil
 	}
@@ -168,7 +168,7 @@ func TestClientHandshakeDialError(t *testing.T) {
 	logger := zap.NewNop()
 	origDial := dial
 	defer func() { dial = origDial }()
-	dial = func(context.Context, string, grpcclient.Config) (closeableConn, error) {
+	dial = func(context.Context, string, grpcclient.Config, *zap.Logger) (closeableConn, error) {
 		return nil, errors.New("dial fail")
 	}
 
@@ -193,7 +193,7 @@ func TestClientHandshakeHeartbeatFailure(t *testing.T) {
 		createSession = origCreateSession
 		ackStream = origAckStream
 	}()
-	dial = func(ctx context.Context, addr string, conf grpcclient.Config) (closeableConn, error) {
+	dial = func(ctx context.Context, addr string, conf grpcclient.Config, logger *zap.Logger) (closeableConn, error) {
 		return fc, nil
 	}
 	handshake = func(context.Context, proto.ReplicationClient, *proto.HandshakeRequest) (*proto.HandshakeResponse, error) {
@@ -236,7 +236,7 @@ func TestClientHandshakeHeartbeatTimeout(t *testing.T) {
 		createSession = origCreateSession
 		ackStream = origAckStream
 	}()
-	dial = func(ctx context.Context, addr string, conf grpcclient.Config) (closeableConn, error) {
+	dial = func(ctx context.Context, addr string, conf grpcclient.Config, logger *zap.Logger) (closeableConn, error) {
 		return fc, nil
 	}
 	handshake = func(context.Context, proto.ReplicationClient, *proto.HandshakeRequest) (*proto.HandshakeResponse, error) {

@@ -42,6 +42,11 @@ func (c *Config) ValidateWith(geteuid func() int) error {
 	if c.TCPNotSentLowAt < 0 {
 		return fmt.Errorf("tcp_lowat must be >= 0")
 	}
+	if c.CDCMin > 0 && c.CDCAvg > 0 && c.CDCMax > 0 {
+		if !(c.CDCMin <= c.CDCAvg && c.CDCAvg <= c.CDCMax) {
+			return fmt.Errorf("invalid cdc ordering: min %d avg %d max %d", c.CDCMin, c.CDCAvg, c.CDCMax)
+		}
+	}
 	if c.VolumeGroup != "" {
 		ctx, cancel := context.WithTimeout(context.Background(), c.LVMTimeout)
 		defer cancel()

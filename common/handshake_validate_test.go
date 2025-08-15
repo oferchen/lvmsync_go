@@ -60,3 +60,12 @@ func TestValidateHandshakeTLSVersionMismatch(t *testing.T) {
 		t.Fatal("expected tls version mismatch error")
 	}
 }
+
+func TestValidateHandshakeTransportMismatch(t *testing.T) {
+	local := Handshake{Transport: "quic"}
+	peer := local
+	peer.Transport = "h2"
+	if err := ValidateHandshake(local, peer); err == nil {
+		t.Fatal("expected transport mismatch error")
+	}
+}

@@ -1,9 +1,11 @@
 package verify
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -69,9 +71,16 @@ func Run(args []string, logger *zap.Logger) error {
 
 func verifyDevices(cfg *config.Config, src, dst, manifest string, logger *zap.Logger) error {
 	if manifest != "" {
-		return verifyWithManifest(src, manifest, logger)
+		return verifyWithManifest(cfg, src, manifest, logger)
 	}
 	return verifyFull(cfg, src, dst, logger)
+}
+
+func digestFunc(cfg *config.Config) func([]byte) [32]byte {
+	if strings.ToLower(cfg.ChecksumAlgorithm) == "sha256" {
+		return sha256.Sum256
+	}
+	return blake3.Sum256
 }
 
 func verifyFull(cfg *config.Config, src, dst string, logger *zap.Logger) error {
@@ -107,6 +116,7 @@ func verifyFull(cfg *config.Config, src, dst string, logger *zap.Logger) error {
 	mismatches := 0
 	bufSrc := make([]byte, blockSize)
 	bufDst := make([]byte, blockSize)
+	digest := digestFunc(cfg)
 	for off := int64(0); off < total; off += int64(blockSize) {
 		size := blockSize
 		if remaining := int(total - off); remaining < size {
@@ -118,7 +128,7 @@ func verifyFull(cfg *config.Config, src, dst string, logger *zap.Logger) error {
 		if err := transfer.ReadBlockInto(fDst, off, bufDst[:size]); err != nil && err != io.EOF {
 			return fmt.Errorf("read dest: %w", err)
 		}
-		if blake3.Sum256(bufSrc[:size]) != blake3.Sum256(bufDst[:size]) {
+		if digest(bufSrc[:size]) != digest(bufDst[:size]) {
 			mismatches++
 			logger.Error("mismatched_block", zap.Int64("offset_bytes", off))
 		}
@@ -130,7 +140,7 @@ func verifyFull(cfg *config.Config, src, dst string, logger *zap.Logger) error {
 	return nil
 }
 
-func verifyWithManifest(src, manifestPath string, logger *zap.Logger) error {
+func verifyWithManifest(cfg *config.Config, src, manifestPath string, logger *zap.Logger) error {
 	idx, err := manifest.Open(manifestPath)
 	if err != nil {
 		return fmt.Errorf("open manifest: %w", err)
@@ -144,6 +154,7 @@ func verifyWithManifest(src, manifestPath string, logger *zap.Logger) error {
 
 	mismatches := 0
 	buf := make([]byte, 0)
+	hash := digestFunc(cfg)
 	for i := uint64(0); i < idx.ChunkCount(); i++ {
 		off, length, _, digest, err := idx.Entry(i)
 		if err != nil {
@@ -159,7 +170,7 @@ func verifyWithManifest(src, manifestPath string, logger *zap.Logger) error {
 		if _, err := fSrc.ReadAt(buf, int64(off)); err != nil {
 			return fmt.Errorf("read source: %w", err)
 		}
-		actual := blake3.Sum256(buf)
+		actual := hash(buf)
 		if actual != digest {
 			mismatches++
 			logger.Error("digest_mismatch",

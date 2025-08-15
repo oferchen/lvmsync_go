@@ -1,8 +1,11 @@
 package hash
 
 import (
+	"bytes"
 	"encoding/hex"
 	"testing"
+
+	"github.com/zeebo/blake3"
 
 	cpufeatures "lvmsync_go/internal/cpufeatures"
 )
@@ -55,5 +58,93 @@ func BenchmarkSumBLAKE3(b *testing.B) {
 func TestHasSIMD(t *testing.T) {
 	if HasSIMD() != cpufeatures.HasSIMD() {
 		t.Fatalf("HasSIMD mismatch")
+	}
+}
+
+func TestBlake3Hasher_Unkeyed(t *testing.T) {
+	h, err := NewBlake3Hasher(nil)
+	if err != nil {
+		t.Fatalf("NewBlake3Hasher: %v", err)
+	}
+	input1 := []byte("hello")
+	if n, err := h.Write(input1); err != nil || n != len(input1) {
+		t.Fatalf("Write(%q) = %d, %v", input1, n, err)
+	}
+	got1 := h.Sum256()
+	want1 := blake3.Sum256(input1)
+	if got1 != want1 {
+		t.Fatalf("Sum256(%q) = %x want %x", input1, got1, want1)
+	}
+	input2 := []byte("world")
+	if _, err := h.Write(input2); err != nil {
+		t.Fatalf("Write(%q) err: %v", input2, err)
+	}
+	got2 := h.Sum256()
+	want2 := blake3.Sum256(input2)
+	if got2 != want2 {
+		t.Fatalf("Sum256 reset failed: got %x want %x", got2, want2)
+	}
+}
+
+func TestBlake3Hasher_Keyed(t *testing.T) {
+	key := []byte("01234567890123456789012345678901")
+	h, err := NewBlake3Hasher(key)
+	if err != nil {
+		t.Fatalf("NewBlake3Hasher keyed: %v", err)
+	}
+	data := []byte("data")
+	if _, err := h.Write(data); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	got := h.Sum256()
+	k, err := blake3.NewKeyed(key)
+	if err != nil {
+		t.Fatalf("NewKeyed: %v", err)
+	}
+	k.Write(data)
+	want := k.Sum(nil)
+	if !bytes.Equal(got[:], want) {
+		t.Fatalf("keyed digest mismatch: got %x want %x", got, want)
+	}
+	unkeyed := blake3.Sum256(data)
+	if bytes.Equal(got[:], unkeyed[:]) {
+		t.Fatalf("keyed digest should differ from unkeyed")
+	}
+}
+
+func TestBlake3Hasher_Reset(t *testing.T) {
+	h, err := NewBlake3Hasher(nil)
+	if err != nil {
+		t.Fatalf("NewBlake3Hasher: %v", err)
+	}
+	if _, err := h.Write([]byte("foo")); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	h.Reset()
+	if _, err := h.Write([]byte("bar")); err != nil {
+		t.Fatalf("Write after reset: %v", err)
+	}
+	got := h.Sum256()
+	want := blake3.Sum256([]byte("bar"))
+	if got != want {
+		t.Fatalf("Reset failed: got %x want %x", got, want)
+	}
+}
+
+func TestBlake3Hasher_Digest(t *testing.T) {
+	h, err := NewBlake3Hasher(nil)
+	if err != nil {
+		t.Fatalf("NewBlake3Hasher: %v", err)
+	}
+	d := h.Digest()
+	d.Write([]byte("first"))
+	want1 := blake3.Sum256([]byte("first"))
+	if got := h.Sum256(); got != want1 {
+		t.Fatalf("Digest write not reflected: got %x want %x", got, want1)
+	}
+	d.Write([]byte("second"))
+	want2 := blake3.Sum256([]byte("second"))
+	if got := h.Sum256(); got != want2 {
+		t.Fatalf("Digest not reset: got %x want %x", got, want2)
 	}
 }

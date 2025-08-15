@@ -50,7 +50,12 @@ func New(conf Config, a lvmagent.Agent, logger *zap.Logger) (*grpc.Server, func(
 		opts = append(opts, grpc.KeepaliveParams(params))
 	}
 
-	if !conf.AllowInsecure {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+	if conf.AllowInsecure {
+		logger.Warn("allow_insecure_enabled", zap.String("component", "grpc_server"))
+	} else {
 		if conf.TLSCert == "" || conf.TLSKey == "" || conf.CACert == "" {
 			return nil, nil, fmt.Errorf("TLSCert, TLSKey, and CACert must be provided when AllowInsecure is false")
 		}
@@ -74,10 +79,6 @@ func New(conf Config, a lvmagent.Agent, logger *zap.Logger) (*grpc.Server, func(
 			MaxVersion:   tls.VersionTLS13,
 		}
 		opts = append(opts, grpc.Creds(credentials.NewTLS(tlsCfg)))
-	}
-
-	if logger == nil {
-		logger = zap.NewNop()
 	}
 
 	srv := grpc.NewServer(opts...)
