@@ -164,56 +164,59 @@ func Open(path string) (*Index, error) {
 	return idx, nil
 }
 
-func entryOffset(i int) int { return headerSize + i*entrySize }
+func entryOffset(i uint64) uint64 { return uint64(headerSize) + i*entrySize }
 
 // Set records metadata for the chunk at the given offset.
 func (i *Index) Set(offset uint64, length uint32, xxh uint64, digest [32]byte) {
-	idx := int(offset / uint64(i.hdr.BlockSize))
+	idx := offset / uint64(i.hdr.BlockSize)
 	off := entryOffset(idx)
-	binary.LittleEndian.PutUint64(i.data[off:off+8], offset)
-	binary.LittleEndian.PutUint32(i.data[off+8:off+12], length)
-	// 4 bytes padding at off+12:off+16
-	binary.LittleEndian.PutUint64(i.data[off+16:off+24], xxh)
-	copy(i.data[off+24:off+56], digest[:])
+	start := int(off)
+	binary.LittleEndian.PutUint64(i.data[start:start+8], offset)
+	binary.LittleEndian.PutUint32(i.data[start+8:start+12], length)
+	// 4 bytes padding at start+12:start+16
+	binary.LittleEndian.PutUint64(i.data[start+16:start+24], xxh)
+	copy(i.data[start+24:start+56], digest[:])
 }
 
 // Match reports whether the manifest already has a record for the chunk at the
 // given offset and length. The provided digestFn is invoked to compute the
 // BLAKE3 digest only if the stored XXH3 hash matches the supplied xxh.
 func (i *Index) Match(offset uint64, length uint32, xxh uint64, digestFn func() [32]byte) bool {
-	idx := int(offset / uint64(i.hdr.BlockSize))
-	if idx < 0 || idx >= int(i.hdr.ChunkCount) {
+	idx := offset / uint64(i.hdr.BlockSize)
+	if idx >= i.hdr.ChunkCount {
 		return false
 	}
 	off := entryOffset(idx)
-	storedOffset := binary.LittleEndian.Uint64(i.data[off : off+8])
-	storedLen := binary.LittleEndian.Uint32(i.data[off+8 : off+12])
+	start := int(off)
+	storedOffset := binary.LittleEndian.Uint64(i.data[start : start+8])
+	storedLen := binary.LittleEndian.Uint32(i.data[start+8 : start+12])
 	if storedLen == 0 {
 		return false
 	}
 	if storedOffset != offset || storedLen != length {
 		return false
 	}
-	storedXXH := binary.LittleEndian.Uint64(i.data[off+16 : off+24])
+	storedXXH := binary.LittleEndian.Uint64(i.data[start+16 : start+24])
 	if storedXXH != xxh {
 		return false
 	}
 	digest := digestFn()
-	return bytes.Equal(i.data[off+24:off+56], digest[:])
+	return bytes.Equal(i.data[start+24:start+56], digest[:])
 }
 
 // Entry returns metadata for the chunk at idx.
-func (i *Index) Entry(idx int) (offset uint64, length uint32, xxh uint64, digest [32]byte) {
+func (i *Index) Entry(idx uint64) (offset uint64, length uint32, xxh uint64, digest [32]byte) {
 	off := entryOffset(idx)
-	offset = binary.LittleEndian.Uint64(i.data[off : off+8])
-	length = binary.LittleEndian.Uint32(i.data[off+8 : off+12])
-	xxh = binary.LittleEndian.Uint64(i.data[off+16 : off+24])
-	copy(digest[:], i.data[off+24:off+56])
+	start := int(off)
+	offset = binary.LittleEndian.Uint64(i.data[start : start+8])
+	length = binary.LittleEndian.Uint32(i.data[start+8 : start+12])
+	xxh = binary.LittleEndian.Uint64(i.data[start+16 : start+24])
+	copy(digest[:], i.data[start+24:start+56])
 	return
 }
 
 // ChunkCount returns the number of chunks tracked by the manifest.
-func (i *Index) ChunkCount() int { return int(i.hdr.ChunkCount) }
+func (i *Index) ChunkCount() uint64 { return i.hdr.ChunkCount }
 
 // Rebuild creates a manifest index for device at output path.
 // DeviceID is determined via device.GetUUID. The device is read sequentially using blockSize-sized chunks.

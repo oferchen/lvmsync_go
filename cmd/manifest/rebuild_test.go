@@ -39,16 +39,17 @@ func TestRunDefaultOutputPath(t *testing.T) {
 		t.Fatalf("manifest not created at %s: %v", outPath, err)
 	}
 
-	if logs.FilterMessage("rebuilding manifest").Len() != 1 {
-		t.Fatalf("expected rebuilding manifest log, got %d entries", logs.FilterMessage("rebuilding manifest").Len())
+	rebuildLogs := logs.FilterMessage("rebuilding manifest").All()
+	if len(rebuildLogs) != 1 {
+		t.Fatalf("expected 1 rebuilding log, got %d", len(rebuildLogs))
 	}
-	entry := logs.FilterMessage("rebuilding manifest").All()[0]
-	ctx := entry.ContextMap()
+	ctx := rebuildLogs[0].ContextMap()
 	if ctx["device"] != devicePath || ctx["output"] != outPath {
 		t.Fatalf("unexpected log fields: %v", ctx)
 	}
-	if logs.FilterMessage("rebuild complete").Len() != 1 {
-		t.Fatalf("expected rebuild complete log")
+	completeLogs := logs.FilterMessage("rebuild complete").All()
+	if len(completeLogs) != 1 {
+		t.Fatalf("expected 1 complete log, got %d", len(completeLogs))
 	}
 }
 
@@ -82,16 +83,17 @@ func TestRunManifestPathFlag(t *testing.T) {
 		t.Fatalf("unexpected manifest at default path")
 	}
 
-	if logs.FilterMessage("rebuilding manifest").Len() != 1 {
-		t.Fatalf("expected rebuilding manifest log, got %d entries", logs.FilterMessage("rebuilding manifest").Len())
+	rebuildLogs := logs.FilterMessage("rebuilding manifest").All()
+	if len(rebuildLogs) != 1 {
+		t.Fatalf("expected 1 rebuilding log, got %d", len(rebuildLogs))
 	}
-	entry := logs.FilterMessage("rebuilding manifest").All()[0]
-	ctx := entry.ContextMap()
+	ctx := rebuildLogs[0].ContextMap()
 	if ctx["device"] != devicePath || ctx["output"] != outputPath {
 		t.Fatalf("unexpected log fields: %v", ctx)
 	}
-	if logs.FilterMessage("rebuild complete").Len() != 1 {
-		t.Fatalf("expected rebuild complete log")
+	completeLogs := logs.FilterMessage("rebuild complete").All()
+	if len(completeLogs) != 1 {
+		t.Fatalf("expected 1 complete log, got %d", len(completeLogs))
 	}
 }
 

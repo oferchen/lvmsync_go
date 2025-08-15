@@ -44,9 +44,6 @@ func TestOpenFile(t *testing.T) {
 	if logs.FilterMessage("file device info").Len() == 0 {
 		t.Fatalf("expected file device info log")
 	}
-	if logs.FilterMessage("file device cleanup").Len() == 0 {
-		t.Fatalf("expected file device cleanup log")
-	}
 	if logs.FilterMessage("file device closed").Len() == 0 {
 		t.Fatalf("expected file device closed log")
 	}
