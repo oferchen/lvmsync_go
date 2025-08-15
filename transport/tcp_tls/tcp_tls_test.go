@@ -444,6 +444,20 @@ func TestTCPTLSNegotiateContextCancel(t *testing.T) {
 	}
 }
 
+func TestTCPTLSTransportAllowInsecureWarn(t *testing.T) {
+	core, obs := observer.New(zap.WarnLevel)
+	if _, err := New(transport.Config{Logger: zap.New(core), AllowInsecure: true}); err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	entries := obs.FilterMessage("allow_insecure_enabled").All()
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 warning log, got %d", len(entries))
+	}
+	if tr := entries[0].ContextMap()["transport"]; tr != "tcp+tls" {
+		t.Fatalf("unexpected transport %v", tr)
+	}
+}
+
 func TestTCPTLSTransportRequiresLogger(t *testing.T) {
 	cert, root := generateSelfSignedCert(t)
 	if _, err := New(transport.Config{Roots: root, ClientCert: cert}); err == nil {

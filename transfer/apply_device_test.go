@@ -5,6 +5,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 
@@ -37,14 +38,39 @@ func TestProcessDumpDataUUIDMismatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create dest: %v", err)
 	}
+	sentinel := []byte("original")
+	if _, err := f.Write(sentinel); err != nil {
+		t.Fatalf("write sentinel: %v", err)
+	}
 	if err := f.Truncate(1024); err != nil {
 		t.Fatalf("truncate: %v", err)
 	}
 	f.Close()
+	before, err := os.Stat(dest)
+	if err != nil {
+		t.Fatalf("stat before: %v", err)
+	}
 
 	err = tr.ProcessDumpData(cfg, bytes.NewReader(minimalStream(t)), dest)
 	if err == nil {
 		t.Fatalf("expected error for uuid mismatch")
+	}
+	if !strings.Contains(err.Error(), "does not match expected") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	after, err := os.Stat(dest)
+	if err != nil {
+		t.Fatalf("stat after: %v", err)
+	}
+	if !after.ModTime().Equal(before.ModTime()) || after.Size() != before.Size() {
+		t.Fatalf("expected no writes to destination")
+	}
+	data, err := os.ReadFile(dest)
+	if err != nil {
+		t.Fatalf("read dest: %v", err)
+	}
+	if !bytes.HasPrefix(data, sentinel) {
+		t.Fatalf("destination modified")
 	}
 }
 
@@ -62,20 +88,52 @@ func TestProcessDumpDataMountedDevice(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create dest: %v", err)
 	}
+	sentinel := []byte("original")
+	if _, err := f.Write(sentinel); err != nil {
+		t.Fatalf("write sentinel: %v", err)
+	}
 	if err := f.Truncate(1024); err != nil {
 		t.Fatalf("truncate: %v", err)
 	}
 	f.Close()
+	before, err := os.Stat(dest)
+	if err != nil {
+		t.Fatalf("stat before: %v", err)
+	}
 
 	err = tr.ProcessDumpData(cfg, bytes.NewReader(minimalStream(t)), dest)
 	if err == nil {
 		t.Fatalf("expected error for mounted device")
+	}
+	if !strings.Contains(err.Error(), "mounted read-write") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	after, err := os.Stat(dest)
+	if err != nil {
+		t.Fatalf("stat after: %v", err)
+	}
+	if !after.ModTime().Equal(before.ModTime()) || after.Size() != before.Size() {
+		t.Fatalf("expected no writes to destination")
+	}
+	data, err := os.ReadFile(dest)
+	if err != nil {
+		t.Fatalf("read dest: %v", err)
+	}
+	if !bytes.HasPrefix(data, sentinel) {
+		t.Fatalf("destination modified")
 	}
 
 	cfg.Force = true
 	err = tr.ProcessDumpData(cfg, bytes.NewReader(minimalStream(t)), dest)
 	if err != nil {
 		t.Fatalf("unexpected error with force: %v", err)
+	}
+	data, err = os.ReadFile(dest)
+	if err != nil {
+		t.Fatalf("read dest: %v", err)
+	}
+	if !bytes.HasPrefix(data, sentinel) {
+		t.Fatalf("destination modified after force")
 	}
 }
 
@@ -93,14 +151,39 @@ func TestApplyDataUUIDMismatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create dest: %v", err)
 	}
+	sentinel := []byte("original")
+	if _, err := f.Write(sentinel); err != nil {
+		t.Fatalf("write sentinel: %v", err)
+	}
 	if err := f.Truncate(1024); err != nil {
 		t.Fatalf("truncate: %v", err)
 	}
 	f.Close()
+	before, err := os.Stat(dest)
+	if err != nil {
+		t.Fatalf("stat before: %v", err)
+	}
 
 	err = tr.applyData(cfg, bytes.NewReader(minimalStream(t)), dest)
 	if err == nil {
 		t.Fatalf("expected error for uuid mismatch")
+	}
+	if !strings.Contains(err.Error(), "does not match expected") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	after, err := os.Stat(dest)
+	if err != nil {
+		t.Fatalf("stat after: %v", err)
+	}
+	if !after.ModTime().Equal(before.ModTime()) || after.Size() != before.Size() {
+		t.Fatalf("expected no writes to destination")
+	}
+	data, err := os.ReadFile(dest)
+	if err != nil {
+		t.Fatalf("read dest: %v", err)
+	}
+	if !bytes.HasPrefix(data, sentinel) {
+		t.Fatalf("destination modified")
 	}
 }
 
@@ -118,13 +201,38 @@ func TestApplyDataMountedDevice(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create dest: %v", err)
 	}
+	sentinel := []byte("original")
+	if _, err := f.Write(sentinel); err != nil {
+		t.Fatalf("write sentinel: %v", err)
+	}
 	if err := f.Truncate(1024); err != nil {
 		t.Fatalf("truncate: %v", err)
 	}
 	f.Close()
+	before, err := os.Stat(dest)
+	if err != nil {
+		t.Fatalf("stat before: %v", err)
+	}
 
 	err = tr.applyData(cfg, bytes.NewReader(minimalStream(t)), dest)
 	if err == nil {
 		t.Fatalf("expected error for mounted device")
+	}
+	if !strings.Contains(err.Error(), "mounted read-write") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	after, err := os.Stat(dest)
+	if err != nil {
+		t.Fatalf("stat after: %v", err)
+	}
+	if !after.ModTime().Equal(before.ModTime()) || after.Size() != before.Size() {
+		t.Fatalf("expected no writes to destination")
+	}
+	data, err := os.ReadFile(dest)
+	if err != nil {
+		t.Fatalf("read dest: %v", err)
+	}
+	if !bytes.HasPrefix(data, sentinel) {
+		t.Fatalf("destination modified")
 	}
 }

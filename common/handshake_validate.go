@@ -47,6 +47,9 @@ func ValidateHandshake(local, peer Handshake) error {
 	if peer.MaxInFlight > 0 && local.MaxInFlight > 0 && peer.MaxInFlight != local.MaxInFlight {
 		return fmt.Errorf("max in-flight mismatch: %d", peer.MaxInFlight)
 	}
+	if peer.Transport != "" && local.Transport != "" && peer.Transport != local.Transport {
+		return fmt.Errorf("transport mismatch: %s", peer.Transport)
+	}
 	if peer.ALPN != "" && local.ALPN != "" && peer.ALPN != local.ALPN {
 		return fmt.Errorf("alpn mismatch: %s", peer.ALPN)
 	}
