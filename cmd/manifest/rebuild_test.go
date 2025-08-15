@@ -133,7 +133,7 @@ func TestRunMissingArgs(t *testing.T) {
 					t.Fatalf("expected failure for args %v", tc.args)
 				}
 			}()
-			runErr = Run(cfg, tc.args, zap.NewNop())
+			runErr = Run(cfg, tc.args, nil)
 			if runErr == nil {
 				t.Fatalf("expected failure for args %v", tc.args)
 			}
@@ -154,7 +154,7 @@ func TestRunAppliesManifestTimeout(t *testing.T) {
 		return nil
 	}
 	defer func() { rebuildFn = orig }()
-	if err := Run(cfg, []string{"rebuild", "/dev/test"}, zap.NewNop()); err != nil {
+	if err := Run(cfg, []string{"rebuild", "/dev/test"}, nil); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 	if _, ok := captured.Deadline(); !ok {
@@ -175,7 +175,7 @@ func TestRunZeroManifestTimeoutUsesBackground(t *testing.T) {
 		return nil
 	}
 	defer func() { rebuildFn = orig }()
-	if err := Run(cfg, []string{"rebuild", "/dev/test"}, zap.NewNop()); err != nil {
+	if err := Run(cfg, []string{"rebuild", "/dev/test"}, nil); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 	if _, ok := captured.Deadline(); ok {
@@ -184,34 +184,6 @@ func TestRunZeroManifestTimeoutUsesBackground(t *testing.T) {
 }
 
 func TestRunSyncsLoggerDryRun(t *testing.T) {
-	dir := t.TempDir()
-	devicePath := filepath.Join(dir, "dev.img")
-	if err := os.WriteFile(devicePath, []byte("data"), 0o600); err != nil {
-		t.Fatalf("write device: %v", err)
-	}
-
-	cfg, err := config.DefaultConfig()
-	if err != nil {
-		t.Fatalf("DefaultConfig: %v", err)
-	}
-	cfg.ManifestTimeout = 0
-	var captured context.Context
-	orig := rebuildFn
-	rebuildFn = func(ctx context.Context, device, output string, logger *zap.Logger, interval time.Duration, allow bool) error {
-		captured = ctx
-		return nil
-	}
-	defer func() { rebuildFn = orig }()
-	if err := Run(cfg, []string{"rebuild", "/dev/test"}, zap.NewNop()); err != nil {
-		t.Fatalf("Run: %v", err)
-	}
-	if _, ok := captured.Deadline(); ok {
-		t.Fatalf("unexpected deadline on context")
-	}
-
-}
-
-func TestRunSyncsLogger(t *testing.T) {
 	dir := t.TempDir()
 	devicePath := filepath.Join(dir, "dev.img")
 	if err := os.WriteFile(devicePath, []byte("data"), 0o600); err != nil {
