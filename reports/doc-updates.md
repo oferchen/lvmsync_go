@@ -3,3 +3,4 @@
 - README.md: clarified `--strict_host_key_checking` flag; disabling it now skips SSH host key verification.
 - README.md: documented SSH agent usage when `--ssh_key` is unset and that the connection respects `--ssh_timeout`.
 - README.md: describe gRPC dial timeout behavior and default.
+- README.md: document validation for raw freeze/thaw commands.
