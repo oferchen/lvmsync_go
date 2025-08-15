@@ -19,6 +19,15 @@ TLS transports require an explicit set of trusted CA roots. Connections are
 rejected if no roots are provided unless the transport configuration sets
 `AllowInsecure` to skip verification.
 
+## gRPC keepalive and timeouts
+
+The gRPC control plane uses keepalive pings and deadlines to detect stalled
+clients. Defaults:
+
+- `--keepalive-time` (2m): interval between server pings.
+- `--keepalive-timeout` (20s): wait for a ping acknowledgement before closing.
+- `--request-timeout` (15s): deadline enforced on unary RPC handlers.
+
 ## QUIC
 
 - Uses [quic-go](https://github.com/quic-go/quic-go)

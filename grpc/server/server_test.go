@@ -940,3 +940,34 @@ func TestNewTLSFailures(t *testing.T) {
 		}
 	})
 }
+
+func TestRequestTimeout(t *testing.T) {
+	cfg := Config{AllowInsecure: true, RequestTimeout: 50 * time.Millisecond}
+	agent := &mockAgent{probe: func(ctx context.Context, _ string) error {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(200 * time.Millisecond):
+			return nil
+		}
+	}}
+	lis := bufconn.Listen(bufSize)
+	srv, cleanup, err := New(cfg, agent, zap.NewNop())
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	go srv.Serve(lis)
+	dialer := func(context.Context, string) (net.Conn, error) { return lis.Dial() }
+	conn, err := grpc.NewClient("passthrough:///bufnet", grpc.WithContextDialer(dialer), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	client := proto.NewReplicationClient(conn)
+	_, err = client.Probe(ctxWithRole("replicator"), &proto.ProbeRequest{VolumeName: "vol"})
+	if status.Code(err) != codes.DeadlineExceeded {
+		t.Fatalf("expected deadline exceeded, got %v", err)
+	}
+	conn.Close()
+	srv.Stop()
+	cleanup()
+}

@@ -9,11 +9,13 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
@@ -22,18 +24,30 @@ import (
 )
 
 type Config struct {
-	TLSCert       string
-	TLSKey        string
-	CACert        string
-	AllowInsecure bool
+	TLSCert          string
+	TLSKey           string
+	CACert           string
+	AllowInsecure    bool
+	KeepaliveTime    time.Duration
+	KeepaliveTimeout time.Duration
+	RequestTimeout   time.Duration
 }
 
 // New constructs a gRPC server and returns it along with a cleanup function
 // that flushes logger buffers on shutdown.
 func New(conf Config, a lvmagent.Agent, logger *zap.Logger) (*grpc.Server, func(), error) {
+	unary := []grpc.UnaryServerInterceptor{authorizeInterceptor}
+	if conf.RequestTimeout > 0 {
+		unary = append([]grpc.UnaryServerInterceptor{timeoutInterceptor(conf.RequestTimeout)}, unary...)
+	}
 	opts := []grpc.ServerOption{
-		grpc.UnaryInterceptor(authorizeInterceptor),
+		grpc.ChainUnaryInterceptor(unary...),
 		grpc.StreamInterceptor(authorizeStreamInterceptor),
+	}
+
+	if conf.KeepaliveTime > 0 || conf.KeepaliveTimeout > 0 {
+		params := keepalive.ServerParameters{Time: conf.KeepaliveTime, Timeout: conf.KeepaliveTimeout}
+		opts = append(opts, grpc.KeepaliveParams(params))
 	}
 
 	if !conf.AllowInsecure {
@@ -72,6 +86,27 @@ func New(conf Config, a lvmagent.Agent, logger *zap.Logger) (*grpc.Server, func(
 		_ = logger.Sync()
 	}
 	return srv, cleanup, nil
+}
+
+func timeoutInterceptor(d time.Duration) grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
+		c := ctx
+		var cancel context.CancelFunc
+		if d > 0 {
+			c, cancel = context.WithTimeout(ctx, d)
+		}
+		if cancel != nil {
+			defer cancel()
+		}
+		resp, err := handler(c, req)
+		if err != nil {
+			return resp, err
+		}
+		if e := c.Err(); e != nil {
+			return nil, e
+		}
+		return resp, nil
+	}
 }
 
 func authorizeInterceptor(ctx context.Context, req any, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
