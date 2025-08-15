@@ -6,6 +6,7 @@ import (
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"math/big"
 	"net"
 	"testing"
@@ -13,6 +14,8 @@ import (
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
+
+	quic "github.com/quic-go/quic-go"
 
 	"lvmsync_go/common"
 	"lvmsync_go/transport"
@@ -142,6 +145,47 @@ func TestQUICTransportHandshakeError(t *testing.T) {
 	checkLogFields(t, logs, "listen_end", 1, false)
 	checkLogFields(t, logs, "negotiate_start", 1, false)
 	checkLogFields(t, logs, "negotiate_end", 1, true)
+}
+
+func TestQUICListenerAcceptContextCancel(t *testing.T) {
+	cert, _ := generateSelfSignedCert(t)
+	trIface, err := New(transport.Config{Logger: zap.NewNop(), ClientCert: cert, AllowInsecure: true})
+	if err != nil {
+		t.Fatalf("new transport: %v", err)
+	}
+	tr := trIface.(*Transport)
+	ctx, cancel := context.WithCancel(context.Background())
+	ln, err := tr.Listen(ctx, "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer ln.Close()
+
+	acceptErr := make(chan error, 1)
+	go func() {
+		_, err := ln.Accept()
+		acceptErr <- err
+	}()
+
+	qconn, err := quic.DialAddr(context.Background(), ln.Addr().String(), tr.clientTLS, tr.qconf)
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+
+	// Allow Accept to block on AcceptStream.
+	time.Sleep(100 * time.Millisecond)
+	cancel()
+
+	select {
+	case err := <-acceptErr:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("expected context canceled, got %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatalf("accept did not return after cancel")
+	}
+
+	qconn.CloseWithError(0, "")
 }
 
 func TestQUICTransportRequiresLogger(t *testing.T) {
