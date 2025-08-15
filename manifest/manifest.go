@@ -45,7 +45,7 @@ type Index struct {
 	hdr  Header
 }
 
-var closeHook = func() {}
+var closeHook = func() error { return nil }
 
 var detectDevice = func(ctx context.Context, path string, logger *zap.Logger) (device.Device, error) {
 	return device.Detect(ctx, path, true, "", "", "", 0, 0, logger)
@@ -102,19 +102,25 @@ func (i *Index) readHeader() error {
 
 // Close flushes the mmap and closes the underlying file.
 func (i *Index) Close() error {
-	defer closeHook()
+	var err error
 	if i.data != nil {
-		if err := unix.Msync(i.data, unix.MS_SYNC); err != nil {
+		if err = unix.Msync(i.data, unix.MS_SYNC); err != nil {
 			_ = unix.Munmap(i.data)
 			_ = i.f.Close()
+			_ = closeHook()
 			return err
 		}
 		_ = unix.Munmap(i.data)
 	}
 	if i.f != nil {
-		return i.f.Close()
+		if ferr := i.f.Close(); ferr != nil {
+			err = ferr
+		}
 	}
-	return nil
+	if hookErr := closeHook(); err == nil && hookErr != nil {
+		err = hookErr
+	}
+	return err
 }
 
 // Create initializes a new manifest index at path for the given device.
@@ -278,8 +284,8 @@ func (i *Index) ChunkCount() uint64 { return i.hdr.ChunkCount }
 // Progress is logged at the provided interval; set interval to 0 to log every chunk.
 // The operation respects cancellation via ctx.
 // When allowMounted is false, Rebuild aborts if the device is mounted read-write.
-func Rebuild(ctx context.Context, devicePath, output string, logger *zap.Logger, progressInterval time.Duration, allowMounted bool) error {
-	if err := ctx.Err(); err != nil {
+func Rebuild(ctx context.Context, devicePath, output string, logger *zap.Logger, progressInterval time.Duration, allowMounted bool) (err error) {
+	if err = ctx.Err(); err != nil {
 		return err
 	}
 	mounted, err := device.IsMountedRW(devicePath)
@@ -289,43 +295,50 @@ func Rebuild(ctx context.Context, devicePath, output string, logger *zap.Logger,
 	if mounted && !allowMounted {
 		return fmt.Errorf("manifest: %s is mounted read-write; use --manifest-allow-mounted to override", devicePath)
 	}
-	dev, err := detectDevice(ctx, devicePath, logger)
+	var dev device.Device
+	dev, err = detectDevice(ctx, devicePath, logger)
 	if err != nil {
 		return err
 	}
 	defer dev.Close()
 	blockSize := uint32(dev.BlockSize())
 	size := dev.SizeBytes()
-	if err := ctx.Err(); err != nil {
+	if err = ctx.Err(); err != nil {
 		return err
 	}
 	id, err := device.GetUUID(ctx, dev.Path())
 	if err != nil {
 		return err
 	}
-	if err := ctx.Err(); err != nil {
+	if err = ctx.Err(); err != nil {
 		return err
 	}
-	f, err := os.Open(dev.Path())
+	var f *os.File
+	f, err = os.Open(dev.Path())
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-	idx, err := Create(output, id, size, blockSize)
+	var idx *Index
+	idx, err = Create(output, id, size, blockSize)
 	if err != nil {
 		return err
 	}
-	defer idx.Close()
+	defer func() {
+		if cerr := idx.Close(); err == nil && cerr != nil {
+			err = cerr
+		}
+	}()
 	start := time.Now()
 	lastLog := start
 	buf := make([]byte, blockSize)
 	for off := uint64(0); off < size; off += uint64(blockSize) {
-		if err := ctx.Err(); err != nil {
+		if err = ctx.Err(); err != nil {
 			return err
 		}
-		n, err := f.ReadAt(buf, int64(off))
-		if err != nil && err != io.EOF {
-			return err
+		n, readErr := f.ReadAt(buf, int64(off))
+		if readErr != nil && readErr != io.EOF {
+			return readErr
 		}
 		if n == 0 {
 			break
@@ -333,11 +346,11 @@ func Rebuild(ctx context.Context, devicePath, output string, logger *zap.Logger,
 		data := buf[:n]
 		xx := xxh3.Hash(data)
 		b3 := blake3.Sum256(data)
-		if err := idx.Set(off, uint32(n), xx, b3); err != nil {
+		if err = idx.Set(off, uint32(n), xx, b3); err != nil {
 			return err
 		}
 		if logger != nil && (progressInterval == 0 || time.Since(lastLog) >= progressInterval) {
-			if err := ctx.Err(); err != nil {
+			if err = ctx.Err(); err != nil {
 				return err
 			}
 			logger.Info("rebuild progress",
@@ -346,7 +359,7 @@ func Rebuild(ctx context.Context, devicePath, output string, logger *zap.Logger,
 			)
 			lastLog = time.Now()
 		}
-		if err == io.EOF {
+		if readErr == io.EOF {
 			break
 		}
 	}
@@ -356,5 +369,5 @@ func Rebuild(ctx context.Context, devicePath, output string, logger *zap.Logger,
 			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
 		)
 	}
-	return nil
+	return err
 }
