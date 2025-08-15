@@ -277,7 +277,7 @@ golangci-lint run
  - [ ] Add privilege escalation tests covering success and error paths (tests require root; skipped otherwise).
 - [ ] Expand coverage for configuration precedence across flags, environment variables, and config files.
 - [ ] Keep README configuration examples and precedence tests in sync.
- - [ ] Keep modules single-purpose; maintain the `transfer` package decomposition (`progress.go`, `handshake.go`, `block_writer.go`).
+- [ ] Keep modules single-purpose; maintain the `transfer` package decomposition (`progress.go`, `handshake.go`, `block_writer.go`, `resume.go`, `worker.go`, `writer.go`, `apply.go`, `transfer.go`). Future contributions should keep files small and focused.
 - [ ] Document gRPC daemon configuration sources (flags, env vars, config file) and precedence.
 - [ ] Keep `README` configuration documentation current with code changes.
 - [ ] Keep transport documentation and configuration references (flags and env vars) up to date.
