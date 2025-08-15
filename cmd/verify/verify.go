@@ -133,7 +133,7 @@ func verifyWithManifest(src, manifestPath string, logger *zap.Logger) error {
 	defer fSrc.Close()
 
 	mismatches := 0
-	for i := 0; i < idx.ChunkCount(); i++ {
+	for i := uint64(0); i < idx.ChunkCount(); i++ {
 		off, length, _, digest := idx.Entry(i)
 		if length == 0 {
 			continue

@@ -157,13 +157,13 @@ func estimateTransfer(src string, cfg *config.Config, logger *zap.Logger) error 
 	if samples > 100 {
 		samples = 100
 	}
-	step := 1
+	step := uint64(1)
 	if samples > 0 && chunks > samples {
 		step = chunks / samples
 	}
 
 	changed := 0
-	for i := 0; i < samples; i++ {
+	for i := uint64(0); i < samples; i++ {
 		idxPos := i * step
 		if idxPos >= chunks {
 			idxPos = chunks - 1

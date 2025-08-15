@@ -112,6 +112,36 @@ func TestMatchXXHShortcut(t *testing.T) {
 	}
 }
 
+func TestIndexLargeOffsets(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "large.man")
+	const blockSize = uint32(1 << 31) // 2 GiB
+	const chunks = uint64(3)
+	size := uint64(blockSize) * chunks
+	idx, err := Create(path, "dev", size, blockSize)
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	data := []byte("data")
+	xx := xxh3.Hash(data)
+	b3 := blake3.Sum256(data)
+	offset := uint64(blockSize) * 2 // 4 GiB > int32
+	idx.Set(offset, uint32(len(data)), xx, b3)
+	if !idx.Match(offset, uint32(len(data)), xx, func() [32]byte { return b3 }) {
+		t.Fatalf("Match failed for large offset")
+	}
+	off, length, xx2, b32 := idx.Entry(2)
+	if off != offset || length != uint32(len(data)) || xx2 != xx || b32 != b3 {
+		t.Fatalf("entry mismatch for large offset")
+	}
+	if idx.ChunkCount() != chunks {
+		t.Fatalf("chunk count mismatch: got %d want %d", idx.ChunkCount(), chunks)
+	}
+	if err := idx.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+}
+
 func TestRebuild(t *testing.T) {
 	dir := t.TempDir()
 	file, err := os.CreateTemp(dir, "dev-*.img")

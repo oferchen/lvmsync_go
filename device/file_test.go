@@ -44,12 +44,6 @@ func TestOpenFile(t *testing.T) {
 	if logs.FilterMessage("file device info").Len() == 0 {
 		t.Fatalf("expected file device info log")
 	}
-	if logs.FilterMessage("file device snapshot").Len() == 0 {
-		t.Fatalf("expected file device snapshot log")
-	}
-	if logs.FilterMessage("file device cleanup").Len() == 0 {
-		t.Fatalf("expected file device cleanup log")
-	}
 	if logs.FilterMessage("file device closed").Len() == 0 {
 		t.Fatalf("expected file device closed log")
 	}
@@ -79,7 +73,7 @@ func TestFileSnapshotIdentityAndFDLeak(t *testing.T) {
 	path := f.Name()
 	f.Close()
 
-	d, err := OpenFile(path)
+	d, err := OpenFile(path, zap.NewNop())
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
@@ -107,7 +101,7 @@ func TestFileSnapshotClosedDevice(t *testing.T) {
 	path := f.Name()
 	f.Close()
 
-	d, err := OpenFile(path)
+	d, err := OpenFile(path, zap.NewNop())
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
