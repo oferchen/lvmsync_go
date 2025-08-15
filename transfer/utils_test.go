@@ -55,11 +55,12 @@ func TestRateLimitedWriterAccuracy(t *testing.T) {
 }
 
 func TestRateLimitedWritersIndependent(t *testing.T) {
-	clk := &stubClock{now: time.Unix(0, 0)}
+	clk1 := &stubClock{now: time.Unix(0, 0)}
+	clk2 := &stubClock{now: time.Unix(0, 0)}
 	buf1 := &bytes.Buffer{}
 	buf2 := &bytes.Buffer{}
-	w1 := &rateLimitedWriter{w: buf1, tb: limiter.New(1024, 1024, clk), max: 1024}
-	w2 := &rateLimitedWriter{w: buf2, tb: limiter.New(2048, 2048, clk), max: 2048}
+	w1 := &rateLimitedWriter{w: buf1, tb: limiter.New(1024, 1024, clk1), max: 1024}
+	w2 := &rateLimitedWriter{w: buf2, tb: limiter.New(2048, 2048, clk2), max: 2048}
 	data := make([]byte, 4096)
 
 	var wg sync.WaitGroup
@@ -67,20 +68,20 @@ func TestRateLimitedWritersIndependent(t *testing.T) {
 	var d1, d2 time.Duration
 
 	go func() {
-		start := clk.Now()
+		start := clk1.Now()
 		if _, err := w1.Write(data); err != nil {
 			t.Errorf("w1 write: %v", err)
 		}
-		d1 = clk.Now().Sub(start)
+		d1 = clk1.Now().Sub(start)
 		wg.Done()
 	}()
 
 	go func() {
-		start := clk.Now()
+		start := clk2.Now()
 		if _, err := w2.Write(data); err != nil {
 			t.Errorf("w2 write: %v", err)
 		}
-		d2 = clk.Now().Sub(start)
+		d2 = clk2.Now().Sub(start)
 		wg.Done()
 	}()
 	wg.Wait()
