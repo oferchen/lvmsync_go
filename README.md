@@ -281,6 +281,8 @@ Reading from a live block device can corrupt data if writes occur during the tra
 - `--offline` – assert that no process will write to the source device.
 - `--fs-freeze-command`/`--fs-thaw-command` – run commands that freeze and thaw the filesystem around the read.
 
+Freeze and thaw commands are validated before execution. The path must be set, free of NUL bytes, every argument must avoid NULs, and the executable must be discoverable in `$PATH`; otherwise lvmsync returns an error.
+
 Example using the provided scripts:
 
 ```sh
