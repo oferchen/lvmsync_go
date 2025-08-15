@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - shorten h2 dial timeout to 5s and enforce it when no deadline is provided
 - ensure verify and lvmsync commands flush logs by deferring logger.Sync()
 - remove legacy dedup manifest in favor of manifest.Index
+- rename dry run log field to `eta_seconds` and log durations in seconds
 
 ## [v0.1.0] - 2025-02-27
 ### Added

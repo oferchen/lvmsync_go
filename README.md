@@ -168,7 +168,11 @@ for `run` and `verify` are provided as positional arguments after any flags:
 lvmsync run [flags] <source> <dest>
 ```
 
-When run with `--dry-run`, LVMSync loads any manifest at `--manifest_path` and samples up to 100 blocks to estimate the bytes that would be transmitted. The estimate and ETA are logged without sending data.
+When run with `--dry-run`, LVMSync loads any manifest at `--manifest_path` and samples up to 100 blocks to estimate the bytes that would be transmitted. The estimate and ETA in seconds (`eta_seconds`) are logged without sending data. For example:
+
+```json
+{"level":"info","msg":"dry run","size_bytes":4096,"estimated_tx_bytes":4096,"eta_seconds":2}
+```
 
 ### Examples
 
