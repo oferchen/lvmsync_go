@@ -39,6 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - cmd/dump: handle context cancellation during pipe copies to avoid incomplete writes
 - rename dry run log field to `eta_seconds` and log durations in seconds
 - cmd/dump: detect destination type locally without mutating configuration
+- log sync errors in manifest and verify commands
 
 ## [v0.1.0] - 2025-02-27
 ### Added
