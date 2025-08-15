@@ -576,7 +576,8 @@ transport also requires TLS 1.3 with client certificates and negotiates the `h
 `--tls_cert`, `--tls_key`, and `--ca_cert`. TLS transports require a trusted CA certificate and will refuse
 connections when no roots are provided unless `--allow_insecure` (or the `AllowInsecure` configuration flag) is
 set. Client certificates must be supplied explicitly; transports no longer generate self-signed certificates
-automatically. The flags below configure transport behavior.
+automatically. The [transport documentation](docs/transports.md) covers each option in depth. The flags below
+configure transport behavior.
 
 ### Flags and environment variables
 
@@ -806,6 +807,16 @@ lvmsync run [--dry-run] [--transport quic,h2,tcp+tls,ssh] <snapshot|lvm device> 
 The tool supports both local and remote transfers, as well as an "apply mode" for applying change dumps. Use `--dry-run` to print planned actions without executing and `--transport` to provide an ordered list of transports to try.
 
 ## Resume, Manifest, and Verify
+
+Run an initial transfer and write a manifest for later verification or
+incremental runs:
+
+```sh
+lvmsync run --manifest_path snapshot.manifest /dev/vg0/source /dev/vg1/target
+```
+
+See the [manifest documentation](docs/manifest.md) for details on the binary
+format and rebuild options.
 
 Resume an interrupted transfer using a checkpointed state file:
 
