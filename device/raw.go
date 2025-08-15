@@ -67,7 +67,7 @@ func OpenRaw(
 			freezeCtx, cancel = context.WithTimeout(ctx, d.freezeTimeout)
 			defer cancel()
 		}
-		if err = exec.CommandContext(freezeCtx, fsFreezeCmdPath, fsFreezeCmdArgs...).Run(); err != nil {
+		if err = execCommand(freezeCtx, fsFreezeCmdPath, fsFreezeCmdArgs...).Run(); err != nil {
 			return nil, fmt.Errorf("freeze command failed: %w", err)
 		}
 		d.logger.Info("fs freeze complete")
@@ -148,7 +148,7 @@ func (d *RawDevice) Cleanup(ctx context.Context) error {
 			thawCtx, cancel = context.WithTimeout(ctx, d.thawTimeout)
 			defer cancel()
 		}
-		if err := exec.CommandContext(thawCtx, d.thawCmdPath, d.thawCmdArgs...).Run(); err != nil {
+		if err := execCommand(thawCtx, d.thawCmdPath, d.thawCmdArgs...).Run(); err != nil {
 			d.logger.Error("fs thaw failed", zap.Error(err))
 			return fmt.Errorf("thaw command failed: %w", err)
 		}
