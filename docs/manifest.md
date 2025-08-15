@@ -4,6 +4,10 @@ LVMSync writes a binary manifest alongside each transfer. The manifest tracks
 chunk offsets and digests so that interrupted sessions can resume and completed
 copies can be verified.
 
+Chunk offsets are determined using FastCDC. The gear table now uses the
+standard 256-entry random values from the FastCDC specification, replacing the
+placeholder table previously used.
+
 ## Layout and Versioning
 
 The file begins with a 120 byte little‑endian header:
