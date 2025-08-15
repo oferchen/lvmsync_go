@@ -84,6 +84,63 @@ func init() {
 
 func (t *Transport) Name() string { return "h2" }
 
+func dialTLS(ctx context.Context, address string, conf *tls.Config, logger *zap.Logger) (*tls.Conn, error) {
+	d := net.Dialer{}
+	if dl, ok := ctx.Deadline(); ok {
+		d.Deadline = dl
+	}
+	conn, err := tls.DialWithDialer(&d, "tcp", address, conf)
+	if err != nil {
+		return nil, err
+	}
+	if dl, ok := ctx.Deadline(); ok {
+		if err := conn.SetDeadline(dl); err != nil {
+			conn.Close()
+			return nil, err
+		}
+	}
+	return conn, nil
+}
+
+func performH2Handshake(ctx context.Context, conn *tls.Conn, logger *zap.Logger) (*http2.Framer, error) {
+	fr := http2.NewFramer(conn, conn)
+	if _, err := conn.Write([]byte(http2.ClientPreface)); err != nil {
+		return nil, err
+	}
+	if err := fr.WriteSettings(); err != nil {
+		return nil, err
+	}
+	if f, err := fr.ReadFrame(); err != nil {
+		return nil, err
+	} else if _, ok := f.(*http2.SettingsFrame); !ok {
+		return nil, fmt.Errorf("expected settings frame")
+	}
+	if err := fr.WriteSettingsAck(); err != nil {
+		return nil, err
+	}
+	if f, err := fr.ReadFrame(); err != nil {
+		return nil, err
+	} else if sf, ok := f.(*http2.SettingsFrame); !ok || !sf.IsAck() {
+		return nil, fmt.Errorf("expected settings ack")
+	}
+	return fr, nil
+}
+
+func logDialResult(ctx context.Context, logger *zap.Logger, address, role string, start time.Time, err error) {
+	fields := []zap.Field{
+		zap.String("address", address),
+		zap.String("role", role),
+		zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+	}
+	if err != nil {
+		fields = append(fields, zap.Error(err))
+		logger.Error("dial_end", fields...)
+		return
+	}
+	fields = append(fields, zap.String("error", ""))
+	logger.Info("dial_end", fields...)
+}
+
 // Dial establishes a TLS1.3 connection and performs an HTTP/2 handshake.
 func (t *Transport) Dial(ctx context.Context, address string) (net.Conn, error) {
 	role := "client"
@@ -94,119 +151,18 @@ func (t *Transport) Dial(ctx context.Context, address string) (net.Conn, error) 
 		zap.String("error", ""),
 	)
 	start := time.Now()
-	d := net.Dialer{}
-	if dl, ok := ctx.Deadline(); ok {
-		d.Deadline = dl
-	}
-	conn, err := tls.DialWithDialer(&d, "tcp", address, t.clientConf)
-	fields := []zap.Field{
-		zap.String("address", address),
-		zap.String("role", role),
-		zap.Int64("duration_ms", time.Since(start).Milliseconds()),
-		zap.Error(err),
-	}
+	conn, err := dialTLS(ctx, address, t.clientConf, t.logger)
 	if err != nil {
-		t.logger.Error("dial_end", fields...)
+		logDialResult(ctx, t.logger, address, role, start, err)
 		return nil, err
 	}
-	if dl, ok := ctx.Deadline(); ok {
-		if err := conn.SetDeadline(dl); err != nil {
-			conn.Close()
-			fields := []zap.Field{
-				zap.String("address", address),
-				zap.String("role", role),
-				zap.Int64("duration_ms", time.Since(start).Milliseconds()),
-				zap.Error(err),
-			}
-			t.logger.Error("dial_end", fields...)
-			return nil, err
-		}
-	}
-	fr := http2.NewFramer(conn, conn)
-	if _, err := conn.Write([]byte(http2.ClientPreface)); err != nil {
-		fields := []zap.Field{
-			zap.String("address", address),
-			zap.String("role", role),
-			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
-			zap.Error(err),
-		}
-		t.logger.Error("dial_end", fields...)
+	fr, err := performH2Handshake(ctx, conn, t.logger)
+	if err != nil {
 		conn.Close()
+		logDialResult(ctx, t.logger, address, role, start, err)
 		return nil, err
 	}
-	if err := fr.WriteSettings(); err != nil {
-		fields := []zap.Field{
-			zap.String("address", address),
-			zap.String("role", role),
-			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
-			zap.Error(err),
-		}
-		t.logger.Error("dial_end", fields...)
-		conn.Close()
-		return nil, err
-	}
-	if f, err := fr.ReadFrame(); err != nil {
-		fields := []zap.Field{
-			zap.String("address", address),
-			zap.String("role", role),
-			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
-			zap.Error(err),
-		}
-		t.logger.Error("dial_end", fields...)
-		conn.Close()
-		return nil, err
-	} else if _, ok := f.(*http2.SettingsFrame); !ok {
-		err = fmt.Errorf("expected settings frame")
-		fields := []zap.Field{
-			zap.String("address", address),
-			zap.String("role", role),
-			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
-			zap.Error(err),
-		}
-		t.logger.Error("dial_end", fields...)
-		conn.Close()
-		return nil, err
-	}
-	if err := fr.WriteSettingsAck(); err != nil {
-		fields := []zap.Field{
-			zap.String("address", address),
-			zap.String("role", role),
-			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
-			zap.Error(err),
-		}
-		t.logger.Error("dial_end", fields...)
-		conn.Close()
-		return nil, err
-	}
-	if f, err := fr.ReadFrame(); err != nil {
-		fields := []zap.Field{
-			zap.String("address", address),
-			zap.String("role", role),
-			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
-			zap.Error(err),
-		}
-		t.logger.Error("dial_end", fields...)
-		conn.Close()
-		return nil, err
-	} else if sf, ok := f.(*http2.SettingsFrame); !ok || !sf.IsAck() {
-		err = fmt.Errorf("expected settings ack")
-		fields := []zap.Field{
-			zap.String("address", address),
-			zap.String("role", role),
-			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
-			zap.Error(err),
-		}
-		t.logger.Error("dial_end", fields...)
-		conn.Close()
-		return nil, err
-	}
-	fields = []zap.Field{
-		zap.String("address", address),
-		zap.String("role", role),
-		zap.Int64("duration_ms", time.Since(start).Milliseconds()),
-		zap.String("error", ""),
-	}
-	t.logger.Info("dial_end", fields...)
+	logDialResult(ctx, t.logger, address, role, start, nil)
 	if err := conn.SetDeadline(time.Time{}); err != nil {
 		conn.Close()
 		return nil, err
