@@ -18,6 +18,7 @@ command-line use, environment variables, and `config.yaml` files.
 - Transport constructors must accept a `*zap.Logger`; avoid package-level loggers.
 - Pass loggers explicitly to commands and helpers; do not use `zap.L()` or other globals.
 - Log connection lifecycle events and errors with `snake_case` fields including units (e.g., `bytes_transferred`, `duration_ms`).
+- Do not log secrets or authentication tokens; scrub sensitive values before emitting them.
 - Callers using transports should `defer logger.Sync()` to ensure logs are flushed.
 
 ### Field Naming
@@ -52,6 +53,7 @@ logger.Info("snapshot complete",
 - Group related options into `FlagSet`s to share common configuration across commands.
 - Define flags within `pflag.FlagSet`s and bind them to `viper`; the standard library `flag` package is not used.
 - Expose configuration via both config files and environment variables for easy automation.
+- New flag groups must include tests demonstrating configuration precedence.
 
 ### Flag Grouping Example
 
@@ -221,6 +223,7 @@ Run these commands locally before opening a pull request:
 - `go test -coverprofile=coverage.out ./...`
 - `golangci-lint run`
 - `go tool cover -func=coverage.out` and ensure total coverage is at least 50%
+- Include unit tests covering success and failure paths for new functionality.
 
 ## Production Readiness Checklist
 
@@ -287,6 +290,8 @@ golangci-lint run
 - [ ] Ensure every new function has a dedicated unit test.
 - [ ] Run `go build ./...` and `go test ./...` before merging changes.
 - [ ] Maintain tests for compression detection, ensuring benchmark and cache logic remain correct.
+- [ ] Add end-to-end tests for resume and verify workflows.
+- [ ] Document flag grouping patterns and expand coverage for pflag/viper bindings.
 - [ ] Maintain tests for buffer alignment, hole punching, and NUMA pinning.
 - [ ] Enforce modular, single-responsibility design across packages.
 - [ ] Document each new CLI flag, environment variable, and configuration option in `README.md`.

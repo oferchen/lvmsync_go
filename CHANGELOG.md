@@ -47,6 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - transport: centralize handshake logging via `HandshakeFields` helper.
 - Warn when `AllowInsecure` is enabled for gRPC server, client, and transports.
 - manifest: allow custom close hook via index options, removing global hook.
+- Document manifest usage, transport security defaults, and resume/verify workflows.
 
 
 ### Fixed

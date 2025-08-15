@@ -47,6 +47,46 @@ LVMSync is a high-performance incremental data replication tool for LVM snapshot
 
 Override automatic detection with `--source-type` and `--dest-type` when a device's type is known in advance.
 
+## Transport Options
+
+LVMSync negotiates transports in the order provided by `--transport` (default
+`quic,h2,tcp+tls,ssh`). All transports require TLS 1.3 with mutual
+authentication unless `--allow-insecure` is set or the SSH transport is used.
+See [docs/transports.md](docs/transports.md) for details.
+
+| Transport | Security defaults | Notes |
+|-----------|------------------|-------|
+| `quic`    | TLS 1.3, BBR congestion | UDP-based transport |
+| `h2`      | TLS 1.3                | HTTP/2 streams |
+| `tcp+tls` | TLS 1.3                | Plain TCP wrapped in TLS |
+| `ssh`     | Host key verification  | Uses OpenSSH-style authentication |
+
+## Resume and Verify Workflows
+
+Resume interrupted transfers with a state file:
+
+```sh
+lvmsync run --resume statefile /dev/vg0/snap0 /dev/vg0/data
+```
+
+Verify devices against a manifest:
+
+```sh
+lvmsync verify --manifest_path snapshot.manifest /dev/vg0/snap0 /dev/vg0/data
+```
+
+Resume files track the last completed chunk and are removed after a successful
+transfer. See [docs/manifest.md](docs/manifest.md) for manifest and verification
+details.
+
+## Safety Notes
+
+- Run `manifest rebuild` and `verify` against quiescent devices.
+- Use `--offline` or freeze/thaw hooks when scanning live filesystems to keep
+  manifests consistent.
+- Network transports default to TLS 1.3; `--allow-insecure` should only be used
+  for testing.
+
 ## Supported Platforms
 
 LVMSync targets Linux systems only. Builds are tested on the `amd64` and `arm64` architectures.
