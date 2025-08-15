@@ -296,12 +296,23 @@ func TestTCPTLSDialUnreachable(t *testing.T) {
 		t.Fatalf("new transport: %v", err)
 	}
 	tr := trIface.(*Transport)
-	ctx := context.Background()
-	start := time.Now()
-	if _, err := tr.Dial(ctx, "203.0.113.1:1"); err == nil {
-		t.Fatalf("expected dial error")
-	} else if time.Since(start) > 5*time.Second {
-		t.Fatalf("dial took too long: %v", time.Since(start))
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer ln.Close()
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		time.Sleep(2 * time.Second)
+	}()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if _, err := tr.Dial(ctx, ln.Addr().String()); err == nil || !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected context deadline exceeded, got %v", err)
 	}
 }
 
