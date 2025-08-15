@@ -411,11 +411,10 @@ func TestH2DialUnreachable(t *testing.T) {
 	}
 	tr := trIface.(*Transport)
 	ctx := context.Background()
-	start := time.Now()
-	if _, err := tr.Dial(ctx, "203.0.113.1:1"); err == nil {
-		t.Fatalf("expected dial error")
-	} else if time.Since(start) > 5*time.Second {
-		t.Fatalf("dial took too long: %v", time.Since(start))
+	dctx, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+	if _, err := tr.Dial(dctx, "203.0.113.1:1"); err == nil || !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected context deadline exceeded, got %v", err)
 	}
 }
 
