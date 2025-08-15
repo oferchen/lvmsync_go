@@ -96,7 +96,10 @@ func iterateBlocks(cfg *config.Config, ranges []Range, srcFile *os.File, bufOut 
 			zh := zeroHash(int(blockSize))
 			saveResumeState(cfg, r.Start, zh, int64(blockSize), logger)
 			if idx != nil {
-				idx.Set(r.Start, blockSize, xx, zh)
+				if err := idx.Set(r.Start, blockSize, xx, zh); err != nil {
+					putBlockBuffer(data)
+					return totalBytes, skippedBlocks, nil, fmt.Errorf("manifest set: %w", err)
+				}
 			}
 			putBlockBuffer(data)
 			totalBytes += int64(blockSize)
@@ -115,7 +118,10 @@ func iterateBlocks(cfg *config.Config, ranges []Range, srcFile *os.File, bufOut 
 
 		h.Write(data)
 		if idx != nil {
-			idx.Set(r.Start, blockSize, xx, sum)
+			if err := idx.Set(r.Start, blockSize, xx, sum); err != nil {
+				putBlockBuffer(data)
+				return totalBytes, skippedBlocks, nil, fmt.Errorf("manifest set: %w", err)
+			}
 		}
 		saveResumeState(cfg, r.Start, sum, int64(blockSize), logger)
 
@@ -196,14 +202,19 @@ func processParallelResults(
 			h.Write(res.Data)
 			if idx != nil {
 				xx := hashutil.SumXXH3(res.Data)
-				idx.Set(res.Offset, res.Size, xx, res.ChunkID)
+				if err := idx.Set(res.Offset, res.Size, xx, res.ChunkID); err != nil {
+					putBlockBuffer(res.Data)
+					return totalBytesTransferred, nil, fmt.Errorf("manifest set: %w", err)
+				}
 			}
 			saveResumeState(cfg, res.Offset, res.ChunkID, int64(res.Size), logger)
 			putBlockBuffer(res.Data)
 		} else {
 			if idx != nil {
 				xx := hashutil.SumXXH3(nil)
-				idx.Set(res.Offset, res.Size, xx, res.ChunkID)
+				if err := idx.Set(res.Offset, res.Size, xx, res.ChunkID); err != nil {
+					return totalBytesTransferred, nil, fmt.Errorf("manifest set: %w", err)
+				}
 			}
 			saveResumeState(cfg, res.Offset, res.ChunkID, 0, logger)
 		}

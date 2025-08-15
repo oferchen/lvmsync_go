@@ -139,7 +139,10 @@ func verifyWithManifest(src, manifestPath string, logger *zap.Logger) error {
 	mismatches := 0
 	buf := make([]byte, 0)
 	for i := uint64(0); i < idx.ChunkCount(); i++ {
-		off, length, _, digest := idx.Entry(i)
+		off, length, _, digest, err := idx.Entry(i)
+		if err != nil {
+			return fmt.Errorf("manifest entry: %w", err)
+		}
 		if length == 0 {
 			continue
 		}

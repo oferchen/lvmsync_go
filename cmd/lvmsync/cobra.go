@@ -175,7 +175,10 @@ func estimateTransfer(src string, cfg *config.Config, logger *zap.Logger) error 
 		if idxPos >= chunks {
 			idxPos = chunks - 1
 		}
-		off, length, _, _ := idx.Entry(idxPos)
+		off, length, _, _, err := idx.Entry(idxPos)
+		if err != nil {
+			return fmt.Errorf("manifest entry: %w", err)
+		}
 		buf := make([]byte, length)
 		n, err := f.ReadAt(buf, int64(off))
 		if err != nil && err != io.EOF {

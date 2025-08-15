@@ -65,7 +65,9 @@ func TestVerifyWithManifestAllocations(t *testing.T) {
 			t.Fatalf("read: %v", err)
 		}
 		digest := blake3.Sum256(buf[:n])
-		idx.Set(uint64(off), uint32(n), 0, digest)
+		if err := idx.Set(uint64(off), uint32(n), 0, digest); err != nil {
+			t.Fatalf("Set: %v", err)
+		}
 	}
 	idx.Close()
 	fSrc.Close()
