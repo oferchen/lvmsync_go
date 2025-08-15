@@ -411,6 +411,122 @@ func TestTCPPortEnvOverridesConfig(t *testing.T) {
 	}
 }
 
+func TestDedupStrategyCLIOverridesEnvAndConfig(t *testing.T) {
+	cfgPath := writeTempConfig(t, "dedup_strategy: checksum\n")
+	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--dedup_strategy", "bloom"})
+	t.Setenv("LVMSYNC_DEDUP_STRATEGY", "rolling_hash")
+
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	fs := NewFlagSets(defaults)
+	registerFlags(fs, rootFS)
+	if err := rootFS.Parse(args); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	v, err := buildViper(fs)
+	if err != nil {
+		t.Fatalf("buildViper: %v", err)
+	}
+	builder := &Builder{v: v, defaults: defaults}
+	conf, err := builder.Build()
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if conf.DedupStrategy != "bloom" {
+		t.Fatalf("expected dedup_strategy bloom, got %s", conf.DedupStrategy)
+	}
+}
+
+func TestDedupStrategyEnvOverridesConfig(t *testing.T) {
+	cfgPath := writeTempConfig(t, "dedup_strategy: checksum\n")
+	rootFS, args := newFlagSet([]string{"--config", cfgPath})
+	t.Setenv("LVMSYNC_DEDUP_STRATEGY", "bloom")
+
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	fs := NewFlagSets(defaults)
+	registerFlags(fs, rootFS)
+	if err := rootFS.Parse(args); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	v, err := buildViper(fs)
+	if err != nil {
+		t.Fatalf("buildViper: %v", err)
+	}
+	builder := &Builder{v: v, defaults: defaults}
+	conf, err := builder.Build()
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if conf.DedupStrategy != "bloom" {
+		t.Fatalf("expected dedup_strategy bloom, got %s", conf.DedupStrategy)
+	}
+}
+
+func TestCDCMinCLIOverridesEnvAndConfig(t *testing.T) {
+	cfgPath := writeTempConfig(t, "cdc_min: 512\n")
+	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--cdc_min", "2048"})
+	t.Setenv("LVMSYNC_DEDUP_CDC_MIN", "1024")
+
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	fs := NewFlagSets(defaults)
+	registerFlags(fs, rootFS)
+	if err := rootFS.Parse(args); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	v, err := buildViper(fs)
+	if err != nil {
+		t.Fatalf("buildViper: %v", err)
+	}
+	builder := &Builder{v: v, defaults: defaults}
+	conf, err := builder.Build()
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if conf.CDCMin != 2048 {
+		t.Fatalf("expected cdc_min 2048, got %d", conf.CDCMin)
+	}
+}
+
+func TestCDCMinEnvOverridesConfig(t *testing.T) {
+	cfgPath := writeTempConfig(t, "cdc_min: 512\n")
+	rootFS, args := newFlagSet([]string{"--config", cfgPath})
+	t.Setenv("LVMSYNC_DEDUP_CDC_MIN", "1024")
+
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	fs := NewFlagSets(defaults)
+	registerFlags(fs, rootFS)
+	if err := rootFS.Parse(args); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	v, err := buildViper(fs)
+	if err != nil {
+		t.Fatalf("buildViper: %v", err)
+	}
+	builder := &Builder{v: v, defaults: defaults}
+	conf, err := builder.Build()
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if conf.CDCMin != 1024 {
+		t.Fatalf("expected cdc_min 1024, got %d", conf.CDCMin)
+	}
+}
+
 func TestGRPCPortCLIOverridesEnvAndConfig(t *testing.T) {
 	cfgPath := writeTempConfig(t, "grpc_port: 1111\n")
 	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--grpc_port", "3333"})

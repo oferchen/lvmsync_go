@@ -269,6 +269,9 @@ func buildViper(flagSets *FlagSets) (*viper.Viper, error) {
 	if err := bindTransportEnv(flagSets.Transport, v); err != nil {
 		return nil, err
 	}
+	if err := bindDedupEnv(flagSets.Dedup, v); err != nil {
+		return nil, err
+	}
 	if cfgFile := v.GetString("config"); cfgFile != "" {
 		v.SetConfigFile(cfgFile)
 		if err := v.ReadInConfig(); err != nil {
