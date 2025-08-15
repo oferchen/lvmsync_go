@@ -100,6 +100,7 @@ func initSSHFlags(cfg *Config) *pflag.FlagSet {
 	fs.Int("ssh_port", cfg.SSHPort, "SSH port")
 	fs.Duration("ssh_timeout", cfg.SSHTimeout, "SSH connection timeout")
 	fs.Duration("ssh_keepalive", cfg.SSHKeepAliveInterval, "SSH keepalive interval")
+	fs.String("ssh_host_key", cfg.SSHHostKey, "Expected SSH host public key")
 	fs.String("known_hosts", cfg.KnownHosts, "Path to known_hosts file")
 	fs.Bool("strict_host_key_checking", cfg.StrictHostKeyCheck, "Require host keys to be present in known_hosts")
 	return fs
