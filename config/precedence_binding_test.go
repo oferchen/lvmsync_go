@@ -585,6 +585,7 @@ func TestGRPCPortEnvOverridesConfig(t *testing.T) {
 	}
 }
 
+// CLI flag should win over LVMSYNC_MANIFEST_PATH and manifest_path in YAML.
 func TestManifestPathCLIOverridesEnvAndConfig(t *testing.T) {
 	cfgPath := writeTempConfig(t, "manifest_path: cfg.manifest\n")
 	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--manifest_path", "cli.manifest"})
@@ -614,6 +615,7 @@ func TestManifestPathCLIOverridesEnvAndConfig(t *testing.T) {
 	}
 }
 
+// LVMSYNC_MANIFEST_PATH should override manifest_path from YAML when no flag is set.
 func TestManifestPathEnvOverridesConfig(t *testing.T) {
 	cfgPath := writeTempConfig(t, "manifest_path: cfg.manifest\n")
 	rootFS, args := newFlagSet([]string{"--config", cfgPath})
@@ -701,6 +703,7 @@ func TestManifestProgressIntervalEnvOverridesConfig(t *testing.T) {
 	}
 }
 
+// CLI flag takes precedence over LVMSYNC_MANIFEST_TIMEOUT and YAML.
 func TestManifestTimeoutCLIOverridesEnvAndConfig(t *testing.T) {
 	cfgPath := writeTempConfig(t, "manifest_timeout: 1s\n")
 	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--manifest_timeout", "3s"})
@@ -730,6 +733,7 @@ func TestManifestTimeoutCLIOverridesEnvAndConfig(t *testing.T) {
 	}
 }
 
+// LVMSYNC_MANIFEST_TIMEOUT should override YAML when no CLI flag is present.
 func TestManifestTimeoutEnvOverridesConfig(t *testing.T) {
 	cfgPath := writeTempConfig(t, "manifest_timeout: 1s\n")
 	rootFS, args := newFlagSet([]string{"--config", cfgPath})
@@ -756,5 +760,65 @@ func TestManifestTimeoutEnvOverridesConfig(t *testing.T) {
 	}
 	if conf.ManifestTimeout != 2*time.Second {
 		t.Fatalf("expected manifest_timeout 2s, got %v", conf.ManifestTimeout)
+	}
+}
+
+// CLI flag should override environment variable and YAML for manifest_allow_mounted.
+func TestManifestAllowMountedCLIOverridesEnvAndConfig(t *testing.T) {
+	cfgPath := writeTempConfig(t, "manifest_allow_mounted: true\n")
+	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--manifest_allow_mounted=false"})
+	t.Setenv("LVMSYNC_MANIFEST_ALLOW_MOUNTED", "true")
+
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	fs := NewFlagSets(defaults)
+	registerFlags(fs, rootFS)
+	if err := rootFS.Parse(args); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	v, err := buildViper(fs)
+	if err != nil {
+		t.Fatalf("buildViper: %v", err)
+	}
+	builder := &Builder{v: v, defaults: defaults}
+	conf, err := builder.Build()
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if conf.ManifestAllowMounted {
+		t.Fatalf("expected manifest_allow_mounted false, got %v", conf.ManifestAllowMounted)
+	}
+}
+
+// LVMSYNC_MANIFEST_ALLOW_MOUNTED should override YAML when the CLI flag is absent.
+func TestManifestAllowMountedEnvOverridesConfig(t *testing.T) {
+	cfgPath := writeTempConfig(t, "manifest_allow_mounted: true\n")
+	rootFS, args := newFlagSet([]string{"--config", cfgPath})
+	t.Setenv("LVMSYNC_MANIFEST_ALLOW_MOUNTED", "false")
+
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	fs := NewFlagSets(defaults)
+	registerFlags(fs, rootFS)
+	if err := rootFS.Parse(args); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	v, err := buildViper(fs)
+	if err != nil {
+		t.Fatalf("buildViper: %v", err)
+	}
+	builder := &Builder{v: v, defaults: defaults}
+	conf, err := builder.Build()
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if conf.ManifestAllowMounted {
+		t.Fatalf("expected manifest_allow_mounted false, got %v", conf.ManifestAllowMounted)
 	}
 }
