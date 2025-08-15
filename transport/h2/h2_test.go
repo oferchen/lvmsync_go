@@ -16,6 +16,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
+	"golang.org/x/net/http2"
 
 	"lvmsync_go/common"
 	"lvmsync_go/transport"
@@ -86,6 +87,102 @@ func generateSelfSignedCert(t *testing.T) (tls.Certificate, *x509.CertPool) {
 	return cert, pool
 }
 
+func TestDialTLS(t *testing.T) {
+	cert, pool := generateSelfSignedCert(t)
+	serverConf := &tls.Config{Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS13, MaxVersion: tls.VersionTLS13}
+	ln, err := tls.Listen("tcp", "127.0.0.1:0", serverConf)
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer ln.Close()
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		io.ReadAll(conn)
+	}()
+	clientConf := &tls.Config{RootCAs: pool, MinVersion: tls.VersionTLS13, MaxVersion: tls.VersionTLS13}
+	if conn, err := dialTLS(context.Background(), ln.Addr().String(), clientConf, zap.NewNop()); err != nil {
+		t.Fatalf("dialTLS: %v", err)
+	} else {
+		conn.Close()
+	}
+	badConf := &tls.Config{RootCAs: x509.NewCertPool(), MinVersion: tls.VersionTLS13, MaxVersion: tls.VersionTLS13}
+	if _, err := dialTLS(context.Background(), ln.Addr().String(), badConf, zap.NewNop()); err == nil {
+		t.Fatalf("expected error")
+	}
+}
+
+func TestPerformH2Handshake(t *testing.T) {
+	cert, pool := generateSelfSignedCert(t)
+	serverConf := &tls.Config{Certificates: []tls.Certificate{cert}, NextProtos: []string{"h2"}, MinVersion: tls.VersionTLS13, MaxVersion: tls.VersionTLS13}
+	ln, err := tls.Listen("tcp", "127.0.0.1:0", serverConf)
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer ln.Close()
+
+	// successful handshake
+	done := make(chan struct{})
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		tlsConn := conn.(*tls.Conn)
+		fr := http2.NewFramer(tlsConn, tlsConn)
+		preface := make([]byte, len(http2.ClientPreface))
+		io.ReadFull(tlsConn, preface)
+		fr.ReadFrame()
+		fr.WriteSettings()
+		fr.WriteSettingsAck()
+		fr.ReadFrame()
+		<-done
+		conn.Close()
+	}()
+	clientConf := &tls.Config{RootCAs: pool, NextProtos: []string{"h2"}, MinVersion: tls.VersionTLS13, MaxVersion: tls.VersionTLS13}
+	conn, err := dialTLS(context.Background(), ln.Addr().String(), clientConf, zap.NewNop())
+	if err != nil {
+		t.Fatalf("dialTLS: %v", err)
+	}
+	if _, err := performH2Handshake(context.Background(), conn, zap.NewNop()); err != nil {
+		t.Fatalf("handshake: %v", err)
+	}
+	close(done)
+	conn.Close()
+
+	// failing handshake
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		conn.Close()
+	}()
+	conn2, err := dialTLS(context.Background(), ln.Addr().String(), clientConf, zap.NewNop())
+	if err != nil {
+		t.Fatalf("dialTLS: %v", err)
+	}
+	if _, err := performH2Handshake(context.Background(), conn2, zap.NewNop()); err == nil {
+		t.Fatalf("expected handshake error")
+	}
+	conn2.Close()
+}
+
+func TestLogDialResult(t *testing.T) {
+	core, logs := observer.New(zap.InfoLevel)
+	logger := zap.New(core)
+	logDialResult(context.Background(), logger, "addr", "client", time.Now(), nil)
+	checkLogFields(t, logs, "dial_end", 1, false, zapcore.InfoLevel)
+
+	core2, logs2 := observer.New(zap.InfoLevel)
+	logger2 := zap.New(core2)
+	logDialResult(context.Background(), logger2, "addr", "client", time.Now(), errors.New("boom"))
+	checkLogFields(t, logs2, "dial_end", 1, true, zapcore.ErrorLevel)
+}
+
 func TestH2TransportTLSHandshake(t *testing.T) {
 	cert, pool := generateSelfSignedCert(t)
 	core, logs := observer.New(zap.InfoLevel)
@@ -146,10 +243,10 @@ func TestH2TransportTLSHandshake(t *testing.T) {
 	conn.Close()
 	<-done
 
-	checkLogFields(t, logs, "dial_start", 1, true, zapcore.InfoLevel)
-	checkLogFields(t, logs, "dial_end", 1, true, zapcore.InfoLevel)
-	checkLogFields(t, logs, "listen_start", 1, true, zapcore.InfoLevel)
-	checkLogFields(t, logs, "listen_end", 1, true, zapcore.InfoLevel)
+	checkLogFields(t, logs, "dial_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "dial_end", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "listen_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "listen_end", 1, false, zapcore.InfoLevel)
 	checkLogFields(t, logs, "negotiate_start", 2, false, zapcore.InfoLevel)
 	checkLogFields(t, logs, "negotiate_end", 2, false, zapcore.InfoLevel)
 	checkHandshakeFields(t, logs, "negotiate_end", 2)
@@ -182,10 +279,10 @@ func TestH2TransportTLSHandshakeError(t *testing.T) {
 		t.Fatalf("expected dial error")
 	}
 
-	checkLogFields(t, logs, "dial_start", 1, true, zapcore.InfoLevel)
+	checkLogFields(t, logs, "dial_start", 1, false, zapcore.InfoLevel)
 	checkLogFields(t, logs, "dial_end", 1, true, zapcore.ErrorLevel)
-	checkLogFields(t, logs, "listen_start", 1, true, zapcore.InfoLevel)
-	checkLogFields(t, logs, "listen_end", 1, true, zapcore.InfoLevel)
+	checkLogFields(t, logs, "listen_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "listen_end", 1, false, zapcore.InfoLevel)
 }
 
 func TestH2TransportTLSCDCMismatch(t *testing.T) {
@@ -228,10 +325,10 @@ func TestH2TransportTLSCDCMismatch(t *testing.T) {
 	conn.Close()
 	<-done
 
-	checkLogFields(t, logs, "dial_start", 1, true, zapcore.InfoLevel)
-	checkLogFields(t, logs, "dial_end", 1, true, zapcore.InfoLevel)
-	checkLogFields(t, logs, "listen_start", 1, true, zapcore.InfoLevel)
-	checkLogFields(t, logs, "listen_end", 1, true, zapcore.InfoLevel)
+	checkLogFields(t, logs, "dial_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "dial_end", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "listen_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "listen_end", 1, false, zapcore.InfoLevel)
 	checkLogFields(t, logs, "negotiate_start", 2, false, zapcore.InfoLevel)
 	checkLogFields(t, logs, "negotiate_end", 2, true, zapcore.ErrorLevel)
 
@@ -240,6 +337,22 @@ func TestH2TransportTLSCDCMismatch(t *testing.T) {
 		if _, ok := e.ContextMap()["error"]; !ok {
 			t.Fatalf("expected error field in negotiate_end log")
 		}
+	}
+}
+
+func TestH2DialUnreachable(t *testing.T) {
+	cert, pool := generateSelfSignedCert(t)
+	trIface, err := New(transport.Config{Logger: zap.NewNop(), Roots: pool, ClientCert: cert, ServerCert: cert})
+	if err != nil {
+		t.Fatalf("new transport: %v", err)
+	}
+	tr := trIface.(*Transport)
+	ctx := context.Background()
+	start := time.Now()
+	if _, err := tr.Dial(ctx, "203.0.113.1:1"); err == nil {
+		t.Fatalf("expected dial error")
+	} else if time.Since(start) > 5*time.Second {
+		t.Fatalf("dial took too long: %v", time.Since(start))
 	}
 }
 
