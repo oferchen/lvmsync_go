@@ -48,7 +48,7 @@ func Detect(ctx context.Context, path string, offline bool, typeHint, fsFreezeCm
 			}
 			cache := lvm.NewDeviceFDCache(logger)
 			defer cache.Close()
-			dev, err := OpenLVM(resolved, cache, lvmEscalation, logger)
+			dev, err := openLVMFunc(resolved, cache, lvmEscalation, logger)
 			if err != nil {
 				logger.Error("detect device failed", zap.String("path", resolved), zap.String("device_type", "lvm"), zap.Error(err))
 				return nil, err
@@ -96,18 +96,18 @@ func Detect(ctx context.Context, path string, offline bool, typeHint, fsFreezeCm
 		return dev, nil
 	}
 	if info.Mode()&os.ModeDevice != 0 && info.Mode()&os.ModeCharDevice == 0 {
-		if _, err := lvm.GetVolumeGroupName(resolved); err == nil {
+		out, err := execCommand(ctx, "blkid", "-o", "value", "-s", "TYPE", resolved).Output()
+		fsType := strings.TrimSpace(string(out))
+		if err == nil && fsType == "LVM2_member" {
 			cache := lvm.NewDeviceFDCache(logger)
 			defer cache.Close()
-			dev, err := OpenLVM(resolved, cache, lvmEscalation, logger)
+			dev, err := openLVMFunc(resolved, cache, lvmEscalation, logger)
 			if err != nil {
 				logger.Error("detect device failed", zap.String("path", resolved), zap.String("device_type", "lvm"), zap.Error(err))
 				return nil, err
 			}
 			logger.Info("detect device success", zap.String("path", resolved), zap.String("device_type", "lvm"))
 			return dev, nil
-		} else {
-			logger.Debug("detect device failed", zap.String("path", resolved), zap.String("device_type", "lvm"), zap.Error(err))
 		}
 		var freezePath, thawPath string
 		var freezeArgs, thawArgs []string

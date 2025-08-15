@@ -11,7 +11,6 @@ import (
 
 	"lvmsync_go/app"
 	"lvmsync_go/config"
-	"lvmsync_go/device"
 	clientpkg "lvmsync_go/internal/client"
 	"lvmsync_go/internal/privilege"
 	"lvmsync_go/transport"
@@ -195,43 +194,7 @@ func Run(cfg *config.Config, args []string, logger *zap.Logger) error {
 	}
 
 	snapshotPath = originalVolume
-	var (
-		monitorErrCh chan error
-		cleanup      = func() {}
-	)
-
-	if cfg.SourceType == "" || cfg.SourceType == "auto" {
-		dev, err := device.Detect(ctx, originalVolume, cfg.Offline, cfg.SourceType, cfg.FSFreezeCommand, cfg.FSThawCommand, cfg.LVMEscalation, cfg.FreezeTimeout, cfg.ThawTimeout, logger)
-		if err != nil {
-			return err
-		}
-		switch dev.(type) {
-		case *device.LVMDevice:
-			cfg.SourceType = "lvm"
-		case *device.RawDevice:
-			cfg.SourceType = "raw"
-		case *device.FileDevice:
-			cfg.SourceType = "file"
-		}
-		dev.Close()
-	}
-	switch cfg.SourceType {
-	case "lvm":
-		snapshotPath, monitorErrCh, cleanup, err = PrepareSnapshot(ctx, cfg, originalVolume, logger)
-		if err != nil {
-			return err
-		}
-	case "raw":
-		if !cfg.SkipSnapshotCreation {
-			return fmt.Errorf("raw sources require --skip_snapshot_creation and either --offline or --fs-freeze-command/--fs-thaw-command")
-		}
-	case "file":
-	default:
-		return fmt.Errorf("unknown source type %q", cfg.SourceType)
-	}
-	defer cleanup()
-
-	return ExecuteClient(ctx, cfg, snapshotPath, destPath, sigErrCh, monitorErrCh, logger)
+	return ExecuteClient(ctx, cfg, snapshotPath, destPath, sigErrCh, nil, logger)
 }
 
 // Execute is a helper that configures and runs the root command.

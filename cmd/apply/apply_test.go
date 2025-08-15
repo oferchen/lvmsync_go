@@ -1,12 +1,15 @@
 package apply
 
 import (
+	"context"
 	"testing"
+	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
 	"lvmsync_go/config"
+	"lvmsync_go/device"
 )
 
 func TestRun(t *testing.T) {
@@ -18,7 +21,8 @@ func TestRun(t *testing.T) {
 	dest := "/dev/null"
 
 	called := false
-	original := applyFunc
+	origApply := applyFunc
+	origDetect := detectDevice
 	applyFunc = func(c *config.Config, applyFileArg, destDevice string, _ *zap.Logger) error {
 		called = true
 		if applyFileArg != applyFile {
@@ -29,7 +33,10 @@ func TestRun(t *testing.T) {
 		}
 		return nil
 	}
-	defer func() { applyFunc = original }()
+	detectDevice = func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger) (device.Device, error) {
+		return &fakeDevice{path: dest}, nil
+	}
+	defer func() { applyFunc = origApply; detectDevice = origDetect }()
 
 	if err := Run(cfg, applyFile, []string{dest}, zap.NewNop()); err != nil {
 		t.Fatalf("Run returned error: %v", err)
@@ -58,9 +65,13 @@ func TestRunSyncsLogger(t *testing.T) {
 	logger := zap.New(core)
 	applyFile := "dumpfile"
 	dest := "/dev/null"
-	original := applyFunc
+	origApply := applyFunc
+	origDetect := detectDevice
 	applyFunc = func(*config.Config, string, string, *zap.Logger) error { return nil }
-	defer func() { applyFunc = original }()
+	detectDevice = func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger) (device.Device, error) {
+		return &fakeDevice{path: dest}, nil
+	}
+	defer func() { applyFunc = origApply; detectDevice = origDetect }()
 	if err := Run(cfg, applyFile, []string{dest}, logger); err != nil {
 		t.Fatalf("Run returned error: %v", err)
 	}
@@ -68,3 +79,12 @@ func TestRunSyncsLogger(t *testing.T) {
 		t.Fatalf("expected Sync to be called once, got %d", core.count)
 	}
 }
+
+type fakeDevice struct{ path string }
+
+func (f *fakeDevice) Path() string                                            { return f.path }
+func (f *fakeDevice) SizeBytes() uint64                                       { return 0 }
+func (f *fakeDevice) BlockSize() uint64                                       { return 0 }
+func (f *fakeDevice) Snapshot(context.Context, string) (device.Device, error) { return f, nil }
+func (f *fakeDevice) Cleanup(context.Context) error                           { return nil }
+func (f *fakeDevice) Close() error                                            { return nil }

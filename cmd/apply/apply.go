@@ -14,10 +14,13 @@ import (
 )
 
 // applyFunc allows tests to override the apply implementation.
-var applyFunc = func(cfg *config.Config, applyFile, destDevice string, logger *zap.Logger) error {
-	t := transfer.NewTransfer(logger, &sync.WaitGroup{})
-	return t.RunApply(cfg, applyFile, destDevice)
-}
+var (
+	applyFunc = func(cfg *config.Config, applyFile, destDevice string, logger *zap.Logger) error {
+		t := transfer.NewTransfer(logger, &sync.WaitGroup{})
+		return t.RunApply(cfg, applyFile, destDevice)
+	}
+	detectDevice = device.Detect
+)
 
 func init() {
 	rootcmd.RunApply = Run
@@ -30,23 +33,32 @@ func Run(cfg *config.Config, applyFile string, args []string, logger *zap.Logger
 	if len(args) < 1 {
 		return fmt.Errorf("no destination device specified for apply mode")
 	}
-	destDevice := args[0]
-	if cfg.DestType == "auto" {
-		if dev, err := device.Detect(context.Background(), destDevice, true, cfg.DestType, "", "", cfg.LVMEscalation, cfg.FreezeTimeout, cfg.ThawTimeout, logger); err == nil {
-			switch dev.(type) {
-			case *device.RawDevice:
-				if !cfg.SkipSnapshotCreation {
-					dev.Close()
-					return fmt.Errorf("raw destinations require --skip_snapshot_creation or external freeze hooks")
-				}
-				cfg.DestType = "raw"
-			case *device.LVMDevice:
-				cfg.DestType = "lvm"
-			case *device.FileDevice:
-				cfg.DestType = "file"
-			}
-			dev.Close()
-		}
+	destPath := args[0]
+	dev, err := detectDevice(context.Background(), destPath, cfg.Offline, cfg.DestType, cfg.FSFreezeCommand, cfg.FSThawCommand, cfg.LVMEscalation, cfg.FreezeTimeout, cfg.ThawTimeout, logger)
+	if err != nil {
+		return err
 	}
-	return applyFunc(cfg, applyFile, destDevice, logger)
+	switch dev.(type) {
+	case *device.RawDevice:
+		cfg.DestType = "raw"
+	case *device.LVMDevice:
+		cfg.DestType = "lvm"
+	case *device.FileDevice:
+		cfg.DestType = "file"
+	}
+	if cfg.DestType == "raw" && !cfg.SkipSnapshotCreation {
+		dev.Cleanup(context.Background())
+		dev.Close()
+		return fmt.Errorf("raw destinations require --skip_snapshot_creation or external freeze hooks")
+	}
+	err = applyFunc(cfg, applyFile, dev.Path(), logger)
+	cleanupErr := dev.Cleanup(context.Background())
+	closeErr := dev.Close()
+	if err != nil {
+		return err
+	}
+	if cleanupErr != nil {
+		return cleanupErr
+	}
+	return closeErr
 }
