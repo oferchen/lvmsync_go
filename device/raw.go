@@ -87,6 +87,12 @@ func OpenRaw(
 	d.f = f
 	d.size = size
 	d.blockSize = uint64(bs)
+	if d.logger != nil {
+		d.logger.Info("raw device info",
+			zap.String("path", path),
+			zap.Uint64("size_bytes", size),
+			zap.Uint64("block_size", uint64(bs)))
+	}
 	return d, nil
 }
 
@@ -100,7 +106,17 @@ func (d *RawDevice) SizeBytes() uint64 { return d.size }
 func (d *RawDevice) BlockSize() uint64 { return d.blockSize }
 
 // Close closes the underlying file descriptor.
-func (d *RawDevice) Close() error { return d.f.Close() }
+func (d *RawDevice) Close() error {
+	err := d.f.Close()
+	if d.logger != nil {
+		if err != nil {
+			d.logger.Error("raw device close failed", zap.String("path", d.Path()), zap.Error(err))
+		} else {
+			d.logger.Info("raw device closed", zap.String("path", d.Path()))
+		}
+	}
+	return err
+}
 
 // Snapshot returns the device itself for raw block devices.
 func (d *RawDevice) Snapshot(context.Context, string) (Device, error) { return d, nil }
