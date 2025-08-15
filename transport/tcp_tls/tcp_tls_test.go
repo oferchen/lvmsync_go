@@ -153,6 +153,22 @@ func TestTCPTLSTransportHandshakeError(t *testing.T) {
 	checkLogFields(t, logs, "negotiate_end", 1, true)
 }
 
+func TestTCPTLSNegotiateInvalidRole(t *testing.T) {
+	cert, root := generateSelfSignedCert(t)
+	trIface, err := New(transport.Config{Logger: zap.NewNop(), Roots: root, ClientCert: cert})
+	if err != nil {
+		t.Fatalf("new transport: %v", err)
+	}
+	tr := trIface.(*Transport)
+	ctx := context.Background()
+	c1, c2 := net.Pipe()
+	defer c1.Close()
+	defer c2.Close()
+	if _, err := tr.Negotiate(ctx, c1, transport.Role(99), common.Handshake{}); err == nil {
+		t.Fatalf("expected error for invalid role")
+	}
+}
+
 func TestTCPTLSCertValidation(t *testing.T) {
 	root := x509.NewCertPool()
 	cert, _ := generateSelfSignedCert(t)
