@@ -232,6 +232,10 @@ Run these commands locally before opening a pull request:
 - Run `go build ./...`, `go test -cover ./...`, and `golangci-lint run` before merging.
 - Document new flags, environment variables, and configuration options in `README.md`.
 
+## Regex Patterns
+
+- Remote command validation uses a precompiled regex `^[a-zA-Z0-9._-]+$` (`remoteCmdRe` in `remote/remote.go`). Maintain this pattern when checking remote commands.
+
 ## TODO
 
 - [ ] Audit logging: ensure `zap` is used with `snake_case` fields, include units, and call `logger.Sync()` before exit (block size logs now use `size_bytes`).
