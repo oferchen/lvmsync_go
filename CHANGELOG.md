@@ -33,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - transport/h2: add tests for tlsVersionString and roleString helpers.
 - README: document CDC parameter ordering and the error when violated.
 - README: note that commands accept an explicit `*zap.Logger` defaulting to `zap.NewNop()`.
+- hash: add Blake3Hasher tests covering keyed and unkeyed modes with state reset verification.
 - transfer: tests ensure mismatched device UUIDs and mounted devices return errors without writes.
 - grpc: tests cover ProgressStream, BuildManifest, and Verify logging and forwarding.
 - cmd/verify: support SHA-256 verification with configurable digest helper.
