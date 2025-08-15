@@ -92,37 +92,30 @@ func (t *Transport) Dial(ctx context.Context, address string) (net.Conn, error) 
 		zap.String("address", address),
 		zap.String("role", role),
 		zap.Int64("duration_ms", 0),
-		zap.String("error", ""),
 	)
 	start := time.Now()
 	qconn, err := quic.DialAddr(ctx, address, t.clientTLS, t.qconf)
-	if err != nil {
-		fields := []zap.Field{
-			zap.String("address", address),
-			zap.String("role", role),
-			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
-			zap.Error(err),
-		}
-		t.logger.Error("dial_end", fields...)
-		return nil, err
-	}
-	stream, err := qconn.OpenStreamSync(ctx)
 	fields := []zap.Field{
 		zap.String("address", address),
 		zap.String("role", role),
 		zap.Int64("duration_ms", time.Since(start).Milliseconds()),
-		zap.Error(err),
 	}
 	if err != nil {
+		fields = append(fields, zap.Error(err))
 		t.logger.Error("dial_end", fields...)
-		qconn.CloseWithError(0, err.Error())
 		return nil, err
 	}
+	stream, err := qconn.OpenStreamSync(ctx)
 	fields = []zap.Field{
 		zap.String("address", address),
 		zap.String("role", role),
 		zap.Int64("duration_ms", time.Since(start).Milliseconds()),
-		zap.String("error", ""),
+	}
+	if err != nil {
+		fields = append(fields, zap.Error(err))
+		t.logger.Error("dial_end", fields...)
+		qconn.CloseWithError(0, err.Error())
+		return nil, err
 	}
 	t.logger.Info("dial_end", fields...)
 	return &Conn{qconn: qconn, stream: stream}, nil
@@ -135,7 +128,6 @@ func (t *Transport) Listen(ctx context.Context, address string) (net.Listener, e
 		zap.String("address", address),
 		zap.String("role", role),
 		zap.Int64("duration_ms", 0),
-		zap.String("error", ""),
 	)
 	start := time.Now()
 	ql, err := quic.ListenAddr(address, t.serverTLS, t.qconf)
@@ -143,17 +135,11 @@ func (t *Transport) Listen(ctx context.Context, address string) (net.Listener, e
 		zap.String("address", address),
 		zap.String("role", role),
 		zap.Int64("duration_ms", time.Since(start).Milliseconds()),
-		zap.Error(err),
 	}
 	if err != nil {
+		fields = append(fields, zap.Error(err))
 		t.logger.Error("listen_end", fields...)
 		return nil, err
-	}
-	fields = []zap.Field{
-		zap.String("address", address),
-		zap.String("role", role),
-		zap.Int64("duration_ms", time.Since(start).Milliseconds()),
-		zap.String("error", ""),
 	}
 	t.logger.Info("listen_end", fields...)
 	return &listener{ql: ql, ctx: ctx}, nil

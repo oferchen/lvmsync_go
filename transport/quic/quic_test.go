@@ -113,10 +113,10 @@ func TestQUICTransportHandshake(t *testing.T) {
 	qconn.Close()
 	<-done
 
-	checkLogFields(t, logs, "dial_start", 1, true, zapcore.InfoLevel)
-	checkLogFields(t, logs, "dial_end", 1, true, zapcore.InfoLevel)
-	checkLogFields(t, logs, "listen_start", 1, true, zapcore.InfoLevel)
-	checkLogFields(t, logs, "listen_end", 1, true, zapcore.InfoLevel)
+	checkLogFields(t, logs, "dial_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "dial_end", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "listen_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "listen_end", 1, false, zapcore.InfoLevel)
 	checkLogFields(t, logs, "negotiate_start", 2, false, zapcore.InfoLevel)
 	checkLogFields(t, logs, "negotiate_end", 2, false, zapcore.InfoLevel)
 	checkHandshakeFields(t, logs, "negotiate_end", 2)
@@ -237,10 +237,10 @@ func TestQUICTransportHandshakeError(t *testing.T) {
 	qconn.Close()
 	<-done
 
-	checkLogFields(t, logs, "dial_start", 1, true, zapcore.InfoLevel)
-	checkLogFields(t, logs, "dial_end", 1, true, zapcore.InfoLevel)
-	checkLogFields(t, logs, "listen_start", 1, true, zapcore.InfoLevel)
-	checkLogFields(t, logs, "listen_end", 1, true, zapcore.InfoLevel)
+	checkLogFields(t, logs, "dial_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "dial_end", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "listen_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "listen_end", 1, false, zapcore.InfoLevel)
 	checkLogFields(t, logs, "negotiate_start", 1, false, zapcore.InfoLevel)
 	checkLogFields(t, logs, "negotiate_end", 1, true, zapcore.ErrorLevel)
 }
@@ -287,10 +287,10 @@ func TestQUICTransportHandshakeCDCMismatch(t *testing.T) {
 	qconn.Close()
 	<-done
 
-	checkLogFields(t, logs, "dial_start", 1, true, zapcore.InfoLevel)
-	checkLogFields(t, logs, "dial_end", 1, true, zapcore.InfoLevel)
-	checkLogFields(t, logs, "listen_start", 1, true, zapcore.InfoLevel)
-	checkLogFields(t, logs, "listen_end", 1, true, zapcore.InfoLevel)
+	checkLogFields(t, logs, "dial_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "dial_end", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "listen_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "listen_end", 1, false, zapcore.InfoLevel)
 	checkLogFields(t, logs, "negotiate_start", 2, false, zapcore.InfoLevel)
 	checkLogFields(t, logs, "negotiate_end", 2, true, zapcore.ErrorLevel)
 }
