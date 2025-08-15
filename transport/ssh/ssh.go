@@ -14,8 +14,8 @@ import (
 
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
-	"golang.org/x/crypto/ssh/knownhosts"
 	"golang.org/x/crypto/ssh/agent"
+	"golang.org/x/crypto/ssh/knownhosts"
 
 	"lvmsync_go/common"
 	"lvmsync_go/transport"
@@ -48,6 +48,7 @@ func New(cfg transport.Config) (transport.Interface, error) {
 			return nil, err
 		}
 	}
+
 	hostKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		return nil, err
@@ -56,6 +57,7 @@ func New(cfg transport.Config) (transport.Interface, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	serverConf := &ssh.ServerConfig{
 		PasswordCallback: func(c ssh.ConnMetadata, pass []byte) (*ssh.Permissions, error) {
 			if c.User() == cfg.SSHUser && string(pass) == cfg.SSHPassword {
@@ -64,7 +66,16 @@ func New(cfg transport.Config) (transport.Interface, error) {
 			return nil, fmt.Errorf("authentication failed")
 		},
 	}
-	serverConf.AddHostKey(signer)
+	serverConf.AddHostKey(hostSigner)
+	if keySigner != nil {
+		serverConf.PublicKeyCallback = func(c ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
+			if c.User() == cfg.SSHUser && bytes.Equal(key.Marshal(), keySigner.PublicKey().Marshal()) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("public key rejected")
+		}
+	}
+
 	var hkc ssh.HostKeyCallback
 	switch {
 	case cfg.SSHKnownHosts != "":
@@ -83,20 +94,7 @@ func New(cfg transport.Config) (transport.Interface, error) {
 	default:
 		return nil, fmt.Errorf("known hosts or host key required")
 	}
-	clientConf := &ssh.ClientConfig{
-		User:            cfg.SSHUser,
-		Auth:            []ssh.AuthMethod{ssh.Password(cfg.SSHPassword)},
-		HostKeyCallback: hkc,
 
-	serverConf.AddHostKey(hostSigner)
-	if keySigner != nil {
-		serverConf.PublicKeyCallback = func(c ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
-			if c.User() == cfg.SSHUser && bytes.Equal(key.Marshal(), keySigner.PublicKey().Marshal()) {
-				return nil, nil
-			}
-			return nil, fmt.Errorf("public key rejected")
-		}
-	}
 	var auths []ssh.AuthMethod
 	if keySigner != nil {
 		auths = append(auths, ssh.PublicKeys(keySigner))
@@ -115,12 +113,14 @@ func New(cfg transport.Config) (transport.Interface, error) {
 	if len(auths) == 0 {
 		return nil, fmt.Errorf("no authentication methods configured")
 	}
+
 	clientConf := &ssh.ClientConfig{
 		User:            cfg.SSHUser,
 		Auth:            auths,
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		HostKeyCallback: hkc,
 	}
-	return &Transport{serverConf: serverConf, clientConf: clientConf, hostSigner: signer, logger: cfg.Logger}, nil
+
+	return &Transport{serverConf: serverConf, clientConf: clientConf, hostSigner: hostSigner, logger: cfg.Logger}, nil
 }
 
 func init() {
