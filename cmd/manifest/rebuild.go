@@ -48,7 +48,7 @@ func Run(cfg *config.Config, args []string, logger *zap.Logger) error {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	if err := manifestpkg.Rebuild(ctx, device, path, logger, conf.ManifestProgressInterval); err != nil {
+	if err := manifestpkg.Rebuild(ctx, device, path, logger, conf.ManifestProgressInterval, conf.ManifestAllowMounted); err != nil {
 		if logger != nil {
 			logger.Error("rebuild failed", zap.Error(err))
 		}

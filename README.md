@@ -791,6 +791,7 @@ Rebuild a manifest index for an existing device:
 lvmsync manifest rebuild /dev/vg0/lv0
 ```
 Progress logs are emitted every 10s by default; adjust with `--manifest-progress-interval`.
+Rebuild refuses to run if the device is mounted read-write; pass `--manifest-allow-mounted` to override.
 
 Manifests embed a persistent device identifier in a fixed 64-byte field. The
 `manifest rebuild` command fails if the identifier exceeds this limit.

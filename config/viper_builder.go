@@ -58,6 +58,9 @@ func (b *Builder) applyDefaults(conf *Config) error {
 	if conf.ManifestProgressInterval == 0 {
 		conf.ManifestProgressInterval = b.defaults.ManifestProgressInterval
 	}
+	if !b.v.IsSet("manifest_allow_mounted") {
+		conf.ManifestAllowMounted = b.defaults.ManifestAllowMounted
+	}
 
 	bs, raw, err := b.parseBlockSize()
 	if err != nil {

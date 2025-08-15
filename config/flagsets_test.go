@@ -216,6 +216,7 @@ func TestInitManifestFlags(t *testing.T) {
 	cases := []struct{ name, want string }{
 		{"manifest_path", cfg.ManifestPath},
 		{"manifest_progress_interval", cfg.ManifestProgressInterval.String()},
+		{"manifest_allow_mounted", strconv.FormatBool(cfg.ManifestAllowMounted)},
 	}
 	for _, tt := range cases {
 		f := fs.Lookup(tt.name)

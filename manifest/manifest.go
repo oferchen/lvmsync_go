@@ -266,9 +266,17 @@ func (i *Index) ChunkCount() uint64 { return i.hdr.ChunkCount }
 // DeviceID is determined via device.GetUUID. The device is read sequentially using blockSize-sized chunks.
 // Progress is logged at the provided interval; set interval to 0 to log every chunk.
 // The operation respects cancellation via ctx.
-func Rebuild(ctx context.Context, devicePath, output string, logger *zap.Logger, progressInterval time.Duration) error {
+// When allowMounted is false, Rebuild aborts if the device is mounted read-write.
+func Rebuild(ctx context.Context, devicePath, output string, logger *zap.Logger, progressInterval time.Duration, allowMounted bool) error {
 	if err := ctx.Err(); err != nil {
 		return err
+	}
+	mounted, err := device.IsMountedRW(devicePath)
+	if err != nil {
+		return fmt.Errorf("manifest: check mount status: %w", err)
+	}
+	if mounted && !allowMounted {
+		return fmt.Errorf("manifest: %s is mounted read-write; use --manifest-allow-mounted to override", devicePath)
 	}
 	dev, err := detectDevice(ctx, devicePath, logger)
 	if err != nil {
