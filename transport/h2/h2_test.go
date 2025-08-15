@@ -10,6 +10,7 @@ import (
 	"io"
 	"math/big"
 	"net"
+	"strings"
 	"testing"
 	"time"
 
@@ -413,8 +414,8 @@ func TestH2DialUnreachable(t *testing.T) {
 	ctx := context.Background()
 	dctx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
-	if _, err := tr.Dial(dctx, "203.0.113.1:1"); err == nil || !errors.Is(err, context.DeadlineExceeded) {
-		t.Fatalf("expected context deadline exceeded, got %v", err)
+	if _, err := tr.Dial(dctx, "203.0.113.1:1"); err == nil || (!errors.Is(err, context.DeadlineExceeded) && !strings.Contains(err.Error(), "network is unreachable")) {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 

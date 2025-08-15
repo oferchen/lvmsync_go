@@ -1,6 +1,9 @@
 package transfer
 
-import "testing"
+import (
+	"math"
+	"testing"
+)
 
 func TestCalculateTotalDataSize(t *testing.T) {
 	ranges := []Range{
@@ -12,5 +15,13 @@ func TestCalculateTotalDataSize(t *testing.T) {
 	want := int64(20)
 	if got != want {
 		t.Fatalf("calculateTotalDataSize() = %d, want %d", got, want)
+	}
+}
+
+func TestCalculateTotalDataSizeOverflow(t *testing.T) {
+	ranges := []Range{{Start: 0, End: uint64(math.MaxInt64)}}
+	got := calculateTotalDataSize(ranges)
+	if got != math.MaxInt64 {
+		t.Fatalf("expected MaxInt64, got %d", got)
 	}
 }
