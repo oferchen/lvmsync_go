@@ -28,7 +28,10 @@ var (
 	prepareSnapshotFn = app.PrepareSnapshot
 	executeClientFn   = clientpkg.ExecuteClient
 	selectTransport   = dumpcmd.SelectTransport
-	runDump           = dumpcmd.Run
+	runDump           = func(ctx context.Context, cfg *config.Config, snapshot, dest string, logger *zap.Logger) error {
+		_, err := dumpcmd.Run(ctx, cfg, snapshot, dest, logger)
+		return err
+	}
 )
 
 // SyncLogger flushes buffered log entries and logs if syncing fails.
@@ -186,7 +189,7 @@ func Run(cfg *config.Config, args []string, logger *zap.Logger) error {
 	)
 
 	if cfg.SourceType == "" || cfg.SourceType == "auto" {
-		dev, err := device.Detect(ctx, originalVolume, cfg.Offline, cfg.FSFreezeCommand, cfg.FSThawCommand, cfg.FreezeTimeout, cfg.ThawTimeout, logger)
+		dev, err := device.Detect(ctx, originalVolume, cfg.Offline, cfg.SourceType, cfg.FSFreezeCommand, cfg.FSThawCommand, cfg.FreezeTimeout, cfg.ThawTimeout, logger)
 		if err != nil {
 			return err
 		}

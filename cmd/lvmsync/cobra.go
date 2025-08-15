@@ -121,6 +121,10 @@ func NewRootCmd(logger *zap.Logger) *cobra.Command {
 // Execute runs the command tree with provided arguments.
 // If args is nil, the global os.Args are used by cobra.
 func Execute(args []string, logger *zap.Logger) error {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+	defer logger.Sync()
 	cmd := NewRootCmd(logger)
 	if args != nil {
 		cmd.SetArgs(args)
@@ -143,7 +147,7 @@ func estimateTransfer(src string, cfg *config.Config, logger *zap.Logger) error 
 		if cfg.SpeedLimit > 0 {
 			eta = time.Duration(size/int64(cfg.SpeedLimit)) * time.Second
 		}
-		logger.Info("dry run", zap.Int64("size_bytes", size), zap.Int64("estimated_tx_bytes", size), zap.Duration("eta", eta))
+		logger.Info("dry run", zap.Int64("size_bytes", size), zap.Int64("estimated_tx_bytes", size), zap.Float64("eta_seconds", eta.Seconds()))
 		return nil
 	}
 
@@ -208,7 +212,7 @@ func estimateTransfer(src string, cfg *config.Config, logger *zap.Logger) error 
 		"dry run",
 		zap.Int64("size_bytes", size),
 		zap.Int64("estimated_tx_bytes", est),
-		zap.Duration("eta", eta),
+		zap.Float64("eta_seconds", eta.Seconds()),
 	)
 	return nil
 }

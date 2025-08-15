@@ -41,7 +41,7 @@ func TestRunStdout(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	if err = Run(ctx, cfg, "/dev/snap", "", zap.NewNop()); err != nil {
+	if _, err = Run(ctx, cfg, "/dev/snap", "", zap.NewNop()); err != nil {
 		t.Fatalf("Run returned error: %v", err)
 	}
 

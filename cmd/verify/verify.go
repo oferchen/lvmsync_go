@@ -22,6 +22,7 @@ func Run(args []string, logger *zap.Logger) error {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
+	defer logger.Sync()
 	cmd := &cobra.Command{
 		Use:                "verify [flags] <source> <dest>",
 		Short:              "Verify that source and destination contain identical data",
