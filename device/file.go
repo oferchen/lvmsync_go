@@ -86,10 +86,12 @@ func (d *FileDevice) Close() error {
 	return err
 }
 
-// Snapshot returns the device itself for regular files.
+// Snapshot returns the device itself for regular files. It verifies the
+// underlying file descriptor is still open to surface errors when called on a
+// closed device.
 func (d *FileDevice) Snapshot(context.Context, string) (Device, error) {
-	if d.logger != nil {
-		d.logger.Info("file device snapshot", zap.String("path", d.Path()))
+	if _, err := d.f.Stat(); err != nil {
+		return nil, err
 	}
 	return d, nil
 }
