@@ -4,9 +4,27 @@ LVMSync writes a binary manifest alongside each transfer. The manifest tracks
 chunk offsets and digests so that interrupted sessions can resume and completed
 copies can be verified.
 
+## Usage
+
+- `lvmsync manifest rebuild <device>` regenerates a manifest when one is
+  missing or out of date.
+- `lvmsync verify --manifest_path <manifest> <source> <dest>` compares a source
+  and destination using the manifest.
+
 Chunk offsets are determined using FastCDC. The gear table now uses the
 standard 256-entry random values from the FastCDC specification, replacing the
 placeholder table previously used.
+
+## Security Defaults
+
+- The header MAC binds version, block size, device size, chunk count, and
+  device ID to detect tampering.
+- Rebuild aborts if the device is mounted read-write; override with
+  `--manifest-allow-mounted` only when the filesystem is quiesced.
+- Resume tokens encode the header MAC and last chunk to prevent resuming on a
+  different device.
+- Raw device scans require `--offline` or explicit freeze/thaw hooks to keep
+  data consistent.
 
 ## Layout and Versioning
 
@@ -44,18 +62,21 @@ The token encodes the header MAC and the last fully transferred chunk. This
 prevents resuming against the wrong device and permits the receiver to skip
 already replicated chunks.
 
-## Rebuilding
+## Examples
+
+### Rebuild
 
 Generate a manifest for an existing device when the index is missing or stale:
 
 ```sh
 lvmsync manifest rebuild /dev/vg0/lv0
 ```
-Progress logs are emitted every 10s by default; adjust with `--manifest-progress-interval`.
-The rebuild operation times out after 1m unless `--manifest_timeout` is set (0 disables).
-The command aborts if the device is mounted read-write. Override with `--manifest-allow-mounted` when rebuilding a live filesystem.
 
-## Verification
+Progress logs are emitted every 10s by default; adjust with
+`--manifest-progress-interval`. The rebuild operation times out after 1m unless
+`--manifest_timeout` is set (0 disables).
+
+### Verify
 
 Use a manifest to verify that a source and destination match:
 
@@ -63,14 +84,14 @@ Use a manifest to verify that a source and destination match:
 lvmsync verify --manifest_path snapshot.manifest /dev/vg0/snap0 /dev/null
 ```
 
-### Flags
+#### Flags
 
 | Flag | Environment variable | Config key | Description |
 |------|----------------------|------------|-------------|
 | `--resume` | `LVMSYNC_RESUME` | `resume` | Path to resume state file |
 | `--verify_checksum` | `LVMSYNC_VERIFY_CHECKSUM` | `verify_checksum` | Enable checksum verification |
 
-## Raw Device Safety
+### Freeze and Thaw Live Filesystems
 
 Working on a live block device can lead to inconsistent manifests if writes
 occur during the scan. To ensure a stable view:
