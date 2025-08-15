@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
-- None yet.
+- Log final handshake parameters for all transports.
 
 ### Fixed
 - None yet.

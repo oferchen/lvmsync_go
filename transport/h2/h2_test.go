@@ -40,6 +40,21 @@ func checkLogFields(t *testing.T, logs *observer.ObservedLogs, msg string, expec
 	}
 }
 
+func checkHandshakeFields(t *testing.T, logs *observer.ObservedLogs, msg string, expected int) {
+	entries := logs.FilterMessage(msg).All()
+	if len(entries) != expected {
+		t.Fatalf("expected %d %s logs, got %d", expected, msg, len(entries))
+	}
+	for _, e := range entries {
+		ctx := e.ContextMap()
+		for _, k := range []string{"dedup_mode", "block_size_bytes", "compress", "digest", "resume_token", "max_inflight", "cdc_min", "cdc_avg", "cdc_max"} {
+			if _, ok := ctx[k]; !ok {
+				t.Fatalf("expected field %q in %s log", k, msg)
+			}
+		}
+	}
+}
+
 func generateSelfSignedCert(t *testing.T) (tls.Certificate, *x509.CertPool) {
 	t.Helper()
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
@@ -81,6 +96,7 @@ func TestH2TransportTLSHandshake(t *testing.T) {
 	}
 	defer ln.Close()
 
+	hs := common.Handshake{ResumeToken: "tok", DedupMode: "cdc", BlockSize: 4096, Compress: "zstd", Digest: "sha256", MaxInFlight: 8, CDCMin: 64, CDCAvg: 128, CDCMax: 256}
 	done := make(chan struct{})
 	go func() {
 		conn, err := ln.Accept()
@@ -88,13 +104,12 @@ func TestH2TransportTLSHandshake(t *testing.T) {
 			t.Errorf("accept: %v", err)
 			return
 		}
-		peerHS, err := tr.Negotiate(ctx, conn, transport.Server, common.Handshake{ResumeToken: "tok", MaxInFlight: 8, CDCMin: 64, CDCAvg: 128, CDCMax: 256})
+		peerHS, err := tr.Negotiate(ctx, conn, transport.Server, hs)
 		if err != nil {
 			t.Errorf("server negotiate: %v", err)
 			return
 		}
-		if peerHS.ResumeToken != "tok" || peerHS.MaxInFlight != 8 || peerHS.ALPN != "h2" || peerHS.TLSVersion != "1.3" ||
-			peerHS.CDCMin != 64 || peerHS.CDCAvg != 128 || peerHS.CDCMax != 256 {
+		if peerHS.ResumeToken != hs.ResumeToken || peerHS.DedupMode != hs.DedupMode || peerHS.BlockSize != hs.BlockSize || peerHS.Compress != hs.Compress || peerHS.Digest != hs.Digest || peerHS.MaxInFlight != hs.MaxInFlight || peerHS.ALPN != "h2" || peerHS.TLSVersion != "1.3" || peerHS.CDCMin != hs.CDCMin || peerHS.CDCAvg != hs.CDCAvg || peerHS.CDCMax != hs.CDCMax {
 			t.Errorf("unexpected peer handshake: %+v", peerHS)
 		}
 		buf := make([]byte, 4)
@@ -108,12 +123,11 @@ func TestH2TransportTLSHandshake(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
-	peerHS, err := tr.Negotiate(ctx, conn, transport.Client, common.Handshake{ResumeToken: "tok", MaxInFlight: 8, CDCMin: 64, CDCAvg: 128, CDCMax: 256})
+	peerHS, err := tr.Negotiate(ctx, conn, transport.Client, hs)
 	if err != nil {
 		t.Fatalf("client negotiate: %v", err)
 	}
-	if peerHS.ResumeToken != "tok" || peerHS.MaxInFlight != 8 || peerHS.ALPN != "h2" || peerHS.TLSVersion != "1.3" ||
-		peerHS.CDCMin != 64 || peerHS.CDCAvg != 128 || peerHS.CDCMax != 256 {
+	if peerHS.ResumeToken != hs.ResumeToken || peerHS.DedupMode != hs.DedupMode || peerHS.BlockSize != hs.BlockSize || peerHS.Compress != hs.Compress || peerHS.Digest != hs.Digest || peerHS.MaxInFlight != hs.MaxInFlight || peerHS.ALPN != "h2" || peerHS.TLSVersion != "1.3" || peerHS.CDCMin != hs.CDCMin || peerHS.CDCAvg != hs.CDCAvg || peerHS.CDCMax != hs.CDCMax {
 		t.Fatalf("unexpected peer handshake: %+v", peerHS)
 	}
 	if _, err := conn.Write([]byte("ping")); err != nil {
@@ -133,6 +147,7 @@ func TestH2TransportTLSHandshake(t *testing.T) {
 	checkLogFields(t, logs, "listen_end", 1, zapcore.InfoLevel)
 	checkLogFields(t, logs, "negotiate_start", 2, zapcore.InfoLevel)
 	checkLogFields(t, logs, "negotiate_end", 2, zapcore.InfoLevel)
+	checkHandshakeFields(t, logs, "negotiate_end", 2)
 }
 
 func TestH2TransportTLSHandshakeError(t *testing.T) {
