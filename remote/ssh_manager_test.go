@@ -82,9 +82,20 @@ func TestSSHManagerGetClientRefresh(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetClient first: %v", err)
 	}
-	if server.ConnectionCount() != 1 {
-		t.Fatalf("expected 1 connection, got %d", server.ConnectionCount())
+	waitConn := func(want int) {
+		t.Helper()
+		deadline := time.Now().Add(time.Second)
+		for {
+			if server.ConnectionCount() == want {
+				return
+			}
+			if time.Now().After(deadline) {
+				t.Fatalf("expected %d connections, got %d", want, server.ConnectionCount())
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
 	}
+	waitConn(1)
 
 	c1.Close()
 	time.Sleep(50 * time.Millisecond)
@@ -96,9 +107,7 @@ func TestSSHManagerGetClientRefresh(t *testing.T) {
 	if c1 == c2 {
 		t.Fatal("expected new connection after close")
 	}
-	if server.ConnectionCount() != 2 {
-		t.Fatalf("expected 2 connections, got %d", server.ConnectionCount())
-	}
+	waitConn(2)
 	if err := mgr.CloseAll(); err != nil {
 		t.Fatalf("CloseAll: %v", err)
 	}
