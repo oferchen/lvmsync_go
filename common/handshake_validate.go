@@ -4,6 +4,16 @@ import "fmt"
 
 // ValidateHandshake ensures peer and local handshakes agree on critical parameters.
 func ValidateHandshake(local, peer Handshake) error {
+	if local.CDCMin > 0 && local.CDCAvg > 0 && local.CDCMax > 0 {
+		if !(local.CDCMin <= local.CDCAvg && local.CDCAvg <= local.CDCMax) {
+			return fmt.Errorf("invalid local cdc ordering: min %d avg %d max %d", local.CDCMin, local.CDCAvg, local.CDCMax)
+		}
+	}
+	if peer.CDCMin > 0 && peer.CDCAvg > 0 && peer.CDCMax > 0 {
+		if !(peer.CDCMin <= peer.CDCAvg && peer.CDCAvg <= peer.CDCMax) {
+			return fmt.Errorf("invalid peer cdc ordering: min %d avg %d max %d", peer.CDCMin, peer.CDCAvg, peer.CDCMax)
+		}
+	}
 	if peer.Endianness != "" && local.Endianness != "" && peer.Endianness != local.Endianness {
 		return fmt.Errorf("endianness mismatch: %s", peer.Endianness)
 	}

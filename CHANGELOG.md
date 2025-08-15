@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - None yet.
 
 ### Fixed
-- None yet.
+- Enforce CDC chunk size ordering in handshake validation.
 
 ## [v0.1.0] - 2025-02-27
 ### Added
