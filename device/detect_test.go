@@ -73,7 +73,7 @@ func TestDetectFileSymlink(t *testing.T) {
 	if err := os.Symlink(f.Name(), link); err != nil {
 		t.Fatalf("symlink: %v", err)
 	}
-	dev, err := Detect(context.Background(), link, true, "", "", "", "", 0, 0, nil)
+	dev, err := Detect(context.Background(), link, true, "", "", "", "", 0, 0, zap.NewNop())
 	if err != nil {
 		t.Fatalf("detect: %v", err)
 	}
@@ -130,7 +130,7 @@ func TestDetectRawSymlink(t *testing.T) {
 	if err := os.Symlink(loop, link); err != nil {
 		t.Fatalf("symlink: %v", err)
 	}
-	dev, err := Detect(context.Background(), link, true, "", "", "", "", 0, 0, nil)
+	dev, err := Detect(context.Background(), link, true, "", "", "", "", 0, 0, zap.NewNop())
 	if err != nil {
 		t.Fatalf("detect: %v", err)
 	}
@@ -153,7 +153,7 @@ func TestDetectLVMSymlink(t *testing.T) {
 	defer os.Remove(lvPath)
 	defer os.Remove(vgDir)
 
-	dev, err := Detect(context.Background(), lvPath, true, "", "", "", "", 0, 0, nil)
+	dev, err := Detect(context.Background(), lvPath, true, "", "", "", "", 0, 0, zap.NewNop())
 	if err != nil {
 		t.Fatalf("detect: %v", err)
 	}

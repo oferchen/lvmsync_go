@@ -14,6 +14,7 @@ import (
 	"lvmsync_go/internal/blocksize"
 )
 
+// detectBlockSize sets cfg.BlockSize by probing source; logger must be non-nil.
 func detectBlockSize(cfg *config.Config, source string, logger *zap.Logger) error {
 	if cfg.BlockSize != 0 {
 		return nil
@@ -23,12 +24,11 @@ func detectBlockSize(cfg *config.Config, source string, logger *zap.Logger) erro
 		return fmt.Errorf("auto-detect block size: %w", err)
 	}
 	cfg.BlockSize = bs
-	if logger != nil {
-		logger.Info("Auto-detected block size", zap.Int("block_size_bytes", cfg.BlockSize))
-	}
+	logger.Info("Auto-detected block size", zap.Int("block_size_bytes", cfg.BlockSize))
 	return nil
 }
 
+// gatherChangedRanges returns ranges of changed blocks; logger must be non-nil.
 func gatherChangedRanges(snapshot string, blockSize int64, logger *zap.Logger) ([]Range, error) {
 	metadataDevice := GetMetadataDevice(snapshot)
 	if metadataDevice == "" {
@@ -38,19 +38,16 @@ func gatherChangedRanges(snapshot string, blockSize int64, logger *zap.Logger) (
 	if err != nil {
 		return nil, fmt.Errorf("error getting differences: %w", err)
 	}
-	if logger != nil {
-		logger.Info("Changed blocks determined", zap.Int("block_count", len(ranges)))
-	}
+	logger.Info("Changed blocks determined", zap.Int("block_count", len(ranges)))
 	return ranges, nil
 }
 
+// prepareRanges calculates changed block ranges; logger must be non-nil.
 func prepareRanges(cfg *config.Config, snapshot, source string, logger *zap.Logger) ([]Range, error) {
 	if err := detectBlockSize(cfg, source, logger); err != nil {
 		return nil, err
 	}
-	if logger != nil {
-		logger.Info("Using block size", zap.Int("block_size_bytes", cfg.BlockSize))
-	}
+	logger.Info("Using block size", zap.Int("block_size_bytes", cfg.BlockSize))
 
 	_, blockSize, err := validateOffsetAndSize(0, cfg.BlockSize)
 	if err != nil {
@@ -84,6 +81,7 @@ func setupSourceFile(cfg *config.Config, source string) (*os.File, error) {
 	return srcFile, nil
 }
 
+// setupPipe initializes optional zero-copy pipe; logger must be non-nil.
 func setupPipe(cfg *config.Config, logger *zap.Logger) ([2]int, func(), error) {
 	var pipeFds [2]int
 	cleanup := func() {}
@@ -93,14 +91,10 @@ func setupPipe(cfg *config.Config, logger *zap.Logger) ([2]int, func(), error) {
 		}
 		cleanup = func() {
 			if closeErr := syscall.Close(pipeFds[0]); closeErr != nil {
-				if logger != nil {
-					logger.Warn("close pipe", zap.Int("fd", pipeFds[0]), zap.Error(closeErr))
-				}
+				logger.Warn("close pipe", zap.Int("fd", pipeFds[0]), zap.Error(closeErr))
 			}
 			if closeErr := syscall.Close(pipeFds[1]); closeErr != nil {
-				if logger != nil {
-					logger.Warn("close pipe", zap.Int("fd", pipeFds[1]), zap.Error(closeErr))
-				}
+				logger.Warn("close pipe", zap.Int("fd", pipeFds[1]), zap.Error(closeErr))
 			}
 		}
 	} else {
@@ -109,6 +103,7 @@ func setupPipe(cfg *config.Config, logger *zap.Logger) ([2]int, func(), error) {
 	return pipeFds, cleanup, nil
 }
 
+// startParallelWorkers launches worker goroutines; logger must be non-nil.
 func (t *Transfer) startParallelWorkers(cfg *config.Config, srcFile *os.File, ranges []Range, resumeStart int, logger *zap.Logger) <-chan *BlockResult {
 	numBlocks := len(ranges)
 	taskBuf := cfg.Parallel
@@ -133,11 +128,10 @@ func (t *Transfer) startParallelWorkers(cfg *config.Config, srcFile *os.File, ra
 	return results
 }
 
+// DumpChangesParallel streams changes in parallel; logger must be non-nil.
 func (t *Transfer) DumpChangesParallel(cfg *config.Config, snapshot, source string, out io.Writer) (err error) {
 	if cfg.ZeroCopy {
-		if t.Logger != nil {
-			t.Logger.Warn("ZeroCopy mode enabled, falling back to sequential execution")
-		}
+		t.Logger.Warn("ZeroCopy mode enabled, falling back to sequential execution")
 		return t.DumpChangesSequential(cfg, snapshot, source, out)
 	}
 
@@ -178,11 +172,9 @@ func (t *Transfer) DumpChangesParallel(cfg *config.Config, snapshot, source stri
 	finalizeProgress(cfg, t.Logger)
 	logParallelSummary(t.Logger, totalBytesTransferred, startTime)
 	finalizeResumeState(cfg, t.Tracker, t.Logger)
-	if len(finalDigest) > 0 && t.Logger != nil {
+	if len(finalDigest) > 0 {
 		t.Logger.Info("final checksum", zap.String("final_digest", fmt.Sprintf("%x", finalDigest)))
 	}
-	if t.Logger != nil {
-		_ = t.Logger.Sync()
-	}
+	_ = t.Logger.Sync()
 	return nil
 }
