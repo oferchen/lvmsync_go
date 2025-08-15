@@ -26,7 +26,7 @@ func Run(cfg *config.Config, applyFile string, args []string, logger *zap.Logger
 	}
 	destDevice := args[0]
 	if cfg.DestType == "auto" {
-		if dev, err := device.Detect(context.Background(), destDevice, true, "", "", logger); err == nil {
+		if dev, err := device.Detect(context.Background(), destDevice, true, "", "", cfg.FreezeTimeout, cfg.ThawTimeout, logger); err == nil {
 			switch dev.(type) {
 			case *device.RawDevice:
 				if !cfg.SkipSnapshotCreation {
