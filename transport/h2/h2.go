@@ -18,7 +18,10 @@ import (
 	"lvmsync_go/transport"
 )
 
-const maxFrameSize = 1 << 14
+const (
+	maxFrameSize       = 1 << 14
+	defaultDialTimeout = 30 * time.Second
+)
 
 // Transport implements HTTP/2 over TLS1.3 with mutual authentication.
 type Transport struct {
@@ -84,12 +87,39 @@ func init() {
 
 func (t *Transport) Name() string { return "h2" }
 
+
 func dialTLS(ctx context.Context, address string, conf *tls.Config, logger *zap.Logger) (*tls.Conn, error) {
 	d := net.Dialer{}
 	if dl, ok := ctx.Deadline(); ok {
 		d.Deadline = dl
 	}
 	conn, err := tls.DialWithDialer(&d, "tcp", address, conf)
+
+// Dial establishes a TLS1.3 connection and performs an HTTP/2 handshake.
+func (t *Transport) Dial(ctx context.Context, address string) (net.Conn, error) {
+	role := "client"
+	t.logger.Info("dial_start",
+		zap.String("address", address),
+		zap.String("role", role),
+		zap.Int64("duration_ms", 0),
+	)
+	start := time.Now()
+	dl, ok := ctx.Deadline()
+	if !ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, defaultDialTimeout)
+		defer cancel()
+		dl, _ = ctx.Deadline()
+	}
+	d := net.Dialer{Deadline: dl}
+	conn, err := tls.DialWithDialer(&d, "tcp", address, t.clientConf)
+	fields := []zap.Field{
+		zap.String("address", address),
+		zap.String("role", role),
+		zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+		zap.Error(err),
+	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +127,17 @@ func dialTLS(ctx context.Context, address string, conf *tls.Config, logger *zap.
 		if err := conn.SetDeadline(dl); err != nil {
 			conn.Close()
 			return nil, err
+
+	if err := conn.SetDeadline(dl); err != nil {
+		conn.Close()
+		fields := []zap.Field{
+			zap.String("address", address),
+			zap.String("role", role),
+			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+			zap.Error(err),
 		}
+		t.logger.Error("dial_end", fields...)
+		return nil, err
 	}
 	return conn, nil
 }
@@ -182,7 +222,6 @@ func (t *Transport) Listen(ctx context.Context, address string) (net.Listener, e
 		zap.String("address", address),
 		zap.String("role", role),
 		zap.Int64("duration_ms", 0),
-		zap.String("error", ""),
 	)
 	start := time.Now()
 	ln, err := net.Listen("tcp", address)
@@ -203,7 +242,6 @@ func (t *Transport) Listen(ctx context.Context, address string) (net.Listener, e
 		zap.String("address", address),
 		zap.String("role", role),
 		zap.Int64("duration_ms", time.Since(start).Milliseconds()),
-		zap.String("error", ""),
 	}
 	t.logger.Info("listen_end", fields...)
 	return &listener{ln: ln, ctx: ctx}, nil

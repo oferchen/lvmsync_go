@@ -98,6 +98,8 @@ func verifyChecksum(verify bool, checksum ChecksumStrategy, data, transmitted []
 	return nil
 }
 
+// writeData seeks to offset and writes the provided data to destFile.
+// If seeking fails, no write occurs and the seek error is returned.
 func writeData(destFile *os.File, offset uint64, data []byte, logger *zap.Logger) error {
 	if offset > math.MaxInt64 {
 		return fmt.Errorf("offset %d overflows int64", offset)
@@ -106,7 +108,7 @@ func writeData(destFile *os.File, offset uint64, data []byte, logger *zap.Logger
 		if logger != nil {
 			logger.Warn("Seek error", zap.Uint64("offset", offset), zap.Error(err))
 		}
-		return nil
+		return fmt.Errorf("failed to seek to offset %d: %w", offset, err)
 	}
 	if _, err := destFile.Write(data); err != nil {
 		return fmt.Errorf("failed to write data at offset %d: %w", offset, err)
@@ -114,6 +116,9 @@ func writeData(destFile *os.File, offset uint64, data []byte, logger *zap.Logger
 	return nil
 }
 
+// processBlock validates and writes a block to destFile.
+// It returns whether data was written. Seek or write failures
+// from writeData are propagated to the caller.
 func processBlock(
 	cfg *config.Config,
 	destFile *os.File,
