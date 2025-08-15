@@ -23,10 +23,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - manifest: add `manifest_timeout` option to control rebuild timeout.
 - device: allow configurable LVM privilege escalation command.
 - tests: verify ALPN and TLS version round-trip in handshake and transport negotiation.
+- manifest: test zero `manifest_timeout` uses background context.
 - cmd/verify: add test ensuring mismatched blocks log `mismatched_block`.
 
 
 ### Fixed
+- tests: assert context deadline exceeded for tcp+tls unreachable dial
 - Enforce CDC chunk size ordering in handshake validation.
 - validate block size mismatch in handshakes
 - remove placeholder error field from dial_start and listen_start logs for h2 and tcp+tls transports
@@ -39,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - shorten h2 dial timeout to 5s and enforce it when no deadline is provided
 - ensure verify and lvmsync commands flush logs by deferring logger.Sync()
 - remove legacy dedup manifest in favor of manifest.Index
+- device: surface freeze/thaw command output when raw device operations fail
 - transfer: give each writer an independent rate limiter
 - cmd/dump: handle context cancellation during pipe copies to avoid incomplete writes
 - rename dry run log field to `eta_seconds` and log durations in seconds
