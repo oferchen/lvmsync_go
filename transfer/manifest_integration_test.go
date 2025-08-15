@@ -36,7 +36,7 @@ func TestIterateBlocksUsesManifest(t *testing.T) {
 	manPath := filepath.Join(dir, "dev.man")
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	if err := manifestpkg.Rebuild(ctx, dev.Name(), manPath, zap.NewNop(), 0); err != nil {
+	if err := manifestpkg.Rebuild(ctx, dev.Name(), manPath, zap.NewNop(), 0, false); err != nil {
 		t.Fatalf("rebuild: %v", err)
 	}
 	src, err := os.Open(dev.Name())

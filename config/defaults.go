@@ -91,6 +91,7 @@ type Config struct {
 	BloomMBits               uint          `mapstructure:"bloom_mbits"`
 	ManifestPath             string        `mapstructure:"manifest_path"`
 	ManifestProgressInterval time.Duration `mapstructure:"manifest_progress_interval"`
+	ManifestAllowMounted     bool          `mapstructure:"manifest_allow_mounted"`
 	GRPCPort                 int           `mapstructure:"grpc_port"`
 	GRPCListen               string        `mapstructure:"grpc_listen"`
 	GRPCConnect              string        `mapstructure:"grpc_connect"`
@@ -218,6 +219,7 @@ func DefaultConfig() (*Config, error) {
 		BloomMBits:               0,
 		ManifestPath:             "",
 		ManifestProgressInterval: 10 * time.Second,
+		ManifestAllowMounted:     false,
 		GRPCPort:                 8443,
 		GRPCListen:               "",
 		GRPCConnect:              "",

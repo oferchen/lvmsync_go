@@ -83,7 +83,7 @@ func TestLoopbackLVMToRawOverSSH(t *testing.T) {
 	manifestPath := filepath.Join(t.TempDir(), "src.man")
 	ctxMan, cancelMan := context.WithTimeout(context.Background(), time.Second)
 	defer cancelMan()
-	if err := manifestpkg.Rebuild(ctxMan, srcLoop, manifestPath, zap.NewNop(), 0); err != nil {
+	if err := manifestpkg.Rebuild(ctxMan, srcLoop, manifestPath, zap.NewNop(), 0, false); err != nil {
 		t.Fatalf("rebuild manifest: %v", err)
 	}
 
@@ -196,7 +196,7 @@ func TestLoopbackFileToFileOverTCPTLS(t *testing.T) {
 	manifestPath := filepath.Join(dir, "src.man")
 	ctxMan, cancelMan := context.WithTimeout(context.Background(), time.Second)
 	defer cancelMan()
-	if err := manifestpkg.Rebuild(ctxMan, srcLoop, manifestPath, zap.NewNop(), 0); err != nil {
+	if err := manifestpkg.Rebuild(ctxMan, srcLoop, manifestPath, zap.NewNop(), 0, false); err != nil {
 		t.Fatalf("rebuild manifest: %v", err)
 	}
 
@@ -332,7 +332,7 @@ func TestLoopbackLVMToRawOverTCPTLS(t *testing.T) {
 			manifestPath := filepath.Join(t.TempDir(), "src.man")
 			ctxMan, cancelMan := context.WithTimeout(context.Background(), time.Second)
 			defer cancelMan()
-			if err := manifestpkg.Rebuild(ctxMan, srcLoop, manifestPath, zap.NewNop(), 0); err != nil {
+			if err := manifestpkg.Rebuild(ctxMan, srcLoop, manifestPath, zap.NewNop(), 0, false); err != nil {
 				t.Fatalf("rebuild manifest: %v", err)
 			}
 
@@ -453,7 +453,7 @@ func runRawToRawLoopback(t *testing.T, transportName string) {
 			manifestPath := filepath.Join(dir, "src.man")
 			ctxMan, cancelMan := context.WithTimeout(context.Background(), time.Second)
 			defer cancelMan()
-			if err := manifestpkg.Rebuild(ctxMan, srcLoop, manifestPath, zap.NewNop(), 0); err != nil {
+			if err := manifestpkg.Rebuild(ctxMan, srcLoop, manifestPath, zap.NewNop(), 0, false); err != nil {
 				t.Fatalf("rebuild manifest: %v", err)
 			}
 
@@ -631,7 +631,7 @@ func TestLoopbackSparseFileToFileOverSSH(t *testing.T) {
 			manifestPath := filepath.Join(dir, "src.man")
 			ctxMan, cancelMan := context.WithTimeout(context.Background(), time.Second)
 			defer cancelMan()
-			if err := manifestpkg.Rebuild(ctxMan, srcLoop, manifestPath, zap.NewNop(), 0); err != nil {
+			if err := manifestpkg.Rebuild(ctxMan, srcLoop, manifestPath, zap.NewNop(), 0, false); err != nil {
 				t.Fatalf("rebuild manifest: %v", err)
 			}
 
