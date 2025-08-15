@@ -63,6 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - h2: ensure unreachable dial test uses context timeout and expects deadline exceeded
 - manifest: default rebuild command to a no-op logger and remove conditional logging checks
 - device: reject freeze/thaw command paths with invalid characters and document allowed format
+- device: allow freeze/thaw command paths containing directories by validating basename only
 
 ## [v0.1.0] - 2025-02-27
 ### Added

@@ -1,10 +1,17 @@
 package device
 
 import (
+	"os/exec"
+	"path/filepath"
 	"testing"
 )
 
 func TestValidateCmd(t *testing.T) {
+	truePath, err := exec.LookPath("true")
+	if err != nil {
+		t.Fatalf("missing true binary: %v", err)
+	}
+	invalidBase := filepath.Join(filepath.Dir(truePath), "tr ue")
 	tests := []struct {
 		name    string
 		path    string
@@ -33,6 +40,11 @@ func TestValidateCmd(t *testing.T) {
 			wantErr: "command path tr ue contains invalid characters",
 		},
 		{
+			name:    "invalid characters in basename",
+			path:    invalidBase,
+			wantErr: "command path " + invalidBase + " contains invalid characters",
+		},
+		{
 			name:    "nonexistent command",
 			path:    "does-not-exist",
 			wantErr: "does-not-exist: exec: \"does-not-exist\": executable file not found in $PATH",
@@ -40,6 +52,10 @@ func TestValidateCmd(t *testing.T) {
 		{
 			name: "valid command",
 			path: "true",
+		},
+		{
+			name: "valid absolute path",
+			path: truePath,
 		},
 	}
 	for _, tc := range tests {
