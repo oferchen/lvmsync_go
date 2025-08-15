@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"strings"
 	"time"
 
@@ -65,7 +64,6 @@ func (d *LVMDevice) Close() error {
 }
 
 var (
-	execCommand      = exec.CommandContext
 	generateSnapshot = func() string { return fmt.Sprintf("lvmsync_%d", time.Now().UnixNano()) }
 	geteuid          = os.Geteuid
 	openLVMFunc      = OpenLVM

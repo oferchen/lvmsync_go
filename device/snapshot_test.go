@@ -60,7 +60,7 @@ func TestSnapshotLifecycle(t *testing.T) {
 		cmds = append(cmds, name+" "+strings.Join(args, " "))
 		return exec.CommandContext(ctx, "true")
 	}
-	defer func() { execCommand = origCmd }()
+	t.Cleanup(func() { execCommand = origCmd })
 
 	origName := generateSnapshot
 	generateSnapshot = func() string { return "snap" }
