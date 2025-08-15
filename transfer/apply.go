@@ -1,0 +1,152 @@
+package transfer
+
+import (
+	"bufio"
+	"context"
+	"fmt"
+	"io"
+	"os"
+	"time"
+
+	"go.uber.org/zap"
+
+	"lvmsync_go/common"
+	"lvmsync_go/config"
+	"lvmsync_go/device"
+)
+
+func applyBlocks(cfg *config.Config, reader *bufio.Reader, destFile *os.File, dedup DeduplicationStrategy, verify bool, checksum ChecksumStrategy, logger *zap.Logger) (int64, error) {
+	var totalBytes int64
+	var sinceSync int64
+	headerLen := 12
+	if verify {
+		headerLen += checksum.Size()
+	}
+	headerBuf := make([]byte, headerLen)
+	for {
+		offset, chunkSize, transmittedSum, err := readBlockHeader(reader, headerBuf, verify, checksum)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return totalBytes, err
+		}
+
+		data, err := readBlockData(cfg, reader, chunkSize)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return totalBytes, err
+		}
+		written, err := processBlock(cfg, destFile, dedup, verify, checksum, offset, transmittedSum, data, chunkSize, logger)
+		if cfg.ODirect {
+			if data != nil {
+				putAlignedBlockBuffer(data)
+			}
+		} else if data != nil {
+			putBlockBuffer(data)
+		}
+		if err != nil {
+			return totalBytes, err
+		}
+		if written {
+			totalBytes += int64(chunkSize)
+			sinceSync += int64(chunkSize)
+			if cfg.SyncIntervalBytes > 0 && sinceSync >= int64(cfg.SyncIntervalBytes) {
+				if err := fdatasyncFile(destFile); err != nil {
+					return totalBytes, err
+				}
+				sinceSync = 0
+			}
+		}
+	}
+	return totalBytes, nil
+}
+
+func (t *Transfer) processDumpDataCore(cfg *config.Config, in io.Reader, destPath string, dedup DeduplicationStrategy, verify bool) (err error) {
+	bufReader := bufio.NewReader(in)
+	var hs common.Handshake
+	hs, err = readAndValidateHandshake(cfg, bufReader, dedup, verify)
+	if err != nil {
+		return err
+	}
+
+	decReader, err := NewDecompressionReader(bufReader, hs.Compress, cfg.CompressConcurrency)
+	if err != nil {
+		return fmt.Errorf("failed to create decompression reader: %w", err)
+	}
+	defer func() {
+		if closeErr := decReader.Close(); closeErr != nil && t.Logger != nil {
+			t.Logger.Warn("Failed to close decompression reader", zap.Error(closeErr))
+		}
+	}()
+
+	reader := bufio.NewReader(decReader)
+
+	if cfg.DeviceUUID != "" {
+		uuid, err2 := device.GetUUID(context.Background(), destPath)
+		if err2 != nil {
+			return fmt.Errorf("read destination uuid: %w", err2)
+		}
+		if uuid != cfg.DeviceUUID {
+			return fmt.Errorf("destination device uuid %s does not match expected %s", uuid, cfg.DeviceUUID)
+		}
+	}
+	mounted, err2 := device.IsMountedRW(destPath)
+	if err2 != nil {
+		return fmt.Errorf("check mount status: %w", err2)
+	}
+	if mounted && !cfg.Force {
+		return fmt.Errorf("destination device %s is mounted read-write", destPath)
+	}
+
+	var destFile *os.File
+	if cfg.ODirect {
+		tmp, err2 := os.Open(destPath)
+		if err2 != nil {
+			return fmt.Errorf("failed to open destination device %s: %w", destPath, err2)
+		}
+		sector, err2 := DetectSectorSize(tmp)
+		_ = tmp.Close()
+		if err2 == nil && cfg.BlockSize%sector == 0 {
+			if f, direct, err2 := openFileODirect(destPath, os.O_RDWR); err2 == nil && direct {
+				destFile = f
+			}
+		}
+	}
+	if destFile == nil {
+		destFile, err = os.OpenFile(destPath, os.O_RDWR, 0)
+		if err != nil {
+			return fmt.Errorf("failed to open destination device %s: %w", destPath, err)
+		}
+	}
+	defer common.CloseWithErr(destFile, &err, "close destination device")
+
+	startTime := time.Now()
+	checksum := GetChecksumStrategy(cfg.ChecksumAlgorithm)
+	var totalBytes int64
+	totalBytes, err = applyBlocks(cfg, reader, destFile, dedup, verify, checksum, t.Logger)
+	if err != nil {
+		return err
+	}
+
+	elapsed := time.Since(startTime).Seconds()
+	if t.Logger != nil {
+		t.Logger.Info("Applied changes",
+			zap.Int64("bytes", totalBytes),
+			zap.Float64("seconds", elapsed),
+			zap.Float64("MB/s", float64(totalBytes)/elapsed/1048576.0))
+	}
+	return nil
+}
+
+// ProcessDumpDataWithDeduplication applies a dump stream to destPath using the given dedup strategy without checksum verification, updating the strategy's state.
+func (t *Transfer) ProcessDumpDataWithDeduplication(cfg *config.Config, in io.Reader, destPath string, dedup DeduplicationStrategy) error {
+	return t.processDumpDataCore(cfg, in, destPath, dedup, false)
+}
+
+// ProcessDumpData applies a dump stream to destPath with checksum verification for each block before writing.
+func (t *Transfer) ProcessDumpData(cfg *config.Config, in io.Reader, destPath string) error {
+	return t.processDumpDataCore(cfg, in, destPath, nil, true)
+}
