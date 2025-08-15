@@ -533,8 +533,8 @@ func TestTLSVersionString(t *testing.T) {
 		{0xffff, ""},
 	}
 	for _, tt := range tests {
-		if got := tlsVersionString(tt.version); got != tt.want {
-			t.Errorf("tlsVersionString(%#x) = %q, want %q", tt.version, got, tt.want)
+		if got := transport.TLSVersionString(tt.version); got != tt.want {
+			t.Errorf("TLSVersionString(%#x) = %q, want %q", tt.version, got, tt.want)
 		}
 	}
 }
@@ -549,8 +549,8 @@ func TestRoleString(t *testing.T) {
 		{transport.Role(99), ""},
 	}
 	for _, tt := range tests {
-		if got := roleString(tt.role); got != tt.want {
-			t.Errorf("roleString(%v) = %q, want %q", tt.role, got, tt.want)
+		if got := tt.role.String(); got != tt.want {
+			t.Errorf("Role(%v).String() = %q, want %q", tt.role, got, tt.want)
 		}
 	}
 }

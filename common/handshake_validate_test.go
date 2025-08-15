@@ -74,5 +74,13 @@ func TestValidateHandshakeODirectMatch(t *testing.T) {
 	peer := Handshake{ODirect: true}
 	if err := ValidateHandshake(local, peer); err != nil {
 		t.Fatalf("unexpected error: %v", err)
+=======
+func TestValidateHandshakeTransportMismatch(t *testing.T) {
+	local := Handshake{Transport: "quic"}
+	peer := local
+	peer.Transport = "h2"
+	if err := ValidateHandshake(local, peer); err == nil {
+		t.Fatal("expected transport mismatch error")
+
 	}
 }

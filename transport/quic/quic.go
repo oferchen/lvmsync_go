@@ -55,6 +55,7 @@ func New(cfg transport.Config) (transport.Interface, error) {
 	}
 	clientAuth := tls.RequireAndVerifyClientCert
 	if cfg.AllowInsecure {
+		cfg.Logger.Warn("allow_insecure_enabled", zap.String("transport", "quic"))
 		clientAuth = tls.RequireAnyClientCert
 	}
 	serverTLS := &tls.Config{
@@ -168,7 +169,7 @@ func (l *listener) Addr() net.Addr { return l.ql.Addr() }
 
 // Negotiate performs the LVMSync handshake over the stream.
 func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport.Role, hs common.Handshake) (peer common.Handshake, err error) {
-	roleStr := roleString(role)
+	roleStr := role.String()
 	address := conn.RemoteAddr().String()
 	t.logger.Info("negotiate_start",
 		zap.String("address", address),
@@ -186,25 +187,7 @@ func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport
 			fields = append(fields, zap.Error(err))
 			t.logger.Error("negotiate_end", fields...)
 		} else {
-			fields = append(fields,
-				zap.String("dedup_mode", hs.DedupMode),
-				zap.Int("block_size_bytes", hs.BlockSize),
-				zap.String("compress", hs.Compress),
-				zap.Int("compress_level", hs.CompressLevel),
-				zap.String("digest", hs.Digest),
-				zap.String("resume_token", hs.ResumeToken),
-				zap.Bool("checksum", hs.Checksum),
-				zap.Bool("checksum_dedup", hs.ChecksumDedup),
-				zap.String("endianness", hs.Endianness),
-				zap.Bool("odirect", hs.ODirect),
-				zap.Int("max_inflight", hs.MaxInFlight),
-				zap.Int("cdc_min", hs.CDCMin),
-				zap.Int("cdc_avg", hs.CDCAvg),
-				zap.Int("cdc_max", hs.CDCMax),
-				zap.String("transport", hs.Transport),
-				zap.String("alpn", hs.ALPN),
-				zap.String("tls_version", hs.TLSVersion),
-			)
+			fields = append(fields, transport.HandshakeFields(hs)...)
 			t.logger.Info("negotiate_end", fields...)
 		}
 	}()
@@ -212,7 +195,7 @@ func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport
 	if qc, ok := conn.(*Conn); ok {
 		state := qc.qconn.ConnectionState()
 		negotiatedALPN := state.TLS.NegotiatedProtocol
-		negotiatedVersion := tlsVersionString(state.TLS.Version)
+		negotiatedVersion := transport.TLSVersionString(state.TLS.Version)
 		if hs.ALPN != "" && negotiatedALPN != "" && hs.ALPN != negotiatedALPN {
 			return peer, fmt.Errorf("alpn mismatch: %s", negotiatedALPN)
 		}
@@ -287,21 +270,6 @@ func clearDeadline(conn net.Conn) {
 	_ = conn.SetDeadline(time.Time{})
 }
 
-func tlsVersionString(v uint16) string {
-	switch v {
-	case tls.VersionTLS10:
-		return "1.0"
-	case tls.VersionTLS11:
-		return "1.1"
-	case tls.VersionTLS12:
-		return "1.2"
-	case tls.VersionTLS13:
-		return "1.3"
-	default:
-		return ""
-	}
-}
-
 // Datagram APIs.
 
 // SendDatagram sends a datagram using the underlying QUIC connection.
@@ -331,14 +299,3 @@ func (c *Conn) SetDeadline(t time.Time) error {
 }
 func (c *Conn) SetReadDeadline(t time.Time) error  { return c.stream.SetReadDeadline(t) }
 func (c *Conn) SetWriteDeadline(t time.Time) error { return c.stream.SetWriteDeadline(t) }
-
-func roleString(r transport.Role) string {
-	switch r {
-	case transport.Client:
-		return "client"
-	case transport.Server:
-		return "server"
-	default:
-		return ""
-	}
-}

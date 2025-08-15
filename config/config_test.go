@@ -348,6 +348,9 @@ func TestConfigValidate(t *testing.T) {
 			HeartbeatInterval:    time.Second,
 			HeartbeatSendTimeout: time.Second,
 			TCPParallel:          1,
+			CDCMin:               64,
+			CDCAvg:               128,
+			CDCMax:               256,
 		}
 		if err := cfg.Validate(); err != nil {
 			t.Fatalf("expected no error, got %v", err)
@@ -360,49 +363,49 @@ func TestConfigValidate(t *testing.T) {
 		defer restore()
 		restorePriv := lvm.SetPrivilegeChecker(func() error { return nil })
 		defer restorePriv()
-		cfg := &Config{Mode: "default", VolumeGroup: "vg0", LVMEscalation: "sudo", SSHKeepAliveInterval: time.Second, LVMTimeout: time.Second, TCPParallel: 1}
+		cfg := &Config{Mode: "default", VolumeGroup: "vg0", LVMEscalation: "sudo", SSHKeepAliveInterval: time.Second, LVMTimeout: time.Second, GRPCDialTimeout: time.Second, GRPCSetupTimeout: time.Second, HeartbeatInterval: time.Second, HeartbeatSendTimeout: time.Second, TCPParallel: 1, CDCMin: 64, CDCAvg: 128, CDCMax: 256}
 		if err := cfg.Validate(); err == nil {
 			t.Fatalf("expected error")
 		}
 	})
 
 	t.Run("invalidKeepalive", func(t *testing.T) {
-		cfg := &Config{SSHKeepAliveInterval: 0, GRPCDialTimeout: time.Second, GRPCSetupTimeout: time.Second, HeartbeatInterval: time.Second, HeartbeatSendTimeout: time.Second, TCPParallel: 1}
+		cfg := &Config{Mode: "default", SSHKeepAliveInterval: 0, GRPCDialTimeout: time.Second, GRPCSetupTimeout: time.Second, HeartbeatInterval: time.Second, HeartbeatSendTimeout: time.Second, TCPParallel: 1, CDCMin: 64, CDCAvg: 128, CDCMax: 256}
 		if err := cfg.Validate(); err == nil {
 			t.Fatalf("expected error")
 		}
 	})
 
 	t.Run("invalidHeartbeatInterval", func(t *testing.T) {
-		cfg := &Config{SSHKeepAliveInterval: time.Second, GRPCDialTimeout: time.Second, GRPCSetupTimeout: time.Second, HeartbeatInterval: 0, HeartbeatSendTimeout: time.Second, TCPParallel: 1}
+		cfg := &Config{Mode: "default", SSHKeepAliveInterval: time.Second, GRPCDialTimeout: time.Second, GRPCSetupTimeout: time.Second, HeartbeatInterval: 0, HeartbeatSendTimeout: time.Second, TCPParallel: 1, CDCMin: 64, CDCAvg: 128, CDCMax: 256}
 		if err := cfg.Validate(); err == nil {
 			t.Fatalf("expected error")
 		}
 	})
 
 	t.Run("invalidHeartbeatSendTimeout", func(t *testing.T) {
-		cfg := &Config{SSHKeepAliveInterval: time.Second, GRPCDialTimeout: time.Second, GRPCSetupTimeout: time.Second, HeartbeatInterval: time.Second, HeartbeatSendTimeout: 0, TCPParallel: 1}
+		cfg := &Config{Mode: "default", SSHKeepAliveInterval: time.Second, GRPCDialTimeout: time.Second, GRPCSetupTimeout: time.Second, HeartbeatInterval: time.Second, HeartbeatSendTimeout: 0, TCPParallel: 1, CDCMin: 64, CDCAvg: 128, CDCMax: 256}
 		if err := cfg.Validate(); err == nil {
 			t.Fatalf("expected error")
 		}
 	})
 
 	t.Run("invalidGRPCSetupTimeout", func(t *testing.T) {
-		cfg := &Config{SSHKeepAliveInterval: time.Second, GRPCDialTimeout: time.Second, GRPCSetupTimeout: 0, HeartbeatInterval: time.Second, HeartbeatSendTimeout: time.Second, TCPParallel: 1}
+		cfg := &Config{Mode: "default", SSHKeepAliveInterval: time.Second, GRPCDialTimeout: time.Second, GRPCSetupTimeout: 0, HeartbeatInterval: time.Second, HeartbeatSendTimeout: time.Second, TCPParallel: 1, CDCMin: 64, CDCAvg: 128, CDCMax: 256}
 		if err := cfg.Validate(); err == nil {
 			t.Fatalf("expected error")
 		}
 	})
 
 	t.Run("invalidTCPParallel", func(t *testing.T) {
-		cfg := &Config{SSHKeepAliveInterval: time.Second, GRPCDialTimeout: time.Second, GRPCSetupTimeout: time.Second, HeartbeatInterval: time.Second, HeartbeatSendTimeout: time.Second, TCPParallel: 5}
+		cfg := &Config{Mode: "default", SSHKeepAliveInterval: time.Second, GRPCDialTimeout: time.Second, GRPCSetupTimeout: time.Second, HeartbeatInterval: time.Second, HeartbeatSendTimeout: time.Second, TCPParallel: 5, CDCMin: 64, CDCAvg: 128, CDCMax: 256}
 		if err := cfg.Validate(); err == nil {
 			t.Fatalf("expected error")
 		}
 	})
 
 	t.Run("invalidTCPLowat", func(t *testing.T) {
-		cfg := &Config{SSHKeepAliveInterval: time.Second, GRPCDialTimeout: time.Second, GRPCSetupTimeout: time.Second, HeartbeatInterval: time.Second, HeartbeatSendTimeout: time.Second, TCPParallel: 1, TCPNotSentLowAt: -1}
+		cfg := &Config{Mode: "default", SSHKeepAliveInterval: time.Second, GRPCDialTimeout: time.Second, GRPCSetupTimeout: time.Second, HeartbeatInterval: time.Second, HeartbeatSendTimeout: time.Second, TCPParallel: 1, TCPNotSentLowAt: -1, CDCMin: 64, CDCAvg: 128, CDCMax: 256}
 		if err := cfg.Validate(); err == nil {
 			t.Fatalf("expected error")
 		}
@@ -413,9 +416,51 @@ func TestConfigValidate(t *testing.T) {
 		defer restore()
 		restorePriv := lvm.SetPrivilegeChecker(func() error { return nil })
 		defer restorePriv()
-		cfg := &Config{VolumeGroup: "vg0", LVMEscalation: "sudo", SSHKeepAliveInterval: time.Second, LVMTimeout: time.Millisecond, TCPParallel: 1}
+		cfg := &Config{Mode: "default", VolumeGroup: "vg0", LVMEscalation: "sudo", SSHKeepAliveInterval: time.Second, LVMTimeout: time.Millisecond, GRPCDialTimeout: time.Second, GRPCSetupTimeout: time.Second, HeartbeatInterval: time.Second, HeartbeatSendTimeout: time.Second, TCPParallel: 1, CDCMin: 64, CDCAvg: 128, CDCMax: 256}
 		if err := cfg.Validate(); err == nil {
 			t.Fatalf("expected timeout error")
+		}
+	})
+}
+
+func TestConfigValidateCDC(t *testing.T) {
+	base := Config{
+		Mode:                 "default",
+		SSHKeepAliveInterval: time.Second,
+		GRPCDialTimeout:      time.Second,
+		GRPCSetupTimeout:     time.Second,
+		HeartbeatInterval:    time.Second,
+		HeartbeatSendTimeout: time.Second,
+		TCPParallel:          1,
+	}
+
+	t.Run("valid", func(t *testing.T) {
+		cfg := base
+		cfg.CDCMin = 1
+		cfg.CDCAvg = 1
+		cfg.CDCMax = 1
+		if err := cfg.Validate(); err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+	})
+
+	t.Run("nonPositive", func(t *testing.T) {
+		cfg := base
+		cfg.CDCMin = 0
+		cfg.CDCAvg = 1
+		cfg.CDCMax = 1
+		if err := cfg.Validate(); err == nil {
+			t.Fatalf("expected error")
+		}
+	})
+
+	t.Run("unordered", func(t *testing.T) {
+		cfg := base
+		cfg.CDCMin = 4
+		cfg.CDCAvg = 2
+		cfg.CDCMax = 3
+		if err := cfg.Validate(); err == nil {
+			t.Fatalf("expected error")
 		}
 	})
 }
@@ -479,7 +524,7 @@ func TestValidateEscalationCommandPath(t *testing.T) {
 	}
 	os.Setenv("PATH", dir)
 
-	cfg := &Config{Mode: "default", LVMEscalation: "sudo", SSHKeepAliveInterval: time.Second, GRPCDialTimeout: time.Second, GRPCSetupTimeout: time.Second, HeartbeatInterval: time.Second, HeartbeatSendTimeout: time.Second, TCPParallel: 1}
+	cfg := &Config{Mode: "default", LVMEscalation: "sudo", SSHKeepAliveInterval: time.Second, GRPCDialTimeout: time.Second, GRPCSetupTimeout: time.Second, HeartbeatInterval: time.Second, HeartbeatSendTimeout: time.Second, TCPParallel: 1, CDCMin: 64, CDCAvg: 128, CDCMax: 256}
 	if err := cfg.ValidateWith(geteuid); err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -499,6 +544,9 @@ func TestValidateMode(t *testing.T) {
 		HeartbeatInterval:    time.Second,
 		HeartbeatSendTimeout: time.Second,
 		TCPParallel:          1,
+		CDCMin:               64,
+		CDCAvg:               128,
+		CDCMax:               256,
 	}
 
 	cases := []struct {
@@ -518,6 +566,43 @@ func TestValidateMode(t *testing.T) {
 			cfg.Mode = tc.mode
 			if err := cfg.ValidateWith(geteuid); (err != nil) != tc.wantErr {
 				t.Fatalf("ValidateWith(%q) error = %v, wantErr %v", tc.mode, err, tc.wantErr)
+			}
+		})
+	}
+}
+
+func TestValidateCDCOrdering(t *testing.T) {
+	geteuid := func() int { return 0 }
+	base := Config{
+		Mode:                 "default",
+		SSHKeepAliveInterval: time.Second,
+		GRPCDialTimeout:      time.Second,
+		GRPCSetupTimeout:     time.Second,
+		HeartbeatInterval:    time.Second,
+		HeartbeatSendTimeout: time.Second,
+		TCPParallel:          1,
+	}
+
+	cases := []struct {
+		name    string
+		min     int
+		avg     int
+		max     int
+		wantErr bool
+	}{
+		{name: "ascending", min: 64, avg: 128, max: 256, wantErr: false},
+		{name: "avgEqualsMin", min: 64, avg: 64, max: 128, wantErr: false},
+		{name: "avgEqualsMax", min: 64, avg: 128, max: 128, wantErr: false},
+		{name: "avgLessThanMin", min: 128, avg: 64, max: 256, wantErr: true},
+		{name: "avgGreaterThanMax", min: 64, avg: 256, max: 128, wantErr: true},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := base
+			cfg.CDCMin, cfg.CDCAvg, cfg.CDCMax = tc.min, tc.avg, tc.max
+			if err := cfg.ValidateWith(geteuid); (err != nil) != tc.wantErr {
+				t.Fatalf("ValidateWith min=%d avg=%d max=%d error = %v, wantErr %v", tc.min, tc.avg, tc.max, err, tc.wantErr)
 			}
 		})
 	}

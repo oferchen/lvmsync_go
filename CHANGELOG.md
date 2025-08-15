@@ -34,12 +34,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - README: document CDC parameter ordering and the error when violated.
 - README: note that commands accept an explicit `*zap.Logger` defaulting to `zap.NewNop()`.
 - tests: validate O_DIRECT mismatch and agreement in handshake validation.
+- transport: add Role.String and shared TLSVersionString helpers.
+- manifest: support dependency injection via Options for device detection and close hooks.
+- hash: add Blake3Hasher tests covering keyed and unkeyed modes with state reset verification.
+- transfer: tests ensure mismatched device UUIDs and mounted devices return errors without writes.
+- grpc: tests cover ProgressStream, BuildManifest, and Verify logging and forwarding.
+- cmd/verify: support SHA-256 verification with configurable digest helper.
+- transport: centralize handshake logging via `HandshakeFields` helper.
+- Warn when `AllowInsecure` is enabled for gRPC server, client, and transports.
+- manifest: allow custom close hook via index options, removing global hook.
 
 
 ### Fixed
 - tests: assert context deadline exceeded for tcp+tls unreachable dial
 - Enforce CDC chunk size ordering in handshake validation.
+- config: validate positive CDC tunables and ordering.
+- tcp+tls: ensure negotiation performs TLS handshake and only records ALPN/TLS version when negotiated.
+- config: enforce CDC chunk size ordering during validation.
 - validate block size mismatch in handshakes
+- handshake: validate transport mismatch in handshakes
 - dedup: validate chunker size parameters.
 - remove placeholder error field from dial_start and listen_start logs for h2 and tcp+tls transports
 - remove placeholder error field from dial_start and listen_start logs for quic and ssh transports
@@ -62,8 +75,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - log sync errors in manifest and verify commands
 - ensure apply and dump commands flush logs with deferred SyncLogger
 - h2: ensure unreachable dial test uses context timeout and expects deadline exceeded
-- manifest: default rebuild command to a no-op logger and remove conditional logging checks
+- manifest: Rebuild defaults to `zap.NewNop()` and removes conditional logging checks
 - device: reject freeze/thaw command paths with invalid characters and document allowed format
+- device: allow freeze/thaw command paths containing directories by validating basename only
 
 ## [v0.1.0] - 2025-02-27
 ### Added
