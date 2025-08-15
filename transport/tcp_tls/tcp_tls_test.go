@@ -221,6 +221,22 @@ func TestTCPTLSTransportCDCMismatch(t *testing.T) {
 	checkLogFields(t, logs, "negotiate_end", 2, true, zapcore.ErrorLevel)
 }
 
+func TestTCPTLSDialUnreachable(t *testing.T) {
+	cert, root := generateSelfSignedCert(t)
+	trIface, err := New(transport.Config{Logger: zap.NewNop(), Roots: root, ClientCert: cert})
+	if err != nil {
+		t.Fatalf("new transport: %v", err)
+	}
+	tr := trIface.(*Transport)
+	ctx := context.Background()
+	start := time.Now()
+	if _, err := tr.Dial(ctx, "203.0.113.1:1"); err == nil {
+		t.Fatalf("expected dial error")
+	} else if time.Since(start) > 5*time.Second {
+		t.Fatalf("dial took too long: %v", time.Since(start))
+	}
+}
+
 func TestTCPTLSDialErrorLogging(t *testing.T) {
 	cert, root := generateSelfSignedCert(t)
 	core, logs := observer.New(zap.InfoLevel)
