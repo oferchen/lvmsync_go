@@ -388,6 +388,42 @@ func TestRebuildLogsProgress(t *testing.T) {
 	}
 }
 
+func TestRebuildLogsCompletion(t *testing.T) {
+	dir := t.TempDir()
+	file, err := os.CreateTemp(dir, "dev-*.img")
+	if err != nil {
+		t.Fatalf("temp file: %v", err)
+	}
+	data := make([]byte, 8192)
+	if _, err := rand.Read(data); err != nil {
+		t.Fatalf("rand: %v", err)
+	}
+	if _, err := file.Write(data); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	file.Close()
+	prevUUID := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "uuid-test", nil })
+	defer device.SetUUIDFunc(prevUUID)
+	manPath := filepath.Join(dir, "complete.man")
+	core, logs := observer.New(zap.InfoLevel)
+	logger := zap.New(core)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := Rebuild(ctx, file.Name(), manPath, logger, 0, false); err != nil {
+		t.Fatalf("rebuild: %v", err)
+	}
+	entries := logs.FilterMessage("rebuild_complete").All()
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 completion log, got %d", len(entries))
+	}
+	if sz, ok := entries[0].ContextMap()["size_bytes"].(uint64); !ok || sz != uint64(len(data)) {
+		t.Fatalf("unexpected size_bytes %v", entries[0].ContextMap()["size_bytes"])
+	}
+	if _, ok := entries[0].ContextMap()["duration_ms"]; !ok {
+		t.Fatalf("missing duration_ms field")
+	}
+}
+
 func TestRebuildCanceledContext(t *testing.T) {
 	dir := t.TempDir()
 	file, err := os.CreateTemp(dir, "dev-*.img")
