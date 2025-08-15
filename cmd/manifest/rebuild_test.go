@@ -150,7 +150,7 @@ func TestRunAppliesManifestTimeout(t *testing.T) {
 	cfg.ManifestTimeout = 2 * time.Second
 	var captured context.Context
 	orig := rebuildFn
-	rebuildFn = func(ctx context.Context, device, output string, logger *zap.Logger, interval time.Duration, allow bool, _ ...manifestpkg.IndexOption) error {
+	rebuildFn = func(ctx context.Context, device, output string, logger *zap.Logger, interval time.Duration, allow bool, opts ...manifestpkg.Options) error {
 		captured = ctx
 		return nil
 	}
@@ -171,7 +171,7 @@ func TestRunZeroManifestTimeoutUsesBackground(t *testing.T) {
 	cfg.ManifestTimeout = 0
 	var captured context.Context
 	orig := rebuildFn
-	rebuildFn = func(ctx context.Context, device, output string, logger *zap.Logger, interval time.Duration, allow bool, _ ...manifestpkg.IndexOption) error {
+	rebuildFn = func(ctx context.Context, device, output string, logger *zap.Logger, interval time.Duration, allow bool, opts ...manifestpkg.Options) error {
 		captured = ctx
 		return nil
 	}
@@ -198,7 +198,7 @@ func TestRunContextNoDeadline(t *testing.T) {
 	cfg.ManifestTimeout = 0
 	var captured context.Context
 	orig := rebuildFn
-	rebuildFn = func(ctx context.Context, device, output string, logger *zap.Logger, interval time.Duration, allow bool, _ ...manifestpkg.IndexOption) error {
+	rebuildFn = func(ctx context.Context, device, output string, logger *zap.Logger, interval time.Duration, allow bool, opts ...manifestpkg.Options) error {
 		captured = ctx
 		return nil
 	}

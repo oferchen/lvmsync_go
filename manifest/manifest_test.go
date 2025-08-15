@@ -281,6 +281,12 @@ func TestRebuildCloseOnce(t *testing.T) {
 	defer device.SetUUIDFunc(prevUUID)
 	manPath := filepath.Join(dir, "closeonce.man")
 	count := 0
+
+	hook := func() error { count++; return nil }
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false, Options{CloseHook: hook}); err != nil {
+=======
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false, WithCloseHook(func() error { count++; return nil })); err != nil {
@@ -308,10 +314,17 @@ func TestRebuildCloseError(t *testing.T) {
 	prevUUID := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "uuid-test", nil })
 	defer device.SetUUIDFunc(prevUUID)
 	manPath := filepath.Join(dir, "closeerr.man")
+
+	hook := func() error { return errors.New("close fail") }
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false, Options{CloseHook: hook}); err == nil || !strings.Contains(err.Error(), "close fail") {
+
 	hookErr := errors.New("close fail")
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false, WithCloseHook(func() error { return hookErr })); err == nil || !strings.Contains(err.Error(), "close fail") {
+
 		t.Fatalf("expected close error, got %v", err)
 	}
 }
@@ -337,15 +350,13 @@ func TestRebuildNonDefaultBlockSize(t *testing.T) {
 	file.Close()
 	prevUUID := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "uuid-bs", nil })
 	defer device.SetUUIDFunc(prevUUID)
-	prevDetect := detectDevice
-	detectDevice = func(context.Context, string, *zap.Logger) (device.Device, error) {
+	detect := func(context.Context, string, *zap.Logger) (device.Device, error) {
 		return &mockDevice{path: file.Name(), size: uint64(2 * bs), blockSize: uint64(bs)}, nil
 	}
-	defer func() { detectDevice = prevDetect }()
 	manPath := filepath.Join(dir, "rebuildbs.man")
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false); err != nil {
+	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false, Options{DetectDevice: detect}); err != nil {
 		t.Fatalf("rebuild: %v", err)
 	}
 	idx, err := Open(manPath)
@@ -459,18 +470,16 @@ func TestRebuildCanceledContext(t *testing.T) {
 	file.Close()
 	prevUUID := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "uuid-test", nil })
 	defer device.SetUUIDFunc(prevUUID)
-	prevDetect := detectDevice
-	detectDevice = func(ctx context.Context, path string, logger *zap.Logger) (device.Device, error) {
+	detect := func(ctx context.Context, path string, logger *zap.Logger) (device.Device, error) {
 		return &mockDevice{path: file.Name(), size: uint64(size), blockSize: 1}, nil
 	}
-	defer func() { detectDevice = prevDetect }()
 	manPath := filepath.Join(dir, "cancel.man")
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
 		time.Sleep(10 * time.Millisecond)
 		cancel()
 	}()
-	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false); !errors.Is(err, context.Canceled) {
+	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false, Options{DetectDevice: detect}); !errors.Is(err, context.Canceled) {
 		t.Fatalf("expected context.Canceled, got %v", err)
 	}
 }
