@@ -55,58 +55,17 @@ type indexOptions struct {
 // IndexOption configures construction of an Index.
 type IndexOption func(*indexOptions)
 
-// defaultOptions returns the default option set.
-func defaultOptions() indexOptions {
-	return indexOptions{
-		detectDevice: func(ctx context.Context, path string, logger *zap.Logger) (device.Device, error) {
-=======
-// IndexOption configures an Index or related helpers.
-type IndexOption func(*indexOptions)
-
-type indexOptions struct {
-	detectDevice func(ctx context.Context, path string, logger *zap.Logger) (device.Device, error)
-	closeHook    func() error
-}
-
+// defaultIndexOptions returns the default option set.
 func defaultIndexOptions() indexOptions {
 	return indexOptions{
 		detectDevice: func(ctx context.Context, path string, logger *zap.Logger) (device.Device, error) {
-// Options allows tests to inject dependencies for device detection and close hooks.
-type Options struct {
-	DetectDevice func(ctx context.Context, path string, logger *zap.Logger) (device.Device, error)
-	CloseHook    func() error
-}
-
-// WithCloseHook sets a hook invoked when Index.Close is called.
-func WithCloseHook(h func() error) Options {
-	return Options{CloseHook: h}
-}
-
-func getOptions(opts []Options) Options {
-	var o Options
-	for _, opt := range opts {
-		if opt.DetectDevice != nil {
-			o.DetectDevice = opt.DetectDevice
-		}
-		if opt.CloseHook != nil {
-			o.CloseHook = opt.CloseHook
-		}
-	}
-	if o.DetectDevice == nil {
-		o.DetectDevice = func(ctx context.Context, path string, logger *zap.Logger) (device.Device, error) {
-
-      return device.Detect(ctx, path, true, "", "", "", "", 0, 0, logger)
+			return device.Detect(ctx, path, true, "", "", "", "", 0, 0, logger)
 		},
 		closeHook: func() error { return nil },
 	}
 }
 
 // applyOptions applies supplied options to the defaults.
-func applyOptions(opts []IndexOption) indexOptions {
-	o := defaultOptions()
-	for _, opt := range opts {
-		opt(&o)
-=======
 func applyOptions(opts []IndexOption) indexOptions {
 	cfg := defaultIndexOptions()
 	for _, opt := range opts {
@@ -123,16 +82,6 @@ func WithCloseHook(h func() error) IndexOption {
 // WithDetectDevice overrides device detection for Rebuild.
 func WithDetectDevice(f func(context.Context, string, *zap.Logger) (device.Device, error)) IndexOption {
 	return func(o *indexOptions) { o.detectDevice = f }
-}
-
-// WithDetectDevice overrides the device detection function used by Rebuild.
-func WithDetectDevice(fn func(context.Context, string, *zap.Logger) (device.Device, error)) IndexOption {
-	return func(o *indexOptions) { o.detectDevice = fn }
-}
-
-// WithCloseHook sets a hook invoked when Index.Close is called.
-func WithCloseHook(h func() error) IndexOption {
-	return func(o *indexOptions) { o.closeHook = h }
 }
 
 // ErrVersionMismatch is returned when a manifest file uses an unsupported version.
@@ -213,9 +162,6 @@ func (i *Index) Close() error {
 
 // Create initializes a new manifest index at path for the given device.
 func Create(path, deviceID string, size uint64, blockSize uint32, opts ...IndexOption) (*Index, error) {
-
-	o := applyOptions(opts)
-=======
 	cfg := applyOptions(opts)
 
 	if len(deviceID) > 64 {
@@ -237,12 +183,7 @@ func Create(path, deviceID string, size uint64, blockSize uint32, opts ...IndexO
 		return nil, err
 	}
 
-	idx := &Index{f: f, data: data, closeHook: o.closeHook}
-=======
-
 	idx := &Index{f: f, data: data, closeHook: cfg.closeHook}
-=======
-	idx := &Index{f: f, data: data, closeHook: o.CloseHook}
 
 	idx.hdr = Header{
 		Version:    Version,
@@ -257,17 +198,8 @@ func Create(path, deviceID string, size uint64, blockSize uint32, opts ...IndexO
 }
 
 // Open maps an existing manifest index file.
-
-func Open(path string, opts ...IndexOption) (*Index, error) {
-	o := applyOptions(opts)
-=======
-
 func Open(path string, opts ...IndexOption) (*Index, error) {
 	cfg := applyOptions(opts)
-=======
-func Open(path string, opts ...Options) (*Index, error) {
-	o := getOptions(opts)
-
 
 	f, err := os.OpenFile(path, os.O_RDWR, 0)
 	if err != nil {
@@ -285,13 +217,7 @@ func Open(path string, opts ...Options) (*Index, error) {
 		return nil, err
 	}
 
-	idx := &Index{f: f, data: data, closeHook: o.closeHook}
-=======
-
 	idx := &Index{f: f, data: data, closeHook: cfg.closeHook}
-=======
-	idx := &Index{f: f, data: data, closeHook: o.CloseHook}
-
 
 	if err := idx.readHeader(); err != nil {
 		idx.Close()
@@ -302,18 +228,8 @@ func Open(path string, opts ...Options) (*Index, error) {
 
 // Upgrade opens the manifest at path, upgrading older versions in-place.
 // It returns an Index mapped to the upgraded file.
-
-func Upgrade(path string, opts ...IndexOption) (*Index, error) {
-	o := applyOptions(opts)
-=======
-
 func Upgrade(path string, opts ...IndexOption) (*Index, error) {
 	cfg := applyOptions(opts)
-=======
-
-func Upgrade(path string, opts ...Options) (*Index, error) {
-	o := getOptions(opts)
-
 
 	f, err := os.OpenFile(path, os.O_RDWR, 0)
 	if err != nil {
@@ -331,15 +247,7 @@ func Upgrade(path string, opts ...Options) (*Index, error) {
 		return nil, err
 	}
 
-	idx := &Index{f: f, data: data, closeHook: o.closeHook}
-=======
-
-
 	idx := &Index{f: f, data: data, closeHook: cfg.closeHook}
-=======
-	idx := &Index{f: f, data: data, closeHook: o.CloseHook}
-
-
 
 	if err := idx.readHeader(); err != nil {
 		if !errors.Is(err, ErrVersionMismatch) {
@@ -426,21 +334,7 @@ func (i *Index) ChunkCount() uint64 { return i.hdr.ChunkCount }
 // The operation respects cancellation via ctx.
 // When allowMounted is false, Rebuild aborts if the device is mounted read-write.
 func Rebuild(ctx context.Context, devicePath, output string, logger *zap.Logger, progressInterval time.Duration, allowMounted bool, opts ...IndexOption) (err error) {
-
-	o := applyOptions(opts)
-	if logger == nil {
-		logger = zap.NewNop()
-	}
-
-=======
 	cfg := applyOptions(opts)
-	if logger == nil {
-		logger = zap.NewNop()
-	}
-
-=======
-func Rebuild(ctx context.Context, devicePath, output string, logger *zap.Logger, progressInterval time.Duration, allowMounted bool, opts ...Options) (err error) {
-	o := getOptions(opts)
 	if logger == nil {
 		logger = zap.NewNop()
 	}
@@ -456,10 +350,7 @@ func Rebuild(ctx context.Context, devicePath, output string, logger *zap.Logger,
 		return fmt.Errorf("manifest: %s is mounted read-write; use --manifest-allow-mounted to override", devicePath)
 	}
 
-	dev, err := o.detectDevice(ctx, devicePath, logger)
-=======
 	dev, err := cfg.detectDevice(ctx, devicePath, logger)
-
 	if err != nil {
 		return err
 	}
@@ -484,12 +375,6 @@ func Rebuild(ctx context.Context, devicePath, output string, logger *zap.Logger,
 	var idx *Index
 
 	idx, err = Create(output, id, size, blockSize, opts...)
-=======
-
-	idx, err = Create(output, id, size, blockSize, opts...)
-=======
-	idx, err = Create(output, id, size, blockSize, o)
-
 	if err != nil {
 		return err
 	}
