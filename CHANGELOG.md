@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Wrap README logging example in `package main` to compile with `go build`.
 - add default dial timeout and deadline propagation for h2 and tcp+tls transports
 - close SSH agent connections after retrieving signers and apply context-based timeouts
+- shorten h2 dial timeout to 5s and enforce it when no deadline is provided
 
 ## [v0.1.0] - 2025-02-27
 ### Added

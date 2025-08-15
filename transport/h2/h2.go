@@ -20,7 +20,7 @@ import (
 
 const (
 	maxFrameSize       = 1 << 14
-	defaultDialTimeout = 30 * time.Second
+	defaultDialTimeout = 5 * time.Second
 )
 
 // Transport implements HTTP/2 over TLS1.3 with mutual authentication.
@@ -87,59 +87,19 @@ func init() {
 
 func (t *Transport) Name() string { return "h2" }
 
-
-func dialTLS(ctx context.Context, address string, conf *tls.Config, logger *zap.Logger) (*tls.Conn, error) {
+func dialTLS(ctx context.Context, address string, conf *tls.Config, _ *zap.Logger) (*tls.Conn, error) {
 	d := net.Dialer{}
 	if dl, ok := ctx.Deadline(); ok {
 		d.Deadline = dl
-	}
-	conn, err := tls.DialWithDialer(&d, "tcp", address, conf)
-
-// Dial establishes a TLS1.3 connection and performs an HTTP/2 handshake.
-func (t *Transport) Dial(ctx context.Context, address string) (net.Conn, error) {
-	role := "client"
-	t.logger.Info("dial_start",
-		zap.String("address", address),
-		zap.String("role", role),
-		zap.Int64("duration_ms", 0),
-	)
-	start := time.Now()
-	dl, ok := ctx.Deadline()
-	if !ok {
+	} else {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, defaultDialTimeout)
 		defer cancel()
-		dl, _ = ctx.Deadline()
-	}
-	d := net.Dialer{Deadline: dl}
-	conn, err := tls.DialWithDialer(&d, "tcp", address, t.clientConf)
-	fields := []zap.Field{
-		zap.String("address", address),
-		zap.String("role", role),
-		zap.Int64("duration_ms", time.Since(start).Milliseconds()),
-		zap.Error(err),
-	}
-
-	if err != nil {
-		return nil, err
-	}
-	if dl, ok := ctx.Deadline(); ok {
-		if err := conn.SetDeadline(dl); err != nil {
-			conn.Close()
-			return nil, err
-
-	if err := conn.SetDeadline(dl); err != nil {
-		conn.Close()
-		fields := []zap.Field{
-			zap.String("address", address),
-			zap.String("role", role),
-			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
-			zap.Error(err),
+		if dl, ok := ctx.Deadline(); ok {
+			d.Deadline = dl
 		}
-		t.logger.Error("dial_end", fields...)
-		return nil, err
 	}
-	return conn, nil
+	return tls.DialWithDialer(&d, "tcp", address, conf)
 }
 
 func performH2Handshake(ctx context.Context, conn *tls.Conn, logger *zap.Logger) (*http2.Framer, error) {
@@ -177,7 +137,6 @@ func logDialResult(ctx context.Context, logger *zap.Logger, address, role string
 		logger.Error("dial_end", fields...)
 		return
 	}
-	fields = append(fields, zap.String("error", ""))
 	logger.Info("dial_end", fields...)
 }
 
@@ -188,7 +147,6 @@ func (t *Transport) Dial(ctx context.Context, address string) (net.Conn, error) 
 		zap.String("address", address),
 		zap.String("role", role),
 		zap.Int64("duration_ms", 0),
-		zap.String("error", ""),
 	)
 	start := time.Now()
 	conn, err := dialTLS(ctx, address, t.clientConf, t.logger)
