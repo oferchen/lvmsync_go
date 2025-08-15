@@ -3,6 +3,7 @@ package remote
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -91,5 +92,14 @@ func TestValidateRemoteCommandCanceled(t *testing.T) {
 	defer cancel()
 	if err := client.ValidateRemoteCommand(ctx, "echo"); !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("expected deadline exceeded, got %v", err)
+	}
+}
+
+func TestValidateRemoteCommandInvalidChars(t *testing.T) {
+	client := &SSHClient{Logger: zap.NewNop()}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := client.ValidateRemoteCommand(ctx, "bad+cmd"); err == nil || !strings.Contains(err.Error(), "invalid characters") {
+		t.Fatalf("expected invalid characters error, got %v", err)
 	}
 }
