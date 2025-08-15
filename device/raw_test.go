@@ -179,3 +179,100 @@ func TestOpenRawStoresThawConfig(t *testing.T) {
 	}
 	d.Close()
 }
+
+func TestOpenRawFreezeThawLogs(t *testing.T) {
+	core, logs := observer.New(zap.InfoLevel)
+	logger := zap.New(core)
+	oldExec := execCommand
+	execCommand = fakeExecCommandContext
+	defer func() { execCommand = oldExec }()
+	_, err := OpenRaw(context.Background(), "/dev/null", false, os.Args[0], []string{"freeze-success"}, os.Args[0], []string{"thaw-success"}, time.Second, time.Second, logger)
+	if err == nil {
+		t.Fatalf("expected error for char device")
+	}
+	if logs.FilterMessage("fs freeze start").Len() != 1 || logs.FilterMessage("fs freeze complete").Len() != 1 {
+		t.Fatalf("expected freeze start and complete logs, got %v", logs.All())
+	}
+	if logs.FilterMessage("fs thaw start").Len() != 1 || logs.FilterMessage("fs thaw complete").Len() != 1 {
+		t.Fatalf("expected thaw start and complete logs, got %v", logs.All())
+	}
+}
+
+func TestOpenRawFreezeTimeoutLogs(t *testing.T) {
+	core, logs := observer.New(zap.InfoLevel)
+	logger := zap.New(core)
+	oldExec := execCommand
+	execCommand = fakeExecCommandContext
+	defer func() { execCommand = oldExec }()
+	_, err := OpenRaw(context.Background(), "/dev/null", false, os.Args[0], []string{"freeze-timeout"}, os.Args[0], []string{"thaw-success"}, 50*time.Millisecond, time.Second, logger)
+	if err == nil || !strings.Contains(err.Error(), "signal: killed") {
+		t.Fatalf("expected freeze timeout, got %v", err)
+	}
+	if logs.FilterMessage("fs freeze start").Len() != 1 {
+		t.Fatalf("expected freeze start log")
+	}
+	if logs.FilterMessage("fs freeze complete").Len() != 0 {
+		t.Fatalf("unexpected freeze complete log")
+	}
+	if logs.FilterMessage("fs thaw start").Len() != 0 || logs.FilterMessage("fs thaw complete").Len() != 0 {
+		t.Fatalf("unexpected thaw logs, got %v", logs.All())
+	}
+}
+
+func TestOpenRawThawFailure(t *testing.T) {
+	core, logs := observer.New(zap.InfoLevel)
+	logger := zap.New(core)
+	oldExec := execCommand
+	execCommand = fakeExecCommandContext
+	defer func() { execCommand = oldExec }()
+	_, err := OpenRaw(context.Background(), "/dev/null", false, os.Args[0], []string{"freeze-success"}, os.Args[0], []string{"thaw-fail"}, time.Second, time.Second, logger)
+	if err == nil {
+		t.Fatalf("expected error for char device")
+	}
+	if logs.FilterMessage("fs freeze start").Len() != 1 || logs.FilterMessage("fs freeze complete").Len() != 1 {
+		t.Fatalf("expected freeze start and complete logs, got %v", logs.All())
+	}
+	if logs.FilterMessage("fs thaw start").Len() != 1 {
+		t.Fatalf("expected thaw start log")
+	}
+	if logs.FilterMessage("fs thaw complete").Len() != 0 {
+		t.Fatalf("unexpected thaw complete log")
+	}
+	if logs.FilterMessage("fs thaw failed").Len() != 1 {
+		t.Fatalf("expected thaw failed log")
+	}
+}
+
+func fakeExecCommandContext(ctx context.Context, _ string, args ...string) *exec.Cmd {
+	cs := append([]string{"-test.run=TestHelperProcess", "--"}, args...)
+	cmd := exec.CommandContext(ctx, os.Args[0], cs...)
+	cmd.Env = append(os.Environ(), "GO_WANT_HELPER_PROCESS=1")
+	return cmd
+}
+
+func TestHelperProcess(t *testing.T) {
+	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
+		return
+	}
+	args := os.Args
+	for i := range args {
+		if args[i] == "--" {
+			args = args[i+1:]
+			break
+		}
+	}
+	if len(args) == 0 {
+		os.Exit(2)
+	}
+	switch args[0] {
+	case "freeze-success", "thaw-success":
+		os.Exit(0)
+	case "freeze-timeout":
+		time.Sleep(200 * time.Millisecond)
+		os.Exit(0)
+	case "thaw-fail":
+		os.Exit(1)
+	default:
+		os.Exit(1)
+	}
+}
