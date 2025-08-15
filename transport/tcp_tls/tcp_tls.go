@@ -79,7 +79,7 @@ func (t *Transport) Dial(ctx context.Context, address string) (net.Conn, error) 
 			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		}
-		t.logger.Info("dial_end", fields...)
+		t.logger.Error("dial_end", fields...)
 		return nil, err
 	}
 	tlsConf := t.clientConf.Clone()
@@ -96,7 +96,7 @@ func (t *Transport) Dial(ctx context.Context, address string) (net.Conn, error) 
 			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		}
-		t.logger.Info("dial_end", fields...)
+		t.logger.Error("dial_end", fields...)
 		return nil, err
 	}
 	fields := []zap.Field{
@@ -132,8 +132,10 @@ func (t *Transport) Listen(ctx context.Context, address string) (net.Listener, e
 	}
 	if err != nil {
 		fields = append(fields, zap.Error(err))
+		t.logger.Error("listen_end", fields...)
+	} else {
+		t.logger.Info("listen_end", fields...)
 	}
-	t.logger.Info("listen_end", fields...)
 	return ln, err
 }
 
@@ -154,8 +156,10 @@ func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport
 		}
 		if err != nil {
 			fields = append(fields, zap.Error(err))
+			t.logger.Error("negotiate_end", fields...)
+		} else {
+			t.logger.Info("negotiate_end", fields...)
 		}
-		t.logger.Info("negotiate_end", fields...)
 	}()
 
 	hs.Version = common.ProtocolVersion
