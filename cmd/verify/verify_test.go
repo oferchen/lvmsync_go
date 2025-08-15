@@ -2,6 +2,7 @@ package verify
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -22,7 +23,8 @@ type syncTrackerCore struct {
 
 func (s syncTrackerCore) Sync() error {
 	*s.syncs++
-	return s.Core.Sync()
+	_ = s.Core.Sync()
+	return fmt.Errorf("sync error")
 }
 
 func createTestFile(t testing.TB, size int) string {
@@ -47,13 +49,16 @@ func TestRunSyncsLogger(t *testing.T) {
 		t.Fatalf("write src: %v", err)
 	}
 	var syncs int
-	core, _ := observer.New(zap.InfoLevel)
+	core, logs := observer.New(zap.InfoLevel)
 	logger := zap.New(syncTrackerCore{Core: core, syncs: &syncs})
 	if err := Run([]string{"--dry-run", src, "dst"}, logger); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 	if syncs != 1 {
 		t.Fatalf("expected logger.Sync called once, got %d", syncs)
+	}
+	if logs.FilterMessage("Logger sync error").Len() != 1 {
+		t.Fatalf("expected sync error log")
 	}
 }
 

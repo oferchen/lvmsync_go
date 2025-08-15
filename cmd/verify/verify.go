@@ -11,10 +11,15 @@ import (
 	"github.com/zeebo/blake3"
 	"go.uber.org/zap"
 
+	rootcmd "lvmsync_go/cmd/root"
 	"lvmsync_go/config"
 	"lvmsync_go/manifest"
 	"lvmsync_go/transfer"
 )
+
+func init() {
+	rootcmd.RunVerify = Run
+}
 
 // Run executes the verify command with the provided arguments and logger.
 // Args should exclude the "verify" subcommand itself.
@@ -22,7 +27,7 @@ func Run(args []string, logger *zap.Logger) error {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
-	defer logger.Sync()
+	defer rootcmd.SyncLogger(logger)
 	cmd := &cobra.Command{
 		Use:                "verify [flags] <source> <dest>",
 		Short:              "Verify that source and destination contain identical data",
