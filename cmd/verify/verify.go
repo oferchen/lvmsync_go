@@ -99,16 +99,20 @@ func verifyFull(cfg *config.Config, src, dst string, logger *zap.Logger) error {
 
 	total := infoSrc.Size()
 	mismatches := 0
+	bufSrc := make([]byte, blockSize)
+	bufDst := make([]byte, blockSize)
 	for off := int64(0); off < total; off += int64(blockSize) {
-		bufSrc, err := transfer.ReadBlock(fSrc, off, blockSize)
-		if err != nil && err != io.EOF {
+		size := blockSize
+		if remaining := int(total - off); remaining < size {
+			size = remaining
+		}
+		if err := transfer.ReadBlockInto(fSrc, off, bufSrc[:size]); err != nil && err != io.EOF {
 			return fmt.Errorf("read source: %w", err)
 		}
-		bufDst, err := transfer.ReadBlock(fDst, off, blockSize)
-		if err != nil && err != io.EOF {
+		if err := transfer.ReadBlockInto(fDst, off, bufDst[:size]); err != nil && err != io.EOF {
 			return fmt.Errorf("read dest: %w", err)
 		}
-		if blake3.Sum256(bufSrc) != blake3.Sum256(bufDst) {
+		if blake3.Sum256(bufSrc[:size]) != blake3.Sum256(bufDst[:size]) {
 			mismatches++
 			logger.Error("mismatched_block", zap.Int64("offset_bytes", off))
 		}
@@ -133,12 +137,16 @@ func verifyWithManifest(src, manifestPath string, logger *zap.Logger) error {
 	defer fSrc.Close()
 
 	mismatches := 0
+	buf := make([]byte, 0)
 	for i := uint64(0); i < idx.ChunkCount(); i++ {
 		off, length, _, digest := idx.Entry(i)
 		if length == 0 {
 			continue
 		}
-		buf := make([]byte, length)
+		if int(length) > cap(buf) {
+			buf = make([]byte, int(length))
+		}
+		buf = buf[:int(length)]
 		if _, err := fSrc.ReadAt(buf, int64(off)); err != nil {
 			return fmt.Errorf("read source: %w", err)
 		}

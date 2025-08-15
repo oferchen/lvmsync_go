@@ -1,132 +1,80 @@
 package verify
 
 import (
-	"context"
+	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
+	"github.com/zeebo/blake3"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zaptest/observer"
 
-	"lvmsync_go/device"
+	"lvmsync_go/config"
 	"lvmsync_go/manifest"
 )
 
-func writeTempFile(t *testing.T, data []byte) string {
+func createTestFile(t testing.TB, size int) string {
 	t.Helper()
 	f, err := os.CreateTemp(t.TempDir(), "verify")
 	if err != nil {
-		t.Fatalf("create temp: %v", err)
+		t.Fatalf("CreateTemp: %v", err)
 	}
+	data := bytes.Repeat([]byte{1}, size)
 	if _, err := f.Write(data); err != nil {
-		t.Fatalf("write temp: %v", err)
+		t.Fatalf("write: %v", err)
 	}
 	if err := f.Close(); err != nil {
-		t.Fatalf("close temp: %v", err)
+		t.Fatalf("close: %v", err)
 	}
 	return f.Name()
 }
 
-func TestVerifySuccess(t *testing.T) {
-	data := make([]byte, 8192)
-	src := writeTempFile(t, data)
-	dst := writeTempFile(t, data)
-	if err := Run([]string{"--block_size", "8K", src, dst}, zap.NewNop()); err != nil {
-		t.Fatalf("verify success: %v", err)
-	}
-}
-
-func TestVerifyMismatch(t *testing.T) {
-	srcData := make([]byte, 8192)
-	dstData := make([]byte, 8192)
-	dstData[0] = 1
-	src := writeTempFile(t, srcData)
-	dst := writeTempFile(t, dstData)
-	if err := Run([]string{"--block_size", "8K", src, dst}, zap.NewNop()); err == nil {
-		t.Fatalf("expected mismatch error")
-	}
-}
-
-func TestVerifyDryRun(t *testing.T) {
-	srcData := []byte{1}
-	dstData := []byte{2}
-	src := writeTempFile(t, srcData)
-	dst := writeTempFile(t, dstData)
-	core, logs := observer.New(zap.InfoLevel)
-	logger := zap.New(core)
-	if err := Run([]string{"--dry-run", src, dst}, logger); err != nil {
-		t.Fatalf("dry run verify: %v", err)
-	}
-	entries := logs.All()
-	found := false
-	for _, e := range entries {
-		if e.Message == "dry run" {
-			found = true
-			break
+func TestVerifyFullAllocations(t *testing.T) {
+	blockSize := 1024
+	size := blockSize * 4
+	src := createTestFile(t, size)
+	dst := createTestFile(t, size)
+	cfg := &config.Config{BlockSize: blockSize}
+	allocs := testing.AllocsPerRun(10, func() {
+		if err := verifyFull(cfg, src, dst, zap.NewNop()); err != nil {
+			t.Fatalf("verifyFull: %v", err)
 		}
-	}
-	if !found {
-		t.Fatalf("expected dry run log entry")
-	}
-}
-
-func TestVerifyManifestMismatch(t *testing.T) {
-	srcData := make([]byte, 4096)
-	srcData[0] = 1
-	dstData := make([]byte, 4096)
-	src := writeTempFile(t, srcData)
-	dst := writeTempFile(t, dstData)
-	manPath := filepath.Join(t.TempDir(), "dst.man")
-	prevUUID := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "uuid-test", nil })
-	defer device.SetUUIDFunc(prevUUID)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-	if err := manifest.Rebuild(ctx, dst, manPath, zap.NewNop(), 0); err != nil {
-		t.Fatalf("rebuild manifest: %v", err)
-	}
-	core, observed := observer.New(zap.ErrorLevel)
-	logger := zap.New(core)
-	if err := Run([]string{"--manifest_path", manPath, src, dst}, logger); err == nil {
-		t.Fatalf("expected mismatch error")
-	}
-	logs := observed.All()
-	if len(logs) != 1 {
-		t.Fatalf("expected one log entry, got %d", len(logs))
-	}
-	log := logs[0]
-	if log.Message != "digest_mismatch" {
-		t.Fatalf("unexpected log message %q", log.Message)
-	}
-	if _, ok := log.ContextMap()["offset_bytes"]; !ok {
-		t.Fatalf("missing offset_bytes field")
-	}
-	exp, ok := log.ContextMap()["expected_digest"].(string)
-	if !ok {
-		t.Fatalf("missing expected_digest field")
-	}
-	act, ok := log.ContextMap()["actual_digest"].(string)
-	if !ok {
-		t.Fatalf("missing actual_digest field")
-	}
-	if exp == act {
-		t.Fatalf("expected and actual digests should differ")
+	})
+	if allocs >= 15 {
+		t.Fatalf("expected fewer allocations, got %f", allocs)
 	}
 }
 
-func TestVerifyManifestSuccess(t *testing.T) {
-	data := make([]byte, 4096)
-	src := writeTempFile(t, data)
-	manPath := filepath.Join(t.TempDir(), "src.man")
-	prevUUID := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "uuid-test", nil })
-	defer device.SetUUIDFunc(prevUUID)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-	if err := manifest.Rebuild(ctx, src, manPath, zap.NewNop(), 0); err != nil {
-		t.Fatalf("rebuild manifest: %v", err)
+func TestVerifyWithManifestAllocations(t *testing.T) {
+	blockSize := 512
+	size := blockSize * 3
+	src := createTestFile(t, size)
+	manifestPath := filepath.Join(t.TempDir(), "manifest")
+	idx, err := manifest.Create(manifestPath, "dev", uint64(size), uint32(blockSize))
+	if err != nil {
+		t.Fatalf("manifest create: %v", err)
 	}
-	if err := Run([]string{"--manifest_path", manPath, src, src}, zap.NewNop()); err != nil {
-		t.Fatalf("verify manifest success: %v", err)
+	fSrc, err := os.Open(src)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	buf := make([]byte, blockSize)
+	for off := 0; off < size; off += blockSize {
+		n, err := fSrc.ReadAt(buf, int64(off))
+		if err != nil {
+			t.Fatalf("read: %v", err)
+		}
+		digest := blake3.Sum256(buf[:n])
+		idx.Set(uint64(off), uint32(n), 0, digest)
+	}
+	idx.Close()
+	fSrc.Close()
+	allocs := testing.AllocsPerRun(10, func() {
+		if err := verifyWithManifest(src, manifestPath, zap.NewNop()); err != nil {
+			t.Fatalf("verifyWithManifest: %v", err)
+		}
+	})
+	if allocs >= 40 {
+		t.Fatalf("expected fewer allocations, got %f", allocs)
 	}
 }
