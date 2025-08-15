@@ -43,8 +43,16 @@ func TestRunLocalDumpSuccess(t *testing.T) {
 	}
 	defer func() { dumpChangesSequential = originalDump }()
 
-	if err := RunLocalDump(cfg, "snap", "orig", "/fake/dest", zap.NewNop()); err != nil {
+	originalDestType := cfg.DestType
+	destType, err := RunLocalDump(cfg, "snap", "orig", "/fake/dest", zap.NewNop())
+	if err != nil {
 		t.Fatalf("runLocalDump returned error: %v", err)
+	}
+	if destType != originalDestType {
+		t.Fatalf("expected dest type %q, got %q", originalDestType, destType)
+	}
+	if cfg.DestType != originalDestType {
+		t.Fatalf("cfg.DestType was modified: expected %q, got %q", originalDestType, cfg.DestType)
 	}
 	if !openCalled {
 		t.Fatalf("openFile was not called")
@@ -73,7 +81,13 @@ func TestRunLocalDumpOpenError(t *testing.T) {
 	}
 	defer func() { dumpChangesSequential = originalDump }()
 
-	if err := RunLocalDump(cfg, "snap", "orig", "/fake/dest", zap.NewNop()); err == nil {
+	originalDestType := cfg.DestType
+	if destType, err := RunLocalDump(cfg, "snap", "orig", "/fake/dest", zap.NewNop()); err == nil {
 		t.Fatalf("expected error, got nil")
+	} else if destType != originalDestType {
+		t.Fatalf("expected dest type %q, got %q", originalDestType, destType)
+	}
+	if cfg.DestType != originalDestType {
+		t.Fatalf("cfg.DestType was modified: expected %q, got %q", originalDestType, cfg.DestType)
 	}
 }
