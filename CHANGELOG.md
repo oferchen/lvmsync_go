@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - device: tests for GetUUID and IsMountedRW
 - device: persist thaw command configuration for raw devices
 - transport/h2: refactor Dial into dialTLS, performH2Handshake, and logDialResult with unit tests.
+- device: add raw device freeze/thaw tests with exec command stubs
 
 
 ### Fixed
