@@ -653,8 +653,8 @@ Hybrid dedup combines fixed-size and content-defined chunking. Enable it with `-
 | `--cdc-avg`      | `LVMSYNC_CDC_AVG`    | `cdc_avg`  | Target average chunk size |
 | `--cdc-max`      | `LVMSYNC_CDC_MAX`    | `cdc_max`  | Maximum chunk size |
 
-The three values must satisfy `--cdc-min ≤ --cdc-avg ≤ --cdc-max`. LVMSync aborts with
-`invalid local cdc ordering: min %d avg %d max %d` when the ordering is invalid.
+The three values must be positive and satisfy `--cdc-min ≤ --cdc-avg ≤ --cdc-max`.
+LVMSync aborts when the sizes are non-positive or unordered.
 
 The Bloom filter de-duplicates previously seen chunks. Size it with `--bloom_entries` and desired false positive rate via `--bloom_fp_rate`. For an mmap-backed index, `--bloom_mbits` controls the bitmap size in megabits.
 

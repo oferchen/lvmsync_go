@@ -38,6 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - tests: assert context deadline exceeded for tcp+tls unreachable dial
 - Enforce CDC chunk size ordering in handshake validation.
+- config: validate positive CDC tunables and ordering.
 - validate block size mismatch in handshakes
 - dedup: validate chunker size parameters.
 - remove placeholder error field from dial_start and listen_start logs for h2 and tcp+tls transports
