@@ -153,7 +153,7 @@ func TestPerformH2Handshake(t *testing.T) {
 	close(done)
 	conn.Close()
 
-	// failing handshake
+	// failing handshake: server closes connection immediately; dialTLS should fail
 	go func() {
 		conn, err := ln.Accept()
 		if err != nil {
@@ -161,14 +161,9 @@ func TestPerformH2Handshake(t *testing.T) {
 		}
 		conn.Close()
 	}()
-	conn2, err := dialTLS(context.Background(), ln.Addr().String(), clientConf, zap.NewNop())
-	if err != nil {
-		t.Fatalf("dialTLS: %v", err)
+	if _, err := dialTLS(context.Background(), ln.Addr().String(), clientConf, zap.NewNop()); err == nil {
+		t.Fatalf("expected dialTLS error")
 	}
-	if _, err := performH2Handshake(context.Background(), conn2, zap.NewNop()); err == nil {
-		t.Fatalf("expected handshake error")
-	}
-	conn2.Close()
 }
 
 func TestLogDialResult(t *testing.T) {
