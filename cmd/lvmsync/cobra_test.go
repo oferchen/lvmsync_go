@@ -79,6 +79,22 @@ func TestRunCommandDryRunEnv(t *testing.T) {
 	}
 }
 
+func TestRunCommandInvalidConfig(t *testing.T) {
+	called := false
+	runCommand = func(src, dst string, opts RunOptions) error {
+		called = true
+		return nil
+	}
+	t.Cleanup(func() { runCommand = func(src, dst string, opts RunOptions) error { return nil } })
+
+	if err := Execute([]string{"run", "--ssh_keepalive=0s", "src", "dst"}); err == nil {
+		t.Fatalf("expected error for invalid config")
+	}
+	if called {
+		t.Fatalf("runCommand should not be called on invalid config")
+	}
+}
+
 func TestManifestRebuildRoutes(t *testing.T) {
 	var gotDevice string
 	var dry bool
@@ -96,6 +112,22 @@ func TestManifestRebuildRoutes(t *testing.T) {
 	}
 	if !dry {
 		t.Fatalf("expected dry-run true")
+	}
+}
+
+func TestManifestRebuildInvalidConfig(t *testing.T) {
+	called := false
+	manifestRebuild = func(device string, dryRun bool) error {
+		called = true
+		return nil
+	}
+	t.Cleanup(func() { manifestRebuild = func(device string, dryRun bool) error { return nil } })
+
+	if err := Execute([]string{"manifest", "rebuild", "--ssh_keepalive=0s", "/dev/vg0"}); err == nil {
+		t.Fatalf("expected error for invalid config")
+	}
+	if called {
+		t.Fatalf("manifestRebuild should not be called on invalid config")
 	}
 }
 
