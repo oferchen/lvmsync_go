@@ -11,8 +11,19 @@ import (
 	"github.com/zeebo/blake3"
 	"github.com/zeebo/xxh3"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 )
+
+type syncTrackerCore struct {
+	zapcore.Core
+	syncs *int
+}
+
+func (s syncTrackerCore) Sync() error {
+	*s.syncs++
+	return s.Core.Sync()
+}
 
 func TestRunCommandExecutes(t *testing.T) {
 	t.Setenv("LVMSYNC_TRANSPORT_TRANSPORT", "ssh")
@@ -146,6 +157,25 @@ func TestVerifyRoutes(t *testing.T) {
 	}
 	if len(got) != 2 || got[0] != "a" || got[1] != "b" {
 		t.Fatalf("unexpected args %v", got)
+	}
+}
+
+func TestExecuteSyncsLogger(t *testing.T) {
+	t.Setenv("LVMSYNC_TRANSPORT_TRANSPORT", "ssh")
+	src := t.TempDir() + "/src"
+	if err := os.WriteFile(src, []byte("data"), 0o600); err != nil {
+		t.Fatalf("write src: %v", err)
+	}
+	runCommand = func(src, dst string, opts RunOptions, logger *zap.Logger) error { return nil }
+	t.Cleanup(func() { runCommand = func(src, dst string, opts RunOptions, logger *zap.Logger) error { return nil } })
+	var syncs int
+	core, _ := observer.New(zap.InfoLevel)
+	logger := zap.New(syncTrackerCore{Core: core, syncs: &syncs})
+	if err := Execute([]string{"run", src, "dst"}, logger); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if syncs != 1 {
+		t.Fatalf("expected logger.Sync called once, got %d", syncs)
 	}
 }
 

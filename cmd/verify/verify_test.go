@@ -8,10 +8,22 @@ import (
 
 	"github.com/zeebo/blake3"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 
 	"lvmsync_go/config"
 	"lvmsync_go/manifest"
 )
+
+type syncTrackerCore struct {
+	zapcore.Core
+	syncs *int
+}
+
+func (s syncTrackerCore) Sync() error {
+	*s.syncs++
+	return s.Core.Sync()
+}
 
 func createTestFile(t testing.TB, size int) string {
 	t.Helper()
@@ -27,6 +39,22 @@ func createTestFile(t testing.TB, size int) string {
 		t.Fatalf("close: %v", err)
 	}
 	return f.Name()
+}
+
+func TestRunSyncsLogger(t *testing.T) {
+	src := t.TempDir() + "/src"
+	if err := os.WriteFile(src, []byte("data"), 0o600); err != nil {
+		t.Fatalf("write src: %v", err)
+	}
+	var syncs int
+	core, _ := observer.New(zap.InfoLevel)
+	logger := zap.New(syncTrackerCore{Core: core, syncs: &syncs})
+	if err := Run([]string{"--dry-run", src, "dst"}, logger); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if syncs != 1 {
+		t.Fatalf("expected logger.Sync called once, got %d", syncs)
+	}
 }
 
 func TestVerifyFullAllocations(t *testing.T) {
