@@ -25,6 +25,9 @@ func checkLogFields(t *testing.T, logs *observer.ObservedLogs, msg string, expec
 	if len(entries) != expected {
 		t.Fatalf("expected %d %s logs, got %d", expected, msg, len(entries))
 	}
+	if expected == 0 {
+		return
+	}
 	ctx := entries[0].ContextMap()
 	for _, k := range []string{"address", "role", "duration_ms"} {
 		if _, ok := ctx[k]; !ok {

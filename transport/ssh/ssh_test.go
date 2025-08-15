@@ -12,7 +12,7 @@ import (
 	"lvmsync_go/transport"
 )
 
-func checkLogFields(t *testing.T, logs *observer.ObservedLogs, msg string, expected int) {
+func checkLogFields(t *testing.T, logs *observer.ObservedLogs, msg string, expected int, wantErr bool) {
 	entries := logs.FilterMessage(msg).All()
 	if len(entries) != expected {
 		t.Fatalf("expected %d %s logs, got %d", expected, msg, len(entries))
@@ -21,10 +21,15 @@ func checkLogFields(t *testing.T, logs *observer.ObservedLogs, msg string, expec
 		return
 	}
 	ctx := entries[0].ContextMap()
-	for _, k := range []string{"address", "role", "duration_ms", "error"} {
+	for _, k := range []string{"address", "role", "duration_ms"} {
 		if _, ok := ctx[k]; !ok {
 			t.Fatalf("expected field %q in %s log", k, msg)
 		}
+	}
+	if _, ok := ctx["error"]; wantErr && !ok {
+		t.Fatalf("expected error field in %s log", msg)
+	} else if !wantErr && ok {
+		t.Fatalf("unexpected error field in %s log", msg)
 	}
 }
 
@@ -92,12 +97,12 @@ func TestSSHTransportAuthSuccess(t *testing.T) {
 	conn.Close()
 	<-done
 
-	checkLogFields(t, logs, "dial_start", 1)
-	checkLogFields(t, logs, "dial_end", 1)
-	checkLogFields(t, logs, "listen_start", 1)
-	checkLogFields(t, logs, "listen_end", 1)
-	checkLogFields(t, logs, "negotiate_start", 2)
-	checkLogFields(t, logs, "negotiate_end", 2)
+	checkLogFields(t, logs, "dial_start", 1, false)
+	checkLogFields(t, logs, "dial_end", 1, false)
+	checkLogFields(t, logs, "listen_start", 1, false)
+	checkLogFields(t, logs, "listen_end", 1, false)
+	checkLogFields(t, logs, "negotiate_start", 2, false)
+	checkLogFields(t, logs, "negotiate_end", 2, false)
 }
 
 func TestSSHTransportAuthFailure(t *testing.T) {
@@ -134,12 +139,12 @@ func TestSSHTransportAuthFailure(t *testing.T) {
 	}
 	<-done
 
-	checkLogFields(t, logs, "dial_start", 1)
-	checkLogFields(t, logs, "dial_end", 1)
-	checkLogFields(t, logs, "listen_start", 1)
-	checkLogFields(t, logs, "listen_end", 1)
-	checkLogFields(t, logs, "negotiate_start", 0)
-	checkLogFields(t, logs, "negotiate_end", 0)
+	checkLogFields(t, logs, "dial_start", 1, false)
+	checkLogFields(t, logs, "dial_end", 1, true)
+	checkLogFields(t, logs, "listen_start", 1, false)
+	checkLogFields(t, logs, "listen_end", 1, false)
+	checkLogFields(t, logs, "negotiate_start", 0, false)
+	checkLogFields(t, logs, "negotiate_end", 0, false)
 }
 
 func TestSSHTransportRequiresLogger(t *testing.T) {
