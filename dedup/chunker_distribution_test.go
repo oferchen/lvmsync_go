@@ -14,7 +14,10 @@ func TestChunkSizeDistribution(t *testing.T) {
 		t.Fatalf("rand: %v", err)
 	}
 
-	ch := NewChunker(64, 128, 256)
+	ch, err := NewChunker(64, 128, 256)
+	if err != nil {
+		t.Fatalf("new chunker: %v", err)
+	}
 	r := bytes.NewReader(data)
 
 	var lengths []int

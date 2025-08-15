@@ -103,6 +103,7 @@ tooling to track transfer completion.
 - Use `zap` for all logging and avoid `fmt.Print*` or `log.*` calls.
 - Pass loggers explicitly to commands and helpers; `cmd/lvmsync.Execute` requires a
   `*zap.Logger` argument instead of relying on `zap.L()`.
+- All commands receive an explicit `*zap.Logger` and default to `zap.NewNop()` when no logger is supplied.
 - Log field keys in `snake_case` and include units where relevant (for example, `duration_ms`).
 - Provide raw byte values alongside human-readable sizes (for example, `block_size` and `block_size_bytes`).
 - Always defer `syncLogger(logger)` to flush buffers and log if the sync fails.
@@ -651,6 +652,9 @@ Hybrid dedup combines fixed-size and content-defined chunking. Enable it with `-
 | `--cdc-min`      | `LVMSYNC_CDC_MIN`    | `cdc_min`  | Minimum chunk size |
 | `--cdc-avg`      | `LVMSYNC_CDC_AVG`    | `cdc_avg`  | Target average chunk size |
 | `--cdc-max`      | `LVMSYNC_CDC_MAX`    | `cdc_max`  | Maximum chunk size |
+
+The three values must satisfy `--cdc-min ≤ --cdc-avg ≤ --cdc-max`. LVMSync aborts with
+`invalid local cdc ordering: min %d avg %d max %d` when the ordering is invalid.
 
 The Bloom filter de-duplicates previously seen chunks. Size it with `--bloom_entries` and desired false positive rate via `--bloom_fp_rate`. For an mmap-backed index, `--bloom_mbits` controls the bitmap size in megabits.
 
