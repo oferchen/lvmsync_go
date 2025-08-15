@@ -212,9 +212,7 @@ func Open(path string, opts ...Options) (*Index, error) {
 		f.Close()
 		return nil, err
 	}
-
 	idx := &Index{f: f, data: data, closeHook: o.CloseHook}
-
 	if err := idx.readHeader(); err != nil {
 		idx.Close()
 		return nil, err
@@ -224,10 +222,8 @@ func Open(path string, opts ...Options) (*Index, error) {
 
 // Upgrade opens the manifest at path, upgrading older versions in-place.
 // It returns an Index mapped to the upgraded file.
-
 func Upgrade(path string, opts ...Options) (*Index, error) {
 	o := getOptions(opts)
-
 	f, err := os.OpenFile(path, os.O_RDWR, 0)
 	if err != nil {
 		return nil, err
@@ -243,9 +239,7 @@ func Upgrade(path string, opts ...Options) (*Index, error) {
 		f.Close()
 		return nil, err
 	}
-
 	idx := &Index{f: f, data: data, closeHook: o.CloseHook}
-
 	if err := idx.readHeader(); err != nil {
 		if !errors.Is(err, ErrVersionMismatch) {
 			idx.Close()

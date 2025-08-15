@@ -86,14 +86,14 @@ func TestOpenRawRejectsRegularFile(t *testing.T) {
 		t.Fatalf("temp file: %v", err)
 	}
 	f.Close()
-	if _, err := OpenRaw(context.Background(), f.Name(), true, "", nil, "", nil, 0, 0, nil); err == nil {
+	if _, err := OpenRaw(context.Background(), f.Name(), true, "", nil, "", nil, 0, 0, zap.NewNop()); err == nil {
 		t.Fatalf("expected error for regular file")
 	}
 }
 
 func TestOpenRawRejectsCharDevice(t *testing.T) {
 	if _, err := os.Stat("/dev/null"); err == nil {
-		if _, err := OpenRaw(context.Background(), "/dev/null", true, "", nil, "", nil, 0, 0, nil); err == nil {
+		if _, err := OpenRaw(context.Background(), "/dev/null", true, "", nil, "", nil, 0, 0, zap.NewNop()); err == nil {
 			t.Fatalf("expected error for char device")
 		}
 	} else if os.IsNotExist(err) {
@@ -102,13 +102,13 @@ func TestOpenRawRejectsCharDevice(t *testing.T) {
 }
 
 func TestOpenRawRequiresOfflineOrFreeze(t *testing.T) {
-	if _, err := OpenRaw(context.Background(), "/dev/null", false, "", nil, "", nil, time.Second, time.Second, nil); err == nil {
+	if _, err := OpenRaw(context.Background(), "/dev/null", false, "", nil, "", nil, time.Second, time.Second, zap.NewNop()); err == nil {
 		t.Fatalf("expected offline or freeze command error")
 	}
 }
 
 func TestOpenRawFreezeCommandFailure(t *testing.T) {
-	if _, err := OpenRaw(context.Background(), "/dev/null", false, "false", nil, "true", nil, time.Second, time.Second, nil); err == nil {
+	if _, err := OpenRaw(context.Background(), "/dev/null", false, "false", nil, "true", nil, time.Second, time.Second, zap.NewNop()); err == nil {
 		t.Fatalf("expected freeze command failure")
 	}
 }
@@ -120,7 +120,7 @@ func TestOpenRawThawsOnFailure(t *testing.T) {
 	freezeArgs := []string{freezeTmp}
 	thawCmdPath := "touch"
 	thawArgs := []string{thawTmp}
-	if _, err := OpenRaw(context.Background(), "/dev/null", false, freezeCmdPath, freezeArgs, thawCmdPath, thawArgs, time.Second, time.Second, nil); err == nil {
+	if _, err := OpenRaw(context.Background(), "/dev/null", false, freezeCmdPath, freezeArgs, thawCmdPath, thawArgs, time.Second, time.Second, zap.NewNop()); err == nil {
 		t.Fatalf("expected error for char device")
 	}
 	if _, err := os.Stat(freezeTmp); err != nil {
@@ -153,7 +153,7 @@ func TestOpenRawFreezeTimeout(t *testing.T) {
 	if _, err := exec.LookPath("sleep"); err != nil {
 		t.Skip("sleep command not found")
 	}
-	_, err := OpenRaw(context.Background(), "/dev/null", false, "sleep", []string{"2"}, "true", nil, 100*time.Millisecond, time.Second, nil)
+	_, err := OpenRaw(context.Background(), "/dev/null", false, "sleep", []string{"2"}, "true", nil, 100*time.Millisecond, time.Second, zap.NewNop())
 	if err == nil || !strings.Contains(err.Error(), "signal: killed") {
 		t.Fatalf("expected freeze command to be killed, got %v", err)
 	}
@@ -176,7 +176,7 @@ func TestOpenRawStoresThawConfig(t *testing.T) {
 	loop, cleanup := setupLoop(t, 1<<20)
 	defer cleanup()
 	thawTmp := filepath.Join(t.TempDir(), "thaw")
-	d, err := OpenRaw(context.Background(), loop, false, "true", nil, "touch", []string{thawTmp}, time.Second, time.Second, nil)
+	d, err := OpenRaw(context.Background(), loop, false, "true", nil, "touch", []string{thawTmp}, time.Second, time.Second, zap.NewNop())
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}

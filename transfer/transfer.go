@@ -22,7 +22,7 @@ type Transfer struct {
 }
 
 // NewTransfer creates a Transfer with the provided logger and wait group.
-// When wg is nil, a new instance is allocated.
+// When wg is nil, a new instance is allocated. logger must be non-nil.
 func NewTransfer(logger *zap.Logger, wg *sync.WaitGroup) *Transfer {
 	if wg == nil {
 		wg = &sync.WaitGroup{}
@@ -62,6 +62,8 @@ func LoadChecksumState(filename string) (state *ChecksumState, err error) {
 	return state, nil
 }
 
+// SaveChecksumState persists block checksums; logger must be non-nil.
+//
 //revive:disable-next-line:cognitive-complexity
 func SaveChecksumState(filename string, state *ChecksumState, logger *zap.Logger) (err error) {
 	var file *os.File
@@ -71,9 +73,7 @@ func SaveChecksumState(filename string, state *ChecksumState, logger *zap.Logger
 	}
 	if err = file.Chmod(0o600); err != nil {
 		if closeErr := file.Close(); closeErr != nil {
-			if logger != nil {
-				logger.Warn("Failed to close checksum state file", zap.Error(closeErr))
-			}
+			logger.Warn("Failed to close checksum state file", zap.Error(closeErr))
 			return fmt.Errorf("chmod checksum state: %v; close checksum state: %w", err, closeErr)
 		}
 		return fmt.Errorf("chmod checksum state: %w", err)
@@ -87,6 +87,7 @@ func SaveChecksumState(filename string, state *ChecksumState, logger *zap.Logger
 	return nil
 }
 
+// dumpChangesCore handles core transfer logic; logger must be non-nil.
 func (t *Transfer) dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer, dedup DeduplicationStrategy, handshake string) (err error) {
 	ranges, err := prepareRanges(cfg, snapshot, source, t.Logger)
 	if err != nil {
@@ -129,12 +130,10 @@ func (t *Transfer) dumpChangesCore(cfg *config.Config, snapshot, source string, 
 
 	logSequentialSummary(t.Logger, totalBytesTransferred, skippedBlocks, startTime)
 	finalizeResumeState(cfg, t.Tracker, t.Logger)
-	if len(finalDigest) > 0 && t.Logger != nil {
+	if len(finalDigest) > 0 {
 		t.Logger.Info("final checksum", zap.String("final_digest", fmt.Sprintf("%x", finalDigest)))
 	}
-	if t.Logger != nil {
-		_ = t.Logger.Sync()
-	}
+	_ = t.Logger.Sync()
 	return nil
 }
 
@@ -144,9 +143,7 @@ func (t *Transfer) setupDedup(cfg *config.Config) (DeduplicationStrategy, func()
 	if dedup != nil {
 		cleanup = func() {
 			if err := dedup.SaveState(); err != nil {
-				if t.Logger != nil {
-					t.Logger.Error("Failed to save dedup state", zap.Error(err))
-				}
+				t.Logger.Error("Failed to save dedup state", zap.Error(err))
 			}
 		}
 	}
@@ -172,13 +169,9 @@ func (t *Transfer) DumpChanges(cfg *config.Config, snapshot, source string, out 
 	dedup, cleanup := t.setupDedup(cfg)
 	if dedup != nil {
 		defer cleanup()
-		if t.Logger != nil {
-			t.Logger.Info("Deduplication enabled", zap.String("strategy", cfg.DedupStrategy))
-		}
+		t.Logger.Info("Deduplication enabled", zap.String("strategy", cfg.DedupStrategy))
 		return t.DumpChangesWithDeduplication(cfg, snapshot, source, out, dedup)
 	}
-	if t.Logger != nil {
-		t.Logger.Info("Deduplication disabled, performing full block transfer")
-	}
+	t.Logger.Info("Deduplication disabled, performing full block transfer")
 	return t.DumpChangesSequential(cfg, snapshot, source, out)
 }

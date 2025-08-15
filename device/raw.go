@@ -33,7 +33,7 @@ type RawDevice struct {
 
 // OpenRaw opens a block device at the given path and queries its size and block
 // size. If offline is false, fsFreezeCmdPath and fsThawCmdPath must be commands
-// that successfully freeze and thaw the filesystem around the device access.
+// that successfully freeze and thaw the filesystem around the device access. logger must be non-nil.
 func OpenRaw(
 	ctx context.Context,
 	path string,
@@ -46,9 +46,6 @@ func OpenRaw(
 	thawTimeout time.Duration,
 	logger *zap.Logger,
 ) (_ *RawDevice, err error) {
-	if logger == nil {
-		logger = zap.NewNop()
-	}
 	d := &RawDevice{
 		logger: logger, freezeTimeout: freezeTimeout, thawTimeout: thawTimeout,
 		thawCmdPath: fsThawCmdPath, thawCmdArgs: fsThawCmdArgs,

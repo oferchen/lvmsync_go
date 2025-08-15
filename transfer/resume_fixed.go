@@ -25,6 +25,7 @@ func findResumeIndex(cfg *config.Config, srcFile *os.File, ranges []Range, chk r
 	}
 }
 
+// findResumeIndexFixed finds resume index using fixed-size blocks; logger must be non-nil.
 func findResumeIndexFixed(cfg *config.Config, srcFile *os.File, ranges []Range, chk resumeCheckpoint, logger *zap.Logger) int {
 	if chk.Chunk == [32]byte{} {
 		return 0
@@ -47,9 +48,7 @@ func findResumeIndexFixed(cfg *config.Config, srcFile *os.File, ranges []Range, 
 		}
 		putBlockBuffer(data)
 		if sum == chk.Chunk {
-			if logger != nil {
-				logger.Info("Resuming after index", zap.Int("resume_index", i+1))
-			}
+			logger.Info("Resuming after index", zap.Int("resume_index", i+1))
 			return i + 1
 		}
 	}
