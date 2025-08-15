@@ -186,7 +186,7 @@ func TestOpenRawFreezeThawLogs(t *testing.T) {
 	logger := zap.New(core)
 	oldExec := execCommand
 	execCommand = fakeExecCommandContext
-	defer func() { execCommand = oldExec }()
+	t.Cleanup(func() { execCommand = oldExec })
 	_, err := OpenRaw(context.Background(), "/dev/null", false, os.Args[0], []string{"freeze-success"}, os.Args[0], []string{"thaw-success"}, time.Second, time.Second, logger)
 	if err == nil {
 		t.Fatalf("expected error for char device")
@@ -204,7 +204,7 @@ func TestOpenRawFreezeTimeoutLogs(t *testing.T) {
 	logger := zap.New(core)
 	oldExec := execCommand
 	execCommand = fakeExecCommandContext
-	defer func() { execCommand = oldExec }()
+	t.Cleanup(func() { execCommand = oldExec })
 	_, err := OpenRaw(context.Background(), "/dev/null", false, os.Args[0], []string{"freeze-timeout"}, os.Args[0], []string{"thaw-success"}, 50*time.Millisecond, time.Second, logger)
 	if err == nil || !strings.Contains(err.Error(), "signal: killed") {
 		t.Fatalf("expected freeze timeout, got %v", err)
@@ -225,7 +225,7 @@ func TestOpenRawThawFailure(t *testing.T) {
 	logger := zap.New(core)
 	oldExec := execCommand
 	execCommand = fakeExecCommandContext
-	defer func() { execCommand = oldExec }()
+	t.Cleanup(func() { execCommand = oldExec })
 	_, err := OpenRaw(context.Background(), "/dev/null", false, os.Args[0], []string{"freeze-success"}, os.Args[0], []string{"thaw-fail"}, time.Second, time.Second, logger)
 	if err == nil {
 		t.Fatalf("expected error for char device")
@@ -249,7 +249,7 @@ func TestOpenRawFreezeCommandFailureIncludesOutput(t *testing.T) {
 	logger := zap.New(core)
 	oldExec := execCommand
 	execCommand = fakeExecCommandContext
-	defer func() { execCommand = oldExec }()
+	t.Cleanup(func() { execCommand = oldExec })
 	if _, err := OpenRaw(context.Background(), "/dev/null", false, os.Args[0], []string{"freeze-fail-output"}, "true", nil, time.Second, time.Second, logger); err == nil || !strings.Contains(err.Error(), "freeze output") {
 		t.Fatalf("expected freeze output in error, got %v", err)
 	}
@@ -267,7 +267,7 @@ func TestRawDeviceCleanupFailureIncludesOutput(t *testing.T) {
 	logger := zap.New(core)
 	oldExec := execCommand
 	execCommand = fakeExecCommandContext
-	defer func() { execCommand = oldExec }()
+	t.Cleanup(func() { execCommand = oldExec })
 	d := &RawDevice{
 		freezeIssued: true,
 		thawCmdPath:  os.Args[0],

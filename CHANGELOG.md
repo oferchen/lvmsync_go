@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - transport/h2: refactor Dial into dialTLS, performH2Handshake, and logDialResult with unit tests.
 - transport: tests covering SelectBest handshake negotiation with custom CDC settings, resume tokens, and O_DIRECT for ssh, tcp+tls, h2, and quic transports.
 - device: add raw device freeze/thaw tests with exec command stubs
+- device: centralize exec command helper for LVM and raw devices
 - transfer: add manifest index persistence test covering read/write, rebuild, and verify paths.
 - cmd: support `--source-type` and `--dest-type` flags and allow `device.Detect` to honor explicit type hints.
 - transfer: unify resume checkpoints across dedup modes and add resume tests for fixed, CDC, and hybrid modes.
