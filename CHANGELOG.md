@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
-- None yet.
+- Bind LVMSYNC_DEDUP_* environment variables and extend tests for dedup flag precedence.
 
 ### Fixed
 - None yet.
