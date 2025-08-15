@@ -46,6 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - cmd/dump: detect destination type locally without mutating configuration
 - manifest: propagate close errors when rebuilding indexes
 - log sync errors in manifest and verify commands
+- h2: ensure unreachable dial test uses context timeout and expects deadline exceeded
 
 ## [v0.1.0] - 2025-02-27
 ### Added
