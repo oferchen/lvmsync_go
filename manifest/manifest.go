@@ -40,15 +40,32 @@ type Header struct {
 
 // Index is an mmap-backed manifest file containing chunk metadata.
 type Index struct {
-	f    *os.File
-	data []byte
-	hdr  Header
+	f         *os.File
+	data      []byte
+	hdr       Header
+	closeHook func() error
 }
 
-var closeHook = func() error { return nil }
+// Options allows tests to inject dependencies for device detection and close hooks.
+type Options struct {
+	DetectDevice func(ctx context.Context, path string, logger *zap.Logger) (device.Device, error)
+	CloseHook    func() error
+}
 
-var detectDevice = func(ctx context.Context, path string, logger *zap.Logger) (device.Device, error) {
-	return device.Detect(ctx, path, true, "", "", "", "", 0, 0, logger)
+func getOptions(opts []Options) Options {
+	var o Options
+	if len(opts) > 0 {
+		o = opts[0]
+	}
+	if o.DetectDevice == nil {
+		o.DetectDevice = func(ctx context.Context, path string, logger *zap.Logger) (device.Device, error) {
+			return device.Detect(ctx, path, true, "", "", "", "", 0, 0, logger)
+		}
+	}
+	if o.CloseHook == nil {
+		o.CloseHook = func() error { return nil }
+	}
+	return o
 }
 
 // ErrVersionMismatch is returned when a manifest file uses an unsupported version.
@@ -107,7 +124,9 @@ func (i *Index) Close() error {
 		if err = unix.Msync(i.data, unix.MS_SYNC); err != nil {
 			_ = unix.Munmap(i.data)
 			_ = i.f.Close()
-			_ = closeHook()
+			if i.closeHook != nil {
+				_ = i.closeHook()
+			}
 			return err
 		}
 		_ = unix.Munmap(i.data)
@@ -117,14 +136,17 @@ func (i *Index) Close() error {
 			err = ferr
 		}
 	}
-	if hookErr := closeHook(); err == nil && hookErr != nil {
-		err = hookErr
+	if i.closeHook != nil {
+		if hookErr := i.closeHook(); err == nil && hookErr != nil {
+			err = hookErr
+		}
 	}
 	return err
 }
 
 // Create initializes a new manifest index at path for the given device.
-func Create(path, deviceID string, size uint64, blockSize uint32) (*Index, error) {
+func Create(path, deviceID string, size uint64, blockSize uint32, opts ...Options) (*Index, error) {
+	o := getOptions(opts)
 	if len(deviceID) > 64 {
 		return nil, fmt.Errorf("manifest: device ID exceeds 64 bytes")
 	}
@@ -143,7 +165,7 @@ func Create(path, deviceID string, size uint64, blockSize uint32) (*Index, error
 		f.Close()
 		return nil, err
 	}
-	idx := &Index{f: f, data: data}
+	idx := &Index{f: f, data: data, closeHook: o.CloseHook}
 	idx.hdr = Header{
 		Version:    Version,
 		BlockSize:  blockSize,
@@ -157,7 +179,8 @@ func Create(path, deviceID string, size uint64, blockSize uint32) (*Index, error
 }
 
 // Open maps an existing manifest index file.
-func Open(path string) (*Index, error) {
+func Open(path string, opts ...Options) (*Index, error) {
+	o := getOptions(opts)
 	f, err := os.OpenFile(path, os.O_RDWR, 0)
 	if err != nil {
 		return nil, err
@@ -173,7 +196,7 @@ func Open(path string) (*Index, error) {
 		f.Close()
 		return nil, err
 	}
-	idx := &Index{f: f, data: data}
+	idx := &Index{f: f, data: data, closeHook: o.CloseHook}
 	if err := idx.readHeader(); err != nil {
 		idx.Close()
 		return nil, err
@@ -183,7 +206,8 @@ func Open(path string) (*Index, error) {
 
 // Upgrade opens the manifest at path, upgrading older versions in-place.
 // It returns an Index mapped to the upgraded file.
-func Upgrade(path string) (*Index, error) {
+func Upgrade(path string, opts ...Options) (*Index, error) {
+	o := getOptions(opts)
 	f, err := os.OpenFile(path, os.O_RDWR, 0)
 	if err != nil {
 		return nil, err
@@ -199,7 +223,7 @@ func Upgrade(path string) (*Index, error) {
 		f.Close()
 		return nil, err
 	}
-	idx := &Index{f: f, data: data}
+	idx := &Index{f: f, data: data, closeHook: o.CloseHook}
 	if err := idx.readHeader(); err != nil {
 		if !errors.Is(err, ErrVersionMismatch) {
 			idx.Close()
@@ -284,7 +308,8 @@ func (i *Index) ChunkCount() uint64 { return i.hdr.ChunkCount }
 // Progress is logged at the provided interval; set interval to 0 to log every chunk.
 // The operation respects cancellation via ctx.
 // When allowMounted is false, Rebuild aborts if the device is mounted read-write.
-func Rebuild(ctx context.Context, devicePath, output string, logger *zap.Logger, progressInterval time.Duration, allowMounted bool) (err error) {
+func Rebuild(ctx context.Context, devicePath, output string, logger *zap.Logger, progressInterval time.Duration, allowMounted bool, opts ...Options) (err error) {
+	o := getOptions(opts)
 	if err = ctx.Err(); err != nil {
 		return err
 	}
@@ -296,7 +321,7 @@ func Rebuild(ctx context.Context, devicePath, output string, logger *zap.Logger,
 		return fmt.Errorf("manifest: %s is mounted read-write; use --manifest-allow-mounted to override", devicePath)
 	}
 	var dev device.Device
-	dev, err = detectDevice(ctx, devicePath, logger)
+	dev, err = o.DetectDevice(ctx, devicePath, logger)
 	if err != nil {
 		return err
 	}
@@ -320,7 +345,7 @@ func Rebuild(ctx context.Context, devicePath, output string, logger *zap.Logger,
 	}
 	defer f.Close()
 	var idx *Index
-	idx, err = Create(output, id, size, blockSize)
+	idx, err = Create(output, id, size, blockSize, o)
 	if err != nil {
 		return err
 	}
