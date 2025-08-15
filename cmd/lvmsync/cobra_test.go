@@ -18,13 +18,13 @@ func TestRunCommandExecutes(t *testing.T) {
 	t.Setenv("LVMSYNC_TRANSPORT_TRANSPORT", "ssh")
 	var gotSrc, gotDst string
 	var gotOpts RunOptions
-	runCommand = func(src, dst string, opts RunOptions) error {
+	runCommand = func(src, dst string, opts RunOptions, logger *zap.Logger) error {
 		gotSrc, gotDst, gotOpts = src, dst, opts
 		return nil
 	}
-	t.Cleanup(func() { runCommand = func(src, dst string, opts RunOptions) error { return nil } })
+	t.Cleanup(func() { runCommand = func(src, dst string, opts RunOptions, logger *zap.Logger) error { return nil } })
 
-	if err := Execute([]string{"run", "src", "dst"}); err != nil {
+	if err := Execute([]string{"run", "src", "dst"}, zap.NewNop()); err != nil {
 		t.Fatalf("execute run: %v", err)
 	}
 	if gotSrc != "src" || gotDst != "dst" {
@@ -44,13 +44,13 @@ func TestRunCommandDryRun(t *testing.T) {
 		t.Fatalf("write src: %v", err)
 	}
 	called := false
-	runCommand = func(src, dst string, opts RunOptions) error {
+	runCommand = func(src, dst string, opts RunOptions, logger *zap.Logger) error {
 		called = true
 		return nil
 	}
-	t.Cleanup(func() { runCommand = func(src, dst string, opts RunOptions) error { return nil } })
+	t.Cleanup(func() { runCommand = func(src, dst string, opts RunOptions, logger *zap.Logger) error { return nil } })
 
-	if err := Execute([]string{"run", "--dry-run", src, "dst"}); err != nil {
+	if err := Execute([]string{"run", "--dry-run", src, "dst"}, zap.NewNop()); err != nil {
 		t.Fatalf("execute run dry-run: %v", err)
 	}
 	if called {
@@ -65,13 +65,13 @@ func TestRunCommandDryRunEnv(t *testing.T) {
 	}
 	t.Setenv("LVMSYNC_DRY_RUN", "true")
 	called := false
-	runCommand = func(src, dst string, o RunOptions) error {
+	runCommand = func(src, dst string, o RunOptions, logger *zap.Logger) error {
 		called = true
 		return nil
 	}
-	t.Cleanup(func() { runCommand = func(src, dst string, opts RunOptions) error { return nil } })
+	t.Cleanup(func() { runCommand = func(src, dst string, opts RunOptions, logger *zap.Logger) error { return nil } })
 
-	if err := Execute([]string{"run", src, "dst"}); err != nil {
+	if err := Execute([]string{"run", src, "dst"}, zap.NewNop()); err != nil {
 		t.Fatalf("execute run with env: %v", err)
 	}
 	if called {
@@ -81,13 +81,13 @@ func TestRunCommandDryRunEnv(t *testing.T) {
 
 func TestRunCommandInvalidConfig(t *testing.T) {
 	called := false
-	runCommand = func(src, dst string, opts RunOptions) error {
+	runCommand = func(src, dst string, opts RunOptions, logger *zap.Logger) error {
 		called = true
 		return nil
 	}
-	t.Cleanup(func() { runCommand = func(src, dst string, opts RunOptions) error { return nil } })
+	t.Cleanup(func() { runCommand = func(src, dst string, opts RunOptions, logger *zap.Logger) error { return nil } })
 
-	if err := Execute([]string{"run", "--ssh_keepalive=0s", "src", "dst"}); err == nil {
+	if err := Execute([]string{"run", "--ssh_keepalive=0s", "src", "dst"}, zap.NewNop()); err == nil {
 		t.Fatalf("expected error for invalid config")
 	}
 	if called {
@@ -98,13 +98,13 @@ func TestRunCommandInvalidConfig(t *testing.T) {
 func TestManifestRebuildRoutes(t *testing.T) {
 	var gotDevice string
 	var dry bool
-	manifestRebuild = func(device string, d bool) error {
+	manifestRebuild = func(device string, d bool, logger *zap.Logger) error {
 		gotDevice, dry = device, d
 		return nil
 	}
-	t.Cleanup(func() { manifestRebuild = func(device string, dryRun bool) error { return nil } })
+	t.Cleanup(func() { manifestRebuild = func(device string, dryRun bool, logger *zap.Logger) error { return nil } })
 
-	if err := Execute([]string{"manifest", "rebuild", "--dry-run", "/dev/vg0"}); err != nil {
+	if err := Execute([]string{"manifest", "rebuild", "--dry-run", "/dev/vg0"}, zap.NewNop()); err != nil {
 		t.Fatalf("execute rebuild: %v", err)
 	}
 	if gotDevice != "/dev/vg0" {
@@ -117,13 +117,13 @@ func TestManifestRebuildRoutes(t *testing.T) {
 
 func TestManifestRebuildInvalidConfig(t *testing.T) {
 	called := false
-	manifestRebuild = func(device string, dryRun bool) error {
+	manifestRebuild = func(device string, dryRun bool, logger *zap.Logger) error {
 		called = true
 		return nil
 	}
-	t.Cleanup(func() { manifestRebuild = func(device string, dryRun bool) error { return nil } })
+	t.Cleanup(func() { manifestRebuild = func(device string, dryRun bool, logger *zap.Logger) error { return nil } })
 
-	if err := Execute([]string{"manifest", "rebuild", "--ssh_keepalive=0s", "/dev/vg0"}); err == nil {
+	if err := Execute([]string{"manifest", "rebuild", "--ssh_keepalive=0s", "/dev/vg0"}, zap.NewNop()); err == nil {
 		t.Fatalf("expected error for invalid config")
 	}
 	if called {
@@ -133,13 +133,15 @@ func TestManifestRebuildInvalidConfig(t *testing.T) {
 
 func TestVerifyRoutes(t *testing.T) {
 	var got []string
-	verifyRun = func(a []string) error {
+	verifyRun = func(a []string, logger *zap.Logger) error {
 		got = append([]string{}, a...)
 		return nil
 	}
-	t.Cleanup(func() { verifyRun = func(args []string) error { return verifycmd.Run(args, nil) } })
+	t.Cleanup(func() {
+		verifyRun = func(args []string, logger *zap.Logger) error { return verifycmd.Run(args, logger) }
+	})
 
-	if err := Execute([]string{"verify", "a", "b"}); err != nil {
+	if err := Execute([]string{"verify", "a", "b"}, zap.NewNop()); err != nil {
 		t.Fatalf("execute verify: %v", err)
 	}
 	if len(got) != 2 || got[0] != "a" || got[1] != "b" {
@@ -170,6 +172,7 @@ func TestEstimateTransferWithManifest(t *testing.T) {
 	cfg := &config.Config{ManifestPath: manifestPath}
 	core, obs := observer.New(zap.InfoLevel)
 	logger := zap.New(core)
+	defer logger.Sync()
 	if err := estimateTransfer(src, cfg, logger); err != nil {
 		t.Fatalf("estimate transfer: %v", err)
 	}

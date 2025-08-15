@@ -25,13 +25,13 @@ type RunOptions struct {
 
 var (
 	// These function variables allow tests to stub command behavior.
-	runCommand      = func(src, dst string, opts RunOptions) error { return nil }
-	manifestRebuild = func(device string, dryRun bool) error { return nil }
-	verifyRun       = func(args []string) error { return verifycmd.Run(args, nil) }
+	runCommand      = func(src, dst string, opts RunOptions, logger *zap.Logger) error { return nil }
+	manifestRebuild = func(device string, dryRun bool, logger *zap.Logger) error { return nil }
+	verifyRun       = func(args []string, logger *zap.Logger) error { return verifycmd.Run(args, logger) }
 )
 
 // NewRootCmd creates the root cobra command with all subcommands wired.
-func NewRootCmd() *cobra.Command {
+func NewRootCmd(logger *zap.Logger) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "lvmsync",
 		Short: "LVMSync command line tool",
@@ -60,15 +60,6 @@ func NewRootCmd() *cobra.Command {
 				return fmt.Errorf("usage: lvmsync run [flags] <source> <dest>")
 			}
 			if cfg.DryRun {
-				logger := zap.L()
-				if logger == nil {
-					var err error
-					logger, err = zap.NewProduction()
-					if err != nil {
-						return err
-					}
-				}
-				defer logger.Sync()
 				if err := estimateTransfer(remaining[0], cfg, logger); err != nil {
 					return err
 				}
@@ -78,7 +69,7 @@ func NewRootCmd() *cobra.Command {
 				DryRun:    cfg.DryRun,
 				Transport: cfg.Transport,
 			}
-			return runCommand(remaining[0], remaining[1], opts)
+			return runCommand(remaining[0], remaining[1], opts, logger)
 		},
 	}
 
@@ -109,7 +100,7 @@ func NewRootCmd() *cobra.Command {
 				fs.Usage()
 				return fmt.Errorf("usage: lvmsync manifest rebuild [flags] <device>")
 			}
-			return manifestRebuild(remaining[0], cfg.DryRun)
+			return manifestRebuild(remaining[0], cfg.DryRun, logger)
 		},
 	}
 	manifestCmd.AddCommand(rebuildCmd)
@@ -119,7 +110,7 @@ func NewRootCmd() *cobra.Command {
 		Short:              "Verify that source and destination match",
 		DisableFlagParsing: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return verifyRun(args)
+			return verifyRun(args, logger)
 		},
 	}
 
@@ -129,8 +120,8 @@ func NewRootCmd() *cobra.Command {
 
 // Execute runs the command tree with provided arguments.
 // If args is nil, the global os.Args are used by cobra.
-func Execute(args []string) error {
-	cmd := NewRootCmd()
+func Execute(args []string, logger *zap.Logger) error {
+	cmd := NewRootCmd(logger)
 	if args != nil {
 		cmd.SetArgs(args)
 	}
@@ -138,6 +129,9 @@ func Execute(args []string) error {
 }
 
 func estimateTransfer(src string, cfg *config.Config, logger *zap.Logger) error {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
 	info, err := os.Stat(src)
 	if err != nil {
 		return fmt.Errorf("stat source: %w", err)
