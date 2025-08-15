@@ -49,6 +49,21 @@ func checkLogFields(t *testing.T, logs *observer.ObservedLogs, msg string, expec
 	}
 }
 
+func checkHandshakeFields(t *testing.T, logs *observer.ObservedLogs, msg string, expected int) {
+	entries := logs.FilterMessage(msg).All()
+	if len(entries) != expected {
+		t.Fatalf("expected %d %s logs, got %d", expected, msg, len(entries))
+	}
+	for _, e := range entries {
+		ctx := e.ContextMap()
+		for _, k := range []string{"dedup_mode", "block_size_bytes", "compress", "digest", "resume_token", "max_inflight", "cdc_min", "cdc_avg", "cdc_max"} {
+			if _, ok := ctx[k]; !ok {
+				t.Fatalf("expected field %q in %s log", k, msg)
+			}
+		}
+	}
+}
+
 func writeKnownHosts(t *testing.T, addr string, pk ssh.PublicKey) string {
 	t.Helper()
 	host, port, err := net.SplitHostPort(addr)
@@ -142,6 +157,7 @@ func TestSSHTransportAuthSuccess(t *testing.T) {
 	}
 	client := clientIface.(*Transport)
 
+	hs := common.Handshake{ResumeToken: "tok", DedupMode: "cdc", BlockSize: 4096, Compress: "zstd", Digest: "sha256", MaxInFlight: 8, CDCMin: 64, CDCAvg: 128, CDCMax: 256}
 	done := make(chan struct{})
 	go func() {
 		conn, err := ln.Accept()
@@ -149,12 +165,12 @@ func TestSSHTransportAuthSuccess(t *testing.T) {
 			t.Errorf("accept: %v", err)
 			return
 		}
-		peerHS, err := server.Negotiate(ctx, conn, transport.Server, common.Handshake{ResumeToken: "tok", MaxInFlight: 8, CDCMin: 64, CDCAvg: 128, CDCMax: 256})
+		peerHS, err := server.Negotiate(ctx, conn, transport.Server, hs)
 		if err != nil {
 			t.Errorf("server negotiate: %v", err)
 			return
 		}
-		if peerHS.ResumeToken != "tok" || peerHS.MaxInFlight != 8 || peerHS.CDCMin != 64 || peerHS.CDCAvg != 128 || peerHS.CDCMax != 256 {
+		if peerHS.ResumeToken != hs.ResumeToken || peerHS.DedupMode != hs.DedupMode || peerHS.BlockSize != hs.BlockSize || peerHS.Compress != hs.Compress || peerHS.Digest != hs.Digest || peerHS.MaxInFlight != hs.MaxInFlight || peerHS.CDCMin != hs.CDCMin || peerHS.CDCAvg != hs.CDCAvg || peerHS.CDCMax != hs.CDCMax {
 			t.Errorf("unexpected peer handshake: %+v", peerHS)
 		}
 		buf := make([]byte, 4)
@@ -168,11 +184,11 @@ func TestSSHTransportAuthSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
-	peerHS, err := client.Negotiate(ctx, conn, transport.Client, common.Handshake{ResumeToken: "tok", MaxInFlight: 8, CDCMin: 64, CDCAvg: 128, CDCMax: 256})
+	peerHS, err := client.Negotiate(ctx, conn, transport.Client, hs)
 	if err != nil {
 		t.Fatalf("client negotiate: %v", err)
 	}
-	if peerHS.ResumeToken != "tok" || peerHS.MaxInFlight != 8 || peerHS.CDCMin != 64 || peerHS.CDCAvg != 128 || peerHS.CDCMax != 256 {
+	if peerHS.ResumeToken != hs.ResumeToken || peerHS.DedupMode != hs.DedupMode || peerHS.BlockSize != hs.BlockSize || peerHS.Compress != hs.Compress || peerHS.Digest != hs.Digest || peerHS.MaxInFlight != hs.MaxInFlight || peerHS.CDCMin != hs.CDCMin || peerHS.CDCAvg != hs.CDCAvg || peerHS.CDCMax != hs.CDCMax {
 		t.Fatalf("unexpected peer handshake: %+v", peerHS)
 	}
 	if _, err := conn.Write([]byte("ping")); err != nil {
@@ -192,6 +208,7 @@ func TestSSHTransportAuthSuccess(t *testing.T) {
 	checkLogFields(t, logs, "listen_end", 1, false, zapcore.InfoLevel)
 	checkLogFields(t, logs, "negotiate_start", 2, false, zapcore.InfoLevel)
 	checkLogFields(t, logs, "negotiate_end", 2, false, zapcore.InfoLevel)
+	checkHandshakeFields(t, logs, "negotiate_end", 2)
 }
 
 func TestSSHTransportKeyAuth(t *testing.T) {
