@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -15,7 +16,7 @@ import (
 // Detect inspects the path and returns the appropriate Device implementation.
 // Regular files return FileDevice, block devices are classified as either LVM
 // logical volumes or raw devices based on LVM metadata.
-func Detect(ctx context.Context, path string, offline bool, fsFreezeCmd, fsThawCmd string, logger *zap.Logger) (Device, error) {
+func Detect(ctx context.Context, path string, offline bool, fsFreezeCmd, fsThawCmd string, freezeTimeout, thawTimeout time.Duration, logger *zap.Logger) (Device, error) {
 	resolved, err := filepath.EvalSymlinks(path)
 	if err != nil {
 		if logger != nil {
@@ -79,7 +80,7 @@ func Detect(ctx context.Context, path string, offline bool, fsFreezeCmd, fsThawC
 				thawArgs = parts[1:]
 			}
 		}
-		dev, err := OpenRaw(ctx, resolved, offline, freezePath, freezeArgs, thawPath, thawArgs, logger)
+		dev, err := OpenRaw(ctx, resolved, offline, freezePath, freezeArgs, thawPath, thawArgs, freezeTimeout, thawTimeout, logger)
 		if err != nil {
 			if logger != nil {
 				logger.Error("detect device failed", zap.String("path", resolved), zap.String("device_type", "raw"), zap.Error(err))

@@ -36,6 +36,8 @@ type Config struct {
 	Offline                  bool          `mapstructure:"offline"`
 	FSFreezeCommand          string        `mapstructure:"fs-freeze-command"`
 	FSThawCommand            string        `mapstructure:"fs-thaw-command"`
+	FreezeTimeout            time.Duration `mapstructure:"freeze_timeout"`
+	ThawTimeout              time.Duration `mapstructure:"thaw_timeout"`
 	Mode                     string        `mapstructure:"mode"`
 	Parallel                 int           `mapstructure:"parallel"`
 	Concurrency              int           `mapstructure:"concurrency"`
@@ -165,6 +167,8 @@ func DefaultConfig() (*Config, error) {
 		Offline:                  false,
 		FSFreezeCommand:          "",
 		FSThawCommand:            "",
+		FreezeTimeout:            10 * time.Second,
+		ThawTimeout:              10 * time.Second,
 		Parallel:                 4,
 		Concurrency:              0,
 		ZeroCopy:                 false,

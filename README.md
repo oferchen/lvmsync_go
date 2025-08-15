@@ -280,6 +280,7 @@ Reading from a live block device can corrupt data if writes occur during the tra
 
 - `--offline` – assert that no process will write to the source device.
 - `--fs-freeze-command`/`--fs-thaw-command` – run commands that freeze and thaw the filesystem around the read.
+- Time out freeze and thaw helpers with `--freeze-timeout` and `--thaw-timeout` (default `10s`).
 
 Freeze and thaw commands are validated before execution. The path must be set, free of NUL bytes, every argument must avoid NULs, and the executable must be discoverable in `$PATH`; otherwise lvmsync returns an error.
 
@@ -336,6 +337,11 @@ LVMSYNC_GRPC_GRPC_PORT=9443 LVMSYNC_GRPC_TLS_CERT=cert.pem lvmsync-grpcd
 | `--stdout` | `LVMSYNC_STDOUT` | `stdout` | Write change dump to STDOUT |
 | `--source-type` | `LVMSYNC_SOURCE_TYPE` | `source-type` | Source device type: `auto`, `file`, `raw`, or `lvm` |
 | `--dest-type` | `LVMSYNC_DEST_TYPE` | `dest-type` | Destination device type: `auto`, `file`, `raw`, or `lvm` |
+| `--offline` | `LVMSYNC_OFFLINE` | `offline` | Assume source raw device is offline |
+| `--fs-freeze-command` | `LVMSYNC_FS_FREEZE_COMMAND` | `fs-freeze-command` | Command to freeze filesystem before reading raw source |
+| `--fs-thaw-command` | `LVMSYNC_FS_THAW_COMMAND` | `fs-thaw-command` | Command to thaw filesystem after reading raw source |
+| `--freeze-timeout` | `LVMSYNC_FREEZE_TIMEOUT` | `freeze_timeout` | Timeout for filesystem freeze command |
+| `--thaw-timeout` | `LVMSYNC_THAW_TIMEOUT` | `thaw_timeout` | Timeout for filesystem thaw command |
 | `--mode` | `LVMSYNC_MODE` | `mode` | Configuration preset: `default` or `throughput`; unknown modes fail validation |
 | `--parallel` | `LVMSYNC_PARALLEL` | `parallel` | Number of concurrent workers |
 | `--concurrency` | `LVMSYNC_TRANSPORT_CONCURRENCY` | `concurrency` | Stream concurrency (0 to autotune based on BDP) |
@@ -836,6 +842,11 @@ Flags are parsed via Viper, so the same settings can be provided through
 | `--progress`        | Show progress percentage during the transfer                                                            | `true`    |
 | `--block_size`      | Block size for data transfer (e.g., `"4K"`, `"64K"`, `"512K"`, `"1M"`), use `0` for automatic detection | `"4K"`    |
 | `--dry-run`         | Print actions without executing | `false`   |
+| `--offline`         | Assume source raw device is offline | `false`   |
+| `--fs-freeze-command` | Command to freeze filesystem before reading raw source | `""` |
+| `--fs-thaw-command`  | Command to thaw filesystem after reading raw source | `""` |
+| `--freeze-timeout`   | Timeout for filesystem freeze command | `10s` |
+| `--thaw-timeout`     | Timeout for filesystem thaw command | `10s` |
 | `--transport`       | Ordered transports to try (e.g., `quic,h2,tcp+tls,ssh`) | `""`      |
 
 #### SSH Options

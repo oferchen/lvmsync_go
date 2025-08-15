@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 	"unsafe"
 
 	"go.uber.org/zap"
@@ -16,11 +17,13 @@ import (
 
 // RawDevice represents a generic block device opened from /dev.
 type RawDevice struct {
-	f            *os.File
-	size         uint64
-	blockSize    uint64
-	freezeIssued bool
-	logger       *zap.Logger
+	f             *os.File
+	size          uint64
+	blockSize     uint64
+	freezeIssued  bool
+	logger        *zap.Logger
+	freezeTimeout time.Duration
+	thawTimeout   time.Duration
 }
 
 // OpenRaw opens a block device at the given path and queries its size and block
@@ -34,12 +37,14 @@ func OpenRaw(
 	fsFreezeCmdArgs []string,
 	fsThawCmdPath string,
 	fsThawCmdArgs []string,
+	freezeTimeout time.Duration,
+	thawTimeout time.Duration,
 	logger *zap.Logger,
 ) (_ *RawDevice, err error) {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
-	d := &RawDevice{logger: logger}
+	d := &RawDevice{logger: logger, freezeTimeout: freezeTimeout, thawTimeout: thawTimeout}
 	if !offline {
 		if fsFreezeCmdPath == "" || fsThawCmdPath == "" {
 			return nil, fmt.Errorf("raw sources require --offline or --fs-freeze-command/--fs-thaw-command")
@@ -51,7 +56,13 @@ func OpenRaw(
 			return nil, fmt.Errorf("invalid thaw command: %w", err)
 		}
 		d.logger.Info("fs freeze start", zap.String("command", fsFreezeCmdPath), zap.Strings("args", fsFreezeCmdArgs))
-		if err = exec.CommandContext(ctx, fsFreezeCmdPath, fsFreezeCmdArgs...).Run(); err != nil {
+		freezeCtx := ctx
+		if _, ok := ctx.Deadline(); !ok && d.freezeTimeout > 0 {
+			var cancel context.CancelFunc
+			freezeCtx, cancel = context.WithTimeout(ctx, d.freezeTimeout)
+			defer cancel()
+		}
+		if err = exec.CommandContext(freezeCtx, fsFreezeCmdPath, fsFreezeCmdArgs...).Run(); err != nil {
 			return nil, fmt.Errorf("freeze command failed: %w", err)
 		}
 		d.logger.Info("fs freeze complete")
@@ -126,7 +137,13 @@ func (d *RawDevice) Cleanup(ctx context.Context, fsThawCmdPath string, fsThawCmd
 			return fmt.Errorf("invalid thaw command: %w", err)
 		}
 		d.logger.Info("fs thaw start", zap.String("command", fsThawCmdPath), zap.Strings("args", fsThawCmdArgs))
-		if err := exec.CommandContext(ctx, fsThawCmdPath, fsThawCmdArgs...).Run(); err != nil {
+		thawCtx := ctx
+		if _, ok := ctx.Deadline(); !ok && d.thawTimeout > 0 {
+			var cancel context.CancelFunc
+			thawCtx, cancel = context.WithTimeout(ctx, d.thawTimeout)
+			defer cancel()
+		}
+		if err := exec.CommandContext(thawCtx, fsThawCmdPath, fsThawCmdArgs...).Run(); err != nil {
 			d.logger.Error("fs thaw failed", zap.Error(err))
 			return fmt.Errorf("thaw command failed: %w", err)
 		}

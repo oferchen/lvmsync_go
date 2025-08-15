@@ -3,8 +3,11 @@ package device
 import (
 	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
@@ -18,7 +21,7 @@ func TestOpenRawLogsInfoAndClose(t *testing.T) {
 	defer cleanup()
 	core, logs := observer.New(zap.InfoLevel)
 	logger := zap.New(core)
-	d, err := OpenRaw(context.Background(), loop, true, "", nil, "", nil, logger)
+	d, err := OpenRaw(context.Background(), loop, true, "", nil, "", nil, time.Second, time.Second, logger)
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
@@ -50,7 +53,7 @@ func TestRawDeviceCloseErrorLogging(t *testing.T) {
 	defer cleanup()
 	core, logs := observer.New(zap.InfoLevel)
 	logger := zap.New(core)
-	d, err := OpenRaw(context.Background(), loop, true, "", nil, "", nil, logger)
+	d, err := OpenRaw(context.Background(), loop, true, "", nil, "", nil, time.Second, time.Second, logger)
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
@@ -71,14 +74,14 @@ func TestOpenRawRejectsRegularFile(t *testing.T) {
 		t.Fatalf("temp file: %v", err)
 	}
 	f.Close()
-	if _, err := OpenRaw(context.Background(), f.Name(), true, "", nil, "", nil, nil); err == nil {
+	if _, err := OpenRaw(context.Background(), f.Name(), true, "", nil, "", nil, 0, 0, nil); err == nil {
 		t.Fatalf("expected error for regular file")
 	}
 }
 
 func TestOpenRawRejectsCharDevice(t *testing.T) {
 	if _, err := os.Stat("/dev/null"); err == nil {
-		if _, err := OpenRaw(context.Background(), "/dev/null", true, "", nil, "", nil, nil); err == nil {
+		if _, err := OpenRaw(context.Background(), "/dev/null", true, "", nil, "", nil, 0, 0, nil); err == nil {
 			t.Fatalf("expected error for char device")
 		}
 	} else if os.IsNotExist(err) {
@@ -87,13 +90,13 @@ func TestOpenRawRejectsCharDevice(t *testing.T) {
 }
 
 func TestOpenRawRequiresOfflineOrFreeze(t *testing.T) {
-	if _, err := OpenRaw(context.Background(), "/dev/null", false, "", nil, "", nil, nil); err == nil {
+	if _, err := OpenRaw(context.Background(), "/dev/null", false, "", nil, "", nil, time.Second, time.Second, nil); err == nil {
 		t.Fatalf("expected offline or freeze command error")
 	}
 }
 
 func TestOpenRawFreezeCommandFailure(t *testing.T) {
-	if _, err := OpenRaw(context.Background(), "/dev/null", false, "false", nil, "true", nil, nil); err == nil {
+	if _, err := OpenRaw(context.Background(), "/dev/null", false, "false", nil, "true", nil, time.Second, time.Second, nil); err == nil {
 		t.Fatalf("expected freeze command failure")
 	}
 }
@@ -105,7 +108,7 @@ func TestOpenRawThawsOnFailure(t *testing.T) {
 	freezeArgs := []string{freezeTmp}
 	thawCmdPath := "touch"
 	thawArgs := []string{thawTmp}
-	if _, err := OpenRaw(context.Background(), "/dev/null", false, freezeCmdPath, freezeArgs, thawCmdPath, thawArgs, nil); err == nil {
+	if _, err := OpenRaw(context.Background(), "/dev/null", false, freezeCmdPath, freezeArgs, thawCmdPath, thawArgs, time.Second, time.Second, nil); err == nil {
 		t.Fatalf("expected error for char device")
 	}
 	if _, err := os.Stat(freezeTmp); err != nil {
@@ -131,5 +134,25 @@ func TestCleanupThawCommandFailure(t *testing.T) {
 	d := &RawDevice{freezeIssued: true, logger: zap.NewNop()}
 	if err := d.Cleanup(context.Background(), "false", nil); err == nil {
 		t.Fatalf("expected thaw command failure")
+	}
+}
+
+func TestOpenRawFreezeTimeout(t *testing.T) {
+	if _, err := exec.LookPath("sleep"); err != nil {
+		t.Skip("sleep command not found")
+	}
+	_, err := OpenRaw(context.Background(), "/dev/null", false, "sleep", []string{"2"}, "true", nil, 100*time.Millisecond, time.Second, nil)
+	if err == nil || !strings.Contains(err.Error(), "signal: killed") {
+		t.Fatalf("expected freeze command to be killed, got %v", err)
+	}
+}
+
+func TestCleanupThawTimeout(t *testing.T) {
+	if _, err := exec.LookPath("sleep"); err != nil {
+		t.Skip("sleep command not found")
+	}
+	d := &RawDevice{freezeIssued: true, logger: zap.NewNop(), thawTimeout: 100 * time.Millisecond}
+	if err := d.Cleanup(context.Background(), "sleep", []string{"2"}); err == nil || !strings.Contains(err.Error(), "signal: killed") {
+		t.Fatalf("expected thaw command to be killed, got %v", err)
 	}
 }
