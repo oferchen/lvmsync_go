@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 func setupLoop(t *testing.T, size int64) (string, func()) {
@@ -39,7 +40,9 @@ func TestDetectFile(t *testing.T) {
 		t.Fatalf("temp file: %v", err)
 	}
 	f.Close()
-	dev, err := Detect(context.Background(), f.Name(), true, "", "", zap.NewNop())
+	core, logs := observer.New(zap.InfoLevel)
+	logger := zap.New(core)
+	dev, err := Detect(context.Background(), f.Name(), true, "", "", logger)
 	if err != nil {
 		t.Fatalf("detect: %v", err)
 	}
@@ -47,6 +50,17 @@ func TestDetectFile(t *testing.T) {
 		t.Fatalf("expected FileDevice, got %T", dev)
 	}
 	dev.Close()
+
+	entries := logs.FilterMessage("detect device success").All()
+	found := false
+	for _, e := range entries {
+		if e.ContextMap()["device_type"] == "file" && e.ContextMap()["path"] == f.Name() {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected log entry for file detection")
+	}
 }
 
 func TestDetectFileSymlink(t *testing.T) {
@@ -75,7 +89,9 @@ func TestDetectRaw(t *testing.T) {
 	}
 	loop, cleanup := setupLoop(t, 1<<20)
 	defer cleanup()
-	dev, err := Detect(context.Background(), loop, true, "", "", zap.NewNop())
+	core, logs := observer.New(zap.DebugLevel)
+	logger := zap.New(core)
+	dev, err := Detect(context.Background(), loop, true, "", "", logger)
 	if err != nil {
 		t.Fatalf("detect: %v", err)
 	}
@@ -83,6 +99,25 @@ func TestDetectRaw(t *testing.T) {
 		t.Fatalf("expected RawDevice, got %T", dev)
 	}
 	dev.Close()
+
+	// Expect LVM failure debug and Raw success info.
+	lvmFail := false
+	rawSuccess := false
+	for _, e := range logs.All() {
+		switch e.Message {
+		case "detect device failed":
+			if e.ContextMap()["device_type"] == "lvm" {
+				lvmFail = true
+			}
+		case "detect device success":
+			if e.ContextMap()["device_type"] == "raw" {
+				rawSuccess = true
+			}
+		}
+	}
+	if !lvmFail || !rawSuccess {
+		t.Fatalf("expected lvm fail and raw success logs, got %v", logs.All())
+	}
 }
 
 func TestDetectRawSymlink(t *testing.T) {
