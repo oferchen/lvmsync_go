@@ -10,6 +10,8 @@ import (
 	"lvmsync_go/hash"
 )
 
+var entropySink float64
+
 // BenchmarkReplicator measures end-to-end throughput of the replication
 // pipeline on random data.
 func BenchmarkReplicator(b *testing.B) {
@@ -46,4 +48,43 @@ func BenchmarkChunker(b *testing.B) {
 			}
 		}
 	}
+}
+
+// BenchmarkUpdateEntropyRing measures the cost of updating the entropy window
+// using the ring buffer implementation.
+func BenchmarkUpdateEntropyRing(b *testing.B) {
+	c := &Chunker{}
+	counts := [256]int{}
+	for i := range c.window {
+		c.window[i] = byte(i)
+		counts[c.window[i]]++
+	}
+	b.ResetTimer()
+	var res float64
+	for i := 0; i < b.N; i++ {
+		res += c.updateEntropy(byte(i), &counts)
+	}
+	entropySink = res
+}
+
+// BenchmarkUpdateEntropyCopy replicates the previous copy-based window update
+// to compare against the ring buffer implementation.
+func BenchmarkUpdateEntropyCopy(b *testing.B) {
+	var window [64]byte
+	counts := [256]int{}
+	for i := range window {
+		window[i] = byte(i)
+		counts[window[i]]++
+	}
+	b.ResetTimer()
+	var res float64
+	for i := 0; i < b.N; i++ {
+		out := window[0]
+		copy(window[:63], window[1:])
+		window[63] = byte(i)
+		counts[out]--
+		counts[byte(i)]++
+		res += entropy(counts[:])
+	}
+	entropySink = res
 }
