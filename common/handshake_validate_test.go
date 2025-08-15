@@ -19,6 +19,30 @@ func TestValidateHandshake(t *testing.T) {
 	}
 }
 
+func TestValidateHandshakeCDCOrderingValid(t *testing.T) {
+	local := Handshake{CDCMin: 64, CDCAvg: 128, CDCMax: 256}
+	peer := local
+	if err := ValidateHandshake(local, peer); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestValidateHandshakeCDCOrderingInvalidLocal(t *testing.T) {
+	local := Handshake{CDCMin: 256, CDCAvg: 64, CDCMax: 128}
+	peer := Handshake{CDCMin: 64, CDCAvg: 128, CDCMax: 256}
+	if err := ValidateHandshake(local, peer); err == nil {
+		t.Fatal("expected cdc ordering error")
+	}
+}
+
+func TestValidateHandshakeCDCOrderingInvalidPeer(t *testing.T) {
+	local := Handshake{CDCMin: 64, CDCAvg: 128, CDCMax: 256}
+	peer := Handshake{CDCMin: 256, CDCAvg: 64, CDCMax: 128}
+	if err := ValidateHandshake(local, peer); err == nil {
+		t.Fatal("expected cdc ordering error")
+	}
+}
+
 func TestValidateHandshakeALPNMismatch(t *testing.T) {
 	local := Handshake{ALPN: "lvmsync"}
 	peer := local
