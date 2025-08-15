@@ -188,18 +188,19 @@ func newClient(t *testing.T, cfg Config, agent lvmagent.Agent, creds credentials
 	return proto.NewReplicationClient(conn), cleanup
 }
 
-func newInsecureClient(t *testing.T, agent lvmagent.Agent) (proto.ReplicationClient, func()) {
-	return newClient(t, Config{AllowInsecure: true}, agent, insecure.NewCredentials())
+func newAuthorizedClient(t *testing.T, agent lvmagent.Agent) (proto.ReplicationClient, func()) {
+	cfg, good, _, _ := generateTLS(t)
+	return newClient(t, cfg, agent, credentials.NewTLS(good))
 }
 
-func ctxWithRole(role string) context.Context {
-	return metadata.NewOutgoingContext(context.Background(), metadata.Pairs("role", role))
+func ctxWithRole(_ string) context.Context {
+	return context.Background()
 }
 
 // runStatusTest executes an RPC returning a StatusResponse and verifies ok/message fields.
 func runStatusTest(t *testing.T, agent lvmagent.Agent, ok bool, msg string, call func(proto.ReplicationClient) (*proto.StatusResponse, error)) {
 	t.Helper()
-	client, cleanup := newInsecureClient(t, agent)
+	client, cleanup := newAuthorizedClient(t, agent)
 	defer cleanup()
 	resp, err := call(client)
 	if err != nil {
@@ -228,17 +229,25 @@ func runAgentTest(t *testing.T, cases []testCase, call func(proto.ReplicationCli
 }
 
 func TestAuthorizeInterceptor(t *testing.T) {
-	client, cleanup := newInsecureClient(t, nil)
-	defer cleanup()
+	cfg, good, other, nocert := generateTLS(t)
 
-	if _, err := client.Ping(ctxWithRole("replicator"), &proto.Empty{}); err != nil {
+	client, cleanup := newClient(t, cfg, nil, credentials.NewTLS(good))
+	defer cleanup()
+	if _, err := client.Ping(context.Background(), &proto.Empty{}); err != nil {
 		t.Fatalf("expected success, got %v", err)
 	}
-	if _, err := client.Ping(ctxWithRole("other"), &proto.Empty{}); status.Code(err) != codes.PermissionDenied {
+
+	ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs("role", "replicator"))
+	badClient, badCleanup := newClient(t, cfg, nil, credentials.NewTLS(other))
+	defer badCleanup()
+	if _, err := badClient.Ping(ctx, &proto.Empty{}); status.Code(err) != codes.PermissionDenied {
 		t.Fatalf("expected permission denied, got %v", err)
 	}
-	if _, err := client.Ping(context.Background(), &proto.Empty{}); status.Code(err) != codes.PermissionDenied {
-		t.Fatalf("expected permission denied, got %v", err)
+
+	noCertClient, noCertCleanup := newClient(t, cfg, nil, credentials.NewTLS(nocert))
+	defer noCertCleanup()
+	if _, err := noCertClient.Ping(context.Background(), &proto.Empty{}); err == nil {
+		t.Fatalf("expected error")
 	}
 }
 
@@ -272,7 +281,7 @@ func TestGetVolumeMetadata(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			client, cleanup := newInsecureClient(t, tt.agent)
+			client, cleanup := newAuthorizedClient(t, tt.agent)
 			defer cleanup()
 			resp, err := client.GetVolumeMetadata(ctxWithRole("replicator"), &proto.LockRequest{VolumeName: "vol"})
 			if tt.wantErr {
@@ -425,7 +434,7 @@ func TestSendResumeBitmap(t *testing.T) {
 			}
 			return nil
 		}}
-		client, cleanup := newInsecureClient(t, agent)
+		client, cleanup := newAuthorizedClient(t, agent)
 		defer cleanup()
 		stream, err := client.SendResumeBitmap(ctx)
 		if err != nil {
@@ -441,7 +450,7 @@ func TestSendResumeBitmap(t *testing.T) {
 
 	t.Run("agent error", func(t *testing.T) {
 		agent := &mockAgent{sendBitmap: func(_ context.Context, _ string, _ []byte) error { return errors.New("fail") }}
-		client, cleanup := newInsecureClient(t, agent)
+		client, cleanup := newAuthorizedClient(t, agent)
 		defer cleanup()
 		stream, err := client.SendResumeBitmap(ctx)
 		if err != nil {
@@ -456,7 +465,7 @@ func TestSendResumeBitmap(t *testing.T) {
 	})
 
 	t.Run("no agent", func(t *testing.T) {
-		client, cleanup := newInsecureClient(t, nil)
+		client, cleanup := newAuthorizedClient(t, nil)
 		defer cleanup()
 		stream, err := client.SendResumeBitmap(ctx)
 		if err != nil {
@@ -480,7 +489,7 @@ func TestAckStream(t *testing.T) {
 	ctx := ctxWithRole("replicator")
 	t.Run("success", func(t *testing.T) {
 		agent := &mockAgent{ack: func(_ context.Context, ack *proto.Ack) (*proto.Ack, error) { return ack, nil }}
-		client, cleanup := newInsecureClient(t, agent)
+		client, cleanup := newAuthorizedClient(t, agent)
 		defer cleanup()
 		stream, err := client.AckStream(ctx)
 		if err != nil {
@@ -496,7 +505,7 @@ func TestAckStream(t *testing.T) {
 
 	t.Run("agent error", func(t *testing.T) {
 		agent := &mockAgent{ack: func(_ context.Context, _ *proto.Ack) (*proto.Ack, error) { return nil, errors.New("fail") }}
-		client, cleanup := newInsecureClient(t, agent)
+		client, cleanup := newAuthorizedClient(t, agent)
 		defer cleanup()
 		stream, err := client.AckStream(ctx)
 		if err != nil {
@@ -511,7 +520,7 @@ func TestAckStream(t *testing.T) {
 	})
 
 	t.Run("no agent", func(t *testing.T) {
-		client, cleanup := newInsecureClient(t, nil)
+		client, cleanup := newAuthorizedClient(t, nil)
 		defer cleanup()
 		stream, err := client.AckStream(ctx)
 		if err != nil {
@@ -538,7 +547,7 @@ func TestProgressStream(t *testing.T) {
 			}
 			return ch, nil
 		}}
-		client, cleanup := newInsecureClient(t, agent)
+		client, cleanup := newAuthorizedClient(t, agent)
 		defer cleanup()
 		stream, err := client.ProgressStream(ctx, &proto.ProgressRequest{SessionId: "s"})
 		if err != nil {
@@ -553,7 +562,7 @@ func TestProgressStream(t *testing.T) {
 		agent := &mockAgent{progress: func(_ context.Context, _ string) (<-chan *proto.Progress, error) {
 			return nil, errors.New("fail")
 		}}
-		client, cleanup := newInsecureClient(t, agent)
+		client, cleanup := newAuthorizedClient(t, agent)
 		defer cleanup()
 		stream, err := client.ProgressStream(ctx, &proto.ProgressRequest{SessionId: "s"})
 		if err != nil {
@@ -565,7 +574,7 @@ func TestProgressStream(t *testing.T) {
 	})
 
 	t.Run("no agent", func(t *testing.T) {
-		client, cleanup := newInsecureClient(t, nil)
+		client, cleanup := newAuthorizedClient(t, nil)
 		defer cleanup()
 		stream, err := client.ProgressStream(ctx, &proto.ProgressRequest{SessionId: "s"})
 		if err != nil {
@@ -577,7 +586,7 @@ func TestProgressStream(t *testing.T) {
 	})
 }
 
-func generateTLS(t *testing.T) (Config, *tls.Config, *tls.Config) {
+func generateTLS(t *testing.T) (Config, *tls.Config, *tls.Config, *tls.Config) {
 	ca := &x509.Certificate{
 		SerialNumber:          big.NewInt(1),
 		Subject:               pkix.Name{CommonName: "ca"},
@@ -616,23 +625,41 @@ func generateTLS(t *testing.T) (Config, *tls.Config, *tls.Config) {
 	serverCertPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: serverDER})
 	serverKeyPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(serverKey)})
 
-	clientCert := &x509.Certificate{
+	goodCert := &x509.Certificate{
 		SerialNumber: big.NewInt(3),
-		Subject:      pkix.Name{CommonName: "client"},
+		Subject:      pkix.Name{CommonName: "client", OrganizationalUnit: []string{"replicator"}},
 		NotBefore:    time.Now().Add(-time.Hour),
 		NotAfter:     time.Now().Add(time.Hour),
 		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
 	}
-	clientKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	goodKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		t.Fatal(err)
 	}
-	clientDER, err := x509.CreateCertificate(rand.Reader, clientCert, ca, &clientKey.PublicKey, caKey)
+	goodDER, err := x509.CreateCertificate(rand.Reader, goodCert, ca, &goodKey.PublicKey, caKey)
 	if err != nil {
 		t.Fatal(err)
 	}
-	clientCertPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: clientDER})
-	clientKeyPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(clientKey)})
+	goodCertPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: goodDER})
+	goodKeyPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(goodKey)})
+
+	otherCert := &x509.Certificate{
+		SerialNumber: big.NewInt(4),
+		Subject:      pkix.Name{CommonName: "client", OrganizationalUnit: []string{"other"}},
+		NotBefore:    time.Now().Add(-time.Hour),
+		NotAfter:     time.Now().Add(time.Hour),
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+	}
+	otherKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	otherDER, err := x509.CreateCertificate(rand.Reader, otherCert, ca, &otherKey.PublicKey, caKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	otherCertPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: otherDER})
+	otherKeyPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(otherKey)})
 
 	dir := t.TempDir()
 	srvCertFile := filepath.Join(dir, "server.pem")
@@ -653,24 +680,29 @@ func generateTLS(t *testing.T) (Config, *tls.Config, *tls.Config) {
 
 	pool := x509.NewCertPool()
 	pool.AppendCertsFromPEM(caPEM)
-	clientTLSCert, err := tls.X509KeyPair(clientCertPEM, clientKeyPEM)
+	goodTLSCert, err := tls.X509KeyPair(goodCertPEM, goodKeyPEM)
 	if err != nil {
 		t.Fatal(err)
 	}
-	good := &tls.Config{RootCAs: pool, Certificates: []tls.Certificate{clientTLSCert}, MinVersion: tls.VersionTLS13, ServerName: "server"}
-	bad := &tls.Config{RootCAs: pool, MinVersion: tls.VersionTLS13, ServerName: "server"}
+	otherTLSCert, err := tls.X509KeyPair(otherCertPEM, otherKeyPEM)
+	if err != nil {
+		t.Fatal(err)
+	}
+	good := &tls.Config{RootCAs: pool, Certificates: []tls.Certificate{goodTLSCert}, MinVersion: tls.VersionTLS13, ServerName: "server"}
+	otherCfg := &tls.Config{RootCAs: pool, Certificates: []tls.Certificate{otherTLSCert}, MinVersion: tls.VersionTLS13, ServerName: "server"}
+	nocert := &tls.Config{RootCAs: pool, MinVersion: tls.VersionTLS13, ServerName: "server"}
 
 	cfg := Config{TLSCert: srvCertFile, TLSKey: srvKeyFile, CACert: caFile}
-	return cfg, good, bad
+	return cfg, good, otherCfg, nocert
 }
 
 func TestMTLSValidation(t *testing.T) {
-	cfg, good, bad := generateTLS(t)
+	cfg, good, _, bad := generateTLS(t)
 
 	t.Run("valid client cert", func(t *testing.T) {
 		client, cleanup := newClient(t, cfg, nil, credentials.NewTLS(good))
 		defer cleanup()
-		if _, err := client.Ping(ctxWithRole("replicator"), &proto.Empty{}); err != nil {
+		if _, err := client.Ping(context.Background(), &proto.Empty{}); err != nil {
 			t.Fatalf("expected success, got %v", err)
 		}
 	})
@@ -678,7 +710,7 @@ func TestMTLSValidation(t *testing.T) {
 	t.Run("missing client cert", func(t *testing.T) {
 		client, cleanup := newClient(t, cfg, nil, credentials.NewTLS(bad))
 		defer cleanup()
-		if _, err := client.Ping(ctxWithRole("replicator"), &proto.Empty{}); err == nil {
+		if _, err := client.Ping(context.Background(), &proto.Empty{}); err == nil {
 			t.Fatalf("expected error")
 		}
 	})
@@ -686,7 +718,7 @@ func TestMTLSValidation(t *testing.T) {
 
 func TestSessionFlow(t *testing.T) {
 	agent := &mockAgent{sendBitmap: func(_ context.Context, _ string, _ []byte) error { return nil }, sendManifest: func(_ context.Context, _ string, _ []byte) error { return nil }, finalizeSess: func(_ context.Context, _ string) error { return nil }, ack: func(_ context.Context, a *proto.Ack) (*proto.Ack, error) { return a, nil }}
-	client, cleanup := newInsecureClient(t, agent)
+	client, cleanup := newAuthorizedClient(t, agent)
 	defer cleanup()
 	ctx := ctxWithRole("replicator")
 	hsResp, err := client.Handshake(ctx, &proto.HandshakeRequest{SectorSize: 512, Alignment: 512, MaxConcurrency: 1})
@@ -729,7 +761,7 @@ func TestSessionFlow(t *testing.T) {
 }
 
 func TestHandshakeFailure(t *testing.T) {
-	client, cleanup := newInsecureClient(t, nil)
+	client, cleanup := newAuthorizedClient(t, nil)
 	defer cleanup()
 	ctx := ctxWithRole("replicator")
 	if _, err := client.Handshake(ctx, &proto.HandshakeRequest{}); err == nil {
@@ -739,12 +771,15 @@ func TestHandshakeFailure(t *testing.T) {
 
 func TestNewRPCPermissions(t *testing.T) {
 	t.Run("probe", func(t *testing.T) {
-		client, cleanup := newInsecureClient(t, nil)
+		cfg, good, other, _ := generateTLS(t)
+		client, cleanup := newClient(t, cfg, nil, credentials.NewTLS(good))
 		defer cleanup()
-		if _, err := client.Probe(ctxWithRole("replicator"), &proto.ProbeRequest{VolumeName: "vol"}); err != nil {
+		if _, err := client.Probe(context.Background(), &proto.ProbeRequest{VolumeName: "vol"}); err != nil {
 			t.Fatalf("Probe: %v", err)
 		}
-		if _, err := client.Probe(context.Background(), &proto.ProbeRequest{VolumeName: "vol"}); status.Code(err) != codes.PermissionDenied {
+		unauth, unauthCleanup := newClient(t, cfg, nil, credentials.NewTLS(other))
+		defer unauthCleanup()
+		if _, err := unauth.Probe(context.Background(), &proto.ProbeRequest{VolumeName: "vol"}); status.Code(err) != codes.PermissionDenied {
 			t.Fatalf("expected permission denied, got %v", err)
 		}
 	})
@@ -756,23 +791,29 @@ func TestNewRPCPermissions(t *testing.T) {
 			}
 			return nil
 		}}
-		client, cleanup := newInsecureClient(t, agent)
+		cfg, good, other, _ := generateTLS(t)
+		client, cleanup := newClient(t, cfg, agent, credentials.NewTLS(good))
 		defer cleanup()
-		if _, err := client.StartSync(ctxWithRole("replicator"), &proto.StartSyncRequest{VolumeName: "vol", Requester: "req"}); err != nil {
+		if _, err := client.StartSync(context.Background(), &proto.StartSyncRequest{VolumeName: "vol", Requester: "req"}); err != nil {
 			t.Fatalf("StartSync: %v", err)
 		}
-		if _, err := client.StartSync(context.Background(), &proto.StartSyncRequest{VolumeName: "vol", Requester: "req"}); status.Code(err) != codes.PermissionDenied {
+		unauth, unauthCleanup := newClient(t, cfg, agent, credentials.NewTLS(other))
+		defer unauthCleanup()
+		if _, err := unauth.StartSync(context.Background(), &proto.StartSyncRequest{VolumeName: "vol", Requester: "req"}); status.Code(err) != codes.PermissionDenied {
 			t.Fatalf("expected permission denied, got %v", err)
 		}
 	})
 
 	t.Run("cancel", func(t *testing.T) {
-		client, cleanup := newInsecureClient(t, nil)
+		cfg, good, other, _ := generateTLS(t)
+		client, cleanup := newClient(t, cfg, nil, credentials.NewTLS(good))
 		defer cleanup()
-		if _, err := client.Cancel(ctxWithRole("replicator"), &proto.CancelRequest{SessionId: "s"}); err != nil {
+		if _, err := client.Cancel(context.Background(), &proto.CancelRequest{SessionId: "s"}); err != nil {
 			t.Fatalf("Cancel: %v", err)
 		}
-		if _, err := client.Cancel(context.Background(), &proto.CancelRequest{SessionId: "s"}); status.Code(err) != codes.PermissionDenied {
+		unauth, unauthCleanup := newClient(t, cfg, nil, credentials.NewTLS(other))
+		defer unauthCleanup()
+		if _, err := unauth.Cancel(context.Background(), &proto.CancelRequest{SessionId: "s"}); status.Code(err) != codes.PermissionDenied {
 			t.Fatalf("expected permission denied, got %v", err)
 		}
 	})
@@ -784,48 +825,56 @@ func TestNewRPCPermissions(t *testing.T) {
 			close(ch)
 			return ch, nil
 		}}
-		client, cleanup := newInsecureClient(t, agent)
+		cfg, good, other, _ := generateTLS(t)
+		client, cleanup := newClient(t, cfg, agent, credentials.NewTLS(good))
 		defer cleanup()
-		stream, err := client.ProgressStream(ctxWithRole("replicator"), &proto.ProgressRequest{SessionId: "s"})
+		stream, err := client.ProgressStream(context.Background(), &proto.ProgressRequest{SessionId: "s"})
 		if err != nil {
 			t.Fatalf("ProgressStream: %v", err)
 		}
 		if _, err := stream.Recv(); err != nil {
 			t.Fatalf("Progress recv: %v", err)
 		}
-		unauth, err := client.ProgressStream(context.Background(), &proto.ProgressRequest{SessionId: "s"})
-		if err == nil {
-			if _, err := unauth.Recv(); status.Code(err) != codes.PermissionDenied {
+		unauth, unauthCleanup := newClient(t, cfg, agent, credentials.NewTLS(other))
+		defer unauthCleanup()
+		if us, err := unauth.ProgressStream(context.Background(), &proto.ProgressRequest{SessionId: "s"}); err == nil {
+			if _, err := us.Recv(); status.Code(err) != codes.PermissionDenied {
 				t.Fatalf("expected permission denied, got %v", err)
 			}
 		}
 	})
 
 	t.Run("buildmanifest", func(t *testing.T) {
-		client, cleanup := newInsecureClient(t, nil)
+		cfg, good, other, _ := generateTLS(t)
+		client, cleanup := newClient(t, cfg, nil, credentials.NewTLS(good))
 		defer cleanup()
-		if _, err := client.BuildManifest(ctxWithRole("replicator"), &proto.BuildManifestRequest{SessionId: "s"}); err != nil {
+		if _, err := client.BuildManifest(context.Background(), &proto.BuildManifestRequest{SessionId: "s"}); err != nil {
 			t.Fatalf("BuildManifest: %v", err)
 		}
-		if _, err := client.BuildManifest(context.Background(), &proto.BuildManifestRequest{SessionId: "s"}); status.Code(err) != codes.PermissionDenied {
+		unauth, unauthCleanup := newClient(t, cfg, nil, credentials.NewTLS(other))
+		defer unauthCleanup()
+		if _, err := unauth.BuildManifest(context.Background(), &proto.BuildManifestRequest{SessionId: "s"}); status.Code(err) != codes.PermissionDenied {
 			t.Fatalf("expected permission denied, got %v", err)
 		}
 	})
 
 	t.Run("verify", func(t *testing.T) {
-		client, cleanup := newInsecureClient(t, nil)
+		cfg, good, other, _ := generateTLS(t)
+		client, cleanup := newClient(t, cfg, nil, credentials.NewTLS(good))
 		defer cleanup()
-		if _, err := client.Verify(ctxWithRole("replicator"), &proto.VerifyRequest{SessionId: "s"}); err != nil {
+		if _, err := client.Verify(context.Background(), &proto.VerifyRequest{SessionId: "s"}); err != nil {
 			t.Fatalf("Verify: %v", err)
 		}
-		if _, err := client.Verify(context.Background(), &proto.VerifyRequest{SessionId: "s"}); status.Code(err) != codes.PermissionDenied {
+		unauth, unauthCleanup := newClient(t, cfg, nil, credentials.NewTLS(other))
+		defer unauthCleanup()
+		if _, err := unauth.Verify(context.Background(), &proto.VerifyRequest{SessionId: "s"}); status.Code(err) != codes.PermissionDenied {
 			t.Fatalf("expected permission denied, got %v", err)
 		}
 	})
 }
 
 func TestNewRPCsMTLS(t *testing.T) {
-	cfg, good, bad := generateTLS(t)
+	cfg, good, _, bad := generateTLS(t)
 	agent := &mockAgent{progress: func(_ context.Context, _ string) (<-chan *proto.Progress, error) {
 		ch := make(chan *proto.Progress, 1)
 		ch <- &proto.Progress{SessionId: "s"}
@@ -834,39 +883,38 @@ func TestNewRPCsMTLS(t *testing.T) {
 	}}
 	client, cleanup := newClient(t, cfg, agent, credentials.NewTLS(good))
 	defer cleanup()
-	ctx := ctxWithRole("replicator")
-	if _, err := client.Probe(ctx, &proto.ProbeRequest{VolumeName: "vol"}); err != nil {
+	if _, err := client.Probe(context.Background(), &proto.ProbeRequest{VolumeName: "vol"}); err != nil {
 		t.Fatalf("Probe: %v", err)
 	}
-	if _, err := client.StartSync(ctx, &proto.StartSyncRequest{VolumeName: "vol", Requester: "req"}); err != nil {
+	if _, err := client.StartSync(context.Background(), &proto.StartSyncRequest{VolumeName: "vol", Requester: "req"}); err != nil {
 		t.Fatalf("StartSync: %v", err)
 	}
-	if _, err := client.Cancel(ctx, &proto.CancelRequest{SessionId: "s"}); err != nil {
+	if _, err := client.Cancel(context.Background(), &proto.CancelRequest{SessionId: "s"}); err != nil {
 		t.Fatalf("Cancel: %v", err)
 	}
-	ps, err := client.ProgressStream(ctx, &proto.ProgressRequest{SessionId: "s"})
+	ps, err := client.ProgressStream(context.Background(), &proto.ProgressRequest{SessionId: "s"})
 	if err != nil {
 		t.Fatalf("ProgressStream: %v", err)
 	}
 	if _, err := ps.Recv(); err != nil {
 		t.Fatalf("Progress recv: %v", err)
 	}
-	if _, err := client.BuildManifest(ctx, &proto.BuildManifestRequest{SessionId: "s"}); err != nil {
+	if _, err := client.BuildManifest(context.Background(), &proto.BuildManifestRequest{SessionId: "s"}); err != nil {
 		t.Fatalf("BuildManifest: %v", err)
 	}
-	if _, err := client.Verify(ctx, &proto.VerifyRequest{SessionId: "s"}); err != nil {
+	if _, err := client.Verify(context.Background(), &proto.VerifyRequest{SessionId: "s"}); err != nil {
 		t.Fatalf("Verify: %v", err)
 	}
 
 	badClient, badCleanup := newClient(t, cfg, nil, credentials.NewTLS(bad))
 	defer badCleanup()
-	if _, err := badClient.Probe(ctx, &proto.ProbeRequest{VolumeName: "vol"}); err == nil {
+	if _, err := badClient.Probe(context.Background(), &proto.ProbeRequest{VolumeName: "vol"}); err == nil {
 		t.Fatalf("expected handshake failure")
 	}
 }
 
 func TestPlaintextRejected(t *testing.T) {
-	cfg, _, _ := generateTLS(t)
+	cfg, _, _, _ := generateTLS(t)
 	lis := bufconn.Listen(bufSize)
 	srv, srvCleanup, err := New(cfg, nil, zap.NewNop())
 	if err != nil {
@@ -879,7 +927,7 @@ func TestPlaintextRejected(t *testing.T) {
 		t.Fatalf("dial: %v", err)
 	}
 	client := proto.NewReplicationClient(conn)
-	if _, err := client.Ping(ctxWithRole("replicator"), &proto.Empty{}); err == nil {
+	if _, err := client.Ping(context.Background(), &proto.Empty{}); err == nil {
 		t.Fatalf("expected handshake failure")
 	}
 	conn.Close()
@@ -902,7 +950,7 @@ func dummyCert(t *testing.T) []byte {
 }
 
 func TestNewTLSFailures(t *testing.T) {
-	cfg, _, _ := generateTLS(t)
+	cfg, _, _, _ := generateTLS(t)
 
 	t.Run("missing cert", func(t *testing.T) {
 		bad := cfg
