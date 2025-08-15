@@ -38,6 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - tests: validate O_DIRECT mismatch and agreement in handshake validation.
 - transport: add Role.String and shared TLSVersionString helpers.
 - manifest: unify index options for device detection and close hooks across constructors.
+- manifest: consolidate option handling and add tests for custom DetectDevice and CloseHook.
 - manifest: use functional IndexOption for device detection and close hooks.
 - hash: add Blake3Hasher tests covering keyed and unkeyed modes with state reset verification.
 - transfer: tests ensure mismatched device UUIDs and mounted devices return errors without writes.
