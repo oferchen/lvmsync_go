@@ -26,7 +26,7 @@ func (s *sudoEscalator) Ensure() error {
 func (s *sudoEscalator) Command(name string, args ...string) *exec.Cmd {
 	if s.useSudo {
 		all := append([]string{"-n", name}, args...)
-		return exec.Command("sudo", all...)
+		return execCommand("sudo", all...)
 	}
-	return exec.Command(name, args...)
+	return execCommand(name, args...)
 }
