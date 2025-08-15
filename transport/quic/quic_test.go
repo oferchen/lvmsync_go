@@ -6,7 +6,6 @@ import (
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
-	"errors"
 	"math/big"
 	"net"
 	"testing"
@@ -14,8 +13,6 @@ import (
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
-
-	quic "github.com/quic-go/quic-go"
 
 	"lvmsync_go/common"
 	"lvmsync_go/transport"
@@ -195,6 +192,7 @@ func TestQUICTransportHandshakeCDCMismatch(t *testing.T) {
 	checkLogFields(t, logs, "listen_end", 1, false)
 	checkLogFields(t, logs, "negotiate_start", 2, false)
 	checkLogFields(t, logs, "negotiate_end", 2, true)
+}
 
 func TestQUICTransportRequiresLogger(t *testing.T) {
 	if _, err := New(transport.Config{}); err == nil {
