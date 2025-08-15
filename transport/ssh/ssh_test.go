@@ -60,12 +60,12 @@ func TestSSHTransportAuthSuccess(t *testing.T) {
 			t.Errorf("accept: %v", err)
 			return
 		}
-		peerHS, err := server.Negotiate(ctx, conn, transport.Server, common.Handshake{ResumeToken: "tok", MaxInFlight: 8})
+		peerHS, err := server.Negotiate(ctx, conn, transport.Server, common.Handshake{ResumeToken: "tok", MaxInFlight: 8, CDCMin: 64, CDCAvg: 128, CDCMax: 256})
 		if err != nil {
 			t.Errorf("server negotiate: %v", err)
 			return
 		}
-		if peerHS.ResumeToken != "tok" || peerHS.MaxInFlight != 8 {
+		if peerHS.ResumeToken != "tok" || peerHS.MaxInFlight != 8 || peerHS.CDCMin != 64 || peerHS.CDCAvg != 128 || peerHS.CDCMax != 256 {
 			t.Errorf("unexpected peer handshake: %+v", peerHS)
 		}
 		buf := make([]byte, 4)
@@ -79,11 +79,11 @@ func TestSSHTransportAuthSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
-	peerHS, err := client.Negotiate(ctx, conn, transport.Client, common.Handshake{ResumeToken: "tok", MaxInFlight: 8})
+	peerHS, err := client.Negotiate(ctx, conn, transport.Client, common.Handshake{ResumeToken: "tok", MaxInFlight: 8, CDCMin: 64, CDCAvg: 128, CDCMax: 256})
 	if err != nil {
 		t.Fatalf("client negotiate: %v", err)
 	}
-	if peerHS.ResumeToken != "tok" || peerHS.MaxInFlight != 8 {
+	if peerHS.ResumeToken != "tok" || peerHS.MaxInFlight != 8 || peerHS.CDCMin != 64 || peerHS.CDCAvg != 128 || peerHS.CDCMax != 256 {
 		t.Fatalf("unexpected peer handshake: %+v", peerHS)
 	}
 	if _, err := conn.Write([]byte("ping")); err != nil {
@@ -145,6 +145,59 @@ func TestSSHTransportAuthFailure(t *testing.T) {
 	checkLogFields(t, logs, "listen_end", 1, false)
 	checkLogFields(t, logs, "negotiate_start", 0, false)
 	checkLogFields(t, logs, "negotiate_end", 0, false)
+}
+
+func TestSSHTransportCDCMismatch(t *testing.T) {
+	core, logs := observer.New(zap.InfoLevel)
+	cfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "pass"}
+	serverIface, err := New(cfg)
+	if err != nil {
+		t.Fatalf("new server transport: %v", err)
+	}
+	clientIface, err := New(cfg)
+	if err != nil {
+		t.Fatalf("new client transport: %v", err)
+	}
+	server := serverIface.(*Transport)
+	client := clientIface.(*Transport)
+	ctx := context.Background()
+	ln, err := server.Listen(ctx, "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer ln.Close()
+
+	done := make(chan struct{})
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			t.Errorf("accept: %v", err)
+			close(done)
+			return
+		}
+		if _, err := server.Negotiate(ctx, conn, transport.Server, common.Handshake{ResumeToken: "tok", MaxInFlight: 8, CDCMin: 64, CDCAvg: 128, CDCMax: 256}); err == nil {
+			t.Errorf("expected server negotiate error")
+		}
+		conn.Close()
+		close(done)
+	}()
+
+	conn, err := client.Dial(ctx, ln.Addr().String())
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	if _, err := client.Negotiate(ctx, conn, transport.Client, common.Handshake{ResumeToken: "tok", MaxInFlight: 8, CDCMin: 64, CDCAvg: 256, CDCMax: 256}); err == nil {
+		t.Fatalf("expected client negotiate error")
+	}
+	conn.Close()
+	<-done
+
+	checkLogFields(t, logs, "dial_start", 1, false)
+	checkLogFields(t, logs, "dial_end", 1, false)
+	checkLogFields(t, logs, "listen_start", 1, false)
+	checkLogFields(t, logs, "listen_end", 1, false)
+	checkLogFields(t, logs, "negotiate_start", 2, false)
+	checkLogFields(t, logs, "negotiate_end", 2, true)
 }
 
 func TestSSHTransportRequiresLogger(t *testing.T) {

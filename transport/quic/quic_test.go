@@ -59,12 +59,12 @@ func TestQUICTransportHandshake(t *testing.T) {
 			return
 		}
 		qconn := conn.(*Conn)
-		peerHS, err := tr.Negotiate(ctx, qconn, transport.Server, common.Handshake{ResumeToken: "tok", MaxInFlight: 8})
+		peerHS, err := tr.Negotiate(ctx, qconn, transport.Server, common.Handshake{ResumeToken: "tok", MaxInFlight: 8, CDCMin: 64, CDCAvg: 128, CDCMax: 256})
 		if err != nil {
 			t.Errorf("server negotiate: %v", err)
 			return
 		}
-		if peerHS.ResumeToken != "tok" || peerHS.MaxInFlight != 8 {
+		if peerHS.ResumeToken != "tok" || peerHS.MaxInFlight != 8 || peerHS.CDCMin != 64 || peerHS.CDCAvg != 128 || peerHS.CDCMax != 256 {
 			t.Errorf("unexpected peer handshake: %+v", peerHS)
 		}
 		buf := make([]byte, 1)
@@ -78,11 +78,11 @@ func TestQUICTransportHandshake(t *testing.T) {
 		t.Fatalf("dial: %v", err)
 	}
 	qconn := conn.(*Conn)
-	peerHS, err := tr.Negotiate(ctx, qconn, transport.Client, common.Handshake{ResumeToken: "tok", MaxInFlight: 8})
+	peerHS, err := tr.Negotiate(ctx, qconn, transport.Client, common.Handshake{ResumeToken: "tok", MaxInFlight: 8, CDCMin: 64, CDCAvg: 128, CDCMax: 256})
 	if err != nil {
 		t.Fatalf("client negotiate: %v", err)
 	}
-	if peerHS.ResumeToken != "tok" || peerHS.MaxInFlight != 8 {
+	if peerHS.ResumeToken != "tok" || peerHS.MaxInFlight != 8 || peerHS.CDCMin != 64 || peerHS.CDCAvg != 128 || peerHS.CDCMax != 256 {
 		t.Fatalf("unexpected peer handshake: %+v", peerHS)
 	}
 	qconn.Write([]byte{1})
@@ -130,7 +130,7 @@ func TestQUICTransportHandshakeError(t *testing.T) {
 		t.Fatalf("dial: %v", err)
 	}
 	qconn := conn.(*Conn)
-	if _, err := tr.Negotiate(ctx, qconn, transport.Client, common.Handshake{}); err == nil {
+	if _, err := tr.Negotiate(ctx, qconn, transport.Client, common.Handshake{CDCMin: 64, CDCAvg: 128, CDCMax: 256}); err == nil {
 		t.Fatalf("expected negotiate error")
 	}
 	qconn.Close()
@@ -142,6 +142,56 @@ func TestQUICTransportHandshakeError(t *testing.T) {
 	checkLogFields(t, logs, "listen_end", 1, false)
 	checkLogFields(t, logs, "negotiate_start", 1, false)
 	checkLogFields(t, logs, "negotiate_end", 1, true)
+}
+
+func TestQUICTransportHandshakeCDCMismatch(t *testing.T) {
+	cert, _ := generateSelfSignedCert(t)
+	core, logs := observer.New(zap.InfoLevel)
+	trIface, err := New(transport.Config{Logger: zap.New(core), ClientCert: cert, AllowInsecure: true})
+	if err != nil {
+		t.Fatalf("new transport: %v", err)
+	}
+	tr := trIface.(*Transport)
+	ctx := context.Background()
+	ln, err := tr.Listen(ctx, "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer ln.Close()
+
+	done := make(chan struct{})
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			t.Errorf("accept: %v", err)
+			close(done)
+			return
+		}
+		qconn := conn.(*Conn)
+		if _, err := tr.Negotiate(ctx, qconn, transport.Server, common.Handshake{ResumeToken: "tok", MaxInFlight: 8, CDCMin: 64, CDCAvg: 128, CDCMax: 256}); err == nil {
+			t.Errorf("expected server negotiate error")
+		}
+		qconn.Close()
+		close(done)
+	}()
+
+	conn, err := tr.Dial(ctx, ln.Addr().String())
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	qconn := conn.(*Conn)
+	if _, err := tr.Negotiate(ctx, qconn, transport.Client, common.Handshake{ResumeToken: "tok", MaxInFlight: 8, CDCMin: 64, CDCAvg: 256, CDCMax: 256}); err == nil {
+		t.Fatalf("expected client negotiate error")
+	}
+	qconn.Close()
+	<-done
+
+	checkLogFields(t, logs, "dial_start", 1, false)
+	checkLogFields(t, logs, "dial_end", 1, false)
+	checkLogFields(t, logs, "listen_start", 1, false)
+	checkLogFields(t, logs, "listen_end", 1, false)
+	checkLogFields(t, logs, "negotiate_start", 2, false)
+	checkLogFields(t, logs, "negotiate_end", 2, true)
 }
 
 func TestQUICTransportRequiresLogger(t *testing.T) {
