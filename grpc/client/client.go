@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
@@ -28,8 +29,12 @@ type Config struct {
 	DialTimeout   time.Duration
 }
 
-func Dial(ctx context.Context, addr string, conf Config, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
+func Dial(ctx context.Context, addr string, conf Config, logger *zap.Logger, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
 	if conf.AllowInsecure {
+		logger.Warn("allow_insecure_enabled", zap.String("component", "grpc_client"))
 		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	} else {
 		cert, err := tls.LoadX509KeyPair(conf.TLSCert, conf.TLSKey)

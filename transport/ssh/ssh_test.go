@@ -172,10 +172,17 @@ func TestNewWithHostKey(t *testing.T) {
 }
 
 func TestNewAllowInsecure(t *testing.T) {
-	core, _ := observer.New(zap.InfoLevel)
+	core, obs := observer.New(zap.WarnLevel)
 	cfg := transport.Config{Logger: zap.New(core), SSHUser: "u", SSHPassword: "p", AllowInsecure: true}
 	if _, err := New(cfg); err != nil {
 		t.Fatalf("New: %v", err)
+	}
+	entries := obs.FilterMessage("allow_insecure_enabled").All()
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 warning log, got %d", len(entries))
+	}
+	if tr := entries[0].ContextMap()["transport"]; tr != "ssh" {
+		t.Fatalf("unexpected transport %v", tr)
 	}
 }
 

@@ -32,6 +32,22 @@ import (
 
 const bufSize = 1024 * 1024
 
+func TestNewAllowInsecureWarn(t *testing.T) {
+	core, obs := observer.New(zap.WarnLevel)
+	_, cleanup, err := New(Config{AllowInsecure: true}, nil, zap.New(core))
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	cleanup()
+	entries := obs.FilterMessage("allow_insecure_enabled").All()
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 warning log, got %d", len(entries))
+	}
+	if comp, ok := entries[0].ContextMap()["component"]; !ok || comp != "grpc_server" {
+		t.Fatalf("unexpected component %v", comp)
+	}
+}
+
 // mockAgent implements lvmagent.Agent for testing.
 type mockAgent struct {
 	lock      func(ctx context.Context, volume, requester string) error

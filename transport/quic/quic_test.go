@@ -295,6 +295,20 @@ func TestQUICTransportHandshakeCDCMismatch(t *testing.T) {
 	checkLogFields(t, logs, "negotiate_end", 2, true, zapcore.ErrorLevel)
 }
 
+func TestQUICTransportAllowInsecureWarn(t *testing.T) {
+	core, obs := observer.New(zap.WarnLevel)
+	if _, err := New(transport.Config{Logger: zap.New(core), AllowInsecure: true}); err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	entries := obs.FilterMessage("allow_insecure_enabled").All()
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 warning log, got %d", len(entries))
+	}
+	if tr := entries[0].ContextMap()["transport"]; tr != "quic" {
+		t.Fatalf("unexpected transport %v", tr)
+	}
+}
+
 func TestQUICTransportRequiresLogger(t *testing.T) {
 	if _, err := New(transport.Config{}); err == nil {
 		t.Fatalf("expected error when logger is nil")
