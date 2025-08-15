@@ -206,6 +206,7 @@ lvmsync --compress auto --zstd_level 2 --compress_threshold 0.85
   ### Fixed
   - ...
   ```
+- Every pull request must update the `[Unreleased]` section in `CHANGELOG.md` with entries under `Added` or `Fixed`.
 
 ## Contribution and Commit Messages
 
