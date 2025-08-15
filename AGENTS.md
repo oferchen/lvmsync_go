@@ -16,6 +16,7 @@ command-line use, environment variables, and `config.yaml` files.
 - Zap is the sole logging backend; avoid `log` or `fmt.Print*` for progress output.
 - Always call `Sync()` (e.g., `defer logger.Sync()`) before program exit to flush buffers.
 - Transport constructors must accept a `*zap.Logger`; avoid package-level loggers.
+- Pass loggers explicitly to commands and helpers; do not use `zap.L()` or other globals.
 - Log connection lifecycle events and errors with `snake_case` fields including units (e.g., `bytes_transferred`, `duration_ms`).
 - Callers using transports should `defer logger.Sync()` to ensure logs are flushed.
 

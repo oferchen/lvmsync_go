@@ -98,6 +98,8 @@ tooling to track transfer completion.
 ### Expectations
 
 - Use `zap` for all logging and avoid `fmt.Print*` or `log.*` calls.
+- Pass loggers explicitly to commands and helpers; `cmd/lvmsync.Execute` requires a
+  `*zap.Logger` argument instead of relying on `zap.L()`.
 - Log field keys in `snake_case` and include units where relevant (for example, `duration_ms`).
 - Provide raw byte values alongside human-readable sizes (for example, `block_size` and `block_size_bytes`).
 - Always defer `syncLogger(logger)` to flush buffers and log if the sync fails.
