@@ -1,11 +1,20 @@
 package transfer
 
 import (
+	"context"
+	"crypto/rand"
 	"hash/maphash"
+	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/bits-and-blooms/bloom/v3"
+	"github.com/zeebo/blake3"
+	"go.uber.org/zap"
+
+	"lvmsync_go/device"
+	manifestpkg "lvmsync_go/manifest"
 )
 
 func TestBloomFilterDedupPersistence(t *testing.T) {
@@ -53,5 +62,52 @@ func TestRollingHashDedupPersistence(t *testing.T) {
 
 	if d2.ShouldTransfer(0, data) {
 		t.Fatalf("expected rolling hash dedup to persist state")
+	}
+}
+
+func TestManifestIndexLifecycle(t *testing.T) {
+	dir := t.TempDir()
+	file, err := os.CreateTemp(dir, "dev-*.img")
+	if err != nil {
+		t.Fatalf("temp file: %v", err)
+	}
+	data := make([]byte, 8192)
+	if _, err := rand.Read(data); err != nil {
+		t.Fatalf("rand: %v", err)
+	}
+	if _, err := file.Write(data); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	file.Close()
+
+	manPath := filepath.Join(dir, "dev.man")
+	prev := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "id", nil })
+	defer device.SetUUIDFunc(prev)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := manifestpkg.Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false); err != nil {
+		t.Fatalf("rebuild: %v", err)
+	}
+
+	idx, err := manifestpkg.Open(manPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer idx.Close()
+	off, length, _, digest, err := idx.Entry(0)
+	if err != nil {
+		t.Fatalf("entry: %v", err)
+	}
+	buf := make([]byte, length)
+	f, err := os.Open(file.Name())
+	if err != nil {
+		t.Fatalf("open device: %v", err)
+	}
+	defer f.Close()
+	if _, err := f.ReadAt(buf, int64(off)); err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if blake3.Sum256(buf) != digest {
+		t.Fatalf("digest mismatch")
 	}
 }
