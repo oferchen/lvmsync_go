@@ -179,9 +179,12 @@ func ioctlGetUint64(fd int, req uint) (uint64, error) {
 	return value, nil
 }
 
-func GetVolumeSize(volumePath string, logger *zap.Logger) (uint64, error) {
-	deviceFDCache.SetLogger(logger)
-	fd, err := deviceFDCache.getFD(volumePath)
+func GetVolumeSize(volumePath string, cache *FDCache, logger *zap.Logger) (uint64, error) {
+	if cache == nil {
+		return 0, fmt.Errorf("fd cache is nil")
+	}
+	cache.SetLogger(logger)
+	fd, err := cache.getFD(volumePath)
 	if err != nil {
 		return 0, err
 	}
@@ -315,7 +318,7 @@ func GetVolumeAttributes(volumePath string, logger *zap.Logger) (*VolumeAttribut
 	return attrs, nil
 }
 
-func ParseSnapshotSize(sizeStr, volumePath string, logger *zap.Logger) (uint64, error) {
+func ParseSnapshotSize(sizeStr, volumePath string, cache *FDCache, logger *zap.Logger) (uint64, error) {
 	sizeStr = strings.TrimSpace(sizeStr)
 
 	val, isPercent, err := sizeparse.Parse(sizeStr)
@@ -328,7 +331,7 @@ func ParseSnapshotSize(sizeStr, volumePath string, logger *zap.Logger) (uint64, 
 			return 0, fmt.Errorf("percentage must be between 0 and 100, got %v", val)
 		}
 
-		volSize, err := GetVolumeSize(volumePath, logger)
+		volSize, err := GetVolumeSize(volumePath, cache, logger)
 		if err != nil {
 			return 0, fmt.Errorf("failed to get volume size for %q: %w", volumePath, err)
 		}
@@ -479,8 +482,4 @@ func SelectVolumeGroupForSize(ctx context.Context, candidates []string, required
 		selector = ByFreeSpaceFit(required)
 	}
 	return SelectVolumeGroup(ctx, candidates, selector)
-}
-
-func Cleanup() {
-	deviceFDCache.Close()
 }

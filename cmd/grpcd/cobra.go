@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -16,11 +17,14 @@ import (
 
 // Options holds configuration for the gRPC daemon.
 type Options struct {
-	GRPCPort      int
-	TLSCert       string
-	TLSKey        string
-	CACert        string
-	AllowInsecure bool
+	GRPCPort         int
+	TLSCert          string
+	TLSKey           string
+	CACert           string
+	AllowInsecure    bool
+	KeepaliveTime    time.Duration
+	KeepaliveTimeout time.Duration
+	RequestTimeout   time.Duration
 }
 
 // startFunc allows tests to stub server startup.
@@ -31,10 +35,13 @@ var startFunc = func(ctx context.Context, opts Options, logger *zap.Logger) erro
 		return err
 	}
 	cfg := grpcserver.Config{
-		TLSCert:       opts.TLSCert,
-		TLSKey:        opts.TLSKey,
-		CACert:        opts.CACert,
-		AllowInsecure: opts.AllowInsecure,
+		TLSCert:          opts.TLSCert,
+		TLSKey:           opts.TLSKey,
+		CACert:           opts.CACert,
+		AllowInsecure:    opts.AllowInsecure,
+		KeepaliveTime:    opts.KeepaliveTime,
+		KeepaliveTimeout: opts.KeepaliveTimeout,
+		RequestTimeout:   opts.RequestTimeout,
 	}
 	srv, cleanup, err := grpcserver.New(cfg, nil, logger)
 	if err != nil {
@@ -63,6 +70,9 @@ func bindFlagSets(cmd *cobra.Command, v *viper.Viper) {
 	grpc.String("tls-key", "", "TLS key file")
 	grpc.String("ca-cert", "", "CA certificate file")
 	grpc.Bool("allow-insecure", false, "allow plaintext gRPC")
+	grpc.Duration("keepalive-time", 2*time.Minute, "interval between server pings")
+	grpc.Duration("keepalive-timeout", 20*time.Second, "timeout waiting for keepalive ack")
+	grpc.Duration("request-timeout", 15*time.Second, "deadline for unary RPCs")
 
 	fs := cmd.Flags()
 	fs.AddFlagSet(general)
@@ -88,11 +98,14 @@ func loadConfig(v *viper.Viper) (Options, error) {
 		}
 	}
 	return Options{
-		GRPCPort:      v.GetInt("grpc-port"),
-		TLSCert:       v.GetString("tls-cert"),
-		TLSKey:        v.GetString("tls-key"),
-		CACert:        v.GetString("ca-cert"),
-		AllowInsecure: v.GetBool("allow-insecure"),
+		GRPCPort:         v.GetInt("grpc-port"),
+		TLSCert:          v.GetString("tls-cert"),
+		TLSKey:           v.GetString("tls-key"),
+		CACert:           v.GetString("ca-cert"),
+		AllowInsecure:    v.GetBool("allow-insecure"),
+		KeepaliveTime:    v.GetDuration("keepalive-time"),
+		KeepaliveTimeout: v.GetDuration("keepalive-timeout"),
+		RequestTimeout:   v.GetDuration("request-timeout"),
 	}, nil
 }
 

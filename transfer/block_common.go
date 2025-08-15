@@ -17,14 +17,26 @@ import (
 // when no persistent pipe is supplied. It is mainly used for benchmarking.
 var PipeCreationCount int64
 
-func ReadBlock(src *os.File, offset int64, size int) ([]byte, error) {
-	buf := make([]byte, size)
+// ReadBlockInto reads len(buf) bytes from src at offset into buf. It returns
+// an error if fewer bytes are read or if the underlying ReadAt fails.
+func ReadBlockInto(src *os.File, offset int64, buf []byte) error {
 	n, err := src.ReadAt(buf, offset)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	if n != size {
-		return nil, fmt.Errorf("short read: expected %d, got %d", size, n)
+	if n != len(buf) {
+		return fmt.Errorf("short read: expected %d, got %d", len(buf), n)
+	}
+	return nil
+}
+
+// ReadBlock allocates a new buffer of the given size and reads a block from the
+// source file at the specified offset. It is retained for compatibility; new
+// code should prefer ReadBlockInto to reuse buffers and avoid allocations.
+func ReadBlock(src *os.File, offset int64, size int) ([]byte, error) {
+	buf := make([]byte, size)
+	if err := ReadBlockInto(src, offset, buf); err != nil {
+		return nil, err
 	}
 	return buf, nil
 }

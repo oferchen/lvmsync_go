@@ -18,7 +18,6 @@ import (
 	"lvmsync_go/device"
 	clientpkg "lvmsync_go/internal/client"
 	"lvmsync_go/internal/privilege"
-	"lvmsync_go/lvm"
 )
 
 // function variables for testing
@@ -125,8 +124,6 @@ func ExecuteClient(ctx context.Context, cfg *config.Config, snapshotPath, destPa
 
 // Run orchestrates the command execution.
 func Run(cfg *config.Config, args []string, logger *zap.Logger) error {
-	defer lvm.Cleanup()
-
 	if len(args) > 0 {
 		switch args[0] {
 		case "manifest":

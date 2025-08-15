@@ -395,6 +395,9 @@ LVMSYNC_GRPC_GRPC_PORT=9443 LVMSYNC_GRPC_TLS_CERT=cert.pem lvmsync-grpcd
 | `--grpc_setup_timeout` | `LVMSYNC_GRPC_SETUP_TIMEOUT` | `grpc_setup_timeout` | gRPC setup timeout |
 | `--grpc_heartbeat_interval` | `LVMSYNC_GRPC_HEARTBEAT_INTERVAL` | `grpc_heartbeat_interval` | gRPC heartbeat interval |
 | `--grpc_heartbeat_send_timeout` | `LVMSYNC_GRPC_HEARTBEAT_SEND_TIMEOUT` | `grpc_heartbeat_send_timeout` | gRPC heartbeat send timeout |
+| `--keepalive_time` | `LVMSYNC_GRPC_KEEPALIVE_TIME` | `keepalive_time` | Interval between server pings |
+| `--keepalive_timeout` | `LVMSYNC_GRPC_KEEPALIVE_TIMEOUT` | `keepalive_timeout` | Wait for ping ack before closing |
+| `--request_timeout` | `LVMSYNC_GRPC_REQUEST_TIMEOUT` | `request_timeout` | Deadline for unary RPC handlers |
 | `--tls_cert` | `LVMSYNC_TLS_CERT` | `tls_cert` | TLS certificate file |
 | `--tls_key` | `LVMSYNC_TLS_KEY` | `tls_key` | TLS key file |
 | `--ca_cert` | `LVMSYNC_CA_CERT` | `ca_cert` | CA certificate file |
@@ -433,6 +436,11 @@ If `--ssh_key` is empty, lvmsync contacts the SSH agent referenced by `SSH_AUTH_
 The optional gRPC daemon exposes snapshot management and replication over a mutually authenticated channel. Plaintext connections are rejected unless `--allow-insecure` is explicitly set.
 
 TLS mode requires explicit certificates. Provide `--tls-cert`, `--tls-key`, and `--ca-cert`; the daemon fails to start if any are missing and does not generate self-signed certificates.
+
+To detect stalled clients, the daemon sends periodic keepalive pings governed by
+`--keepalive-time` (default `2m`). If an acknowledgement is not received within
+`--keepalive-timeout` (default `20s`), the connection is closed. Unary RPCs are
+wrapped with a deadline controlled by `--request-timeout` (default `15s`).
 
 `StartGRPCServer` accepts a `context.Context` and runs the server in a goroutine, returning a buffered error channel. Cancel the context or invoke the cleanup function to stop the server and wait on the channel during shutdown to surface any serve errors.
 
@@ -911,6 +919,9 @@ The client aborts dialing if a connection cannot be established within
 | `--grpc_setup_timeout` | gRPC setup timeout        | `10s`           |
 | `--grpc_heartbeat_interval` | gRPC heartbeat interval | `30s`          |
 | `--grpc_heartbeat_send_timeout` | gRPC heartbeat send timeout | `5s` |
+| `--keepalive_time` | Interval between server pings | `2m` |
+| `--keepalive_timeout` | Timeout waiting for keepalive ack | `20s` |
+| `--request_timeout` | Deadline for unary RPCs | `15s` |
 | `--tls_cert`       | TLS certificate file         | `""`            |
 | `--tls_key`        | TLS key file                 | `""`            |
 | `--ca_cert`        | CA certificate file          | `""`            |

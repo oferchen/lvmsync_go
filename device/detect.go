@@ -45,7 +45,9 @@ func Detect(ctx context.Context, path string, offline bool, fsFreezeCmd, fsThawC
 	}
 	if info.Mode()&os.ModeDevice != 0 && info.Mode()&os.ModeCharDevice == 0 {
 		if _, err := lvm.GetVolumeGroupName(resolved); err == nil {
-			dev, err := OpenLVM(resolved, logger)
+			cache := lvm.NewDeviceFDCache(logger)
+			defer cache.Close()
+			dev, err := OpenLVM(resolved, cache, logger)
 			if err != nil {
 				if logger != nil {
 					logger.Error("detect device failed", zap.String("path", resolved), zap.String("device_type", "lvm"), zap.Error(err))

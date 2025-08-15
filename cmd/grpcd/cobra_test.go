@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"go.uber.org/zap"
 )
@@ -24,11 +25,14 @@ func TestFlagParsing(t *testing.T) {
 		"--tls-key", "key",
 		"--ca-cert", "ca",
 		"--allow-insecure",
+		"--keepalive-time", "30s",
+		"--keepalive-timeout", "5s",
+		"--request-timeout", "1m",
 	}
 	if err := Execute(args, logger); err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
-	want := Options{GRPCPort: 1234, TLSCert: "cert", TLSKey: "key", CACert: "ca", AllowInsecure: true}
+	want := Options{GRPCPort: 1234, TLSCert: "cert", TLSKey: "key", CACert: "ca", AllowInsecure: true, KeepaliveTime: 30 * time.Second, KeepaliveTimeout: 5 * time.Second, RequestTimeout: time.Minute}
 	if got != want {
 		t.Fatalf("got %+v want %+v", got, want)
 	}
