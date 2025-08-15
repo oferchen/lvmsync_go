@@ -68,9 +68,39 @@ func CopyPipeAsync(ctx context.Context, dst io.Writer, src io.Reader) <-chan err
 		bufAny := copyBufferPool.Get()
 		buf := *(bufAny.(*[]byte))
 		defer copyBufferPool.Put(&buf)
-
-		_, err := io.CopyBuffer(dst, &contextReader{ctx: ctx, r: src}, buf)
-		errCh <- err
+		cr := &contextReader{ctx: ctx, r: src}
+		for {
+			if err := ctx.Err(); err != nil {
+				errCh <- err
+				return
+			}
+			n, err := cr.Read(buf)
+			if n > 0 {
+				written := 0
+				for written < n {
+					if err := ctx.Err(); err != nil {
+						errCh <- err
+						return
+					}
+					w, werr := dst.Write(buf[written:n])
+					if w > 0 {
+						written += w
+					}
+					if werr != nil {
+						errCh <- werr
+						return
+					}
+				}
+			}
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					errCh <- nil
+				} else {
+					errCh <- err
+				}
+				return
+			}
+		}
 	}()
 	return errCh
 }
