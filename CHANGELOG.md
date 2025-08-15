@@ -38,6 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - transfer: give each writer an independent rate limiter
 - cmd/dump: handle context cancellation during pipe copies to avoid incomplete writes
 - rename dry run log field to `eta_seconds` and log durations in seconds
+- transfer: replace global checkpoint state with per-transfer resume trackers
 - cmd/dump: detect destination type locally without mutating configuration
 
 ## [v0.1.0] - 2025-02-27

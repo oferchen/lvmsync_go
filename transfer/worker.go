@@ -171,13 +171,13 @@ func (t *Transfer) DumpChangesParallel(cfg *config.Config, snapshot, source stri
 	checksum := GetChecksumStrategy(cfg.ChecksumAlgorithm)
 	var totalBytesTransferred int64
 	var finalDigest []byte
-	totalBytesTransferred, finalDigest, err = processParallelResults(cfg, results, bufOut, checksum, totalDataSize, startTime, t.Logger)
+	totalBytesTransferred, finalDigest, err = processParallelResults(cfg, results, bufOut, checksum, totalDataSize, startTime, t.Logger, t.Tracker)
 	if err != nil {
 		return err
 	}
 	finalizeProgress(cfg, t.Logger)
 	logParallelSummary(t.Logger, totalBytesTransferred, startTime)
-	finalizeResumeState(cfg, t.Logger)
+	finalizeResumeState(cfg, t.Tracker, t.Logger)
 	if len(finalDigest) > 0 && t.Logger != nil {
 		t.Logger.Info("final checksum", zap.String("final_digest", fmt.Sprintf("%x", finalDigest)))
 	}
