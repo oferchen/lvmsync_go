@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/zeebo/blake3"
+
 	cpufeatures "lvmsync_go/internal/cpufeatures"
 )
 
