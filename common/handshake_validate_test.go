@@ -61,11 +61,26 @@ func TestValidateHandshakeTLSVersionMismatch(t *testing.T) {
 	}
 }
 
+func TestValidateHandshakeODirectMismatch(t *testing.T) {
+	local := Handshake{ODirect: true}
+	peer := Handshake{}
+	if err := ValidateHandshake(local, peer); err == nil {
+		t.Fatal("expected o_direct mismatch error")
+	}
+}
+
+func TestValidateHandshakeODirectMatch(t *testing.T) {
+	local := Handshake{ODirect: true}
+	peer := Handshake{ODirect: true}
+	if err := ValidateHandshake(local, peer); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+=======
 func TestValidateHandshakeTransportMismatch(t *testing.T) {
 	local := Handshake{Transport: "quic"}
 	peer := local
 	peer.Transport = "h2"
 	if err := ValidateHandshake(local, peer); err == nil {
 		t.Fatal("expected transport mismatch error")
+
 	}
 }
