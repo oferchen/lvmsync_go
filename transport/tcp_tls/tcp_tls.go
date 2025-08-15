@@ -68,7 +68,6 @@ func (t *Transport) Dial(ctx context.Context, address string) (net.Conn, error) 
 		zap.String("address", address),
 		zap.String("role", role),
 		zap.Int64("duration_ms", 0),
-		zap.String("error", ""),
 	)
 	start := time.Now()
 	d := &net.Dialer{}
@@ -104,7 +103,6 @@ func (t *Transport) Dial(ctx context.Context, address string) (net.Conn, error) 
 		zap.String("address", address),
 		zap.String("role", role),
 		zap.Int64("duration_ms", time.Since(start).Milliseconds()),
-		zap.String("error", ""),
 	}
 	t.logger.Info("dial_end", fields...)
 	return conn, nil
@@ -116,7 +114,6 @@ func (t *Transport) Listen(ctx context.Context, address string) (net.Listener, e
 		zap.String("address", address),
 		zap.String("role", role),
 		zap.Int64("duration_ms", 0),
-		zap.String("error", ""),
 	)
 	start := time.Now()
 	lc := net.ListenConfig{}
@@ -141,7 +138,6 @@ func (t *Transport) Listen(ctx context.Context, address string) (net.Listener, e
 			zap.String("address", address),
 			zap.String("role", role),
 			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
-			zap.String("error", ""),
 		}
 		t.logger.Info("listen_end", fields...)
 	}

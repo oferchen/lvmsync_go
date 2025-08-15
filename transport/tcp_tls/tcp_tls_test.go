@@ -119,10 +119,10 @@ func TestTCPTLSTransportHandshake(t *testing.T) {
 	conn.Close()
 	<-done
 
-	checkLogFields(t, logs, "dial_start", 1, true, zapcore.InfoLevel)
-	checkLogFields(t, logs, "dial_end", 1, true, zapcore.InfoLevel)
-	checkLogFields(t, logs, "listen_start", 1, true, zapcore.InfoLevel)
-	checkLogFields(t, logs, "listen_end", 1, true, zapcore.InfoLevel)
+	checkLogFields(t, logs, "dial_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "dial_end", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "listen_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "listen_end", 1, false, zapcore.InfoLevel)
 	checkLogFields(t, logs, "negotiate_start", 2, false, zapcore.InfoLevel)
 	checkLogFields(t, logs, "negotiate_end", 2, false, zapcore.InfoLevel)
 	checkHandshakeFields(t, logs, "negotiate_end", 2)
@@ -165,10 +165,10 @@ func TestTCPTLSTransportHandshakeError(t *testing.T) {
 	conn.Close()
 	<-done
 
-	checkLogFields(t, logs, "dial_start", 1, true, zapcore.InfoLevel)
-	checkLogFields(t, logs, "dial_end", 1, true, zapcore.InfoLevel)
-	checkLogFields(t, logs, "listen_start", 1, true, zapcore.InfoLevel)
-	checkLogFields(t, logs, "listen_end", 1, true, zapcore.InfoLevel)
+	checkLogFields(t, logs, "dial_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "dial_end", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "listen_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "listen_end", 1, false, zapcore.InfoLevel)
 	checkLogFields(t, logs, "negotiate_start", 1, false, zapcore.InfoLevel)
 	checkLogFields(t, logs, "negotiate_end", 1, true, zapcore.ErrorLevel)
 }
@@ -213,10 +213,10 @@ func TestTCPTLSTransportCDCMismatch(t *testing.T) {
 	conn.Close()
 	<-done
 
-	checkLogFields(t, logs, "dial_start", 1, true, zapcore.InfoLevel)
-	checkLogFields(t, logs, "dial_end", 1, true, zapcore.InfoLevel)
-	checkLogFields(t, logs, "listen_start", 1, true, zapcore.InfoLevel)
-	checkLogFields(t, logs, "listen_end", 1, true, zapcore.InfoLevel)
+	checkLogFields(t, logs, "dial_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "dial_end", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "listen_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "listen_end", 1, false, zapcore.InfoLevel)
 	checkLogFields(t, logs, "negotiate_start", 2, false, zapcore.InfoLevel)
 	checkLogFields(t, logs, "negotiate_end", 2, true, zapcore.ErrorLevel)
 }
@@ -233,7 +233,7 @@ func TestTCPTLSDialErrorLogging(t *testing.T) {
 	if _, err := tr.Dial(ctx, "127.0.0.1:65000"); err == nil {
 		t.Fatalf("expected dial error")
 	}
-	checkLogFields(t, logs, "dial_start", 1, true, zapcore.InfoLevel)
+	checkLogFields(t, logs, "dial_start", 1, false, zapcore.InfoLevel)
 	checkLogFields(t, logs, "dial_end", 1, true, zapcore.ErrorLevel)
 }
 
@@ -249,7 +249,7 @@ func TestTCPTLSListenErrorLogging(t *testing.T) {
 	if _, err := tr.Listen(ctx, "bad_address"); err == nil {
 		t.Fatalf("expected listen error")
 	}
-	checkLogFields(t, logs, "listen_start", 1, true, zapcore.InfoLevel)
+	checkLogFields(t, logs, "listen_start", 1, false, zapcore.InfoLevel)
 	checkLogFields(t, logs, "listen_end", 1, true, zapcore.ErrorLevel)
 }
 
