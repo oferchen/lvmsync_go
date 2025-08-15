@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
 
+	rootcmd "lvmsync_go/cmd/root"
 	"lvmsync_go/common"
 	"lvmsync_go/config"
 	"lvmsync_go/device"
@@ -105,6 +106,11 @@ func CopyPipeAsync(ctx context.Context, dst io.Writer, src io.Reader) <-chan err
 	return errCh
 }
 
+func init() {
+	rootcmd.RunDump = Run
+	rootcmd.SelectTransport = SelectTransport
+}
+
 // ExecuteDump selects the appropriate dump implementation based on configuration.
 func ExecuteDump(cfg *config.Config, snapshotDevice, originDevice string, out io.Writer, logger *zap.Logger) error {
 	t := transfer.NewTransfer(logger, &sync.WaitGroup{})
@@ -125,6 +131,7 @@ func ExecuteDump(cfg *config.Config, snapshotDevice, originDevice string, out io
 
 // Run executes client mode transferring data to dest and returns the destination type.
 func Run(ctx context.Context, cfg *config.Config, snapshotDevice, dest string, logger *zap.Logger) (string, error) {
+	defer rootcmd.SyncLogger(logger)
 	originDevice := snapshotDevice
 	if cfg.StdoutMode {
 		limitedOut := transfer.WrapRateLimitedWriter(os.Stdout, cfg.SpeedLimit)

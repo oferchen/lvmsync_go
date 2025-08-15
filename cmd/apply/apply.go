@@ -7,6 +7,7 @@ import (
 
 	"go.uber.org/zap"
 
+	rootcmd "lvmsync_go/cmd/root"
 	"lvmsync_go/config"
 	"lvmsync_go/device"
 	"lvmsync_go/transfer"
@@ -18,9 +19,14 @@ var applyFunc = func(cfg *config.Config, applyFile, destDevice string, logger *z
 	return t.RunApply(cfg, applyFile, destDevice)
 }
 
+func init() {
+	rootcmd.RunApply = Run
+}
+
 // Run executes apply mode using the provided configuration and arguments.
 // args should contain the destination device as the first element.
 func Run(cfg *config.Config, applyFile string, args []string, logger *zap.Logger) error {
+	defer rootcmd.SyncLogger(logger)
 	if len(args) < 1 {
 		return fmt.Errorf("no destination device specified for apply mode")
 	}

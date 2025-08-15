@@ -246,10 +246,10 @@ func TestExecuteClient(t *testing.T) {
 	logger := zap.NewNop()
 	called := false
 	origExec := executeClientFn
-	origRunDump := runDump
+	origRunDump := RunDump
 	defer func() {
 		executeClientFn = origExec
-		runDump = origRunDump
+		RunDump = origRunDump
 	}()
 	executeClientFn = func(ctx context.Context, f func(context.Context, string, string) error, snap, dest string, sigErrCh, monitorErrCh chan error) error {
 		called = true
@@ -258,11 +258,11 @@ func TestExecuteClient(t *testing.T) {
 		}
 		return f(ctx, snap, dest)
 	}
-	runDump = func(_ context.Context, _ *config.Config, snap, dest string, _ *zap.Logger) error {
+	RunDump = func(_ context.Context, _ *config.Config, snap, dest string, _ *zap.Logger) (string, error) {
 		if snap != "s" || dest != "d" {
 			t.Fatalf("unexpected dump args")
 		}
-		return nil
+		return "", nil
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -283,14 +283,14 @@ func TestRunHeartbeatError(t *testing.T) {
 	origSetup := setupSignalHandle
 	origPrepare := prepareSnapshotFn
 	origExec := executeClientFn
-	origSelect := selectTransport
+	origSelect := SelectTransport
 	defer func() {
 		startGRPCServer = origStart
 		clientHandshake = origClient
 		setupSignalHandle = origSetup
 		prepareSnapshotFn = origPrepare
 		executeClientFn = origExec
-		selectTransport = origSelect
+		SelectTransport = origSelect
 	}()
 
 	hbErrCh := make(chan error, 1)
@@ -304,7 +304,7 @@ func TestRunHeartbeatError(t *testing.T) {
 	clientHandshake = func(context.Context, *config.Config, *zap.Logger) (func(), chan error, error) {
 		return func() {}, hbErrCh, nil
 	}
-	selectTransport = func(*config.Config, *zap.Logger) (transport.Interface, error) { return nil, nil }
+	SelectTransport = func(*config.Config, *zap.Logger) (transport.Interface, error) { return nil, nil }
 
 	sigErrCh := make(chan error, 1)
 	setupSignalHandle = func(_ context.Context, _ *config.Config, _ *string, _ *zap.Logger) (chan os.Signal, chan error) {
@@ -345,14 +345,14 @@ func TestRunGRPCConnectGoroutineLeak(t *testing.T) {
 			origSetup := setupSignalHandle
 			origPrepare := prepareSnapshotFn
 			origExec := executeClientFn
-			origSelect := selectTransport
+			origSelect := SelectTransport
 			defer func() {
 				startGRPCServer = origStart
 				clientHandshake = origClient
 				setupSignalHandle = origSetup
 				prepareSnapshotFn = origPrepare
 				executeClientFn = origExec
-				selectTransport = origSelect
+				SelectTransport = origSelect
 			}()
 
 			startGRPCServer = func(context.Context, *config.Config, *zap.Logger) (func(), <-chan error, error) {
@@ -376,7 +376,7 @@ func TestRunGRPCConnectGoroutineLeak(t *testing.T) {
 				return nil, make(chan error, 1)
 			}
 
-			selectTransport = func(*config.Config, *zap.Logger) (transport.Interface, error) { return nil, nil }
+			SelectTransport = func(*config.Config, *zap.Logger) (transport.Interface, error) { return nil, nil }
 
 			prepareSnapshotFn = func(context.Context, *config.Config, string, *zap.Logger) (string, chan error, func(), error) {
 				return "snap", nil, func() {}, nil
