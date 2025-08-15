@@ -39,6 +39,14 @@ func TestIterateBlocksUsesManifest(t *testing.T) {
 	if err := manifestpkg.Rebuild(ctx, dev.Name(), manPath, zap.NewNop(), 0, false); err != nil {
 		t.Fatalf("rebuild: %v", err)
 	}
+	idx, err := manifestpkg.Open(manPath)
+	if err != nil {
+		t.Fatalf("open manifest: %v", err)
+	}
+	if idx.ChunkCount() != 2 {
+		t.Fatalf("expected 2 chunks, got %d", idx.ChunkCount())
+	}
+	idx.Close()
 	src, err := os.Open(dev.Name())
 	if err != nil {
 		t.Fatalf("open: %v", err)

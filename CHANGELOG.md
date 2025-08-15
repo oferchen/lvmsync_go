@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - device: tests for GetUUID and IsMountedRW
 - device: persist thaw command configuration for raw devices
 - transport/h2: refactor Dial into dialTLS, performH2Handshake, and logDialResult with unit tests.
+- transfer: add manifest index persistence test covering read/write, rebuild, and verify paths.
 
 
 ### Fixed
@@ -26,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Wrap README logging example in `package main` to compile with `go build`.
 - add default dial timeout and deadline propagation for h2 and tcp+tls transports
 - close SSH agent connections after retrieving signers and apply context-based timeouts
+- remove legacy dedup manifest in favor of manifest.Index
 
 ## [v0.1.0] - 2025-02-27
 ### Added
