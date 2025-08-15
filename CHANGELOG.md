@@ -16,12 +16,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - device: persist thaw command configuration for raw devices
 - transport/h2: refactor Dial into dialTLS, performH2Handshake, and logDialResult with unit tests.
 - transport: tests covering SelectBest handshake negotiation with custom CDC settings, resume tokens, and O_DIRECT for ssh, tcp+tls, h2, and quic transports.
+- transport: test registry fallback dialing sequence with logged attempts.
 - device: add raw device freeze/thaw tests with exec command stubs
 - device: centralize exec command helper for LVM and raw devices
 - device: add cleanup tests for thaw errors and timeouts
 - transfer: add manifest index persistence test covering read/write, rebuild, and verify paths.
 - cmd: support `--source-type` and `--dest-type` flags and allow `device.Detect` to honor explicit type hints.
 - transfer: unify resume checkpoints across dedup modes and add resume tests for fixed, CDC, and hybrid modes.
+- transfer: add tests verifying resume state alignment across dedup mode transitions.
 - manifest: add `manifest_timeout` option to control rebuild timeout.
 - device: allow configurable LVM privilege escalation command.
 - tests: verify ALPN and TLS version round-trip in handshake and transport negotiation.
@@ -33,13 +35,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - transport/h2: add tests for tlsVersionString and roleString helpers.
 - README: document CDC parameter ordering and the error when violated.
 - README: note that commands accept an explicit `*zap.Logger` defaulting to `zap.NewNop()`.
+- tests: validate O_DIRECT mismatch and agreement in handshake validation.
+- transport: add Role.String and shared TLSVersionString helpers.
+- manifest: support dependency injection via Options for device detection and close hooks.
+- hash: add Blake3Hasher tests covering keyed and unkeyed modes with state reset verification.
+- transfer: tests ensure mismatched device UUIDs and mounted devices return errors without writes.
+- grpc: tests cover ProgressStream, BuildManifest, and Verify logging and forwarding.
+- cmd/verify: support SHA-256 verification with configurable digest helper.
+- transport: centralize handshake logging via `HandshakeFields` helper.
+- Warn when `AllowInsecure` is enabled for gRPC server, client, and transports.
+- manifest: allow custom close hook via index options, removing global hook.
 
 
 ### Fixed
 - quic: propagate deadlines to connection for datagram reads.
 - tests: assert context deadline exceeded for tcp+tls unreachable dial
 - Enforce CDC chunk size ordering in handshake validation.
+- config: validate positive CDC tunables and ordering.
+- tcp+tls: ensure negotiation performs TLS handshake and only records ALPN/TLS version when negotiated.
+- config: enforce CDC chunk size ordering during validation.
 - validate block size mismatch in handshakes
+- handshake: validate transport mismatch in handshakes
 - dedup: validate chunker size parameters.
 - remove placeholder error field from dial_start and listen_start logs for h2 and tcp+tls transports
 - remove placeholder error field from dial_start and listen_start logs for quic and ssh transports
@@ -54,6 +70,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - remove legacy dedup manifest in favor of manifest.Index
 - device: surface freeze/thaw command output when raw device operations fail
 - transfer: give each writer an independent rate limiter
+- allow resuming transfers after changing dedup modes
 - cmd/dump: handle context cancellation during pipe copies to avoid incomplete writes
 - rename dry run log field to `eta_seconds` and log durations in seconds
 - transfer: replace global checkpoint state with per-transfer resume trackers
@@ -62,8 +79,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - log sync errors in manifest and verify commands
 - ensure apply and dump commands flush logs with deferred SyncLogger
 - h2: ensure unreachable dial test uses context timeout and expects deadline exceeded
-- manifest: default rebuild command to a no-op logger and remove conditional logging checks
+- manifest: Rebuild defaults to `zap.NewNop()` and removes conditional logging checks
 - device: reject freeze/thaw command paths with invalid characters and document allowed format
+- device: allow freeze/thaw command paths containing directories by validating basename only
 
 ## [v0.1.0] - 2025-02-27
 ### Added

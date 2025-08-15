@@ -40,6 +40,7 @@ func New(cfg transport.Config) (transport.Interface, error) {
 	}
 	clientAuth := tls.RequireAndVerifyClientCert
 	if cfg.AllowInsecure {
+		cfg.Logger.Warn("allow_insecure_enabled", zap.String("transport", "tcp+tls"))
 		clientAuth = tls.RequireAnyClientCert
 	}
 	serverConf := &tls.Config{
@@ -185,7 +186,7 @@ func (t *Transport) Listen(ctx context.Context, address string) (net.Listener, e
 }
 
 func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport.Role, hs common.Handshake) (peer common.Handshake, err error) {
-	roleStr := roleString(role)
+	roleStr := role.String()
 	address := conn.RemoteAddr().String()
 	t.logger.Info("negotiate_start",
 		zap.String("address", address),
@@ -203,41 +204,33 @@ func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport
 			fields = append(fields, zap.Error(err))
 			t.logger.Error("negotiate_end", fields...)
 		} else {
-			fields = append(fields,
-				zap.String("dedup_mode", hs.DedupMode),
-				zap.Int("block_size_bytes", hs.BlockSize),
-				zap.String("compress", hs.Compress),
-				zap.Int("compress_level", hs.CompressLevel),
-				zap.String("digest", hs.Digest),
-				zap.String("resume_token", hs.ResumeToken),
-				zap.Bool("checksum", hs.Checksum),
-				zap.Bool("checksum_dedup", hs.ChecksumDedup),
-				zap.String("endianness", hs.Endianness),
-				zap.Bool("odirect", hs.ODirect),
-				zap.Int("max_inflight", hs.MaxInFlight),
-				zap.Int("cdc_min", hs.CDCMin),
-				zap.Int("cdc_avg", hs.CDCAvg),
-				zap.Int("cdc_max", hs.CDCMax),
-				zap.String("transport", hs.Transport),
-				zap.String("alpn", hs.ALPN),
-				zap.String("tls_version", hs.TLSVersion),
-			)
+			fields = append(fields, transport.HandshakeFields(hs)...)
 			t.logger.Info("negotiate_end", fields...)
 		}
 	}()
 
 	if tlsConn, ok := conn.(*tls.Conn); ok {
 		state := tlsConn.ConnectionState()
+		if !state.HandshakeComplete {
+			if err := tlsConn.HandshakeContext(ctx); err != nil {
+				return peer, err
+			}
+			state = tlsConn.ConnectionState()
+		}
 		negotiatedALPN := state.NegotiatedProtocol
-		negotiatedVersion := tlsVersionString(state.Version)
+		negotiatedVersion := transport.TLSVersionString(state.Version)
 		if hs.ALPN != "" && negotiatedALPN != "" && hs.ALPN != negotiatedALPN {
 			return peer, fmt.Errorf("alpn mismatch: %s", negotiatedALPN)
 		}
 		if hs.TLSVersion != "" && negotiatedVersion != "" && hs.TLSVersion != negotiatedVersion {
 			return peer, fmt.Errorf("tls version mismatch: %s", negotiatedVersion)
 		}
-		hs.ALPN = negotiatedALPN
-		hs.TLSVersion = negotiatedVersion
+		if negotiatedALPN != "" {
+			hs.ALPN = negotiatedALPN
+		}
+		if negotiatedVersion != "" {
+			hs.TLSVersion = negotiatedVersion
+		}
 	}
 
 	hs.Version = common.ProtocolVersion
@@ -302,30 +295,4 @@ func setDeadline(ctx context.Context, conn net.Conn) error {
 
 func clearDeadline(conn net.Conn) {
 	_ = conn.SetDeadline(time.Time{})
-}
-
-func tlsVersionString(v uint16) string {
-	switch v {
-	case tls.VersionTLS10:
-		return "1.0"
-	case tls.VersionTLS11:
-		return "1.1"
-	case tls.VersionTLS12:
-		return "1.2"
-	case tls.VersionTLS13:
-		return "1.3"
-	default:
-		return ""
-	}
-}
-
-func roleString(r transport.Role) string {
-	switch r {
-	case transport.Client:
-		return "client"
-	case transport.Server:
-		return "server"
-	default:
-		return ""
-	}
 }

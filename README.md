@@ -243,6 +243,30 @@ func initConfig() *viper.Viper {
 }
 ```
 
+### Grouped help
+
+Each subcommand prints its relevant flag groups:
+
+```
+$ lvmsync run --help
+General Options:
+      --parallel int   number of worker goroutines (default 4)
+...
+Transport Options:
+      --transport string   transport modes (comma-separated)
+
+$ lvmsync manifest rebuild --help
+General Options:
+      --dry-run   skip execution
+Manifest Options:
+      --manifest_path string   manifest file path
+
+$ lvmsync verify --help
+General Options:
+      --block_size string   block size for comparisons
+Manifest Options:
+      --manifest_path string   manifest to verify against
+
 This groups related flags once and lets Viper merge values from flags, `LVMSYNC_*` variables, and the
 `config.yaml` file.
 
@@ -583,7 +607,7 @@ authentication, negotiates the `lvmsync` ALPN, and exposes both bidirectional st
 transport also requires TLS 1.3 with client certificates and negotiates the `h2` ALPN. Provide certificates via
 `--tls_cert`, `--tls_key`, and `--ca_cert`. TLS transports require a trusted CA certificate and will refuse
 connections when no roots are provided unless `--allow_insecure` (or the `AllowInsecure` configuration flag) is
-set. Client certificates must be supplied explicitly; transports no longer generate self-signed certificates
+set. Enabling this option logs a warning. Client certificates must be supplied explicitly; transports no longer generate self-signed certificates
 automatically. The [transport documentation](docs/transports.md) covers each option in depth. The flags below
 configure transport behavior.
 
@@ -653,8 +677,8 @@ Hybrid dedup combines fixed-size and content-defined chunking. Enable it with `-
 | `--cdc-avg`      | `LVMSYNC_CDC_AVG`    | `cdc_avg`  | Target average chunk size |
 | `--cdc-max`      | `LVMSYNC_CDC_MAX`    | `cdc_max`  | Maximum chunk size |
 
-The three values must satisfy `--cdc-min ≤ --cdc-avg ≤ --cdc-max`. LVMSync aborts with
-`invalid local cdc ordering: min %d avg %d max %d` when the ordering is invalid.
+The three values must be positive and satisfy `--cdc-min ≤ --cdc-avg ≤ --cdc-max`.
+LVMSync aborts when the sizes are non-positive or unordered.
 
 The Bloom filter de-duplicates previously seen chunks. Size it with `--bloom_entries` and desired false positive rate via `--bloom_fp_rate`. For an mmap-backed index, `--bloom_mbits` controls the bitmap size in megabits.
 
