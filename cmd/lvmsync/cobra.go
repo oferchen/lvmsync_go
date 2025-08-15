@@ -52,6 +52,9 @@ func NewRootCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if err := cfg.Validate(); err != nil {
+				return err
+			}
 			if len(remaining) != 2 {
 				fs.Usage()
 				return fmt.Errorf("usage: lvmsync run [flags] <source> <dest>")
@@ -90,6 +93,9 @@ func NewRootCmd() *cobra.Command {
 			flagSets := config.NewFlagSets(defaults)
 			cfg, remaining, err := config.LoadConfig(flagSets, defaults, fs, args)
 			if err != nil {
+				return err
+			}
+			if err := cfg.Validate(); err != nil {
 				return err
 			}
 			if len(remaining) != 1 {
