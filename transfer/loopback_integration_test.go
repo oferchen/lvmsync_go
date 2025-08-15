@@ -83,7 +83,7 @@ func TestLoopbackLVMToRawOverSSH(t *testing.T) {
 	manifestPath := filepath.Join(t.TempDir(), "src.man")
 	ctxMan, cancelMan := context.WithTimeout(context.Background(), time.Second)
 	defer cancelMan()
-	if err := manifestpkg.Rebuild(ctxMan, srcLoop, manifestPath, zap.NewNop(), 0, false); err != nil {
+	if err := manifestpkg.Rebuild(ctxMan, srcLoop, manifestPath, zap.NewNop(), 0, false, 0, 0, 0, 0); err != nil {
 		t.Fatalf("rebuild manifest: %v", err)
 	}
 
@@ -151,13 +151,13 @@ func TestLoopbackLVMToRawOverSSH(t *testing.T) {
 	}
 	defer idx.Close()
 	xx0 := hashutil.SumXXH3(srcData0)
-	if !idx.Match(0, uint32(blockSize), xx0, func() [32]byte { return digest0 }) {
+	if !idx.Match(0, uint32(blockSize), 0, xx0, func() [32]byte { return digest0 }) {
 		t.Fatalf("manifest missing block0")
 	}
 	srcData1 := bytes.Repeat([]byte{2}, int(blockSize))
 	digest1 := blake3.Sum256(srcData1)
 	xx1 := hashutil.SumXXH3(srcData1)
-	if !idx.Match(uint64(blockSize), uint32(blockSize), xx1, func() [32]byte { return digest1 }) {
+	if !idx.Match(uint64(blockSize), uint32(blockSize), 0, xx1, func() [32]byte { return digest1 }) {
 		t.Fatalf("manifest missing block1")
 	}
 	if _, err := os.Stat(resumePath); !os.IsNotExist(err) {
@@ -196,7 +196,7 @@ func TestLoopbackFileToFileOverTCPTLS(t *testing.T) {
 	manifestPath := filepath.Join(dir, "src.man")
 	ctxMan, cancelMan := context.WithTimeout(context.Background(), time.Second)
 	defer cancelMan()
-	if err := manifestpkg.Rebuild(ctxMan, srcLoop, manifestPath, zap.NewNop(), 0, false); err != nil {
+	if err := manifestpkg.Rebuild(ctxMan, srcLoop, manifestPath, zap.NewNop(), 0, false, 0, 0, 0, 0); err != nil {
 		t.Fatalf("rebuild manifest: %v", err)
 	}
 
@@ -282,12 +282,12 @@ func TestLoopbackFileToFileOverTCPTLS(t *testing.T) {
 	}
 	defer idx.Close()
 	xx0 := hashutil.SumXXH3(srcData0)
-	if !idx.Match(0, uint32(blockSize), xx0, func() [32]byte { return digest0 }) {
+	if !idx.Match(0, uint32(blockSize), 0, xx0, func() [32]byte { return digest0 }) {
 		t.Fatalf("manifest missing block0")
 	}
 	digest1 := blake3.Sum256(srcData1)
 	xx1 := hashutil.SumXXH3(srcData1)
-	if !idx.Match(uint64(blockSize), uint32(blockSize), xx1, func() [32]byte { return digest1 }) {
+	if !idx.Match(uint64(blockSize), uint32(blockSize), 0, xx1, func() [32]byte { return digest1 }) {
 		t.Fatalf("manifest missing block1")
 	}
 	if _, err := os.Stat(resumePath); !os.IsNotExist(err) {
@@ -332,7 +332,7 @@ func TestLoopbackLVMToRawOverTCPTLS(t *testing.T) {
 			manifestPath := filepath.Join(t.TempDir(), "src.man")
 			ctxMan, cancelMan := context.WithTimeout(context.Background(), time.Second)
 			defer cancelMan()
-			if err := manifestpkg.Rebuild(ctxMan, srcLoop, manifestPath, zap.NewNop(), 0, false); err != nil {
+			if err := manifestpkg.Rebuild(ctxMan, srcLoop, manifestPath, zap.NewNop(), 0, false, 0, 0, 0, 0); err != nil {
 				t.Fatalf("rebuild manifest: %v", err)
 			}
 
@@ -409,13 +409,13 @@ func TestLoopbackLVMToRawOverTCPTLS(t *testing.T) {
 			}
 			defer idx.Close()
 			xx0 := hashutil.SumXXH3(srcData0)
-			if !idx.Match(0, uint32(blockSize), xx0, func() [32]byte { return digest0 }) {
+			if !idx.Match(0, uint32(blockSize), 0, xx0, func() [32]byte { return digest0 }) {
 				t.Fatalf("manifest missing block0")
 			}
 			srcData1 := bytes.Repeat([]byte{2}, int(blockSize))
 			digest1 := blake3.Sum256(srcData1)
 			xx1 := hashutil.SumXXH3(srcData1)
-			if !idx.Match(uint64(blockSize), uint32(blockSize), xx1, func() [32]byte { return digest1 }) {
+			if !idx.Match(uint64(blockSize), uint32(blockSize), 0, xx1, func() [32]byte { return digest1 }) {
 				t.Fatalf("manifest missing block1")
 			}
 			if _, err := os.Stat(resumePath); !os.IsNotExist(err) {
@@ -453,7 +453,7 @@ func runRawToRawLoopback(t *testing.T, transportName string) {
 			manifestPath := filepath.Join(dir, "src.man")
 			ctxMan, cancelMan := context.WithTimeout(context.Background(), time.Second)
 			defer cancelMan()
-			if err := manifestpkg.Rebuild(ctxMan, srcLoop, manifestPath, zap.NewNop(), 0, false); err != nil {
+			if err := manifestpkg.Rebuild(ctxMan, srcLoop, manifestPath, zap.NewNop(), 0, false, 0, 0, 0, 0); err != nil {
 				t.Fatalf("rebuild manifest: %v", err)
 			}
 
@@ -554,12 +554,12 @@ func runRawToRawLoopback(t *testing.T, transportName string) {
 			}
 			defer idx.Close()
 			xx0 := hashutil.SumXXH3(srcData0)
-			if !idx.Match(0, uint32(blockSize), xx0, func() [32]byte { return digest0 }) {
+			if !idx.Match(0, uint32(blockSize), 0, xx0, func() [32]byte { return digest0 }) {
 				t.Fatalf("manifest missing block0")
 			}
 			digest1 := blake3.Sum256(srcData1)
 			xx1 := hashutil.SumXXH3(srcData1)
-			if !idx.Match(uint64(blockSize), uint32(blockSize), xx1, func() [32]byte { return digest1 }) {
+			if !idx.Match(uint64(blockSize), uint32(blockSize), 0, xx1, func() [32]byte { return digest1 }) {
 				t.Fatalf("manifest missing block1")
 			}
 			if _, err := os.Stat(resumePath); !os.IsNotExist(err) {
@@ -631,7 +631,7 @@ func TestLoopbackSparseFileToFileOverSSH(t *testing.T) {
 			manifestPath := filepath.Join(dir, "src.man")
 			ctxMan, cancelMan := context.WithTimeout(context.Background(), time.Second)
 			defer cancelMan()
-			if err := manifestpkg.Rebuild(ctxMan, srcLoop, manifestPath, zap.NewNop(), 0, false); err != nil {
+			if err := manifestpkg.Rebuild(ctxMan, srcLoop, manifestPath, zap.NewNop(), 0, false, 0, 0, 0, 0); err != nil {
 				t.Fatalf("rebuild manifest: %v", err)
 			}
 
@@ -728,12 +728,12 @@ func TestLoopbackSparseFileToFileOverSSH(t *testing.T) {
 			}
 			defer idx.Close()
 			xx0 := hashutil.SumXXH3(srcData0)
-			if !idx.Match(0, uint32(blockSize), xx0, func() [32]byte { return digest0 }) {
+			if !idx.Match(0, uint32(blockSize), 0, xx0, func() [32]byte { return digest0 }) {
 				t.Fatalf("manifest missing block0")
 			}
 			digest1 := blake3.Sum256(srcData1)
 			xx1 := hashutil.SumXXH3(srcData1)
-			if !idx.Match(uint64(blockSize), uint32(blockSize), xx1, func() [32]byte { return digest1 }) {
+			if !idx.Match(uint64(blockSize), uint32(blockSize), 0, xx1, func() [32]byte { return digest1 }) {
 				t.Fatalf("manifest missing block1")
 			}
 			if _, err := os.Stat(resumePath); !os.IsNotExist(err) {

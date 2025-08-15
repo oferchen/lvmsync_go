@@ -81,7 +81,7 @@ func iterateBlocks(
 			}
 			return sum
 		}
-		if idx != nil && idx.Match(r.Start, blockSize, xx, sumFn) {
+		if idx != nil && idx.Match(r.Start, blockSize, 0, xx, sumFn) {
 			skippedBlocks++
 			putBlockBuffer(data)
 			continue
@@ -105,7 +105,7 @@ func iterateBlocks(
 			zh := zeroHash(int(blockSize))
 			saveResumeState(cfg, rt, r.Start, zh, int64(blockSize), logger)
 			if idx != nil {
-				if err := idx.Set(r.Start, blockSize, xx, zh); err != nil {
+				if err := idx.Set(r.Start, blockSize, 0, xx, zh); err != nil {
 					putBlockBuffer(data)
 					return totalBytes, skippedBlocks, nil, fmt.Errorf("manifest set: %w", err)
 				}
@@ -127,7 +127,7 @@ func iterateBlocks(
 
 		h.Write(data)
 		if idx != nil {
-			if err := idx.Set(r.Start, blockSize, xx, sum); err != nil {
+			if err := idx.Set(r.Start, blockSize, 0, xx, sum); err != nil {
 				putBlockBuffer(data)
 				return totalBytes, skippedBlocks, nil, fmt.Errorf("manifest set: %w", err)
 			}
@@ -195,7 +195,7 @@ func processParallelResults(
 		}
 		if idx != nil && res.Data != nil {
 			xx := hashutil.SumXXH3(res.Data)
-			if idx.Match(res.Offset, res.Size, xx, func() [32]byte { return res.ChunkID }) {
+			if idx.Match(res.Offset, res.Size, 0, xx, func() [32]byte { return res.ChunkID }) {
 				putBlockBuffer(res.Data)
 				continue
 			}
@@ -212,7 +212,7 @@ func processParallelResults(
 			h.Write(res.Data)
 			if idx != nil {
 				xx := hashutil.SumXXH3(res.Data)
-				if err := idx.Set(res.Offset, res.Size, xx, res.ChunkID); err != nil {
+				if err := idx.Set(res.Offset, res.Size, 0, xx, res.ChunkID); err != nil {
 					putBlockBuffer(res.Data)
 					return totalBytesTransferred, nil, fmt.Errorf("manifest set: %w", err)
 				}
@@ -222,7 +222,7 @@ func processParallelResults(
 		} else {
 			if idx != nil {
 				xx := hashutil.SumXXH3(nil)
-				if err := idx.Set(res.Offset, res.Size, xx, res.ChunkID); err != nil {
+				if err := idx.Set(res.Offset, res.Size, 0, xx, res.ChunkID); err != nil {
 					return totalBytesTransferred, nil, fmt.Errorf("manifest set: %w", err)
 				}
 			}

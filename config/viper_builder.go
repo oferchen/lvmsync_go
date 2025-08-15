@@ -269,6 +269,9 @@ func buildViper(flagSets *FlagSets) (*viper.Viper, error) {
 			return nil, err
 		}
 	}
+	v.RegisterAlias("cdc_min", "cdc-min")
+	v.RegisterAlias("cdc_avg", "cdc-avg")
+	v.RegisterAlias("cdc_max", "cdc-max")
 	if err := bindTransportEnv(flagSets.Transport, v); err != nil {
 		return nil, err
 	}

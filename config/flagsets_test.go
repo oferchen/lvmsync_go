@@ -109,9 +109,9 @@ func TestInitDedupFlags(t *testing.T) {
 	fs := initDedupFlags(cfg)
 	cases := []struct{ name, want string }{
 		{"dedup", cfg.DedupMode},
-		{"cdc_min", strconv.Itoa(cfg.CDCMin)},
-		{"cdc_avg", strconv.Itoa(cfg.CDCAvg)},
-		{"cdc_max", strconv.Itoa(cfg.CDCMax)},
+		{"cdc-min", strconv.Itoa(cfg.CDCMin)},
+		{"cdc-avg", strconv.Itoa(cfg.CDCAvg)},
+		{"cdc-max", strconv.Itoa(cfg.CDCMax)},
 		{"dedup_strategy", cfg.DedupStrategy},
 		{"dedup_state_file", cfg.DedupStateFile},
 		{"bloom_entries", strconv.Itoa(cfg.BloomEntries)},

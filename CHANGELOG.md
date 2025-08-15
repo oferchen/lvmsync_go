@@ -70,6 +70,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - manifest: preserve injected close hooks in Create, Open, and Upgrade
 - remove placeholder error field from dial_start and listen_start logs for quic and ssh transports
 - propagate seek errors during block writes to prevent silent data loss
+- manifest: record CDC chunk size parameters and hybrid flags in header and index entries
+- cmd/manifest: add `manifest rebuild` subcommand for regenerating manifests
+- config: expose `--cdc-min`, `--cdc-avg`, and `--cdc-max` flags bound to Viper
+- docs: document manifest lifecycle and CDC options
 - Remove obsolete gap and pruning entries after rerunning static analysis.
 - Wrap README logging example in `package main` to compile with `go build`.
 - add default dial timeout and deadline propagation for h2 and tcp+tls transports

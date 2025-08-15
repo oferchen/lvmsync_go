@@ -183,7 +183,7 @@ func estimateTransfer(src string, cfg *config.Config, logger *zap.Logger) error 
 		if idxPos >= chunks {
 			idxPos = chunks - 1
 		}
-		off, length, _, _, err := idx.Entry(idxPos)
+		off, length, flags, _, _, err := idx.Entry(idxPos)
 		if err != nil {
 			return fmt.Errorf("manifest entry: %w", err)
 		}
@@ -195,7 +195,7 @@ func estimateTransfer(src string, cfg *config.Config, logger *zap.Logger) error 
 		data := buf[:n]
 		xx := xxh3.Hash(data)
 		digest := blake3.Sum256(data)
-		if !idx.Match(off, uint32(n), xx, func() [32]byte { return digest }) {
+		if !idx.Match(off, uint32(n), flags, xx, func() [32]byte { return digest }) {
 			changed++
 		}
 		if err == io.EOF {

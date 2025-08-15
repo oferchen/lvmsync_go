@@ -187,18 +187,18 @@ func TestEstimateTransferWithManifest(t *testing.T) {
 		t.Fatalf("write src: %v", err)
 	}
 	manifestPath := dir + "/manifest"
-	idx, err := manifest.Create(manifestPath, "id", 8, 4)
+	idx, err := manifest.Create(manifestPath, "id", 8, 4, 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("create manifest: %v", err)
 	}
 	xx0 := xxh3.Hash([]byte("aaaa"))
 	d0 := blake3.Sum256([]byte("aaaa"))
-	if err := idx.Set(0, 4, xx0, d0); err != nil {
+	if err := idx.Set(0, 4, 0, xx0, d0); err != nil {
 		t.Fatalf("Set: %v", err)
 	}
 	xx1 := xxh3.Hash([]byte("bbbb"))
 	d1 := blake3.Sum256([]byte("bbbb"))
-	if err := idx.Set(4, 4, xx1, d1); err != nil {
+	if err := idx.Set(4, 4, 0, xx1, d1); err != nil {
 		t.Fatalf("Set: %v", err)
 	}
 	idx.Close()

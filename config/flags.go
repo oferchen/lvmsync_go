@@ -118,9 +118,9 @@ func initRemoteFlags(cfg *Config) *pflag.FlagSet {
 func initDedupFlags(cfg *Config) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("Deduplication Options", pflag.ExitOnError)
 	fs.String("dedup", cfg.DedupMode, fmt.Sprintf("Deduplication mode: %v", SupportedDedupModes))
-	fs.Int("cdc_min", cfg.CDCMin, "Minimum chunk size for CDC")
-	fs.Int("cdc_avg", cfg.CDCAvg, "Average chunk size for CDC")
-	fs.Int("cdc_max", cfg.CDCMax, "Maximum chunk size for CDC")
+	fs.Int("cdc-min", cfg.CDCMin, "Minimum chunk size for CDC")
+	fs.Int("cdc-avg", cfg.CDCAvg, "Average chunk size for CDC")
+	fs.Int("cdc-max", cfg.CDCMax, "Maximum chunk size for CDC")
 	fs.String("dedup_strategy", cfg.DedupStrategy, fmt.Sprintf("Deduplication strategy: %v", SupportedDedupStrategies))
 	fs.String("dedup_state_file", cfg.DedupStateFile, "Path to deduplication state file")
 	fs.Int("bloom_entries", cfg.BloomEntries, "Bloom filter entries")
