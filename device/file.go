@@ -46,9 +46,7 @@ func OpenFile(path string, logger *zap.Logger) (*FileDevice, error) {
 	}
 	size := uint64(info.Size())
 	block := uint64(st.Blksize)
-	if logger != nil {
-		logger.Info("file device info", zap.String("path", path), zap.Uint64("size_bytes", size), zap.Uint64("block_size_bytes", block))
-	}
+	logger.Info("file device info", zap.String("path", path), zap.Uint64("size_bytes", size), zap.Uint64("block_size_bytes", block))
 	return &FileDevice{
 		f:         f,
 		size:      size,

@@ -29,7 +29,7 @@ func TestHybridChunkerProducesChunks(t *testing.T) {
 	}
 }
 
-func TestHybridChunkerBufferReuse(t *testing.T) {
+func TestHybridChunkerBufferOwnership(t *testing.T) {
 	fixed := 1 << 16
 	data := bytes.Repeat([]byte("a"), fixed*2)
 	h := NewHybridChunker(fixed, 64, 128, 256)
@@ -49,8 +49,8 @@ func TestHybridChunkerBufferReuse(t *testing.T) {
 	if err != nil && err != io.EOF {
 		t.Fatalf("next chunk: %v", err)
 	}
-	if &c2.Data[0] != chunkPtr {
-		t.Fatalf("chunk buffer not reused")
+	if &c2.Data[0] == chunkPtr {
+		t.Fatalf("chunk buffer reused")
 	}
 
 	offset := c1.Length + c2.Length
