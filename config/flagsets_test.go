@@ -218,6 +218,7 @@ func TestInitManifestFlags(t *testing.T) {
 	fs := initManifestFlags(cfg)
 	cases := []struct{ name, want string }{
 		{"manifest_path", cfg.ManifestPath},
+		{"manifest_timeout", cfg.ManifestTimeout.String()},
 		{"manifest_progress_interval", cfg.ManifestProgressInterval.String()},
 		{"manifest_allow_mounted", strconv.FormatBool(cfg.ManifestAllowMounted)},
 	}

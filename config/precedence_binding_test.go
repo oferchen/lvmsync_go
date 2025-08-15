@@ -700,3 +700,61 @@ func TestManifestProgressIntervalEnvOverridesConfig(t *testing.T) {
 		t.Fatalf("expected manifest_progress_interval 2s, got %v", conf.ManifestProgressInterval)
 	}
 }
+
+func TestManifestTimeoutCLIOverridesEnvAndConfig(t *testing.T) {
+	cfgPath := writeTempConfig(t, "manifest_timeout: 1s\n")
+	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--manifest_timeout", "3s"})
+	t.Setenv("LVMSYNC_MANIFEST_TIMEOUT", "2s")
+
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	fs := NewFlagSets(defaults)
+	registerFlags(fs, rootFS)
+	if err := rootFS.Parse(args); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	v, err := buildViper(fs)
+	if err != nil {
+		t.Fatalf("buildViper: %v", err)
+	}
+	builder := &Builder{v: v, defaults: defaults}
+	conf, err := builder.Build()
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if conf.ManifestTimeout != 3*time.Second {
+		t.Fatalf("expected manifest_timeout 3s, got %v", conf.ManifestTimeout)
+	}
+}
+
+func TestManifestTimeoutEnvOverridesConfig(t *testing.T) {
+	cfgPath := writeTempConfig(t, "manifest_timeout: 1s\n")
+	rootFS, args := newFlagSet([]string{"--config", cfgPath})
+	t.Setenv("LVMSYNC_MANIFEST_TIMEOUT", "2s")
+
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	fs := NewFlagSets(defaults)
+	registerFlags(fs, rootFS)
+	if err := rootFS.Parse(args); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	v, err := buildViper(fs)
+	if err != nil {
+		t.Fatalf("buildViper: %v", err)
+	}
+	builder := &Builder{v: v, defaults: defaults}
+	conf, err := builder.Build()
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if conf.ManifestTimeout != 2*time.Second {
+		t.Fatalf("expected manifest_timeout 2s, got %v", conf.ManifestTimeout)
+	}
+}

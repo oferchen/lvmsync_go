@@ -55,6 +55,9 @@ func (b *Builder) applyDefaults(conf *Config) error {
 	if conf.Transport == "" {
 		conf.Transport = b.defaults.Transport
 	}
+	if conf.ManifestTimeout == 0 {
+		conf.ManifestTimeout = b.defaults.ManifestTimeout
+	}
 	if conf.ManifestProgressInterval == 0 {
 		conf.ManifestProgressInterval = b.defaults.ManifestProgressInterval
 	}

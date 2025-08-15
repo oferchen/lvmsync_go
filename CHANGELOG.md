@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - transfer: add manifest index persistence test covering read/write, rebuild, and verify paths.
 - cmd: support `--source-type` and `--dest-type` flags and allow `device.Detect` to honor explicit type hints.
 - transfer: unify resume checkpoints across dedup modes and add resume tests for fixed, CDC, and hybrid modes.
+- manifest: add `manifest_timeout` option to control rebuild timeout.
 
 
 ### Fixed

@@ -3,7 +3,6 @@ package manifest
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
@@ -11,6 +10,8 @@ import (
 	"lvmsync_go/config"
 	manifestpkg "lvmsync_go/manifest"
 )
+
+var rebuildFn = manifestpkg.Rebuild
 
 // Run executes manifest subcommands. Currently only "rebuild" is supported.
 func Run(cfg *config.Config, args []string, logger *zap.Logger) error {
@@ -46,9 +47,13 @@ func Run(cfg *config.Config, args []string, logger *zap.Logger) error {
 		}
 		return nil
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-	defer cancel()
-	if err := manifestpkg.Rebuild(ctx, device, path, logger, conf.ManifestProgressInterval, conf.ManifestAllowMounted); err != nil {
+	ctx := context.Background()
+	var cancel context.CancelFunc
+	if conf.ManifestTimeout > 0 {
+		ctx, cancel = context.WithTimeout(ctx, conf.ManifestTimeout)
+		defer cancel()
+	}
+	if err := rebuildFn(ctx, device, path, logger, conf.ManifestProgressInterval, conf.ManifestAllowMounted); err != nil {
 		if logger != nil {
 			logger.Error("rebuild failed", zap.Error(err))
 		}

@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
@@ -124,5 +125,47 @@ func TestRunMissingArgs(t *testing.T) {
 				t.Fatalf("expected failure for args %v", tc.args)
 			}
 		})
+	}
+}
+
+func TestRunAppliesManifestTimeout(t *testing.T) {
+	cfg, err := config.DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	cfg.ManifestTimeout = 2 * time.Second
+	var captured context.Context
+	orig := rebuildFn
+	rebuildFn = func(ctx context.Context, device, output string, logger *zap.Logger, interval time.Duration, allow bool) error {
+		captured = ctx
+		return nil
+	}
+	defer func() { rebuildFn = orig }()
+	if err := Run(cfg, []string{"rebuild", "/dev/test"}, zap.NewNop()); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if _, ok := captured.Deadline(); !ok {
+		t.Fatalf("expected context with deadline")
+	}
+}
+
+func TestRunZeroManifestTimeoutUsesBackground(t *testing.T) {
+	cfg, err := config.DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	cfg.ManifestTimeout = 0
+	var captured context.Context
+	orig := rebuildFn
+	rebuildFn = func(ctx context.Context, device, output string, logger *zap.Logger, interval time.Duration, allow bool) error {
+		captured = ctx
+		return nil
+	}
+	defer func() { rebuildFn = orig }()
+	if err := Run(cfg, []string{"rebuild", "/dev/test"}, zap.NewNop()); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if _, ok := captured.Deadline(); ok {
+		t.Fatalf("unexpected deadline on context")
 	}
 }
