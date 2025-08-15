@@ -11,39 +11,60 @@ import (
 )
 
 func TestHandshakeRoundTrip(t *testing.T) {
-	original := common.Handshake{
-		Version:       common.ProtocolVersion,
-		Compress:      "gzip",
-		CompressLevel: 2,
-		Checksum:      true,
-		Endianness:    common.NativeEndianness(),
-		BlockSize:     4096,
-		DedupMode:     "fixed",
-		ResumeToken:   "token",
-		ODirect:       true,
-		MaxInFlight:   8,
-		CDCMin:        1024,
-		CDCAvg:        2048,
-		CDCMax:        4096,
-		ALPN:          "h2",
-		TLSVersion:    "1.3",
-		Transports:    []string{"ssh", "tcp+tls"},
-		Compressors:   []string{"lz4", "zstd"},
-		Digests:       []string{"sha256", "blake3"},
-		Transport:     "ssh",
-		Digest:        "blake3",
+	cases := []struct {
+		name     string
+		original common.Handshake
+	}{
+		{
+			name: "minimal with alpn and tls",
+			original: common.Handshake{
+				Version:    common.ProtocolVersion,
+				Compress:   "none",
+				ALPN:       "h2",  // expect ALPN "h2" to round-trip
+				TLSVersion: "1.3", // expect TLS version "1.3" to round-trip
+			},
+		},
+		{
+			name: "full handshake",
+			original: common.Handshake{
+				Version:       common.ProtocolVersion,
+				Compress:      "gzip",
+				CompressLevel: 2,
+				Checksum:      true,
+				Endianness:    common.NativeEndianness(),
+				BlockSize:     4096,
+				DedupMode:     "fixed",
+				ResumeToken:   "token",
+				ODirect:       true,
+				MaxInFlight:   8,
+				CDCMin:        1024,
+				CDCAvg:        2048,
+				CDCMax:        4096,
+				ALPN:          "h2",  // expect ALPN "h2" to round-trip
+				TLSVersion:    "1.3", // expect TLS version "1.3" to round-trip
+				Transports:    []string{"ssh", "tcp+tls"},
+				Compressors:   []string{"lz4", "zstd"},
+				Digests:       []string{"sha256", "blake3"},
+				Transport:     "ssh",
+				Digest:        "blake3",
+			},
+		},
 	}
 
-	var buf bytes.Buffer
-	if err := common.WriteHandshake(&buf, original); err != nil {
-		t.Fatalf("write handshake: %v", err)
-	}
-	parsed, err := common.ReadHandshake(bufio.NewReader(&buf))
-	if err != nil {
-		t.Fatalf("read handshake: %v", err)
-	}
-	if !reflect.DeepEqual(original, parsed) {
-		t.Fatalf("handshake mismatch: %+v != %+v", original, parsed)
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			if err := common.WriteHandshake(&buf, tt.original); err != nil {
+				t.Fatalf("write handshake: %v", err)
+			}
+			parsed, err := common.ReadHandshake(bufio.NewReader(&buf))
+			if err != nil {
+				t.Fatalf("read handshake: %v", err)
+			}
+			if !reflect.DeepEqual(tt.original, parsed) {
+				t.Fatalf("handshake mismatch: %+v != %+v", tt.original, parsed)
+			}
+		})
 	}
 }
 
