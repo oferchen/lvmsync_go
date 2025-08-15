@@ -30,7 +30,10 @@ func TestCDCDedupChunkAndHash(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
-	d := NewCDCDedup(cfg)
+	d, err := NewCDCDedup(cfg)
+	if err != nil {
+		t.Fatalf("NewCDCDedup: %v", err)
+	}
 	data := bytes.Repeat([]byte("a"), cfg.CDCMin*2)
 	chunks, final, err := d.ChunkAndHash(data)
 	if err != nil {
@@ -66,7 +69,10 @@ func TestCDCDedupChunkBoundaries(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			d := NewCDCDedup(cfg)
+			d, err := NewCDCDedup(cfg)
+			if err != nil {
+				t.Fatalf("NewCDCDedup: %v", err)
+			}
 			data := bytes.Repeat([]byte("a"), tc.size)
 			chunks, _, err := d.ChunkAndHash(data)
 			if err != nil {
@@ -94,7 +100,10 @@ func TestCDCDedupSaveStateWriteFailure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
-	d := NewCDCDedup(cfg)
+	d, err := NewCDCDedup(cfg)
+	if err != nil {
+		t.Fatalf("NewCDCDedup: %v", err)
+	}
 	fw := &cdcFailingWriter{failAfter: 0}
 	orig := createStateFile
 	createStateFile = func(string) (io.WriteCloser, error) { return fw, nil }
@@ -111,7 +120,10 @@ func TestCDCDedupMmapIndex(t *testing.T) {
 	}
 	cfg.BloomMBits = 8
 	cfg.DedupStateFile = filepath.Join(t.TempDir(), "state")
-	d := NewCDCDedup(cfg)
+	d, err := NewCDCDedup(cfg)
+	if err != nil {
+		t.Fatalf("NewCDCDedup: %v", err)
+	}
 	expected := 1 << (cfg.BloomMBits - 3)
 	if len(d.index) != expected {
 		t.Fatalf("unexpected index size %d want %d", len(d.index), expected)
@@ -124,7 +136,10 @@ func TestCDCDedupSaveState(t *testing.T) {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
 	cfg.DedupStateFile = filepath.Join(t.TempDir(), "state")
-	d := NewCDCDedup(cfg)
+	d, err := NewCDCDedup(cfg)
+	if err != nil {
+		t.Fatalf("NewCDCDedup: %v", err)
+	}
 	if err := d.SaveState(); err != nil {
 		t.Fatalf("SaveState: %v", err)
 	}

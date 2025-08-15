@@ -35,10 +35,14 @@ type CDCDedup struct {
 }
 
 // NewCDCDedup constructs a CDCDedup using the tunables provided in cfg.
-func NewCDCDedup(cfg *config.Config) *CDCDedup {
+func NewCDCDedup(cfg *config.Config) (*CDCDedup, error) {
 	bf := bloom.NewWithEstimates(uint(cfg.BloomEntries), cfg.BloomFpRate)
+	ch, err := dedup.NewChunker(cfg.CDCMin, cfg.CDCAvg, cfg.CDCMax)
+	if err != nil {
+		return nil, err
+	}
 	cd := &CDCDedup{
-		chunker:   dedup.NewChunker(cfg.CDCMin, cfg.CDCAvg, cfg.CDCMax),
+		chunker:   ch,
 		bloom:     bf,
 		stateFile: cfg.DedupStateFile,
 		sha:       sha256.New(),
@@ -61,7 +65,7 @@ func NewCDCDedup(cfg *config.Config) *CDCDedup {
 			}
 		}
 	}
-	return cd
+	return cd, nil
 }
 
 // ChunkAndHash splits p into FastCDC chunks recording hashes. The returned

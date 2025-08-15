@@ -6,6 +6,8 @@ import (
 
 	"go.uber.org/zap"
 
+	_ "lvmsync_go/cmd/apply"
+	_ "lvmsync_go/cmd/dump"
 	rootcmd "lvmsync_go/cmd/root"
 )
 

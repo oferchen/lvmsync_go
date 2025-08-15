@@ -10,12 +10,11 @@ import (
 	"go.uber.org/zap"
 
 	"lvmsync_go/app"
-	applycmd "lvmsync_go/cmd/apply"
-	dumpcmd "lvmsync_go/cmd/dump"
 	"lvmsync_go/config"
 	"lvmsync_go/device"
 	clientpkg "lvmsync_go/internal/client"
 	"lvmsync_go/internal/privilege"
+	"lvmsync_go/transport"
 )
 
 // function variables for testing
@@ -25,10 +24,14 @@ var (
 	setupSignalHandle = app.SetupSignalHandling
 	prepareSnapshotFn = app.PrepareSnapshot
 	executeClientFn   = clientpkg.ExecuteClient
-	selectTransport   = dumpcmd.SelectTransport
-	runDump           = func(ctx context.Context, cfg *config.Config, snapshot, dest string, logger *zap.Logger) error {
-		_, err := dumpcmd.Run(ctx, cfg, snapshot, dest, logger)
-		return err
+	RunApply          = func(cfg *config.Config, applyFile string, args []string, logger *zap.Logger) error {
+		return fmt.Errorf("apply command not registered")
+	}
+	SelectTransport = func(cfg *config.Config, logger *zap.Logger) (transport.Interface, error) {
+		return nil, fmt.Errorf("transport not registered")
+	}
+	RunDump = func(ctx context.Context, cfg *config.Config, snapshot, dest string, logger *zap.Logger) (string, error) {
+		return "", fmt.Errorf("dump command not registered")
 	}
 	RunManifest = func(cfg *config.Config, args []string, logger *zap.Logger) error {
 		return fmt.Errorf("manifest command not registered")
@@ -37,6 +40,11 @@ var (
 		return fmt.Errorf("verify command not registered")
 	}
 )
+
+func runDump(ctx context.Context, cfg *config.Config, snapshot, dest string, logger *zap.Logger) error {
+	_, err := RunDump(ctx, cfg, snapshot, dest, logger)
+	return err
+}
 
 // SyncLogger flushes buffered log entries and logs if syncing fails.
 func SyncLogger(logger *zap.Logger) {
@@ -141,13 +149,13 @@ func Run(cfg *config.Config, args []string, logger *zap.Logger) error {
 	}
 
 	if cfg.ApplyMode != "" {
-		if err := applycmd.Run(cfg, cfg.ApplyMode, args, logger); err != nil {
+		if err := RunApply(cfg, cfg.ApplyMode, args, logger); err != nil {
 			return fmt.Errorf("apply operation failed: %w", err)
 		}
 		return nil
 	}
 
-	if _, err := selectTransport(cfg, logger); err != nil {
+	if _, err := SelectTransport(cfg, logger); err != nil {
 		return fmt.Errorf("select transport: %w", err)
 	}
 

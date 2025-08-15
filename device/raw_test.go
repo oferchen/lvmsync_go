@@ -186,7 +186,7 @@ func TestOpenRawFreezeThawLogs(t *testing.T) {
 	logger := zap.New(core)
 	oldExec := execCommand
 	execCommand = fakeExecCommandContext
-	defer func() { execCommand = oldExec }()
+	t.Cleanup(func() { execCommand = oldExec })
 	_, err := OpenRaw(context.Background(), "/dev/null", false, os.Args[0], []string{"freeze-success"}, os.Args[0], []string{"thaw-success"}, time.Second, time.Second, logger)
 	if err == nil {
 		t.Fatalf("expected error for char device")
@@ -204,7 +204,7 @@ func TestOpenRawFreezeTimeoutLogs(t *testing.T) {
 	logger := zap.New(core)
 	oldExec := execCommand
 	execCommand = fakeExecCommandContext
-	defer func() { execCommand = oldExec }()
+	t.Cleanup(func() { execCommand = oldExec })
 	_, err := OpenRaw(context.Background(), "/dev/null", false, os.Args[0], []string{"freeze-timeout"}, os.Args[0], []string{"thaw-success"}, 50*time.Millisecond, time.Second, logger)
 	if err == nil || !strings.Contains(err.Error(), "signal: killed") {
 		t.Fatalf("expected freeze timeout, got %v", err)
@@ -225,7 +225,7 @@ func TestOpenRawThawFailure(t *testing.T) {
 	logger := zap.New(core)
 	oldExec := execCommand
 	execCommand = fakeExecCommandContext
-	defer func() { execCommand = oldExec }()
+	t.Cleanup(func() { execCommand = oldExec })
 	_, err := OpenRaw(context.Background(), "/dev/null", false, os.Args[0], []string{"freeze-success"}, os.Args[0], []string{"thaw-fail"}, time.Second, time.Second, logger)
 	if err == nil {
 		t.Fatalf("expected error for char device")
@@ -249,7 +249,7 @@ func TestOpenRawFreezeCommandFailureIncludesOutput(t *testing.T) {
 	logger := zap.New(core)
 	oldExec := execCommand
 	execCommand = fakeExecCommandContext
-	defer func() { execCommand = oldExec }()
+	t.Cleanup(func() { execCommand = oldExec })
 	if _, err := OpenRaw(context.Background(), "/dev/null", false, os.Args[0], []string{"freeze-fail-output"}, "true", nil, time.Second, time.Second, logger); err == nil || !strings.Contains(err.Error(), "freeze output") {
 		t.Fatalf("expected freeze output in error, got %v", err)
 	}
@@ -267,7 +267,7 @@ func TestRawDeviceCleanupFailureIncludesOutput(t *testing.T) {
 	logger := zap.New(core)
 	oldExec := execCommand
 	execCommand = fakeExecCommandContext
-	defer func() { execCommand = oldExec }()
+	t.Cleanup(func() { execCommand = oldExec })
 	d := &RawDevice{
 		freezeIssued: true,
 		thawCmdPath:  os.Args[0],
@@ -284,6 +284,48 @@ func TestRawDeviceCleanupFailureIncludesOutput(t *testing.T) {
 	}
 	if v, ok := entries[0].ContextMap()["output"]; !ok || v != "thaw output" {
 		t.Fatalf("expected thaw output log, got %v", entries[0].ContextMap())
+	}
+}
+
+func TestRawDeviceCleanupThawErrorLogs(t *testing.T) {
+	core, logs := observer.New(zap.InfoLevel)
+	logger := zap.New(core)
+	oldExec := execCommand
+	execCommand = fakeExecCommandContext
+	defer func() { execCommand = oldExec }()
+	d := &RawDevice{
+		freezeIssued: true,
+		thawCmdPath:  os.Args[0],
+		thawCmdArgs:  []string{"thaw-fail"},
+		thawTimeout:  time.Second,
+		logger:       logger,
+	}
+	if err := d.Cleanup(context.Background()); err == nil {
+		t.Fatalf("expected thaw command failure")
+	}
+	if logs.FilterMessage("fs thaw failed").Len() != 1 {
+		t.Fatalf("expected thaw failed log")
+	}
+}
+
+func TestRawDeviceCleanupThawTimeoutLogs(t *testing.T) {
+	core, logs := observer.New(zap.InfoLevel)
+	logger := zap.New(core)
+	oldExec := execCommand
+	execCommand = fakeExecCommandContext
+	defer func() { execCommand = oldExec }()
+	d := &RawDevice{
+		freezeIssued: true,
+		thawCmdPath:  os.Args[0],
+		thawCmdArgs:  []string{"thaw-timeout"},
+		thawTimeout:  100 * time.Millisecond,
+		logger:       logger,
+	}
+	if err := d.Cleanup(context.Background()); err == nil || !strings.Contains(err.Error(), "killed") {
+		t.Fatalf("expected thaw command to be killed, got %v", err)
+	}
+	if logs.FilterMessage("fs thaw failed").Len() != 1 {
+		t.Fatalf("expected thaw failed log")
 	}
 }
 
@@ -311,7 +353,7 @@ func TestHelperProcess(t *testing.T) {
 	switch args[0] {
 	case "freeze-success", "thaw-success":
 		os.Exit(0)
-	case "freeze-timeout":
+	case "freeze-timeout", "thaw-timeout":
 		time.Sleep(200 * time.Millisecond)
 		os.Exit(0)
 	case "thaw-fail":

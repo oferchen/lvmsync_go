@@ -51,7 +51,10 @@ func TestBloom(t *testing.T) {
 
 func TestChunkerBounds(t *testing.T) {
 	data := bytes.Repeat([]byte("a"), 1<<20)
-	ch := NewChunker(64, 128, 256)
+	ch, err := NewChunker(64, 128, 256)
+	if err != nil {
+		t.Fatalf("new chunker: %v", err)
+	}
 	r := bytes.NewReader(data)
 	for {
 		c, err := ch.NextChunk(r)
@@ -96,7 +99,10 @@ func TestBloomSizing(t *testing.T) {
 
 func TestChunkerBufferReuse(t *testing.T) {
 	data := bytes.Repeat([]byte("a"), 1<<10)
-	ch := NewChunker(64, 128, 256)
+	ch, err := NewChunker(64, 128, 256)
+	if err != nil {
+		t.Fatalf("new chunker: %v", err)
+	}
 	r := bytes.NewReader(data)
 
 	c1, err := ch.NextChunk(r)

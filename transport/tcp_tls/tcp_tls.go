@@ -14,7 +14,10 @@ import (
 	"lvmsync_go/transport"
 )
 
-const defaultDialTimeout = 5 * time.Second
+const (
+	defaultDialTimeout = 5 * time.Second
+	alpn               = "lvmsync"
+)
 
 // Transport implements TLS over TCP.
 type Transport struct {
@@ -43,11 +46,13 @@ func New(cfg transport.Config) (transport.Interface, error) {
 		ClientCAs:  cfg.Roots,
 		ClientAuth: clientAuth,
 		MinVersion: tls.VersionTLS13,
+		NextProtos: []string{alpn},
 	}
 	clientConf := &tls.Config{
 		RootCAs:            cfg.Roots,
 		InsecureSkipVerify: cfg.AllowInsecure,
 		MinVersion:         tls.VersionTLS13,
+		NextProtos:         []string{alpn},
 	}
 	if len(cert.Certificate) > 0 {
 		serverConf.Certificates = []tls.Certificate{cert}
@@ -221,6 +226,20 @@ func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport
 		}
 	}()
 
+	if tlsConn, ok := conn.(*tls.Conn); ok {
+		state := tlsConn.ConnectionState()
+		negotiatedALPN := state.NegotiatedProtocol
+		negotiatedVersion := tlsVersionString(state.Version)
+		if hs.ALPN != "" && negotiatedALPN != "" && hs.ALPN != negotiatedALPN {
+			return peer, fmt.Errorf("alpn mismatch: %s", negotiatedALPN)
+		}
+		if hs.TLSVersion != "" && negotiatedVersion != "" && hs.TLSVersion != negotiatedVersion {
+			return peer, fmt.Errorf("tls version mismatch: %s", negotiatedVersion)
+		}
+		hs.ALPN = negotiatedALPN
+		hs.TLSVersion = negotiatedVersion
+	}
+
 	hs.Version = common.ProtocolVersion
 	if hs.Endianness == "" {
 		hs.Endianness = common.NativeEndianness()
@@ -283,6 +302,21 @@ func setDeadline(ctx context.Context, conn net.Conn) error {
 
 func clearDeadline(conn net.Conn) {
 	_ = conn.SetDeadline(time.Time{})
+}
+
+func tlsVersionString(v uint16) string {
+	switch v {
+	case tls.VersionTLS10:
+		return "1.0"
+	case tls.VersionTLS11:
+		return "1.1"
+	case tls.VersionTLS12:
+		return "1.2"
+	case tls.VersionTLS13:
+		return "1.3"
+	default:
+		return ""
+	}
 }
 
 func roleString(r transport.Role) string {
