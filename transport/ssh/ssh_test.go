@@ -6,9 +6,12 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"fmt"
 	"io"
+	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -76,9 +79,51 @@ func emptyKnownHosts(t *testing.T) string {
 	return f.Name()
 }
 
+func TestNewWithKnownHosts(t *testing.T) {
+	core, _ := observer.New(zap.InfoLevel)
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("GenerateKey: %v", err)
+	}
+	signer, err := ssh.NewSignerFromKey(key)
+	if err != nil {
+		t.Fatalf("NewSignerFromKey: %v", err)
+	}
+	kh := writeKnownHosts(t, "127.0.0.1:22", signer.PublicKey())
+	cfg := transport.Config{Logger: zap.New(core), SSHUser: "u", SSHPassword: "p", SSHKnownHosts: kh}
+	if _, err := New(cfg); err != nil {
+		t.Fatalf("New: %v", err)
+	}
+}
+
+func TestNewWithHostKey(t *testing.T) {
+	core, _ := observer.New(zap.InfoLevel)
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("GenerateKey: %v", err)
+	}
+	signer, err := ssh.NewSignerFromKey(key)
+	if err != nil {
+		t.Fatalf("NewSignerFromKey: %v", err)
+	}
+	hostKey := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(signer.PublicKey())))
+	cfg := transport.Config{Logger: zap.New(core), SSHUser: "u", SSHPassword: "p", SSHHostKey: hostKey}
+	if _, err := New(cfg); err != nil {
+		t.Fatalf("New: %v", err)
+	}
+}
+
+func TestNewAllowInsecure(t *testing.T) {
+	core, _ := observer.New(zap.InfoLevel)
+	cfg := transport.Config{Logger: zap.New(core), SSHUser: "u", SSHPassword: "p", AllowInsecure: true}
+	if _, err := New(cfg); err != nil {
+		t.Fatalf("New: %v", err)
+	}
+}
+
 func TestSSHTransportAuthSuccess(t *testing.T) {
 	core, logs := observer.New(zap.InfoLevel)
-	srvCfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "pass"}
+	srvCfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "pass", AllowInsecure: true}
 	serverIface, err := New(srvCfg)
 	if err != nil {
 		t.Fatalf("new server transport: %v", err)
@@ -162,12 +207,13 @@ func TestSSHTransportKeyAuth(t *testing.T) {
 	if err := os.WriteFile(keyPath, pemBytes, 0600); err != nil {
 		t.Fatalf("write key: %v", err)
 	}
-	cfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHKeyPath: keyPath}
-	serverIface, err := New(cfg)
+	srvCfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHKeyPath: keyPath, AllowInsecure: true}
+	serverIface, err := New(srvCfg)
 	if err != nil {
 		t.Fatalf("new server transport: %v", err)
 	}
-	clientIface, err := New(cfg)
+	clientCfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHKeyPath: keyPath, AllowInsecure: true}
+	clientIface, err := New(clientCfg)
 	if err != nil {
 		t.Fatalf("new client transport: %v", err)
 	}
@@ -235,7 +281,7 @@ func TestSSHTransportKeyAuth(t *testing.T) {
 func TestSSHTransportAgentFallback(t *testing.T) {
 	core, logs := observer.New(zap.InfoLevel)
 	t.Setenv("SSH_AUTH_SOCK", filepath.Join(os.TempDir(), "nonexistent"))
-	cfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "pass", SSHUseAgent: true}
+	cfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "pass", SSHUseAgent: true, AllowInsecure: true}
 	serverIface, err := New(cfg)
 	if err != nil {
 		t.Fatalf("new server transport: %v", err)
@@ -307,7 +353,7 @@ func TestSSHTransportAgentFallback(t *testing.T) {
 
 func TestSSHTransportAuthFailure(t *testing.T) {
 	core, logs := observer.New(zap.InfoLevel)
-	srvCfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "pass"}
+	srvCfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "pass", AllowInsecure: true}
 	serverIface, err := New(srvCfg)
 	if err != nil {
 		t.Fatalf("new server transport: %v", err)
@@ -349,7 +395,7 @@ func TestSSHTransportAuthFailure(t *testing.T) {
 
 func TestSSHTransportCDCMismatch(t *testing.T) {
 	core, logs := observer.New(zap.InfoLevel)
-	srvCfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "pass"}
+	srvCfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "pass", AllowInsecure: true}
 	serverIface, err := New(srvCfg)
 	if err != nil {
 		t.Fatalf("new server transport: %v", err)
@@ -403,7 +449,7 @@ func TestSSHTransportCDCMismatch(t *testing.T) {
 
 func TestSSHTransportNegotiateTimeoutClient(t *testing.T) {
 	core, _ := observer.New(zap.InfoLevel)
-	cfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "pass"}
+	cfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "pass", AllowInsecure: true}
 	serverIface, err := New(cfg)
 	if err != nil {
 		t.Fatalf("new server transport: %v", err)
@@ -451,7 +497,7 @@ func TestSSHTransportNegotiateTimeoutClient(t *testing.T) {
 
 func TestSSHTransportNegotiateTimeoutServer(t *testing.T) {
 	core, _ := observer.New(zap.InfoLevel)
-	cfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "pass"}
+	cfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "pass", AllowInsecure: true}
 	serverIface, err := New(cfg)
 	if err != nil {
 		t.Fatalf("new server transport: %v", err)
@@ -507,7 +553,7 @@ func TestSSHTransportRequiresLogger(t *testing.T) {
 
 func TestSSHTransportRejectsUnknownHost(t *testing.T) {
 	core, logs := observer.New(zap.InfoLevel)
-	srvCfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "pass"}
+	srvCfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "pass", AllowInsecure: true}
 	serverIface, err := New(srvCfg)
 	if err != nil {
 		t.Fatalf("new server transport: %v", err)
