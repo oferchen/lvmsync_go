@@ -186,7 +186,7 @@ func (t *Transport) Listen(ctx context.Context, address string) (net.Listener, e
 }
 
 func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport.Role, hs common.Handshake) (peer common.Handshake, err error) {
-	roleStr := roleString(role)
+	roleStr := role.String()
 	address := conn.RemoteAddr().String()
 	t.logger.Info("negotiate_start",
 		zap.String("address", address),
@@ -218,7 +218,7 @@ func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport
 			state = tlsConn.ConnectionState()
 		}
 		negotiatedALPN := state.NegotiatedProtocol
-		negotiatedVersion := tlsVersionString(state.Version)
+		negotiatedVersion := transport.TLSVersionString(state.Version)
 		if hs.ALPN != "" && negotiatedALPN != "" && hs.ALPN != negotiatedALPN {
 			return peer, fmt.Errorf("alpn mismatch: %s", negotiatedALPN)
 		}
@@ -295,30 +295,4 @@ func setDeadline(ctx context.Context, conn net.Conn) error {
 
 func clearDeadline(conn net.Conn) {
 	_ = conn.SetDeadline(time.Time{})
-}
-
-func tlsVersionString(v uint16) string {
-	switch v {
-	case tls.VersionTLS10:
-		return "1.0"
-	case tls.VersionTLS11:
-		return "1.1"
-	case tls.VersionTLS12:
-		return "1.2"
-	case tls.VersionTLS13:
-		return "1.3"
-	default:
-		return ""
-	}
-}
-
-func roleString(r transport.Role) string {
-	switch r {
-	case transport.Client:
-		return "client"
-	case transport.Server:
-		return "server"
-	default:
-		return ""
-	}
 }

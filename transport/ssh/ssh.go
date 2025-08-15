@@ -224,7 +224,7 @@ func (t *Transport) Listen(ctx context.Context, address string) (net.Listener, e
 }
 
 func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport.Role, hs common.Handshake) (peer common.Handshake, err error) {
-	roleStr := roleString(role)
+	roleStr := role.String()
 	address := conn.RemoteAddr().String()
 	t.logger.Info("negotiate_start",
 		zap.String("address", address),
@@ -360,17 +360,6 @@ func (s *serverConn) RemoteAddr() net.Addr               { return s.netConn.Remo
 func (s *serverConn) SetDeadline(t time.Time) error      { return s.netConn.SetDeadline(t) }
 func (s *serverConn) SetReadDeadline(t time.Time) error  { return s.netConn.SetReadDeadline(t) }
 func (s *serverConn) SetWriteDeadline(t time.Time) error { return s.netConn.SetWriteDeadline(t) }
-
-func roleString(r transport.Role) string {
-	switch r {
-	case transport.Client:
-		return "client"
-	case transport.Server:
-		return "server"
-	default:
-		return ""
-	}
-}
 
 func setDeadline(ctx context.Context, conn net.Conn) error {
 	if d, ok := ctx.Deadline(); ok {
