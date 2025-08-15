@@ -1023,6 +1023,7 @@ lvmsync run --compress auto --zstd_level 2 --compress_threshold 0.85 /dev/vg0/sn
 #### Rate Limiting
 
 Transfers can be throttled using a token bucket accurate to ±3% of the target.
+Each writer has its own limiter, so multiple transfers with different limits run independently.
 Limit the transfer speed to 50MB/s:
 
 ```sh

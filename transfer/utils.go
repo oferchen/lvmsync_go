@@ -9,7 +9,6 @@ package transfer
 
 import (
 	"io"
-	"sync"
 
 	"lvmsync_go/internal/limiter"
 )
@@ -39,25 +38,14 @@ func (rlw *rateLimitedWriter) Write(p []byte) (int, error) {
 	return written, nil
 }
 
-var (
-	rateLimiterCache     limiter.Limiter
-	lastSpeedLimit       int
-	rateLimiterCacheLock sync.Mutex
-)
-
 // WrapRateLimitedWriter returns an io.Writer that limits throughput to
-// speedLimit bytes per second. The limiter instance is cached for reuse.
+// speedLimit bytes per second. Each invocation creates a dedicated token
+// bucket so multiple writers operate independently.
 func WrapRateLimitedWriter(w io.Writer, speedLimit int) io.Writer {
 	if speedLimit <= 0 {
 		return w
 	}
 
-	rateLimiterCacheLock.Lock()
-	if rateLimiterCache == nil || lastSpeedLimit != speedLimit {
-		rateLimiterCache = limiter.New(speedLimit, speedLimit, nil)
-		lastSpeedLimit = speedLimit
-	}
-	rlw := &rateLimitedWriter{w: w, tb: rateLimiterCache, max: speedLimit}
-	rateLimiterCacheLock.Unlock()
-	return rlw
+	tb := limiter.New(speedLimit, speedLimit, nil)
+	return &rateLimitedWriter{w: w, tb: tb, max: speedLimit}
 }
