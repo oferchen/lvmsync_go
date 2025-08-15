@@ -85,7 +85,7 @@ func TestManifestIndexLifecycle(t *testing.T) {
 	defer device.SetUUIDFunc(prev)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	if err := manifestpkg.Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false); err != nil {
+	if err := manifestpkg.Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false, 0, 0, 0, 0); err != nil {
 		t.Fatalf("rebuild: %v", err)
 	}
 
@@ -94,7 +94,7 @@ func TestManifestIndexLifecycle(t *testing.T) {
 		t.Fatalf("open: %v", err)
 	}
 	defer idx.Close()
-	off, length, _, digest, err := idx.Entry(0)
+	off, length, _, _, digest, err := idx.Entry(0)
 	if err != nil {
 		t.Fatalf("entry: %v", err)
 	}

@@ -10,16 +10,20 @@ placeholder table previously used.
 
 ## Layout and Versioning
 
-The file begins with a 120 byte little‑endian header:
+The file begins with a 136 byte little‑endian header:
 
-| Field       | Size | Description |
-|-------------|-----:|-------------|
-| `version`   | 4    | Manifest format version (`1` today) |
-| `block_size`| 4    | Device block size in bytes |
-| `size_bytes`| 8    | Total device size |
-| `chunk_count` | 8 | Number of chunks tracked |
-| `device_id` | 64   | Persistent device identifier |
-| `mac`       | 32   | BLAKE3 digest of the preceding header fields |
+| Field          | Size | Description |
+|----------------|-----:|-------------|
+| `version`      | 4    | Manifest format version (`2` today) |
+| `block_size`   | 4    | Device block size in bytes |
+| `size_bytes`   | 8    | Total device size |
+| `chunk_count`  | 8    | Number of chunks tracked |
+| `cdc_min`      | 4    | Minimum CDC chunk size |
+| `cdc_avg`      | 4    | Average CDC chunk size |
+| `cdc_max`      | 4    | Maximum CDC chunk size |
+| `hybrid_fixed` | 4    | Fixed chunk size when hybrid dedup is used (0 otherwise) |
+| `device_id`    | 64   | Persistent device identifier |
+| `mac`          | 32   | BLAKE3 digest of the preceding header fields |
 
 Each subsequent entry describes one chunk and also uses little‑endian encoding:
 
@@ -27,7 +31,7 @@ Each subsequent entry describes one chunk and also uses little‑endian encoding
 |-----------|-----:|-------------|
 | `offset`  | 8    | Byte offset of the chunk |
 | `length`  | 4    | Chunk length in bytes |
-| _pad_     | 4    | Reserved for future use |
+| `flags`   | 4    | Chunk metadata flags (`1` marks CDC chunks) |
 | `xxh3`    | 8    | Fast non‑cryptographic hash |
 | `blake3`  | 32   | BLAKE3 digest of the chunk |
 

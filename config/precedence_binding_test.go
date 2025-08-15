@@ -473,7 +473,7 @@ func TestDedupStrategyEnvOverridesConfig(t *testing.T) {
 
 func TestCDCMinCLIOverridesEnvAndConfig(t *testing.T) {
 	cfgPath := writeTempConfig(t, "cdc_min: 512\n")
-	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--cdc_min", "2048"})
+	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--cdc-min", "2048"})
 	t.Setenv("LVMSYNC_DEDUP_CDC_MIN", "1024")
 
 	defaults, err := DefaultConfig()

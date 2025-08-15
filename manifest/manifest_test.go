@@ -35,7 +35,7 @@ func (m *mockDevice) Cleanup(context.Context) error                           { 
 func TestIndexCRUD(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "test.man")
-	idx, err := Create(path, "dev", 8192, 4096)
+	idx, err := Create(path, "dev", 8192, 4096, 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -45,10 +45,10 @@ func TestIndexCRUD(t *testing.T) {
 	}
 	xx := xxh3.Hash(data)
 	b3 := blake3.Sum256(data)
-	if err := idx.Set(0, 4096, xx, b3); err != nil {
+	if err := idx.Set(0, 4096, 0, xx, b3); err != nil {
 		t.Fatalf("Set: %v", err)
 	}
-	if !idx.Match(0, 4096, xx, func() [32]byte { return b3 }) {
+	if !idx.Match(0, 4096, 0, xx, func() [32]byte { return b3 }) {
 		t.Fatalf("Match failed")
 	}
 	if err := idx.Close(); err != nil {
@@ -59,11 +59,11 @@ func TestIndexCRUD(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
-	off, length, xx2, b32, err := idx2.Entry(0)
+	off, length, flags, xx2, b32, err := idx2.Entry(0)
 	if err != nil {
 		t.Fatalf("Entry: %v", err)
 	}
-	if off != 0 || length != 4096 || xx2 != xx || b32 != b3 {
+	if off != 0 || length != 4096 || flags != 0 || xx2 != xx || b32 != b3 {
 		t.Fatalf("entry mismatch")
 	}
 	if err := idx2.Close(); err != nil {
@@ -75,12 +75,12 @@ func TestDeviceIDLength(t *testing.T) {
 	dir := t.TempDir()
 	good := strings.Repeat("a", 64)
 	goodPath := filepath.Join(dir, "good.man")
-	if _, err := Create(goodPath, good, 4096, 4096); err != nil {
+	if _, err := Create(goodPath, good, 4096, 4096, 0, 0, 0, 0); err != nil {
 		t.Fatalf("expected success for 64-byte id: %v", err)
 	}
 	bad := strings.Repeat("b", 65)
 	badPath := filepath.Join(dir, "bad.man")
-	if _, err := Create(badPath, bad, 4096, 4096); err == nil {
+	if _, err := Create(badPath, bad, 4096, 4096, 0, 0, 0, 0); err == nil {
 		t.Fatalf("expected error for id >64 bytes")
 	}
 }
@@ -88,7 +88,7 @@ func TestDeviceIDLength(t *testing.T) {
 func TestUpgrade(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "old.man")
-	idx, err := Create(path, "dev", 4096, 4096)
+	idx, err := Create(path, "dev", 4096, 4096, 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -127,7 +127,7 @@ func TestCreateCloseHook(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "hook.man")
 	called := 0
-	idx, err := Create(path, "dev", 4096, 4096, WithCloseHook(func() error { called++; return nil }))
+	idx, err := Create(path, "dev", 4096, 4096, 0, 0, 0, 0, WithCloseHook(func() error { called++; return nil }))
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -142,7 +142,7 @@ func TestCreateCloseHook(t *testing.T) {
 func TestOpenCloseHook(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "hook.man")
-	idx, err := Create(path, "dev", 4096, 4096)
+	idx, err := Create(path, "dev", 4096, 4096, 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -165,7 +165,7 @@ func TestOpenCloseHook(t *testing.T) {
 func TestUpgradeCloseHook(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "hook.man")
-	idx, err := Create(path, "dev", 4096, 4096)
+	idx, err := Create(path, "dev", 4096, 4096, 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -191,7 +191,7 @@ func TestUpgradeCloseHook(t *testing.T) {
 func TestMatchXXHShortcut(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "shortcut.man")
-	idx, err := Create(path, "dev", 4096, 4096)
+	idx, err := Create(path, "dev", 4096, 4096, 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -201,7 +201,7 @@ func TestMatchXXHShortcut(t *testing.T) {
 	}
 	xx := xxh3.Hash(data)
 	b3 := blake3.Sum256(data)
-	if err := idx.Set(0, 4096, xx, b3); err != nil {
+	if err := idx.Set(0, 4096, 0, xx, b3); err != nil {
 		t.Fatalf("Set: %v", err)
 	}
 
@@ -211,7 +211,7 @@ func TestMatchXXHShortcut(t *testing.T) {
 	}
 	xxOther := xxh3.Hash(other)
 	called := false
-	if idx.Match(0, 4096, xxOther, func() [32]byte {
+	if idx.Match(0, 4096, 0, xxOther, func() [32]byte {
 		called = true
 		return blake3.Sum256(other)
 	}) {
@@ -228,7 +228,7 @@ func TestIndexLargeOffsets(t *testing.T) {
 	const blockSize = uint32(1 << 31) // 2 GiB
 	const chunks = uint64(3)
 	size := uint64(blockSize) * chunks
-	idx, err := Create(path, "dev", size, blockSize)
+	idx, err := Create(path, "dev", size, blockSize, 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -236,17 +236,17 @@ func TestIndexLargeOffsets(t *testing.T) {
 	xx := xxh3.Hash(data)
 	b3 := blake3.Sum256(data)
 	offset := uint64(blockSize) * 2 // 4 GiB > int32
-	if err := idx.Set(offset, uint32(len(data)), xx, b3); err != nil {
+	if err := idx.Set(offset, uint32(len(data)), 0, xx, b3); err != nil {
 		t.Fatalf("Set: %v", err)
 	}
-	if !idx.Match(offset, uint32(len(data)), xx, func() [32]byte { return b3 }) {
+	if !idx.Match(offset, uint32(len(data)), 0, xx, func() [32]byte { return b3 }) {
 		t.Fatalf("Match failed for large offset")
 	}
-	off, length, xx2, b32, err := idx.Entry(2)
+	off, length, flags, xx2, b32, err := idx.Entry(2)
 	if err != nil {
 		t.Fatalf("Entry: %v", err)
 	}
-	if off != offset || length != uint32(len(data)) || xx2 != xx || b32 != b3 {
+	if off != offset || length != uint32(len(data)) || flags != 0 || xx2 != xx || b32 != b3 {
 		t.Fatalf("entry mismatch for large offset")
 	}
 	if idx.ChunkCount() != chunks {
@@ -260,15 +260,15 @@ func TestIndexLargeOffsets(t *testing.T) {
 func TestIndexOutOfRange(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "oor.man")
-	idx, err := Create(path, "dev", 4096, 4096)
+	idx, err := Create(path, "dev", 4096, 4096, 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
 	defer idx.Close()
-	if err := idx.Set(4096, 4096, 0, [32]byte{}); err == nil {
+	if err := idx.Set(4096, 4096, 0, 0, [32]byte{}); err == nil {
 		t.Fatalf("expected error for Set out of range")
 	}
-	if _, _, _, _, err := idx.Entry(1); err == nil {
+	if _, _, _, _, _, err := idx.Entry(1); err == nil {
 		t.Fatalf("expected error for Entry out of range")
 	}
 }
@@ -296,7 +296,7 @@ func TestRebuild(t *testing.T) {
 	manPath := filepath.Join(dir, "rebuild.man")
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false); err != nil {
+	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false, 0, 0, 0, 0); err != nil {
 		t.Fatalf("rebuild: %v", err)
 	}
 	idx, err := Open(manPath)
@@ -309,14 +309,14 @@ func TestRebuild(t *testing.T) {
 	if id := string(bytes.TrimRight(idx.hdr.DeviceID[:], "\x00")); id != "uuid-test" {
 		t.Fatalf("device id mismatch: %s", id)
 	}
-	_, l1, xx1, b31, err := idx.Entry(0)
+	_, l1, _, xx1, b31, err := idx.Entry(0)
 	if err != nil {
 		t.Fatalf("Entry0: %v", err)
 	}
 	if l1 != 4096 || xx1 != xxh3.Hash(data1) || b31 != blake3.Sum256(data1) {
 		t.Fatalf("chunk1 mismatch")
 	}
-	_, l2, xx2, b32, err := idx.Entry(1)
+	_, l2, _, xx2, b32, err := idx.Entry(1)
 	if err != nil {
 		t.Fatalf("Entry1: %v", err)
 	}
@@ -350,7 +350,7 @@ func TestRebuildCloseHook(t *testing.T) {
 	hook := func() error { count++; return nil }
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false, WithCloseHook(hook)); err != nil {
+	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false, 0, 0, 0, 0, WithCloseHook(hook)); err != nil {
 		t.Fatalf("rebuild: %v", err)
 	}
 	if count != 1 {
@@ -379,7 +379,7 @@ func TestRebuildCloseError(t *testing.T) {
 	hook := func() error { return hookErr }
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false, WithCloseHook(hook)); err == nil || !strings.Contains(err.Error(), "close fail") {
+	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false, 0, 0, 0, 0, WithCloseHook(hook)); err == nil || !strings.Contains(err.Error(), "close fail") {
 		t.Fatalf("expected close error, got %v", err)
 	}
 }
@@ -413,7 +413,7 @@ func TestRebuildOptionApplication(t *testing.T) {
 	manPath := filepath.Join(dir, "options.man")
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false, WithDetectDevice(detect), WithCloseHook(hook)); err != nil {
+	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false, 0, 0, 0, 0, WithDetectDevice(detect), WithCloseHook(hook)); err != nil {
 		t.Fatalf("rebuild: %v", err)
 	}
 	if !calledDetect {
@@ -451,7 +451,7 @@ func TestRebuildNonDefaultBlockSize(t *testing.T) {
 	manPath := filepath.Join(dir, "rebuildbs.man")
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false, WithDetectDevice(detect)); err != nil {
+	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false, 0, 0, 0, 0, WithDetectDevice(detect)); err != nil {
 		t.Fatalf("rebuild: %v", err)
 	}
 	idx, err := Open(manPath)
@@ -461,14 +461,14 @@ func TestRebuildNonDefaultBlockSize(t *testing.T) {
 	if idx.hdr.BlockSize != uint32(bs) || idx.hdr.ChunkCount != 2 || idx.hdr.SizeBytes != uint64(2*bs) {
 		t.Fatalf("header mismatch: %+v", idx.hdr)
 	}
-	_, l1, xx1, b31, err := idx.Entry(0)
+	_, l1, _, xx1, b31, err := idx.Entry(0)
 	if err != nil {
 		t.Fatalf("Entry0: %v", err)
 	}
 	if l1 != uint32(bs) || xx1 != xxh3.Hash(data1) || b31 != blake3.Sum256(data1) {
 		t.Fatalf("chunk1 mismatch")
 	}
-	_, l2, xx2, b32, err := idx.Entry(1)
+	_, l2, _, xx2, b32, err := idx.Entry(1)
 	if err != nil {
 		t.Fatalf("Entry1: %v", err)
 	}
@@ -501,7 +501,7 @@ func TestRebuildLogsProgress(t *testing.T) {
 	logger := zap.New(core)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	if err := Rebuild(ctx, file.Name(), manPath, logger, 0, false); err != nil {
+	if err := Rebuild(ctx, file.Name(), manPath, logger, 0, false, 0, 0, 0, 0); err != nil {
 		t.Fatalf("rebuild: %v", err)
 	}
 	entries := logs.FilterMessage("rebuild progress").All()
@@ -537,7 +537,7 @@ func TestRebuildLogsCompletion(t *testing.T) {
 	logger := zap.New(core)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	if err := Rebuild(ctx, file.Name(), manPath, logger, 0, false); err != nil {
+	if err := Rebuild(ctx, file.Name(), manPath, logger, 0, false, 0, 0, 0, 0); err != nil {
 		t.Fatalf("rebuild: %v", err)
 	}
 	entries := logs.FilterMessage("rebuild_complete").All()
@@ -574,7 +574,7 @@ func TestRebuildCanceledContext(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 		cancel()
 	}()
-	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false, WithDetectDevice(detect)); !errors.Is(err, context.Canceled) {
+	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false, 0, 0, 0, 0, WithDetectDevice(detect)); !errors.Is(err, context.Canceled) {
 		t.Fatalf("expected context.Canceled, got %v", err)
 	}
 }
@@ -608,7 +608,7 @@ func TestRebuildMounted(t *testing.T) {
 			manPath := filepath.Join(dir, tt.name+".man")
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
-			err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, tt.allow)
+			err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, tt.allow, 0, 0, 0, 0)
 			if tt.wantErr {
 				if err == nil {
 					t.Fatalf("expected error")

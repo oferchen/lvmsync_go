@@ -20,22 +20,29 @@ import (
 
 const (
 	// Version identifies the manifest format.
-	Version uint32 = 1
+	Version uint32 = 2
 
-	headerSize = 4 + 4 + 8 + 8 + 64 + 32 // 120 bytes
-	entrySize  = 8 + 4 + 4 + 8 + 32      // 56 bytes
+	headerSize = 4 + 4 + 8 + 8 + 4 + 4 + 4 + 4 + 64 + 32 // 136 bytes
+	entrySize  = 8 + 4 + 4 + 8 + 32                      // 56 bytes
+
+	// FlagCDC marks chunks produced by content-defined chunking.
+	FlagCDC uint32 = 1 << 0
 )
 
 // Header describes the device tracked by the manifest.
 // It is stored in little-endian binary form at the start of the file.
 // The MAC field is the BLAKE3 digest of the preceding header fields.
 type Header struct {
-	Version    uint32
-	BlockSize  uint32
-	SizeBytes  uint64
-	ChunkCount uint64
-	DeviceID   [64]byte
-	MAC        [32]byte
+	Version         uint32
+	BlockSize       uint32
+	SizeBytes       uint64
+	ChunkCount      uint64
+	MinChunkSize    uint32
+	AvgChunkSize    uint32
+	MaxChunkSize    uint32
+	HybridFixedSize uint32
+	DeviceID        [64]byte
+	MAC             [32]byte
 }
 
 // Index is an mmap-backed manifest file containing chunk metadata.
@@ -97,7 +104,11 @@ func headerMAC(h *Header) [32]byte {
 	binary.LittleEndian.PutUint32(buf[4:8], h.BlockSize)
 	binary.LittleEndian.PutUint64(buf[8:16], h.SizeBytes)
 	binary.LittleEndian.PutUint64(buf[16:24], h.ChunkCount)
-	copy(buf[24:], h.DeviceID[:])
+	binary.LittleEndian.PutUint32(buf[24:28], h.MinChunkSize)
+	binary.LittleEndian.PutUint32(buf[28:32], h.AvgChunkSize)
+	binary.LittleEndian.PutUint32(buf[32:36], h.MaxChunkSize)
+	binary.LittleEndian.PutUint32(buf[36:40], h.HybridFixedSize)
+	copy(buf[40:], h.DeviceID[:])
 	sum := blake3.Sum256(buf[:])
 	return sum
 }
@@ -108,8 +119,12 @@ func (i *Index) writeHeader() {
 	binary.LittleEndian.PutUint32(buf[4:8], i.hdr.BlockSize)
 	binary.LittleEndian.PutUint64(buf[8:16], i.hdr.SizeBytes)
 	binary.LittleEndian.PutUint64(buf[16:24], i.hdr.ChunkCount)
-	copy(buf[24:88], i.hdr.DeviceID[:])
-	copy(buf[88:120], i.hdr.MAC[:])
+	binary.LittleEndian.PutUint32(buf[24:28], i.hdr.MinChunkSize)
+	binary.LittleEndian.PutUint32(buf[28:32], i.hdr.AvgChunkSize)
+	binary.LittleEndian.PutUint32(buf[32:36], i.hdr.MaxChunkSize)
+	binary.LittleEndian.PutUint32(buf[36:40], i.hdr.HybridFixedSize)
+	copy(buf[40:104], i.hdr.DeviceID[:])
+	copy(buf[104:136], i.hdr.MAC[:])
 	copy(i.data[:headerSize], buf[:])
 }
 
@@ -122,8 +137,12 @@ func (i *Index) readHeader() error {
 	i.hdr.BlockSize = binary.LittleEndian.Uint32(buf[4:8])
 	i.hdr.SizeBytes = binary.LittleEndian.Uint64(buf[8:16])
 	i.hdr.ChunkCount = binary.LittleEndian.Uint64(buf[16:24])
-	copy(i.hdr.DeviceID[:], buf[24:88])
-	copy(i.hdr.MAC[:], buf[88:120])
+	i.hdr.MinChunkSize = binary.LittleEndian.Uint32(buf[24:28])
+	i.hdr.AvgChunkSize = binary.LittleEndian.Uint32(buf[28:32])
+	i.hdr.MaxChunkSize = binary.LittleEndian.Uint32(buf[32:36])
+	i.hdr.HybridFixedSize = binary.LittleEndian.Uint32(buf[36:40])
+	copy(i.hdr.DeviceID[:], buf[40:104])
+	copy(i.hdr.MAC[:], buf[104:136])
 	if mac := headerMAC(&i.hdr); !bytes.Equal(mac[:], i.hdr.MAC[:]) {
 		return fmt.Errorf("manifest: header MAC mismatch")
 	}
@@ -161,7 +180,7 @@ func (i *Index) Close() error {
 }
 
 // Create initializes a new manifest index at path for the given device.
-func Create(path, deviceID string, size uint64, blockSize uint32, opts ...IndexOption) (*Index, error) {
+func Create(path, deviceID string, size uint64, blockSize, cdcMin, cdcAvg, cdcMax, hybridFixed uint32, opts ...IndexOption) (*Index, error) {
 	cfg := applyOptions(opts)
 	if len(deviceID) > 64 {
 		return nil, fmt.Errorf("manifest: device ID exceeds 64 bytes")
@@ -183,10 +202,14 @@ func Create(path, deviceID string, size uint64, blockSize uint32, opts ...IndexO
 	}
 	idx := &Index{f: f, data: data, closeHook: cfg.closeHook}
 	idx.hdr = Header{
-		Version:    Version,
-		BlockSize:  blockSize,
-		SizeBytes:  size,
-		ChunkCount: chunkCount,
+		Version:         Version,
+		BlockSize:       blockSize,
+		SizeBytes:       size,
+		ChunkCount:      chunkCount,
+		MinChunkSize:    cdcMin,
+		AvgChunkSize:    cdcAvg,
+		MaxChunkSize:    cdcMax,
+		HybridFixedSize: hybridFixed,
 	}
 	copy(idx.hdr.DeviceID[:], []byte(deviceID))
 	idx.hdr.MAC = headerMAC(&idx.hdr)
@@ -261,7 +284,7 @@ func Upgrade(path string, opts ...IndexOption) (*Index, error) {
 func entryOffset(i uint64) uint64 { return uint64(headerSize) + i*entrySize }
 
 // Set records metadata for the chunk at the given offset.
-func (i *Index) Set(offset uint64, length uint32, xxh uint64, digest [32]byte) error {
+func (i *Index) Set(offset uint64, length, flags uint32, xxh uint64, digest [32]byte) error {
 	idx := offset / uint64(i.hdr.BlockSize)
 	if idx >= i.hdr.ChunkCount {
 		return ErrIndexOutOfRange
@@ -270,16 +293,16 @@ func (i *Index) Set(offset uint64, length uint32, xxh uint64, digest [32]byte) e
 	start := int(off)
 	binary.LittleEndian.PutUint64(i.data[start:start+8], offset)
 	binary.LittleEndian.PutUint32(i.data[start+8:start+12], length)
-	// 4 bytes padding at start+12:start+16
+	binary.LittleEndian.PutUint32(i.data[start+12:start+16], flags)
 	binary.LittleEndian.PutUint64(i.data[start+16:start+24], xxh)
 	copy(i.data[start+24:start+56], digest[:])
 	return nil
 }
 
 // Match reports whether the manifest already has a record for the chunk at the
-// given offset and length. The provided digestFn is invoked to compute the
-// BLAKE3 digest only if the stored XXH3 hash matches the supplied xxh.
-func (i *Index) Match(offset uint64, length uint32, xxh uint64, digestFn func() [32]byte) bool {
+// given offset, length, and flags. The provided digestFn is invoked to compute
+// the BLAKE3 digest only if the stored XXH3 hash matches the supplied xxh.
+func (i *Index) Match(offset uint64, length, flags uint32, xxh uint64, digestFn func() [32]byte) bool {
 	idx := offset / uint64(i.hdr.BlockSize)
 	if idx >= i.hdr.ChunkCount {
 		return false
@@ -288,10 +311,11 @@ func (i *Index) Match(offset uint64, length uint32, xxh uint64, digestFn func() 
 	start := int(off)
 	storedOffset := binary.LittleEndian.Uint64(i.data[start : start+8])
 	storedLen := binary.LittleEndian.Uint32(i.data[start+8 : start+12])
+	storedFlags := binary.LittleEndian.Uint32(i.data[start+12 : start+16])
 	if storedLen == 0 {
 		return false
 	}
-	if storedOffset != offset || storedLen != length {
+	if storedOffset != offset || storedLen != length || storedFlags != flags {
 		return false
 	}
 	storedXXH := binary.LittleEndian.Uint64(i.data[start+16 : start+24])
@@ -303,14 +327,15 @@ func (i *Index) Match(offset uint64, length uint32, xxh uint64, digestFn func() 
 }
 
 // Entry returns metadata for the chunk at idx.
-func (i *Index) Entry(idx uint64) (offset uint64, length uint32, xxh uint64, digest [32]byte, err error) {
+func (i *Index) Entry(idx uint64) (offset uint64, length, flags uint32, xxh uint64, digest [32]byte, err error) {
 	if idx >= i.hdr.ChunkCount {
-		return 0, 0, 0, digest, ErrIndexOutOfRange
+		return 0, 0, 0, 0, digest, ErrIndexOutOfRange
 	}
 	off := entryOffset(idx)
 	start := int(off)
 	offset = binary.LittleEndian.Uint64(i.data[start : start+8])
 	length = binary.LittleEndian.Uint32(i.data[start+8 : start+12])
+	flags = binary.LittleEndian.Uint32(i.data[start+12 : start+16])
 	xxh = binary.LittleEndian.Uint64(i.data[start+16 : start+24])
 	copy(digest[:], i.data[start+24:start+56])
 	return
@@ -324,7 +349,15 @@ func (i *Index) ChunkCount() uint64 { return i.hdr.ChunkCount }
 // Progress is logged at the provided interval; set interval to 0 to log every chunk.
 // The operation respects cancellation via ctx.
 // When allowMounted is false, Rebuild aborts if the device is mounted read-write.
-func Rebuild(ctx context.Context, devicePath, output string, logger *zap.Logger, progressInterval time.Duration, allowMounted bool, opts ...IndexOption) (err error) {
+func Rebuild(
+	ctx context.Context,
+	devicePath, output string,
+	logger *zap.Logger,
+	progressInterval time.Duration,
+	allowMounted bool,
+	cdcMin, cdcAvg, cdcMax, hybridFixed uint32,
+	opts ...IndexOption,
+) (err error) {
 	cfg := applyOptions(opts)
 	if logger == nil {
 		logger = zap.NewNop()
@@ -365,7 +398,7 @@ func Rebuild(ctx context.Context, devicePath, output string, logger *zap.Logger,
 	defer f.Close()
 	var idx *Index
 
-	idx, err = Create(output, id, size, blockSize, opts...)
+	idx, err = Create(output, id, size, blockSize, cdcMin, cdcAvg, cdcMax, hybridFixed, opts...)
 	if err != nil {
 		return err
 	}
@@ -391,7 +424,7 @@ func Rebuild(ctx context.Context, devicePath, output string, logger *zap.Logger,
 		data := buf[:n]
 		xx := xxh3.Hash(data)
 		b3 := blake3.Sum256(data)
-		if err = idx.Set(off, uint32(n), xx, b3); err != nil {
+		if err = idx.Set(off, uint32(n), 0, xx, b3); err != nil {
 			return err
 		}
 		if progressInterval == 0 || time.Since(lastLog) >= progressInterval {

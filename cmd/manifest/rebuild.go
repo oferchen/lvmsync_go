@@ -62,7 +62,11 @@ func Run(cfg *config.Config, args []string, logger *zap.Logger) error {
 		ctx, cancel = context.WithTimeout(ctx, conf.ManifestTimeout)
 		defer cancel()
 	}
-	if err := rebuildFn(ctx, device, path, logger, conf.ManifestProgressInterval, conf.ManifestAllowMounted); err != nil {
+	hybridFixed := uint32(0)
+	if conf.DedupMode == "hybrid" {
+		hybridFixed = uint32(conf.BlockSize)
+	}
+	if err := rebuildFn(ctx, device, path, logger, conf.ManifestProgressInterval, conf.ManifestAllowMounted, uint32(conf.CDCMin), uint32(conf.CDCAvg), uint32(conf.CDCMax), hybridFixed); err != nil {
 		logger.Error("rebuild failed", zap.Error(err))
 		return err
 	}

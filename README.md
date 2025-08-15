@@ -669,7 +669,7 @@ LVMSYNC_TRANSPORT_TRANSPORT=ssh LVMSYNC_SSH_PORT=2222 lvmsync run backup@host:/d
 
 ## Hybrid Deduplication and Adaptive Compression
 
-Hybrid dedup combines fixed-size and content-defined chunking. Enable it with `--dedup hybrid` and tune FastCDC with `--cdc-min`, `--cdc-avg`, and `--cdc-max` (flags use underscores in the CLI: `--cdc_min`, `--cdc_avg`, `--cdc_max`).
+Hybrid dedup combines fixed-size and content-defined chunking. Enable it with `--dedup hybrid` and tune FastCDC with `--cdc-min`, `--cdc-avg`, and `--cdc-max`.
 
 | Flag (`--cdc-*`) | Environment variable | Config key | Description |
 |------------------|----------------------|------------|-------------|
@@ -687,7 +687,7 @@ Compression samples 8 KiB from each chunk and skips when the estimated ratio e
 CLI:
 
 ```sh
-lvmsync run --dedup hybrid --cdc_min 4096 --cdc_avg 65536 --cdc_max 1048576 /dev/vg0/snap0 /mnt/backup
+lvmsync run --dedup hybrid --cdc-min 4096 --cdc-avg 65536 --cdc-max 1048576 /dev/vg0/snap0 /mnt/backup
 ```
 
 Environment:
@@ -964,9 +964,9 @@ timeouts or cancellations are reported separately.
 | Option               | Description                                                                                             | Default            |
 | -------------------- | ------------------------------------------------------------------------------------------------------- | ------------------ |
 | `--dedup`            | Deduplication mode ("fixed", "cdc", or "hybrid")                                                  | "fixed"          |
-| `--cdc_min`          | Minimum chunk size for CDC                                                                              | 4096             |
-| `--cdc_avg`          | Average chunk size for CDC                                                                              | 65536            |
-| `--cdc_max`          | Maximum chunk size for CDC                                                                              | 1048576          |
+| `--cdc-min`          | Minimum chunk size for CDC                                                                              | 4096             |
+| `--cdc-avg`          | Average chunk size for CDC                                                                              | 65536            |
+| `--cdc-max`          | Maximum chunk size for CDC                                                                              | 1048576          |
 | `--dedup_strategy`   | Deduplication strategy ("none", "auto", "checksum", "rolling_hash", or "bloom"); use `none` to disable | "none"           |
 | `--dedup_state_file` | Path to deduplication state file                                                                        | ~/.lvmsync_dedup |
 | `--bloom_entries`    | Estimated number of entries for bloom filter                                                            | 1000000          |

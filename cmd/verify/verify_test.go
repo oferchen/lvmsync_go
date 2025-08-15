@@ -94,7 +94,7 @@ func TestVerifyWithManifestAllocations(t *testing.T) {
 	size := blockSize * 3
 	src := createTestFile(t, size)
 	manifestPath := filepath.Join(t.TempDir(), "manifest")
-	idx, err := manifest.Create(manifestPath, "dev", uint64(size), uint32(blockSize))
+	idx, err := manifest.Create(manifestPath, "dev", uint64(size), uint32(blockSize), 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("manifest create: %v", err)
 	}
@@ -109,7 +109,7 @@ func TestVerifyWithManifestAllocations(t *testing.T) {
 			t.Fatalf("read: %v", err)
 		}
 		digest := blake3.Sum256(buf[:n])
-		if err := idx.Set(uint64(off), uint32(n), 0, digest); err != nil {
+		if err := idx.Set(uint64(off), uint32(n), 0, 0, digest); err != nil {
 			t.Fatalf("Set: %v", err)
 		}
 	}

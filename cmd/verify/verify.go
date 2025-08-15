@@ -163,7 +163,7 @@ func verifyWithManifest(cfg *config.Config, src, manifestPath string, logger *za
 	buf := make([]byte, 0)
 	hash := digestFunc(cfg)
 	for i := uint64(0); i < idx.ChunkCount(); i++ {
-		off, length, _, digest, err := idx.Entry(i)
+		off, length, _, _, digest, err := idx.Entry(i)
 		if err != nil {
 			return fmt.Errorf("manifest entry: %w", err)
 		}
