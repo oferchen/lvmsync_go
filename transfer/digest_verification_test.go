@@ -33,7 +33,7 @@ func TestIterateBlocksFinalSHA(t *testing.T) {
 		t.Fatalf("compression writer: %v", err)
 	}
 	bufOut := bufio.NewWriter(w)
-	_, _, digest, err := iterateBlocks(cfg, ranges, srcFile, bufOut, nil, [2]int{-1, -1}, logger)
+	_, _, digest, err := iterateBlocks(cfg, ranges, srcFile, bufOut, nil, [2]int{-1, -1}, logger, nil)
 	if err != nil {
 		t.Fatalf("iterateBlocks: %v", err)
 	}

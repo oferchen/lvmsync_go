@@ -54,7 +54,7 @@ func TestIterateBlocksUsesManifest(t *testing.T) {
 	cfg := &config.Config{BlockSize: 4096, ChecksumAlgorithm: "sha256", ManifestPath: manPath, MaxRetries: 1}
 	ranges := []Range{{Start: 0, End: 4096}, {Start: 4096, End: 8192}}
 	buf := bufio.NewWriter(bytes.NewBuffer(nil))
-	total, skipped, _, err := iterateBlocks(cfg, ranges, src, buf, nil, [2]int{-1, -1}, zap.NewNop())
+	total, skipped, _, err := iterateBlocks(cfg, ranges, src, buf, nil, [2]int{-1, -1}, zap.NewNop(), nil)
 	if err != nil {
 		t.Fatalf("iterateBlocks: %v", err)
 	}
