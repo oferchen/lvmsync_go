@@ -12,6 +12,7 @@ import (
 
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/knownhosts"
 
 	"lvmsync_go/common"
 	"lvmsync_go/transport"
@@ -21,6 +22,7 @@ import (
 type Transport struct {
 	serverConf *ssh.ServerConfig
 	clientConf *ssh.ClientConfig
+	hostSigner ssh.Signer
 	logger     *zap.Logger
 }
 
@@ -49,12 +51,30 @@ func New(cfg transport.Config) (transport.Interface, error) {
 		},
 	}
 	serverConf.AddHostKey(signer)
+	var hkc ssh.HostKeyCallback
+	switch {
+	case cfg.SSHKnownHosts != "":
+		hkc, err = knownhosts.New(cfg.SSHKnownHosts)
+		if err != nil {
+			return nil, fmt.Errorf("knownhosts: %w", err)
+		}
+	case cfg.SSHHostKey != "":
+		pk, _, _, _, err := ssh.ParseAuthorizedKey([]byte(cfg.SSHHostKey))
+		if err != nil {
+			return nil, fmt.Errorf("parse host key: %w", err)
+		}
+		hkc = ssh.FixedHostKey(pk)
+	case cfg.AllowInsecure:
+		hkc = ssh.InsecureIgnoreHostKey()
+	default:
+		return nil, fmt.Errorf("known hosts or host key required")
+	}
 	clientConf := &ssh.ClientConfig{
 		User:            cfg.SSHUser,
 		Auth:            []ssh.AuthMethod{ssh.Password(cfg.SSHPassword)},
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		HostKeyCallback: hkc,
 	}
-	return &Transport{serverConf: serverConf, clientConf: clientConf, logger: cfg.Logger}, nil
+	return &Transport{serverConf: serverConf, clientConf: clientConf, hostSigner: signer, logger: cfg.Logger}, nil
 }
 
 func init() {

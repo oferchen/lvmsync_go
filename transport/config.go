@@ -18,4 +18,6 @@ type Config struct {
 	AllowInsecure bool
 	SSHUser       string
 	SSHPassword   string
+	SSHKnownHosts string
+	SSHHostKey    string
 }

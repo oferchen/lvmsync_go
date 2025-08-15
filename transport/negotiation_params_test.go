@@ -59,6 +59,7 @@ func newTransport(t *testing.T, name string) transport.Interface {
 	if name == "ssh" {
 		cfg.SSHUser = "test"
 		cfg.SSHPassword = "pass"
+		cfg.AllowInsecure = true
 	}
 	tr, err := transport.Get(name, cfg)
 	if err != nil {

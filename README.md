@@ -859,9 +859,12 @@ Flags are parsed via Viper, so the same settings can be provided through
 | `--ssh_port`              | SSH port number                                                 | `22`                     |
 | `--known_hosts`           | Path to known_hosts file (defaults to `$HOME/.ssh/known_hosts`) | `$HOME/.ssh/known_hosts` |
 | `--strict_host_key_checking` | Require host keys to be present in `known_hosts`; when `false`, host key verification is disabled | `true`                   |
+| `--ssh_host_key`          | Expected SSH host public key (authorized_keys format)          | `""`                    |
+
+Unknown hosts are rejected unless their keys are present in `known_hosts` or match `--ssh_host_key`.
 
 Programmatic use of the SSH transport requires a configuration populated with
-fields like `SSHUser`, `SSHKeyPath`, `SSHPort`, `KnownHosts`,
+fields like `SSHUser`, `SSHKeyPath`, `SSHPort`, `SSHHostKey`, `KnownHosts`,
 `StrictHostKeyCheck`, `SSHTimeout`, `SSHKeepAliveInterval`, and `MaxRetries`.
 The constructor also requires a `*zap.Logger`:
 

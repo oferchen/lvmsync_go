@@ -59,6 +59,7 @@ lvmsync --transport quic --tls_cert cert.pem --tls_key key.pem --ca_cert ca.pem
 
 - Establishes sessions using `golang.org/x/crypto/ssh`
 - Supports `sudo -n` escalation hooks
+- Verifies server host keys using `known_hosts` or an explicit `--ssh_host_key`; unknown hosts are rejected
 
 Example selecting transports and custom port:
 

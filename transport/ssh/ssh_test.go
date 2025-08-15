@@ -2,12 +2,17 @@ package ssh
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"net"
+	"os"
 	"testing"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
+	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/knownhosts"
 
 	"lvmsync_go/common"
 	"lvmsync_go/transport"
@@ -37,25 +42,56 @@ func checkLogFields(t *testing.T, logs *observer.ObservedLogs, msg string, expec
 	}
 }
 
+func writeKnownHosts(t *testing.T, addr string, pk ssh.PublicKey) string {
+	t.Helper()
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		t.Fatalf("SplitHostPort: %v", err)
+	}
+	line := knownhosts.Line([]string{fmt.Sprintf("[%s]:%s", host, port)}, pk)
+	f, err := os.CreateTemp(t.TempDir(), "known_hosts")
+	if err != nil {
+		t.Fatalf("CreateTemp: %v", err)
+	}
+	if _, err := f.WriteString(line + "\n"); err != nil {
+		t.Fatalf("WriteString: %v", err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	return f.Name()
+}
+
+func emptyKnownHosts(t *testing.T) string {
+	t.Helper()
+	f, err := os.CreateTemp(t.TempDir(), "known_hosts")
+	if err != nil {
+		t.Fatalf("CreateTemp: %v", err)
+	}
+	f.Close()
+	return f.Name()
+}
+
 func TestSSHTransportAuthSuccess(t *testing.T) {
 	core, logs := observer.New(zap.InfoLevel)
-	cfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "pass"}
-	serverIface, err := New(cfg)
+	srvCfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "pass"}
+	serverIface, err := New(srvCfg)
 	if err != nil {
 		t.Fatalf("new server transport: %v", err)
 	}
-	clientIface, err := New(cfg)
-	if err != nil {
-		t.Fatalf("new client transport: %v", err)
-	}
 	server := serverIface.(*Transport)
-	client := clientIface.(*Transport)
 	ctx := context.Background()
 	ln, err := server.Listen(ctx, "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("listen: %v", err)
 	}
 	defer ln.Close()
+	kh := writeKnownHosts(t, ln.Addr().String(), server.hostSigner.PublicKey())
+	clientIface, err := New(transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "pass", SSHKnownHosts: kh})
+	if err != nil {
+		t.Fatalf("new client transport: %v", err)
+	}
+	client := clientIface.(*Transport)
 
 	done := make(chan struct{})
 	go func() {
@@ -111,24 +147,24 @@ func TestSSHTransportAuthSuccess(t *testing.T) {
 
 func TestSSHTransportAuthFailure(t *testing.T) {
 	core, logs := observer.New(zap.InfoLevel)
-	serverCfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "pass"}
-	clientCfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "wrong"}
-	serverIface, err := New(serverCfg)
+	srvCfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "pass"}
+	serverIface, err := New(srvCfg)
 	if err != nil {
 		t.Fatalf("new server transport: %v", err)
 	}
-	clientIface, err := New(clientCfg)
-	if err != nil {
-		t.Fatalf("new client transport: %v", err)
-	}
 	server := serverIface.(*Transport)
-	client := clientIface.(*Transport)
 	ctx := context.Background()
 	ln, err := server.Listen(ctx, "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("listen: %v", err)
 	}
 	defer ln.Close()
+	kh := writeKnownHosts(t, ln.Addr().String(), server.hostSigner.PublicKey())
+	clientIface, err := New(transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "wrong", SSHKnownHosts: kh})
+	if err != nil {
+		t.Fatalf("new client transport: %v", err)
+	}
+	client := clientIface.(*Transport)
 
 	done := make(chan struct{})
 	go func() {
@@ -153,23 +189,24 @@ func TestSSHTransportAuthFailure(t *testing.T) {
 
 func TestSSHTransportCDCMismatch(t *testing.T) {
 	core, logs := observer.New(zap.InfoLevel)
-	cfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "pass"}
-	serverIface, err := New(cfg)
+	srvCfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "pass"}
+	serverIface, err := New(srvCfg)
 	if err != nil {
 		t.Fatalf("new server transport: %v", err)
 	}
-	clientIface, err := New(cfg)
-	if err != nil {
-		t.Fatalf("new client transport: %v", err)
-	}
 	server := serverIface.(*Transport)
-	client := clientIface.(*Transport)
 	ctx := context.Background()
 	ln, err := server.Listen(ctx, "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("listen: %v", err)
 	}
 	defer ln.Close()
+	kh := writeKnownHosts(t, ln.Addr().String(), server.hostSigner.PublicKey())
+	clientIface, err := New(transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "pass", SSHKnownHosts: kh})
+	if err != nil {
+		t.Fatalf("new client transport: %v", err)
+	}
+	client := clientIface.(*Transport)
 
 	done := make(chan struct{})
 	go func() {
@@ -208,4 +245,40 @@ func TestSSHTransportRequiresLogger(t *testing.T) {
 	if _, err := New(transport.Config{SSHUser: "u", SSHPassword: "p"}); err == nil {
 		t.Fatalf("expected error when logger is nil")
 	}
+}
+
+func TestSSHTransportRejectsUnknownHost(t *testing.T) {
+	core, logs := observer.New(zap.InfoLevel)
+	srvCfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "pass"}
+	serverIface, err := New(srvCfg)
+	if err != nil {
+		t.Fatalf("new server transport: %v", err)
+	}
+	server := serverIface.(*Transport)
+	ctx := context.Background()
+	ln, err := server.Listen(ctx, "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer ln.Close()
+	kh := emptyKnownHosts(t)
+	clientIface, err := New(transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "pass", SSHKnownHosts: kh})
+	if err != nil {
+		t.Fatalf("new client transport: %v", err)
+	}
+	client := clientIface.(*Transport)
+
+	done := make(chan struct{})
+	go func() {
+		if _, err := ln.Accept(); err == nil {
+			t.Errorf("expected accept error")
+		}
+		close(done)
+	}()
+	if _, err := client.Dial(ctx, ln.Addr().String()); err == nil {
+		t.Fatalf("expected dial error")
+	}
+	<-done
+	checkLogFields(t, logs, "dial_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "dial_end", 1, true, zapcore.ErrorLevel)
 }
