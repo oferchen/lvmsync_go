@@ -38,6 +38,7 @@ type resumeTracker struct {
 	length uint32
 }
 
+// writeResumeState persists resume state; logger must be non-nil.
 func writeResumeState(cfg *config.Config, logger *zap.Logger, path string, offset uint64, length uint32, chunk [32]byte) {
 	rs := resumeState{
 		Transport:         cfg.Transport,
@@ -50,15 +51,11 @@ func writeResumeState(cfg *config.Config, logger *zap.Logger, path string, offse
 	}
 	data, err := json.Marshal(rs)
 	if err != nil {
-		if logger != nil {
-			logger.Warn("Failed to marshal resume state", zap.Error(err))
-		}
+		logger.Warn("Failed to marshal resume state", zap.Error(err))
 		return
 	}
 	if err := os.WriteFile(path, data, 0o600); err != nil {
-		if logger != nil {
-			logger.Warn("Failed to update resume state", zap.Error(err))
-		}
+		logger.Warn("Failed to update resume state", zap.Error(err))
 	}
 }
 
@@ -89,9 +86,7 @@ func finalizeResumeState(cfg *config.Config, rt *resumeTracker, logger *zap.Logg
 		return
 	}
 	if err := os.Remove(cfg.ResumeState); err != nil && !os.IsNotExist(err) {
-		if logger != nil {
-			logger.Warn("Failed to remove resume state", zap.Error(err))
-		}
+		logger.Warn("Failed to remove resume state", zap.Error(err))
 	}
 	rt.bytes = 0
 	rt.last = time.Time{}
@@ -121,11 +116,9 @@ func readResumeState(cfg *config.Config, logger *zap.Logger) resumeCheckpoint {
 	copy(out.Chunk[:], b)
 	out.Offset = rs.Offset
 	out.Length = rs.Length
-	if logger != nil {
-		logger.Info("Resuming from chunk",
-			zap.String("resume_chunk", hex.EncodeToString(out.Chunk[:])),
-			zap.Uint64("resume_offset", out.Offset),
-			zap.Uint32("resume_length", out.Length))
-	}
+	logger.Info("Resuming from chunk",
+		zap.String("resume_chunk", hex.EncodeToString(out.Chunk[:])),
+		zap.Uint64("resume_offset", out.Offset),
+		zap.Uint32("resume_length", out.Length))
 	return out
 }

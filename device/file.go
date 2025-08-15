@@ -18,10 +18,8 @@ type FileDevice struct {
 }
 
 // OpenFile opens a regular file and reports its size and filesystem block size.
+// logger must be non-nil.
 func OpenFile(path string, logger *zap.Logger) (*FileDevice, error) {
-	if logger == nil {
-		logger = zap.NewNop()
-	}
 	info, err := os.Stat(path)
 	if err != nil {
 		logger.Error("file device open failed", zap.String("path", path), zap.Error(err))
