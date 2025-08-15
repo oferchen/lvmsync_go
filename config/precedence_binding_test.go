@@ -3,6 +3,8 @@ package config
 import (
 	"testing"
 	"time"
+
+	"github.com/spf13/pflag"
 )
 
 func TestCLIFlagsOverrideEnvAndConfig(t *testing.T) {
@@ -820,5 +822,39 @@ func TestManifestAllowMountedEnvOverridesConfig(t *testing.T) {
 	}
 	if conf.ManifestAllowMounted {
 		t.Fatalf("expected manifest_allow_mounted false, got %v", conf.ManifestAllowMounted)
+	}
+}
+
+// Subsetting FlagSets should still bind remaining flags and omit removed ones.
+func TestSubsetFlagSetsBinding(t *testing.T) {
+	cfgPath := writeTempConfig(t, "manifest_path: cfg.manifest\n")
+	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--manifest_path", "cli.manifest"})
+
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	fs := NewFlagSets(defaults)
+	fs.SSH = pflag.NewFlagSet("SSH Options", pflag.ExitOnError)
+	fs.Remote = pflag.NewFlagSet("Remote Options", pflag.ExitOnError)
+	fs.Dedup = pflag.NewFlagSet("Deduplication Options", pflag.ExitOnError)
+	fs.Compression = pflag.NewFlagSet("Compression Options", pflag.ExitOnError)
+	fs.LVM = pflag.NewFlagSet("LVM Options", pflag.ExitOnError)
+	fs.GRPC = pflag.NewFlagSet("gRPC Options", pflag.ExitOnError)
+	fs.Transport = pflag.NewFlagSet("Transport Options", pflag.ExitOnError)
+	registerFlags(fs, rootFS)
+	if err := rootFS.Parse(args); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	v, err := buildViper(fs)
+	if err != nil {
+		t.Fatalf("buildViper: %v", err)
+	}
+	if got := v.GetString("manifest_path"); got != "cli.manifest" {
+		t.Fatalf("manifest_path got %q want %q", got, "cli.manifest")
+	}
+	if rootFS.Lookup("ssh_user") != nil {
+		t.Fatalf("unexpected ssh_user flag present")
 	}
 }

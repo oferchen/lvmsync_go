@@ -243,6 +243,30 @@ func initConfig() *viper.Viper {
 }
 ```
 
+### Grouped help
+
+Each subcommand prints its relevant flag groups:
+
+```
+$ lvmsync run --help
+General Options:
+      --parallel int   number of worker goroutines (default 4)
+...
+Transport Options:
+      --transport string   transport modes (comma-separated)
+
+$ lvmsync manifest rebuild --help
+General Options:
+      --dry-run   skip execution
+Manifest Options:
+      --manifest_path string   manifest file path
+
+$ lvmsync verify --help
+General Options:
+      --block_size string   block size for comparisons
+Manifest Options:
+      --manifest_path string   manifest to verify against
+
 This groups related flags once and lets Viper merge values from flags, `LVMSYNC_*` variables, and the
 `config.yaml` file.
 

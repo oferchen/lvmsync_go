@@ -89,11 +89,15 @@ func NewRootCmd(logger *zap.Logger) *cobra.Command {
 			}
 			fs := pflag.NewFlagSet("rebuild", pflag.ContinueOnError)
 			flagSets := config.NewFlagSets(defaults)
+			flagSets.SSH = pflag.NewFlagSet("SSH Options", pflag.ExitOnError)
+			flagSets.Remote = pflag.NewFlagSet("Remote Options", pflag.ExitOnError)
+			flagSets.Dedup = pflag.NewFlagSet("Deduplication Options", pflag.ExitOnError)
+			flagSets.Compression = pflag.NewFlagSet("Compression Options", pflag.ExitOnError)
+			flagSets.LVM = pflag.NewFlagSet("LVM Options", pflag.ExitOnError)
+			flagSets.GRPC = pflag.NewFlagSet("gRPC Options", pflag.ExitOnError)
+			flagSets.Transport = pflag.NewFlagSet("Transport Options", pflag.ExitOnError)
 			cfg, remaining, err := config.LoadConfig(flagSets, defaults, fs, args)
 			if err != nil {
-				return err
-			}
-			if err := cfg.Validate(); err != nil {
 				return err
 			}
 			if len(remaining) != 1 {
