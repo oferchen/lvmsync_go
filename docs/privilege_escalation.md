@@ -28,5 +28,6 @@ lvmsync --check-escalation
 
 The gRPC control plane derives authorization roles from client TLS certificates.
 Roles are read from the certificate's `OrganizationalUnit` field and must
-include `replicator` to invoke replication RPCs. Any user-supplied metadata is
+include `replicator` to invoke replication RPCs such as `StartSync`, `Cancel`,
+`ProgressStream`, `BuildManifest`, and `Verify`. Any user-supplied metadata is
 ignored, and requests without a verified role are rejected.
