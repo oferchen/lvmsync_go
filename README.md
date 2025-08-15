@@ -309,18 +309,18 @@ Reading from a live block device can corrupt data if writes occur during the tra
 - `--fs-freeze-command`/`--fs-thaw-command` – run commands that freeze and thaw the filesystem around the read.
 - Time out freeze and thaw helpers with `--freeze-timeout` and `--thaw-timeout` (default `10s`).
 
-Freeze and thaw commands are validated before execution. The path must be set, free of NUL bytes, every argument must avoid NULs, and the executable must be discoverable in `$PATH`; otherwise lvmsync returns an error.
+Freeze and thaw commands are validated before execution. The command name must match `^[a-zA-Z0-9._-]+$`, be set, free of NUL bytes, every argument must avoid NULs, and the executable must be discoverable in `$PATH`; otherwise lvmsync returns an error.
 
 Example using the provided scripts:
 
 ```sh
 lvmsync --source-type raw \
-  --fs-freeze-command "./docs/fsfreeze-freeze.sh /mnt" \
-  --fs-thaw-command "./docs/fsfreeze-thaw.sh /mnt" \
+  --fs-freeze-command "fsfreeze-freeze.sh /mnt" \
+  --fs-thaw-command "fsfreeze-thaw.sh /mnt" \
   /dev/sdb /tmp/dump
 ```
 
-`docs/fsfreeze-freeze.sh` and `docs/fsfreeze-thaw.sh` demonstrate basic freeze and thaw operations.
+`docs/fsfreeze-freeze.sh` and `docs/fsfreeze-thaw.sh` demonstrate basic freeze and thaw operations; add the scripts to your `$PATH` to use them.
 
 ### Configuration sources and precedence
 
@@ -365,8 +365,8 @@ LVMSYNC_GRPC_GRPC_PORT=9443 LVMSYNC_GRPC_TLS_CERT=cert.pem lvmsync-grpcd
 | `--source-type` | `LVMSYNC_SOURCE_TYPE` | `source-type` | Source device type: `auto`, `file`, `raw`, or `lvm` |
 | `--dest-type` | `LVMSYNC_DEST_TYPE` | `dest-type` | Destination device type: `auto`, `file`, `raw`, or `lvm` |
 | `--offline` | `LVMSYNC_OFFLINE` | `offline` | Assume source raw device is offline |
-| `--fs-freeze-command` | `LVMSYNC_FS_FREEZE_COMMAND` | `fs-freeze-command` | Command to freeze filesystem before reading raw source |
-| `--fs-thaw-command` | `LVMSYNC_FS_THAW_COMMAND` | `fs-thaw-command` | Command to thaw filesystem after reading raw source |
+| `--fs-freeze-command` | `LVMSYNC_FS_FREEZE_COMMAND` | `fs-freeze-command` | Command to freeze filesystem before reading raw source; executable name must match `^[a-zA-Z0-9._-]+$` |
+| `--fs-thaw-command` | `LVMSYNC_FS_THAW_COMMAND` | `fs-thaw-command` | Command to thaw filesystem after reading raw source; executable name must match `^[a-zA-Z0-9._-]+$` |
 | `--freeze-timeout` | `LVMSYNC_FREEZE_TIMEOUT` | `freeze_timeout` | Timeout for filesystem freeze command |
 | `--thaw-timeout` | `LVMSYNC_THAW_TIMEOUT` | `thaw_timeout` | Timeout for filesystem thaw command |
 | `--mode` | `LVMSYNC_MODE` | `mode` | Configuration preset: `default` or `throughput`; unknown modes fail validation |

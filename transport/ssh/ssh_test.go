@@ -252,10 +252,10 @@ func TestSSHTransportAuthSuccess(t *testing.T) {
 	conn.Close()
 	<-done
 
-	checkLogFields(t, logs, "dial_start", 1, true, zapcore.InfoLevel)
-	checkLogFields(t, logs, "dial_end", 1, true, zapcore.InfoLevel)
-	checkLogFields(t, logs, "listen_start", 1, true, zapcore.InfoLevel)
-	checkLogFields(t, logs, "listen_end", 1, true, zapcore.InfoLevel)
+	checkLogFields(t, logs, "dial_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "dial_end", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "listen_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "listen_end", 1, false, zapcore.InfoLevel)
 	checkLogFields(t, logs, "negotiate_start", 2, false, zapcore.InfoLevel)
 	checkLogFields(t, logs, "negotiate_end", 2, false, zapcore.InfoLevel)
 	checkHandshakeFields(t, logs, "negotiate_end", 2)
@@ -337,10 +337,10 @@ func TestSSHTransportKeyAuth(t *testing.T) {
 	conn.Close()
 	<-done
 
-	checkLogFields(t, logs, "dial_start", 1, true, zapcore.InfoLevel)
-	checkLogFields(t, logs, "dial_end", 1, true, zapcore.InfoLevel)
-	checkLogFields(t, logs, "listen_start", 1, true, zapcore.InfoLevel)
-	checkLogFields(t, logs, "listen_end", 1, true, zapcore.InfoLevel)
+	checkLogFields(t, logs, "dial_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "dial_end", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "listen_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "listen_end", 1, false, zapcore.InfoLevel)
 	checkLogFields(t, logs, "negotiate_start", 2, false, zapcore.InfoLevel)
 	checkLogFields(t, logs, "negotiate_end", 2, false, zapcore.InfoLevel)
 }
@@ -483,10 +483,10 @@ func TestSSHTransportAgentFallback(t *testing.T) {
 	conn.Close()
 	<-done
 
-	checkLogFields(t, logs, "dial_start", 1, true, zapcore.InfoLevel)
-	checkLogFields(t, logs, "dial_end", 1, true, zapcore.InfoLevel)
-	checkLogFields(t, logs, "listen_start", 1, true, zapcore.InfoLevel)
-	checkLogFields(t, logs, "listen_end", 1, true, zapcore.InfoLevel)
+	checkLogFields(t, logs, "dial_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "dial_end", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "listen_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "listen_end", 1, false, zapcore.InfoLevel)
 	checkLogFields(t, logs, "negotiate_start", 2, false, zapcore.InfoLevel)
 	checkLogFields(t, logs, "negotiate_end", 2, false, zapcore.InfoLevel)
 }
@@ -525,10 +525,10 @@ func TestSSHTransportAuthFailure(t *testing.T) {
 	}
 	<-done
 
-	checkLogFields(t, logs, "dial_start", 1, true, zapcore.InfoLevel)
+	checkLogFields(t, logs, "dial_start", 1, false, zapcore.InfoLevel)
 	checkLogFields(t, logs, "dial_end", 1, true, zapcore.ErrorLevel)
-	checkLogFields(t, logs, "listen_start", 1, true, zapcore.InfoLevel)
-	checkLogFields(t, logs, "listen_end", 1, true, zapcore.InfoLevel)
+	checkLogFields(t, logs, "listen_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "listen_end", 1, false, zapcore.InfoLevel)
 	checkLogFields(t, logs, "negotiate_start", 0, false, zapcore.InfoLevel)
 	checkLogFields(t, logs, "negotiate_end", 0, false, zapcore.InfoLevel)
 }
@@ -579,10 +579,10 @@ func TestSSHTransportCDCMismatch(t *testing.T) {
 	conn.Close()
 	<-done
 
-	checkLogFields(t, logs, "dial_start", 1, true, zapcore.InfoLevel)
-	checkLogFields(t, logs, "dial_end", 1, true, zapcore.InfoLevel)
-	checkLogFields(t, logs, "listen_start", 1, true, zapcore.InfoLevel)
-	checkLogFields(t, logs, "listen_end", 1, true, zapcore.InfoLevel)
+	checkLogFields(t, logs, "dial_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "dial_end", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "listen_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "listen_end", 1, false, zapcore.InfoLevel)
 	checkLogFields(t, logs, "negotiate_start", 2, false, zapcore.InfoLevel)
 	checkLogFields(t, logs, "negotiate_end", 2, true, zapcore.ErrorLevel)
 }
@@ -723,6 +723,6 @@ func TestSSHTransportRejectsUnknownHost(t *testing.T) {
 		t.Fatalf("expected dial error")
 	}
 	<-done
-	checkLogFields(t, logs, "dial_start", 1, true, zapcore.InfoLevel)
+	checkLogFields(t, logs, "dial_start", 1, false, zapcore.InfoLevel)
 	checkLogFields(t, logs, "dial_end", 1, true, zapcore.ErrorLevel)
 }

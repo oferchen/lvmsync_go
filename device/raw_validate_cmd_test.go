@@ -28,6 +28,11 @@ func TestValidateCmd(t *testing.T) {
 			wantErr: "command argument contains NUL byte",
 		},
 		{
+			name:    "invalid characters",
+			path:    "tr ue",
+			wantErr: "command path tr ue contains invalid characters",
+		},
+		{
 			name:    "nonexistent command",
 			path:    "does-not-exist",
 			wantErr: "does-not-exist: exec: \"does-not-exist\": executable file not found in $PATH",

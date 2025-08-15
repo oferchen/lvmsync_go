@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - README: document CDC parameter ordering and the error when violated.
 - README: note that commands accept an explicit `*zap.Logger` defaulting to `zap.NewNop()`.
 - Warn when `AllowInsecure` is enabled for gRPC server, client, and transports.
+- manifest: allow custom close hook via index options, removing global hook.
 
 
 ### Fixed
@@ -42,6 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - validate block size mismatch in handshakes
 - dedup: validate chunker size parameters.
 - remove placeholder error field from dial_start and listen_start logs for h2 and tcp+tls transports
+- remove placeholder error field from dial_start and listen_start logs for quic and ssh transports
 - propagate seek errors during block writes to prevent silent data loss
 - Remove obsolete gap and pruning entries after rerunning static analysis.
 - Wrap README logging example in `package main` to compile with `go build`.
@@ -62,6 +64,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ensure apply and dump commands flush logs with deferred SyncLogger
 - h2: ensure unreachable dial test uses context timeout and expects deadline exceeded
 - manifest: default rebuild command to a no-op logger and remove conditional logging checks
+- device: reject freeze/thaw command paths with invalid characters and document allowed format
 
 ## [v0.1.0] - 2025-02-27
 ### Added

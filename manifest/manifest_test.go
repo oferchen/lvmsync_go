@@ -280,13 +280,10 @@ func TestRebuildCloseOnce(t *testing.T) {
 	prevUUID := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "uuid-test", nil })
 	defer device.SetUUIDFunc(prevUUID)
 	manPath := filepath.Join(dir, "closeonce.man")
-	prevHook := closeHook
 	count := 0
-	closeHook = func() error { count++; return nil }
-	defer func() { closeHook = prevHook }()
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false); err != nil {
+	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false, WithCloseHook(func() error { count++; return nil })); err != nil {
 		t.Fatalf("rebuild: %v", err)
 	}
 	if count != 1 {
@@ -311,12 +308,10 @@ func TestRebuildCloseError(t *testing.T) {
 	prevUUID := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "uuid-test", nil })
 	defer device.SetUUIDFunc(prevUUID)
 	manPath := filepath.Join(dir, "closeerr.man")
-	prevHook := closeHook
-	closeHook = func() error { return errors.New("close fail") }
-	defer func() { closeHook = prevHook }()
+	hookErr := errors.New("close fail")
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false); err == nil || !strings.Contains(err.Error(), "close fail") {
+	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false, WithCloseHook(func() error { return hookErr })); err == nil || !strings.Contains(err.Error(), "close fail") {
 		t.Fatalf("expected close error, got %v", err)
 	}
 }

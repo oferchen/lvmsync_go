@@ -14,6 +14,17 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 )
 
+func helperCommand(t *testing.T) string {
+	dir := t.TempDir()
+	name := "cmdhelper"
+	link := filepath.Join(dir, name)
+	if err := os.Symlink(os.Args[0], link); err != nil {
+		t.Fatalf("symlink: %v", err)
+	}
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	return name
+}
+
 func TestOpenRawLogsInfoAndClose(t *testing.T) {
 	if os.Geteuid() != 0 {
 		t.Skip("requires root")
@@ -187,7 +198,8 @@ func TestOpenRawFreezeThawLogs(t *testing.T) {
 	oldExec := execCommand
 	execCommand = fakeExecCommandContext
 	t.Cleanup(func() { execCommand = oldExec })
-	_, err := OpenRaw(context.Background(), "/dev/null", false, os.Args[0], []string{"freeze-success"}, os.Args[0], []string{"thaw-success"}, time.Second, time.Second, logger)
+	helper := helperCommand(t)
+	_, err := OpenRaw(context.Background(), "/dev/null", false, helper, []string{"freeze-success"}, helper, []string{"thaw-success"}, time.Second, time.Second, logger)
 	if err == nil {
 		t.Fatalf("expected error for char device")
 	}
@@ -205,7 +217,8 @@ func TestOpenRawFreezeTimeoutLogs(t *testing.T) {
 	oldExec := execCommand
 	execCommand = fakeExecCommandContext
 	t.Cleanup(func() { execCommand = oldExec })
-	_, err := OpenRaw(context.Background(), "/dev/null", false, os.Args[0], []string{"freeze-timeout"}, os.Args[0], []string{"thaw-success"}, 50*time.Millisecond, time.Second, logger)
+	helper := helperCommand(t)
+	_, err := OpenRaw(context.Background(), "/dev/null", false, helper, []string{"freeze-timeout"}, helper, []string{"thaw-success"}, 50*time.Millisecond, time.Second, logger)
 	if err == nil || !strings.Contains(err.Error(), "signal: killed") {
 		t.Fatalf("expected freeze timeout, got %v", err)
 	}
@@ -226,7 +239,8 @@ func TestOpenRawThawFailure(t *testing.T) {
 	oldExec := execCommand
 	execCommand = fakeExecCommandContext
 	t.Cleanup(func() { execCommand = oldExec })
-	_, err := OpenRaw(context.Background(), "/dev/null", false, os.Args[0], []string{"freeze-success"}, os.Args[0], []string{"thaw-fail"}, time.Second, time.Second, logger)
+	helper := helperCommand(t)
+	_, err := OpenRaw(context.Background(), "/dev/null", false, helper, []string{"freeze-success"}, helper, []string{"thaw-fail"}, time.Second, time.Second, logger)
 	if err == nil {
 		t.Fatalf("expected error for char device")
 	}
@@ -250,7 +264,8 @@ func TestOpenRawFreezeCommandFailureIncludesOutput(t *testing.T) {
 	oldExec := execCommand
 	execCommand = fakeExecCommandContext
 	t.Cleanup(func() { execCommand = oldExec })
-	if _, err := OpenRaw(context.Background(), "/dev/null", false, os.Args[0], []string{"freeze-fail-output"}, "true", nil, time.Second, time.Second, logger); err == nil || !strings.Contains(err.Error(), "freeze output") {
+	helper := helperCommand(t)
+	if _, err := OpenRaw(context.Background(), "/dev/null", false, helper, []string{"freeze-fail-output"}, "true", nil, time.Second, time.Second, logger); err == nil || !strings.Contains(err.Error(), "freeze output") {
 		t.Fatalf("expected freeze output in error, got %v", err)
 	}
 	entries := logs.FilterMessage("fs freeze failed").All()
@@ -268,9 +283,10 @@ func TestRawDeviceCleanupFailureIncludesOutput(t *testing.T) {
 	oldExec := execCommand
 	execCommand = fakeExecCommandContext
 	t.Cleanup(func() { execCommand = oldExec })
+	helper := helperCommand(t)
 	d := &RawDevice{
 		freezeIssued: true,
-		thawCmdPath:  os.Args[0],
+		thawCmdPath:  helper,
 		thawCmdArgs:  []string{"thaw-fail-output"},
 		thawTimeout:  time.Second,
 		logger:       logger,
@@ -293,9 +309,10 @@ func TestRawDeviceCleanupThawErrorLogs(t *testing.T) {
 	oldExec := execCommand
 	execCommand = fakeExecCommandContext
 	defer func() { execCommand = oldExec }()
+	helper := helperCommand(t)
 	d := &RawDevice{
 		freezeIssued: true,
-		thawCmdPath:  os.Args[0],
+		thawCmdPath:  helper,
 		thawCmdArgs:  []string{"thaw-fail"},
 		thawTimeout:  time.Second,
 		logger:       logger,
@@ -314,9 +331,10 @@ func TestRawDeviceCleanupThawTimeoutLogs(t *testing.T) {
 	oldExec := execCommand
 	execCommand = fakeExecCommandContext
 	defer func() { execCommand = oldExec }()
+	helper := helperCommand(t)
 	d := &RawDevice{
 		freezeIssued: true,
-		thawCmdPath:  os.Args[0],
+		thawCmdPath:  helper,
 		thawCmdArgs:  []string{"thaw-timeout"},
 		thawTimeout:  100 * time.Millisecond,
 		logger:       logger,

@@ -150,50 +150,47 @@ func (t *Transport) Dial(ctx context.Context, address string) (net.Conn, error) 
 		zap.String("address", address),
 		zap.String("role", role),
 		zap.Int64("duration_ms", 0),
-		zap.String("error", ""),
 	)
 	start := time.Now()
 	d := &net.Dialer{}
 	raw, err := d.DialContext(ctx, "tcp", address)
+	fields := []zap.Field{
+		zap.String("address", address),
+		zap.String("role", role),
+		zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+	}
 	if err != nil {
-		t.logger.Error("dial_end",
-			zap.String("address", address),
-			zap.String("role", role),
-			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
-			zap.Error(err),
-		)
+		fields = append(fields, zap.Error(err))
+		t.logger.Error("dial_end", fields...)
 		return nil, err
 	}
 	cc, chans, reqs, err := ssh.NewClientConn(raw, address, t.clientConf)
+	fields = []zap.Field{
+		zap.String("address", address),
+		zap.String("role", role),
+		zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+	}
 	if err != nil {
 		raw.Close()
-		t.logger.Error("dial_end",
-			zap.String("address", address),
-			zap.String("role", role),
-			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
-			zap.Error(err),
-		)
+		fields = append(fields, zap.Error(err))
+		t.logger.Error("dial_end", fields...)
 		return nil, err
 	}
 	client := ssh.NewClient(cc, chans, reqs)
 	ch, chReqs, err := client.OpenChannel("session", nil)
-	if err != nil {
-		client.Close()
-		t.logger.Error("dial_end",
-			zap.String("address", address),
-			zap.String("role", role),
-			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
-			zap.Error(err),
-		)
-		return nil, err
-	}
-	go ssh.DiscardRequests(chReqs)
-	t.logger.Info("dial_end",
+	fields = []zap.Field{
 		zap.String("address", address),
 		zap.String("role", role),
 		zap.Int64("duration_ms", time.Since(start).Milliseconds()),
-		zap.String("error", ""),
-	)
+	}
+	if err != nil {
+		client.Close()
+		fields = append(fields, zap.Error(err))
+		t.logger.Error("dial_end", fields...)
+		return nil, err
+	}
+	go ssh.DiscardRequests(chReqs)
+	t.logger.Info("dial_end", fields...)
 	return &sshConn{netConn: raw, channel: ch, client: client}, nil
 }
 
@@ -203,18 +200,18 @@ func (t *Transport) Listen(ctx context.Context, address string) (net.Listener, e
 		zap.String("address", address),
 		zap.String("role", role),
 		zap.Int64("duration_ms", 0),
-		zap.String("error", ""),
 	)
 	start := time.Now()
 	lc := net.ListenConfig{}
 	tcpLn, err := lc.Listen(ctx, "tcp", address)
+	fields := []zap.Field{
+		zap.String("address", address),
+		zap.String("role", role),
+		zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+	}
 	if err != nil {
-		t.logger.Error("listen_end",
-			zap.String("address", address),
-			zap.String("role", role),
-			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
-			zap.Error(err),
-		)
+		fields = append(fields, zap.Error(err))
+		t.logger.Error("listen_end", fields...)
 		return nil, err
 	}
 	ln := &sshListener{Listener: tcpLn, config: t.serverConf, logger: t.logger}
@@ -222,12 +219,7 @@ func (t *Transport) Listen(ctx context.Context, address string) (net.Listener, e
 		<-ctx.Done()
 		ln.Close()
 	}()
-	t.logger.Info("listen_end",
-		zap.String("address", address),
-		zap.String("role", role),
-		zap.Int64("duration_ms", time.Since(start).Milliseconds()),
-		zap.String("error", ""),
-	)
+	t.logger.Info("listen_end", fields...)
 	return ln, nil
 }
 
