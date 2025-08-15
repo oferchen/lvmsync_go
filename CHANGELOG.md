@@ -88,6 +88,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - device: allow freeze/thaw command paths containing directories by validating basename only
 - dedup: ensure FastCDC chunks own their data slices to prevent cross-chunk mutation
 
+- manifest: fix close hook test to remove duplicate rebuild blocks
+
 ## [v0.1.0] - 2025-02-27
 ### Added
 - Initial release of LVMSync with a pluggable transport registry supporting QUIC, HTTP/2, TCP+TLS, and SSH.
