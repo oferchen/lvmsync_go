@@ -78,6 +78,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - cmd/dump: handle context cancellation during pipe copies to avoid incomplete writes
 - rename dry run log field to `eta_seconds` and log durations in seconds
 - transfer: replace global checkpoint state with per-transfer resume trackers
+- tests: set LVMEscalation in CDC validation test
 - cmd/dump: detect destination type locally without mutating configuration
 - manifest: propagate close errors when rebuilding indexes
 - log sync errors in manifest and verify commands
