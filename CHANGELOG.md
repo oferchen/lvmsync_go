@@ -38,6 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - tests: validate O_DIRECT mismatch and agreement in handshake validation.
 - transport: add Role.String and shared TLSVersionString helpers.
 - manifest: unify index options for device detection and close hooks across constructors.
+- manifest: consolidate option handling and add tests for custom DetectDevice and CloseHook.
 - manifest: use functional IndexOption for device detection and close hooks.
 - hash: add Blake3Hasher tests covering keyed and unkeyed modes with state reset verification.
 - transfer: tests ensure mismatched device UUIDs and mounted devices return errors without writes.
@@ -50,6 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - device, transfer: require non-nil loggers and remove conditional logging
+- tests: fix O_DIRECT match and transport mismatch handshake validation tests
 - quic: remove redundant deadline methods and use Role.String for dial/listen
 - device: remove logger nil guards and default to `zap.NewNop()`
 - quic: propagate deadlines to connection for datagram reads.
@@ -59,6 +61,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - tcp+tls: ensure negotiation performs TLS handshake and only records ALPN/TLS version when negotiated.
 - config: enforce CDC chunk size ordering during validation.
 - validate block size mismatch in handshakes
+- tests: restore transport mismatch check in handshake validation
 - handshake: validate transport mismatch in handshakes
 - dedup: validate chunker size parameters.
 - remove placeholder error field from dial_start and listen_start logs for h2 and tcp+tls transports
