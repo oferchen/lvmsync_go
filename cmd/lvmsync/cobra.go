@@ -52,12 +52,22 @@ func NewRootCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if err := cfg.Validate(); err != nil {
+				return err
+			}
 			if len(remaining) != 2 {
 				fs.Usage()
 				return fmt.Errorf("usage: lvmsync run [flags] <source> <dest>")
 			}
 			if cfg.DryRun {
-				logger := zap.NewExample()
+				logger := zap.L()
+				if logger == nil {
+					var err error
+					logger, err = zap.NewProduction()
+					if err != nil {
+						return err
+					}
+				}
 				defer logger.Sync()
 				if err := estimateTransfer(remaining[0], cfg, logger); err != nil {
 					return err
@@ -90,6 +100,9 @@ func NewRootCmd() *cobra.Command {
 			flagSets := config.NewFlagSets(defaults)
 			cfg, remaining, err := config.LoadConfig(flagSets, defaults, fs, args)
 			if err != nil {
+				return err
+			}
+			if err := cfg.Validate(); err != nil {
 				return err
 			}
 			if len(remaining) != 1 {

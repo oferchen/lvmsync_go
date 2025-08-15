@@ -7,7 +7,63 @@ import (
 	"testing"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 )
+
+func TestOpenRawLogsInfoAndClose(t *testing.T) {
+	if os.Geteuid() != 0 {
+		t.Skip("requires root")
+	}
+	loop, cleanup := setupLoop(t, 1<<20)
+	defer cleanup()
+	core, logs := observer.New(zap.InfoLevel)
+	logger := zap.New(core)
+	d, err := OpenRaw(context.Background(), loop, true, "", nil, "", nil, logger)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if err := d.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+	entries := logs.FilterMessage("raw device info").All()
+	found := false
+	for _, e := range entries {
+		if e.ContextMap()["path"] == loop &&
+			uint64(e.ContextMap()["size_bytes"].(float64)) == d.SizeBytes() &&
+			uint64(e.ContextMap()["block_size"].(float64)) == d.BlockSize() {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected raw device info log with fields, got %v", logs.All())
+	}
+	if logs.FilterMessage("raw device closed").Len() == 0 {
+		t.Fatalf("expected raw device closed log")
+	}
+}
+
+func TestRawDeviceCloseErrorLogging(t *testing.T) {
+	if os.Geteuid() != 0 {
+		t.Skip("requires root")
+	}
+	loop, cleanup := setupLoop(t, 1<<20)
+	defer cleanup()
+	core, logs := observer.New(zap.InfoLevel)
+	logger := zap.New(core)
+	d, err := OpenRaw(context.Background(), loop, true, "", nil, "", nil, logger)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if err := d.f.Close(); err != nil {
+		t.Fatalf("preclose: %v", err)
+	}
+	if err := d.Close(); err == nil {
+		t.Fatalf("expected close error")
+	}
+	if logs.FilterMessage("raw device close failed").Len() == 0 {
+		t.Fatalf("expected raw device close failed log")
+	}
+}
 
 func TestOpenRawRejectsRegularFile(t *testing.T) {
 	f, err := os.CreateTemp(t.TempDir(), "file")
