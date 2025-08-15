@@ -71,14 +71,14 @@ func TestOpenRawRejectsRegularFile(t *testing.T) {
 		t.Fatalf("temp file: %v", err)
 	}
 	f.Close()
-	if _, err := OpenRaw(context.Background(), f.Name(), true, "", nil, "", nil, zap.NewNop()); err == nil {
+	if _, err := OpenRaw(context.Background(), f.Name(), true, "", nil, "", nil, nil); err == nil {
 		t.Fatalf("expected error for regular file")
 	}
 }
 
 func TestOpenRawRejectsCharDevice(t *testing.T) {
 	if _, err := os.Stat("/dev/null"); err == nil {
-		if _, err := OpenRaw(context.Background(), "/dev/null", true, "", nil, "", nil, zap.NewNop()); err == nil {
+		if _, err := OpenRaw(context.Background(), "/dev/null", true, "", nil, "", nil, nil); err == nil {
 			t.Fatalf("expected error for char device")
 		}
 	} else if os.IsNotExist(err) {
@@ -87,13 +87,13 @@ func TestOpenRawRejectsCharDevice(t *testing.T) {
 }
 
 func TestOpenRawRequiresOfflineOrFreeze(t *testing.T) {
-	if _, err := OpenRaw(context.Background(), "/dev/null", false, "", nil, "", nil, zap.NewNop()); err == nil {
+	if _, err := OpenRaw(context.Background(), "/dev/null", false, "", nil, "", nil, nil); err == nil {
 		t.Fatalf("expected offline or freeze command error")
 	}
 }
 
 func TestOpenRawFreezeCommandFailure(t *testing.T) {
-	if _, err := OpenRaw(context.Background(), "/dev/null", false, "false", nil, "true", nil, zap.NewNop()); err == nil {
+	if _, err := OpenRaw(context.Background(), "/dev/null", false, "false", nil, "true", nil, nil); err == nil {
 		t.Fatalf("expected freeze command failure")
 	}
 }
@@ -105,7 +105,7 @@ func TestOpenRawThawsOnFailure(t *testing.T) {
 	freezeArgs := []string{freezeTmp}
 	thawCmdPath := "touch"
 	thawArgs := []string{thawTmp}
-	if _, err := OpenRaw(context.Background(), "/dev/null", false, freezeCmdPath, freezeArgs, thawCmdPath, thawArgs, zap.NewNop()); err == nil {
+	if _, err := OpenRaw(context.Background(), "/dev/null", false, freezeCmdPath, freezeArgs, thawCmdPath, thawArgs, nil); err == nil {
 		t.Fatalf("expected error for char device")
 	}
 	if _, err := os.Stat(freezeTmp); err != nil {

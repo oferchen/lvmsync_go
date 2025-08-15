@@ -51,7 +51,7 @@ func TestOpenFile(t *testing.T) {
 
 func TestOpenFileRejectsNonRegular(t *testing.T) {
 	dir := t.TempDir()
-	if _, err := OpenFile(dir, zap.NewNop()); err == nil {
+	if _, err := OpenFile(dir, nil); err == nil {
 		t.Fatalf("expected error for directory")
 	}
 }
@@ -73,7 +73,7 @@ func TestFileSnapshotIdentityAndFDLeak(t *testing.T) {
 	path := f.Name()
 	f.Close()
 
-	d, err := OpenFile(path, zap.NewNop())
+	d, err := OpenFile(path, nil)
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
@@ -101,7 +101,7 @@ func TestFileSnapshotClosedDevice(t *testing.T) {
 	path := f.Name()
 	f.Close()
 
-	d, err := OpenFile(path, zap.NewNop())
+	d, err := OpenFile(path, nil)
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}

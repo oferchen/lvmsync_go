@@ -25,7 +25,7 @@ func TestSnapshotLifecycle(t *testing.T) {
 		t.Fatalf("temp file: %v", err)
 	}
 	f.Close()
-	fd, err := OpenFile(f.Name(), zap.NewNop())
+	fd, err := OpenFile(f.Name(), nil)
 	if err != nil {
 		t.Fatalf("open file: %v", err)
 	}
@@ -41,7 +41,7 @@ func TestSnapshotLifecycle(t *testing.T) {
 	}
 
 	// Raw device snapshot is also a no-op.
-	rd := &RawDevice{f: os.NewFile(uintptr(0), "/dev/sda")}
+	rd := &RawDevice{f: os.NewFile(uintptr(0), "/dev/sda"), logger: zap.NewNop()}
 	rsnap, err := rd.Snapshot(ctx, "")
 	if err != nil {
 		t.Fatalf("raw snapshot: %v", err)
