@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 
 	"lvmsync_go/config"
 	"lvmsync_go/device"
@@ -27,13 +28,31 @@ func TestRunDefaultOutputPath(t *testing.T) {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
 
-	if err := Run(cfg, []string{"rebuild", devicePath}, zap.NewNop()); err != nil {
+	core, logs := observer.New(zap.InfoLevel)
+	logger := zap.New(core)
+	if err := Run(cfg, []string{"rebuild", devicePath}, logger); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 
 	outPath := devicePath + ".manifest"
 	if _, err := os.Stat(outPath); err != nil {
 		t.Fatalf("manifest not created at %s: %v", outPath, err)
+	}
+
+	if logs.Len() != 2 {
+		t.Fatalf("expected 2 log entries, got %d", logs.Len())
+	}
+	entries := logs.All()
+	first := entries[0]
+	if first.Message != "rebuilding manifest" {
+		t.Fatalf("unexpected first log message: %s", first.Message)
+	}
+	ctx := first.ContextMap()
+	if ctx["device"] != devicePath || ctx["output"] != outPath {
+		t.Fatalf("unexpected log fields: %v", ctx)
+	}
+	if entries[1].Message != "rebuild complete" {
+		t.Fatalf("unexpected second log message: %s", entries[1].Message)
 	}
 }
 
@@ -54,7 +73,9 @@ func TestRunManifestPathFlag(t *testing.T) {
 
 	outputPath := filepath.Join(dir, "custom.manifest")
 	args := []string{"rebuild", "--manifest_path", outputPath, devicePath}
-	if err := Run(cfg, args, zap.NewNop()); err != nil {
+	core, logs := observer.New(zap.InfoLevel)
+	logger := zap.New(core)
+	if err := Run(cfg, args, logger); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 
@@ -63,6 +84,22 @@ func TestRunManifestPathFlag(t *testing.T) {
 	}
 	if _, err := os.Stat(devicePath + ".manifest"); !os.IsNotExist(err) {
 		t.Fatalf("unexpected manifest at default path")
+	}
+
+	if logs.Len() != 2 {
+		t.Fatalf("expected 2 log entries, got %d", logs.Len())
+	}
+	entries := logs.All()
+	first := entries[0]
+	if first.Message != "rebuilding manifest" {
+		t.Fatalf("unexpected first log message: %s", first.Message)
+	}
+	ctx := first.ContextMap()
+	if ctx["device"] != devicePath || ctx["output"] != outputPath {
+		t.Fatalf("unexpected log fields: %v", ctx)
+	}
+	if entries[1].Message != "rebuild complete" {
+		t.Fatalf("unexpected second log message: %s", entries[1].Message)
 	}
 }
 
