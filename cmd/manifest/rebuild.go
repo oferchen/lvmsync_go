@@ -12,13 +12,11 @@ import (
 	manifestpkg "lvmsync_go/manifest"
 )
 
-
 var rebuildFn = manifestpkg.Rebuild
 
 func init() {
 	rootcmd.RunManifest = Run
 }
-
 
 // Run executes manifest subcommands. Currently only "rebuild" is supported.
 func Run(cfg *config.Config, args []string, logger *zap.Logger) error {
