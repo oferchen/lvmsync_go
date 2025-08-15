@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - transport: tests covering SelectBest handshake negotiation with custom CDC settings, resume tokens, and O_DIRECT for ssh, tcp+tls, h2, and quic transports.
 - device: add raw device freeze/thaw tests with exec command stubs
 - device: centralize exec command helper for LVM and raw devices
+- device: add cleanup tests for thaw errors and timeouts
 - transfer: add manifest index persistence test covering read/write, rebuild, and verify paths.
 - cmd: support `--source-type` and `--dest-type` flags and allow `device.Detect` to honor explicit type hints.
 - transfer: unify resume checkpoints across dedup modes and add resume tests for fixed, CDC, and hybrid modes.
@@ -26,12 +27,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - tests: verify ALPN and TLS version round-trip in handshake and transport negotiation.
 - manifest: test zero `manifest_timeout` uses background context.
 - cmd/verify: add test ensuring mismatched blocks log `mismatched_block`.
+- Document tasks for CDC chunker parameter validation and default logger initialization in `AGENTS.md`.
+- transport/h2: add tests for tlsVersionString and roleString helpers.
+- README: document CDC parameter ordering and the error when violated.
+- README: note that commands accept an explicit `*zap.Logger` defaulting to `zap.NewNop()`.
 
 
 ### Fixed
 - tests: assert context deadline exceeded for tcp+tls unreachable dial
 - Enforce CDC chunk size ordering in handshake validation.
 - validate block size mismatch in handshakes
+- dedup: validate chunker size parameters.
 - remove placeholder error field from dial_start and listen_start logs for h2 and tcp+tls transports
 - propagate seek errors during block writes to prevent silent data loss
 - Remove obsolete gap and pruning entries after rerunning static analysis.
@@ -51,6 +57,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - manifest: propagate close errors when rebuilding indexes
 - log sync errors in manifest and verify commands
 - h2: ensure unreachable dial test uses context timeout and expects deadline exceeded
+- manifest: default rebuild command to a no-op logger and remove conditional logging checks
 
 ## [v0.1.0] - 2025-02-27
 ### Added

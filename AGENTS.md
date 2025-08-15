@@ -302,6 +302,8 @@ golangci-lint run
 - [x] Finalize hybrid deduplication and document CDC tuning knobs.
 - [x] Integrate adaptive compression sampling with configurable thresholds and unit benchmarks.
 - [x] Fail fast when unsupported transports are requested and document `--transport` as reserved.
+- [ ] Add validation for CDC chunker parameters and corresponding tests.
+- [ ] Ensure all commands default to a non-nil `zap.Logger` (use `zap.NewNop()`), eliminating nil checks.
 ## Roadmap
 
 - [ ] Implement gRPC control plane with mTLS and port configurability.

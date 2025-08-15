@@ -1,6 +1,7 @@
 package dedup
 
 import (
+	"fmt"
 	"io"
 	"math"
 
@@ -36,7 +37,15 @@ type Chunker struct {
 // NewChunker returns a new chunker configured with the provided
 // minimum, average, and maximum chunk sizes. All sizes are in bytes. The mask values are
 // derived from the average size.
-func NewChunker(minSize, avgSize, maxSize int) *Chunker {
+// The sizes must be positive and ordered such that minSize ≤ avgSize ≤ maxSize.
+func NewChunker(minSize, avgSize, maxSize int) (*Chunker, error) {
+	if minSize <= 0 || avgSize <= 0 || maxSize <= 0 {
+		return nil, fmt.Errorf("chunk sizes must be positive: min=%d avg=%d max=%d", minSize, avgSize, maxSize)
+	}
+	if minSize > avgSize || avgSize > maxSize {
+		return nil, fmt.Errorf("chunk sizes must satisfy min ≤ avg ≤ max: min=%d avg=%d max=%d", minSize, avgSize, maxSize)
+	}
+
 	c := &Chunker{Min: minSize, Avg: avgSize, Max: maxSize}
 	// derive masks for different entropy levels. The mask controls the
 	// probability of finding a boundary. Higher mask -> larger chunks.
@@ -51,12 +60,12 @@ func NewChunker(minSize, avgSize, maxSize int) *Chunker {
 		c.maskHigh = 0
 	}
 	c.maskLow = (1 << (bits + 2)) - 1 // large chunks
-	return c
+	return c, nil
 }
 
 // NewChunkerFromHandshake constructs a Chunker using CDC parameters negotiated
 // via a protocol handshake.
-func NewChunkerFromHandshake(h common.Handshake) *Chunker {
+func NewChunkerFromHandshake(h common.Handshake) (*Chunker, error) {
 	return NewChunker(h.CDCMin, h.CDCAvg, h.CDCMax)
 }
 
@@ -143,7 +152,10 @@ func (c *Chunker) selectMask(e float64) uint64 {
 // FastCDC chunks the entirety of r using the FastCDC algorithm with the
 // provided size targets. It returns all detected chunks.
 func FastCDC(r io.Reader, min, avg, max int) ([]Chunk, error) {
-	ch := NewChunker(min, avg, max)
+	ch, err := NewChunker(min, avg, max)
+	if err != nil {
+		return nil, err
+	}
 	var out []Chunk
 	var offset int64
 	for {
