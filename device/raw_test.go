@@ -287,6 +287,48 @@ func TestRawDeviceCleanupFailureIncludesOutput(t *testing.T) {
 	}
 }
 
+func TestRawDeviceCleanupThawErrorLogs(t *testing.T) {
+	core, logs := observer.New(zap.InfoLevel)
+	logger := zap.New(core)
+	oldExec := execCommand
+	execCommand = fakeExecCommandContext
+	defer func() { execCommand = oldExec }()
+	d := &RawDevice{
+		freezeIssued: true,
+		thawCmdPath:  os.Args[0],
+		thawCmdArgs:  []string{"thaw-fail"},
+		thawTimeout:  time.Second,
+		logger:       logger,
+	}
+	if err := d.Cleanup(context.Background()); err == nil {
+		t.Fatalf("expected thaw command failure")
+	}
+	if logs.FilterMessage("fs thaw failed").Len() != 1 {
+		t.Fatalf("expected thaw failed log")
+	}
+}
+
+func TestRawDeviceCleanupThawTimeoutLogs(t *testing.T) {
+	core, logs := observer.New(zap.InfoLevel)
+	logger := zap.New(core)
+	oldExec := execCommand
+	execCommand = fakeExecCommandContext
+	defer func() { execCommand = oldExec }()
+	d := &RawDevice{
+		freezeIssued: true,
+		thawCmdPath:  os.Args[0],
+		thawCmdArgs:  []string{"thaw-timeout"},
+		thawTimeout:  100 * time.Millisecond,
+		logger:       logger,
+	}
+	if err := d.Cleanup(context.Background()); err == nil || !strings.Contains(err.Error(), "killed") {
+		t.Fatalf("expected thaw command to be killed, got %v", err)
+	}
+	if logs.FilterMessage("fs thaw failed").Len() != 1 {
+		t.Fatalf("expected thaw failed log")
+	}
+}
+
 func fakeExecCommandContext(ctx context.Context, _ string, args ...string) *exec.Cmd {
 	cs := append([]string{"-test.run=TestHelperProcess", "--"}, args...)
 	cmd := exec.CommandContext(ctx, os.Args[0], cs...)
@@ -311,7 +353,7 @@ func TestHelperProcess(t *testing.T) {
 	switch args[0] {
 	case "freeze-success", "thaw-success":
 		os.Exit(0)
-	case "freeze-timeout":
+	case "freeze-timeout", "thaw-timeout":
 		time.Sleep(200 * time.Millisecond)
 		os.Exit(0)
 	case "thaw-fail":
