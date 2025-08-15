@@ -34,5 +34,11 @@ func ValidateHandshake(local, peer Handshake) error {
 	if peer.MaxInFlight > 0 && local.MaxInFlight > 0 && peer.MaxInFlight != local.MaxInFlight {
 		return fmt.Errorf("max in-flight mismatch: %d", peer.MaxInFlight)
 	}
+	if peer.ALPN != "" && local.ALPN != "" && peer.ALPN != local.ALPN {
+		return fmt.Errorf("alpn mismatch: %s", peer.ALPN)
+	}
+	if peer.TLSVersion != "" && local.TLSVersion != "" && peer.TLSVersion != local.TLSVersion {
+		return fmt.Errorf("tls version mismatch: %s", peer.TLSVersion)
+	}
 	return nil
 }

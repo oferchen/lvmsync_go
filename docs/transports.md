@@ -11,6 +11,9 @@ algorithms and digests. The handshake also carries a resume token
 (`resume:<token>`) so interrupted sessions can continue and a maximum
 in‑flight hint (`inflight:<n>`) to negotiate concurrency.
 
+Handshake validation rejects mismatched ALPN protocols or TLS versions to
+ensure both peers agree on the connection parameters.
+
 TLS based transports enable mutual TLS by default and restrict cipher suites to
 `TLS_AES_128_GCM_SHA256`, `TLS_AES_256_GCM_SHA384`, and
 `TLS_CHACHA20_POLY1305_SHA256`.
