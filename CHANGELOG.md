@@ -43,6 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - rename dry run log field to `eta_seconds` and log durations in seconds
 - transfer: replace global checkpoint state with per-transfer resume trackers
 - cmd/dump: detect destination type locally without mutating configuration
+- manifest: propagate close errors when rebuilding indexes
 - log sync errors in manifest and verify commands
 
 ## [v0.1.0] - 2025-02-27
