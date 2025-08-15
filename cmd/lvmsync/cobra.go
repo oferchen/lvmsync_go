@@ -121,6 +121,10 @@ func NewRootCmd(logger *zap.Logger) *cobra.Command {
 // Execute runs the command tree with provided arguments.
 // If args is nil, the global os.Args are used by cobra.
 func Execute(args []string, logger *zap.Logger) error {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+	defer logger.Sync()
 	cmd := NewRootCmd(logger)
 	if args != nil {
 		cmd.SetArgs(args)
