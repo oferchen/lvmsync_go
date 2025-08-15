@@ -91,7 +91,7 @@ func OpenRaw(
 		d.logger.Info("raw device info",
 			zap.String("path", path),
 			zap.Uint64("size_bytes", size),
-			zap.Uint64("block_size", uint64(bs)))
+			zap.Uint64("block_size_bytes", uint64(bs)))
 	}
 	return d, nil
 }

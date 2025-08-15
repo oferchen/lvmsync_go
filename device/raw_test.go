@@ -29,8 +29,8 @@ func TestOpenRawLogsInfoAndClose(t *testing.T) {
 	found := false
 	for _, e := range entries {
 		if e.ContextMap()["path"] == loop &&
-			uint64(e.ContextMap()["size_bytes"].(float64)) == d.SizeBytes() &&
-			uint64(e.ContextMap()["block_size"].(float64)) == d.BlockSize() {
+			e.ContextMap()["size_bytes"].(uint64) == d.SizeBytes() &&
+			e.ContextMap()["block_size_bytes"].(uint64) == d.BlockSize() {
 			found = true
 		}
 	}

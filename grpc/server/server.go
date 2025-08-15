@@ -437,8 +437,8 @@ func (s *replicationServer) ProgressStream(req *proto.ProgressRequest, stream pr
 			}
 			s.logger.Debug("progress_update",
 				zap.String("session_id", p.GetSessionId()),
-				zap.Uint64("completed", p.GetCompleted()),
-				zap.Uint64("total", p.GetTotal()),
+				zap.Uint64("completed_bytes", p.GetCompleted()),
+				zap.Uint64("total_bytes", p.GetTotal()),
 			)
 			if err := stream.Send(p); err != nil {
 				return err
