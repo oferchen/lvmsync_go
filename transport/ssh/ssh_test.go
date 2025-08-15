@@ -338,6 +338,79 @@ func TestSSHTransportKeyAuth(t *testing.T) {
 	checkLogFields(t, logs, "negotiate_end", 2, false, zapcore.InfoLevel)
 }
 
+func TestSSHTransportSelectBestHandshake(t *testing.T) {
+	cfg := transport.Config{Logger: zap.NewNop(), SSHUser: "test", SSHPassword: "pass", AllowInsecure: true}
+	serverIface, err := New(cfg)
+	if err != nil {
+		t.Fatalf("new server transport: %v", err)
+	}
+	clientIface, err := New(cfg)
+	if err != nil {
+		t.Fatalf("new client transport: %v", err)
+	}
+	server := serverIface.(*Transport)
+	client := clientIface.(*Transport)
+	ctx := context.Background()
+	ln, err := server.Listen(ctx, "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer ln.Close()
+
+	srvCompress := []string{"zstd", "lz4"}
+	cliCompress := []string{"lz4"}
+	srvDigest := []string{"sha256", "blake3"}
+	cliDigest := []string{"blake3"}
+	srvDedup := []string{"fixed", "cdc"}
+	cliDedup := []string{"cdc"}
+	expCompress := common.SelectBest(srvCompress, cliCompress)
+	expDigest := common.SelectBest(srvDigest, cliDigest)
+	expDedup := common.SelectBest(srvDedup, cliDedup)
+
+	hs := common.Handshake{
+		DedupMode:   expDedup,
+		Compress:    expCompress,
+		Digest:      expDigest,
+		ResumeToken: "tok",
+		ODirect:     true,
+		MaxInFlight: 8,
+		CDCMin:      64,
+		CDCAvg:      128,
+		CDCMax:      256,
+	}
+
+	srvCh := make(chan common.Handshake)
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			t.Errorf("accept: %v", err)
+			return
+		}
+		peer, err := server.Negotiate(ctx, conn, transport.Server, hs)
+		if err != nil {
+			t.Errorf("server negotiate: %v", err)
+		}
+		conn.Close()
+		srvCh <- peer
+	}()
+
+	conn, err := client.Dial(ctx, ln.Addr().String())
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	peer, err := client.Negotiate(ctx, conn, transport.Client, hs)
+	conn.Close()
+	if err != nil {
+		t.Fatalf("client negotiate: %v", err)
+	}
+	srvPeer := <-srvCh
+	for _, p := range []common.Handshake{peer, srvPeer} {
+		if p.DedupMode != expDedup || p.Compress != expCompress || p.Digest != expDigest || p.ResumeToken != "tok" || !p.ODirect || p.CDCMin != 64 || p.CDCAvg != 128 || p.CDCMax != 256 {
+			t.Fatalf("unexpected peer handshake: %+v", p)
+		}
+	}
+}
+
 func TestSSHTransportAgentFallback(t *testing.T) {
 	core, logs := observer.New(zap.InfoLevel)
 	t.Setenv("SSH_AUTH_SOCK", filepath.Join(os.TempDir(), "nonexistent"))
