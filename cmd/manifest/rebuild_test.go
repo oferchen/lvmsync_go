@@ -163,20 +163,10 @@ func TestRunAppliesManifestTimeout(t *testing.T) {
 }
 
 func TestRunZeroManifestTimeoutUsesBackground(t *testing.T) {
-
-func TestRunSyncsLogger(t *testing.T) {
-	dir := t.TempDir()
-	devicePath := filepath.Join(dir, "dev.img")
-	if err := os.WriteFile(devicePath, []byte("data"), 0o600); err != nil {
-		t.Fatalf("write device: %v", err)
-	}
-
-
 	cfg, err := config.DefaultConfig()
 	if err != nil {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
-
 	cfg.ManifestTimeout = 0
 	var captured context.Context
 	orig := rebuildFn
@@ -190,6 +180,21 @@ func TestRunSyncsLogger(t *testing.T) {
 	}
 	if _, ok := captured.Deadline(); ok {
 		t.Fatalf("unexpected deadline on context")
+	}
+}
+
+func TestRunSyncsLogger(t *testing.T) {
+	dir := t.TempDir()
+	devicePath := filepath.Join(dir, "dev.img")
+	if err := os.WriteFile(devicePath, []byte("data"), 0o600); err != nil {
+		t.Fatalf("write device: %v", err)
+	}
+
+	cfg, err := config.DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+
 	cfg.DryRun = true
 
 	var syncs int
