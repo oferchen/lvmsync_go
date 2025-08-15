@@ -60,3 +60,19 @@ func TestValidateHandshakeTLSVersionMismatch(t *testing.T) {
 		t.Fatal("expected tls version mismatch error")
 	}
 }
+
+func TestValidateHandshakeODirectMismatch(t *testing.T) {
+	local := Handshake{ODirect: true}
+	peer := Handshake{}
+	if err := ValidateHandshake(local, peer); err == nil {
+		t.Fatal("expected o_direct mismatch error")
+	}
+}
+
+func TestValidateHandshakeODirectMatch(t *testing.T) {
+	local := Handshake{ODirect: true}
+	peer := Handshake{ODirect: true}
+	if err := ValidateHandshake(local, peer); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
