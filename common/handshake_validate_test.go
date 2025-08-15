@@ -13,3 +13,21 @@ func TestValidateHandshake(t *testing.T) {
 		t.Fatal("expected dedup mismatch error")
 	}
 }
+
+func TestValidateHandshakeALPNMismatch(t *testing.T) {
+	local := Handshake{ALPN: "lvmsync"}
+	peer := local
+	peer.ALPN = "other"
+	if err := ValidateHandshake(local, peer); err == nil {
+		t.Fatal("expected alpn mismatch error")
+	}
+}
+
+func TestValidateHandshakeTLSVersionMismatch(t *testing.T) {
+	local := Handshake{TLSVersion: "1.3"}
+	peer := local
+	peer.TLSVersion = "1.2"
+	if err := ValidateHandshake(local, peer); err == nil {
+		t.Fatal("expected tls version mismatch error")
+	}
+}
