@@ -990,7 +990,8 @@ func TestNewTLSFailures(t *testing.T) {
 }
 
 func TestRequestTimeout(t *testing.T) {
-	cfg := Config{AllowInsecure: true, RequestTimeout: 50 * time.Millisecond}
+	cfg, good, _, _ := generateTLS(t)
+	cfg.RequestTimeout = 50 * time.Millisecond
 	agent := &mockAgent{probe: func(ctx context.Context, _ string) error {
 		select {
 		case <-ctx.Done():
@@ -999,23 +1000,10 @@ func TestRequestTimeout(t *testing.T) {
 			return nil
 		}
 	}}
-	lis := bufconn.Listen(bufSize)
-	srv, cleanup, err := New(cfg, agent, zap.NewNop())
-	if err != nil {
-		t.Fatalf("New: %v", err)
-	}
-	go srv.Serve(lis)
-	dialer := func(context.Context, string) (net.Conn, error) { return lis.Dial() }
-	conn, err := grpc.NewClient("passthrough:///bufnet", grpc.WithContextDialer(dialer), grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		t.Fatalf("dial: %v", err)
-	}
-	client := proto.NewReplicationClient(conn)
-	_, err = client.Probe(ctxWithRole("replicator"), &proto.ProbeRequest{VolumeName: "vol"})
+	client, cleanup := newClient(t, cfg, agent, credentials.NewTLS(good))
+	defer cleanup()
+	_, err := client.Probe(context.Background(), &proto.ProbeRequest{VolumeName: "vol"})
 	if status.Code(err) != codes.DeadlineExceeded {
 		t.Fatalf("expected deadline exceeded, got %v", err)
 	}
-	conn.Close()
-	srv.Stop()
-	cleanup()
 }
