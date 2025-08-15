@@ -102,7 +102,7 @@ func (t *Transport) Dial(ctx context.Context, address string) (net.Conn, error) 
 			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
 		}
 		fields = append(fields, zap.Error(err))
-		t.logger.Info("dial_end", fields...)
+		t.logger.Error("dial_end", fields...)
 		return nil, err
 	}
 	stream, err := qconn.OpenStreamSync(ctx)
@@ -113,12 +113,11 @@ func (t *Transport) Dial(ctx context.Context, address string) (net.Conn, error) 
 	}
 	if err != nil {
 		fields = append(fields, zap.Error(err))
-	}
-	t.logger.Info("dial_end", fields...)
-	if err != nil {
+		t.logger.Error("dial_end", fields...)
 		qconn.CloseWithError(0, err.Error())
 		return nil, err
 	}
+	t.logger.Info("dial_end", fields...)
 	return &Conn{qconn: qconn, stream: stream}, nil
 }
 
@@ -139,11 +138,10 @@ func (t *Transport) Listen(ctx context.Context, address string) (net.Listener, e
 	}
 	if err != nil {
 		fields = append(fields, zap.Error(err))
-	}
-	t.logger.Info("listen_end", fields...)
-	if err != nil {
+		t.logger.Error("listen_end", fields...)
 		return nil, err
 	}
+	t.logger.Info("listen_end", fields...)
 	return &listener{ql: ql, ctx: ctx}, nil
 }
 
@@ -186,8 +184,10 @@ func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport
 		}
 		if err != nil {
 			fields = append(fields, zap.Error(err))
+			t.logger.Error("negotiate_end", fields...)
+		} else {
+			t.logger.Info("negotiate_end", fields...)
 		}
-		t.logger.Info("negotiate_end", fields...)
 	}()
 
 	hs.Version = common.ProtocolVersion

@@ -76,7 +76,7 @@ func (t *Transport) Dial(ctx context.Context, address string) (net.Conn, error) 
 	d := &net.Dialer{}
 	raw, err := d.DialContext(ctx, "tcp", address)
 	if err != nil {
-		t.logger.Info("dial_end",
+		t.logger.Error("dial_end",
 			zap.String("address", address),
 			zap.String("role", role),
 			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
@@ -87,7 +87,7 @@ func (t *Transport) Dial(ctx context.Context, address string) (net.Conn, error) 
 	cc, chans, reqs, err := ssh.NewClientConn(raw, address, t.clientConf)
 	if err != nil {
 		raw.Close()
-		t.logger.Info("dial_end",
+		t.logger.Error("dial_end",
 			zap.String("address", address),
 			zap.String("role", role),
 			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
@@ -99,7 +99,7 @@ func (t *Transport) Dial(ctx context.Context, address string) (net.Conn, error) 
 	ch, chReqs, err := client.OpenChannel("session", nil)
 	if err != nil {
 		client.Close()
-		t.logger.Info("dial_end",
+		t.logger.Error("dial_end",
 			zap.String("address", address),
 			zap.String("role", role),
 			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
@@ -127,7 +127,7 @@ func (t *Transport) Listen(ctx context.Context, address string) (net.Listener, e
 	lc := net.ListenConfig{}
 	tcpLn, err := lc.Listen(ctx, "tcp", address)
 	if err != nil {
-		t.logger.Info("listen_end",
+		t.logger.Error("listen_end",
 			zap.String("address", address),
 			zap.String("role", role),
 			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
@@ -165,8 +165,10 @@ func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport
 		}
 		if err != nil {
 			fields = append(fields, zap.Error(err))
+			t.logger.Error("negotiate_end", fields...)
+		} else {
+			t.logger.Info("negotiate_end", fields...)
 		}
-		t.logger.Info("negotiate_end", fields...)
 	}()
 
 	hs.Version = common.ProtocolVersion

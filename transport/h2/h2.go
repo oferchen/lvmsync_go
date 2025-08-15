@@ -104,49 +104,49 @@ func (t *Transport) Dial(ctx context.Context, address string) (net.Conn, error) 
 	}
 	if err != nil {
 		fields = append(fields, zap.Error(err))
-		t.logger.Info("dial_end", fields...)
+		t.logger.Error("dial_end", fields...)
 		return nil, err
 	}
 	fr := http2.NewFramer(conn, conn)
 	if _, err := conn.Write([]byte(http2.ClientPreface)); err != nil {
 		fields = append(fields, zap.Error(err))
-		t.logger.Info("dial_end", fields...)
+		t.logger.Error("dial_end", fields...)
 		conn.Close()
 		return nil, err
 	}
 	if err := fr.WriteSettings(); err != nil {
 		fields = append(fields, zap.Error(err))
-		t.logger.Info("dial_end", fields...)
+		t.logger.Error("dial_end", fields...)
 		conn.Close()
 		return nil, err
 	}
 	if f, err := fr.ReadFrame(); err != nil {
 		fields = append(fields, zap.Error(err))
-		t.logger.Info("dial_end", fields...)
+		t.logger.Error("dial_end", fields...)
 		conn.Close()
 		return nil, err
 	} else if _, ok := f.(*http2.SettingsFrame); !ok {
 		err = fmt.Errorf("expected settings frame")
 		fields = append(fields, zap.Error(err))
-		t.logger.Info("dial_end", fields...)
+		t.logger.Error("dial_end", fields...)
 		conn.Close()
 		return nil, err
 	}
 	if err := fr.WriteSettingsAck(); err != nil {
 		fields = append(fields, zap.Error(err))
-		t.logger.Info("dial_end", fields...)
+		t.logger.Error("dial_end", fields...)
 		conn.Close()
 		return nil, err
 	}
 	if f, err := fr.ReadFrame(); err != nil {
 		fields = append(fields, zap.Error(err))
-		t.logger.Info("dial_end", fields...)
+		t.logger.Error("dial_end", fields...)
 		conn.Close()
 		return nil, err
 	} else if sf, ok := f.(*http2.SettingsFrame); !ok || !sf.IsAck() {
 		err = fmt.Errorf("expected settings ack")
 		fields = append(fields, zap.Error(err))
-		t.logger.Info("dial_end", fields...)
+		t.logger.Error("dial_end", fields...)
 		conn.Close()
 		return nil, err
 	}
@@ -179,11 +179,10 @@ func (t *Transport) Listen(ctx context.Context, address string) (net.Listener, e
 	}
 	if err != nil {
 		fields = append(fields, zap.Error(err))
-	}
-	t.logger.Info("listen_end", fields...)
-	if err != nil {
+		t.logger.Error("listen_end", fields...)
 		return nil, err
 	}
+	t.logger.Info("listen_end", fields...)
 	return &listener{ln: ln}, nil
 }
 
@@ -262,8 +261,10 @@ func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport
 		}
 		if err != nil {
 			fields = append(fields, zap.Error(err))
+			t.logger.Error("negotiate_end", fields...)
+		} else {
+			t.logger.Info("negotiate_end", fields...)
 		}
-		t.logger.Info("negotiate_end", fields...)
 	}()
 
 	if h2c, ok := conn.(*Conn); ok {
