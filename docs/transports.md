@@ -20,7 +20,7 @@ TLS based transports enable mutual TLS by default and restrict cipher suites to
 
 TLS transports require an explicit set of trusted CA roots. Connections are
 rejected if no roots are provided unless the transport configuration sets
-`AllowInsecure` to skip verification.
+`AllowInsecure` to skip verification. Enabling this option logs a warning.
 
 ## gRPC keepalive and timeouts
 
