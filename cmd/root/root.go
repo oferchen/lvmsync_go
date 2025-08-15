@@ -28,7 +28,10 @@ var (
 	prepareSnapshotFn = app.PrepareSnapshot
 	executeClientFn   = clientpkg.ExecuteClient
 	selectTransport   = dumpcmd.SelectTransport
-	runDump           = dumpcmd.Run
+	runDump           = func(ctx context.Context, cfg *config.Config, snapshot, dest string, logger *zap.Logger) error {
+		_, err := dumpcmd.Run(ctx, cfg, snapshot, dest, logger)
+		return err
+	}
 )
 
 // SyncLogger flushes buffered log entries and logs if syncing fails.

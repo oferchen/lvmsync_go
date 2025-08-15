@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - device: tests for GetUUID and IsMountedRW
 - device: persist thaw command configuration for raw devices
 - transport/h2: refactor Dial into dialTLS, performH2Handshake, and logDialResult with unit tests.
+- transport: tests covering SelectBest handshake negotiation with custom CDC settings, resume tokens, and O_DIRECT for ssh, tcp+tls, h2, and quic transports.
 - device: add raw device freeze/thaw tests with exec command stubs
 - transfer: add manifest index persistence test covering read/write, rebuild, and verify paths.
 - cmd: support `--source-type` and `--dest-type` flags and allow `device.Detect` to honor explicit type hints.
@@ -35,6 +36,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ensure verify and lvmsync commands flush logs by deferring logger.Sync()
 - remove legacy dedup manifest in favor of manifest.Index
 - transfer: give each writer an independent rate limiter
+- cmd/dump: handle context cancellation during pipe copies to avoid incomplete writes
+- rename dry run log field to `eta_seconds` and log durations in seconds
+- cmd/dump: detect destination type locally without mutating configuration
 
 ## [v0.1.0] - 2025-02-27
 ### Added

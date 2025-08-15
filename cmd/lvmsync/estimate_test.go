@@ -19,7 +19,7 @@ func TestEstimateTransferSuccess(t *testing.T) {
 	core, obs := observer.New(zap.InfoLevel)
 	logger := zap.New(core)
 	defer logger.Sync()
-	cfg := &config.Config{}
+	cfg := &config.Config{SpeedLimit: 2}
 	if err := estimateTransfer(src, cfg, logger); err != nil {
 		t.Fatalf("estimate transfer: %v", err)
 	}
@@ -30,8 +30,12 @@ func TestEstimateTransferSuccess(t *testing.T) {
 	if entry.Message != "dry run" {
 		t.Fatalf("unexpected log message %q", entry.Message)
 	}
-	if size := entry.ContextMap()["size_bytes"]; size != int64(4) {
+	ctx := entry.ContextMap()
+	if size := ctx["size_bytes"]; size != int64(4) {
 		t.Fatalf("unexpected size %v", size)
+	}
+	if eta, ok := ctx["eta_seconds"].(float64); !ok || eta != 2 {
+		t.Fatalf("unexpected eta_seconds %v", ctx["eta_seconds"])
 	}
 }
 

@@ -122,6 +122,82 @@ func TestQUICTransportHandshake(t *testing.T) {
 	checkHandshakeFields(t, logs, "negotiate_end", 2)
 }
 
+func TestQUICTransportSelectBestHandshake(t *testing.T) {
+	cert, _ := generateSelfSignedCert(t)
+	trIface, err := New(transport.Config{Logger: zap.NewNop(), ClientCert: cert, AllowInsecure: true})
+	if err != nil {
+		t.Fatalf("new transport: %v", err)
+	}
+	tr := trIface.(*Transport)
+	ctx := context.Background()
+	ln, err := tr.Listen(ctx, "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer ln.Close()
+
+	srvCompress := []string{"zstd", "lz4"}
+	cliCompress := []string{"lz4"}
+	srvDigest := []string{"sha256", "blake3"}
+	cliDigest := []string{"blake3"}
+	srvDedup := []string{"fixed", "cdc"}
+	cliDedup := []string{"cdc"}
+	expCompress := common.SelectBest(srvCompress, cliCompress)
+	expDigest := common.SelectBest(srvDigest, cliDigest)
+	expDedup := common.SelectBest(srvDedup, cliDedup)
+
+	hs := common.Handshake{
+		DedupMode:   expDedup,
+		Compress:    expCompress,
+		Digest:      expDigest,
+		ResumeToken: "tok",
+		ODirect:     true,
+		MaxInFlight: 8,
+		CDCMin:      64,
+		CDCAvg:      128,
+		CDCMax:      256,
+	}
+
+	srvCh := make(chan common.Handshake)
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			t.Errorf("accept: %v", err)
+			return
+		}
+		qconn := conn.(*Conn)
+		peer, err := tr.Negotiate(ctx, qconn, transport.Server, hs)
+		if err != nil {
+			t.Errorf("server negotiate: %v", err)
+			qconn.Close()
+			return
+		}
+		buf := make([]byte, 1)
+		qconn.Read(buf)
+		qconn.Close()
+		srvCh <- peer
+	}()
+
+	conn, err := tr.Dial(ctx, ln.Addr().String())
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	qconn := conn.(*Conn)
+	peer, err := tr.Negotiate(ctx, qconn, transport.Client, hs)
+	if err != nil {
+		qconn.Close()
+		t.Fatalf("client negotiate: %v", err)
+	}
+	qconn.Write([]byte{1})
+	qconn.Close()
+	srvPeer := <-srvCh
+	for _, p := range []common.Handshake{peer, srvPeer} {
+		if p.DedupMode != expDedup || p.Compress != expCompress || p.Digest != expDigest || p.ResumeToken != "tok" || !p.ODirect || p.CDCMin != 64 || p.CDCAvg != 128 || p.CDCMax != 256 {
+			t.Fatalf("unexpected peer handshake: %+v", p)
+		}
+	}
+}
+
 func TestQUICTransportHandshakeError(t *testing.T) {
 	cert, _ := generateSelfSignedCert(t)
 	core, logs := observer.New(zap.InfoLevel)

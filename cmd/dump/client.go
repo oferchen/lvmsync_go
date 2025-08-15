@@ -68,9 +68,39 @@ func CopyPipeAsync(ctx context.Context, dst io.Writer, src io.Reader) <-chan err
 		bufAny := copyBufferPool.Get()
 		buf := *(bufAny.(*[]byte))
 		defer copyBufferPool.Put(&buf)
-
-		_, err := io.CopyBuffer(dst, &contextReader{ctx: ctx, r: src}, buf)
-		errCh <- err
+		cr := &contextReader{ctx: ctx, r: src}
+		for {
+			if err := ctx.Err(); err != nil {
+				errCh <- err
+				return
+			}
+			n, err := cr.Read(buf)
+			if n > 0 {
+				written := 0
+				for written < n {
+					if err := ctx.Err(); err != nil {
+						errCh <- err
+						return
+					}
+					w, werr := dst.Write(buf[written:n])
+					if w > 0 {
+						written += w
+					}
+					if werr != nil {
+						errCh <- werr
+						return
+					}
+				}
+			}
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					errCh <- nil
+				} else {
+					errCh <- err
+				}
+				return
+			}
+		}
 	}()
 	return errCh
 }
@@ -93,45 +123,46 @@ func ExecuteDump(cfg *config.Config, snapshotDevice, originDevice string, out io
 	return dumpChangesParallel(t, cfg, snapshotDevice, originDevice, out)
 }
 
-// Run executes client mode transferring data to dest.
-func Run(ctx context.Context, cfg *config.Config, snapshotDevice, dest string, logger *zap.Logger) error {
+// Run executes client mode transferring data to dest and returns the destination type.
+func Run(ctx context.Context, cfg *config.Config, snapshotDevice, dest string, logger *zap.Logger) (string, error) {
 	originDevice := snapshotDevice
 	if cfg.StdoutMode {
 		limitedOut := transfer.WrapRateLimitedWriter(os.Stdout, cfg.SpeedLimit)
-		return ExecuteDump(cfg, snapshotDevice, originDevice, limitedOut, logger)
+		return cfg.DestType, ExecuteDump(cfg, snapshotDevice, originDevice, limitedOut, logger)
 	}
 	if strings.Contains(dest, ":") {
-		return RunRemoteDump(ctx, cfg, snapshotDevice, originDevice, dest, logger)
+		return cfg.DestType, RunRemoteDump(ctx, cfg, snapshotDevice, originDevice, dest, logger)
 	}
 	return RunLocalDump(cfg, snapshotDevice, originDevice, dest, logger)
 }
 
-// RunLocalDump dumps changes to a local destination device.
-func RunLocalDump(cfg *config.Config, snapshotDevice, originDevice, dest string, logger *zap.Logger) (err error) {
-	if cfg.DestType == "auto" {
-		if dev, err := device.Detect(context.Background(), dest, true, cfg.DestType, "", "", cfg.FreezeTimeout, cfg.ThawTimeout, logger); err == nil {
+// RunLocalDump dumps changes to a local destination device and returns the detected destination type.
+func RunLocalDump(cfg *config.Config, snapshotDevice, originDevice, dest string, logger *zap.Logger) (string, error) {
+	destType := cfg.DestType
+	if destType == "auto" {
+		if dev, err := device.Detect(context.Background(), dest, true, destType, "", "", cfg.FreezeTimeout, cfg.ThawTimeout, logger); err == nil {
 			switch dev.(type) {
 			case *device.RawDevice:
 				if !cfg.SkipSnapshotCreation {
 					dev.Close()
-					return fmt.Errorf("raw destinations require --skip_snapshot_creation or external freeze hooks")
+					return destType, fmt.Errorf("raw destinations require --skip_snapshot_creation or external freeze hooks")
 				}
-				cfg.DestType = "raw"
+				destType = "raw"
 			case *device.LVMDevice:
-				cfg.DestType = "lvm"
+				destType = "lvm"
 			case *device.FileDevice:
-				cfg.DestType = "file"
+				destType = "file"
 			}
 			dev.Close()
 		}
 	}
 	destFile, err := openFile(dest, os.O_RDWR, 0)
 	if err != nil {
-		return fmt.Errorf("failed to open destination device %s: %w", dest, err)
+		return destType, fmt.Errorf("failed to open destination device %s: %w", dest, err)
 	}
 	defer common.CloseWithErr(destFile, &err, "close destination device")
 	limitedOut := transfer.WrapRateLimitedWriter(destFile, cfg.SpeedLimit)
-	return ExecuteDump(cfg, snapshotDevice, originDevice, limitedOut, logger)
+	return destType, ExecuteDump(cfg, snapshotDevice, originDevice, limitedOut, logger)
 }
 
 // SetupSSHClient creates an SSH client for remote operations.
