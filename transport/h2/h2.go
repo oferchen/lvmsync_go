@@ -91,6 +91,7 @@ func (t *Transport) Dial(ctx context.Context, address string) (net.Conn, error) 
 		zap.String("address", address),
 		zap.String("role", role),
 		zap.Int64("duration_ms", 0),
+		zap.String("error", ""),
 	)
 	start := time.Now()
 	d := net.Dialer{}
@@ -102,62 +103,108 @@ func (t *Transport) Dial(ctx context.Context, address string) (net.Conn, error) 
 		zap.String("address", address),
 		zap.String("role", role),
 		zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+		zap.Error(err),
 	}
 	if err != nil {
-		fields = append(fields, zap.Error(err))
 		t.logger.Error("dial_end", fields...)
 		return nil, err
 	}
 	if dl, ok := ctx.Deadline(); ok {
 		if err := conn.SetDeadline(dl); err != nil {
 			conn.Close()
-			fields = append(fields, zap.Error(err))
+			fields := []zap.Field{
+				zap.String("address", address),
+				zap.String("role", role),
+				zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+				zap.Error(err),
+			}
 			t.logger.Error("dial_end", fields...)
 			return nil, err
 		}
 	}
 	fr := http2.NewFramer(conn, conn)
 	if _, err := conn.Write([]byte(http2.ClientPreface)); err != nil {
-		fields = append(fields, zap.Error(err))
+		fields := []zap.Field{
+			zap.String("address", address),
+			zap.String("role", role),
+			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+			zap.Error(err),
+		}
 		t.logger.Error("dial_end", fields...)
 		conn.Close()
 		return nil, err
 	}
 	if err := fr.WriteSettings(); err != nil {
-		fields = append(fields, zap.Error(err))
+		fields := []zap.Field{
+			zap.String("address", address),
+			zap.String("role", role),
+			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+			zap.Error(err),
+		}
 		t.logger.Error("dial_end", fields...)
 		conn.Close()
 		return nil, err
 	}
 	if f, err := fr.ReadFrame(); err != nil {
-		fields = append(fields, zap.Error(err))
+		fields := []zap.Field{
+			zap.String("address", address),
+			zap.String("role", role),
+			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+			zap.Error(err),
+		}
 		t.logger.Error("dial_end", fields...)
 		conn.Close()
 		return nil, err
 	} else if _, ok := f.(*http2.SettingsFrame); !ok {
 		err = fmt.Errorf("expected settings frame")
-		fields = append(fields, zap.Error(err))
+		fields := []zap.Field{
+			zap.String("address", address),
+			zap.String("role", role),
+			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+			zap.Error(err),
+		}
 		t.logger.Error("dial_end", fields...)
 		conn.Close()
 		return nil, err
 	}
 	if err := fr.WriteSettingsAck(); err != nil {
-		fields = append(fields, zap.Error(err))
+		fields := []zap.Field{
+			zap.String("address", address),
+			zap.String("role", role),
+			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+			zap.Error(err),
+		}
 		t.logger.Error("dial_end", fields...)
 		conn.Close()
 		return nil, err
 	}
 	if f, err := fr.ReadFrame(); err != nil {
-		fields = append(fields, zap.Error(err))
+		fields := []zap.Field{
+			zap.String("address", address),
+			zap.String("role", role),
+			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+			zap.Error(err),
+		}
 		t.logger.Error("dial_end", fields...)
 		conn.Close()
 		return nil, err
 	} else if sf, ok := f.(*http2.SettingsFrame); !ok || !sf.IsAck() {
 		err = fmt.Errorf("expected settings ack")
-		fields = append(fields, zap.Error(err))
+		fields := []zap.Field{
+			zap.String("address", address),
+			zap.String("role", role),
+			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+			zap.Error(err),
+		}
 		t.logger.Error("dial_end", fields...)
 		conn.Close()
 		return nil, err
+	}
+	fields = []zap.Field{
+		zap.String("address", address),
+		zap.String("role", role),
+		zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+		zap.String("error", ""),
 	}
 	t.logger.Info("dial_end", fields...)
 	if err := conn.SetDeadline(time.Time{}); err != nil {
@@ -179,6 +226,7 @@ func (t *Transport) Listen(ctx context.Context, address string) (net.Listener, e
 		zap.String("address", address),
 		zap.String("role", role),
 		zap.Int64("duration_ms", 0),
+		zap.String("error", ""),
 	)
 	start := time.Now()
 	ln, err := net.Listen("tcp", address)
@@ -189,11 +237,17 @@ func (t *Transport) Listen(ctx context.Context, address string) (net.Listener, e
 		zap.String("address", address),
 		zap.String("role", role),
 		zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+		zap.Error(err),
 	}
 	if err != nil {
-		fields = append(fields, zap.Error(err))
 		t.logger.Error("listen_end", fields...)
 		return nil, err
+	}
+	fields = []zap.Field{
+		zap.String("address", address),
+		zap.String("role", role),
+		zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+		zap.String("error", ""),
 	}
 	t.logger.Info("listen_end", fields...)
 	return &listener{ln: ln, ctx: ctx}, nil
