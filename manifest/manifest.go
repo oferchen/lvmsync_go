@@ -50,19 +50,22 @@ type Index struct {
 type Options struct {
 	DetectDevice func(ctx context.Context, path string, logger *zap.Logger) (device.Device, error)
 	CloseHook    func() error
-
-// IndexOption configures an Index on creation.
-type IndexOption func(*Index)
+}
 
 // WithCloseHook sets a hook invoked when Index.Close is called.
-func WithCloseHook(h func() error) IndexOption {
-	return func(i *Index) { i.closeHook = h }
+func WithCloseHook(h func() error) Options {
+	return Options{CloseHook: h}
 }
 
 func getOptions(opts []Options) Options {
 	var o Options
-	if len(opts) > 0 {
-		o = opts[0]
+	for _, opt := range opts {
+		if opt.DetectDevice != nil {
+			o.DetectDevice = opt.DetectDevice
+		}
+		if opt.CloseHook != nil {
+			o.CloseHook = opt.CloseHook
+		}
 	}
 	if o.DetectDevice == nil {
 		o.DetectDevice = func(ctx context.Context, path string, logger *zap.Logger) (device.Device, error) {
@@ -173,10 +176,6 @@ func Create(path, deviceID string, size uint64, blockSize uint32, opts ...Option
 		return nil, err
 	}
 	idx := &Index{f: f, data: data, closeHook: o.CloseHook}
-	idx := &Index{f: f, data: data, closeHook: func() error { return nil }}
-	for _, opt := range opts {
-		opt(idx)
-	}
 	idx.hdr = Header{
 		Version:    Version,
 		BlockSize:  blockSize,
@@ -193,8 +192,6 @@ func Create(path, deviceID string, size uint64, blockSize uint32, opts ...Option
 func Open(path string, opts ...Options) (*Index, error) {
 	o := getOptions(opts)
 
-func Open(path string, opts ...IndexOption) (*Index, error) {
-
 	f, err := os.OpenFile(path, os.O_RDWR, 0)
 	if err != nil {
 		return nil, err
@@ -212,11 +209,6 @@ func Open(path string, opts ...IndexOption) (*Index, error) {
 	}
 
 	idx := &Index{f: f, data: data, closeHook: o.CloseHook}
-
-	idx := &Index{f: f, data: data, closeHook: func() error { return nil }}
-	for _, opt := range opts {
-		opt(idx)
-	}
 
 	if err := idx.readHeader(); err != nil {
 		idx.Close()
@@ -231,8 +223,6 @@ func Open(path string, opts ...IndexOption) (*Index, error) {
 func Upgrade(path string, opts ...Options) (*Index, error) {
 	o := getOptions(opts)
 
-func Upgrade(path string, opts ...IndexOption) (*Index, error) {
-
 	f, err := os.OpenFile(path, os.O_RDWR, 0)
 	if err != nil {
 		return nil, err
@@ -250,11 +240,6 @@ func Upgrade(path string, opts ...IndexOption) (*Index, error) {
 	}
 
 	idx := &Index{f: f, data: data, closeHook: o.CloseHook}
-
-	idx := &Index{f: f, data: data, closeHook: func() error { return nil }}
-	for _, opt := range opts {
-		opt(idx)
-	}
 
 	if err := idx.readHeader(); err != nil {
 		if !errors.Is(err, ErrVersionMismatch) {
@@ -342,14 +327,9 @@ func (i *Index) ChunkCount() uint64 { return i.hdr.ChunkCount }
 // When allowMounted is false, Rebuild aborts if the device is mounted read-write.
 func Rebuild(ctx context.Context, devicePath, output string, logger *zap.Logger, progressInterval time.Duration, allowMounted bool, opts ...Options) (err error) {
 	o := getOptions(opts)
-
-func Rebuild(ctx context.Context, devicePath, output string, logger *zap.Logger, progressInterval time.Duration, allowMounted bool) (err error) {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
-
-func Rebuild(ctx context.Context, devicePath, output string, logger *zap.Logger, progressInterval time.Duration, allowMounted bool, opts ...IndexOption) (err error) {
-
 	if err = ctx.Err(); err != nil {
 		return err
 	}
@@ -385,11 +365,7 @@ func Rebuild(ctx context.Context, devicePath, output string, logger *zap.Logger,
 	}
 	defer f.Close()
 	var idx *Index
-
 	idx, err = Create(output, id, size, blockSize, o)
-
-	idx, err = Create(output, id, size, blockSize, opts...)
-
 	if err != nil {
 		return err
 	}

@@ -58,6 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - handshake: validate transport mismatch in handshakes
 - dedup: validate chunker size parameters.
 - remove placeholder error field from dial_start and listen_start logs for h2 and tcp+tls transports
+- manifest: preserve injected close hooks in Create, Open, and Upgrade
 - remove placeholder error field from dial_start and listen_start logs for quic and ssh transports
 - propagate seek errors during block writes to prevent silent data loss
 - Remove obsolete gap and pruning entries after rerunning static analysis.
