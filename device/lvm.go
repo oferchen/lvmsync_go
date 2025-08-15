@@ -23,12 +23,13 @@ type LVMDevice struct {
 	size        uint64
 	blockSize   uint64
 	cleanupPath string
+	escalation  string
 	logger      *zap.Logger
 }
 
 // OpenLVM opens an LVM logical volume and queries its size and block size.
 // Size information is obtained through the lvm package helpers.
-func OpenLVM(path string, cache *lvm.FDCache, logger *zap.Logger) (*LVMDevice, error) {
+func OpenLVM(path string, cache *lvm.FDCache, escalation string, logger *zap.Logger) (*LVMDevice, error) {
 	f, err := os.OpenFile(path, os.O_RDWR, 0)
 	if err != nil {
 		return nil, err
@@ -43,7 +44,7 @@ func OpenLVM(path string, cache *lvm.FDCache, logger *zap.Logger) (*LVMDevice, e
 		f.Close()
 		return nil, err
 	}
-	return &LVMDevice{f: f, path: path, size: size, blockSize: uint64(bs), logger: logger}, nil
+	return &LVMDevice{f: f, path: path, size: size, blockSize: uint64(bs), escalation: escalation, logger: logger}, nil
 }
 
 // Path returns the underlying device path.
@@ -70,12 +71,16 @@ var (
 	openLVMFunc      = OpenLVM
 )
 
-func runLVM(ctx context.Context, name string, args ...string) error {
+func runLVM(ctx context.Context, escalation, cmdName string, args ...string) error {
 	if geteuid() != 0 {
-		args = append([]string{"-n", name}, args...)
-		name = "sudo"
+		parts := strings.Fields(escalation)
+		if len(parts) > 0 {
+			lvmCmd := cmdName
+			cmdName = parts[0]
+			args = append(parts[1:], append([]string{lvmCmd}, args...)...)
+		}
 	}
-	cmd := execCommand(ctx, name, args...)
+	cmd := execCommand(ctx, cmdName, args...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("%s: %w", strings.TrimSpace(string(out)), err)
@@ -91,19 +96,19 @@ func (d *LVMDevice) Snapshot(ctx context.Context, snapshotSize string) (Device, 
 		return nil, err
 	}
 	snapName := generateSnapshot()
-	if err := runLVM(ctx, "lvcreate", "-s", "-n", snapName, "-L", snapshotSize, d.path); err != nil {
+	if err := runLVM(ctx, d.escalation, "lvcreate", "-s", "-n", snapName, "-L", snapshotSize, d.path); err != nil {
 		return nil, err
 	}
 	snapPath := lvm.GetSnapshotDevicePath(snapName, vg, d.logger)
-	if err := runLVM(ctx, "lvchange", "-ay", snapPath); err != nil {
-		_ = runLVM(ctx, "lvremove", "-f", snapPath)
+	if err := runLVM(ctx, d.escalation, "lvchange", "-ay", snapPath); err != nil {
+		_ = runLVM(ctx, d.escalation, "lvremove", "-f", snapPath)
 		return nil, err
 	}
 	cache := lvm.NewDeviceFDCache(d.logger)
 	defer cache.Close()
-	snapDev, err := openLVMFunc(snapPath, cache, d.logger)
+	snapDev, err := openLVMFunc(snapPath, cache, d.escalation, d.logger)
 	if err != nil {
-		_ = runLVM(ctx, "lvremove", "-f", snapPath)
+		_ = runLVM(ctx, d.escalation, "lvremove", "-f", snapPath)
 		return nil, err
 	}
 	snapDev.cleanupPath = snapPath
@@ -115,7 +120,7 @@ func (d *LVMDevice) Cleanup(ctx context.Context) error {
 	if d.cleanupPath == "" {
 		return nil
 	}
-	if err := runLVM(ctx, "lvremove", "-f", d.cleanupPath); err != nil {
+	if err := runLVM(ctx, d.escalation, "lvremove", "-f", d.cleanupPath); err != nil {
 		return err
 	}
 	d.cleanupPath = ""
