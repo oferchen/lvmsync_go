@@ -211,7 +211,7 @@ func TestRunSyncsLogger(t *testing.T) {
 
 }
 
-func TestRunSyncsLogger(t *testing.T) {
+func TestRunSyncsLoggerDryRun(t *testing.T) {
 	dir := t.TempDir()
 	devicePath := filepath.Join(dir, "dev.img")
 	if err := os.WriteFile(devicePath, []byte("data"), 0o600); err != nil {

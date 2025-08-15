@@ -127,6 +127,11 @@ func TestTransportNegotiationMatrix(t *testing.T) {
 				ResumeToken:   "tok",
 				MaxInFlight:   8,
 				Endianness:    common.NativeEndianness(),
+				ALPN:          "lvmsync",
+				TLSVersion:    "1.3",
+			}
+			if name == "h2" {
+				base.ALPN = "h2"
 			}
 			modes := []string{"fixed", "cdc", "hybrid"}
 			for _, m := range modes {
@@ -139,7 +144,8 @@ func TestTransportNegotiationMatrix(t *testing.T) {
 					t.Fatalf("expected success: server %v client %v", srv.err, cli.err)
 				}
 				if cli.peer.DedupMode != m || cli.peer.Compress != "zstd" || cli.peer.ODirect != true ||
-					cli.peer.CDCMin != base.CDCMin || cli.peer.CDCAvg != base.CDCAvg || cli.peer.CDCMax != base.CDCMax {
+					cli.peer.CDCMin != base.CDCMin || cli.peer.CDCAvg != base.CDCAvg || cli.peer.CDCMax != base.CDCMax ||
+					cli.peer.ALPN != base.ALPN || cli.peer.TLSVersion != base.TLSVersion {
 					t.Fatalf("unexpected peer handshake: %+v", cli.peer)
 				}
 			}
@@ -210,6 +216,20 @@ func TestTransportNegotiationMatrix(t *testing.T) {
 			clientHS.MaxInFlight = 4
 			if srv, cli := runNegotiation(t, tr, serverHS, clientHS); srv.err == nil || cli.err == nil {
 				t.Fatalf("expected max in-flight mismatch error")
+			}
+			// ALPN
+			serverHS = base
+			clientHS = base
+			clientHS.ALPN = "other"
+			if srv, cli := runNegotiation(t, tr, serverHS, clientHS); srv.err == nil || cli.err == nil {
+				t.Fatalf("expected alpn mismatch error")
+			}
+			// TLS version
+			serverHS = base
+			clientHS = base
+			clientHS.TLSVersion = "1.2"
+			if srv, cli := runNegotiation(t, tr, serverHS, clientHS); srv.err == nil || cli.err == nil {
+				t.Fatalf("expected tls version mismatch error")
 			}
 		})
 	}
