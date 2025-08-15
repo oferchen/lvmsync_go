@@ -3,8 +3,6 @@ package transport
 import (
 	"fmt"
 	"sync"
-
-	"go.uber.org/zap"
 )
 
 // Factory creates a transport implementation.
@@ -26,10 +24,11 @@ func Register(name string, f Factory) error {
 	return nil
 }
 
-// MustRegister registers a transport factory and logs a fatal error on duplicates.
+// MustRegister registers a transport factory and panics on duplicate names.
+// Deprecated: callers should prefer Register and handle the error.
 func MustRegister(name string, f Factory) {
 	if err := Register(name, f); err != nil {
-		zap.L().Fatal("register_transport", zap.String("name", name), zap.Error(err))
+		panic(fmt.Sprintf("register_transport %q: %v", name, err))
 	}
 }
 
