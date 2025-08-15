@@ -31,6 +31,7 @@ var createStateFile = func(name string) (io.WriteCloser, error) {
 	return f, nil
 }
 
+// saveStateFile writes dedup state to the provided path; logger must be non-nil.
 func saveStateFile(logger *zap.Logger, path string, write func(io.Writer) error) error {
 	file, err := createStateFile(path)
 	if err != nil {
@@ -38,9 +39,7 @@ func saveStateFile(logger *zap.Logger, path string, write func(io.Writer) error)
 	}
 	defer func() {
 		if closeErr := file.Close(); closeErr != nil {
-			if logger != nil {
-				logger.Warn("failed to close state file", zap.Error(closeErr))
-			}
+			logger.Warn("failed to close state file", zap.Error(closeErr))
 		}
 	}()
 	return write(file)
@@ -125,16 +124,12 @@ func NewDeduplicationStrategy(cfg *config.Config, logger *zap.Logger) Deduplicat
 			logger:    logger,
 		}
 		if err := d.loadState(); err != nil {
-			if logger != nil {
-				logger.Warn("failed to load dedup state", zap.Error(err))
-			}
+			logger.Warn("failed to load dedup state", zap.Error(err))
 		}
 		return d
 	case "bloom":
 		if cfg.BloomEntries < 0 || uint64(cfg.BloomEntries) > uint64(math.MaxUint) {
-			if logger != nil {
-				logger.Warn("invalid bloom entries", zap.Int("entries", cfg.BloomEntries))
-			}
+			logger.Warn("invalid bloom entries", zap.Int("entries", cfg.BloomEntries))
 			return nil
 		}
 		entries := uint(cfg.BloomEntries)
@@ -147,9 +142,7 @@ func NewDeduplicationStrategy(cfg *config.Config, logger *zap.Logger) Deduplicat
 			logger:    logger,
 		}
 		if err := d.loadState(); err != nil {
-			if logger != nil {
-				logger.Warn("failed to load dedup state", zap.Error(err))
-			}
+			logger.Warn("failed to load dedup state", zap.Error(err))
 		}
 		return d
 	default:
@@ -160,9 +153,7 @@ func NewDeduplicationStrategy(cfg *config.Config, logger *zap.Logger) Deduplicat
 			logger:    logger,
 		}
 		if err := d.loadState(); err != nil {
-			if logger != nil {
-				logger.Warn("failed to load dedup state", zap.Error(err))
-			}
+			logger.Warn("failed to load dedup state", zap.Error(err))
 		}
 		return d
 	}
@@ -215,9 +206,7 @@ func (c *ChecksumDedup) loadState() error {
 	}
 	defer func() {
 		if closeErr := file.Close(); closeErr != nil {
-			if c.logger != nil {
-				c.logger.Warn("failed to close state file", zap.Error(closeErr))
-			}
+			c.logger.Warn("failed to close state file", zap.Error(closeErr))
 		}
 	}()
 
@@ -257,9 +246,7 @@ func (r *RollingHashDedup) computeHash(data []byte) (uint64, error) {
 func (r *RollingHashDedup) ShouldTransfer(offset int64, data []byte) bool {
 	h, err := r.computeHash(data)
 	if err != nil {
-		if r.logger != nil {
-			r.logger.Error("compute hash failed", zap.Error(err))
-		}
+		r.logger.Error("compute hash failed", zap.Error(err))
 		return true
 	}
 
@@ -273,9 +260,7 @@ func (r *RollingHashDedup) ShouldTransfer(offset int64, data []byte) bool {
 func (r *RollingHashDedup) RecordTransfer(offset int64, data []byte) {
 	h, err := r.computeHash(data)
 	if err != nil {
-		if r.logger != nil {
-			r.logger.Error("compute hash failed", zap.Error(err))
-		}
+		r.logger.Error("compute hash failed", zap.Error(err))
 		return
 	}
 
@@ -315,9 +300,7 @@ func (r *RollingHashDedup) loadState() error {
 	}
 	defer func() {
 		if err := file.Close(); err != nil {
-			if r.logger != nil {
-				r.logger.Warn("failed to close state file", zap.Error(err))
-			}
+			r.logger.Warn("failed to close state file", zap.Error(err))
 		}
 	}()
 
@@ -389,9 +372,7 @@ func (b *BloomFilterDedup) loadState() error {
 	}
 	defer func() {
 		if closeErr := file.Close(); closeErr != nil {
-			if b.logger != nil {
-				b.logger.Warn("failed to close state file", zap.Error(closeErr))
-			}
+			b.logger.Warn("failed to close state file", zap.Error(closeErr))
 		}
 	}()
 

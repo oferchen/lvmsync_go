@@ -163,7 +163,6 @@ func (i *Index) Close() error {
 // Create initializes a new manifest index at path for the given device.
 func Create(path, deviceID string, size uint64, blockSize uint32, opts ...IndexOption) (*Index, error) {
 	cfg := applyOptions(opts)
-
 	if len(deviceID) > 64 {
 		return nil, fmt.Errorf("manifest: device ID exceeds 64 bytes")
 	}
@@ -182,9 +181,7 @@ func Create(path, deviceID string, size uint64, blockSize uint32, opts ...IndexO
 		f.Close()
 		return nil, err
 	}
-
 	idx := &Index{f: f, data: data, closeHook: cfg.closeHook}
-
 	idx.hdr = Header{
 		Version:    Version,
 		BlockSize:  blockSize,
@@ -200,7 +197,6 @@ func Create(path, deviceID string, size uint64, blockSize uint32, opts ...IndexO
 // Open maps an existing manifest index file.
 func Open(path string, opts ...IndexOption) (*Index, error) {
 	cfg := applyOptions(opts)
-
 	f, err := os.OpenFile(path, os.O_RDWR, 0)
 	if err != nil {
 		return nil, err
@@ -216,9 +212,7 @@ func Open(path string, opts ...IndexOption) (*Index, error) {
 		f.Close()
 		return nil, err
 	}
-
 	idx := &Index{f: f, data: data, closeHook: cfg.closeHook}
-
 	if err := idx.readHeader(); err != nil {
 		idx.Close()
 		return nil, err
@@ -230,7 +224,6 @@ func Open(path string, opts ...IndexOption) (*Index, error) {
 // It returns an Index mapped to the upgraded file.
 func Upgrade(path string, opts ...IndexOption) (*Index, error) {
 	cfg := applyOptions(opts)
-
 	f, err := os.OpenFile(path, os.O_RDWR, 0)
 	if err != nil {
 		return nil, err
@@ -246,9 +239,7 @@ func Upgrade(path string, opts ...IndexOption) (*Index, error) {
 		f.Close()
 		return nil, err
 	}
-
 	idx := &Index{f: f, data: data, closeHook: cfg.closeHook}
-
 	if err := idx.readHeader(); err != nil {
 		if !errors.Is(err, ErrVersionMismatch) {
 			idx.Close()
@@ -338,7 +329,6 @@ func Rebuild(ctx context.Context, devicePath, output string, logger *zap.Logger,
 	if logger == nil {
 		logger = zap.NewNop()
 	}
-
 	if err = ctx.Err(); err != nil {
 		return err
 	}
@@ -367,7 +357,8 @@ func Rebuild(ctx context.Context, devicePath, output string, logger *zap.Logger,
 	if err = ctx.Err(); err != nil {
 		return err
 	}
-	f, err := os.Open(dev.Path())
+	var f *os.File
+	f, err = os.Open(dev.Path())
 	if err != nil {
 		return err
 	}

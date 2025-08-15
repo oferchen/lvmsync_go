@@ -25,7 +25,7 @@ func TestSnapshotLifecycle(t *testing.T) {
 		t.Fatalf("temp file: %v", err)
 	}
 	f.Close()
-	fd, err := OpenFile(f.Name(), nil)
+	fd, err := OpenFile(f.Name(), zap.NewNop())
 	if err != nil {
 		t.Fatalf("open file: %v", err)
 	}

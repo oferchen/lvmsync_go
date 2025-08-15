@@ -38,6 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - tests: validate O_DIRECT mismatch and agreement in handshake validation.
 - transport: add Role.String and shared TLSVersionString helpers.
 - manifest: unify index options for device detection and close hooks across constructors.
+- manifest: consolidate option handling and add tests for custom DetectDevice and CloseHook.
 - manifest: use functional IndexOption for device detection and close hooks.
 - hash: add Blake3Hasher tests covering keyed and unkeyed modes with state reset verification.
 - transfer: tests ensure mismatched device UUIDs and mounted devices return errors without writes.
@@ -49,6 +50,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Fixed
+- device, transfer: require non-nil loggers and remove conditional logging
+- tests: fix O_DIRECT match and transport mismatch handshake validation tests
 - quic: remove redundant deadline methods and use Role.String for dial/listen
 - device: remove logger nil guards and default to `zap.NewNop()`
 - quic: propagate deadlines to connection for datagram reads.
@@ -59,6 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - config: enforce CDC chunk size ordering during validation.
 - validate block size mismatch in handshakes
 - manifest: remove merge conflict markers and duplicate option definitions
+- tests: restore transport mismatch check in handshake validation
 - handshake: validate transport mismatch in handshakes
 - dedup: validate chunker size parameters.
 - remove placeholder error field from dial_start and listen_start logs for h2 and tcp+tls transports
@@ -79,6 +83,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - cmd/dump: handle context cancellation during pipe copies to avoid incomplete writes
 - rename dry run log field to `eta_seconds` and log durations in seconds
 - transfer: replace global checkpoint state with per-transfer resume trackers
+- tests: set LVMEscalation in CDC validation test
 - cmd/dump: detect destination type locally without mutating configuration
 - manifest: propagate close errors when rebuilding indexes
 - log sync errors in manifest and verify commands
@@ -88,6 +93,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - device: reject freeze/thaw command paths with invalid characters and document allowed format
 - device: allow freeze/thaw command paths containing directories by validating basename only
 - dedup: ensure FastCDC chunks own their data slices to prevent cross-chunk mutation
+
+- manifest: fix close hook test to remove duplicate rebuild blocks
 
 ## [v0.1.0] - 2025-02-27
 ### Added

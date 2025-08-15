@@ -41,6 +41,8 @@ func ReadBlock(src *os.File, offset int64, size int) ([]byte, error) {
 	return buf, nil
 }
 
+// ReadBlockWithRetries reads a block with retries; logger must be non-nil.
+//
 //nolint:revive // high complexity is acceptable for this low-level function
 func ReadBlockWithRetries(cfg *config.Config, src *os.File, offset int64, useZeroCopy bool, pipeFds [2]int, logger *zap.Logger) ([]byte, error) {
 	if useZeroCopy {
@@ -49,6 +51,8 @@ func ReadBlockWithRetries(cfg *config.Config, src *os.File, offset int64, useZer
 	return retryRead(cfg, src, offset, logger)
 }
 
+// readWithZeroCopy uses zero-copy transfers; logger must be non-nil.
+//
 //revive:disable-next-line:cognitive-complexity
 func readWithZeroCopy(cfg *config.Config, src *os.File, offset int64, pipeFds [2]int, logger *zap.Logger) ([]byte, error) {
 	blockSize := cfg.BlockSize
@@ -61,16 +65,12 @@ func readWithZeroCopy(cfg *config.Config, src *os.File, offset int64, pipeFds [2
 		atomic.AddInt64(&PipeCreationCount, 1)
 		defer func() {
 			if closeErr := syscall.Close(pipeFds[0]); closeErr != nil {
-				if logger != nil {
-					logger.Warn("close pipe", zap.Int("fd", pipeFds[0]), zap.Error(closeErr))
-				}
+				logger.Warn("close pipe", zap.Int("fd", pipeFds[0]), zap.Error(closeErr))
 			}
 		}()
 		defer func() {
 			if closeErr := syscall.Close(pipeFds[1]); closeErr != nil {
-				if logger != nil {
-					logger.Warn("close pipe", zap.Int("fd", pipeFds[1]), zap.Error(closeErr))
-				}
+				logger.Warn("close pipe", zap.Int("fd", pipeFds[1]), zap.Error(closeErr))
 			}
 		}()
 	}
@@ -81,9 +81,7 @@ func readWithZeroCopy(cfg *config.Config, src *os.File, offset int64, pipeFds [2
 	}
 	defer func() {
 		if closeErr := r.Close(); closeErr != nil {
-			if logger != nil {
-				logger.Warn("pipe read close", zap.Error(closeErr))
-			}
+			logger.Warn("pipe read close", zap.Error(closeErr))
 		}
 	}()
 
@@ -93,13 +91,11 @@ func readWithZeroCopy(cfg *config.Config, src *os.File, offset int64, pipeFds [2
 			break
 		}
 
-		if logger != nil {
-			logger.Warn("Zero-copy transfer failed",
-				zap.Int64("offset", offset),
-				zap.Int("size_bytes", blockSize),
-				zap.Int("attempt", attempt+1),
-				zap.Error(err))
-		}
+		logger.Warn("Zero-copy transfer failed",
+			zap.Int64("offset", offset),
+			zap.Int("size_bytes", blockSize),
+			zap.Int("attempt", attempt+1),
+			zap.Error(err))
 
 		time.Sleep(100 * time.Millisecond)
 	}
@@ -144,13 +140,11 @@ func retryRead(cfg *config.Config, src *os.File, offset int64, logger *zap.Logge
 			return buf, nil
 		}
 
-		if logger != nil {
-			logger.Warn("Failed to read block",
-				zap.Int64("offset", offset),
-				zap.Int("size_bytes", blockSize),
-				zap.Int("attempt", attempt+1),
-				zap.Error(err))
-		}
+		logger.Warn("Failed to read block",
+			zap.Int64("offset", offset),
+			zap.Int("size_bytes", blockSize),
+			zap.Int("attempt", attempt+1),
+			zap.Error(err))
 
 		time.Sleep(100 * time.Millisecond)
 	}
