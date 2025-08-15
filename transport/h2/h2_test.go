@@ -520,3 +520,37 @@ func TestH2NegotiateContextCancel(t *testing.T) {
 		t.Fatalf("negotiation did not fail promptly")
 	}
 }
+
+func TestTLSVersionString(t *testing.T) {
+	tests := []struct {
+		version uint16
+		want    string
+	}{
+		{tls.VersionTLS10, "1.0"},
+		{tls.VersionTLS11, "1.1"},
+		{tls.VersionTLS12, "1.2"},
+		{tls.VersionTLS13, "1.3"},
+		{0xffff, ""},
+	}
+	for _, tt := range tests {
+		if got := tlsVersionString(tt.version); got != tt.want {
+			t.Errorf("tlsVersionString(%#x) = %q, want %q", tt.version, got, tt.want)
+		}
+	}
+}
+
+func TestRoleString(t *testing.T) {
+	tests := []struct {
+		role transport.Role
+		want string
+	}{
+		{transport.Client, "client"},
+		{transport.Server, "server"},
+		{transport.Role(99), ""},
+	}
+	for _, tt := range tests {
+		if got := roleString(tt.role); got != tt.want {
+			t.Errorf("roleString(%v) = %q, want %q", tt.role, got, tt.want)
+		}
+	}
+}
