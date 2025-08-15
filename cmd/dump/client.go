@@ -109,7 +109,7 @@ func Run(ctx context.Context, cfg *config.Config, snapshotDevice, dest string, l
 // RunLocalDump dumps changes to a local destination device.
 func RunLocalDump(cfg *config.Config, snapshotDevice, originDevice, dest string, logger *zap.Logger) (err error) {
 	if cfg.DestType == "auto" {
-		if dev, err := device.Detect(context.Background(), dest, true, "", "", cfg.FreezeTimeout, cfg.ThawTimeout, logger); err == nil {
+		if dev, err := device.Detect(context.Background(), dest, true, cfg.DestType, "", "", cfg.FreezeTimeout, cfg.ThawTimeout, logger); err == nil {
 			switch dev.(type) {
 			case *device.RawDevice:
 				if !cfg.SkipSnapshotCreation {
@@ -234,7 +234,11 @@ func ExecuteRemoteCommand(ctx context.Context, cfg *config.Config, client *remot
 		return err
 	}
 
-	remoteCmd := fmt.Sprintf("%s --apply - %s", cfg.LVMSyncPath, destDevice)
+	baseCmd := cfg.LVMSyncPath
+	if cfg.DestType != "" && cfg.DestType != "auto" {
+		baseCmd = fmt.Sprintf("%s --dest-type %s", baseCmd, cfg.DestType)
+	}
+	remoteCmd := fmt.Sprintf("%s --apply - %s", baseCmd, destDevice)
 	logger.Info("Starting remote apply command", zap.String("command", remoteCmd))
 
 	if err = session.Start(remoteCmd); err != nil {
