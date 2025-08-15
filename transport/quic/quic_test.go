@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
+	"fmt"
 	"math/big"
 	"net"
 	"testing"
@@ -331,6 +332,71 @@ func TestQUICTransportRequiresClientCert(t *testing.T) {
 	}
 	if _, err := New(transport.Config{Logger: zap.NewNop(), Roots: root, AllowInsecure: true}); err != nil {
 		t.Fatalf("allow insecure should permit missing client cert: %v", err)
+	}
+}
+
+func TestConnDatagramReadDeadline(t *testing.T) {
+	cert, _ := generateSelfSignedCert(t)
+	trIface, err := New(transport.Config{Logger: zap.NewNop(), ClientCert: cert, AllowInsecure: true})
+	if err != nil {
+		t.Fatalf("new transport: %v", err)
+	}
+	tr := trIface.(*Transport)
+	ctx := context.Background()
+	ln, err := tr.Listen(ctx, "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer ln.Close()
+
+	ready := make(chan struct{})
+	done := make(chan error, 1)
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			done <- fmt.Errorf("accept: %w", err)
+			return
+		}
+		qconn := conn.(*Conn)
+		defer qconn.Close()
+		qconn.SetReadDeadline(time.Now().Add(-time.Second))
+		if _, err := qconn.ReceiveDatagram(ctx); err != nil {
+			var ne net.Error
+			if !errors.As(err, &ne) || !ne.Timeout() {
+				done <- fmt.Errorf("expected timeout error, got %v", err)
+				return
+			}
+		} else {
+			done <- errors.New("expected timeout error")
+			return
+		}
+		qconn.SetReadDeadline(time.Time{})
+		close(ready)
+		b, err := qconn.ReceiveDatagram(ctx)
+		if err != nil {
+			done <- fmt.Errorf("receive datagram: %w", err)
+			return
+		}
+		if string(b) != "hi" {
+			done <- fmt.Errorf("unexpected datagram %q", b)
+			return
+		}
+		done <- nil
+	}()
+
+	conn, err := tr.Dial(ctx, ln.Addr().String())
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	qconn := conn.(*Conn)
+	defer qconn.Close()
+
+	<-ready
+	if err := qconn.SendDatagram([]byte("hi")); err != nil {
+		t.Fatalf("send datagram: %v", err)
+	}
+	if err := <-done; err != nil {
+		t.Fatal(err)
 	}
 }
 

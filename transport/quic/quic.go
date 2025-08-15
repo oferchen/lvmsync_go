@@ -295,7 +295,43 @@ func (c *Conn) SetDeadline(t time.Time) error {
 	if err := c.stream.SetDeadline(t); err != nil {
 		return err
 	}
+	if d, ok := c.qconn.(interface{ SetDeadline(time.Time) error }); ok {
+		return d.SetDeadline(t)
+	}
 	return nil
 }
+
+func (c *Conn) SetReadDeadline(t time.Time) error {
+	if err := c.stream.SetReadDeadline(t); err != nil {
+		return err
+	}
+	if d, ok := c.qconn.(interface{ SetReadDeadline(time.Time) error }); ok {
+		return d.SetReadDeadline(t)
+	}
+	return nil
+}
+
+func (c *Conn) SetWriteDeadline(t time.Time) error {
+	if err := c.stream.SetWriteDeadline(t); err != nil {
+		return err
+	}
+	if d, ok := c.qconn.(interface{ SetWriteDeadline(time.Time) error }); ok {
+		return d.SetWriteDeadline(t)
+	}
+	return nil
+}
+
+func roleString(r transport.Role) string {
+	switch r {
+	case transport.Client:
+		return "client"
+	case transport.Server:
+		return "server"
+	default:
+		return ""
+	}
+}
+
 func (c *Conn) SetReadDeadline(t time.Time) error  { return c.stream.SetReadDeadline(t) }
 func (c *Conn) SetWriteDeadline(t time.Time) error { return c.stream.SetWriteDeadline(t) }
+
