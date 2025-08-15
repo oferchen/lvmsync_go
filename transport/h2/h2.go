@@ -316,12 +316,28 @@ func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport
 	}()
 
 	if h2c, ok := conn.(*Conn); ok {
-		hs.ALPN = h2c.tlsState.NegotiatedProtocol
-		hs.TLSVersion = tlsVersionString(h2c.tlsState.Version)
+		negotiatedALPN := h2c.tlsState.NegotiatedProtocol
+		negotiatedVersion := tlsVersionString(h2c.tlsState.Version)
+		if hs.ALPN != "" && negotiatedALPN != "" && hs.ALPN != negotiatedALPN {
+			return peer, fmt.Errorf("alpn mismatch: %s", negotiatedALPN)
+		}
+		if hs.TLSVersion != "" && negotiatedVersion != "" && hs.TLSVersion != negotiatedVersion {
+			return peer, fmt.Errorf("tls version mismatch: %s", negotiatedVersion)
+		}
+		hs.ALPN = negotiatedALPN
+		hs.TLSVersion = negotiatedVersion
 	} else if tlsConn, ok := conn.(*tls.Conn); ok {
 		state := tlsConn.ConnectionState()
-		hs.ALPN = state.NegotiatedProtocol
-		hs.TLSVersion = tlsVersionString(state.Version)
+		negotiatedALPN := state.NegotiatedProtocol
+		negotiatedVersion := tlsVersionString(state.Version)
+		if hs.ALPN != "" && negotiatedALPN != "" && hs.ALPN != negotiatedALPN {
+			return peer, fmt.Errorf("alpn mismatch: %s", negotiatedALPN)
+		}
+		if hs.TLSVersion != "" && negotiatedVersion != "" && hs.TLSVersion != negotiatedVersion {
+			return peer, fmt.Errorf("tls version mismatch: %s", negotiatedVersion)
+		}
+		hs.ALPN = negotiatedALPN
+		hs.TLSVersion = negotiatedVersion
 	}
 	hs.Version = common.ProtocolVersion
 	if hs.Endianness == "" {

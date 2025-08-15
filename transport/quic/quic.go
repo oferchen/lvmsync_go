@@ -223,6 +223,20 @@ func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport
 		}
 	}()
 
+	if qc, ok := conn.(*Conn); ok {
+		state := qc.qconn.ConnectionState()
+		negotiatedALPN := state.TLS.NegotiatedProtocol
+		negotiatedVersion := tlsVersionString(state.TLS.Version)
+		if hs.ALPN != "" && negotiatedALPN != "" && hs.ALPN != negotiatedALPN {
+			return peer, fmt.Errorf("alpn mismatch: %s", negotiatedALPN)
+		}
+		if hs.TLSVersion != "" && negotiatedVersion != "" && hs.TLSVersion != negotiatedVersion {
+			return peer, fmt.Errorf("tls version mismatch: %s", negotiatedVersion)
+		}
+		hs.ALPN = negotiatedALPN
+		hs.TLSVersion = negotiatedVersion
+	}
+
 	hs.Version = common.ProtocolVersion
 	if hs.Endianness == "" {
 		hs.Endianness = common.NativeEndianness()
@@ -285,6 +299,21 @@ func setDeadline(ctx context.Context, conn net.Conn) error {
 
 func clearDeadline(conn net.Conn) {
 	_ = conn.SetDeadline(time.Time{})
+}
+
+func tlsVersionString(v uint16) string {
+	switch v {
+	case tls.VersionTLS10:
+		return "1.0"
+	case tls.VersionTLS11:
+		return "1.1"
+	case tls.VersionTLS12:
+		return "1.2"
+	case tls.VersionTLS13:
+		return "1.3"
+	default:
+		return ""
+	}
 }
 
 // Datagram APIs.

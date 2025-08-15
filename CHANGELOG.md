@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - manifest: add `manifest_timeout` option to control rebuild timeout.
 - device: allow configurable LVM privilege escalation command.
 - tests: verify ALPN and TLS version round-trip in handshake and transport negotiation.
+- tests: enforce ALPN and TLS version mismatches across transports.
 - manifest: test zero `manifest_timeout` uses background context.
 - cmd/verify: add test ensuring mismatched blocks log `mismatched_block`.
 - Document tasks for CDC chunker parameter validation and default logger initialization in `AGENTS.md`.
