@@ -50,6 +50,13 @@ type Index struct {
 type Options struct {
 	DetectDevice func(ctx context.Context, path string, logger *zap.Logger) (device.Device, error)
 	CloseHook    func() error
+
+// IndexOption configures an Index on creation.
+type IndexOption func(*Index)
+
+// WithCloseHook sets a hook invoked when Index.Close is called.
+func WithCloseHook(h func() error) IndexOption {
+	return func(i *Index) { i.closeHook = h }
 }
 
 func getOptions(opts []Options) Options {
@@ -166,6 +173,10 @@ func Create(path, deviceID string, size uint64, blockSize uint32, opts ...Option
 		return nil, err
 	}
 	idx := &Index{f: f, data: data, closeHook: o.CloseHook}
+	idx := &Index{f: f, data: data, closeHook: func() error { return nil }}
+	for _, opt := range opts {
+		opt(idx)
+	}
 	idx.hdr = Header{
 		Version:    Version,
 		BlockSize:  blockSize,
@@ -181,6 +192,9 @@ func Create(path, deviceID string, size uint64, blockSize uint32, opts ...Option
 // Open maps an existing manifest index file.
 func Open(path string, opts ...Options) (*Index, error) {
 	o := getOptions(opts)
+
+func Open(path string, opts ...IndexOption) (*Index, error) {
+
 	f, err := os.OpenFile(path, os.O_RDWR, 0)
 	if err != nil {
 		return nil, err
@@ -196,7 +210,14 @@ func Open(path string, opts ...Options) (*Index, error) {
 		f.Close()
 		return nil, err
 	}
+
 	idx := &Index{f: f, data: data, closeHook: o.CloseHook}
+
+	idx := &Index{f: f, data: data, closeHook: func() error { return nil }}
+	for _, opt := range opts {
+		opt(idx)
+	}
+
 	if err := idx.readHeader(); err != nil {
 		idx.Close()
 		return nil, err
@@ -206,8 +227,12 @@ func Open(path string, opts ...Options) (*Index, error) {
 
 // Upgrade opens the manifest at path, upgrading older versions in-place.
 // It returns an Index mapped to the upgraded file.
+
 func Upgrade(path string, opts ...Options) (*Index, error) {
 	o := getOptions(opts)
+
+func Upgrade(path string, opts ...IndexOption) (*Index, error) {
+
 	f, err := os.OpenFile(path, os.O_RDWR, 0)
 	if err != nil {
 		return nil, err
@@ -223,7 +248,14 @@ func Upgrade(path string, opts ...Options) (*Index, error) {
 		f.Close()
 		return nil, err
 	}
+
 	idx := &Index{f: f, data: data, closeHook: o.CloseHook}
+
+	idx := &Index{f: f, data: data, closeHook: func() error { return nil }}
+	for _, opt := range opts {
+		opt(idx)
+	}
+
 	if err := idx.readHeader(); err != nil {
 		if !errors.Is(err, ErrVersionMismatch) {
 			idx.Close()
@@ -310,6 +342,14 @@ func (i *Index) ChunkCount() uint64 { return i.hdr.ChunkCount }
 // When allowMounted is false, Rebuild aborts if the device is mounted read-write.
 func Rebuild(ctx context.Context, devicePath, output string, logger *zap.Logger, progressInterval time.Duration, allowMounted bool, opts ...Options) (err error) {
 	o := getOptions(opts)
+
+func Rebuild(ctx context.Context, devicePath, output string, logger *zap.Logger, progressInterval time.Duration, allowMounted bool) (err error) {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+
+func Rebuild(ctx context.Context, devicePath, output string, logger *zap.Logger, progressInterval time.Duration, allowMounted bool, opts ...IndexOption) (err error) {
+
 	if err = ctx.Err(); err != nil {
 		return err
 	}
@@ -345,7 +385,11 @@ func Rebuild(ctx context.Context, devicePath, output string, logger *zap.Logger,
 	}
 	defer f.Close()
 	var idx *Index
+
 	idx, err = Create(output, id, size, blockSize, o)
+
+	idx, err = Create(output, id, size, blockSize, opts...)
+
 	if err != nil {
 		return err
 	}
@@ -374,7 +418,7 @@ func Rebuild(ctx context.Context, devicePath, output string, logger *zap.Logger,
 		if err = idx.Set(off, uint32(n), xx, b3); err != nil {
 			return err
 		}
-		if logger != nil && (progressInterval == 0 || time.Since(lastLog) >= progressInterval) {
+		if progressInterval == 0 || time.Since(lastLog) >= progressInterval {
 			if err = ctx.Err(); err != nil {
 				return err
 			}
@@ -388,11 +432,9 @@ func Rebuild(ctx context.Context, devicePath, output string, logger *zap.Logger,
 			break
 		}
 	}
-	if logger != nil {
-		logger.Info("rebuild_complete",
-			zap.Uint64("size_bytes", size),
-			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
-		)
-	}
+	logger.Info("rebuild_complete",
+		zap.Uint64("size_bytes", size),
+		zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+	)
 	return err
 }
