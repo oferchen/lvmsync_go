@@ -16,17 +16,17 @@ func TestEstimateTransferSuccess(t *testing.T) {
 	if err := os.WriteFile(src, []byte("data"), 0o600); err != nil {
 		t.Fatalf("write src: %v", err)
 	}
-	core, logs := observer.New(zap.InfoLevel)
+	core, obs := observer.New(zap.InfoLevel)
 	logger := zap.New(core)
 	defer logger.Sync()
 	cfg := &config.Config{}
 	if err := estimateTransfer(src, cfg, logger); err != nil {
 		t.Fatalf("estimate transfer: %v", err)
 	}
-	if logs.Len() != 1 {
-		t.Fatalf("expected 1 log entry, got %d", logs.Len())
+	if obs.Len() != 1 {
+		t.Fatalf("expected 1 log entry, got %d", obs.Len())
 	}
-	entry := logs.All()[0]
+	entry := obs.All()[0]
 	if entry.Message != "dry run" {
 		t.Fatalf("unexpected log message %q", entry.Message)
 	}
@@ -36,9 +36,7 @@ func TestEstimateTransferSuccess(t *testing.T) {
 }
 
 func TestEstimateTransferInvalidPath(t *testing.T) {
-	core, _ := observer.New(zap.InfoLevel)
-	logger := zap.New(core)
-	defer logger.Sync()
+	logger := zap.NewNop()
 	err := estimateTransfer("/does/not/exist", &config.Config{}, logger)
 	if err == nil {
 		t.Fatalf("expected error")
