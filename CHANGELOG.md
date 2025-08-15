@@ -33,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - transport/h2: add tests for tlsVersionString and roleString helpers.
 - README: document CDC parameter ordering and the error when violated.
 - README: note that commands accept an explicit `*zap.Logger` defaulting to `zap.NewNop()`.
+- manifest: allow custom close hook via index options, removing global hook.
 
 
 ### Fixed

@@ -40,12 +40,19 @@ type Header struct {
 
 // Index is an mmap-backed manifest file containing chunk metadata.
 type Index struct {
-	f    *os.File
-	data []byte
-	hdr  Header
+	f         *os.File
+	data      []byte
+	hdr       Header
+	closeHook func() error
 }
 
-var closeHook = func() error { return nil }
+// IndexOption configures an Index on creation.
+type IndexOption func(*Index)
+
+// WithCloseHook sets a hook invoked when Index.Close is called.
+func WithCloseHook(h func() error) IndexOption {
+	return func(i *Index) { i.closeHook = h }
+}
 
 var detectDevice = func(ctx context.Context, path string, logger *zap.Logger) (device.Device, error) {
 	return device.Detect(ctx, path, true, "", "", "", "", 0, 0, logger)
@@ -107,7 +114,9 @@ func (i *Index) Close() error {
 		if err = unix.Msync(i.data, unix.MS_SYNC); err != nil {
 			_ = unix.Munmap(i.data)
 			_ = i.f.Close()
-			_ = closeHook()
+			if i.closeHook != nil {
+				_ = i.closeHook()
+			}
 			return err
 		}
 		_ = unix.Munmap(i.data)
@@ -117,14 +126,16 @@ func (i *Index) Close() error {
 			err = ferr
 		}
 	}
-	if hookErr := closeHook(); err == nil && hookErr != nil {
-		err = hookErr
+	if i.closeHook != nil {
+		if hookErr := i.closeHook(); err == nil && hookErr != nil {
+			err = hookErr
+		}
 	}
 	return err
 }
 
 // Create initializes a new manifest index at path for the given device.
-func Create(path, deviceID string, size uint64, blockSize uint32) (*Index, error) {
+func Create(path, deviceID string, size uint64, blockSize uint32, opts ...IndexOption) (*Index, error) {
 	if len(deviceID) > 64 {
 		return nil, fmt.Errorf("manifest: device ID exceeds 64 bytes")
 	}
@@ -143,7 +154,10 @@ func Create(path, deviceID string, size uint64, blockSize uint32) (*Index, error
 		f.Close()
 		return nil, err
 	}
-	idx := &Index{f: f, data: data}
+	idx := &Index{f: f, data: data, closeHook: func() error { return nil }}
+	for _, opt := range opts {
+		opt(idx)
+	}
 	idx.hdr = Header{
 		Version:    Version,
 		BlockSize:  blockSize,
@@ -157,7 +171,7 @@ func Create(path, deviceID string, size uint64, blockSize uint32) (*Index, error
 }
 
 // Open maps an existing manifest index file.
-func Open(path string) (*Index, error) {
+func Open(path string, opts ...IndexOption) (*Index, error) {
 	f, err := os.OpenFile(path, os.O_RDWR, 0)
 	if err != nil {
 		return nil, err
@@ -173,7 +187,10 @@ func Open(path string) (*Index, error) {
 		f.Close()
 		return nil, err
 	}
-	idx := &Index{f: f, data: data}
+	idx := &Index{f: f, data: data, closeHook: func() error { return nil }}
+	for _, opt := range opts {
+		opt(idx)
+	}
 	if err := idx.readHeader(); err != nil {
 		idx.Close()
 		return nil, err
@@ -183,7 +200,7 @@ func Open(path string) (*Index, error) {
 
 // Upgrade opens the manifest at path, upgrading older versions in-place.
 // It returns an Index mapped to the upgraded file.
-func Upgrade(path string) (*Index, error) {
+func Upgrade(path string, opts ...IndexOption) (*Index, error) {
 	f, err := os.OpenFile(path, os.O_RDWR, 0)
 	if err != nil {
 		return nil, err
@@ -199,7 +216,10 @@ func Upgrade(path string) (*Index, error) {
 		f.Close()
 		return nil, err
 	}
-	idx := &Index{f: f, data: data}
+	idx := &Index{f: f, data: data, closeHook: func() error { return nil }}
+	for _, opt := range opts {
+		opt(idx)
+	}
 	if err := idx.readHeader(); err != nil {
 		if !errors.Is(err, ErrVersionMismatch) {
 			idx.Close()
@@ -284,7 +304,7 @@ func (i *Index) ChunkCount() uint64 { return i.hdr.ChunkCount }
 // Progress is logged at the provided interval; set interval to 0 to log every chunk.
 // The operation respects cancellation via ctx.
 // When allowMounted is false, Rebuild aborts if the device is mounted read-write.
-func Rebuild(ctx context.Context, devicePath, output string, logger *zap.Logger, progressInterval time.Duration, allowMounted bool) (err error) {
+func Rebuild(ctx context.Context, devicePath, output string, logger *zap.Logger, progressInterval time.Duration, allowMounted bool, opts ...IndexOption) (err error) {
 	if err = ctx.Err(); err != nil {
 		return err
 	}
@@ -320,7 +340,7 @@ func Rebuild(ctx context.Context, devicePath, output string, logger *zap.Logger,
 	}
 	defer f.Close()
 	var idx *Index
-	idx, err = Create(output, id, size, blockSize)
+	idx, err = Create(output, id, size, blockSize, opts...)
 	if err != nil {
 		return err
 	}
