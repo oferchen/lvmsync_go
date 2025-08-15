@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"go.uber.org/zap"
 )
 
 func TestSnapshotLifecycle(t *testing.T) {
@@ -21,7 +23,7 @@ func TestSnapshotLifecycle(t *testing.T) {
 		t.Fatalf("temp file: %v", err)
 	}
 	f.Close()
-	fd, err := OpenFile(f.Name())
+	fd, err := OpenFile(f.Name(), zap.NewNop())
 	if err != nil {
 		t.Fatalf("open file: %v", err)
 	}
@@ -63,8 +65,8 @@ func TestSnapshotLifecycle(t *testing.T) {
 	defer func() { generateSnapshot = origName }()
 
 	origOpen := openLVMFunc
-	openLVMFunc = func(p string) (*LVMDevice, error) {
-		return &LVMDevice{path: p, cleanupPath: p}, nil
+	openLVMFunc = func(p string, _ *zap.Logger) (*LVMDevice, error) {
+		return &LVMDevice{path: p, cleanupPath: p, logger: zap.NewNop()}, nil
 	}
 	defer func() { openLVMFunc = origOpen }()
 
@@ -72,7 +74,7 @@ func TestSnapshotLifecycle(t *testing.T) {
 	geteuid = func() int { return 1 }
 	defer func() { geteuid = origEuid }()
 
-	lvd := &LVMDevice{path: "/dev/vg0/origin"}
+	lvd := &LVMDevice{path: "/dev/vg0/origin", logger: zap.NewNop()}
 	snap, err := lvd.Snapshot(ctx, "2G")
 	if err != nil {
 		t.Fatalf("lvm snapshot: %v", err)

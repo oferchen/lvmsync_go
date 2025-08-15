@@ -5,13 +5,15 @@ package device
 import (
 	"context"
 	"fmt"
+
+	"go.uber.org/zap"
 )
 
 // LVMDevice is unsupported on non-Linux platforms.
 type LVMDevice struct{}
 
 // OpenLVM returns an error on non-Linux systems.
-func OpenLVM(string) (*LVMDevice, error) {
+func OpenLVM(string, *zap.Logger) (*LVMDevice, error) {
 	return nil, fmt.Errorf("LVM devices are only supported on Linux")
 }
 
@@ -22,4 +24,4 @@ func (d *LVMDevice) Close() error      { return nil }
 func (d *LVMDevice) Snapshot(context.Context, string) (Device, error) {
 	return nil, fmt.Errorf("LVM snapshots are only supported on Linux")
 }
-func (d *LVMDevice) Cleanup(context.Context) error { return nil }
+func (d *LVMDevice) Cleanup(context.Context, string, []string) error { return nil }

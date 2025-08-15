@@ -23,11 +23,12 @@ type LVMDevice struct {
 	size        uint64
 	blockSize   uint64
 	cleanupPath string
+	logger      *zap.Logger
 }
 
 // OpenLVM opens an LVM logical volume and queries its size and block size.
 // Size information is obtained through the lvm package helpers.
-func OpenLVM(path string) (*LVMDevice, error) {
+func OpenLVM(path string, logger *zap.Logger) (*LVMDevice, error) {
 	f, err := os.OpenFile(path, os.O_RDWR, 0)
 	if err != nil {
 		return nil, err
@@ -37,12 +38,12 @@ func OpenLVM(path string) (*LVMDevice, error) {
 		f.Close()
 		return nil, err
 	}
-	size, err := lvm.GetVolumeSize(path, zap.NewNop())
+	size, err := lvm.GetVolumeSize(path, logger)
 	if err != nil {
 		f.Close()
 		return nil, err
 	}
-	return &LVMDevice{f: f, path: path, size: size, blockSize: uint64(bs)}, nil
+	return &LVMDevice{f: f, path: path, size: size, blockSize: uint64(bs), logger: logger}, nil
 }
 
 // Path returns the underlying device path.
@@ -93,12 +94,12 @@ func (d *LVMDevice) Snapshot(ctx context.Context, snapshotSize string) (Device, 
 	if err := runLVM(ctx, "lvcreate", "-s", "-n", snapName, "-L", snapshotSize, d.path); err != nil {
 		return nil, err
 	}
-	snapPath := lvm.GetSnapshotDevicePath(snapName, vg, zap.NewNop())
+	snapPath := lvm.GetSnapshotDevicePath(snapName, vg, d.logger)
 	if err := runLVM(ctx, "lvchange", "-ay", snapPath); err != nil {
 		_ = runLVM(ctx, "lvremove", "-f", snapPath)
 		return nil, err
 	}
-	snapDev, err := openLVMFunc(snapPath)
+	snapDev, err := openLVMFunc(snapPath, d.logger)
 	if err != nil {
 		_ = runLVM(ctx, "lvremove", "-f", snapPath)
 		return nil, err
