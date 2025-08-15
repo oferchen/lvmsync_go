@@ -49,6 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Fixed
+- tests: fix O_DIRECT match and transport mismatch handshake validation tests
 - quic: remove redundant deadline methods and use Role.String for dial/listen
 - device: remove logger nil guards and default to `zap.NewNop()`
 - quic: propagate deadlines to connection for datagram reads.
