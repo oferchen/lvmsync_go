@@ -14,6 +14,8 @@ import (
 	"lvmsync_go/transport"
 )
 
+const defaultDialTimeout = 30 * time.Second
+
 // Transport implements TLS over TCP.
 type Transport struct {
 	serverConf *tls.Config
@@ -70,7 +72,14 @@ func (t *Transport) Dial(ctx context.Context, address string) (net.Conn, error) 
 		zap.Int64("duration_ms", 0),
 	)
 	start := time.Now()
-	d := &net.Dialer{}
+	dl, ok := ctx.Deadline()
+	if !ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, defaultDialTimeout)
+		defer cancel()
+		dl, _ = ctx.Deadline()
+	}
+	d := &net.Dialer{Deadline: dl}
 	tcpConn, err := d.DialContext(ctx, "tcp", address)
 	if err != nil {
 		fields := []zap.Field{
@@ -87,9 +96,31 @@ func (t *Transport) Dial(ctx context.Context, address string) (net.Conn, error) 
 		host, _, _ := net.SplitHostPort(address)
 		tlsConf.ServerName = host
 	}
+	if err := tcpConn.SetDeadline(dl); err != nil {
+		tcpConn.Close()
+		fields := []zap.Field{
+			zap.String("address", address),
+			zap.String("role", role),
+			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+			zap.Error(err),
+		}
+		t.logger.Error("dial_end", fields...)
+		return nil, err
+	}
 	conn := tls.Client(tcpConn, tlsConf)
 	if err := conn.HandshakeContext(ctx); err != nil {
 		tcpConn.Close()
+		fields := []zap.Field{
+			zap.String("address", address),
+			zap.String("role", role),
+			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+			zap.Error(err),
+		}
+		t.logger.Error("dial_end", fields...)
+		return nil, err
+	}
+	if err := conn.SetDeadline(dl); err != nil {
+		conn.Close()
 		fields := []zap.Field{
 			zap.String("address", address),
 			zap.String("role", role),
@@ -105,6 +136,10 @@ func (t *Transport) Dial(ctx context.Context, address string) (net.Conn, error) 
 		zap.Int64("duration_ms", time.Since(start).Milliseconds()),
 	}
 	t.logger.Info("dial_end", fields...)
+	if err := conn.SetDeadline(time.Time{}); err != nil {
+		conn.Close()
+		return nil, err
+	}
 	return conn, nil
 }
 

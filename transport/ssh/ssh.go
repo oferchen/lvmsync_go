@@ -101,9 +101,8 @@ func New(cfg transport.Config) (transport.Interface, error) {
 	}
 	if cfg.SSHUseAgent {
 		if sock := os.Getenv("SSH_AUTH_SOCK"); sock != "" {
-			if conn, err := net.Dial("unix", sock); err == nil {
-				ag := agent.NewClient(conn)
-				auths = append(auths, ssh.PublicKeysCallback(ag.Signers))
+			if signers, err := agentSigners(context.Background(), sock); err == nil && len(signers) > 0 {
+				auths = append(auths, ssh.PublicKeys(signers...))
 			}
 		}
 	}
@@ -121,6 +120,19 @@ func New(cfg transport.Config) (transport.Interface, error) {
 	}
 
 	return &Transport{serverConf: serverConf, clientConf: clientConf, hostSigner: hostSigner, logger: cfg.Logger}, nil
+}
+
+func agentSigners(ctx context.Context, sock string) ([]ssh.Signer, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	d := net.Dialer{}
+	conn, err := d.DialContext(ctx, "unix", sock)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	ag := agent.NewClient(conn)
+	return ag.Signers()
 }
 
 func init() {

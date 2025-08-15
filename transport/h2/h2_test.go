@@ -243,6 +243,22 @@ func TestH2TransportTLSCDCMismatch(t *testing.T) {
 	}
 }
 
+func TestH2DialUnreachable(t *testing.T) {
+	cert, pool := generateSelfSignedCert(t)
+	trIface, err := New(transport.Config{Logger: zap.NewNop(), Roots: pool, ClientCert: cert, ServerCert: cert})
+	if err != nil {
+		t.Fatalf("new transport: %v", err)
+	}
+	tr := trIface.(*Transport)
+	ctx := context.Background()
+	start := time.Now()
+	if _, err := tr.Dial(ctx, "203.0.113.1:1"); err == nil {
+		t.Fatalf("expected dial error")
+	} else if time.Since(start) > 5*time.Second {
+		t.Fatalf("dial took too long: %v", time.Since(start))
+	}
+}
+
 func TestH2TransportRequiresLogger(t *testing.T) {
 	if _, err := New(transport.Config{}); err == nil {
 		t.Fatalf("expected error when logger is nil")
