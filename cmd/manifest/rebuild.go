@@ -20,9 +20,10 @@ func init() {
 
 // Run executes manifest subcommands. Currently only "rebuild" is supported.
 func Run(cfg *config.Config, args []string, logger *zap.Logger) error {
-	if logger != nil {
-		defer rootcmd.SyncLogger(logger)
+	if logger == nil {
+		logger = zap.NewNop()
 	}
+	defer rootcmd.SyncLogger(logger)
 	if len(args) == 0 || args[0] != "rebuild" {
 		fs := pflag.NewFlagSet("manifest", pflag.ContinueOnError)
 		fs.Usage()
@@ -43,13 +44,9 @@ func Run(cfg *config.Config, args []string, logger *zap.Logger) error {
 	if path == "" {
 		path = device + ".manifest"
 	}
-	if logger != nil {
-		logger.Info("rebuilding manifest", zap.String("device", device), zap.String("output", path))
-	}
+	logger.Info("rebuilding manifest", zap.String("device", device), zap.String("output", path))
 	if conf.DryRun {
-		if logger != nil {
-			logger.Info("dry run - skipping rebuild")
-		}
+		logger.Info("dry run - skipping rebuild")
 		return nil
 	}
 	ctx := context.Background()
@@ -59,13 +56,9 @@ func Run(cfg *config.Config, args []string, logger *zap.Logger) error {
 		defer cancel()
 	}
 	if err := rebuildFn(ctx, device, path, logger, conf.ManifestProgressInterval, conf.ManifestAllowMounted); err != nil {
-		if logger != nil {
-			logger.Error("rebuild failed", zap.Error(err))
-		}
+		logger.Error("rebuild failed", zap.Error(err))
 		return err
 	}
-	if logger != nil {
-		logger.Info("rebuild complete")
-	}
+	logger.Info("rebuild complete")
 	return nil
 }
