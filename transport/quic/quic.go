@@ -88,17 +88,17 @@ func (t *Transport) Name() string { return "quic" }
 
 // Dial dials a QUIC connection and opens a bidirectional stream.
 func (t *Transport) Dial(ctx context.Context, address string) (net.Conn, error) {
-	role := "client"
+	role := transport.Client
 	t.logger.Info("dial_start",
 		zap.String("address", address),
-		zap.String("role", role),
+		zap.String("role", role.String()),
 		zap.Int64("duration_ms", 0),
 	)
 	start := time.Now()
 	qconn, err := quic.DialAddr(ctx, address, t.clientTLS, t.qconf)
 	fields := []zap.Field{
 		zap.String("address", address),
-		zap.String("role", role),
+		zap.String("role", role.String()),
 		zap.Int64("duration_ms", time.Since(start).Milliseconds()),
 	}
 	if err != nil {
@@ -109,7 +109,7 @@ func (t *Transport) Dial(ctx context.Context, address string) (net.Conn, error) 
 	stream, err := qconn.OpenStreamSync(ctx)
 	fields = []zap.Field{
 		zap.String("address", address),
-		zap.String("role", role),
+		zap.String("role", role.String()),
 		zap.Int64("duration_ms", time.Since(start).Milliseconds()),
 	}
 	if err != nil {
@@ -124,17 +124,17 @@ func (t *Transport) Dial(ctx context.Context, address string) (net.Conn, error) 
 
 // Listen starts a QUIC listener.
 func (t *Transport) Listen(ctx context.Context, address string) (net.Listener, error) {
-	role := "server"
+	role := transport.Server
 	t.logger.Info("listen_start",
 		zap.String("address", address),
-		zap.String("role", role),
+		zap.String("role", role.String()),
 		zap.Int64("duration_ms", 0),
 	)
 	start := time.Now()
 	ql, err := quic.ListenAddr(address, t.serverTLS, t.qconf)
 	fields := []zap.Field{
 		zap.String("address", address),
-		zap.String("role", role),
+		zap.String("role", role.String()),
 		zap.Int64("duration_ms", time.Since(start).Milliseconds()),
 	}
 	if err != nil {
@@ -320,18 +320,3 @@ func (c *Conn) SetWriteDeadline(t time.Time) error {
 	}
 	return nil
 }
-
-func roleString(r transport.Role) string {
-	switch r {
-	case transport.Client:
-		return "client"
-	case transport.Server:
-		return "server"
-	default:
-		return ""
-	}
-}
-
-func (c *Conn) SetReadDeadline(t time.Time) error  { return c.stream.SetReadDeadline(t) }
-func (c *Conn) SetWriteDeadline(t time.Time) error { return c.stream.SetWriteDeadline(t) }
-

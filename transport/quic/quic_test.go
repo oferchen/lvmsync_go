@@ -400,6 +400,80 @@ func TestConnDatagramReadDeadline(t *testing.T) {
 	}
 }
 
+func TestConnStreamDeadlines(t *testing.T) {
+	cert, _ := generateSelfSignedCert(t)
+	trIface, err := New(transport.Config{Logger: zap.NewNop(), ClientCert: cert, AllowInsecure: true})
+	if err != nil {
+		t.Fatalf("new transport: %v", err)
+	}
+	tr := trIface.(*Transport)
+	ctx := context.Background()
+	ln, err := tr.Listen(ctx, "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer ln.Close()
+
+	ready := make(chan struct{})
+	done := make(chan error, 1)
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			done <- fmt.Errorf("accept: %w", err)
+			return
+		}
+		qconn := conn.(*Conn)
+		defer qconn.Close()
+		hs := common.Handshake{CDCMin: 64, CDCAvg: 128, CDCMax: 256}
+		if _, err := tr.Negotiate(ctx, qconn, transport.Server, hs); err != nil {
+			done <- fmt.Errorf("server negotiate: %w", err)
+			return
+		}
+		if qconn.LocalAddr() == nil || qconn.RemoteAddr() == nil {
+			done <- fmt.Errorf("missing addr")
+			return
+		}
+		close(ready)
+		qconn.SetDeadline(time.Now().Add(-time.Millisecond))
+		buf := make([]byte, 1)
+		if _, err := qconn.Read(buf); err == nil {
+			done <- errors.New("expected read timeout")
+			return
+		} else if ne, ok := err.(net.Error); !ok || !ne.Timeout() {
+			done <- fmt.Errorf("expected timeout error, got %v", err)
+			return
+		}
+		qconn.SetDeadline(time.Time{})
+		qconn.SetWriteDeadline(time.Now().Add(-time.Millisecond))
+		if _, err := qconn.Write([]byte{1}); err == nil {
+			done <- errors.New("expected write timeout")
+			return
+		} else if ne, ok := err.(net.Error); !ok || !ne.Timeout() {
+			done <- fmt.Errorf("expected timeout error, got %v", err)
+			return
+		}
+		done <- nil
+	}()
+
+	conn, err := tr.Dial(ctx, ln.Addr().String())
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	qconn := conn.(*Conn)
+	defer qconn.Close()
+	hs := common.Handshake{CDCMin: 64, CDCAvg: 128, CDCMax: 256}
+	if _, err := tr.Negotiate(ctx, qconn, transport.Client, hs); err != nil {
+		t.Fatalf("client negotiate: %v", err)
+	}
+	<-ready
+	if qconn.LocalAddr() == nil || qconn.RemoteAddr() == nil {
+		t.Fatalf("missing addr")
+	}
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestQUICNegotiateContextCancel(t *testing.T) {
 	tr := &Transport{logger: zap.NewNop()}
 	c1, c2 := net.Pipe()
