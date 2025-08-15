@@ -111,7 +111,7 @@ func readResumeState(cfg *config.Config, logger *zap.Logger) resumeCheckpoint {
 		return out
 	}
 	if rs.Transport != cfg.Transport || rs.Compress != cfg.Compress ||
-		rs.ChecksumAlgorithm != cfg.ChecksumAlgorithm || rs.DedupMode != cfg.DedupMode {
+		rs.ChecksumAlgorithm != cfg.ChecksumAlgorithm {
 		return out
 	}
 	b, err := hex.DecodeString(rs.Chunk)
