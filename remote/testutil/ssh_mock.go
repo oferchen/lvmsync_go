@@ -62,14 +62,15 @@ func (s *MockSSHServer) serve(config *ssh.ServerConfig) {
 		if err != nil {
 			return
 		}
+		s.mu.Lock()
+		s.connCount++
+		s.mu.Unlock()
+
 		go func(nConn net.Conn) {
 			serverConn, chans, reqs, err := ssh.NewServerConn(nConn, config)
 			if err != nil {
 				return
 			}
-			s.mu.Lock()
-			s.connCount++
-			s.mu.Unlock()
 			go s.handleRequests(reqs)
 			for newCh := range chans {
 				if newCh.ChannelType() != "session" {
