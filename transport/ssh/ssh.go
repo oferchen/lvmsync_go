@@ -2,16 +2,20 @@ package ssh
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"fmt"
 	"io"
 	"net"
+	"os"
 	"time"
 
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/knownhosts"
+	"golang.org/x/crypto/ssh/agent"
 
 	"lvmsync_go/common"
 	"lvmsync_go/transport"
@@ -21,6 +25,7 @@ import (
 type Transport struct {
 	serverConf *ssh.ServerConfig
 	clientConf *ssh.ClientConfig
+	hostSigner ssh.Signer
 	logger     *zap.Logger
 }
 
@@ -32,11 +37,22 @@ func New(cfg transport.Config) (transport.Interface, error) {
 	if cfg.SSHUser == "" {
 		return nil, fmt.Errorf("ssh user is required")
 	}
+	var keySigner ssh.Signer
+	if cfg.SSHKeyPath != "" {
+		keyBytes, err := os.ReadFile(cfg.SSHKeyPath)
+		if err != nil {
+			return nil, err
+		}
+		keySigner, err = ssh.ParsePrivateKey(keyBytes)
+		if err != nil {
+			return nil, err
+		}
+	}
 	hostKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		return nil, err
 	}
-	signer, err := ssh.NewSignerFromKey(hostKey)
+	hostSigner, err := ssh.NewSignerFromKey(hostKey)
 	if err != nil {
 		return nil, err
 	}
@@ -49,12 +65,62 @@ func New(cfg transport.Config) (transport.Interface, error) {
 		},
 	}
 	serverConf.AddHostKey(signer)
+	var hkc ssh.HostKeyCallback
+	switch {
+	case cfg.SSHKnownHosts != "":
+		hkc, err = knownhosts.New(cfg.SSHKnownHosts)
+		if err != nil {
+			return nil, fmt.Errorf("knownhosts: %w", err)
+		}
+	case cfg.SSHHostKey != "":
+		pk, _, _, _, err := ssh.ParseAuthorizedKey([]byte(cfg.SSHHostKey))
+		if err != nil {
+			return nil, fmt.Errorf("parse host key: %w", err)
+		}
+		hkc = ssh.FixedHostKey(pk)
+	case cfg.AllowInsecure:
+		hkc = ssh.InsecureIgnoreHostKey()
+	default:
+		return nil, fmt.Errorf("known hosts or host key required")
+	}
 	clientConf := &ssh.ClientConfig{
 		User:            cfg.SSHUser,
 		Auth:            []ssh.AuthMethod{ssh.Password(cfg.SSHPassword)},
+		HostKeyCallback: hkc,
+
+	serverConf.AddHostKey(hostSigner)
+	if keySigner != nil {
+		serverConf.PublicKeyCallback = func(c ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
+			if c.User() == cfg.SSHUser && bytes.Equal(key.Marshal(), keySigner.PublicKey().Marshal()) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("public key rejected")
+		}
+	}
+	var auths []ssh.AuthMethod
+	if keySigner != nil {
+		auths = append(auths, ssh.PublicKeys(keySigner))
+	}
+	if cfg.SSHUseAgent {
+		if sock := os.Getenv("SSH_AUTH_SOCK"); sock != "" {
+			if conn, err := net.Dial("unix", sock); err == nil {
+				ag := agent.NewClient(conn)
+				auths = append(auths, ssh.PublicKeysCallback(ag.Signers))
+			}
+		}
+	}
+	if cfg.SSHPassword != "" {
+		auths = append(auths, ssh.Password(cfg.SSHPassword))
+	}
+	if len(auths) == 0 {
+		return nil, fmt.Errorf("no authentication methods configured")
+	}
+	clientConf := &ssh.ClientConfig{
+		User:            cfg.SSHUser,
+		Auth:            auths,
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	}
-	return &Transport{serverConf: serverConf, clientConf: clientConf, logger: cfg.Logger}, nil
+	return &Transport{serverConf: serverConf, clientConf: clientConf, hostSigner: signer, logger: cfg.Logger}, nil
 }
 
 func init() {

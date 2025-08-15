@@ -49,6 +49,7 @@ lvmsync --transport quic --tls_cert cert.pem --tls_key key.pem --ca_cert ca.pem
 
 - Runs over TLS 1.3 with mutual authentication
 - Provides stream-level back-pressure
+- Enforces context deadlines during connection and HTTP/2 handshakes
 
 ## TCP+TLS
 
@@ -60,6 +61,9 @@ lvmsync --transport quic --tls_cert cert.pem --tls_key key.pem --ca_cert ca.pem
 - Establishes sessions using `golang.org/x/crypto/ssh`
 - Supports `sudo -n` escalation hooks
 - Uses context deadlines for handshake I/O, failing fast when the caller's context times out
+- Verifies server host keys using `known_hosts` or an explicit `--ssh_host_key`; unknown hosts are rejected
+- Key authentication via `--ssh_key`/`LVMSYNC_SSH_KEY`
+- Optional agent auth with `--ssh_agent`/`LVMSYNC_SSH_AGENT` using `SSH_AUTH_SOCK`
 
 Example selecting transports and custom port:
 

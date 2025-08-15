@@ -41,7 +41,8 @@ type Conn struct {
 
 // listener adapts a TLS listener and performs HTTP/2 handshakes.
 type listener struct {
-	ln net.Listener
+	ln  net.Listener
+	ctx context.Context
 }
 
 // New returns a new Transport.
@@ -107,6 +108,14 @@ func (t *Transport) Dial(ctx context.Context, address string) (net.Conn, error) 
 		t.logger.Error("dial_end", fields...)
 		return nil, err
 	}
+	if dl, ok := ctx.Deadline(); ok {
+		if err := conn.SetDeadline(dl); err != nil {
+			conn.Close()
+			fields = append(fields, zap.Error(err))
+			t.logger.Error("dial_end", fields...)
+			return nil, err
+		}
+	}
 	fr := http2.NewFramer(conn, conn)
 	if _, err := conn.Write([]byte(http2.ClientPreface)); err != nil {
 		fields = append(fields, zap.Error(err))
@@ -151,6 +160,10 @@ func (t *Transport) Dial(ctx context.Context, address string) (net.Conn, error) 
 		return nil, err
 	}
 	t.logger.Info("dial_end", fields...)
+	if err := conn.SetDeadline(time.Time{}); err != nil {
+		conn.Close()
+		return nil, err
+	}
 	return &Conn{
 		Conn:     conn,
 		fr:       fr,
@@ -183,13 +196,19 @@ func (t *Transport) Listen(ctx context.Context, address string) (net.Listener, e
 		return nil, err
 	}
 	t.logger.Info("listen_end", fields...)
-	return &listener{ln: ln}, nil
+	return &listener{ln: ln, ctx: ctx}, nil
 }
 
 func (l *listener) Accept() (net.Conn, error) {
 	conn, err := l.ln.Accept()
 	if err != nil {
 		return nil, err
+	}
+	if dl, ok := l.ctx.Deadline(); ok {
+		if err := conn.SetDeadline(dl); err != nil {
+			conn.Close()
+			return nil, err
+		}
 	}
 	tlsConn, ok := conn.(*tls.Conn)
 	if !ok {
@@ -231,6 +250,10 @@ func (l *listener) Accept() (net.Conn, error) {
 	} else if sf, ok := f.(*http2.SettingsFrame); !ok || !sf.IsAck() {
 		conn.Close()
 		return nil, fmt.Errorf("expected settings ack")
+	}
+	if err := conn.SetDeadline(time.Time{}); err != nil {
+		conn.Close()
+		return nil, err
 	}
 	return &Conn{
 		Conn:     tlsConn,

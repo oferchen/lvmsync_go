@@ -313,7 +313,17 @@ func SelectTransport(cfg *config.Config, logger *zap.Logger) (transport.Interfac
 	}
 	for _, name := range strings.Split(cfg.Transport, ",") {
 		name = strings.TrimSpace(name)
-		tr, err := transport.Get(name, transport.Config{Logger: logger, SSHUser: cfg.SSHUser, SSHPassword: cfg.SSHPassword})
+		tr, err := transport.Get(
+			name,
+			transport.Config{
+				Logger:        logger,
+				SSHUser:       cfg.SSHUser,
+				SSHPassword:   cfg.SSHPassword,
+				SSHKnownHosts: cfg.KnownHosts,
+				SSHHostKey:    cfg.SSHHostKey,
+				AllowInsecure: cfg.AllowInsecure,
+			},
+		)
 		if err != nil {
 			logger.Warn("unsupported transport", zap.String("transport", name))
 			continue

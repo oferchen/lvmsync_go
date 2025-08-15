@@ -2,13 +2,21 @@ package ssh
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
 	"io"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
+	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/knownhosts"
 
 	"lvmsync_go/common"
 	"lvmsync_go/transport"
@@ -38,9 +46,196 @@ func checkLogFields(t *testing.T, logs *observer.ObservedLogs, msg string, expec
 	}
 }
 
+func writeKnownHosts(t *testing.T, addr string, pk ssh.PublicKey) string {
+	t.Helper()
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		t.Fatalf("SplitHostPort: %v", err)
+	}
+	line := knownhosts.Line([]string{fmt.Sprintf("[%s]:%s", host, port)}, pk)
+	f, err := os.CreateTemp(t.TempDir(), "known_hosts")
+	if err != nil {
+		t.Fatalf("CreateTemp: %v", err)
+	}
+	if _, err := f.WriteString(line + "\n"); err != nil {
+		t.Fatalf("WriteString: %v", err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	return f.Name()
+}
+
+func emptyKnownHosts(t *testing.T) string {
+	t.Helper()
+	f, err := os.CreateTemp(t.TempDir(), "known_hosts")
+	if err != nil {
+		t.Fatalf("CreateTemp: %v", err)
+	}
+	f.Close()
+	return f.Name()
+}
+
 func TestSSHTransportAuthSuccess(t *testing.T) {
 	core, logs := observer.New(zap.InfoLevel)
-	cfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "pass"}
+	srvCfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "pass"}
+	serverIface, err := New(srvCfg)
+	if err != nil {
+		t.Fatalf("new server transport: %v", err)
+	}
+	server := serverIface.(*Transport)
+	ctx := context.Background()
+	ln, err := server.Listen(ctx, "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer ln.Close()
+	kh := writeKnownHosts(t, ln.Addr().String(), server.hostSigner.PublicKey())
+	clientIface, err := New(transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "pass", SSHKnownHosts: kh})
+	if err != nil {
+		t.Fatalf("new client transport: %v", err)
+	}
+	client := clientIface.(*Transport)
+
+	done := make(chan struct{})
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			t.Errorf("accept: %v", err)
+			return
+		}
+		peerHS, err := server.Negotiate(ctx, conn, transport.Server, common.Handshake{ResumeToken: "tok", MaxInFlight: 8, CDCMin: 64, CDCAvg: 128, CDCMax: 256})
+		if err != nil {
+			t.Errorf("server negotiate: %v", err)
+			return
+		}
+		if peerHS.ResumeToken != "tok" || peerHS.MaxInFlight != 8 || peerHS.CDCMin != 64 || peerHS.CDCAvg != 128 || peerHS.CDCMax != 256 {
+			t.Errorf("unexpected peer handshake: %+v", peerHS)
+		}
+		buf := make([]byte, 4)
+		io.ReadFull(conn, buf)
+		conn.Write([]byte("pong"))
+		conn.Close()
+		close(done)
+	}()
+
+	conn, err := client.Dial(ctx, ln.Addr().String())
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	peerHS, err := client.Negotiate(ctx, conn, transport.Client, common.Handshake{ResumeToken: "tok", MaxInFlight: 8, CDCMin: 64, CDCAvg: 128, CDCMax: 256})
+	if err != nil {
+		t.Fatalf("client negotiate: %v", err)
+	}
+	if peerHS.ResumeToken != "tok" || peerHS.MaxInFlight != 8 || peerHS.CDCMin != 64 || peerHS.CDCAvg != 128 || peerHS.CDCMax != 256 {
+		t.Fatalf("unexpected peer handshake: %+v", peerHS)
+	}
+	if _, err := conn.Write([]byte("ping")); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	buf := make([]byte, 4)
+	io.ReadFull(conn, buf)
+	if string(buf) != "pong" {
+		t.Fatalf("unexpected response %q", buf)
+	}
+	conn.Close()
+	<-done
+
+	checkLogFields(t, logs, "dial_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "dial_end", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "listen_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "listen_end", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "negotiate_start", 2, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "negotiate_end", 2, false, zapcore.InfoLevel)
+}
+
+func TestSSHTransportKeyAuth(t *testing.T) {
+	core, logs := observer.New(zap.InfoLevel)
+	dir := t.TempDir()
+	keyPath := filepath.Join(dir, "id_rsa")
+	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("generate key: %v", err)
+	}
+	privBytes := x509.MarshalPKCS1PrivateKey(priv)
+	pemBytes := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: privBytes})
+	if err := os.WriteFile(keyPath, pemBytes, 0600); err != nil {
+		t.Fatalf("write key: %v", err)
+	}
+	cfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHKeyPath: keyPath}
+	serverIface, err := New(cfg)
+	if err != nil {
+		t.Fatalf("new server transport: %v", err)
+	}
+	clientIface, err := New(cfg)
+	if err != nil {
+		t.Fatalf("new client transport: %v", err)
+	}
+	server := serverIface.(*Transport)
+	client := clientIface.(*Transport)
+	ctx := context.Background()
+	ln, err := server.Listen(ctx, "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer ln.Close()
+
+	done := make(chan struct{})
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			t.Errorf("accept: %v", err)
+			return
+		}
+		peerHS, err := server.Negotiate(ctx, conn, transport.Server, common.Handshake{ResumeToken: "tok", MaxInFlight: 8, CDCMin: 64, CDCAvg: 128, CDCMax: 256})
+		if err != nil {
+			t.Errorf("server negotiate: %v", err)
+			return
+		}
+		if peerHS.ResumeToken != "tok" || peerHS.MaxInFlight != 8 || peerHS.CDCMin != 64 || peerHS.CDCAvg != 128 || peerHS.CDCMax != 256 {
+			t.Errorf("unexpected peer handshake: %+v", peerHS)
+		}
+		buf := make([]byte, 4)
+		io.ReadFull(conn, buf)
+		conn.Write([]byte("pong"))
+		conn.Close()
+		close(done)
+	}()
+
+	conn, err := client.Dial(ctx, ln.Addr().String())
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	peerHS, err := client.Negotiate(ctx, conn, transport.Client, common.Handshake{ResumeToken: "tok", MaxInFlight: 8, CDCMin: 64, CDCAvg: 128, CDCMax: 256})
+	if err != nil {
+		t.Fatalf("client negotiate: %v", err)
+	}
+	if peerHS.ResumeToken != "tok" || peerHS.MaxInFlight != 8 || peerHS.CDCMin != 64 || peerHS.CDCAvg != 128 || peerHS.CDCMax != 256 {
+		t.Fatalf("unexpected peer handshake: %+v", peerHS)
+	}
+	if _, err := conn.Write([]byte("ping")); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	buf := make([]byte, 4)
+	io.ReadFull(conn, buf)
+	if string(buf) != "pong" {
+		t.Fatalf("unexpected response %q", buf)
+	}
+	conn.Close()
+	<-done
+
+	checkLogFields(t, logs, "dial_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "dial_end", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "listen_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "listen_end", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "negotiate_start", 2, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "negotiate_end", 2, false, zapcore.InfoLevel)
+}
+
+func TestSSHTransportAgentFallback(t *testing.T) {
+	core, logs := observer.New(zap.InfoLevel)
+	t.Setenv("SSH_AUTH_SOCK", filepath.Join(os.TempDir(), "nonexistent"))
+	cfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "pass", SSHUseAgent: true}
 	serverIface, err := New(cfg)
 	if err != nil {
 		t.Fatalf("new server transport: %v", err)
@@ -112,24 +307,24 @@ func TestSSHTransportAuthSuccess(t *testing.T) {
 
 func TestSSHTransportAuthFailure(t *testing.T) {
 	core, logs := observer.New(zap.InfoLevel)
-	serverCfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "pass"}
-	clientCfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "wrong"}
-	serverIface, err := New(serverCfg)
+	srvCfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "pass"}
+	serverIface, err := New(srvCfg)
 	if err != nil {
 		t.Fatalf("new server transport: %v", err)
 	}
-	clientIface, err := New(clientCfg)
-	if err != nil {
-		t.Fatalf("new client transport: %v", err)
-	}
 	server := serverIface.(*Transport)
-	client := clientIface.(*Transport)
 	ctx := context.Background()
 	ln, err := server.Listen(ctx, "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("listen: %v", err)
 	}
 	defer ln.Close()
+	kh := writeKnownHosts(t, ln.Addr().String(), server.hostSigner.PublicKey())
+	clientIface, err := New(transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "wrong", SSHKnownHosts: kh})
+	if err != nil {
+		t.Fatalf("new client transport: %v", err)
+	}
+	client := clientIface.(*Transport)
 
 	done := make(chan struct{})
 	go func() {
@@ -154,23 +349,24 @@ func TestSSHTransportAuthFailure(t *testing.T) {
 
 func TestSSHTransportCDCMismatch(t *testing.T) {
 	core, logs := observer.New(zap.InfoLevel)
-	cfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "pass"}
-	serverIface, err := New(cfg)
+	srvCfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "pass"}
+	serverIface, err := New(srvCfg)
 	if err != nil {
 		t.Fatalf("new server transport: %v", err)
 	}
-	clientIface, err := New(cfg)
-	if err != nil {
-		t.Fatalf("new client transport: %v", err)
-	}
 	server := serverIface.(*Transport)
-	client := clientIface.(*Transport)
 	ctx := context.Background()
 	ln, err := server.Listen(ctx, "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("listen: %v", err)
 	}
 	defer ln.Close()
+	kh := writeKnownHosts(t, ln.Addr().String(), server.hostSigner.PublicKey())
+	clientIface, err := New(transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "pass", SSHKnownHosts: kh})
+	if err != nil {
+		t.Fatalf("new client transport: %v", err)
+	}
+	client := clientIface.(*Transport)
 
 	done := make(chan struct{})
 	go func() {
@@ -307,4 +503,40 @@ func TestSSHTransportRequiresLogger(t *testing.T) {
 	if _, err := New(transport.Config{SSHUser: "u", SSHPassword: "p"}); err == nil {
 		t.Fatalf("expected error when logger is nil")
 	}
+}
+
+func TestSSHTransportRejectsUnknownHost(t *testing.T) {
+	core, logs := observer.New(zap.InfoLevel)
+	srvCfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "pass"}
+	serverIface, err := New(srvCfg)
+	if err != nil {
+		t.Fatalf("new server transport: %v", err)
+	}
+	server := serverIface.(*Transport)
+	ctx := context.Background()
+	ln, err := server.Listen(ctx, "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer ln.Close()
+	kh := emptyKnownHosts(t)
+	clientIface, err := New(transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "pass", SSHKnownHosts: kh})
+	if err != nil {
+		t.Fatalf("new client transport: %v", err)
+	}
+	client := clientIface.(*Transport)
+
+	done := make(chan struct{})
+	go func() {
+		if _, err := ln.Accept(); err == nil {
+			t.Errorf("expected accept error")
+		}
+		close(done)
+	}()
+	if _, err := client.Dial(ctx, ln.Addr().String()); err == nil {
+		t.Fatalf("expected dial error")
+	}
+	<-done
+	checkLogFields(t, logs, "dial_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "dial_end", 1, true, zapcore.ErrorLevel)
 }

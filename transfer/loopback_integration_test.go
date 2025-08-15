@@ -102,7 +102,7 @@ func TestLoopbackLVMToRawOverSSH(t *testing.T) {
 	writeResumeState(cfg, zap.NewNop(), resumePath, 0, uint32(blockSize), digest0)
 
 	ctx := context.Background()
-	tr, err := transport.Get("ssh", transport.Config{Logger: zap.NewNop(), SSHUser: "test", SSHPassword: "pass"})
+	tr, err := transport.Get("ssh", transport.Config{Logger: zap.NewNop(), SSHUser: "test", SSHPassword: "pass", AllowInsecure: true})
 	if err != nil {
 		t.Fatalf("get transport: %v", err)
 	}
@@ -655,7 +655,7 @@ func TestLoopbackSparseFileToFileOverSSH(t *testing.T) {
 			writeResumeState(cfg, zap.NewNop(), resumePath, 0, uint32(blockSize), digest0)
 
 			ctx := context.Background()
-			tr, err := transport.Get("ssh", transport.Config{Logger: zap.NewNop(), SSHUser: "test", SSHPassword: "pass"})
+			tr, err := transport.Get("ssh", transport.Config{Logger: zap.NewNop(), SSHUser: "test", SSHPassword: "pass", AllowInsecure: true})
 			if err != nil {
 				t.Fatalf("get transport: %v", err)
 			}
