@@ -13,6 +13,8 @@ import (
 
 	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
+
+	"lvmsync_go/remote"
 )
 
 // RawDevice represents a generic block device opened from /dev.
@@ -169,6 +171,9 @@ func validateCmd(path string, args []string) error {
 	}
 	if strings.ContainsRune(path, '\x00') {
 		return fmt.Errorf("command path contains NUL byte")
+	}
+	if !remote.RemoteCmdRe.MatchString(path) {
+		return fmt.Errorf("command path %s contains invalid characters", path)
 	}
 	for _, a := range args {
 		if strings.ContainsRune(a, '\x00') {
