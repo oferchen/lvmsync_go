@@ -285,6 +285,9 @@ func (i *Index) ChunkCount() uint64 { return i.hdr.ChunkCount }
 // The operation respects cancellation via ctx.
 // When allowMounted is false, Rebuild aborts if the device is mounted read-write.
 func Rebuild(ctx context.Context, devicePath, output string, logger *zap.Logger, progressInterval time.Duration, allowMounted bool) (err error) {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
 	if err = ctx.Err(); err != nil {
 		return err
 	}
@@ -349,7 +352,7 @@ func Rebuild(ctx context.Context, devicePath, output string, logger *zap.Logger,
 		if err = idx.Set(off, uint32(n), xx, b3); err != nil {
 			return err
 		}
-		if logger != nil && (progressInterval == 0 || time.Since(lastLog) >= progressInterval) {
+		if progressInterval == 0 || time.Since(lastLog) >= progressInterval {
 			if err = ctx.Err(); err != nil {
 				return err
 			}
@@ -363,11 +366,9 @@ func Rebuild(ctx context.Context, devicePath, output string, logger *zap.Logger,
 			break
 		}
 	}
-	if logger != nil {
-		logger.Info("rebuild_complete",
-			zap.Uint64("size_bytes", size),
-			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
-		)
-	}
+	logger.Info("rebuild_complete",
+		zap.Uint64("size_bytes", size),
+		zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+	)
 	return err
 }
