@@ -6,6 +6,7 @@ import (
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"io"
 	"math/big"
 	"net"
@@ -299,5 +300,28 @@ func TestH2AcceptTimeout(t *testing.T) {
 		t.Fatalf("expected accept timeout")
 	} else if ne, ok := err.(net.Error); !ok || !ne.Timeout() {
 		t.Fatalf("expected timeout error, got %v", err)
+	}
+}
+
+func TestH2NegotiateContextCancel(t *testing.T) {
+	tr := &Transport{logger: zap.NewNop()}
+	c1, c2 := net.Pipe()
+	defer c1.Close()
+	defer c2.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+
+	start := time.Now()
+	if _, err := tr.Negotiate(ctx, c1, transport.Client, common.Handshake{CDCMin: 64, CDCAvg: 128, CDCMax: 256}); err == nil {
+		t.Fatalf("expected negotiate error")
+	} else {
+		var ne net.Error
+		if !errors.As(err, &ne) || !ne.Timeout() {
+			t.Fatalf("expected timeout error, got %v", err)
+		}
+	}
+	if time.Since(start) > 100*time.Millisecond {
+		t.Fatalf("negotiation did not fail promptly")
 	}
 }
