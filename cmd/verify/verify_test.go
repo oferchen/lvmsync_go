@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
@@ -80,7 +81,9 @@ func TestVerifyManifestMismatch(t *testing.T) {
 	manPath := filepath.Join(t.TempDir(), "dst.man")
 	prevUUID := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "uuid-test", nil })
 	defer device.SetUUIDFunc(prevUUID)
-	if err := manifest.Rebuild(dst, manPath, zap.NewNop(), 0); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := manifest.Rebuild(ctx, dst, manPath, zap.NewNop(), 0); err != nil {
 		t.Fatalf("rebuild manifest: %v", err)
 	}
 	core, observed := observer.New(zap.ErrorLevel)
@@ -118,7 +121,9 @@ func TestVerifyManifestSuccess(t *testing.T) {
 	manPath := filepath.Join(t.TempDir(), "src.man")
 	prevUUID := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "uuid-test", nil })
 	defer device.SetUUIDFunc(prevUUID)
-	if err := manifest.Rebuild(src, manPath, zap.NewNop(), 0); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := manifest.Rebuild(ctx, src, manPath, zap.NewNop(), 0); err != nil {
 		t.Fatalf("rebuild manifest: %v", err)
 	}
 	if err := Run([]string{"--manifest_path", manPath, src, src}, zap.NewNop()); err != nil {
