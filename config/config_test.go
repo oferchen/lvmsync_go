@@ -439,6 +439,7 @@ func TestConfigValidateCDC(t *testing.T) {
 		cfg.CDCMin = 1
 		cfg.CDCAvg = 1
 		cfg.CDCMax = 1
+		cfg.LVMEscalation = "sudo"
 		if err := cfg.Validate(); err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
