@@ -18,7 +18,7 @@ import (
 // logical volumes or raw devices based on LVM metadata. When typeHint is not
 // empty or "auto", Detect will attempt to open the device using the explicit
 // type and will not perform auto detection.
-func Detect(ctx context.Context, path string, offline bool, typeHint, fsFreezeCmd, fsThawCmd string, freezeTimeout, thawTimeout time.Duration, logger *zap.Logger) (Device, error) {
+func Detect(ctx context.Context, path string, offline bool, typeHint, fsFreezeCmd, fsThawCmd, lvmEscalation string, freezeTimeout, thawTimeout time.Duration, logger *zap.Logger) (Device, error) {
 	resolved, err := filepath.EvalSymlinks(path)
 	if err != nil {
 		if logger != nil {
@@ -56,7 +56,7 @@ func Detect(ctx context.Context, path string, offline bool, typeHint, fsFreezeCm
 			}
 			cache := lvm.NewDeviceFDCache(logger)
 			defer cache.Close()
-			dev, err := OpenLVM(resolved, cache, logger)
+			dev, err := OpenLVM(resolved, cache, lvmEscalation, logger)
 			if err != nil {
 				if logger != nil {
 					logger.Error("detect device failed", zap.String("path", resolved), zap.String("device_type", "lvm"), zap.Error(err))
@@ -119,7 +119,7 @@ func Detect(ctx context.Context, path string, offline bool, typeHint, fsFreezeCm
 		if _, err := lvm.GetVolumeGroupName(resolved); err == nil {
 			cache := lvm.NewDeviceFDCache(logger)
 			defer cache.Close()
-			dev, err := OpenLVM(resolved, cache, logger)
+			dev, err := OpenLVM(resolved, cache, lvmEscalation, logger)
 			if err != nil {
 				if logger != nil {
 					logger.Error("detect device failed", zap.String("path", resolved), zap.String("device_type", "lvm"), zap.Error(err))
