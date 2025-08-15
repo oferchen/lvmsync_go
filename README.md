@@ -107,16 +107,35 @@ tooling to track transfer completion.
 
 The example below demonstrates these conventions:
 
-```
-logger, _ := zap.NewProduction()
-defer syncLogger(logger)
-start := time.Now()
+```go
+package main
 
-logger.Info("snapshot complete",
-    zap.String("source_path", src),
-    zap.String("dest_path", dst),
-    zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+import (
+    "time"
+
+    "go.uber.org/zap"
 )
+
+func syncLogger(logger *zap.Logger) {
+    if err := logger.Sync(); err != nil {
+        logger.Error("sync failed", zap.Error(err))
+    }
+}
+
+func main() {
+    logger, _ := zap.NewProduction()
+    defer syncLogger(logger)
+    start := time.Now()
+
+    src := "/dev/vg0/source"
+    dst := "/dev/vg0/backup"
+
+    logger.Info("snapshot complete",
+        zap.String("source_path", src),
+        zap.String("dest_path", dst),
+        zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+    )
+}
 ```
 
 Errors during block operations log the byte offset and block size explicitly:

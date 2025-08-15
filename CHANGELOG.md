@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enforce CDC chunk size ordering in handshake validation.
 - validate block size mismatch in handshakes
 - propagate seek errors during block writes to prevent silent data loss
+- Remove obsolete gap and pruning entries after rerunning static analysis.
+- Wrap README logging example in `package main` to compile with `go build`.
+- add default dial timeout and deadline propagation for h2 and tcp+tls transports
+- close SSH agent connections after retrieving signers and apply context-based timeouts
 
 ## [v0.1.0] - 2025-02-27
 ### Added
