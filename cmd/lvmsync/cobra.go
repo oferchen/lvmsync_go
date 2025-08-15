@@ -60,7 +60,14 @@ func NewRootCmd() *cobra.Command {
 				return fmt.Errorf("usage: lvmsync run [flags] <source> <dest>")
 			}
 			if cfg.DryRun {
-				logger := zap.NewExample()
+				logger := zap.L()
+				if logger == nil {
+					var err error
+					logger, err = zap.NewProduction()
+					if err != nil {
+						return err
+					}
+				}
 				defer logger.Sync()
 				if err := estimateTransfer(remaining[0], cfg, logger); err != nil {
 					return err
