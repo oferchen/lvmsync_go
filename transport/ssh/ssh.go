@@ -90,6 +90,7 @@ func New(cfg transport.Config) (transport.Interface, error) {
 		}
 		hkc = ssh.FixedHostKey(pk)
 	case cfg.AllowInsecure:
+		cfg.Logger.Warn("allow_insecure_enabled", zap.String("transport", "ssh"))
 		hkc = ssh.InsecureIgnoreHostKey()
 	default:
 		return nil, fmt.Errorf("known hosts or host key required")
