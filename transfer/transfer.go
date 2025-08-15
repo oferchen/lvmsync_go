@@ -18,6 +18,7 @@ import (
 type Transfer struct {
 	Logger   *zap.Logger
 	workerWG *sync.WaitGroup
+	Tracker  *resumeTracker
 }
 
 // NewTransfer creates a Transfer with the provided logger and wait group.
@@ -26,7 +27,7 @@ func NewTransfer(logger *zap.Logger, wg *sync.WaitGroup) *Transfer {
 	if wg == nil {
 		wg = &sync.WaitGroup{}
 	}
-	return &Transfer{Logger: logger, workerWG: wg}
+	return &Transfer{Logger: logger, workerWG: wg, Tracker: &resumeTracker{}}
 }
 
 // ChecksumState stores block checksums and the algorithm used for deduplication.
@@ -120,14 +121,14 @@ func (t *Transfer) dumpChangesCore(cfg *config.Config, snapshot, source string, 
 	var totalBytesTransferred int64
 	var skippedBlocks int
 	var finalDigest []byte
-	totalBytesTransferred, skippedBlocks, finalDigest, err = iterateBlocks(cfg, ranges, srcFile, bufOut, dedup, pipeFds, t.Logger)
+	totalBytesTransferred, skippedBlocks, finalDigest, err = iterateBlocks(cfg, ranges, srcFile, bufOut, dedup, pipeFds, t.Logger, t.Tracker)
 	if err != nil {
 		return err
 	}
 	finalizeProgress(cfg, t.Logger)
 
 	logSequentialSummary(t.Logger, totalBytesTransferred, skippedBlocks, startTime)
-	finalizeResumeState(cfg, t.Logger)
+	finalizeResumeState(cfg, t.Tracker, t.Logger)
 	if len(finalDigest) > 0 && t.Logger != nil {
 		t.Logger.Info("final checksum", zap.String("final_digest", fmt.Sprintf("%x", finalDigest)))
 	}

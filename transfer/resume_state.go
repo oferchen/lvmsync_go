@@ -4,7 +4,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"os"
-	"sync"
 	"time"
 
 	"go.uber.org/zap"
@@ -30,17 +29,14 @@ type resumeCheckpoint struct {
 	Length uint32
 }
 
-// stateManager encapsulates checkpoint tracking independent of dedup mode.
-type stateManager struct {
-	mu     sync.Mutex
+// resumeTracker tracks checkpoint progress for an ongoing transfer.
+type resumeTracker struct {
 	bytes  int64
 	last   time.Time
 	chunk  [32]byte
 	offset uint64
 	length uint32
 }
-
-var checkpointState stateManager
 
 func writeResumeState(cfg *config.Config, logger *zap.Logger, path string, offset uint64, length uint32, chunk [32]byte) {
 	rs := resumeState{
@@ -66,34 +62,30 @@ func writeResumeState(cfg *config.Config, logger *zap.Logger, path string, offse
 	}
 }
 
-func saveResumeState(cfg *config.Config, offset uint64, chunk [32]byte, size int64, logger *zap.Logger) {
-	if cfg.ResumeState == "" {
+func saveResumeState(cfg *config.Config, rt *resumeTracker, offset uint64, chunk [32]byte, size int64, logger *zap.Logger) {
+	if cfg.ResumeState == "" || rt == nil {
 		return
 	}
-	checkpointState.mu.Lock()
-	defer checkpointState.mu.Unlock()
-	if checkpointState.last.IsZero() {
-		checkpointState.last = time.Now()
+	if rt.last.IsZero() {
+		rt.last = time.Now()
 	}
-	checkpointState.bytes += size
-	checkpointState.chunk = chunk
-	checkpointState.offset = offset
-	checkpointState.length = uint32(size)
-	if (cfg.CheckpointBytes > 0 && checkpointState.bytes >= int64(cfg.CheckpointBytes)) ||
-		(cfg.CheckpointInterval > 0 && time.Since(checkpointState.last) >= cfg.CheckpointInterval) {
-		writeResumeState(cfg, logger, cfg.ResumeState, checkpointState.offset, checkpointState.length, checkpointState.chunk)
-		checkpointState.bytes = 0
-		checkpointState.last = time.Now()
+	rt.bytes += size
+	rt.chunk = chunk
+	rt.offset = offset
+	rt.length = uint32(size)
+	if (cfg.CheckpointBytes > 0 && rt.bytes >= int64(cfg.CheckpointBytes)) ||
+		(cfg.CheckpointInterval > 0 && time.Since(rt.last) >= cfg.CheckpointInterval) {
+		writeResumeState(cfg, logger, cfg.ResumeState, rt.offset, rt.length, rt.chunk)
+		rt.bytes = 0
+		rt.last = time.Now()
 	}
 }
 
-func finalizeResumeState(cfg *config.Config, logger *zap.Logger) {
-	if cfg.ResumeState == "" {
+func finalizeResumeState(cfg *config.Config, rt *resumeTracker, logger *zap.Logger) {
+	if cfg.ResumeState == "" || rt == nil {
 		return
 	}
-	checkpointState.mu.Lock()
-	defer checkpointState.mu.Unlock()
-	if checkpointState.last.IsZero() {
+	if rt.last.IsZero() {
 		return
 	}
 	if err := os.Remove(cfg.ResumeState); err != nil && !os.IsNotExist(err) {
@@ -101,8 +93,8 @@ func finalizeResumeState(cfg *config.Config, logger *zap.Logger) {
 			logger.Warn("Failed to remove resume state", zap.Error(err))
 		}
 	}
-	checkpointState.bytes = 0
-	checkpointState.last = time.Time{}
+	rt.bytes = 0
+	rt.last = time.Time{}
 }
 
 func readResumeState(cfg *config.Config, logger *zap.Logger) resumeCheckpoint {

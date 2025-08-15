@@ -263,12 +263,12 @@ func TestLoopbackFileToFileOverTCPTLS(t *testing.T) {
 	if startIdx > 0 {
 		ranges = ranges[startIdx:]
 	}
-	if _, _, _, err := iterateBlocks(cfg, ranges, srcFile, bufOut, nil, [2]int{-1, -1}, tt.Logger); err != nil {
+	if _, _, _, err := iterateBlocks(cfg, ranges, srcFile, bufOut, nil, [2]int{-1, -1}, tt.Logger, tt.Tracker); err != nil {
 		t.Fatalf("iterateBlocks: %v", err)
 	}
 	finalizeProgress(cfg, tt.Logger)
 	cleanupOutput(bufOut, compWriter, tt.Logger)
-	finalizeResumeState(cfg, tt.Logger)
+	finalizeResumeState(cfg, tt.Tracker, tt.Logger)
 	srcFile.Close()
 	conn.Close()
 	if err := <-done; err != nil {
@@ -534,13 +534,13 @@ func runRawToRawLoopback(t *testing.T, transportName string) {
 				ranges = ranges[startIdx:]
 			}
 			dedup, cleanup := tt.setupDedup(cfg)
-			if _, _, _, err := iterateBlocks(cfg, ranges, srcFile, bufOut, dedup, [2]int{-1, -1}, tt.Logger); err != nil {
+			if _, _, _, err := iterateBlocks(cfg, ranges, srcFile, bufOut, dedup, [2]int{-1, -1}, tt.Logger, tt.Tracker); err != nil {
 				t.Fatalf("iterateBlocks: %v", err)
 			}
 			cleanup()
 			finalizeProgress(cfg, tt.Logger)
 			cleanupOutput(bufOut, compWriter, tt.Logger)
-			finalizeResumeState(cfg, tt.Logger)
+			finalizeResumeState(cfg, tt.Tracker, tt.Logger)
 			srcFile.Close()
 			conn.Close()
 			if err := <-done; err != nil {
@@ -708,13 +708,13 @@ func TestLoopbackSparseFileToFileOverSSH(t *testing.T) {
 				ranges = ranges[startIdx:]
 			}
 			dedup, cleanup := tt.setupDedup(cfg)
-			if _, _, _, err := iterateBlocks(cfg, ranges, srcFile, bufOut, dedup, [2]int{-1, -1}, tt.Logger); err != nil {
+			if _, _, _, err := iterateBlocks(cfg, ranges, srcFile, bufOut, dedup, [2]int{-1, -1}, tt.Logger, tt.Tracker); err != nil {
 				t.Fatalf("iterateBlocks: %v", err)
 			}
 			cleanup()
 			finalizeProgress(cfg, tt.Logger)
 			cleanupOutput(bufOut, compWriter, tt.Logger)
-			finalizeResumeState(cfg, tt.Logger)
+			finalizeResumeState(cfg, tt.Tracker, tt.Logger)
 			srcFile.Close()
 			conn.Close()
 			if err := <-done; err != nil {

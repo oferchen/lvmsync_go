@@ -12,8 +12,6 @@ import (
 	"lvmsync_go/app"
 	applycmd "lvmsync_go/cmd/apply"
 	dumpcmd "lvmsync_go/cmd/dump"
-	manifestcmd "lvmsync_go/cmd/manifest"
-	verifycmd "lvmsync_go/cmd/verify"
 	"lvmsync_go/config"
 	"lvmsync_go/device"
 	clientpkg "lvmsync_go/internal/client"
@@ -31,6 +29,12 @@ var (
 	runDump           = func(ctx context.Context, cfg *config.Config, snapshot, dest string, logger *zap.Logger) error {
 		_, err := dumpcmd.Run(ctx, cfg, snapshot, dest, logger)
 		return err
+	}
+	RunManifest = func(cfg *config.Config, args []string, logger *zap.Logger) error {
+		return fmt.Errorf("manifest command not registered")
+	}
+	RunVerify = func(args []string, logger *zap.Logger) error {
+		return fmt.Errorf("verify command not registered")
 	}
 )
 
@@ -130,9 +134,9 @@ func Run(cfg *config.Config, args []string, logger *zap.Logger) error {
 	if len(args) > 0 {
 		switch args[0] {
 		case "manifest":
-			return manifestcmd.Run(cfg, args[1:], logger)
+			return RunManifest(cfg, args[1:], logger)
 		case "verify":
-			return verifycmd.Run(args[1:], logger)
+			return RunVerify(args[1:], logger)
 		}
 	}
 
@@ -189,7 +193,7 @@ func Run(cfg *config.Config, args []string, logger *zap.Logger) error {
 	)
 
 	if cfg.SourceType == "" || cfg.SourceType == "auto" {
-		dev, err := device.Detect(ctx, originalVolume, cfg.Offline, cfg.SourceType, cfg.FSFreezeCommand, cfg.FSThawCommand, cfg.FreezeTimeout, cfg.ThawTimeout, logger)
+		dev, err := device.Detect(ctx, originalVolume, cfg.Offline, cfg.SourceType, cfg.FSFreezeCommand, cfg.FSThawCommand, cfg.LVMEscalation, cfg.FreezeTimeout, cfg.ThawTimeout, logger)
 		if err != nil {
 			return err
 		}

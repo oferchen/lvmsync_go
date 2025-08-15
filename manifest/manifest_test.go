@@ -282,7 +282,7 @@ func TestRebuildCloseOnce(t *testing.T) {
 	manPath := filepath.Join(dir, "closeonce.man")
 	prevHook := closeHook
 	count := 0
-	closeHook = func() { count++ }
+	closeHook = func() error { count++; return nil }
 	defer func() { closeHook = prevHook }()
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
@@ -291,6 +291,33 @@ func TestRebuildCloseOnce(t *testing.T) {
 	}
 	if count != 1 {
 		t.Fatalf("expected close called once, got %d", count)
+	}
+}
+
+func TestRebuildCloseError(t *testing.T) {
+	dir := t.TempDir()
+	file, err := os.CreateTemp(dir, "dev-*.img")
+	if err != nil {
+		t.Fatalf("temp file: %v", err)
+	}
+	data := make([]byte, 4096)
+	if _, err := rand.Read(data); err != nil {
+		t.Fatalf("rand: %v", err)
+	}
+	if _, err := file.Write(data); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	file.Close()
+	prevUUID := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "uuid-test", nil })
+	defer device.SetUUIDFunc(prevUUID)
+	manPath := filepath.Join(dir, "closeerr.man")
+	prevHook := closeHook
+	closeHook = func() error { return errors.New("close fail") }
+	defer func() { closeHook = prevHook }()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false); err == nil || !strings.Contains(err.Error(), "close fail") {
+		t.Fatalf("expected close error, got %v", err)
 	}
 }
 

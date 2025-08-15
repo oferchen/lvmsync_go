@@ -39,7 +39,16 @@ func newDigestHasher(algo string) hash.Hash {
 	}
 }
 
-func iterateBlocks(cfg *config.Config, ranges []Range, srcFile *os.File, bufOut *bufio.Writer, dedup DeduplicationStrategy, pipeFds [2]int, logger *zap.Logger) (int64, int, []byte, error) {
+func iterateBlocks(
+	cfg *config.Config,
+	ranges []Range,
+	srcFile *os.File,
+	bufOut *bufio.Writer,
+	dedup DeduplicationStrategy,
+	pipeFds [2]int,
+	logger *zap.Logger,
+	rt *resumeTracker,
+) (int64, int, []byte, error) {
 	var totalBytes int64
 	skippedBlocks := 0
 	var header [12]byte
@@ -94,7 +103,7 @@ func iterateBlocks(cfg *config.Config, ranges []Range, srcFile *os.File, bufOut 
 				return totalBytes, skippedBlocks, nil, fmt.Errorf("failed to write header: %w", err)
 			}
 			zh := zeroHash(int(blockSize))
-			saveResumeState(cfg, r.Start, zh, int64(blockSize), logger)
+			saveResumeState(cfg, rt, r.Start, zh, int64(blockSize), logger)
 			if idx != nil {
 				if err := idx.Set(r.Start, blockSize, xx, zh); err != nil {
 					putBlockBuffer(data)
@@ -123,7 +132,7 @@ func iterateBlocks(cfg *config.Config, ranges []Range, srcFile *os.File, bufOut 
 				return totalBytes, skippedBlocks, nil, fmt.Errorf("manifest set: %w", err)
 			}
 		}
-		saveResumeState(cfg, r.Start, sum, int64(blockSize), logger)
+		saveResumeState(cfg, rt, r.Start, sum, int64(blockSize), logger)
 
 		putBlockBuffer(data)
 
@@ -162,6 +171,7 @@ func processParallelResults(
 	totalDataSize int64,
 	startTime time.Time,
 	logger *zap.Logger,
+	rt *resumeTracker,
 ) (int64, []byte, error) {
 	headerSize := 12
 	if cfg.VerifyChecksum {
@@ -207,7 +217,7 @@ func processParallelResults(
 					return totalBytesTransferred, nil, fmt.Errorf("manifest set: %w", err)
 				}
 			}
-			saveResumeState(cfg, res.Offset, res.ChunkID, int64(res.Size), logger)
+			saveResumeState(cfg, rt, res.Offset, res.ChunkID, int64(res.Size), logger)
 			putBlockBuffer(res.Data)
 		} else {
 			if idx != nil {
@@ -216,7 +226,7 @@ func processParallelResults(
 					return totalBytesTransferred, nil, fmt.Errorf("manifest set: %w", err)
 				}
 			}
-			saveResumeState(cfg, res.Offset, res.ChunkID, 0, logger)
+			saveResumeState(cfg, rt, res.Offset, res.ChunkID, 0, logger)
 		}
 
 		totalBytesTransferred += int64(res.Size)

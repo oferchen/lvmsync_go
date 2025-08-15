@@ -2,17 +2,30 @@ package manifest
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 
 	"lvmsync_go/config"
 	"lvmsync_go/device"
 )
+
+type syncTrackerCore struct {
+	zapcore.Core
+	syncs *int
+}
+
+func (s syncTrackerCore) Sync() error {
+	*s.syncs++
+	_ = s.Core.Sync()
+	return fmt.Errorf("sync error")
+}
 
 func TestRunDefaultOutputPath(t *testing.T) {
 	dir := t.TempDir()
@@ -150,10 +163,20 @@ func TestRunAppliesManifestTimeout(t *testing.T) {
 }
 
 func TestRunZeroManifestTimeoutUsesBackground(t *testing.T) {
+
+func TestRunSyncsLogger(t *testing.T) {
+	dir := t.TempDir()
+	devicePath := filepath.Join(dir, "dev.img")
+	if err := os.WriteFile(devicePath, []byte("data"), 0o600); err != nil {
+		t.Fatalf("write device: %v", err)
+	}
+
+
 	cfg, err := config.DefaultConfig()
 	if err != nil {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
+
 	cfg.ManifestTimeout = 0
 	var captured context.Context
 	orig := rebuildFn
@@ -167,5 +190,18 @@ func TestRunZeroManifestTimeoutUsesBackground(t *testing.T) {
 	}
 	if _, ok := captured.Deadline(); ok {
 		t.Fatalf("unexpected deadline on context")
+	cfg.DryRun = true
+
+	var syncs int
+	core, logs := observer.New(zap.InfoLevel)
+	logger := zap.New(syncTrackerCore{Core: core, syncs: &syncs})
+	if err := Run(cfg, []string{"rebuild", devicePath}, logger); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if syncs != 1 {
+		t.Fatalf("expected logger.Sync called once, got %d", syncs)
+	}
+	if logs.FilterMessage("Logger sync error").Len() != 1 {
+		t.Fatalf("expected sync error log")
 	}
 }

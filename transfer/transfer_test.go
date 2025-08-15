@@ -22,7 +22,7 @@ func TestIterateBlocksOffsetOverflow(t *testing.T) {
 
 	cfg := &config.Config{BlockSize: 4096}
 	bufOut := bufio.NewWriter(io.Discard)
-	_, _, _, err := iterateBlocks(cfg, []Range{{Start: math.MaxUint64, End: math.MaxUint64}}, src, bufOut, nil, [2]int{-1, -1}, zap.NewNop())
+	_, _, _, err := iterateBlocks(cfg, []Range{{Start: math.MaxUint64, End: math.MaxUint64}}, src, bufOut, nil, [2]int{-1, -1}, zap.NewNop(), nil)
 	if err == nil || !strings.Contains(err.Error(), "offset") {
 		t.Fatalf("expected offset error, got %v", err)
 	}
@@ -34,7 +34,7 @@ func TestIterateBlocksOversizedBlockSize(t *testing.T) {
 
 	cfg := &config.Config{BlockSize: int(math.MaxUint32) + 1}
 	bufOut := bufio.NewWriter(io.Discard)
-	_, _, _, err := iterateBlocks(cfg, []Range{{Start: 0, End: 0}}, src, bufOut, nil, [2]int{-1, -1}, zap.NewNop())
+	_, _, _, err := iterateBlocks(cfg, []Range{{Start: 0, End: 0}}, src, bufOut, nil, [2]int{-1, -1}, zap.NewNop(), nil)
 	if err == nil || !strings.Contains(err.Error(), "block size") {
 		t.Fatalf("expected block size error, got %v", err)
 	}
@@ -43,7 +43,8 @@ func TestIterateBlocksOversizedBlockSize(t *testing.T) {
 func TestSaveResumeStatePermissions(t *testing.T) {
 	dir := t.TempDir()
 	cfg := &config.Config{ResumeState: filepath.Join(dir, "resume"), CheckpointBytes: 1}
-	saveResumeState(cfg, 0, [32]byte{}, 1, zap.NewNop())
+	rt := &resumeTracker{}
+	saveResumeState(cfg, rt, 0, [32]byte{}, 1, zap.NewNop())
 
 	info, err := os.Stat(cfg.ResumeState)
 	if err != nil {

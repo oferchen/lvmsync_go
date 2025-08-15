@@ -7,16 +7,23 @@ import (
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
 
+	rootcmd "lvmsync_go/cmd/root"
 	"lvmsync_go/config"
 	manifestpkg "lvmsync_go/manifest"
 )
 
+
 var rebuildFn = manifestpkg.Rebuild
+
+func init() {
+	rootcmd.RunManifest = Run
+}
+
 
 // Run executes manifest subcommands. Currently only "rebuild" is supported.
 func Run(cfg *config.Config, args []string, logger *zap.Logger) error {
 	if logger != nil {
-		defer logger.Sync()
+		defer rootcmd.SyncLogger(logger)
 	}
 	if len(args) == 0 || args[0] != "rebuild" {
 		fs := pflag.NewFlagSet("manifest", pflag.ContinueOnError)
