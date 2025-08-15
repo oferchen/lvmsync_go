@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"testing"
+	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -202,6 +203,104 @@ func TestSSHTransportCDCMismatch(t *testing.T) {
 	checkLogFields(t, logs, "listen_end", 1, false, zapcore.InfoLevel)
 	checkLogFields(t, logs, "negotiate_start", 2, false, zapcore.InfoLevel)
 	checkLogFields(t, logs, "negotiate_end", 2, true, zapcore.ErrorLevel)
+}
+
+func TestSSHTransportNegotiateTimeoutClient(t *testing.T) {
+	core, _ := observer.New(zap.InfoLevel)
+	cfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "pass"}
+	serverIface, err := New(cfg)
+	if err != nil {
+		t.Fatalf("new server transport: %v", err)
+	}
+	clientIface, err := New(cfg)
+	if err != nil {
+		t.Fatalf("new client transport: %v", err)
+	}
+	server := serverIface.(*Transport)
+	client := clientIface.(*Transport)
+	ctx := context.Background()
+	ln, err := server.Listen(ctx, "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer ln.Close()
+
+	done := make(chan struct{})
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		<-done
+		conn.Close()
+	}()
+
+	conn, err := client.Dial(ctx, ln.Addr().String())
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	timeoutCtx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
+	time.Sleep(60 * time.Millisecond)
+	start := time.Now()
+	if _, err := client.Negotiate(timeoutCtx, conn, transport.Client, common.Handshake{}); err == nil {
+		t.Fatalf("expected client negotiate error")
+	}
+	if time.Since(start) > 200*time.Millisecond {
+		t.Fatalf("negotiation did not fail promptly")
+	}
+	conn.Close()
+	close(done)
+	cancel()
+}
+
+func TestSSHTransportNegotiateTimeoutServer(t *testing.T) {
+	core, _ := observer.New(zap.InfoLevel)
+	cfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "pass"}
+	serverIface, err := New(cfg)
+	if err != nil {
+		t.Fatalf("new server transport: %v", err)
+	}
+	clientIface, err := New(cfg)
+	if err != nil {
+		t.Fatalf("new client transport: %v", err)
+	}
+	server := serverIface.(*Transport)
+	client := clientIface.(*Transport)
+	ctx := context.Background()
+	ln, err := server.Listen(ctx, "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer ln.Close()
+
+	errCh := make(chan error)
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			errCh <- err
+			return
+		}
+		timeoutCtx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
+		time.Sleep(60 * time.Millisecond)
+		_, err = server.Negotiate(timeoutCtx, conn, transport.Server, common.Handshake{})
+		conn.Close()
+		errCh <- err
+		cancel()
+	}()
+
+	conn, err := client.Dial(ctx, ln.Addr().String())
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	start := time.Now()
+	err = <-errCh
+	if err == nil {
+		t.Fatalf("expected server negotiate error")
+	}
+	if time.Since(start) > 200*time.Millisecond {
+		t.Fatalf("negotiation did not fail promptly")
+	}
+	conn.Close()
 }
 
 func TestSSHTransportRequiresLogger(t *testing.T) {

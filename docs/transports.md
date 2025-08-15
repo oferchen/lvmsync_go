@@ -59,6 +59,7 @@ lvmsync --transport quic --tls_cert cert.pem --tls_key key.pem --ca_cert ca.pem
 
 - Establishes sessions using `golang.org/x/crypto/ssh`
 - Supports `sudo -n` escalation hooks
+- Uses context deadlines for handshake I/O, failing fast when the caller's context times out
 
 Example selecting transports and custom port:
 

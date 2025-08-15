@@ -414,6 +414,7 @@ LVMSYNC_GRPC_GRPC_PORT=9443 LVMSYNC_GRPC_TLS_CERT=cert.pem lvmsync-grpcd
 | `--allow_insecure` | `LVMSYNC_ALLOW_INSECURE` | `allow_insecure` | Allow insecure (no TLS) |
 
 If `--ssh_key` is empty, lvmsync contacts the SSH agent referenced by `SSH_AUTH_SOCK`. The agent connection uses `--ssh_timeout` as its deadline.
+SSH transport negotiation also derives read and write deadlines from the caller's context; when the context expires, the handshake fails quickly and deadlines are cleared afterward.
 
 ### Common deployment scenarios
 
