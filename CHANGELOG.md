@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - transfer: add manifest index persistence test covering read/write, rebuild, and verify paths.
 - cmd: support `--source-type` and `--dest-type` flags and allow `device.Detect` to honor explicit type hints.
 - transfer: unify resume checkpoints across dedup modes and add resume tests for fixed, CDC, and hybrid modes.
+- transfer: add tests verifying resume state alignment across dedup mode transitions.
 - manifest: add `manifest_timeout` option to control rebuild timeout.
 - device: allow configurable LVM privilege escalation command.
 - tests: verify ALPN and TLS version round-trip in handshake and transport negotiation.
@@ -68,6 +69,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - remove legacy dedup manifest in favor of manifest.Index
 - device: surface freeze/thaw command output when raw device operations fail
 - transfer: give each writer an independent rate limiter
+- allow resuming transfers after changing dedup modes
 - cmd/dump: handle context cancellation during pipe copies to avoid incomplete writes
 - rename dry run log field to `eta_seconds` and log durations in seconds
 - transfer: replace global checkpoint state with per-transfer resume trackers

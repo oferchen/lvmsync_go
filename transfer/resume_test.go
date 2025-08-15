@@ -121,3 +121,41 @@ func TestResumeParallel(t *testing.T) {
 	// resume state file contains the digest of the last transferred chunk
 	// to allow recovery after interruptions.
 }
+
+func TestResumeModeTransitions(t *testing.T) {
+	transitions := []struct {
+		from string
+		to   string
+	}{
+		{"fixed", "cdc"},
+		{"cdc", "hybrid"},
+		{"hybrid", "fixed"},
+	}
+	for _, trc := range transitions {
+		t.Run(trc.from+"_to_"+trc.to, func(t *testing.T) {
+			tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{})
+			tr.Tracker = &resumeTracker{}
+			blockSize := int64(1024)
+			src, snapshot, resume := createTestFiles(t, blockSize, 4, "blake3")
+
+			cfgStart := &config.Config{BlockSize: int(blockSize), Compress: "none", Parallel: 1, ResumeState: resume, MaxRetries: 1, ChecksumAlgorithm: "blake3", Transport: "ssh", DedupMode: trc.from}
+			digest := blake3.Sum256(bytes.Repeat([]byte{2}, int(blockSize)))
+			writeResumeState(cfgStart, zap.NewNop(), resume, uint64(blockSize), uint32(blockSize), digest)
+
+			cfgResume := &config.Config{BlockSize: int(blockSize), Compress: "none", Parallel: 1, ResumeState: resume, MaxRetries: 1, ChecksumAlgorithm: "blake3", Transport: "ssh", DedupMode: trc.to}
+
+			var buf bytes.Buffer
+			if err := tr.DumpChangesParallel(cfgResume, snapshot, src, &buf); err != nil {
+				t.Fatalf("DumpChangesParallel failed: %v", err)
+			}
+			finalizeResumeState(cfgResume, tr.Tracker, zap.NewNop())
+
+			offsets := parseOffsets(t, buf.Bytes(), blockSize)
+			sort.Slice(offsets, func(i, j int) bool { return offsets[i] < offsets[j] })
+			expected := []int64{2 * blockSize, 3 * blockSize}
+			if !reflect.DeepEqual(offsets, expected) {
+				t.Fatalf("unexpected offsets %v, want %v", offsets, expected)
+			}
+		})
+	}
+}
