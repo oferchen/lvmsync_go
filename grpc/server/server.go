@@ -15,8 +15,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/keepalive"
-	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
 	lvmagent "lvmsync_go/internal/lvm"
@@ -110,11 +109,7 @@ func timeoutInterceptor(d time.Duration) grpc.UnaryServerInterceptor {
 }
 
 func authorizeInterceptor(ctx context.Context, req any, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
-	md, ok := metadata.FromIncomingContext(ctx)
-	if !ok {
-		return nil, status.Error(codes.PermissionDenied, "missing metadata")
-	}
-	roles := md.Get("role")
+	roles := rolesFromTLS(ctx)
 	for _, r := range roles {
 		if r == "replicator" {
 			return handler(ctx, req)
@@ -124,17 +119,30 @@ func authorizeInterceptor(ctx context.Context, req any, _ *grpc.UnaryServerInfo,
 }
 
 func authorizeStreamInterceptor(srv any, ss grpc.ServerStream, _ *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-	md, ok := metadata.FromIncomingContext(ss.Context())
-	if !ok {
-		return status.Error(codes.PermissionDenied, "missing metadata")
-	}
-	roles := md.Get("role")
+	roles := rolesFromTLS(ss.Context())
 	for _, r := range roles {
 		if r == "replicator" {
 			return handler(srv, ss)
 		}
 	}
 	return status.Error(codes.PermissionDenied, "unauthorized role")
+}
+
+func rolesFromTLS(ctx context.Context) []string {
+	p, ok := peer.FromContext(ctx)
+	if !ok {
+		return nil
+	}
+	ti, ok := p.AuthInfo.(credentials.TLSInfo)
+	if !ok {
+		return nil
+	}
+	state := ti.State
+	if len(state.VerifiedChains) == 0 || len(state.VerifiedChains[0]) == 0 {
+		return nil
+	}
+	cert := state.VerifiedChains[0][0]
+	return cert.Subject.OrganizationalUnit
 }
 
 type replicationServer struct {

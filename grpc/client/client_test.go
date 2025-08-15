@@ -6,15 +6,17 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/pem"
 	"errors"
 	"math/big"
 	"net"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/test/bufconn"
 
 	servers "lvmsync_go/grpc/server"
@@ -30,17 +32,102 @@ func bufDialer(lis *bufconn.Listener) func(context.Context, string) (net.Conn, e
 	}
 }
 
+func generateTLS(t *testing.T) (servers.Config, Config) {
+	ca := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: "ca"},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(time.Hour),
+		IsCA:                  true,
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature,
+		BasicConstraintsValid: true,
+	}
+	caKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	caDER, err := x509.CreateCertificate(rand.Reader, ca, ca, &caKey.PublicKey, caKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	caPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: caDER})
+
+	serverCert := &x509.Certificate{
+		SerialNumber: big.NewInt(2),
+		Subject:      pkix.Name{CommonName: "bufnet"},
+		NotBefore:    time.Now().Add(-time.Hour),
+		NotAfter:     time.Now().Add(time.Hour),
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		DNSNames:     []string{"bufnet"},
+	}
+	serverKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	serverDER, err := x509.CreateCertificate(rand.Reader, serverCert, ca, &serverKey.PublicKey, caKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	serverCertPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: serverDER})
+	serverKeyPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(serverKey)})
+
+	clientCert := &x509.Certificate{
+		SerialNumber: big.NewInt(3),
+		Subject:      pkix.Name{CommonName: "client", OrganizationalUnit: []string{"replicator"}},
+		NotBefore:    time.Now().Add(-time.Hour),
+		NotAfter:     time.Now().Add(time.Hour),
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+	}
+	clientKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	clientDER, err := x509.CreateCertificate(rand.Reader, clientCert, ca, &clientKey.PublicKey, caKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	clientCertPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: clientDER})
+	clientKeyPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(clientKey)})
+
+	dir := t.TempDir()
+	srvCertFile := filepath.Join(dir, "server.pem")
+	srvKeyFile := filepath.Join(dir, "server.key")
+	clientCertFile := filepath.Join(dir, "client.pem")
+	clientKeyFile := filepath.Join(dir, "client.key")
+	caFile := filepath.Join(dir, "ca.pem")
+	if err := os.WriteFile(srvCertFile, serverCertPEM, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(srvKeyFile, serverKeyPEM, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(clientCertFile, clientCertPEM, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(clientKeyFile, clientKeyPEM, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(caFile, caPEM, 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	srvCfg := servers.Config{TLSCert: srvCertFile, TLSKey: srvKeyFile, CACert: caFile}
+	cliCfg := Config{TLSCert: clientCertFile, TLSKey: clientKeyFile, CACert: caFile, DialTimeout: time.Second}
+	return srvCfg, cliCfg
+}
+
 func setupClient(t *testing.T) (proto.ReplicationClient, func()) {
 	t.Helper()
 	lis := bufconn.Listen(bufSize)
+	srvCfg, cliCfg := generateTLS(t)
 	agent := ackAgent{}
-	srv, srvCleanup, err := servers.New(servers.Config{AllowInsecure: true}, agent, zap.NewNop())
+	srv, srvCleanup, err := servers.New(srvCfg, agent, zap.NewNop())
 	if err != nil {
 		t.Fatalf("server.New: %v", err)
 	}
 	go srv.Serve(lis)
 	ctx, cancel := context.WithCancel(context.Background())
-	conn, err := Dial(ctx, "bufnet", Config{AllowInsecure: true, DialTimeout: time.Second}, grpc.WithContextDialer(bufDialer(lis)))
+	conn, err := Dial(ctx, "bufnet", cliCfg, grpc.WithContextDialer(bufDialer(lis)))
 	if err != nil {
 		t.Fatalf("Dial: %v", err)
 	}
@@ -69,7 +156,7 @@ func (ackAgent) Ack(ctx context.Context, ack *proto.Ack) (*proto.Ack, error) { r
 func TestHandshakeAndAck(t *testing.T) {
 	client, cleanup := setupClient(t)
 	defer cleanup()
-	ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs("role", "replicator"))
+	ctx := context.Background()
 	if _, err := Handshake(ctx, client, &proto.HandshakeRequest{SectorSize: 512, Alignment: 512, MaxConcurrency: 1}); err != nil {
 		t.Fatalf("Handshake: %v", err)
 	}
