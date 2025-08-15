@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
 
@@ -127,7 +128,7 @@ func setupClient(t *testing.T) (proto.ReplicationClient, func()) {
 	}
 	go srv.Serve(lis)
 	ctx, cancel := context.WithCancel(context.Background())
-	conn, err := Dial(ctx, "bufnet", cliCfg, grpc.WithContextDialer(bufDialer(lis)))
+	conn, err := Dial(ctx, "bufnet", cliCfg, zap.NewNop(), grpc.WithContextDialer(bufDialer(lis)))
 	if err != nil {
 		t.Fatalf("Dial: %v", err)
 	}
@@ -205,7 +206,7 @@ func TestDial(t *testing.T) {
 			}
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			conn, err := Dial(ctx, "bufnet", tc.conf, opts...)
+			conn, err := Dial(ctx, "bufnet", tc.conf, zap.NewNop(), opts...)
 			if tc.wantErr {
 				if err == nil {
 					t.Fatalf("expected error")
@@ -220,11 +221,39 @@ func TestDial(t *testing.T) {
 	}
 }
 
+func TestDialAllowInsecureWarn(t *testing.T) {
+	lis := bufconn.Listen(bufSize)
+	srv, srvCleanup, err := servers.New(servers.Config{AllowInsecure: true}, nil, zap.NewNop())
+	if err != nil {
+		t.Fatalf("server.New: %v", err)
+	}
+	go srv.Serve(lis)
+	defer func() {
+		srv.Stop()
+		srvCleanup()
+	}()
+	core, obs := observer.New(zap.WarnLevel)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	conn, err := Dial(ctx, "bufnet", Config{AllowInsecure: true, DialTimeout: time.Second}, zap.New(core), grpc.WithContextDialer(bufDialer(lis)))
+	if err != nil {
+		t.Fatalf("Dial: %v", err)
+	}
+	conn.Close()
+	entries := obs.FilterMessage("allow_insecure_enabled").All()
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 warning log, got %d", len(entries))
+	}
+	if comp := entries[0].ContextMap()["component"]; comp != "grpc_client" {
+		t.Fatalf("unexpected component %v", comp)
+	}
+}
+
 func TestDialFailure(t *testing.T) {
 	failDialer := func(ctx context.Context, s string) (net.Conn, error) {
 		return nil, errors.New("fail")
 	}
-	_, err := Dial(context.Background(), "fail", Config{AllowInsecure: true, DialTimeout: time.Second}, grpc.WithContextDialer(failDialer))
+	_, err := Dial(context.Background(), "fail", Config{AllowInsecure: true, DialTimeout: time.Second}, zap.NewNop(), grpc.WithContextDialer(failDialer))
 	if err == nil {
 		t.Fatalf("expected error")
 	}
@@ -235,7 +264,7 @@ func TestDialTimeoutExceeded(t *testing.T) {
 		<-ctx.Done()
 		return nil, ctx.Err()
 	}
-	_, err := Dial(context.Background(), "slow", Config{AllowInsecure: true, DialTimeout: 10 * time.Millisecond}, grpc.WithContextDialer(slowDialer))
+	_, err := Dial(context.Background(), "slow", Config{AllowInsecure: true, DialTimeout: 10 * time.Millisecond}, zap.NewNop(), grpc.WithContextDialer(slowDialer))
 	if err == nil {
 		t.Fatalf("expected error")
 	}
@@ -251,7 +280,7 @@ func TestDialContextCancelled(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	_, err := Dial(ctx, "cancel", Config{AllowInsecure: true, DialTimeout: time.Second}, grpc.WithContextDialer(dialer))
+	_, err := Dial(ctx, "cancel", Config{AllowInsecure: true, DialTimeout: time.Second}, zap.NewNop(), grpc.WithContextDialer(dialer))
 	if err == nil {
 		t.Fatalf("expected error")
 	}
