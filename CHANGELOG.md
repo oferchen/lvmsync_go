@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - tests: verify ALPN and TLS version round-trip in handshake and transport negotiation.
 - manifest: test zero `manifest_timeout` uses background context.
 - cmd/verify: add test ensuring mismatched blocks log `mismatched_block`.
+- transport/h2: add tests for tlsVersionString and roleString helpers.
 
 
 ### Fixed
