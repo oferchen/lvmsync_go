@@ -137,7 +137,8 @@ func TestTransportNegotiationMatrix(t *testing.T) {
 				if srv.err != nil || cli.err != nil {
 					t.Fatalf("expected success: server %v client %v", srv.err, cli.err)
 				}
-				if cli.peer.DedupMode != m || cli.peer.Compress != "zstd" || cli.peer.ODirect != true {
+				if cli.peer.DedupMode != m || cli.peer.Compress != "zstd" || cli.peer.ODirect != true ||
+					cli.peer.CDCMin != base.CDCMin || cli.peer.CDCAvg != base.CDCAvg || cli.peer.CDCMax != base.CDCMax {
 					t.Fatalf("unexpected peer handshake: %+v", cli.peer)
 				}
 			}
@@ -149,13 +150,29 @@ func TestTransportNegotiationMatrix(t *testing.T) {
 			if srv, cli := runNegotiation(t, tr, serverHS, clientHS); srv.err == nil || cli.err == nil {
 				t.Fatalf("expected dedup mismatch error")
 			}
-			// cdc bounds
+			// cdc min
 			serverHS = base
 			serverHS.DedupMode = "cdc"
 			clientHS = serverHS
 			clientHS.CDCMin = 128
 			if srv, cli := runNegotiation(t, tr, serverHS, clientHS); srv.err == nil || cli.err == nil {
-				t.Fatalf("expected cdc bounds mismatch error")
+				t.Fatalf("expected cdc min mismatch error")
+			}
+			// cdc avg
+			serverHS = base
+			serverHS.DedupMode = "cdc"
+			clientHS = serverHS
+			clientHS.CDCAvg = 256
+			if srv, cli := runNegotiation(t, tr, serverHS, clientHS); srv.err == nil || cli.err == nil {
+				t.Fatalf("expected cdc avg mismatch error")
+			}
+			// cdc max
+			serverHS = base
+			serverHS.DedupMode = "cdc"
+			clientHS = serverHS
+			clientHS.CDCMax = 512
+			if srv, cli := runNegotiation(t, tr, serverHS, clientHS); srv.err == nil || cli.err == nil {
+				t.Fatalf("expected cdc max mismatch error")
 			}
 			// compression algorithm
 			serverHS = base
