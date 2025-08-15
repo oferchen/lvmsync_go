@@ -1,6 +1,7 @@
 package device
 
 import (
+	"context"
 	"os"
 	"testing"
 )
@@ -34,5 +35,63 @@ func TestOpenFileRejectsNonRegular(t *testing.T) {
 	dir := t.TempDir()
 	if _, err := OpenFile(dir); err == nil {
 		t.Fatalf("expected error for directory")
+	}
+}
+
+func fdCount(t *testing.T) int {
+	t.Helper()
+	entries, err := os.ReadDir("/proc/self/fd")
+	if err != nil {
+		t.Fatalf("readdir: %v", err)
+	}
+	return len(entries)
+}
+
+func TestFileSnapshotIdentityAndFDLeak(t *testing.T) {
+	f, err := os.CreateTemp(t.TempDir(), "filedev")
+	if err != nil {
+		t.Fatalf("temp file: %v", err)
+	}
+	path := f.Name()
+	f.Close()
+
+	d, err := OpenFile(path)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer d.Close()
+
+	before := fdCount(t)
+	snap, err := d.Snapshot(context.Background(), "")
+	if err != nil {
+		t.Fatalf("snapshot: %v", err)
+	}
+	if snap != d {
+		t.Fatalf("snapshot returned different device")
+	}
+	after := fdCount(t)
+	if before != after {
+		t.Fatalf("fd leak: before %d after %d", before, after)
+	}
+}
+
+func TestFileSnapshotClosedDevice(t *testing.T) {
+	f, err := os.CreateTemp(t.TempDir(), "filedev")
+	if err != nil {
+		t.Fatalf("temp file: %v", err)
+	}
+	path := f.Name()
+	f.Close()
+
+	d, err := OpenFile(path)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if err := d.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+
+	if _, err := d.Snapshot(context.Background(), ""); err == nil {
+		t.Fatalf("expected error for closed device")
 	}
 }

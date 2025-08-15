@@ -52,8 +52,15 @@ func (d *FileDevice) BlockSize() uint64 { return d.blockSize }
 // Close closes the underlying file descriptor.
 func (d *FileDevice) Close() error { return d.f.Close() }
 
-// Snapshot returns the device itself for regular files.
-func (d *FileDevice) Snapshot(context.Context, string) (Device, error) { return d, nil }
+// Snapshot returns the device itself for regular files. It verifies the
+// underlying file descriptor is still open to surface errors when called on a
+// closed device.
+func (d *FileDevice) Snapshot(context.Context, string) (Device, error) {
+	if _, err := d.f.Stat(); err != nil {
+		return nil, err
+	}
+	return d, nil
+}
 
 // Cleanup is a no-op for regular files.
 func (d *FileDevice) Cleanup(context.Context, string, []string) error { return nil }
