@@ -387,6 +387,7 @@ LVMSYNC_GRPC_GRPC_PORT=9443 LVMSYNC_GRPC_TLS_CERT=cert.pem lvmsync-grpcd
 | `--progress` | `LVMSYNC_PROGRESS` | `progress` | Show progress during transfer |
 | `--manifest_path` | `LVMSYNC_MANIFEST_PATH` | `manifest_path` | Path to manifest file |
 | `--manifest-progress-interval` | `LVMSYNC_MANIFEST_PROGRESS_INTERVAL` | `manifest_progress_interval` | Interval between progress logs during manifest rebuild |
+| `--manifest_timeout` | `LVMSYNC_MANIFEST_TIMEOUT` | `manifest_timeout` | Timeout for manifest rebuild (0 disables) |
 | `--ssh_host` | `LVMSYNC_SSH_HOST` | `ssh_host` | SSH host |
 | `--ssh_user` | `LVMSYNC_SSH_USER` | `ssh_user` | SSH username |
 | `--ssh_key` | `LVMSYNC_SSH_KEY` | `ssh_key` | Path to SSH private key |
@@ -836,6 +837,7 @@ Rebuild a manifest index for an existing device:
 lvmsync manifest rebuild /dev/vg0/lv0
 ```
 Progress logs are emitted every 10s by default; adjust with `--manifest-progress-interval`.
+The command times out after 1m unless overridden with `--manifest_timeout` (0 disables).
 Rebuild refuses to run if the device is mounted read-write; pass `--manifest-allow-mounted` to override.
 
 Manifests embed a persistent device identifier in a fixed 64-byte field. The
@@ -1062,6 +1064,7 @@ Rebuild a manifest for an existing device when the index is missing or stale:
 lvmsync manifest rebuild /dev/vg0/lv0
 ```
 Progress logs are emitted every 10s by default; adjust with `--manifest-progress-interval`.
+The command times out after 1m unless overridden with `--manifest_timeout` (0 disables).
 
 Compare source and destination devices against a manifest:
 

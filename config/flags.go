@@ -87,6 +87,7 @@ func initGeneralFlags(cfg *Config) *pflag.FlagSet {
 func initManifestFlags(cfg *Config) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("Manifest Options", pflag.ExitOnError)
 	fs.String("manifest_path", cfg.ManifestPath, "Path to manifest file")
+	fs.Duration("manifest_timeout", cfg.ManifestTimeout, "Timeout for manifest rebuild (0 to disable)")
 	fs.Duration("manifest_progress_interval", cfg.ManifestProgressInterval, "Interval between progress logs during manifest rebuild")
 	fs.Bool("manifest_allow_mounted", cfg.ManifestAllowMounted, "Allow rebuilding when device is mounted read-write")
 	return fs

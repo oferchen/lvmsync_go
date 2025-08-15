@@ -52,6 +52,7 @@ Generate a manifest for an existing device when the index is missing or stale:
 lvmsync manifest rebuild /dev/vg0/lv0
 ```
 Progress logs are emitted every 10s by default; adjust with `--manifest-progress-interval`.
+The rebuild operation times out after 1m unless `--manifest_timeout` is set (0 disables).
 The command aborts if the device is mounted read-write. Override with `--manifest-allow-mounted` when rebuilding a live filesystem.
 
 ## Verification

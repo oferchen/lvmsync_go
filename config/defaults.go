@@ -93,6 +93,7 @@ type Config struct {
 	BloomFpRate              float64       `mapstructure:"bloom_fp_rate"`
 	BloomMBits               uint          `mapstructure:"bloom_mbits"`
 	ManifestPath             string        `mapstructure:"manifest_path"`
+	ManifestTimeout          time.Duration `mapstructure:"manifest_timeout"`
 	ManifestProgressInterval time.Duration `mapstructure:"manifest_progress_interval"`
 	ManifestAllowMounted     bool          `mapstructure:"manifest_allow_mounted"`
 	GRPCPort                 int           `mapstructure:"grpc_port"`
@@ -224,6 +225,7 @@ func DefaultConfig() (*Config, error) {
 		BloomFpRate:              0.01,
 		BloomMBits:               0,
 		ManifestPath:             "",
+		ManifestTimeout:          time.Minute,
 		ManifestProgressInterval: 10 * time.Second,
 		ManifestAllowMounted:     false,
 		GRPCPort:                 8443,
