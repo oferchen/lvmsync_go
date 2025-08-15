@@ -33,6 +33,8 @@ func TestParseSnapshotSize(t *testing.T) {
 	if err := os.WriteFile(tmpFile, make([]byte, 1024*1024), 0644); err != nil {
 		t.Fatalf("failed to create temp volume: %v", err)
 	}
+	cache := NewDeviceFDCache(zap.NewNop())
+	defer cache.Close()
 
 	tests := []struct {
 		name    string
@@ -49,7 +51,7 @@ func TestParseSnapshotSize(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := ParseSnapshotSize(tt.input, tmpFile, zap.NewNop())
+			got, err := ParseSnapshotSize(tt.input, tmpFile, cache, zap.NewNop())
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("ParseSnapshotSize error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -58,8 +60,6 @@ func TestParseSnapshotSize(t *testing.T) {
 			}
 		})
 	}
-
-	Cleanup()
 }
 
 func TestGetVolumeSize(t *testing.T) {
@@ -69,7 +69,9 @@ func TestGetVolumeSize(t *testing.T) {
 			t.Fatalf("failed to create temp volume: %v", err)
 		}
 
-		size, err := GetVolumeSize(tmpFile, zap.NewNop())
+		cache := NewDeviceFDCache(zap.NewNop())
+		defer cache.Close()
+		size, err := GetVolumeSize(tmpFile, cache, zap.NewNop())
 		if err != nil {
 			t.Fatalf("GetVolumeSize failed: %v", err)
 		}
@@ -89,7 +91,9 @@ func TestGetVolumeSize(t *testing.T) {
 			t.Fatalf("truncate failed: %v", err)
 		}
 
-		size, err := GetVolumeSize(tmpFile, zap.NewNop())
+		cache := NewDeviceFDCache(zap.NewNop())
+		defer cache.Close()
+		size, err := GetVolumeSize(tmpFile, cache, zap.NewNop())
 		if err != nil {
 			t.Fatalf("GetVolumeSize failed: %v", err)
 		}
@@ -98,8 +102,6 @@ func TestGetVolumeSize(t *testing.T) {
 			t.Fatalf("size = %d, want %d", size, want)
 		}
 	})
-
-	Cleanup()
 }
 
 func TestGetVolumeSizeIoctlLarge(t *testing.T) {
@@ -115,15 +117,15 @@ func TestGetVolumeSizeIoctlLarge(t *testing.T) {
 	}
 	defer func() { ioctlGetUint64Func = orig }()
 
-	size, err := GetVolumeSize(tmpFile, zap.NewNop())
+	cache := NewDeviceFDCache(zap.NewNop())
+	defer cache.Close()
+	size, err := GetVolumeSize(tmpFile, cache, zap.NewNop())
 	if err != nil {
 		t.Fatalf("GetVolumeSize failed: %v", err)
 	}
 	if size != fiveGiB {
 		t.Fatalf("size = %d, want %d", size, fiveGiB)
 	}
-
-	Cleanup()
 }
 
 func TestGetVolumeAttributes(t *testing.T) {

@@ -7,13 +7,15 @@ import (
 	"fmt"
 
 	"go.uber.org/zap"
+
+	"lvmsync_go/lvm"
 )
 
 // LVMDevice is unsupported on non-Linux platforms.
 type LVMDevice struct{}
 
 // OpenLVM returns an error on non-Linux systems.
-func OpenLVM(string, *zap.Logger) (*LVMDevice, error) {
+func OpenLVM(string, *lvm.FDCache, *zap.Logger) (*LVMDevice, error) {
 	return nil, fmt.Errorf("LVM devices are only supported on Linux")
 }
 
