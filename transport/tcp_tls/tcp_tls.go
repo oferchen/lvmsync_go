@@ -14,7 +14,7 @@ import (
 	"lvmsync_go/transport"
 )
 
-const defaultDialTimeout = 30 * time.Second
+const defaultDialTimeout = 5 * time.Second
 
 // Transport implements TLS over TCP.
 type Transport struct {
