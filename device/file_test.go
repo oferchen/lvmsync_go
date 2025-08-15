@@ -28,7 +28,7 @@ func TestOpenFile(t *testing.T) {
 	}
 	ctx := context.Background()
 	_, _ = d.Snapshot(ctx, "")
-	_ = d.Cleanup(ctx, "", nil)
+	_ = d.Cleanup(ctx)
 	d.Close()
 
 	if d.SizeBytes() != 4096 {

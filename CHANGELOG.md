@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bind LVMSYNC_DEDUP_* environment variables and extend tests for dedup flag precedence.
 - Privilege escalation tests covering sudo success and failure modes.
 - device: tests for GetUUID and IsMountedRW
+- device: persist thaw command configuration for raw devices
 
 
 ### Fixed

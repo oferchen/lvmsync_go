@@ -36,7 +36,7 @@ func TestSnapshotLifecycle(t *testing.T) {
 	if fsnap.Path() != fd.Path() {
 		t.Fatalf("file snapshot path mismatch")
 	}
-	if err := fsnap.Cleanup(ctx, "", nil); err != nil {
+	if err := fsnap.Cleanup(ctx); err != nil {
 		t.Fatalf("file cleanup: %v", err)
 	}
 
@@ -49,7 +49,7 @@ func TestSnapshotLifecycle(t *testing.T) {
 	if rsnap.Path() != rd.Path() {
 		t.Fatalf("raw snapshot path mismatch")
 	}
-	if err := rsnap.Cleanup(ctx, "", nil); err != nil {
+	if err := rsnap.Cleanup(ctx); err != nil {
 		t.Fatalf("raw cleanup: %v", err)
 	}
 
@@ -84,7 +84,7 @@ func TestSnapshotLifecycle(t *testing.T) {
 	if snap.Path() != "/dev/vg0/snap" {
 		t.Fatalf("lvm snapshot path = %s", snap.Path())
 	}
-	if err := snap.Cleanup(ctx, "", nil); err != nil {
+	if err := snap.Cleanup(ctx); err != nil {
 		t.Fatalf("cleanup: %v", err)
 	}
 

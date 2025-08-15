@@ -121,8 +121,8 @@ func TestOpenRawThawsOnFailure(t *testing.T) {
 
 func TestCleanupRunsThawCommand(t *testing.T) {
 	tmp := filepath.Join(t.TempDir(), "thaw")
-	d := &RawDevice{freezeIssued: true, logger: zap.NewNop()}
-	if err := d.Cleanup(context.Background(), "touch", []string{tmp}); err != nil {
+	d := &RawDevice{freezeIssued: true, logger: zap.NewNop(), thawCmdPath: "touch", thawCmdArgs: []string{tmp}}
+	if err := d.Cleanup(context.Background()); err != nil {
 		t.Fatalf("cleanup: %v", err)
 	}
 	if _, err := os.Stat(tmp); err != nil {
@@ -131,8 +131,8 @@ func TestCleanupRunsThawCommand(t *testing.T) {
 }
 
 func TestCleanupThawCommandFailure(t *testing.T) {
-	d := &RawDevice{freezeIssued: true, logger: zap.NewNop()}
-	if err := d.Cleanup(context.Background(), "false", nil); err == nil {
+	d := &RawDevice{freezeIssued: true, logger: zap.NewNop(), thawCmdPath: "false"}
+	if err := d.Cleanup(context.Background()); err == nil {
 		t.Fatalf("expected thaw command failure")
 	}
 }
@@ -151,8 +151,31 @@ func TestCleanupThawTimeout(t *testing.T) {
 	if _, err := exec.LookPath("sleep"); err != nil {
 		t.Skip("sleep command not found")
 	}
-	d := &RawDevice{freezeIssued: true, logger: zap.NewNop(), thawTimeout: 100 * time.Millisecond}
-	if err := d.Cleanup(context.Background(), "sleep", []string{"2"}); err == nil || !strings.Contains(err.Error(), "signal: killed") {
+	d := &RawDevice{freezeIssued: true, logger: zap.NewNop(), thawTimeout: 100 * time.Millisecond, thawCmdPath: "sleep", thawCmdArgs: []string{"2"}}
+	if err := d.Cleanup(context.Background()); err == nil || !strings.Contains(err.Error(), "signal: killed") {
 		t.Fatalf("expected thaw command to be killed, got %v", err)
 	}
+}
+
+func TestOpenRawStoresThawConfig(t *testing.T) {
+	if os.Geteuid() != 0 {
+		t.Skip("requires root")
+	}
+	loop, cleanup := setupLoop(t, 1<<20)
+	defer cleanup()
+	thawTmp := filepath.Join(t.TempDir(), "thaw")
+	d, err := OpenRaw(context.Background(), loop, false, "true", nil, "touch", []string{thawTmp}, time.Second, time.Second, nil)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if d.thawCmdPath != "touch" || len(d.thawCmdArgs) != 1 || d.thawCmdArgs[0] != thawTmp {
+		t.Fatalf("thaw configuration not stored")
+	}
+	if err := d.Cleanup(context.Background()); err != nil {
+		t.Fatalf("cleanup: %v", err)
+	}
+	if _, err := os.Stat(thawTmp); err != nil {
+		t.Fatalf("thaw command did not run")
+	}
+	d.Close()
 }
