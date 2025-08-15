@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap"
 
 	"lvmsync_go/config"
+	"lvmsync_go/device"
 	"lvmsync_go/transfer"
 )
 
@@ -41,6 +42,11 @@ func TestRunStdout(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
+	origDetect := detectDevice
+	detectDevice = func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger) (device.Device, error) {
+		return &fakeDevice{path: "/dev/snap"}, nil
+	}
+	defer func() { detectDevice = origDetect }()
 	if _, err = Run(ctx, cfg, "/dev/snap", "", zap.NewNop()); err != nil {
 		t.Fatalf("Run returned error: %v", err)
 	}

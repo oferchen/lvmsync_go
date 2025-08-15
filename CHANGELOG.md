@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- device: detect LVM, raw, or file devices using blkid metadata
+- cmd: manage LVM snapshot lifecycle within dump and apply commands
 - tests: add coverage for adaptive chunk sizing, index option application, TLS version helper, capability checks, and data size overflow; include loop device setup integration test.
 - Log dial and listen lifecycle events with duration_ms and error fields across transports, with tests covering handshake and teardown logs.
 - Log final handshake parameters for all transports.
@@ -52,6 +54,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Fixed
+- device: require --offline or freeze/thaw hooks for raw devices
 - device, transfer: require non-nil loggers and remove conditional logging
 - tests: fix O_DIRECT match and transport mismatch handshake validation tests
 - quic: remove redundant deadline methods and use Role.String for dial/listen

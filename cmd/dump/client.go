@@ -40,6 +40,7 @@ var (
 	}
 	newSSHClient = remote.NewSSHClient
 	openFile     = os.OpenFile
+	detectDevice = device.Detect
 )
 
 var copyBufferPool = sync.Pool{New: func() any {
@@ -130,9 +131,41 @@ func ExecuteDump(cfg *config.Config, snapshotDevice, originDevice string, out io
 }
 
 // Run executes client mode transferring data to dest and returns the destination type.
-func Run(ctx context.Context, cfg *config.Config, snapshotDevice, dest string, logger *zap.Logger) (string, error) {
+func Run(ctx context.Context, cfg *config.Config, source, dest string, logger *zap.Logger) (string, error) {
 	defer rootcmd.SyncLogger(logger)
-	originDevice := snapshotDevice
+	dev, err := detectDevice(ctx, source, cfg.Offline, cfg.SourceType, cfg.FSFreezeCommand, cfg.FSThawCommand, cfg.LVMEscalation, cfg.FreezeTimeout, cfg.ThawTimeout, logger)
+	if err != nil {
+		return cfg.DestType, err
+	}
+	switch dev.(type) {
+	case *device.LVMDevice:
+		cfg.SourceType = "lvm"
+	case *device.RawDevice:
+		cfg.SourceType = "raw"
+	case *device.FileDevice:
+		cfg.SourceType = "file"
+	}
+	if cfg.SourceType == "raw" && !cfg.SkipSnapshotCreation {
+		dev.Close()
+		dev.Cleanup(ctx)
+		return cfg.DestType, fmt.Errorf("raw sources require --skip_snapshot_creation and either --offline or --fs-freeze-command/--fs-thaw-command")
+	}
+	snapDev, err := dev.Snapshot(ctx, cfg.SnapshotSize)
+	if err != nil {
+		dev.Cleanup(ctx)
+		dev.Close()
+		return cfg.DestType, err
+	}
+	snapshotDevice := snapDev.Path()
+	originDevice := dev.Path()
+	defer func() {
+		snapDev.Cleanup(ctx)
+		snapDev.Close()
+		if snapDev != dev {
+			dev.Cleanup(ctx)
+			dev.Close()
+		}
+	}()
 	if cfg.StdoutMode {
 		limitedOut := transfer.WrapRateLimitedWriter(os.Stdout, cfg.SpeedLimit)
 		return cfg.DestType, ExecuteDump(cfg, snapshotDevice, originDevice, limitedOut, logger)

@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap"
 
 	"lvmsync_go/config"
+	"lvmsync_go/device"
 	remotetest "lvmsync_go/remote/testutil"
 	"lvmsync_go/transfer"
 )
@@ -52,6 +53,11 @@ func TestRemotePostScriptRunsOnError(t *testing.T) {
 	dest := host + ":/dev/null"
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
+	origDetect := detectDevice
+	detectDevice = func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger) (device.Device, error) {
+		return &fakeDevice{path: "/dev/snap"}, nil
+	}
+	defer func() { detectDevice = origDetect }()
 	_, err = Run(ctx, cfg, "/dev/snap", dest, zap.NewNop())
 	if err == nil || !strings.Contains(err.Error(), "dumpChanges") {
 		t.Fatalf("expected dumpChanges error, got %v", err)
@@ -101,6 +107,11 @@ func TestRemotePostScriptNotRunIfPreScriptFails(t *testing.T) {
 	dest := host + ":/dev/null"
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
+	origDetect := detectDevice
+	detectDevice = func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger) (device.Device, error) {
+		return &fakeDevice{path: "/dev/snap"}, nil
+	}
+	defer func() { detectDevice = origDetect }()
 	_, err = Run(ctx, cfg, "/dev/snap", dest, zap.NewNop())
 	if err == nil {
 		t.Fatalf("expected error from pre-script")
@@ -155,6 +166,11 @@ func TestRemotePostScriptContextError(t *testing.T) {
 	dest := host + ":/dev/null"
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
+	origDetect := detectDevice
+	detectDevice = func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger) (device.Device, error) {
+		return &fakeDevice{path: "/dev/snap"}, nil
+	}
+	defer func() { detectDevice = origDetect }()
 	_, err = Run(ctx, cfg, "/dev/snap", dest, zap.NewNop())
 	if err == nil || !strings.Contains(err.Error(), "remote post-script context error") {
 		t.Fatalf("expected remote post-script context error, got %v", err)

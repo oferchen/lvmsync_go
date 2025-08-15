@@ -10,6 +10,8 @@ import (
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
+
+	"lvmsync_go/lvm"
 )
 
 func setupLoop(t *testing.T, size int64) (string, func()) {
@@ -159,6 +161,35 @@ func TestDetectLVMSymlink(t *testing.T) {
 	}
 	if _, ok := dev.(*RawDevice); !ok {
 		t.Fatalf("expected RawDevice, got %T", dev)
+	}
+	dev.Close()
+}
+
+func TestDetectLVM(t *testing.T) {
+	if os.Geteuid() != 0 {
+		t.Skip("requires root")
+	}
+	loop, cleanup := setupLoop(t, 1<<20)
+	defer cleanup()
+	origExec := execCommand
+	execCommand = func(ctx context.Context, name string, args ...string) *exec.Cmd {
+		if name == "blkid" {
+			return exec.CommandContext(ctx, "sh", "-c", "echo LVM2_member")
+		}
+		return exec.CommandContext(ctx, name, args...)
+	}
+	defer func() { execCommand = origExec }()
+	origOpen := openLVMFunc
+	openLVMFunc = func(p string, _ *lvm.FDCache, _ string, _ *zap.Logger) (*LVMDevice, error) {
+		return &LVMDevice{path: p, logger: zap.NewNop()}, nil
+	}
+	defer func() { openLVMFunc = origOpen }()
+	dev, err := Detect(context.Background(), loop, true, "", "", "", "", 0, 0, zap.NewNop())
+	if err != nil {
+		t.Fatalf("detect: %v", err)
+	}
+	if _, ok := dev.(*LVMDevice); !ok {
+		t.Fatalf("expected LVMDevice, got %T", dev)
 	}
 	dev.Close()
 }

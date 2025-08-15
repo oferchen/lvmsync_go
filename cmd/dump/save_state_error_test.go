@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 
 	"lvmsync_go/config"
+	"lvmsync_go/device"
 	"lvmsync_go/transfer"
 )
 
@@ -36,6 +37,11 @@ func TestRunLogsSaveStateError(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
+	origDetect := detectDevice
+	detectDevice = func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger) (device.Device, error) {
+		return &fakeDevice{path: "/dev/snap"}, nil
+	}
+	defer func() { detectDevice = origDetect }()
 	if _, err := Run(ctx, cfg, "/dev/snap", "", logger); err != nil {
 		t.Fatalf("Run returned error: %v", err)
 	}
