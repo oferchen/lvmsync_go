@@ -168,7 +168,7 @@ func (l *listener) Addr() net.Addr { return l.ql.Addr() }
 
 // Negotiate performs the LVMSync handshake over the stream.
 func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport.Role, hs common.Handshake) (peer common.Handshake, err error) {
-	roleStr := roleString(role)
+	roleStr := role.String()
 	address := conn.RemoteAddr().String()
 	t.logger.Info("negotiate_start",
 		zap.String("address", address),
@@ -212,7 +212,7 @@ func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport
 	if qc, ok := conn.(*Conn); ok {
 		state := qc.qconn.ConnectionState()
 		negotiatedALPN := state.TLS.NegotiatedProtocol
-		negotiatedVersion := tlsVersionString(state.TLS.Version)
+		negotiatedVersion := transport.TLSVersionString(state.TLS.Version)
 		if hs.ALPN != "" && negotiatedALPN != "" && hs.ALPN != negotiatedALPN {
 			return peer, fmt.Errorf("alpn mismatch: %s", negotiatedALPN)
 		}
@@ -287,21 +287,6 @@ func clearDeadline(conn net.Conn) {
 	_ = conn.SetDeadline(time.Time{})
 }
 
-func tlsVersionString(v uint16) string {
-	switch v {
-	case tls.VersionTLS10:
-		return "1.0"
-	case tls.VersionTLS11:
-		return "1.1"
-	case tls.VersionTLS12:
-		return "1.2"
-	case tls.VersionTLS13:
-		return "1.3"
-	default:
-		return ""
-	}
-}
-
 // Datagram APIs.
 
 // SendDatagram sends a datagram using the underlying QUIC connection.
@@ -331,14 +316,3 @@ func (c *Conn) SetDeadline(t time.Time) error {
 }
 func (c *Conn) SetReadDeadline(t time.Time) error  { return c.stream.SetReadDeadline(t) }
 func (c *Conn) SetWriteDeadline(t time.Time) error { return c.stream.SetWriteDeadline(t) }
-
-func roleString(r transport.Role) string {
-	switch r {
-	case transport.Client:
-		return "client"
-	case transport.Server:
-		return "server"
-	default:
-		return ""
-	}
-}

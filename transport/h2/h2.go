@@ -274,7 +274,7 @@ func (l *listener) Addr() net.Addr { return l.ln.Addr() }
 
 // Negotiate exchanges LVMSync handshake messages over the HTTP/2 stream.
 func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport.Role, hs common.Handshake) (peer common.Handshake, err error) {
-	roleStr := roleString(role)
+	roleStr := role.String()
 	address := conn.RemoteAddr().String()
 	t.logger.Info("negotiate_start",
 		zap.String("address", address),
@@ -317,7 +317,7 @@ func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport
 
 	if h2c, ok := conn.(*Conn); ok {
 		negotiatedALPN := h2c.tlsState.NegotiatedProtocol
-		negotiatedVersion := tlsVersionString(h2c.tlsState.Version)
+		negotiatedVersion := transport.TLSVersionString(h2c.tlsState.Version)
 		if hs.ALPN != "" && negotiatedALPN != "" && hs.ALPN != negotiatedALPN {
 			return peer, fmt.Errorf("alpn mismatch: %s", negotiatedALPN)
 		}
@@ -329,7 +329,7 @@ func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport
 	} else if tlsConn, ok := conn.(*tls.Conn); ok {
 		state := tlsConn.ConnectionState()
 		negotiatedALPN := state.NegotiatedProtocol
-		negotiatedVersion := tlsVersionString(state.Version)
+		negotiatedVersion := transport.TLSVersionString(state.Version)
 		if hs.ALPN != "" && negotiatedALPN != "" && hs.ALPN != negotiatedALPN {
 			return peer, fmt.Errorf("alpn mismatch: %s", negotiatedALPN)
 		}
@@ -456,29 +456,3 @@ func (c *Conn) Close() error {
 func (c *Conn) SetDeadline(t time.Time) error      { return c.Conn.SetDeadline(t) }
 func (c *Conn) SetReadDeadline(t time.Time) error  { return c.Conn.SetReadDeadline(t) }
 func (c *Conn) SetWriteDeadline(t time.Time) error { return c.Conn.SetWriteDeadline(t) }
-
-func tlsVersionString(v uint16) string {
-	switch v {
-	case tls.VersionTLS10:
-		return "1.0"
-	case tls.VersionTLS11:
-		return "1.1"
-	case tls.VersionTLS12:
-		return "1.2"
-	case tls.VersionTLS13:
-		return "1.3"
-	default:
-		return ""
-	}
-}
-
-func roleString(r transport.Role) string {
-	switch r {
-	case transport.Client:
-		return "client"
-	case transport.Server:
-		return "server"
-	default:
-		return ""
-	}
-}
