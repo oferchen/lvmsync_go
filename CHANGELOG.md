@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
-- None yet.
+- Privilege escalation tests covering sudo success and failure modes.
 
 ### Fixed
 - None yet.
