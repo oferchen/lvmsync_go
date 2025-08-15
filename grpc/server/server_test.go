@@ -20,6 +20,7 @@ import (
 	"lvmsync_go/proto"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
@@ -160,10 +161,10 @@ func (m *mockAgent) Verify(ctx context.Context, sessionID string) error {
 	return nil
 }
 
-func newClient(t *testing.T, cfg Config, agent lvmagent.Agent, creds credentials.TransportCredentials) (proto.ReplicationClient, func()) {
+func newClientWithLogger(t *testing.T, cfg Config, agent lvmagent.Agent, creds credentials.TransportCredentials, logger *zap.Logger) (proto.ReplicationClient, func()) {
 	t.Helper()
 	lis := bufconn.Listen(bufSize)
-	srv, srvCleanup, err := New(cfg, agent, zap.NewNop())
+	srv, srvCleanup, err := New(cfg, agent, logger)
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -186,6 +187,10 @@ func newClient(t *testing.T, cfg Config, agent lvmagent.Agent, creds credentials
 		srvCleanup()
 	}
 	return proto.NewReplicationClient(conn), cleanup
+}
+
+func newClient(t *testing.T, cfg Config, agent lvmagent.Agent, creds credentials.TransportCredentials) (proto.ReplicationClient, func()) {
+	return newClientWithLogger(t, cfg, agent, creds, zap.NewNop())
 }
 
 func newAuthorizedClient(t *testing.T, agent lvmagent.Agent) (proto.ReplicationClient, func()) {
@@ -547,7 +552,10 @@ func TestProgressStream(t *testing.T) {
 			}
 			return ch, nil
 		}}
-		client, cleanup := newAuthorizedClient(t, agent)
+		cfg, good, _, _ := generateTLS(t)
+		core, obs := observer.New(zap.DebugLevel)
+		logger := zap.New(core)
+		client, cleanup := newClientWithLogger(t, cfg, agent, credentials.NewTLS(good), logger)
 		defer cleanup()
 		stream, err := client.ProgressStream(ctx, &proto.ProgressRequest{SessionId: "s"})
 		if err != nil {
@@ -555,6 +563,16 @@ func TestProgressStream(t *testing.T) {
 		}
 		if _, err := stream.Recv(); err != nil {
 			t.Fatalf("recv: %v", err)
+		}
+		logs := obs.All()
+		if len(logs) != 1 {
+			t.Fatalf("expected 1 log entry, got %d", len(logs))
+		}
+		fields := logs[0].ContextMap()
+		if fields["session_id"] != "s" ||
+			fields["completed_bytes"] != uint64(1) ||
+			fields["total_bytes"] != uint64(2) {
+			t.Fatalf("unexpected log fields: %v", fields)
 		}
 	})
 
