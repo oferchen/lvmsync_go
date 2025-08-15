@@ -27,6 +27,7 @@ type Chunker struct {
 	maskHigh   uint64
 	maskLow    uint64
 	window     [64]byte // used for entropy estimation
+	winPos     int      // current position in the entropy window
 
 	// reusable buffer to avoid per-chunk allocations
 	buf []byte
@@ -87,6 +88,7 @@ func (c *Chunker) NextChunk(r io.Reader) (Chunk, error) {
 
 	// initialize entropy window
 	copy(c.window[:], buf[size-64:size])
+	c.winPos = 0
 	counts := [256]int{}
 	for _, b := range c.window {
 		counts[b]++
@@ -118,9 +120,9 @@ func (c *Chunker) NextChunk(r io.Reader) (Chunk, error) {
 // updateEntropy updates the rolling entropy window with the new byte and
 // returns the current entropy.
 func (c *Chunker) updateEntropy(b byte, counts *[256]int) float64 {
-	out := c.window[0]
-	copy(c.window[:63], c.window[1:])
-	c.window[63] = b
+	out := c.window[c.winPos]
+	c.window[c.winPos] = b
+	c.winPos = (c.winPos + 1) % len(c.window)
 	counts[out]--
 	counts[b]++
 	return entropy(counts[:])
