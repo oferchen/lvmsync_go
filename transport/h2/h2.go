@@ -18,7 +18,10 @@ import (
 	"lvmsync_go/transport"
 )
 
-const maxFrameSize = 1 << 14
+const (
+	maxFrameSize       = 1 << 14
+	defaultDialTimeout = 30 * time.Second
+)
 
 // Transport implements HTTP/2 over TLS1.3 with mutual authentication.
 type Transport struct {
@@ -94,10 +97,14 @@ func (t *Transport) Dial(ctx context.Context, address string) (net.Conn, error) 
 		zap.String("error", ""),
 	)
 	start := time.Now()
-	d := net.Dialer{}
-	if dl, ok := ctx.Deadline(); ok {
-		d.Deadline = dl
+	dl, ok := ctx.Deadline()
+	if !ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, defaultDialTimeout)
+		defer cancel()
+		dl, _ = ctx.Deadline()
 	}
+	d := net.Dialer{Deadline: dl}
 	conn, err := tls.DialWithDialer(&d, "tcp", address, t.clientConf)
 	fields := []zap.Field{
 		zap.String("address", address),
@@ -109,18 +116,16 @@ func (t *Transport) Dial(ctx context.Context, address string) (net.Conn, error) 
 		t.logger.Error("dial_end", fields...)
 		return nil, err
 	}
-	if dl, ok := ctx.Deadline(); ok {
-		if err := conn.SetDeadline(dl); err != nil {
-			conn.Close()
-			fields := []zap.Field{
-				zap.String("address", address),
-				zap.String("role", role),
-				zap.Int64("duration_ms", time.Since(start).Milliseconds()),
-				zap.Error(err),
-			}
-			t.logger.Error("dial_end", fields...)
-			return nil, err
+	if err := conn.SetDeadline(dl); err != nil {
+		conn.Close()
+		fields := []zap.Field{
+			zap.String("address", address),
+			zap.String("role", role),
+			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+			zap.Error(err),
 		}
+		t.logger.Error("dial_end", fields...)
+		return nil, err
 	}
 	fr := http2.NewFramer(conn, conn)
 	if _, err := conn.Write([]byte(http2.ClientPreface)); err != nil {
