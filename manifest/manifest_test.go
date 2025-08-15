@@ -30,7 +30,7 @@ func (m *mockDevice) SizeBytes() uint64                                       { 
 func (m *mockDevice) BlockSize() uint64                                       { return m.blockSize }
 func (m *mockDevice) Close() error                                            { return nil }
 func (m *mockDevice) Snapshot(context.Context, string) (device.Device, error) { return m, nil }
-func (m *mockDevice) Cleanup(context.Context, string, []string) error         { return nil }
+func (m *mockDevice) Cleanup(context.Context) error                           { return nil }
 
 func TestIndexCRUD(t *testing.T) {
 	dir := t.TempDir()

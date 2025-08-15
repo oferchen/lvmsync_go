@@ -24,5 +24,5 @@ func (d *RawDevice) BlockSize() uint64 { return 0 }
 func (d *RawDevice) Snapshot(context.Context, string) (Device, error) {
 	return nil, fmt.Errorf("raw device snapshots are only supported on Linux")
 }
-func (d *RawDevice) Cleanup(context.Context, string, []string) error { return nil }
-func (d *RawDevice) Close() error                                    { return nil }
+func (d *RawDevice) Cleanup(context.Context) error { return nil }
+func (d *RawDevice) Close() error                  { return nil }

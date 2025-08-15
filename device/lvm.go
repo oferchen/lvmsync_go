@@ -111,7 +111,7 @@ func (d *LVMDevice) Snapshot(ctx context.Context, snapshotSize string) (Device, 
 }
 
 // Cleanup removes the snapshot if one was created.
-func (d *LVMDevice) Cleanup(ctx context.Context, _ string, _ []string) error {
+func (d *LVMDevice) Cleanup(ctx context.Context) error {
 	if d.cleanupPath == "" {
 		return nil
 	}
