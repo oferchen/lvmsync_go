@@ -19,36 +19,29 @@ type FileDevice struct {
 
 // OpenFile opens a regular file and reports its size and filesystem block size.
 func OpenFile(path string, logger *zap.Logger) (*FileDevice, error) {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
 	info, err := os.Stat(path)
 	if err != nil {
-		if logger != nil {
-			logger.Error("file device open failed", zap.String("path", path), zap.Error(err))
-		}
+		logger.Error("file device open failed", zap.String("path", path), zap.Error(err))
 		return nil, err
 	}
 	if !info.Mode().IsRegular() {
 		err := fmt.Errorf("%s is not a regular file", path)
-		if logger != nil {
-			logger.Error("file device open failed", zap.String("path", path), zap.Error(err))
-		}
+		logger.Error("file device open failed", zap.String("path", path), zap.Error(err))
 		return nil, err
 	}
 	f, err := os.OpenFile(path, os.O_RDWR, 0)
 	if err != nil {
-		if logger != nil {
-			logger.Error("file device open failed", zap.String("path", path), zap.Error(err))
-		}
+		logger.Error("file device open failed", zap.String("path", path), zap.Error(err))
 		return nil, err
 	}
-	if logger != nil {
-		logger.Info("file device opened", zap.String("path", path))
-	}
+	logger.Info("file device opened", zap.String("path", path))
 	var st unix.Stat_t
 	if err := unix.Fstat(int(f.Fd()), &st); err != nil {
 		f.Close()
-		if logger != nil {
-			logger.Error("file device stat failed", zap.String("path", path), zap.Error(err))
-		}
+		logger.Error("file device stat failed", zap.String("path", path), zap.Error(err))
 		return nil, err
 	}
 	size := uint64(info.Size())
@@ -76,12 +69,10 @@ func (d *FileDevice) BlockSize() uint64 { return d.blockSize }
 // Close closes the underlying file descriptor.
 func (d *FileDevice) Close() error {
 	err := d.f.Close()
-	if d.logger != nil {
-		if err != nil {
-			d.logger.Error("file device close failed", zap.String("path", d.Path()), zap.Error(err))
-		} else {
-			d.logger.Info("file device closed", zap.String("path", d.Path()))
-		}
+	if err != nil {
+		d.logger.Error("file device close failed", zap.String("path", d.Path()), zap.Error(err))
+	} else {
+		d.logger.Info("file device closed", zap.String("path", d.Path()))
 	}
 	return err
 }
@@ -98,8 +89,6 @@ func (d *FileDevice) Snapshot(context.Context, string) (Device, error) {
 
 // Cleanup is a no-op for regular files.
 func (d *FileDevice) Cleanup(context.Context, string, []string) error {
-	if d.logger != nil {
-		d.logger.Info("file device cleanup", zap.String("path", d.Path()))
-	}
+	d.logger.Info("file device cleanup", zap.String("path", d.Path()))
 	return nil
 }

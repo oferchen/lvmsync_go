@@ -12,16 +12,20 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 
 	"lvmsync_go/common"
 	"lvmsync_go/transport"
 )
 
-func checkLogFields(t *testing.T, logs *observer.ObservedLogs, msg string, expected int, wantErr bool) {
+func checkLogFields(t *testing.T, logs *observer.ObservedLogs, msg string, expected int, wantErr bool, level zapcore.Level) {
 	entries := logs.FilterMessage(msg).All()
 	if len(entries) != expected {
 		t.Fatalf("expected %d %s logs, got %d", expected, msg, len(entries))
+	}
+	if expected == 0 {
+		return
 	}
 	ctx := entries[0].ContextMap()
 	for _, k := range []string{"address", "role", "duration_ms"} {
@@ -33,6 +37,9 @@ func checkLogFields(t *testing.T, logs *observer.ObservedLogs, msg string, expec
 		t.Fatalf("expected error field in %s log", msg)
 	} else if !wantErr && ok {
 		t.Fatalf("unexpected error field in %s log", msg)
+	}
+	if entries[0].Level != level {
+		t.Fatalf("expected level %v for %s log, got %v", level, msg, entries[0].Level)
 	}
 }
 
@@ -89,12 +96,12 @@ func TestQUICTransportHandshake(t *testing.T) {
 	qconn.Close()
 	<-done
 
-	checkLogFields(t, logs, "dial_start", 1, false)
-	checkLogFields(t, logs, "dial_end", 1, false)
-	checkLogFields(t, logs, "listen_start", 1, false)
-	checkLogFields(t, logs, "listen_end", 1, false)
-	checkLogFields(t, logs, "negotiate_start", 2, false)
-	checkLogFields(t, logs, "negotiate_end", 2, false)
+	checkLogFields(t, logs, "dial_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "dial_end", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "listen_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "listen_end", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "negotiate_start", 2, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "negotiate_end", 2, false, zapcore.InfoLevel)
 }
 
 func TestQUICTransportHandshakeError(t *testing.T) {
@@ -136,12 +143,12 @@ func TestQUICTransportHandshakeError(t *testing.T) {
 	qconn.Close()
 	<-done
 
-	checkLogFields(t, logs, "dial_start", 1, false)
-	checkLogFields(t, logs, "dial_end", 1, false)
-	checkLogFields(t, logs, "listen_start", 1, false)
-	checkLogFields(t, logs, "listen_end", 1, false)
-	checkLogFields(t, logs, "negotiate_start", 1, false)
-	checkLogFields(t, logs, "negotiate_end", 1, true)
+	checkLogFields(t, logs, "dial_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "dial_end", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "listen_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "listen_end", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "negotiate_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "negotiate_end", 1, true, zapcore.ErrorLevel)
 }
 
 func TestQUICTransportHandshakeCDCMismatch(t *testing.T) {
@@ -186,12 +193,12 @@ func TestQUICTransportHandshakeCDCMismatch(t *testing.T) {
 	qconn.Close()
 	<-done
 
-	checkLogFields(t, logs, "dial_start", 1, false)
-	checkLogFields(t, logs, "dial_end", 1, false)
-	checkLogFields(t, logs, "listen_start", 1, false)
-	checkLogFields(t, logs, "listen_end", 1, false)
-	checkLogFields(t, logs, "negotiate_start", 2, false)
-	checkLogFields(t, logs, "negotiate_end", 2, true)
+	checkLogFields(t, logs, "dial_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "dial_end", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "listen_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "listen_end", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "negotiate_start", 2, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "negotiate_end", 2, true, zapcore.ErrorLevel)
 }
 
 func TestQUICTransportRequiresLogger(t *testing.T) {
