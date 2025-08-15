@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 
@@ -59,21 +58,15 @@ func Dial(ctx context.Context, addr string, conf Config, opts ...grpc.DialOption
 	}
 	ctx, cancel := context.WithTimeout(ctx, conf.DialTimeout)
 	defer cancel()
-	conn, err := grpc.NewClient(target, opts...)
+	opts = append(opts, grpc.WithBlock())
+	conn, err := grpc.DialContext(ctx, target, opts...)
 	if err != nil {
-		return nil, err
-	}
-	conn.Connect()
-	for {
-		state := conn.GetState()
-		if state == connectivity.Ready {
-			return conn, nil
-		}
-		if !conn.WaitForStateChange(ctx, state) {
-			conn.Close()
+		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
+		return nil, err
 	}
+	return conn, nil
 }
 
 func Handshake(ctx context.Context, c proto.ReplicationClient, hs *proto.HandshakeRequest) (*proto.HandshakeResponse, error) {

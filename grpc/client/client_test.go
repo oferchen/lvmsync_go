@@ -220,10 +220,20 @@ func TestDial(t *testing.T) {
 	}
 }
 
+func TestDialFailure(t *testing.T) {
+	failDialer := func(ctx context.Context, s string) (net.Conn, error) {
+		return nil, errors.New("fail")
+	}
+	_, err := Dial(context.Background(), "fail", Config{AllowInsecure: true, DialTimeout: time.Second}, grpc.WithContextDialer(failDialer))
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+}
+
 func TestDialTimeoutExceeded(t *testing.T) {
 	slowDialer := func(ctx context.Context, s string) (net.Conn, error) {
-		time.Sleep(50 * time.Millisecond)
-		return nil, errors.New("no connection")
+		<-ctx.Done()
+		return nil, ctx.Err()
 	}
 	_, err := Dial(context.Background(), "slow", Config{AllowInsecure: true, DialTimeout: 10 * time.Millisecond}, grpc.WithContextDialer(slowDialer))
 	if err == nil {
@@ -231,6 +241,22 @@ func TestDialTimeoutExceeded(t *testing.T) {
 	}
 	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("expected deadline exceeded, got %v", err)
+	}
+}
+
+func TestDialContextCancelled(t *testing.T) {
+	dialer := func(ctx context.Context, s string) (net.Conn, error) {
+		<-ctx.Done()
+		return nil, ctx.Err()
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err := Dial(ctx, "cancel", Config{AllowInsecure: true, DialTimeout: time.Second}, grpc.WithContextDialer(dialer))
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context canceled, got %v", err)
 	}
 }
 
