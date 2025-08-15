@@ -57,11 +57,7 @@ func New(cfg transport.Config) (transport.Interface, error) {
 	return &Transport{serverConf: serverConf, clientConf: clientConf, logger: cfg.Logger}, nil
 }
 
-func init() {
-	if err := transport.Register("ssh", New); err != nil {
-		panic(err)
-	}
-}
+func init() { transport.MustRegister("ssh", New) }
 
 func (t *Transport) Name() string { return "ssh" }
 

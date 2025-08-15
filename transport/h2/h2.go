@@ -75,11 +75,7 @@ func New(cfg transport.Config) (transport.Interface, error) {
 	return &Transport{clientConf: clientConf, serverConf: serverConf, logger: cfg.Logger}, nil
 }
 
-func init() {
-	if err := transport.Register("h2", New); err != nil {
-		panic(err)
-	}
-}
+func init() { transport.MustRegister("h2", New) }
 
 func (t *Transport) Name() string { return "h2" }
 
