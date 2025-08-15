@@ -78,6 +78,17 @@ func TestVerifyFullAllocations(t *testing.T) {
 	}
 }
 
+func TestVerifyFullSHA256(t *testing.T) {
+	blockSize := 1024
+	size := blockSize * 2
+	src := createTestFile(t, size)
+	dst := createTestFile(t, size)
+	cfg := &config.Config{BlockSize: blockSize, ChecksumAlgorithm: "sha256"}
+	if err := verifyFull(cfg, src, dst, zap.NewNop()); err != nil {
+		t.Fatalf("verifyFull: %v", err)
+	}
+}
+
 func TestVerifyWithManifestAllocations(t *testing.T) {
 	blockSize := 512
 	size := blockSize * 3
@@ -104,8 +115,9 @@ func TestVerifyWithManifestAllocations(t *testing.T) {
 	}
 	idx.Close()
 	fSrc.Close()
+	cfg := &config.Config{}
 	allocs := testing.AllocsPerRun(10, func() {
-		if err := verifyWithManifest(src, manifestPath, zap.NewNop()); err != nil {
+		if err := verifyWithManifest(cfg, src, manifestPath, zap.NewNop()); err != nil {
 			t.Fatalf("verifyWithManifest: %v", err)
 		}
 	})
