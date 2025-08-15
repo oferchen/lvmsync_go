@@ -19,6 +19,7 @@ LVMSync is a high-performance incremental data replication tool for LVM snapshot
 - **Hashing**: Hardware-accelerated XXH3 provides fast deduplication hints while BLAKE3 digests are stored in manifests for integrity.
 - **Remote Execution via SSH**: Replicates data over SSH with support for pre/post-scripts.
 - **Resume Support**: Ability to resume interrupted transfers.
+- **Handshake Timeouts**: Transport connections apply context deadlines during handshakes and clear them once negotiation succeeds.
 - **Sparse Destination Optimization**: Detects runs of zero bytes and punches holes when the filesystem supports it.
 - **Aligned I/O Buffers and NUMA Pinning**: `--odirect` allocates block-size aligned slabs from a `sync.Pool` and can pin worker goroutines to the device's NUMA node.
 - **LVM Snapshot Management**:

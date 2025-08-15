@@ -49,6 +49,7 @@ lvmsync --transport quic --tls_cert cert.pem --tls_key key.pem --ca_cert ca.pem
 
 - Runs over TLS 1.3 with mutual authentication
 - Provides stream-level back-pressure
+- Enforces context deadlines during connection and HTTP/2 handshakes
 
 ## TCP+TLS
 

@@ -227,3 +227,77 @@ func TestH2TransportRequiresLogger(t *testing.T) {
 		t.Fatalf("expected error when logger is nil")
 	}
 }
+
+func TestH2DialTimeout(t *testing.T) {
+	cert, pool := generateSelfSignedCert(t)
+	trIface, err := New(transport.Config{Logger: zap.NewNop(), Roots: pool, ClientCert: cert, ServerCert: cert})
+	if err != nil {
+		t.Fatalf("new transport: %v", err)
+	}
+	tr := trIface.(*Transport)
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer ln.Close()
+	tlsLn := tls.NewListener(ln, tr.serverConf)
+	go func() {
+		conn, err := tlsLn.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		time.Sleep(time.Second)
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	if _, err := tr.Dial(ctx, tlsLn.Addr().String()); err == nil {
+		t.Fatalf("expected dial timeout")
+	} else if ne, ok := err.(net.Error); !ok || !ne.Timeout() {
+		t.Fatalf("expected timeout error, got %v", err)
+	}
+}
+
+func TestH2AcceptTimeout(t *testing.T) {
+	cert, pool := generateSelfSignedCert(t)
+	trIface, err := New(transport.Config{Logger: zap.NewNop(), Roots: pool, ClientCert: cert, ServerCert: cert})
+	if err != nil {
+		t.Fatalf("new transport: %v", err)
+	}
+	tr := trIface.(*Transport)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	ln, err := tr.Listen(ctx, "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer ln.Close()
+
+	errCh := make(chan error, 1)
+	go func() {
+		_, err := ln.Accept()
+		errCh <- err
+	}()
+
+	clientConf := &tls.Config{
+		RootCAs:      pool,
+		Certificates: []tls.Certificate{cert},
+		NextProtos:   []string{"h2"},
+		MinVersion:   tls.VersionTLS13,
+		MaxVersion:   tls.VersionTLS13,
+	}
+	conn, err := tls.Dial("tcp", ln.Addr().String(), clientConf)
+	if err != nil {
+		t.Fatalf("tls dial: %v", err)
+	}
+	defer conn.Close()
+
+	if err := <-errCh; err == nil {
+		t.Fatalf("expected accept timeout")
+	} else if ne, ok := err.(net.Error); !ok || !ne.Timeout() {
+		t.Fatalf("expected timeout error, got %v", err)
+	}
+}
