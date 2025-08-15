@@ -15,7 +15,7 @@ import (
 type LVMDevice struct{}
 
 // OpenLVM returns an error on non-Linux systems.
-func OpenLVM(string, *lvm.FDCache, *zap.Logger) (*LVMDevice, error) {
+func OpenLVM(string, *lvm.FDCache, string, *zap.Logger) (*LVMDevice, error) {
 	return nil, fmt.Errorf("LVM devices are only supported on Linux")
 }
 

@@ -53,7 +53,7 @@ func TestSnapshotLifecycle(t *testing.T) {
 		t.Fatalf("raw cleanup: %v", err)
 	}
 
-	// LVM device snapshot creates and removes snapshots via sudo when non-root.
+	// LVM device snapshot creates and removes snapshots via a custom escalation command when non-root.
 	var cmds []string
 	origCmd := execCommand
 	execCommand = func(ctx context.Context, name string, args ...string) *exec.Cmd {
@@ -67,8 +67,8 @@ func TestSnapshotLifecycle(t *testing.T) {
 	defer func() { generateSnapshot = origName }()
 
 	origOpen := openLVMFunc
-	openLVMFunc = func(p string, _ *lvm.FDCache, _ *zap.Logger) (*LVMDevice, error) {
-		return &LVMDevice{path: p, cleanupPath: p, logger: zap.NewNop()}, nil
+	openLVMFunc = func(p string, _ *lvm.FDCache, _ string, _ *zap.Logger) (*LVMDevice, error) {
+		return &LVMDevice{path: p, cleanupPath: p, escalation: "doas -n", logger: zap.NewNop()}, nil
 	}
 	defer func() { openLVMFunc = origOpen }()
 
@@ -76,7 +76,7 @@ func TestSnapshotLifecycle(t *testing.T) {
 	geteuid = func() int { return 1 }
 	defer func() { geteuid = origEuid }()
 
-	lvd := &LVMDevice{path: "/dev/vg0/origin", logger: zap.NewNop()}
+	lvd := &LVMDevice{path: "/dev/vg0/origin", escalation: "doas -n", logger: zap.NewNop()}
 	snap, err := lvd.Snapshot(ctx, "2G")
 	if err != nil {
 		t.Fatalf("lvm snapshot: %v", err)
@@ -89,9 +89,9 @@ func TestSnapshotLifecycle(t *testing.T) {
 	}
 
 	want := []string{
-		"sudo -n lvcreate -s -n snap -L 2G /dev/vg0/origin",
-		"sudo -n lvchange -ay /dev/vg0/snap",
-		"sudo -n lvremove -f /dev/vg0/snap",
+		"doas -n lvcreate -s -n snap -L 2G /dev/vg0/origin",
+		"doas -n lvchange -ay /dev/vg0/snap",
+		"doas -n lvremove -f /dev/vg0/snap",
 	}
 	if !reflect.DeepEqual(cmds, want) {
 		t.Fatalf("commands = %v, want %v", cmds, want)

@@ -44,7 +44,13 @@ func handshakeRoundTrip(t transport.Interface, tname string) error {
 			done <- err
 			return
 		}
-		resp := common.Handshake{Version: common.ProtocolVersion}
+		if req.ALPN != "h2" || req.TLSVersion != "1.3" {
+			// Expect ALPN "h2" and TLS version "1.3" from the client handshake
+			conn.Close()
+			done <- fmt.Errorf("unexpected request: %+v", req)
+			return
+		}
+		resp := common.Handshake{Version: common.ProtocolVersion, ALPN: req.ALPN, TLSVersion: req.TLSVersion}
 		resp.Transport = common.SelectBest([]string{tname}, req.Transports)
 		resp.Compress = common.SelectBest([]string{"zstd", "lz4"}, req.Compressors)
 		resp.Digest = common.SelectBest([]string{"blake3", "sha256"}, req.Digests)
@@ -63,6 +69,8 @@ func handshakeRoundTrip(t transport.Interface, tname string) error {
 	}
 	req := common.Handshake{
 		Version:     common.ProtocolVersion,
+		ALPN:        "h2",  // expect server to echo ALPN "h2"
+		TLSVersion:  "1.3", // expect server to echo TLS version "1.3"
 		Transports:  []string{"h2", "quic", "tcp+tls", "ssh"},
 		Compressors: []string{"lz4", "zstd"},
 		Digests:     []string{"sha256", "blake3"},
@@ -74,7 +82,7 @@ func handshakeRoundTrip(t transport.Interface, tname string) error {
 	if err != nil {
 		return err
 	}
-	if resp.Transport != tname || resp.Compress != "zstd" || resp.Digest != "blake3" {
+	if resp.Transport != tname || resp.Compress != "zstd" || resp.Digest != "blake3" || resp.ALPN != "h2" || resp.TLSVersion != "1.3" {
 		return fmt.Errorf("unexpected response: %+v", resp)
 	}
 	conn.Close()

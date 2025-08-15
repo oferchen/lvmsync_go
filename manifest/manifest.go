@@ -48,7 +48,7 @@ type Index struct {
 var closeHook = func() error { return nil }
 
 var detectDevice = func(ctx context.Context, path string, logger *zap.Logger) (device.Device, error) {
-	return device.Detect(ctx, path, true, "", "", "", 0, 0, logger)
+	return device.Detect(ctx, path, true, "", "", "", "", 0, 0, logger)
 }
 
 // ErrVersionMismatch is returned when a manifest file uses an unsupported version.

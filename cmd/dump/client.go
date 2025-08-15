@@ -140,7 +140,7 @@ func Run(ctx context.Context, cfg *config.Config, snapshotDevice, dest string, l
 func RunLocalDump(cfg *config.Config, snapshotDevice, originDevice, dest string, logger *zap.Logger) (string, error) {
 	destType := cfg.DestType
 	if destType == "auto" {
-		if dev, err := device.Detect(context.Background(), dest, true, destType, "", "", cfg.FreezeTimeout, cfg.ThawTimeout, logger); err == nil {
+		if dev, err := device.Detect(context.Background(), dest, true, destType, "", "", cfg.LVMEscalation, cfg.FreezeTimeout, cfg.ThawTimeout, logger); err == nil {
 			switch dev.(type) {
 			case *device.RawDevice:
 				if !cfg.SkipSnapshotCreation {

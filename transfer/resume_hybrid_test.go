@@ -36,6 +36,7 @@ func TestResumeHybridOffset(t *testing.T) {
 
 func TestResumeHybridSequential(t *testing.T) {
 	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{})
+	tr.Tracker = &resumeTracker{}
 	blockSize := int64(1024)
 	src, snapshot, resume := createTestFiles(t, blockSize, 4, "blake3")
 
@@ -48,7 +49,7 @@ func TestResumeHybridSequential(t *testing.T) {
 	if err := tr.DumpChangesParallel(cfg, snapshot, src, &buf); err != nil {
 		t.Fatalf("DumpChangesParallel failed: %v", err)
 	}
-	finalizeResumeState(cfg, zap.NewNop())
+	finalizeResumeState(cfg, tr.Tracker, zap.NewNop())
 
 	offsets := parseOffsets(t, buf.Bytes(), blockSize)
 	sort.Slice(offsets, func(i, j int) bool { return offsets[i] < offsets[j] })

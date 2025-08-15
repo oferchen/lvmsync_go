@@ -30,7 +30,7 @@ func TestResumeFinalChecksum(t *testing.T) {
 	checkpoint := readResumeState(cfg, logger)
 	start := findResumeIndex(cfg, srcFile, ranges, checkpoint, logger)
 	w := bufio.NewWriter(io.Discard)
-	_, _, digest, err := iterateBlocks(cfg, ranges[start:], srcFile, w, nil, [2]int{-1, -1}, logger)
+	_, _, digest, err := iterateBlocks(cfg, ranges[start:], srcFile, w, nil, [2]int{-1, -1}, logger, nil)
 	if err != nil {
 		t.Fatalf("iterateBlocks: %v", err)
 	}
