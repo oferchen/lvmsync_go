@@ -45,7 +45,9 @@ func TestIndexCRUD(t *testing.T) {
 	}
 	xx := xxh3.Hash(data)
 	b3 := blake3.Sum256(data)
-	idx.Set(0, 4096, xx, b3)
+	if err := idx.Set(0, 4096, xx, b3); err != nil {
+		t.Fatalf("Set: %v", err)
+	}
 	if !idx.Match(0, 4096, xx, func() [32]byte { return b3 }) {
 		t.Fatalf("Match failed")
 	}
@@ -57,7 +59,10 @@ func TestIndexCRUD(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
-	off, length, xx2, b32 := idx2.Entry(0)
+	off, length, xx2, b32, err := idx2.Entry(0)
+	if err != nil {
+		t.Fatalf("Entry: %v", err)
+	}
 	if off != 0 || length != 4096 || xx2 != xx || b32 != b3 {
 		t.Fatalf("entry mismatch")
 	}
@@ -131,7 +136,9 @@ func TestMatchXXHShortcut(t *testing.T) {
 	}
 	xx := xxh3.Hash(data)
 	b3 := blake3.Sum256(data)
-	idx.Set(0, 4096, xx, b3)
+	if err := idx.Set(0, 4096, xx, b3); err != nil {
+		t.Fatalf("Set: %v", err)
+	}
 
 	other := make([]byte, 4096)
 	if _, err := rand.Read(other); err != nil {
@@ -164,11 +171,16 @@ func TestIndexLargeOffsets(t *testing.T) {
 	xx := xxh3.Hash(data)
 	b3 := blake3.Sum256(data)
 	offset := uint64(blockSize) * 2 // 4 GiB > int32
-	idx.Set(offset, uint32(len(data)), xx, b3)
+	if err := idx.Set(offset, uint32(len(data)), xx, b3); err != nil {
+		t.Fatalf("Set: %v", err)
+	}
 	if !idx.Match(offset, uint32(len(data)), xx, func() [32]byte { return b3 }) {
 		t.Fatalf("Match failed for large offset")
 	}
-	off, length, xx2, b32 := idx.Entry(2)
+	off, length, xx2, b32, err := idx.Entry(2)
+	if err != nil {
+		t.Fatalf("Entry: %v", err)
+	}
 	if off != offset || length != uint32(len(data)) || xx2 != xx || b32 != b3 {
 		t.Fatalf("entry mismatch for large offset")
 	}
@@ -177,6 +189,22 @@ func TestIndexLargeOffsets(t *testing.T) {
 	}
 	if err := idx.Close(); err != nil {
 		t.Fatalf("close: %v", err)
+	}
+}
+
+func TestIndexOutOfRange(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "oor.man")
+	idx, err := Create(path, "dev", 4096, 4096)
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	defer idx.Close()
+	if err := idx.Set(4096, 4096, 0, [32]byte{}); err == nil {
+		t.Fatalf("expected error for Set out of range")
+	}
+	if _, _, _, _, err := idx.Entry(1); err == nil {
+		t.Fatalf("expected error for Entry out of range")
 	}
 }
 
@@ -216,11 +244,17 @@ func TestRebuild(t *testing.T) {
 	if id := string(bytes.TrimRight(idx.hdr.DeviceID[:], "\x00")); id != "uuid-test" {
 		t.Fatalf("device id mismatch: %s", id)
 	}
-	_, l1, xx1, b31 := idx.Entry(0)
+	_, l1, xx1, b31, err := idx.Entry(0)
+	if err != nil {
+		t.Fatalf("Entry0: %v", err)
+	}
 	if l1 != 4096 || xx1 != xxh3.Hash(data1) || b31 != blake3.Sum256(data1) {
 		t.Fatalf("chunk1 mismatch")
 	}
-	_, l2, xx2, b32 := idx.Entry(1)
+	_, l2, xx2, b32, err := idx.Entry(1)
+	if err != nil {
+		t.Fatalf("Entry1: %v", err)
+	}
 	if l2 != 4096 || xx2 != xxh3.Hash(data2) || b32 != blake3.Sum256(data2) {
 		t.Fatalf("chunk2 mismatch")
 	}
@@ -299,11 +333,17 @@ func TestRebuildNonDefaultBlockSize(t *testing.T) {
 	if idx.hdr.BlockSize != uint32(bs) || idx.hdr.ChunkCount != 2 || idx.hdr.SizeBytes != uint64(2*bs) {
 		t.Fatalf("header mismatch: %+v", idx.hdr)
 	}
-	_, l1, xx1, b31 := idx.Entry(0)
+	_, l1, xx1, b31, err := idx.Entry(0)
+	if err != nil {
+		t.Fatalf("Entry0: %v", err)
+	}
 	if l1 != uint32(bs) || xx1 != xxh3.Hash(data1) || b31 != blake3.Sum256(data1) {
 		t.Fatalf("chunk1 mismatch")
 	}
-	_, l2, xx2, b32 := idx.Entry(1)
+	_, l2, xx2, b32, err := idx.Entry(1)
+	if err != nil {
+		t.Fatalf("Entry1: %v", err)
+	}
 	if l2 != uint32(bs) || xx2 != xxh3.Hash(data2) || b32 != blake3.Sum256(data2) {
 		t.Fatalf("chunk2 mismatch")
 	}

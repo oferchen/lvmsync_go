@@ -52,7 +52,11 @@ var detectDevice = func(ctx context.Context, path string, logger *zap.Logger) (d
 }
 
 // ErrVersionMismatch is returned when a manifest file uses an unsupported version.
-var ErrVersionMismatch = errors.New("manifest: version mismatch")
+// ErrIndexOutOfRange is returned when a chunk index is outside the manifest range.
+var (
+	ErrVersionMismatch = errors.New("manifest: version mismatch")
+	ErrIndexOutOfRange = errors.New("manifest: chunk index out of range")
+)
 
 func headerMAC(h *Header) [32]byte {
 	var buf [headerSize - 32]byte
@@ -211,8 +215,11 @@ func Upgrade(path string) (*Index, error) {
 func entryOffset(i uint64) uint64 { return uint64(headerSize) + i*entrySize }
 
 // Set records metadata for the chunk at the given offset.
-func (i *Index) Set(offset uint64, length uint32, xxh uint64, digest [32]byte) {
+func (i *Index) Set(offset uint64, length uint32, xxh uint64, digest [32]byte) error {
 	idx := offset / uint64(i.hdr.BlockSize)
+	if idx >= i.hdr.ChunkCount {
+		return ErrIndexOutOfRange
+	}
 	off := entryOffset(idx)
 	start := int(off)
 	binary.LittleEndian.PutUint64(i.data[start:start+8], offset)
@@ -220,6 +227,7 @@ func (i *Index) Set(offset uint64, length uint32, xxh uint64, digest [32]byte) {
 	// 4 bytes padding at start+12:start+16
 	binary.LittleEndian.PutUint64(i.data[start+16:start+24], xxh)
 	copy(i.data[start+24:start+56], digest[:])
+	return nil
 }
 
 // Match reports whether the manifest already has a record for the chunk at the
@@ -249,7 +257,10 @@ func (i *Index) Match(offset uint64, length uint32, xxh uint64, digestFn func() 
 }
 
 // Entry returns metadata for the chunk at idx.
-func (i *Index) Entry(idx uint64) (offset uint64, length uint32, xxh uint64, digest [32]byte) {
+func (i *Index) Entry(idx uint64) (offset uint64, length uint32, xxh uint64, digest [32]byte, err error) {
+	if idx >= i.hdr.ChunkCount {
+		return 0, 0, 0, digest, ErrIndexOutOfRange
+	}
 	off := entryOffset(idx)
 	start := int(off)
 	offset = binary.LittleEndian.Uint64(i.data[start : start+8])
@@ -322,7 +333,9 @@ func Rebuild(ctx context.Context, devicePath, output string, logger *zap.Logger,
 		data := buf[:n]
 		xx := xxh3.Hash(data)
 		b3 := blake3.Sum256(data)
-		idx.Set(off, uint32(n), xx, b3)
+		if err := idx.Set(off, uint32(n), xx, b3); err != nil {
+			return err
+		}
 		if logger != nil && (progressInterval == 0 || time.Since(lastLog) >= progressInterval) {
 			if err := ctx.Err(); err != nil {
 				return err

@@ -163,10 +163,14 @@ func TestEstimateTransferWithManifest(t *testing.T) {
 	}
 	xx0 := xxh3.Hash([]byte("aaaa"))
 	d0 := blake3.Sum256([]byte("aaaa"))
-	idx.Set(0, 4, xx0, d0)
+	if err := idx.Set(0, 4, xx0, d0); err != nil {
+		t.Fatalf("Set: %v", err)
+	}
 	xx1 := xxh3.Hash([]byte("bbbb"))
 	d1 := blake3.Sum256([]byte("bbbb"))
-	idx.Set(4, 4, xx1, d1)
+	if err := idx.Set(4, 4, xx1, d1); err != nil {
+		t.Fatalf("Set: %v", err)
+	}
 	idx.Close()
 
 	cfg := &config.Config{ManifestPath: manifestPath}
