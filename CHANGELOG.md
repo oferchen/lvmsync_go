@@ -21,6 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - cmd: support `--source-type` and `--dest-type` flags and allow `device.Detect` to honor explicit type hints.
 - transfer: unify resume checkpoints across dedup modes and add resume tests for fixed, CDC, and hybrid modes.
 - device: allow configurable LVM privilege escalation command.
+- tests: verify ALPN and TLS version round-trip in handshake and transport negotiation.
+- cmd/verify: add test ensuring mismatched blocks log `mismatched_block`.
 
 
 ### Fixed
