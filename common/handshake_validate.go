@@ -17,6 +17,9 @@ func ValidateHandshake(local, peer Handshake) error {
 	if peer.Endianness != "" && local.Endianness != "" && peer.Endianness != local.Endianness {
 		return fmt.Errorf("endianness mismatch: %s", peer.Endianness)
 	}
+	if peer.BlockSize > 0 && local.BlockSize > 0 && peer.BlockSize != local.BlockSize {
+		return fmt.Errorf("block size mismatch: %d", peer.BlockSize)
+	}
 	if peer.DedupMode != "" && local.DedupMode != "" && peer.DedupMode != local.DedupMode {
 		return fmt.Errorf("dedup mode mismatch: %s", peer.DedupMode)
 	}

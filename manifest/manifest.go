@@ -350,5 +350,11 @@ func Rebuild(ctx context.Context, devicePath, output string, logger *zap.Logger,
 			break
 		}
 	}
+	if logger != nil {
+		logger.Info("rebuild_complete",
+			zap.Uint64("size_bytes", size),
+			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+		)
+	}
 	return nil
 }

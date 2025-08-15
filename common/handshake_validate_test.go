@@ -3,7 +3,7 @@ package common
 import "testing"
 
 func TestValidateHandshake(t *testing.T) {
-	local := Handshake{DedupMode: "fixed", CDCMin: 64, CDCAvg: 128, CDCMax: 256, Compress: "zstd", CompressLevel: 1, ODirect: true, ResumeToken: "tok", MaxInFlight: 8, Endianness: "little"}
+	local := Handshake{DedupMode: "fixed", CDCMin: 64, CDCAvg: 128, CDCMax: 256, Compress: "zstd", CompressLevel: 1, ODirect: true, ResumeToken: "tok", MaxInFlight: 8, Endianness: "little", BlockSize: 4096}
 	peer := local
 	if err := ValidateHandshake(local, peer); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -11,6 +11,11 @@ func TestValidateHandshake(t *testing.T) {
 	peer.DedupMode = "cdc"
 	if err := ValidateHandshake(local, peer); err == nil {
 		t.Fatal("expected dedup mismatch error")
+	}
+	peer.DedupMode = local.DedupMode
+	peer.BlockSize = 8192
+	if err := ValidateHandshake(local, peer); err == nil {
+		t.Fatal("expected block size mismatch error")
 	}
 }
 
