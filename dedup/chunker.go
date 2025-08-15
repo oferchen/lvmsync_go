@@ -168,6 +168,10 @@ func FastCDC(r io.Reader, min, avg, max int) ([]Chunk, error) {
 		}
 		c.Offset = offset
 		offset += int64(c.Length)
+		// copy data so each chunk owns its slice
+		data := make([]byte, c.Length)
+		copy(data, c.Data)
+		c.Data = data
 		out = append(out, c)
 		if err == io.EOF {
 			break

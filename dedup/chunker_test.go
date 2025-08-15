@@ -69,3 +69,25 @@ func TestNewChunkerValidation(t *testing.T) {
 		})
 	}
 }
+
+func TestFastCDCDataIsolation(t *testing.T) {
+	data := make([]byte, 1024)
+	for i := range data {
+		data[i] = byte(i % 256)
+	}
+	chunks, err := FastCDC(bytes.NewReader(data), 64, 128, 256)
+	if err != nil {
+		t.Fatalf("FastCDC failed: %v", err)
+	}
+	if len(chunks) < 2 {
+		t.Fatalf("expected at least two chunks, got %d", len(chunks))
+	}
+	if len(chunks[1].Data) == 0 {
+		t.Fatalf("second chunk has no data")
+	}
+	orig := chunks[1].Data[0]
+	chunks[0].Data[0] ^= 0xFF
+	if chunks[1].Data[0] != orig {
+		t.Fatalf("modifying first chunk altered second chunk data")
+	}
+}
