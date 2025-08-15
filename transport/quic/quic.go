@@ -77,7 +77,11 @@ func New(cfg transport.Config) (transport.Interface, error) {
 	return &Transport{serverTLS: serverTLS, clientTLS: clientTLS, qconf: qconf, logger: cfg.Logger}, nil
 }
 
-func init() { transport.MustRegister("quic", New) }
+func init() {
+	if err := transport.Register("quic", New); err != nil {
+		panic(err)
+	}
+}
 
 func (t *Transport) Name() string { return "quic" }
 
