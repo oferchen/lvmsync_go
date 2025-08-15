@@ -188,7 +188,7 @@ func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport
 		}
 		return peer, nil
 	default:
-		return peer, nil
+		return peer, fmt.Errorf("invalid role %v", role)
 	}
 }
 
