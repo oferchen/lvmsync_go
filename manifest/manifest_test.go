@@ -286,6 +286,10 @@ func TestRebuildCloseOnce(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false, WithCloseHook(hook)); err != nil {
+=======
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false, WithCloseHook(func() error { count++; return nil })); err != nil {
 		t.Fatalf("rebuild: %v", err)
 	}
 	if count != 1 {
@@ -315,6 +319,12 @@ func TestRebuildCloseError(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false, WithCloseHook(hook)); err == nil || !strings.Contains(err.Error(), "close fail") {
+=======
+	hookErr := errors.New("close fail")
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false, WithCloseHook(func() error { return hookErr })); err == nil || !strings.Contains(err.Error(), "close fail") {
+
 		t.Fatalf("expected close error, got %v", err)
 	}
 }

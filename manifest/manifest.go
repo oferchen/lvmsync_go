@@ -57,6 +57,29 @@ type indexOptions struct {
 func defaultIndexOptions() indexOptions {
 	return indexOptions{
 		detectDevice: func(ctx context.Context, path string, logger *zap.Logger) (device.Device, error) {
+// Options allows tests to inject dependencies for device detection and close hooks.
+type Options struct {
+	DetectDevice func(ctx context.Context, path string, logger *zap.Logger) (device.Device, error)
+	CloseHook    func() error
+}
+
+// WithCloseHook sets a hook invoked when Index.Close is called.
+func WithCloseHook(h func() error) Options {
+	return Options{CloseHook: h}
+}
+
+func getOptions(opts []Options) Options {
+	var o Options
+	for _, opt := range opts {
+		if opt.DetectDevice != nil {
+			o.DetectDevice = opt.DetectDevice
+		}
+		if opt.CloseHook != nil {
+			o.CloseHook = opt.CloseHook
+		}
+	}
+	if o.DetectDevice == nil {
+		o.DetectDevice = func(ctx context.Context, path string, logger *zap.Logger) (device.Device, error) {
 			return device.Detect(ctx, path, true, "", "", "", "", 0, 0, logger)
 		},
 		closeHook: func() error { return nil },
@@ -178,7 +201,11 @@ func Create(path, deviceID string, size uint64, blockSize uint32, opts ...IndexO
 		f.Close()
 		return nil, err
 	}
+
 	idx := &Index{f: f, data: data, closeHook: cfg.closeHook}
+=======
+	idx := &Index{f: f, data: data, closeHook: o.CloseHook}
+
 	idx.hdr = Header{
 		Version:    Version,
 		BlockSize:  blockSize,
@@ -192,8 +219,13 @@ func Create(path, deviceID string, size uint64, blockSize uint32, opts ...IndexO
 }
 
 // Open maps an existing manifest index file.
+
 func Open(path string, opts ...IndexOption) (*Index, error) {
 	cfg := applyOptions(opts)
+=======
+func Open(path string, opts ...Options) (*Index, error) {
+	o := getOptions(opts)
+
 
 	f, err := os.OpenFile(path, os.O_RDWR, 0)
 	if err != nil {
@@ -212,6 +244,9 @@ func Open(path string, opts ...IndexOption) (*Index, error) {
 	}
 
 	idx := &Index{f: f, data: data, closeHook: cfg.closeHook}
+=======
+	idx := &Index{f: f, data: data, closeHook: o.CloseHook}
+
 	if err := idx.readHeader(); err != nil {
 		idx.Close()
 		return nil, err
@@ -221,8 +256,13 @@ func Open(path string, opts ...IndexOption) (*Index, error) {
 
 // Upgrade opens the manifest at path, upgrading older versions in-place.
 // It returns an Index mapped to the upgraded file.
+
 func Upgrade(path string, opts ...IndexOption) (*Index, error) {
 	cfg := applyOptions(opts)
+=======
+
+func Upgrade(path string, opts ...Options) (*Index, error) {
+	o := getOptions(opts)
 
 	f, err := os.OpenFile(path, os.O_RDWR, 0)
 	if err != nil {
@@ -240,7 +280,12 @@ func Upgrade(path string, opts ...IndexOption) (*Index, error) {
 		return nil, err
 	}
 
+
 	idx := &Index{f: f, data: data, closeHook: cfg.closeHook}
+=======
+	idx := &Index{f: f, data: data, closeHook: o.CloseHook}
+
+
 	if err := idx.readHeader(); err != nil {
 		if !errors.Is(err, ErrVersionMismatch) {
 			idx.Close()
@@ -331,6 +376,12 @@ func Rebuild(ctx context.Context, devicePath, output string, logger *zap.Logger,
 		logger = zap.NewNop()
 	}
 
+=======
+func Rebuild(ctx context.Context, devicePath, output string, logger *zap.Logger, progressInterval time.Duration, allowMounted bool, opts ...Options) (err error) {
+	o := getOptions(opts)
+	if logger == nil {
+		logger = zap.NewNop()
+	}
 	if err = ctx.Err(); err != nil {
 		return err
 	}
@@ -366,6 +417,8 @@ func Rebuild(ctx context.Context, devicePath, output string, logger *zap.Logger,
 	var idx *Index
 
 	idx, err = Create(output, id, size, blockSize, opts...)
+=======
+	idx, err = Create(output, id, size, blockSize, o)
 	if err != nil {
 		return err
 	}
