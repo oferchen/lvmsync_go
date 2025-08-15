@@ -203,25 +203,7 @@ func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport
 			fields = append(fields, zap.Error(err))
 			t.logger.Error("negotiate_end", fields...)
 		} else {
-			fields = append(fields,
-				zap.String("dedup_mode", hs.DedupMode),
-				zap.Int("block_size_bytes", hs.BlockSize),
-				zap.String("compress", hs.Compress),
-				zap.Int("compress_level", hs.CompressLevel),
-				zap.String("digest", hs.Digest),
-				zap.String("resume_token", hs.ResumeToken),
-				zap.Bool("checksum", hs.Checksum),
-				zap.Bool("checksum_dedup", hs.ChecksumDedup),
-				zap.String("endianness", hs.Endianness),
-				zap.Bool("odirect", hs.ODirect),
-				zap.Int("max_inflight", hs.MaxInFlight),
-				zap.Int("cdc_min", hs.CDCMin),
-				zap.Int("cdc_avg", hs.CDCAvg),
-				zap.Int("cdc_max", hs.CDCMax),
-				zap.String("transport", hs.Transport),
-				zap.String("alpn", hs.ALPN),
-				zap.String("tls_version", hs.TLSVersion),
-			)
+			fields = append(fields, transport.HandshakeFields(hs)...)
 			t.logger.Info("negotiate_end", fields...)
 		}
 	}()
