@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -50,6 +51,9 @@ var detectDevice = func(ctx context.Context, path string, logger *zap.Logger) (d
 	return device.Detect(ctx, path, true, "", "", logger)
 }
 
+// ErrVersionMismatch is returned when a manifest file uses an unsupported version.
+var ErrVersionMismatch = errors.New("manifest: version mismatch")
+
 func headerMAC(h *Header) [32]byte {
 	var buf [headerSize - 32]byte
 	binary.LittleEndian.PutUint32(buf[0:4], h.Version)
@@ -85,6 +89,9 @@ func (i *Index) readHeader() error {
 	copy(i.hdr.MAC[:], buf[88:120])
 	if mac := headerMAC(&i.hdr); !bytes.Equal(mac[:], i.hdr.MAC[:]) {
 		return fmt.Errorf("manifest: header MAC mismatch")
+	}
+	if i.hdr.Version != Version {
+		return ErrVersionMismatch
 	}
 	return nil
 }
@@ -160,6 +167,43 @@ func Open(path string) (*Index, error) {
 	if err := idx.readHeader(); err != nil {
 		idx.Close()
 		return nil, err
+	}
+	return idx, nil
+}
+
+// Upgrade opens the manifest at path, upgrading older versions in-place.
+// It returns an Index mapped to the upgraded file.
+func Upgrade(path string) (*Index, error) {
+	f, err := os.OpenFile(path, os.O_RDWR, 0)
+	if err != nil {
+		return nil, err
+	}
+	st, err := f.Stat()
+	if err != nil {
+		f.Close()
+		return nil, err
+	}
+	size := int(st.Size())
+	data, err := unix.Mmap(int(f.Fd()), 0, size, unix.PROT_READ|unix.PROT_WRITE, unix.MAP_SHARED)
+	if err != nil {
+		f.Close()
+		return nil, err
+	}
+	idx := &Index{f: f, data: data}
+	if err := idx.readHeader(); err != nil {
+		if !errors.Is(err, ErrVersionMismatch) {
+			idx.Close()
+			return nil, err
+		}
+		switch idx.hdr.Version {
+		case 0:
+			idx.hdr.Version = Version
+			idx.hdr.MAC = headerMAC(&idx.hdr)
+			idx.writeHeader()
+		default:
+			idx.Close()
+			return nil, fmt.Errorf("manifest: unsupported version %d", idx.hdr.Version)
+		}
 	}
 	return idx, nil
 }

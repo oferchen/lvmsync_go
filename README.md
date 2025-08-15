@@ -364,8 +364,9 @@ LVMSYNC_GRPC_GRPC_PORT=9443 LVMSYNC_GRPC_TLS_CERT=cert.pem lvmsync-grpcd
 | `--remote_post_script` | `LVMSYNC_REMOTE_POST_SCRIPT` | `remote_post_script` | Remote script to run after transfer (separate `ssh_timeout`) |
 | `--dedup_strategy` | `LVMSYNC_DEDUP_STRATEGY` | `dedup_strategy` | Deduplication strategy: `none`, `auto`, `checksum`, `rolling_hash`, or `bloom` |
 | `--dedup_state_file` | `LVMSYNC_DEDUP_STATE_FILE` | `dedup_state_file` | Path to deduplication state file |
-
-If `--ssh_key` is empty, lvmsync contacts the SSH agent referenced by `SSH_AUTH_SOCK`. The agent connection uses `--ssh_timeout` as its deadline.
+| `--cdc-min` | `LVMSYNC_CDC_MIN` | `cdc_min` | Minimum chunk size for CDC |
+| `--cdc-avg` | `LVMSYNC_CDC_AVG` | `cdc_avg` | Target average chunk size for CDC |
+| `--cdc-max` | `LVMSYNC_CDC_MAX` | `cdc_max` | Maximum chunk size for CDC |
 | `--bloom_entries` | `LVMSYNC_BLOOM_ENTRIES` | `bloom_entries` | Estimated number of entries for bloom filter |
 | `--bloom_fp_rate` | `LVMSYNC_BLOOM_FP_RATE` | `bloom_fp_rate` | False positive rate for bloom filter |
 | `--bloom_mbits` | `LVMSYNC_BLOOM_MBITS` | `bloom_mbits` | Bloom filter m bits power |
@@ -398,6 +399,8 @@ If `--ssh_key` is empty, lvmsync contacts the SSH agent referenced by `SSH_AUTH_
 | `--tls_key` | `LVMSYNC_TLS_KEY` | `tls_key` | TLS key file |
 | `--ca_cert` | `LVMSYNC_CA_CERT` | `ca_cert` | CA certificate file |
 | `--allow_insecure` | `LVMSYNC_ALLOW_INSECURE` | `allow_insecure` | Allow insecure (no TLS) |
+
+If `--ssh_key` is empty, lvmsync contacts the SSH agent referenced by `SSH_AUTH_SOCK`. The agent connection uses `--ssh_timeout` as its deadline.
 
 ### Common deployment scenarios
 
@@ -608,9 +611,7 @@ Compression samples 8 KiB from each chunk and skips when the estimated ratio e
 CLI:
 
 ```sh
-lvmsync run --dedup hybrid --cdc_min 4096 --cdc_avg 65536 --cdc_max 1048576 \
-        --bloom_entries 1000000 --bloom_fp_rate 0.01 --bloom_mbits 24 \
-        --compress auto --compress_threshold 0.85 /dev/vg0/snap0 /mnt/backup
+lvmsync run --dedup hybrid --cdc_min 4096 --cdc_avg 65536 --cdc_max 1048576 /dev/vg0/snap0 /mnt/backup
 ```
 
 Environment:
@@ -620,11 +621,6 @@ LVMSYNC_DEDUP=hybrid \
 LVMSYNC_CDC_MIN=4096 \
 LVMSYNC_CDC_AVG=65536 \
 LVMSYNC_CDC_MAX=1048576 \
-LVMSYNC_BLOOM_ENTRIES=1000000 \
-LVMSYNC_BLOOM_FP_RATE=0.01 \
-LVMSYNC_BLOOM_MBITS=24 \
-LVMSYNC_COMPRESS=auto \
-LVMSYNC_COMPRESS_THRESHOLD=0.85 \
 lvmsync run /dev/vg0/snap0 /mnt/backup
 ```
 
@@ -635,11 +631,6 @@ dedup: hybrid
 cdc_min: 4096
 cdc_avg: 65536
 cdc_max: 1048576
-bloom_entries: 1000000
-bloom_fp_rate: 0.01
-bloom_mbits: 24
-compress: auto
-compress_threshold: 0.85
 ```
 
 ### Dedup configuration

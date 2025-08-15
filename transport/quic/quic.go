@@ -37,7 +37,8 @@ type Conn struct {
 // listener adapts a quic.Listener to net.Listener by accepting a stream for
 // each connection.
 type listener struct {
-	ql *quic.Listener
+	ql  *quic.Listener
+	ctx context.Context
 }
 
 // New constructs a Transport using the provided TLS roots and client cert.
@@ -143,16 +144,19 @@ func (t *Transport) Listen(ctx context.Context, address string) (net.Listener, e
 	if err != nil {
 		return nil, err
 	}
-	return &listener{ql: ql}, nil
+	return &listener{ql: ql, ctx: ctx}, nil
 }
 
 // Accept waits for the next connection and returns its first stream.
+//
+// It uses the context passed to Listen, allowing callers to cancel the
+// pending accept via context cancellation.
 func (l *listener) Accept() (net.Conn, error) {
-	qconn, err := l.ql.Accept(context.Background())
+	qconn, err := l.ql.Accept(l.ctx)
 	if err != nil {
 		return nil, err
 	}
-	stream, err := qconn.AcceptStream(context.Background())
+	stream, err := qconn.AcceptStream(l.ctx)
 	if err != nil {
 		qconn.CloseWithError(0, err.Error())
 		return nil, err
