@@ -2,6 +2,7 @@ package device
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -243,6 +244,49 @@ func TestOpenRawThawFailure(t *testing.T) {
 	}
 }
 
+func TestOpenRawFreezeCommandFailureIncludesOutput(t *testing.T) {
+	core, logs := observer.New(zap.InfoLevel)
+	logger := zap.New(core)
+	oldExec := execCommand
+	execCommand = fakeExecCommandContext
+	defer func() { execCommand = oldExec }()
+	if _, err := OpenRaw(context.Background(), "/dev/null", false, os.Args[0], []string{"freeze-fail-output"}, "true", nil, time.Second, time.Second, logger); err == nil || !strings.Contains(err.Error(), "freeze output") {
+		t.Fatalf("expected freeze output in error, got %v", err)
+	}
+	entries := logs.FilterMessage("fs freeze failed").All()
+	if len(entries) != 1 {
+		t.Fatalf("expected one freeze failed log, got %v", logs.All())
+	}
+	if v, ok := entries[0].ContextMap()["output"]; !ok || v != "freeze output" {
+		t.Fatalf("expected freeze output log, got %v", entries[0].ContextMap())
+	}
+}
+
+func TestRawDeviceCleanupFailureIncludesOutput(t *testing.T) {
+	core, logs := observer.New(zap.InfoLevel)
+	logger := zap.New(core)
+	oldExec := execCommand
+	execCommand = fakeExecCommandContext
+	defer func() { execCommand = oldExec }()
+	d := &RawDevice{
+		freezeIssued: true,
+		thawCmdPath:  os.Args[0],
+		thawCmdArgs:  []string{"thaw-fail-output"},
+		thawTimeout:  time.Second,
+		logger:       logger,
+	}
+	if err := d.Cleanup(context.Background()); err == nil || !strings.Contains(err.Error(), "thaw output") {
+		t.Fatalf("expected thaw output in error, got %v", err)
+	}
+	entries := logs.FilterMessage("fs thaw failed").All()
+	if len(entries) != 1 {
+		t.Fatalf("expected one thaw failed log, got %v", logs.All())
+	}
+	if v, ok := entries[0].ContextMap()["output"]; !ok || v != "thaw output" {
+		t.Fatalf("expected thaw output log, got %v", entries[0].ContextMap())
+	}
+}
+
 func fakeExecCommandContext(ctx context.Context, _ string, args ...string) *exec.Cmd {
 	cs := append([]string{"-test.run=TestHelperProcess", "--"}, args...)
 	cmd := exec.CommandContext(ctx, os.Args[0], cs...)
@@ -271,6 +315,12 @@ func TestHelperProcess(t *testing.T) {
 		time.Sleep(200 * time.Millisecond)
 		os.Exit(0)
 	case "thaw-fail":
+		os.Exit(1)
+	case "freeze-fail-output":
+		fmt.Fprintln(os.Stderr, "freeze output")
+		os.Exit(1)
+	case "thaw-fail-output":
+		fmt.Fprintln(os.Stderr, "thaw output")
 		os.Exit(1)
 	default:
 		os.Exit(1)

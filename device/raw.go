@@ -67,8 +67,11 @@ func OpenRaw(
 			freezeCtx, cancel = context.WithTimeout(ctx, d.freezeTimeout)
 			defer cancel()
 		}
-		if err = execCommand(freezeCtx, fsFreezeCmdPath, fsFreezeCmdArgs...).Run(); err != nil {
-			return nil, fmt.Errorf("freeze command failed: %w", err)
+		out, cmdErr := execCommand(freezeCtx, fsFreezeCmdPath, fsFreezeCmdArgs...).CombinedOutput()
+		if cmdErr != nil {
+			output := strings.TrimSpace(string(out))
+			d.logger.Error("fs freeze failed", zap.Error(cmdErr), zap.String("output", output))
+			return nil, fmt.Errorf("freeze command failed: %w: %s", cmdErr, output)
 		}
 		d.logger.Info("fs freeze complete")
 		d.freezeIssued = true
@@ -148,9 +151,11 @@ func (d *RawDevice) Cleanup(ctx context.Context) error {
 			thawCtx, cancel = context.WithTimeout(ctx, d.thawTimeout)
 			defer cancel()
 		}
-		if err := execCommand(thawCtx, d.thawCmdPath, d.thawCmdArgs...).Run(); err != nil {
-			d.logger.Error("fs thaw failed", zap.Error(err))
-			return fmt.Errorf("thaw command failed: %w", err)
+		out, cmdErr := execCommand(thawCtx, d.thawCmdPath, d.thawCmdArgs...).CombinedOutput()
+		if cmdErr != nil {
+			output := strings.TrimSpace(string(out))
+			d.logger.Error("fs thaw failed", zap.Error(cmdErr), zap.String("output", output))
+			return fmt.Errorf("thaw command failed: %w: %s", cmdErr, output)
 		}
 		d.logger.Info("fs thaw complete")
 	}
