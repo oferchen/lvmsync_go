@@ -620,6 +620,74 @@ func TestProgressStream(t *testing.T) {
 	})
 }
 
+func TestBuildManifestLogs(t *testing.T) {
+	ctx := ctxWithRole("replicator")
+	called := false
+	agent := &mockAgent{buildManifest: func(_ context.Context, id string) error {
+		if id != "s" {
+			t.Fatalf("unexpected id %s", id)
+		}
+		called = true
+		return nil
+	}}
+	cfg, good, _, _ := generateTLS(t)
+	core, obs := observer.New(zap.InfoLevel)
+	logger := zap.New(core)
+	client, cleanup := newClientWithLogger(t, cfg, agent, credentials.NewTLS(good), logger)
+	defer cleanup()
+	if _, err := client.BuildManifest(ctx, &proto.BuildManifestRequest{SessionId: "s"}); err != nil {
+		t.Fatalf("BuildManifest: %v", err)
+	}
+	if !called {
+		t.Fatalf("agent not called")
+	}
+	logs := obs.All()
+	if len(logs) != 1 {
+		t.Fatalf("expected 1 log entry, got %d", len(logs))
+	}
+	if logs[0].Message != "build_manifest" {
+		t.Fatalf("unexpected message %q", logs[0].Message)
+	}
+	fields := logs[0].ContextMap()
+	if fields["session_id"] != "s" {
+		t.Fatalf("unexpected log fields: %v", fields)
+	}
+}
+
+func TestVerifyLogs(t *testing.T) {
+	ctx := ctxWithRole("replicator")
+	called := false
+	agent := &mockAgent{verify: func(_ context.Context, id string) error {
+		if id != "s" {
+			t.Fatalf("unexpected id %s", id)
+		}
+		called = true
+		return nil
+	}}
+	cfg, good, _, _ := generateTLS(t)
+	core, obs := observer.New(zap.InfoLevel)
+	logger := zap.New(core)
+	client, cleanup := newClientWithLogger(t, cfg, agent, credentials.NewTLS(good), logger)
+	defer cleanup()
+	if _, err := client.Verify(ctx, &proto.VerifyRequest{SessionId: "s"}); err != nil {
+		t.Fatalf("Verify: %v", err)
+	}
+	if !called {
+		t.Fatalf("agent not called")
+	}
+	logs := obs.All()
+	if len(logs) != 1 {
+		t.Fatalf("expected 1 log entry, got %d", len(logs))
+	}
+	if logs[0].Message != "verify_request" {
+		t.Fatalf("unexpected message %q", logs[0].Message)
+	}
+	fields := logs[0].ContextMap()
+	if fields["session_id"] != "s" {
+		t.Fatalf("unexpected log fields: %v", fields)
+	}
+}
+
 func generateTLS(t *testing.T) (Config, *tls.Config, *tls.Config, *tls.Config) {
 	ca := &x509.Certificate{
 		SerialNumber:          big.NewInt(1),
