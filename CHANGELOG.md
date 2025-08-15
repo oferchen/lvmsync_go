@@ -61,6 +61,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - tcp+tls: ensure negotiation performs TLS handshake and only records ALPN/TLS version when negotiated.
 - config: enforce CDC chunk size ordering during validation.
 - validate block size mismatch in handshakes
+- manifest: remove merge conflict markers and duplicate option definitions
 - tests: restore transport mismatch check in handshake validation
 - handshake: validate transport mismatch in handshakes
 - dedup: validate chunker size parameters.
