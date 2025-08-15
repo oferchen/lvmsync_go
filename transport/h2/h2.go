@@ -304,10 +304,20 @@ func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport
 	}
 	switch role {
 	case transport.Client:
+		if err = setDeadline(ctx, conn); err != nil {
+			return peer, err
+		}
 		if err = common.WriteHandshake(conn, hs); err != nil {
+			clearDeadline(conn)
+			return peer, err
+		}
+		clearDeadline(conn)
+
+		if err = setDeadline(ctx, conn); err != nil {
 			return peer, err
 		}
 		peer, err = common.ReadHandshake(bufio.NewReader(conn))
+		clearDeadline(conn)
 		if err != nil {
 			return peer, err
 		}
@@ -316,20 +326,40 @@ func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport
 		}
 		return peer, nil
 	case transport.Server:
+		if err = setDeadline(ctx, conn); err != nil {
+			return peer, err
+		}
 		peer, err = common.ReadHandshake(bufio.NewReader(conn))
+		clearDeadline(conn)
 		if err != nil {
 			return peer, err
 		}
 		if err := common.ValidateHandshake(hs, peer); err != nil {
 			return peer, err
 		}
-		if err = common.WriteHandshake(conn, hs); err != nil {
+		if err = setDeadline(ctx, conn); err != nil {
 			return peer, err
 		}
+		if err = common.WriteHandshake(conn, hs); err != nil {
+			clearDeadline(conn)
+			return peer, err
+		}
+		clearDeadline(conn)
 		return peer, nil
 	default:
 		return peer, nil
 	}
+}
+
+func setDeadline(ctx context.Context, conn net.Conn) error {
+	if dl, ok := ctx.Deadline(); ok {
+		return conn.SetDeadline(dl)
+	}
+	return nil
+}
+
+func clearDeadline(conn net.Conn) {
+	_ = conn.SetDeadline(time.Time{})
 }
 
 // Conn implements net.Conn using HTTP/2 DATA frames.

@@ -6,6 +6,7 @@ import (
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"math/big"
 	"net"
 	"testing"
@@ -223,6 +224,29 @@ func TestQUICTransportRequiresClientCert(t *testing.T) {
 	}
 	if _, err := New(transport.Config{Logger: zap.NewNop(), Roots: root, AllowInsecure: true}); err != nil {
 		t.Fatalf("allow insecure should permit missing client cert: %v", err)
+	}
+}
+
+func TestQUICNegotiateContextCancel(t *testing.T) {
+	tr := &Transport{logger: zap.NewNop()}
+	c1, c2 := net.Pipe()
+	defer c1.Close()
+	defer c2.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+
+	start := time.Now()
+	if _, err := tr.Negotiate(ctx, c1, transport.Client, common.Handshake{CDCMin: 64, CDCAvg: 128, CDCMax: 256}); err == nil {
+		t.Fatalf("expected negotiate error")
+	} else {
+		var ne net.Error
+		if !errors.As(err, &ne) || !ne.Timeout() {
+			t.Fatalf("expected timeout error, got %v", err)
+		}
+	}
+	if time.Since(start) > 100*time.Millisecond {
+		t.Fatalf("negotiation did not fail promptly")
 	}
 }
 
