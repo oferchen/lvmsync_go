@@ -21,7 +21,7 @@ import (
 	"lvmsync_go/transport"
 )
 
-func checkLogFields(t *testing.T, logs *observer.ObservedLogs, msg string, expected int, level zapcore.Level) {
+func checkLogFields(t *testing.T, logs *observer.ObservedLogs, msg string, expected int, wantErr bool, level zapcore.Level) {
 	entries := logs.FilterMessage(msg).All()
 	if len(entries) != expected {
 		t.Fatalf("expected %d %s logs, got %d", expected, msg, len(entries))
@@ -34,6 +34,11 @@ func checkLogFields(t *testing.T, logs *observer.ObservedLogs, msg string, expec
 		if _, ok := ctx[k]; !ok {
 			t.Fatalf("expected field %q in %s log", k, msg)
 		}
+	}
+	if _, ok := ctx["error"]; wantErr && !ok {
+		t.Fatalf("expected error field in %s log", msg)
+	} else if !wantErr && ok {
+		t.Fatalf("unexpected error field in %s log", msg)
 	}
 	if entries[0].Level != level {
 		t.Fatalf("expected level %v for %s log, got %v", level, msg, entries[0].Level)
@@ -127,12 +132,12 @@ func TestH2TransportTLSHandshake(t *testing.T) {
 	conn.Close()
 	<-done
 
-	checkLogFields(t, logs, "dial_start", 1, zapcore.InfoLevel)
-	checkLogFields(t, logs, "dial_end", 1, zapcore.InfoLevel)
-	checkLogFields(t, logs, "listen_start", 1, zapcore.InfoLevel)
-	checkLogFields(t, logs, "listen_end", 1, zapcore.InfoLevel)
-	checkLogFields(t, logs, "negotiate_start", 2, zapcore.InfoLevel)
-	checkLogFields(t, logs, "negotiate_end", 2, zapcore.InfoLevel)
+	checkLogFields(t, logs, "dial_start", 1, true, zapcore.InfoLevel)
+	checkLogFields(t, logs, "dial_end", 1, true, zapcore.InfoLevel)
+	checkLogFields(t, logs, "listen_start", 1, true, zapcore.InfoLevel)
+	checkLogFields(t, logs, "listen_end", 1, true, zapcore.InfoLevel)
+	checkLogFields(t, logs, "negotiate_start", 2, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "negotiate_end", 2, false, zapcore.InfoLevel)
 }
 
 func TestH2TransportTLSHandshakeError(t *testing.T) {
@@ -162,10 +167,10 @@ func TestH2TransportTLSHandshakeError(t *testing.T) {
 		t.Fatalf("expected dial error")
 	}
 
-	checkLogFields(t, logs, "dial_start", 1, zapcore.InfoLevel)
-	checkLogFields(t, logs, "dial_end", 1, zapcore.ErrorLevel)
-	checkLogFields(t, logs, "listen_start", 1, zapcore.InfoLevel)
-	checkLogFields(t, logs, "listen_end", 1, zapcore.InfoLevel)
+	checkLogFields(t, logs, "dial_start", 1, true, zapcore.InfoLevel)
+	checkLogFields(t, logs, "dial_end", 1, true, zapcore.ErrorLevel)
+	checkLogFields(t, logs, "listen_start", 1, true, zapcore.InfoLevel)
+	checkLogFields(t, logs, "listen_end", 1, true, zapcore.InfoLevel)
 }
 
 func TestH2TransportTLSCDCMismatch(t *testing.T) {
@@ -208,12 +213,12 @@ func TestH2TransportTLSCDCMismatch(t *testing.T) {
 	conn.Close()
 	<-done
 
-	checkLogFields(t, logs, "dial_start", 1, zapcore.InfoLevel)
-	checkLogFields(t, logs, "dial_end", 1, zapcore.InfoLevel)
-	checkLogFields(t, logs, "listen_start", 1, zapcore.InfoLevel)
-	checkLogFields(t, logs, "listen_end", 1, zapcore.InfoLevel)
-	checkLogFields(t, logs, "negotiate_start", 2, zapcore.InfoLevel)
-	checkLogFields(t, logs, "negotiate_end", 2, zapcore.ErrorLevel)
+	checkLogFields(t, logs, "dial_start", 1, true, zapcore.InfoLevel)
+	checkLogFields(t, logs, "dial_end", 1, true, zapcore.InfoLevel)
+	checkLogFields(t, logs, "listen_start", 1, true, zapcore.InfoLevel)
+	checkLogFields(t, logs, "listen_end", 1, true, zapcore.InfoLevel)
+	checkLogFields(t, logs, "negotiate_start", 2, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "negotiate_end", 2, true, zapcore.ErrorLevel)
 
 	entries := logs.FilterMessage("negotiate_end").All()
 	for _, e := range entries {

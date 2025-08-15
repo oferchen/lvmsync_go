@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
-- None yet.
+- Log dial and listen lifecycle events with duration_ms and error fields across transports, with tests covering handshake and teardown logs.
 
 ### Fixed
 - None yet.
