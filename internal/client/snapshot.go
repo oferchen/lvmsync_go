@@ -26,7 +26,7 @@ var (
 
 // SetParseSnapshotSizeForTest overrides the parseSnapshotSize helper for tests
 // and returns a function to restore the original behavior.
-func SetParseSnapshotSizeForTest(f func(string, string, *zap.Logger) (uint64, error)) func() {
+func SetParseSnapshotSizeForTest(f func(string, string, *lvm.FDCache, *zap.Logger) (uint64, error)) func() {
 	orig := parseSnapshotSize
 	parseSnapshotSize = f
 	return func() { parseSnapshotSize = orig }
@@ -67,12 +67,15 @@ func SetRemoveSnapshotForTest(f func(context.Context, string, *zap.Logger) error
 // PrepareSnapshot sets up a snapshot for the given original volume. It returns the snapshot path,
 // an optional monitor error channel, a cleanup function, and any error encountered.
 func PrepareSnapshot(ctx context.Context, cfg *config.Config, originalVolume string, logger *zap.Logger) (string, chan error, func(), error) {
-	snapshotBytes, err := calculateSnapshotSize(cfg, originalVolume, logger)
+	cache := lvm.NewDeviceFDCache(logger)
+	defer cache.Close()
+
+	snapshotBytes, err := calculateSnapshotSize(cfg, originalVolume, cache, logger)
 	if err != nil {
 		return "", nil, nil, err
 	}
 
-	if err := ensureVolumeGroups(ctx, cfg, originalVolume, logger); err != nil {
+	if err := ensureVolumeGroups(ctx, cfg, originalVolume, cache, logger); err != nil {
 		return "", nil, nil, err
 	}
 
@@ -83,15 +86,15 @@ func PrepareSnapshot(ctx context.Context, cfg *config.Config, originalVolume str
 	return createSnapshotIfNeeded(ctx, cfg, originalVolume, snapshotBytes, logger)
 }
 
-func calculateSnapshotSize(cfg *config.Config, originalVolume string, logger *zap.Logger) (uint64, error) {
-	snapshotBytes, err := parseSnapshotSize(cfg.SnapshotSize, originalVolume, logger)
+func calculateSnapshotSize(cfg *config.Config, originalVolume string, cache *lvm.FDCache, logger *zap.Logger) (uint64, error) {
+	snapshotBytes, err := parseSnapshotSize(cfg.SnapshotSize, originalVolume, cache, logger)
 	if err != nil {
 		return 0, fmt.Errorf("failed to parse snapshot size: %w", err)
 	}
 	return snapshotBytes, nil
 }
 
-func ensureVolumeGroups(ctx context.Context, cfg *config.Config, originalVolume string, logger *zap.Logger) error {
+func ensureVolumeGroups(ctx context.Context, cfg *config.Config, originalVolume string, cache *lvm.FDCache, logger *zap.Logger) error {
 	if cfg.VolumeGroup == "" {
 		vg, err := getVolumeGroupName(originalVolume)
 		if err != nil {
@@ -102,7 +105,7 @@ func ensureVolumeGroups(ctx context.Context, cfg *config.Config, originalVolume 
 	}
 
 	if cfg.TargetVolumeGroup == "" && len(cfg.TargetVGCandidates) > 0 {
-		lvSize, err := getVolumeSize(originalVolume, logger)
+		lvSize, err := getVolumeSize(originalVolume, cache, logger)
 		if err != nil {
 			return fmt.Errorf("failed to determine volume size: %w", err)
 		}

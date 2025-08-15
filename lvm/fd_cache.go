@@ -42,6 +42,11 @@ func NewFDCache(size int, logger *zap.Logger) *FDCache {
 	}
 }
 
+// NewDeviceFDCache returns an FDCache preconfigured for device descriptor caching.
+func NewDeviceFDCache(logger *zap.Logger) *FDCache {
+	return NewFDCache(fdCacheSize, logger)
+}
+
 // SetLogger updates the logger used by the cache.
 func (c *FDCache) SetLogger(logger *zap.Logger) {
 	if logger == nil {
@@ -66,7 +71,7 @@ func (c *FDCache) getFD(devicePath string) (int, error) {
 		return entry.fd, nil
 	}
 
-	fd, err := unix.Open(devicePath, unix.O_RDONLY|unix.O_NONBLOCK, 0)
+	fd, err := unix.Open(devicePath, unix.O_RDONLY|unix.O_NONBLOCK|unix.O_CLOEXEC, 0)
 	if err != nil {
 		return -1, fmt.Errorf("failed to open device %s: %w", devicePath, err)
 	}
@@ -105,6 +110,3 @@ func (c *FDCache) Close() {
 	c.fds = make(map[string]*list.Element, c.size)
 	c.order.Init()
 }
-
-// deviceFDCache is the global cache used by volume operations.
-var deviceFDCache = NewFDCache(fdCacheSize, zap.NewNop())

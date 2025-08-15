@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"go.uber.org/zap"
+	"lvmsync_go/lvm"
 )
 
 func TestSnapshotLifecycle(t *testing.T) {
@@ -65,7 +66,7 @@ func TestSnapshotLifecycle(t *testing.T) {
 	defer func() { generateSnapshot = origName }()
 
 	origOpen := openLVMFunc
-	openLVMFunc = func(p string, _ *zap.Logger) (*LVMDevice, error) {
+	openLVMFunc = func(p string, _ *lvm.FDCache, _ *zap.Logger) (*LVMDevice, error) {
 		return &LVMDevice{path: p, cleanupPath: p, logger: zap.NewNop()}, nil
 	}
 	defer func() { openLVMFunc = origOpen }()

@@ -9,6 +9,7 @@ import (
 
 	"lvmsync_go/config"
 	"lvmsync_go/internal/client"
+	"lvmsync_go/lvm"
 
 	"go.uber.org/zap"
 )
@@ -23,7 +24,7 @@ func TestPrepareSkipSnapshot(t *testing.T) {
 	cfg.VolumeGroup = "vg"
 	cfg.TargetVolumeGroup = "vg2"
 
-	restore := client.SetParseSnapshotSizeForTest(func(string, string, *zap.Logger) (uint64, error) { return 1, nil })
+	restore := client.SetParseSnapshotSizeForTest(func(string, string, *lvm.FDCache, *zap.Logger) (uint64, error) { return 1, nil })
 	defer restore()
 
 	logger := zap.NewNop()
@@ -51,7 +52,7 @@ func TestPrepareSnapshotCreatesSnapshot(t *testing.T) {
 	cfg.SnapshotSize = "25%"
 
 	var parseArg string
-	restoreParse := client.SetParseSnapshotSizeForTest(func(s, _ string, _ *zap.Logger) (uint64, error) {
+	restoreParse := client.SetParseSnapshotSizeForTest(func(s, _ string, _ *lvm.FDCache, _ *zap.Logger) (uint64, error) {
 		parseArg = s
 		return 1024, nil
 	})
@@ -117,7 +118,7 @@ func TestCreateSnapshotCleanupNoPanic(t *testing.T) {
 	cfg.VolumeGroup = "vg"
 	cfg.TargetVolumeGroup = "vg2"
 
-	restoreParse := client.SetParseSnapshotSizeForTest(func(string, string, *zap.Logger) (uint64, error) { return 1024, nil })
+	restoreParse := client.SetParseSnapshotSizeForTest(func(string, string, *lvm.FDCache, *zap.Logger) (uint64, error) { return 1024, nil })
 	defer restoreParse()
 
 	restoreCreate := client.SetCreateSnapshotForTest(func(context.Context, string, string, string, *zap.Logger) error { return nil })

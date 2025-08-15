@@ -80,14 +80,15 @@ func TestFDCacheCloseClosesAll(t *testing.T) {
 }
 
 func TestGetVolumeSizeCachesFD(t *testing.T) {
-	deviceFDCache.Close()
+	cache := NewDeviceFDCache(zap.NewNop())
+	defer cache.Close()
 
 	tmpFile := filepath.Join(t.TempDir(), "vol")
 	if err := os.WriteFile(tmpFile, make([]byte, 1024), 0644); err != nil {
 		t.Fatalf("write file: %v", err)
 	}
 
-	size, err := GetVolumeSize(tmpFile, zap.NewNop())
+	size, err := GetVolumeSize(tmpFile, cache, zap.NewNop())
 	if err != nil {
 		t.Fatalf("GetVolumeSize failed: %v", err)
 	}
@@ -95,7 +96,7 @@ func TestGetVolumeSizeCachesFD(t *testing.T) {
 		t.Fatalf("size = %d, want 1024", size)
 	}
 
-	elem, ok := deviceFDCache.fds[tmpFile]
+	elem, ok := cache.fds[tmpFile]
 	if !ok {
 		t.Fatalf("file descriptor not cached")
 	}
@@ -105,7 +106,7 @@ func TestGetVolumeSizeCachesFD(t *testing.T) {
 	}
 	fd := entry.fd
 
-	size, err = GetVolumeSize(tmpFile, zap.NewNop())
+	size, err = GetVolumeSize(tmpFile, cache, zap.NewNop())
 	if err != nil {
 		t.Fatalf("second GetVolumeSize failed: %v", err)
 	}
@@ -113,7 +114,7 @@ func TestGetVolumeSizeCachesFD(t *testing.T) {
 		t.Fatalf("size = %d, want 1024", size)
 	}
 
-	elem2, ok := deviceFDCache.fds[tmpFile]
+	elem2, ok := cache.fds[tmpFile]
 	if !ok {
 		t.Fatalf("file descriptor not reused")
 	}
@@ -121,6 +122,26 @@ func TestGetVolumeSizeCachesFD(t *testing.T) {
 	if !ok || entry2.fd != fd {
 		t.Fatalf("file descriptor not reused")
 	}
+}
 
-	Cleanup()
+func TestFDCLOEXEC(t *testing.T) {
+	cache := NewDeviceFDCache(zap.NewNop())
+	defer cache.Close()
+
+	tmpFile := filepath.Join(t.TempDir(), "file")
+	if err := os.WriteFile(tmpFile, nil, 0644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+
+	fd, err := cache.getFD(tmpFile)
+	if err != nil {
+		t.Fatalf("getFD: %v", err)
+	}
+	flags, err := unix.FcntlInt(uintptr(fd), unix.F_GETFD, 0)
+	if err != nil {
+		t.Fatalf("fcntl: %v", err)
+	}
+	if flags&unix.FD_CLOEXEC == 0 {
+		t.Fatalf("FD_CLOEXEC not set")
+	}
 }
