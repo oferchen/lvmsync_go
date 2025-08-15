@@ -45,6 +45,8 @@ LVMSync is a high-performance incremental data replication tool for LVM snapshot
 | Raw block device |   ✅   |      ✅      | requires `--offline` or `--fs-freeze-command`/`--fs-thaw-command` when used as a source |
 | Regular file     |   ✅   |      ✅      | includes loopback images |
 
+Override automatic detection with `--source-type` and `--dest-type` when a device's type is known in advance.
+
 ## Supported Platforms
 
 LVMSync targets Linux systems only. Builds are tested on the `amd64` and `arm64` architectures.
