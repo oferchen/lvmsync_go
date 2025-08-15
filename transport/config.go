@@ -20,4 +20,6 @@ type Config struct {
 	SSHPassword   string
 	SSHKnownHosts string
 	SSHHostKey    string
+	SSHKeyPath    string
+	SSHUseAgent   bool
 }

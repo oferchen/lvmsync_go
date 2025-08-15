@@ -19,6 +19,7 @@ LVMSync is a high-performance incremental data replication tool for LVM snapshot
 - **Hashing**: Hardware-accelerated XXH3 provides fast deduplication hints while BLAKE3 digests are stored in manifests for integrity.
 - **Remote Execution via SSH**: Replicates data over SSH with support for pre/post-scripts.
 - **Resume Support**: Ability to resume interrupted transfers.
+- **Handshake Timeouts**: Transport connections apply context deadlines during handshakes and clear them once negotiation succeeds.
 - **Sparse Destination Optimization**: Detects runs of zero bytes and punches holes when the filesystem supports it.
 - **Aligned I/O Buffers and NUMA Pinning**: `--odirect` allocates block-size aligned slabs from a `sync.Pool` and can pin worker goroutines to the device's NUMA node.
 - **LVM Snapshot Management**:
@@ -363,7 +364,8 @@ LVMSYNC_GRPC_GRPC_PORT=9443 LVMSYNC_GRPC_TLS_CERT=cert.pem lvmsync-grpcd
 | `--manifest-progress-interval` | `LVMSYNC_MANIFEST_PROGRESS_INTERVAL` | `manifest_progress_interval` | Interval between progress logs during manifest rebuild |
 | `--ssh_host` | `LVMSYNC_SSH_HOST` | `ssh_host` | SSH host |
 | `--ssh_user` | `LVMSYNC_SSH_USER` | `ssh_user` | SSH username |
-| `--ssh_key` | `LVMSYNC_SSH_KEY` | `ssh_key` | Path to SSH private key or use agent |
+| `--ssh_key` | `LVMSYNC_SSH_KEY` | `ssh_key` | Path to SSH private key |
+| `--ssh_agent` | `LVMSYNC_SSH_AGENT` | `ssh_agent` | Use SSH agent for authentication |
 | `--ssh_port` | `LVMSYNC_SSH_PORT` | `ssh_port` | SSH port |
 | `--ssh_timeout` | `LVMSYNC_SSH_TIMEOUT` | `ssh_timeout` | SSH connection timeout |
 | `--ssh_keepalive` | `LVMSYNC_SSH_KEEPALIVE` | `ssh_keepalive` | SSH keepalive interval |
@@ -413,7 +415,7 @@ LVMSYNC_GRPC_GRPC_PORT=9443 LVMSYNC_GRPC_TLS_CERT=cert.pem lvmsync-grpcd
 | `--ca_cert` | `LVMSYNC_CA_CERT` | `ca_cert` | CA certificate file |
 | `--allow_insecure` | `LVMSYNC_ALLOW_INSECURE` | `allow_insecure` | Allow insecure (no TLS) |
 
-If `--ssh_key` is empty, lvmsync contacts the SSH agent referenced by `SSH_AUTH_SOCK`. The agent connection uses `--ssh_timeout` as its deadline.
+When `--ssh_agent` is set and `--ssh_key` is empty, lvmsync contacts the SSH agent referenced by `SSH_AUTH_SOCK`. The agent connection uses `--ssh_timeout` as its deadline.
 
 ### Common deployment scenarios
 
@@ -855,7 +857,8 @@ Flags are parsed via Viper, so the same settings can be provided through
 | ------------------------- | --------------------------------------------------------------- | ------------------------ |
 | `--ssh_host`              | SSH host                                                        | `"localhost"`            |
 | `--ssh_user`              | SSH username                                                    | `"root"`                 |
-| `--ssh_key`               | Path to SSH private key or use the SSH agent                    | `""`                     |
+| `--ssh_key`               | Path to SSH private key                                          | `""`                     |
+| `--ssh_agent`             | Use the SSH agent for authentication                            | `false`                  |
 | `--ssh_port`              | SSH port number                                                 | `22`                     |
 | `--known_hosts`           | Path to known_hosts file (defaults to `$HOME/.ssh/known_hosts`) | `$HOME/.ssh/known_hosts` |
 | `--strict_host_key_checking` | Require host keys to be present in `known_hosts`; when `false`, host key verification is disabled | `true`                   |
@@ -864,7 +867,7 @@ Flags are parsed via Viper, so the same settings can be provided through
 Unknown hosts are rejected unless their keys are present in `known_hosts` or match `--ssh_host_key`.
 
 Programmatic use of the SSH transport requires a configuration populated with
-fields like `SSHUser`, `SSHKeyPath`, `SSHPort`, `SSHHostKey`, `KnownHosts`,
+fields like `SSHUser`, `SSHKeyPath`, `SSHUseAgent`, `SSHPort`, `KnownHosts`,
 `StrictHostKeyCheck`, `SSHTimeout`, `SSHKeepAliveInterval`, and `MaxRetries`.
 The constructor also requires a `*zap.Logger`:
 
