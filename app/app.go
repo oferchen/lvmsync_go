@@ -27,8 +27,8 @@ var (
 	newServer = func(cfg grpcserver.Config, agent lvmlib.Agent, logger *zap.Logger) (grpcServer, func(), error) {
 		return grpcserver.New(cfg, agent, logger)
 	}
-	dial = func(ctx context.Context, addr string, conf grpcclient.Config) (closeableConn, error) {
-		return grpcclient.Dial(ctx, addr, conf)
+	dial = func(ctx context.Context, addr string, conf grpcclient.Config, logger *zap.Logger) (closeableConn, error) {
+		return grpcclient.Dial(ctx, addr, conf, logger)
 	}
 	handshake     = grpcclient.Handshake
 	createSession = grpcclient.CreateSession
@@ -107,7 +107,7 @@ func ClientHandshake(ctx context.Context, cfg *config.Config, logger *zap.Logger
 		CACert:        cfg.CACert,
 		AllowInsecure: cfg.AllowInsecure,
 		DialTimeout:   cfg.GRPCDialTimeout,
-	})
+	}, logger)
 	if err != nil {
 		cancel()
 		return nil, nil, fmt.Errorf("gRPC dial: %w", err)

@@ -571,6 +571,43 @@ func TestValidateMode(t *testing.T) {
 	}
 }
 
+func TestValidateCDCOrdering(t *testing.T) {
+	geteuid := func() int { return 0 }
+	base := Config{
+		Mode:                 "default",
+		SSHKeepAliveInterval: time.Second,
+		GRPCDialTimeout:      time.Second,
+		GRPCSetupTimeout:     time.Second,
+		HeartbeatInterval:    time.Second,
+		HeartbeatSendTimeout: time.Second,
+		TCPParallel:          1,
+	}
+
+	cases := []struct {
+		name    string
+		min     int
+		avg     int
+		max     int
+		wantErr bool
+	}{
+		{name: "ascending", min: 64, avg: 128, max: 256, wantErr: false},
+		{name: "avgEqualsMin", min: 64, avg: 64, max: 128, wantErr: false},
+		{name: "avgEqualsMax", min: 64, avg: 128, max: 128, wantErr: false},
+		{name: "avgLessThanMin", min: 128, avg: 64, max: 256, wantErr: true},
+		{name: "avgGreaterThanMax", min: 64, avg: 256, max: 128, wantErr: true},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := base
+			cfg.CDCMin, cfg.CDCAvg, cfg.CDCMax = tc.min, tc.avg, tc.max
+			if err := cfg.ValidateWith(geteuid); (err != nil) != tc.wantErr {
+				t.Fatalf("ValidateWith min=%d avg=%d max=%d error = %v, wantErr %v", tc.min, tc.avg, tc.max, err, tc.wantErr)
+			}
+		})
+	}
+}
+
 func TestBuildBlockSize(t *testing.T) {
 	t.Run(Auto, func(t *testing.T) {
 		v := viper.New()

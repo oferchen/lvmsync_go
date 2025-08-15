@@ -15,6 +15,18 @@ const (
 	Server
 )
 
+// String returns the string representation of the Role.
+func (r Role) String() string {
+	switch r {
+	case Client:
+		return "client"
+	case Server:
+		return "server"
+	default:
+		return ""
+	}
+}
+
 // Interface defines the minimal methods required for transports.
 //
 // Implementations must establish a connection via Dial or Listen and then

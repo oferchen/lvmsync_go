@@ -146,7 +146,12 @@ func TestTransportNegotiationMatrix(t *testing.T) {
 				if cli.peer.DedupMode != m || cli.peer.Compress != "zstd" || cli.peer.ODirect != true ||
 					cli.peer.CDCMin != base.CDCMin || cli.peer.CDCAvg != base.CDCAvg || cli.peer.CDCMax != base.CDCMax ||
 					cli.peer.ALPN != base.ALPN || cli.peer.TLSVersion != base.TLSVersion {
-					t.Fatalf("unexpected peer handshake: %+v", cli.peer)
+					t.Fatalf("unexpected client peer handshake: %+v", cli.peer)
+				}
+				if srv.peer.DedupMode != m || srv.peer.Compress != "zstd" || srv.peer.ODirect != true ||
+					srv.peer.CDCMin != base.CDCMin || srv.peer.CDCAvg != base.CDCAvg || srv.peer.CDCMax != base.CDCMax ||
+					srv.peer.ALPN != base.ALPN || srv.peer.TLSVersion != base.TLSVersion {
+					t.Fatalf("unexpected server peer handshake: %+v", srv.peer)
 				}
 			}
 			// mismatch cases
