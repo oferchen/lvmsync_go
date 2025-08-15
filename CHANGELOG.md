@@ -7,9 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Added
 - Log final handshake parameters for all transports.
+- Log manifest rebuild completion with size and duration metrics.
+- Add handshake parsing tests for unknown and malformed tokens.
+- Bind LVMSYNC_DEDUP_* environment variables and extend tests for dedup flag precedence.
+- Privilege escalation tests covering sudo success and failure modes.
+- device: tests for GetUUID and IsMountedRW
+
 
 ### Fixed
-- None yet.
+- Enforce CDC chunk size ordering in handshake validation.
+- validate block size mismatch in handshakes
 
 ## [v0.1.0] - 2025-02-27
 ### Added

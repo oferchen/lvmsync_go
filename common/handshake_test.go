@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"reflect"
+	"strings"
 	"testing"
 
 	"lvmsync_go/common"
@@ -65,5 +66,37 @@ func TestSelectBest(t *testing.T) {
 	}
 	if best := common.SelectBest([]string{}, remote); best != "" {
 		t.Fatalf("expected empty, got %s", best)
+	}
+}
+
+func TestHandshakeIgnoresUnknownTokens(t *testing.T) {
+	line := "lvmsync PROTO[3] transport:ssh foo bar baz:qux compress:none digest:sha256\n"
+	h, err := common.ReadHandshake(bufio.NewReader(strings.NewReader(line)))
+	if err != nil {
+		t.Fatalf("read handshake: %v", err)
+	}
+	expected := common.Handshake{Version: common.ProtocolVersion, Transport: "ssh", Compress: "none", Digest: "sha256"}
+	if !reflect.DeepEqual(h, expected) {
+		t.Fatalf("handshake mismatch: %+v != %+v", h, expected)
+	}
+}
+
+func TestHandshakeMalformedTokens(t *testing.T) {
+	cases := []struct {
+		token     string
+		errSubstr string
+	}{
+		{"block:not-a-number", "invalid block size"},
+		{"level:abc", "invalid compression level"},
+		{"inflight:xyz", "invalid max in-flight"},
+		{"cdcmin:foo", "invalid cdc min"},
+		{"cdcavg:bar", "invalid cdc avg"},
+		{"cdcmax:baz", "invalid cdc max"},
+	}
+	for _, tt := range cases {
+		line := "lvmsync PROTO[3] " + tt.token + "\n"
+		if _, err := common.ReadHandshake(bufio.NewReader(strings.NewReader(line))); err == nil || !strings.Contains(err.Error(), tt.errSubstr) {
+			t.Fatalf("expected error containing %q for token %q, got %v", tt.errSubstr, tt.token, err)
+		}
 	}
 }

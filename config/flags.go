@@ -207,3 +207,19 @@ func bindTransportEnv(fs *pflag.FlagSet, v *viper.Viper) error {
 	})
 	return err
 }
+
+// bindDedupEnv binds dedup flag names to environment variables with the
+// LVMSYNC_DEDUP_ prefix.
+func bindDedupEnv(fs *pflag.FlagSet, v *viper.Viper) error {
+	var err error
+	fs.VisitAll(func(f *pflag.Flag) {
+		if err != nil {
+			return
+		}
+		env := "LVMSYNC_DEDUP_" + strings.ToUpper(strings.ReplaceAll(f.Name, "-", "_"))
+		if e := v.BindEnv(f.Name, env); e != nil {
+			err = e
+		}
+	})
+	return err
+}
