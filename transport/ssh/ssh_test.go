@@ -6,6 +6,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -19,6 +20,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/agent"
 	"golang.org/x/crypto/ssh/knownhosts"
 
 	"lvmsync_go/common"
@@ -92,6 +94,47 @@ func emptyKnownHosts(t *testing.T) string {
 	}
 	f.Close()
 	return f.Name()
+}
+
+func TestAgentSignersCanceled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	sock := filepath.Join(t.TempDir(), "agent.sock")
+	if _, err := agentSigners(ctx, sock); err == nil || !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context cancellation, got %v", err)
+	}
+}
+
+func TestAgentSignersClosesConnection(t *testing.T) {
+	sock := filepath.Join(t.TempDir(), "agent.sock")
+	ln, err := net.Listen("unix", sock)
+	if err != nil {
+		t.Fatalf("Listen: %v", err)
+	}
+	defer ln.Close()
+	done := make(chan struct{})
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			close(done)
+			return
+		}
+		agent.ServeAgent(agent.NewKeyring(), conn)
+		close(done)
+	}()
+	ctx := context.Background()
+	signers, err := agentSigners(ctx, sock)
+	if err != nil {
+		t.Fatalf("agentSigners: %v", err)
+	}
+	if len(signers) != 0 {
+		t.Fatalf("expected no signers, got %d", len(signers))
+	}
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatalf("agent server did not exit")
+	}
 }
 
 func TestNewWithKnownHosts(t *testing.T) {
