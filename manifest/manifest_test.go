@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/zeebo/blake3"
 	"github.com/zeebo/xxh3"
@@ -131,7 +133,9 @@ func TestRebuild(t *testing.T) {
 	prev := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "uuid-test", nil })
 	defer device.SetUUIDFunc(prev)
 	manPath := filepath.Join(dir, "rebuild.man")
-	if err := Rebuild(file.Name(), manPath, zap.NewNop(), 0); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0); err != nil {
 		t.Fatalf("rebuild: %v", err)
 	}
 	idx, err := Open(manPath)
@@ -178,7 +182,9 @@ func TestRebuildCloseOnce(t *testing.T) {
 	count := 0
 	closeHook = func() { count++ }
 	defer func() { closeHook = prevHook }()
-	if err := Rebuild(file.Name(), manPath, zap.NewNop(), 0); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0); err != nil {
 		t.Fatalf("rebuild: %v", err)
 	}
 	if count != 1 {
@@ -213,7 +219,9 @@ func TestRebuildNonDefaultBlockSize(t *testing.T) {
 	}
 	defer func() { detectDevice = prevDetect }()
 	manPath := filepath.Join(dir, "rebuildbs.man")
-	if err := Rebuild(file.Name(), manPath, zap.NewNop(), 0); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0); err != nil {
 		t.Fatalf("rebuild: %v", err)
 	}
 	idx, err := Open(manPath)
@@ -255,7 +263,9 @@ func TestRebuildLogsProgress(t *testing.T) {
 	manPath := filepath.Join(dir, "progress.man")
 	core, logs := observer.New(zap.InfoLevel)
 	logger := zap.New(core)
-	if err := Rebuild(file.Name(), manPath, logger, 0); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := Rebuild(ctx, file.Name(), manPath, logger, 0); err != nil {
 		t.Fatalf("rebuild: %v", err)
 	}
 	entries := logs.FilterMessage("rebuild progress").All()
@@ -267,5 +277,34 @@ func TestRebuildLogsProgress(t *testing.T) {
 	}
 	if _, ok := entries[0].ContextMap()["duration_ms"]; !ok {
 		t.Fatalf("missing duration_ms field")
+	}
+}
+
+func TestRebuildCanceledContext(t *testing.T) {
+	dir := t.TempDir()
+	file, err := os.CreateTemp(dir, "dev-*.img")
+	if err != nil {
+		t.Fatalf("temp file: %v", err)
+	}
+	size := 1 << 20 // 1 MiB
+	if err := file.Truncate(int64(size)); err != nil {
+		t.Fatalf("truncate: %v", err)
+	}
+	file.Close()
+	prevUUID := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "uuid-test", nil })
+	defer device.SetUUIDFunc(prevUUID)
+	prevDetect := detectDevice
+	detectDevice = func(ctx context.Context, path string, logger *zap.Logger) (device.Device, error) {
+		return &mockDevice{path: file.Name(), size: uint64(size), blockSize: 1}, nil
+	}
+	defer func() { detectDevice = prevDetect }()
+	manPath := filepath.Join(dir, "cancel.man")
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		time.Sleep(10 * time.Millisecond)
+		cancel()
+	}()
+	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0); !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context.Canceled, got %v", err)
 	}
 }

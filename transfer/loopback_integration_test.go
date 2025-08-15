@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/zeebo/blake3"
 	"go.uber.org/zap"
@@ -80,7 +81,9 @@ func TestLoopbackLVMToRawOverSSH(t *testing.T) {
 	destLoop := setupLoop(t, destPath)
 
 	manifestPath := filepath.Join(t.TempDir(), "src.man")
-	if err := manifestpkg.Rebuild(srcLoop, manifestPath, zap.NewNop(), 0); err != nil {
+	ctxMan, cancelMan := context.WithTimeout(context.Background(), time.Second)
+	defer cancelMan()
+	if err := manifestpkg.Rebuild(ctxMan, srcLoop, manifestPath, zap.NewNop(), 0); err != nil {
 		t.Fatalf("rebuild manifest: %v", err)
 	}
 
@@ -191,7 +194,9 @@ func TestLoopbackFileToFileOverTCPTLS(t *testing.T) {
 	dstLoop := setupLoop(t, dstPath)
 
 	manifestPath := filepath.Join(dir, "src.man")
-	if err := manifestpkg.Rebuild(srcLoop, manifestPath, zap.NewNop(), 0); err != nil {
+	ctxMan, cancelMan := context.WithTimeout(context.Background(), time.Second)
+	defer cancelMan()
+	if err := manifestpkg.Rebuild(ctxMan, srcLoop, manifestPath, zap.NewNop(), 0); err != nil {
 		t.Fatalf("rebuild manifest: %v", err)
 	}
 
@@ -325,7 +330,9 @@ func TestLoopbackLVMToRawOverTCPTLS(t *testing.T) {
 			destLoop := setupLoop(t, destPath)
 
 			manifestPath := filepath.Join(t.TempDir(), "src.man")
-			if err := manifestpkg.Rebuild(srcLoop, manifestPath, zap.NewNop(), 0); err != nil {
+			ctxMan, cancelMan := context.WithTimeout(context.Background(), time.Second)
+			defer cancelMan()
+			if err := manifestpkg.Rebuild(ctxMan, srcLoop, manifestPath, zap.NewNop(), 0); err != nil {
 				t.Fatalf("rebuild manifest: %v", err)
 			}
 
@@ -444,7 +451,9 @@ func runRawToRawLoopback(t *testing.T, transportName string) {
 			dstLoop := setupLoop(t, dstPath)
 
 			manifestPath := filepath.Join(dir, "src.man")
-			if err := manifestpkg.Rebuild(srcLoop, manifestPath, zap.NewNop(), 0); err != nil {
+			ctxMan, cancelMan := context.WithTimeout(context.Background(), time.Second)
+			defer cancelMan()
+			if err := manifestpkg.Rebuild(ctxMan, srcLoop, manifestPath, zap.NewNop(), 0); err != nil {
 				t.Fatalf("rebuild manifest: %v", err)
 			}
 
@@ -620,7 +629,9 @@ func TestLoopbackSparseFileToFileOverSSH(t *testing.T) {
 			dstLoop := setupLoop(t, dstPath)
 
 			manifestPath := filepath.Join(dir, "src.man")
-			if err := manifestpkg.Rebuild(srcLoop, manifestPath, zap.NewNop(), 0); err != nil {
+			ctxMan, cancelMan := context.WithTimeout(context.Background(), time.Second)
+			defer cancelMan()
+			if err := manifestpkg.Rebuild(ctxMan, srcLoop, manifestPath, zap.NewNop(), 0); err != nil {
 				t.Fatalf("rebuild manifest: %v", err)
 			}
 

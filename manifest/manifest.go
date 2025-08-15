@@ -218,16 +218,26 @@ func (i *Index) ChunkCount() int { return int(i.hdr.ChunkCount) }
 // Rebuild creates a manifest index for device at output path.
 // DeviceID is determined via device.GetUUID. The device is read sequentially using blockSize-sized chunks.
 // Progress is logged at the provided interval; set interval to 0 to log every chunk.
-func Rebuild(devicePath, output string, logger *zap.Logger, progressInterval time.Duration) error {
-	dev, err := detectDevice(context.Background(), devicePath, logger)
+// The operation respects cancellation via ctx.
+func Rebuild(ctx context.Context, devicePath, output string, logger *zap.Logger, progressInterval time.Duration) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	dev, err := detectDevice(ctx, devicePath, logger)
 	if err != nil {
 		return err
 	}
 	defer dev.Close()
 	blockSize := uint32(dev.BlockSize())
 	size := dev.SizeBytes()
-	id, err := device.GetUUID(context.Background(), dev.Path())
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	id, err := device.GetUUID(ctx, dev.Path())
 	if err != nil {
+		return err
+	}
+	if err := ctx.Err(); err != nil {
 		return err
 	}
 	f, err := os.Open(dev.Path())
@@ -244,6 +254,9 @@ func Rebuild(devicePath, output string, logger *zap.Logger, progressInterval tim
 	lastLog := start
 	buf := make([]byte, blockSize)
 	for off := uint64(0); off < size; off += uint64(blockSize) {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		n, err := f.ReadAt(buf, int64(off))
 		if err != nil && err != io.EOF {
 			return err
@@ -256,6 +269,9 @@ func Rebuild(devicePath, output string, logger *zap.Logger, progressInterval tim
 		b3 := blake3.Sum256(data)
 		idx.Set(off, uint32(n), xx, b3)
 		if logger != nil && (progressInterval == 0 || time.Since(lastLog) >= progressInterval) {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
 			logger.Info("rebuild progress",
 				zap.Uint64("offset_bytes", off+uint64(n)),
 				zap.Int64("duration_ms", time.Since(start).Milliseconds()),

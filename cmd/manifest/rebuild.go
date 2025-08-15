@@ -1,7 +1,9 @@
 package manifest
 
 import (
+	"context"
 	"fmt"
+	"time"
 
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
@@ -41,7 +43,9 @@ func Run(cfg *config.Config, args []string, logger *zap.Logger) error {
 		}
 		return nil
 	}
-	if err := manifestpkg.Rebuild(device, path, logger, conf.ManifestProgressInterval); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	if err := manifestpkg.Rebuild(ctx, device, path, logger, conf.ManifestProgressInterval); err != nil {
 		if logger != nil {
 			logger.Error("rebuild failed", zap.Error(err))
 		}
