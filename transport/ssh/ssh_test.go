@@ -2,7 +2,13 @@ package ssh
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
 	"io"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"go.uber.org/zap"
@@ -40,6 +46,162 @@ func checkLogFields(t *testing.T, logs *observer.ObservedLogs, msg string, expec
 func TestSSHTransportAuthSuccess(t *testing.T) {
 	core, logs := observer.New(zap.InfoLevel)
 	cfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "pass"}
+	serverIface, err := New(cfg)
+	if err != nil {
+		t.Fatalf("new server transport: %v", err)
+	}
+	clientIface, err := New(cfg)
+	if err != nil {
+		t.Fatalf("new client transport: %v", err)
+	}
+	server := serverIface.(*Transport)
+	client := clientIface.(*Transport)
+	ctx := context.Background()
+	ln, err := server.Listen(ctx, "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer ln.Close()
+
+	done := make(chan struct{})
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			t.Errorf("accept: %v", err)
+			return
+		}
+		peerHS, err := server.Negotiate(ctx, conn, transport.Server, common.Handshake{ResumeToken: "tok", MaxInFlight: 8, CDCMin: 64, CDCAvg: 128, CDCMax: 256})
+		if err != nil {
+			t.Errorf("server negotiate: %v", err)
+			return
+		}
+		if peerHS.ResumeToken != "tok" || peerHS.MaxInFlight != 8 || peerHS.CDCMin != 64 || peerHS.CDCAvg != 128 || peerHS.CDCMax != 256 {
+			t.Errorf("unexpected peer handshake: %+v", peerHS)
+		}
+		buf := make([]byte, 4)
+		io.ReadFull(conn, buf)
+		conn.Write([]byte("pong"))
+		conn.Close()
+		close(done)
+	}()
+
+	conn, err := client.Dial(ctx, ln.Addr().String())
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	peerHS, err := client.Negotiate(ctx, conn, transport.Client, common.Handshake{ResumeToken: "tok", MaxInFlight: 8, CDCMin: 64, CDCAvg: 128, CDCMax: 256})
+	if err != nil {
+		t.Fatalf("client negotiate: %v", err)
+	}
+	if peerHS.ResumeToken != "tok" || peerHS.MaxInFlight != 8 || peerHS.CDCMin != 64 || peerHS.CDCAvg != 128 || peerHS.CDCMax != 256 {
+		t.Fatalf("unexpected peer handshake: %+v", peerHS)
+	}
+	if _, err := conn.Write([]byte("ping")); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	buf := make([]byte, 4)
+	io.ReadFull(conn, buf)
+	if string(buf) != "pong" {
+		t.Fatalf("unexpected response %q", buf)
+	}
+	conn.Close()
+	<-done
+
+	checkLogFields(t, logs, "dial_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "dial_end", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "listen_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "listen_end", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "negotiate_start", 2, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "negotiate_end", 2, false, zapcore.InfoLevel)
+}
+
+func TestSSHTransportKeyAuth(t *testing.T) {
+	core, logs := observer.New(zap.InfoLevel)
+	dir := t.TempDir()
+	keyPath := filepath.Join(dir, "id_rsa")
+	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("generate key: %v", err)
+	}
+	privBytes := x509.MarshalPKCS1PrivateKey(priv)
+	pemBytes := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: privBytes})
+	if err := os.WriteFile(keyPath, pemBytes, 0600); err != nil {
+		t.Fatalf("write key: %v", err)
+	}
+	cfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHKeyPath: keyPath}
+	serverIface, err := New(cfg)
+	if err != nil {
+		t.Fatalf("new server transport: %v", err)
+	}
+	clientIface, err := New(cfg)
+	if err != nil {
+		t.Fatalf("new client transport: %v", err)
+	}
+	server := serverIface.(*Transport)
+	client := clientIface.(*Transport)
+	ctx := context.Background()
+	ln, err := server.Listen(ctx, "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer ln.Close()
+
+	done := make(chan struct{})
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			t.Errorf("accept: %v", err)
+			return
+		}
+		peerHS, err := server.Negotiate(ctx, conn, transport.Server, common.Handshake{ResumeToken: "tok", MaxInFlight: 8, CDCMin: 64, CDCAvg: 128, CDCMax: 256})
+		if err != nil {
+			t.Errorf("server negotiate: %v", err)
+			return
+		}
+		if peerHS.ResumeToken != "tok" || peerHS.MaxInFlight != 8 || peerHS.CDCMin != 64 || peerHS.CDCAvg != 128 || peerHS.CDCMax != 256 {
+			t.Errorf("unexpected peer handshake: %+v", peerHS)
+		}
+		buf := make([]byte, 4)
+		io.ReadFull(conn, buf)
+		conn.Write([]byte("pong"))
+		conn.Close()
+		close(done)
+	}()
+
+	conn, err := client.Dial(ctx, ln.Addr().String())
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	peerHS, err := client.Negotiate(ctx, conn, transport.Client, common.Handshake{ResumeToken: "tok", MaxInFlight: 8, CDCMin: 64, CDCAvg: 128, CDCMax: 256})
+	if err != nil {
+		t.Fatalf("client negotiate: %v", err)
+	}
+	if peerHS.ResumeToken != "tok" || peerHS.MaxInFlight != 8 || peerHS.CDCMin != 64 || peerHS.CDCAvg != 128 || peerHS.CDCMax != 256 {
+		t.Fatalf("unexpected peer handshake: %+v", peerHS)
+	}
+	if _, err := conn.Write([]byte("ping")); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	buf := make([]byte, 4)
+	io.ReadFull(conn, buf)
+	if string(buf) != "pong" {
+		t.Fatalf("unexpected response %q", buf)
+	}
+	conn.Close()
+	<-done
+
+	checkLogFields(t, logs, "dial_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "dial_end", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "listen_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "listen_end", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "negotiate_start", 2, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "negotiate_end", 2, false, zapcore.InfoLevel)
+}
+
+func TestSSHTransportAgentFallback(t *testing.T) {
+	core, logs := observer.New(zap.InfoLevel)
+	t.Setenv("SSH_AUTH_SOCK", filepath.Join(os.TempDir(), "nonexistent"))
+	cfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "pass", SSHUseAgent: true}
 	serverIface, err := New(cfg)
 	if err != nil {
 		t.Fatalf("new server transport: %v", err)
