@@ -1,8 +1,12 @@
 package transport
 
 import (
+	"context"
 	"fmt"
+	"net"
 	"sync"
+
+	"go.uber.org/zap"
 )
 
 // Factory creates a transport implementation.
@@ -54,4 +58,31 @@ func GetOrdered(names []string, cfg Config) ([]Interface, error) {
 		trs = append(trs, tr)
 	}
 	return trs, nil
+}
+
+// DialWithFallback tries transports in order until one successfully dials.
+//
+// Each attempt is logged at info level with a corresponding success or failure
+// message. If all transports fail to dial, an error is returned.
+func DialWithFallback(ctx context.Context, address string, names []string, cfg Config) (Interface, net.Conn, error) {
+	logger := cfg.Logger
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+	for _, name := range names {
+		logger.Info("dial_attempt", zap.String("transport", name))
+		tr, err := Get(name, cfg)
+		if err != nil {
+			logger.Warn("get_failed", zap.String("transport", name), zap.Error(err))
+			continue
+		}
+		conn, err := tr.Dial(ctx, address)
+		if err != nil {
+			logger.Warn("dial_failed", zap.String("transport", name), zap.Error(err))
+			continue
+		}
+		logger.Info("dial_success", zap.String("transport", name))
+		return tr, conn, nil
+	}
+	return nil, nil, fmt.Errorf("all transports failed")
 }

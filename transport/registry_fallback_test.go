@@ -39,27 +39,6 @@ func (s *stubTransport) Negotiate(ctx context.Context, conn net.Conn, role Role,
 	return common.Handshake{}, fmt.Errorf("not implemented")
 }
 
-// dialWithFallback tries transports in order until one successfully dials.
-func dialWithFallback(ctx context.Context, address string, names []string, logger *zap.Logger) (string, error) {
-	for _, name := range names {
-		logger.Info("dial_attempt", zap.String("transport", name))
-		tr, err := Get(name, Config{Logger: logger})
-		if err != nil {
-			logger.Warn("get_failed", zap.String("transport", name), zap.Error(err))
-			continue
-		}
-		conn, err := tr.Dial(ctx, address)
-		if err != nil {
-			logger.Warn("dial_failed", zap.String("transport", name), zap.Error(err))
-			continue
-		}
-		conn.Close()
-		logger.Info("dial_success", zap.String("transport", name))
-		return name, nil
-	}
-	return "", fmt.Errorf("all transports failed")
-}
-
 func TestRegistryDialFallbackSequence(t *testing.T) {
 	regMu.Lock()
 	original := registry
@@ -81,13 +60,14 @@ func TestRegistryDialFallbackSequence(t *testing.T) {
 	logger := zap.New(core)
 	defer logger.Sync()
 
-	name, err := dialWithFallback(context.Background(), "127.0.0.1:0", []string{"quic", "h2", "tcp+tls", "ssh"}, logger)
+	tr, conn, err := DialWithFallback(context.Background(), "127.0.0.1:0", []string{"quic", "h2", "tcp+tls", "ssh"}, Config{Logger: logger})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if name != "ssh" {
-		t.Fatalf("expected ssh, got %s", name)
+	if tr.Name() != "ssh" {
+		t.Fatalf("expected ssh, got %s", tr.Name())
 	}
+	conn.Close()
 
 	var seq []string
 	for _, entry := range obs.All() {

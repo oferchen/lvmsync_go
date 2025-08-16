@@ -7,10 +7,12 @@ Transports are tried in order until a connection is established. The default
 order is `quic,h2,tcp+tls,ssh`.
 
 Every session begins with a textual handshake starting with `lvmsync PROTO[3]`.
-Tokens advertise supported transports, compression algorithms, and digests. The
-handshake also carries a resume token (`resume:<token>`) so interrupted sessions
-can continue and a maximum in‑flight hint (`inflight:<n>`) to negotiate
-concurrency.
+Tokens advertise supported transports, compression algorithms, digests,
+endianness (`endian:<little|big>`), block sizes (`block:<n>`), deduplication
+mode (`dedup:<mode>`), content-defined chunking ranges (`cdcmin:<n>`
+`cdcavg:<n>` `cdcmax:<n>`), and O_DIRECT capability (`odirect`). The handshake
+also carries a resume token (`resume:<token>`) so interrupted sessions can
+continue and a maximum in-flight hint (`inflight:<n>`) to negotiate concurrency.
 
 ## Security Defaults
 
@@ -46,6 +48,7 @@ clients. Defaults:
 - ALPN negotiation using `lvmsync`
 - Bidirectional streams and datagram support
 - BBR congestion control
+- Flags: `--tls_cert`, `--tls_key`, `--ca_cert`, `--allow_insecure`
 
 Example:
 
@@ -58,12 +61,14 @@ lvmsync --transport quic --tls_cert cert.pem --tls_key key.pem --ca_cert ca.pem
 - Runs over TLS 1.3 with mutual authentication
 - Provides stream-level back-pressure
 - Enforces context deadlines during connection and HTTP/2 handshakes
+- Flags: `--tls_cert`, `--tls_key`, `--ca_cert`, `--allow_insecure`, `--tcp_port`
 
 ## TCP+TLS
 
 - Plain TCP encapsulated in TLS 1.3
 - Requires mutual TLS authentication
 - Logs a warning if listener shutdown encounters an error
+- Flags: `--tls_cert`, `--tls_key`, `--ca_cert`, `--allow_insecure`, `--tcp_port`
 
 ## SSH
 
@@ -73,3 +78,4 @@ lvmsync --transport quic --tls_cert cert.pem --tls_key key.pem --ca_cert ca.pem
 - Verifies server host keys using `known_hosts` or an explicit `--ssh_host_key`; unknown hosts are rejected
 - Key authentication via `--ssh_key`/`LVMSYNC_SSH_KEY`
 - Optional agent auth with `--ssh_agent`/`LVMSYNC_SSH_AGENT` using `SSH_AUTH_SOCK`
+- Flags: `--ssh_user`, `--ssh_password`, `--ssh_key`, `--ssh_host_key`, `--ssh_host_key_path`, `--ssh_agent`, `--allow_insecure`

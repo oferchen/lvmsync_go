@@ -32,8 +32,10 @@ func (r Role) String() string {
 // Implementations must establish a connection via Dial or Listen and then
 // perform a protocol negotiation using Negotiate. Dial should connect to the
 // remote address, while Listen should create a listener ready to accept
-// connections. Negotiate exchanges the protocol handshake and returns when the
-// connection is ready for use.
+// connections. Negotiate exchanges the LVMSync handshake covering endianness,
+// block size, deduplication mode, CDC parameters, compression, digest
+// algorithms, resume tokens, maximum in-flight hints, and O_DIRECT capability
+// before the connection is ready for use.
 type Interface interface {
 	Name() string
 	Dial(ctx context.Context, address string) (net.Conn, error)
