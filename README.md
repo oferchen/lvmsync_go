@@ -339,8 +339,9 @@ Recent refactors added several configuration options:
 
 ### I/O tuning
 
-- `--odirect` uses O_DIRECT with block-size aligned buffers.
+- `--block_size` selects the transfer block size. Use `auto` to match the destination's physical sector size.
 - `--sync-interval` sets how many bytes are written between `fdatasync` calls (flag uses underscores in the CLI: `--sync_interval`).
+- `--odirect` uses O_DIRECT with block-size aligned buffers.
 - `--numa_pin` pins worker goroutines to CPUs local to the source device's NUMA node.
 
 ### Device types

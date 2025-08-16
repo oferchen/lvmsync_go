@@ -133,13 +133,8 @@ func processBlock(
 		return false, err
 	}
 	if chunkSize == 0 || isAllZero(data) {
-		if err := punchHole(destFile, offset, cfg.BlockSize); err != nil {
-			zero := getAlignedBlockBuffer(cfg.BlockSize)
-			if err := writeData(destFile, offset, zero, logger); err != nil {
-				putAlignedBlockBuffer(zero)
-				return false, err
-			}
-			putAlignedBlockBuffer(zero)
+		if err := writeZeroBlock(cfg, destFile, offset, logger); err != nil {
+			return false, err
 		}
 		return true, nil
 	}
