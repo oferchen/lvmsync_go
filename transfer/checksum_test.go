@@ -26,21 +26,15 @@ func TestBLAKE3Checksum(t *testing.T) {
 	}
 }
 
-func TestBLAKE3_512Checksum(t *testing.T) {
-	data := []byte("verify blake3 512")
-	want := blake3.Sum512(data)
-	got := GetChecksumStrategy("blake3-512").Compute(data)
-	if !bytes.Equal(got, want[:]) {
-		t.Fatalf("blake3-512 checksum mismatch: got %x, want %x", got, want)
-	}
-}
-
 func TestUnsupportedAlgorithmDefaultsToSHA256(t *testing.T) {
 	data := []byte("verify default")
 	want := sha256.Sum256(data)
-	got := GetChecksumStrategy("unsupported").Compute(data)
-	if !bytes.Equal(got, want[:]) {
-		t.Fatalf("default checksum mismatch: got %x, want %x", got, want)
+	cases := []string{"unsupported", "blake3-512"}
+	for _, alg := range cases {
+		got := GetChecksumStrategy(alg).Compute(data)
+		if !bytes.Equal(got, want[:]) {
+			t.Fatalf("%s checksum mismatch: got %x, want %x", alg, got, want)
+		}
 	}
 }
 
