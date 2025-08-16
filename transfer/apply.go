@@ -77,9 +77,6 @@ func (t *Transfer) processDumpDataCore(cfg *config.Config, in io.Reader, destPat
 	startTime := time.Now()
 	checksum := GetChecksumStrategy(cfg.ChecksumAlgorithm)
 	bw, err := newBlockWriter(cfg, destFile, dedup, verify, checksum, t.Logger)
-	if err != nil {
-		return err
-	}
 	var totalBytes int64
 	totalBytes, err = bw.write(reader)
 	if err != nil {

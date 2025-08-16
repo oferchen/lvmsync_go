@@ -51,7 +51,7 @@ func runInterrupted(t *testing.T, mode string) {
 		t.Fatalf("expected error")
 	}
 
-	chk := readResumeState(cfg, zap.NewNop())
+	chk := readResumeState(cfg, zap.NewNop()).chunk(mode)
 	if chk.Offset != 0 || chk.Length == 0 || chk.Chunk != digest {
 		t.Fatalf("unexpected checkpoint %+v", chk)
 	}
