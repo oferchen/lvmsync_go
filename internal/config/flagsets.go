@@ -81,7 +81,6 @@ func initGeneralFlags(cfg *Config) *pflag.FlagSet {
 	fs.CountP("verbose", "v", "Verbosity level")
 	fs.Bool("verify_checksum", cfg.VerifyChecksum, "Enable checksum verification")
 	fs.String("verify", cfg.VerifyLevel, "Verification level: full, sampled, or none")
-	fs.String("checksum_algorithm", cfg.ChecksumAlgorithm, fmt.Sprintf("Checksum algorithm: %v", SupportedChecksumAlgorithms))
 	fs.String("digest", cfg.ChecksumAlgorithm, fmt.Sprintf("Digest algorithm: %v", SupportedChecksumAlgorithms))
 	fs.Bool("progress", cfg.Progress, "Show progress during transfer")
 	return fs

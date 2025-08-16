@@ -42,7 +42,6 @@ func TestInitGeneralFlags(t *testing.T) {
 		{"verbose", "0"},
 		{"verify_checksum", strconv.FormatBool(cfg.VerifyChecksum)},
 		{"verify", cfg.VerifyLevel},
-		{"checksum_algorithm", cfg.ChecksumAlgorithm},
 		{"digest", cfg.ChecksumAlgorithm},
 		{"progress", strconv.FormatBool(cfg.Progress)},
 	}
@@ -54,6 +53,31 @@ func TestInitGeneralFlags(t *testing.T) {
 		if f.DefValue != tt.want {
 			t.Fatalf("%s default %s want %s", tt.name, f.DefValue, tt.want)
 		}
+	}
+	if f := fs.Lookup("checksum_algorithm"); f != nil {
+		t.Fatalf("unexpected checksum_algorithm flag")
+	}
+}
+
+func TestDigestFlagBindsToConfig(t *testing.T) {
+	cfg, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	fs := initGeneralFlags(cfg)
+	if err := fs.Parse([]string{"--digest", "sha256"}); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	v := viper.New()
+	if err := v.BindPFlags(fs); err != nil {
+		t.Fatalf("bind: %v", err)
+	}
+	var c Config
+	if err := v.Unmarshal(&c); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if c.ChecksumAlgorithm != "sha256" {
+		t.Fatalf("got %s want sha256", c.ChecksumAlgorithm)
 	}
 }
 

@@ -555,7 +555,7 @@ LVMSYNC_LVM_SNAPSHOT_SIZE=25% lvmsync run /dev/vg0/snap0 /mnt/backup
 | `--verbose` | `LVMSYNC_VERBOSE` | `verbose` | Verbosity level |
 | `--verify_checksum` | `LVMSYNC_VERIFY_CHECKSUM` | `verify_checksum` | Enable checksum verification |
 | `--verify` | `LVMSYNC_VERIFY` | `verify` | Verification level: `full`, `sampled`, or `none` |
-| `--checksum_algorithm`, `--digest` | `LVMSYNC_CHECKSUM_ALGORITHM`, `LVMSYNC_DIGEST` | `checksum_algorithm`, `digest` | Digest algorithm: `auto`, `blake3`, or `sha256` (`auto` selects `blake3` when AVX2, AVX-512, or NEON is available, otherwise `sha256`) |
+| `--digest` | `LVMSYNC_DIGEST` | `digest` | Digest algorithm: `auto`, `blake3`, or `sha256` (`auto` selects `blake3` when AVX2, AVX-512, or NEON is available, otherwise `sha256`) |
 | `--progress` | `LVMSYNC_PROGRESS` | `progress` | Show progress during transfer |
 | `--manifest_path` | `LVMSYNC_MANIFEST_PATH` | `manifest_path` | Path to manifest file |
 | `--manifest-progress-interval` | `LVMSYNC_MANIFEST_PROGRESS_INTERVAL` | `manifest_progress_interval` | Interval between progress logs during manifest rebuild |

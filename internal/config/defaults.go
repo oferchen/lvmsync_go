@@ -73,7 +73,7 @@ type Config struct {
 	SpeedLimit               int           `mapstructure:"-"`
 	VerifyChecksum           bool          `mapstructure:"verify_checksum"`
 	VerifyLevel              string        `mapstructure:"verify"`
-	ChecksumAlgorithm        string        `mapstructure:"checksum_algorithm"`
+	ChecksumAlgorithm        string        `mapstructure:"digest"`
 	Verbose                  int           `mapstructure:"verbose"`
 	SkipSnapshotCreation     bool          `mapstructure:"skip_snapshot_creation"`
 	SkipDiskCheck            bool          `mapstructure:"skip_disk_check"`
