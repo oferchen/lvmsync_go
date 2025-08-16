@@ -53,7 +53,84 @@ func New(dev Device, logger *zap.Logger) *Server {
 	return &Server{dev: dev, logger: logger}
 }
 
-func parseSignatures(p []byte) (rsync.SumHead, error) {
+// Handle consumes frames from the Stream until EOF, applying any delta frames to
+// the Device. On graceful EOF the Device is fsynced.
+func (s *Server) Handle(ctx context.Context, stream *rsynkwire.Stream) error {
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		frame, err := stream.Recv()
+		if err == io.EOF {
+			if err := s.dev.Sync(); err != nil {
+				return err
+			}
+			return s.verifyDigest()
+		}
+		if err != nil {
+			return err
+		}
+		if len(frame) == 0 {
+			continue
+		}
+		switch frame[0] {
+		case 'S':
+			head, err := parseSignatures(frame[1:], s.dev.Size())
+			if err != nil {
+				return err
+			}
+			s.sigHead = &head
+			continue
+		case 'D':
+			if len(frame) < 9 {
+				return fmt.Errorf("delta frame too short")
+			}
+			u := binary.BigEndian.Uint64(frame[1:9])
+			if u > math.MaxInt64 {
+				s.logger.Error("delta_out_of_bounds",
+					zap.Uint64("offset_bytes", u),
+					zap.Int("delta_size_bytes", len(frame)-9),
+					zap.Int64("device_size_bytes", s.dev.Size()))
+				return fmt.Errorf("delta offset overflows int64")
+			}
+			off := int64(u)
+			data := frame[9:]
+			size := s.dev.Size()
+			dataLen := int64(len(data))
+			end := off + dataLen
+			if off < 0 || end < 0 || end > size {
+				s.logger.Error("delta_out_of_bounds",
+					zap.Int64("offset_bytes", off),
+					zap.Int64("delta_size_bytes", dataLen),
+					zap.Int64("end_offset_bytes", end),
+					zap.Int64("device_size_bytes", size))
+				return fmt.Errorf("delta out of bounds")
+			}
+			n, err := s.dev.WriteAt(data, off)
+			if err != nil {
+				return err
+			}
+			if n != len(data) {
+				return fmt.Errorf("short write: wrote %d of %d bytes", n, len(data))
+			}
+		case 'G':
+			if len(frame) < 2+32 {
+				return fmt.Errorf("digest frame too short")
+			}
+			algLen := int(frame[1])
+			if len(frame) != 2+algLen+32 {
+				return fmt.Errorf("digest frame length mismatch")
+			}
+			s.alg = string(frame[2 : 2+algLen])
+			copy(s.expect[:], frame[2+algLen:])
+			continue
+		default:
+			return fmt.Errorf("unknown frame type %q", frame[0])
+		}
+	}
+}
+
+func parseSignatures(p []byte, devSize int64) (rsync.SumHead, error) {
 	var head rsync.SumHead
 	buf := bytes.NewReader(p)
 	if err := binary.Read(buf, binary.LittleEndian, &head.ChecksumCount); err != nil {
@@ -67,6 +144,21 @@ func parseSignatures(p []byte) (rsync.SumHead, error) {
 	}
 	if err := binary.Read(buf, binary.LittleEndian, &head.RemainderLength); err != nil {
 		return head, err
+	}
+	if head.BlockLength <= 0 {
+		return head, fmt.Errorf("invalid block length")
+	}
+	max := devSize / int64(head.BlockLength)
+	if devSize%int64(head.BlockLength) != 0 || head.RemainderLength != 0 {
+		max++
+	}
+	if int64(head.ChecksumCount) > max {
+		return head, fmt.Errorf("checksum count %d exceeds limit %d", head.ChecksumCount, max)
+	}
+	remaining := len(p) - 16
+	need := int(head.ChecksumCount) * (4 + int(head.ChecksumLength))
+	if remaining < need {
+		return head, fmt.Errorf("signature frame too short")
 	}
 	head.Sums = make([]rsync.SumBuf, head.ChecksumCount)
 	for i := int32(0); i < head.ChecksumCount; i++ {
