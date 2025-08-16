@@ -50,6 +50,7 @@ func TestNewChunkerValidation(t *testing.T) {
 		{"valid", 64, 128, 256, true},
 		{"zero", 0, 128, 256, false},
 		{"negative", -1, 128, 256, false},
+		{"too_small", 32, 128, 256, false},
 		{"min>avg", 128, 64, 256, false},
 		{"avg>max", 64, 256, 128, false},
 	}

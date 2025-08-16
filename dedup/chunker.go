@@ -41,9 +41,13 @@ type Chunker struct {
 // minimum, average, and maximum chunk sizes. All sizes are in bytes. The mask values are
 // derived from the average size.
 // The sizes must be positive and ordered such that minSize ≤ avgSize ≤ maxSize.
+// minSize must be at least 64 bytes to ensure the entropy window is initialized.
 func NewChunker(minSize, avgSize, maxSize int, seeds ...uint64) (*Chunker, error) {
-	if minSize <= 0 || avgSize <= 0 || maxSize <= 0 {
-		return nil, fmt.Errorf("chunk sizes must be positive: min=%d avg=%d max=%d", minSize, avgSize, maxSize)
+	if minSize < 64 {
+		return nil, fmt.Errorf("min size must be at least 64 bytes: min=%d", minSize)
+	}
+	if avgSize <= 0 || maxSize <= 0 {
+		return nil, fmt.Errorf("chunk sizes must be positive: avg=%d max=%d", avgSize, maxSize)
 	}
 	if minSize > avgSize || avgSize > maxSize {
 		return nil, fmt.Errorf("chunk sizes must satisfy min ≤ avg ≤ max: min=%d avg=%d max=%d", minSize, avgSize, maxSize)
