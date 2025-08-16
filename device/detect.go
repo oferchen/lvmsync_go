@@ -14,6 +14,66 @@ import (
 	"lvmsync_go/lvm"
 )
 
+// openRawFunc allows tests to stub OpenRaw.
+var openRawFunc = OpenRaw
+
+// detectFileDevice opens a regular file as a device.
+func detectFileDevice(path string, logger *zap.Logger) (Device, error) {
+	dev, err := OpenFile(path, logger)
+	if err != nil {
+		logger.Error("detect device failed", zap.String("path", path), zap.String("device_type", "file"), zap.Error(err))
+		return nil, err
+	}
+	logger.Info("detect device success", zap.String("path", path), zap.String("device_type", "file"))
+	return dev, nil
+}
+
+// detectLVMDevice opens an LVM logical volume.
+func detectLVMDevice(path, lvmEscalation string, logger *zap.Logger) (Device, error) {
+	cache := lvm.NewDeviceFDCache(logger)
+	defer cache.Close()
+	dev, err := openLVMFunc(path, cache, lvmEscalation, logger)
+	if err != nil {
+		logger.Error("detect device failed", zap.String("path", path), zap.String("device_type", "lvm"), zap.Error(err))
+		return nil, err
+	}
+	logger.Info("detect device success", zap.String("path", path), zap.String("device_type", "lvm"))
+	return dev, nil
+}
+
+// detectRawDevice opens a raw block device.
+func detectRawDevice(ctx context.Context, path string, offline bool, fsFreezeCmd, fsThawCmd string, freezeTimeout, thawTimeout time.Duration, logger *zap.Logger) (Device, error) {
+	var freezePath, thawPath string
+	var freezeArgs, thawArgs []string
+	if fsFreezeCmd != "" {
+		parts, err := shellquote.Split(fsFreezeCmd)
+		if err != nil {
+			return nil, fmt.Errorf("invalid freeze command: %w", err)
+		}
+		if len(parts) > 0 {
+			freezePath = parts[0]
+			freezeArgs = parts[1:]
+		}
+	}
+	if fsThawCmd != "" {
+		parts, err := shellquote.Split(fsThawCmd)
+		if err != nil {
+			return nil, fmt.Errorf("invalid thaw command: %w", err)
+		}
+		if len(parts) > 0 {
+			thawPath = parts[0]
+			thawArgs = parts[1:]
+		}
+	}
+	dev, err := openRawFunc(ctx, path, offline, freezePath, freezeArgs, thawPath, thawArgs, freezeTimeout, thawTimeout, logger)
+	if err != nil {
+		logger.Error("detect device failed", zap.String("path", path), zap.String("device_type", "raw"), zap.Error(err))
+		return nil, err
+	}
+	logger.Info("detect device success", zap.String("path", path), zap.String("device_type", "raw"))
+	return dev, nil
+}
+
 // Detect inspects the path and returns the appropriate Device implementation.
 // Regular files return FileDevice, block devices are classified as either LVM
 // logical volumes or raw devices based on LVM metadata. When typeHint is not
@@ -23,7 +83,6 @@ func Detect(ctx context.Context, path string, offline bool, typeHint, fsFreezeCm
 	if logger == nil {
 		return nil, fmt.Errorf("logger is nil")
 	}
-
 	resolved, err := filepath.EvalSymlinks(path)
 	if err != nil {
 		logger.Error("device detect failed", zap.String("path", path), zap.String("device_type", "symlink"), zap.Error(err))
@@ -40,115 +99,31 @@ func Detect(ctx context.Context, path string, offline bool, typeHint, fsFreezeCm
 			if !info.Mode().IsRegular() {
 				return nil, fmt.Errorf("expected regular file for type file: %s", resolved)
 			}
-			dev, err := OpenFile(resolved, logger)
-			if err != nil {
-				logger.Error("detect device failed", zap.String("path", resolved), zap.String("device_type", "file"), zap.Error(err))
-				return nil, err
-			}
-			logger.Info("detect device success", zap.String("path", resolved), zap.String("device_type", "file"))
-			return dev, nil
+			return detectFileDevice(resolved, logger)
 		case "lvm":
 			if info.Mode()&os.ModeDevice == 0 || info.Mode()&os.ModeCharDevice != 0 {
 				return nil, fmt.Errorf("expected block device for type lvm: %s", resolved)
 			}
-			cache := lvm.NewDeviceFDCache(logger)
-			defer cache.Close()
-			dev, err := openLVMFunc(resolved, cache, lvmEscalation, logger)
-			if err != nil {
-				logger.Error("detect device failed", zap.String("path", resolved), zap.String("device_type", "lvm"), zap.Error(err))
-				return nil, err
-			}
-			logger.Info("detect device success", zap.String("path", resolved), zap.String("device_type", "lvm"))
-			return dev, nil
+			return detectLVMDevice(resolved, lvmEscalation, logger)
 		case "raw":
 			if info.Mode()&os.ModeDevice == 0 || info.Mode()&os.ModeCharDevice != 0 {
 				return nil, fmt.Errorf("expected block device for type raw: %s", resolved)
 			}
-			var freezePath, thawPath string
-			var freezeArgs, thawArgs []string
-			if fsFreezeCmd != "" {
-				parts, err := shellquote.Split(fsFreezeCmd)
-				if err != nil {
-					return nil, fmt.Errorf("invalid freeze command: %w", err)
-				}
-				if len(parts) > 0 {
-					freezePath = parts[0]
-					freezeArgs = parts[1:]
-				}
-			}
-			if fsThawCmd != "" {
-				parts, err := shellquote.Split(fsThawCmd)
-				if err != nil {
-					return nil, fmt.Errorf("invalid thaw command: %w", err)
-				}
-				if len(parts) > 0 {
-					thawPath = parts[0]
-					thawArgs = parts[1:]
-				}
-			}
-			dev, err := OpenRaw(ctx, resolved, offline, freezePath, freezeArgs, thawPath, thawArgs, freezeTimeout, thawTimeout, logger)
-			if err != nil {
-				logger.Error("detect device failed", zap.String("path", resolved), zap.String("device_type", "raw"), zap.Error(err))
-				return nil, err
-			}
-			logger.Info("detect device success", zap.String("path", resolved), zap.String("device_type", "raw"))
-			return dev, nil
+			return detectRawDevice(ctx, resolved, offline, fsFreezeCmd, fsThawCmd, freezeTimeout, thawTimeout, logger)
 		default:
 			return nil, fmt.Errorf("unknown device type %q", typeHint)
 		}
 	}
 	if info.Mode().IsRegular() {
-		dev, err := OpenFile(resolved, logger)
-		if err != nil {
-			logger.Error("detect device failed", zap.String("path", resolved), zap.String("device_type", "file"), zap.Error(err))
-			return nil, err
-		}
-		logger.Info("detect device success", zap.String("path", resolved), zap.String("device_type", "file"))
-		return dev, nil
+		return detectFileDevice(resolved, logger)
 	}
 	if info.Mode()&os.ModeDevice != 0 && info.Mode()&os.ModeCharDevice == 0 {
 		out, err := execCommand(ctx, "blkid", "-o", "value", "-s", "TYPE", resolved).Output()
 		fsType := strings.TrimSpace(string(out))
 		if err == nil && fsType == "LVM2_member" {
-			cache := lvm.NewDeviceFDCache(logger)
-			defer cache.Close()
-			dev, err := openLVMFunc(resolved, cache, lvmEscalation, logger)
-			if err != nil {
-				logger.Error("detect device failed", zap.String("path", resolved), zap.String("device_type", "lvm"), zap.Error(err))
-				return nil, err
-			}
-			logger.Info("detect device success", zap.String("path", resolved), zap.String("device_type", "lvm"))
-			return dev, nil
+			return detectLVMDevice(resolved, lvmEscalation, logger)
 		}
-		var freezePath, thawPath string
-		var freezeArgs, thawArgs []string
-		if fsFreezeCmd != "" {
-			parts, err := shellquote.Split(fsFreezeCmd)
-			if err != nil {
-				return nil, fmt.Errorf("invalid freeze command: %w", err)
-			}
-			if len(parts) > 0 {
-				freezePath = parts[0]
-				freezeArgs = parts[1:]
-			}
-		}
-		if fsThawCmd != "" {
-			parts, err := shellquote.Split(fsThawCmd)
-			if err != nil {
-				return nil, fmt.Errorf("invalid thaw command: %w", err)
-			}
-			if len(parts) > 0 {
-				thawPath = parts[0]
-				thawArgs = parts[1:]
-			}
-		}
-		dev, err := OpenRaw(ctx, resolved, offline, freezePath, freezeArgs, thawPath, thawArgs, freezeTimeout, thawTimeout, logger)
-		if err != nil {
-			logger.Error("detect device failed", zap.String("path", resolved), zap.String("device_type", "raw"), zap.Error(err))
-			return nil, err
-		}
-		logger.Info("detect device success", zap.String("path", resolved), zap.String("device_type", "raw"))
-		return dev, nil
+		return detectRawDevice(ctx, resolved, offline, fsFreezeCmd, fsThawCmd, freezeTimeout, thawTimeout, logger)
 	}
 	err = fmt.Errorf("unsupported path type: %s", resolved)
 	logger.Error("device detect failed", zap.String("path", resolved), zap.String("device_type", "unknown"), zap.Error(err))

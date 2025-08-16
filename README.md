@@ -350,6 +350,13 @@ examines the path to select the correct handling:
 
 Override detection with `--source-type` and `--dest-type` when necessary.
 
+Internally, `device.Detect` delegates to dedicated helpers:
+
+```go
+dev, err := device.Detect(ctx, "/dev/sdb", true, "auto", "", "", "", 0, 0, logger)
+// detectFileDevice, detectLVMDevice, or detectRawDevice is selected based on the path.
+```
+
 Snapshots provide a crash-consistent view of a device. LVM volumes are
 snapshotted automatically and removed after transfer. Raw block devices and
 regular files do not have a snapshot mechanism; to avoid inconsistent reads you
