@@ -187,17 +187,17 @@ func TestQUICTransportSelectBestHandshake(t *testing.T) {
 		srvErr <- err
 	}()
 
-	dialCtx, cancel := context.WithTimeout(ctx, time.Second)
+	dialCtx, dialCancel := context.WithTimeout(ctx, time.Second)
 	conn, err := tr.Dial(dialCtx, ln.Addr().String())
 	if err != nil {
-		cancel()
+		dialCancel()
 		t.Fatalf("dial: %v", err)
 	}
-	defer cancel()
+	defer dialCancel()
 	qconn := conn.(*Conn)
-	negCtx, cancel := context.WithTimeout(ctx, time.Second)
+	negCtx, negCancel := context.WithTimeout(ctx, time.Second)
 	peer, err := tr.Negotiate(negCtx, qconn, transport.Client, cliHS)
-	cancel()
+	negCancel()
 	if err != nil {
 		qconn.Close()
 		t.Fatalf("client negotiate: %v", err)
@@ -220,7 +220,8 @@ func TestQUICTransportHandshakeError(t *testing.T) {
 		t.Fatalf("new transport: %v", err)
 	}
 	tr := trIface.(*Transport)
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	ln, err := tr.Listen(ctx, "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("listen: %v", err)
@@ -267,7 +268,8 @@ func TestQUICTransportHandshakeCDCMismatch(t *testing.T) {
 		t.Fatalf("new transport: %v", err)
 	}
 	tr := trIface.(*Transport)
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	ln, err := tr.Listen(ctx, "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("listen: %v", err)
@@ -355,7 +357,8 @@ func TestConnDatagramReadDeadline(t *testing.T) {
 		t.Fatalf("new transport: %v", err)
 	}
 	tr := trIface.(*Transport)
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	ln, err := tr.Listen(ctx, "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("listen: %v", err)
@@ -414,7 +417,8 @@ func TestConnDatagramContextDeadline(t *testing.T) {
 		t.Fatalf("new transport: %v", err)
 	}
 	tr := trIface.(*Transport)
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	ln, err := tr.Listen(ctx, "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("listen: %v", err)
@@ -457,7 +461,8 @@ func TestConnStreamDeadlines(t *testing.T) {
 		t.Fatalf("new transport: %v", err)
 	}
 	tr := trIface.(*Transport)
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	ln, err := tr.Listen(ctx, "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("listen: %v", err)

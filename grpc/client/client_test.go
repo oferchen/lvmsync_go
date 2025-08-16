@@ -254,7 +254,9 @@ func TestDialFailure(t *testing.T) {
 	failDialer := func(ctx context.Context, s string) (net.Conn, error) {
 		return nil, errors.New("fail")
 	}
-	_, err := Dial(context.Background(), "fail", Config{AllowInsecure: true, DialTimeout: time.Second}, zap.NewNop(), grpc.WithContextDialer(failDialer))
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	_, err := Dial(ctx, "fail", Config{AllowInsecure: true, DialTimeout: time.Second}, zap.NewNop(), grpc.WithContextDialer(failDialer))
 	if err == nil {
 		t.Fatalf("expected error")
 	}
@@ -265,7 +267,9 @@ func TestDialTimeoutExceeded(t *testing.T) {
 		<-ctx.Done()
 		return nil, ctx.Err()
 	}
-	_, err := Dial(context.Background(), "slow", Config{AllowInsecure: true, DialTimeout: 10 * time.Millisecond}, zap.NewNop(), grpc.WithContextDialer(slowDialer))
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	_, err := Dial(ctx, "slow", Config{AllowInsecure: true, DialTimeout: 10 * time.Millisecond}, zap.NewNop(), grpc.WithContextDialer(slowDialer))
 	if err == nil {
 		t.Fatalf("expected error")
 	}
