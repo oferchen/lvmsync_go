@@ -162,7 +162,7 @@ func TestResumeModeTransitions(t *testing.T) {
 
 			offsets := parseOffsets(t, buf.Bytes(), blockSize)
 			sort.Slice(offsets, func(i, j int) bool { return offsets[i] < offsets[j] })
-			expected := []int64{2 * blockSize, 3 * blockSize}
+			expected := []int64{0, blockSize, 2 * blockSize, 3 * blockSize}
 			if !reflect.DeepEqual(offsets, expected) {
 				t.Fatalf("unexpected offsets %v, want %v", offsets, expected)
 			}

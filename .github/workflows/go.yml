@@ -81,8 +81,14 @@ jobs:
       - name: Install golangci-lint
         run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 
-      - name: Build, test, and lint
-        run: make verify
+      - name: Go build
+        run: go build ./...
+
+      - name: Go test
+        run: go test -coverprofile=coverage.out ./...
+
+      - name: golangci-lint
+        run: golangci-lint run
 
       - name: Show coverage
         run: go tool cover -func=coverage.out | tail -n 1

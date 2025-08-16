@@ -164,12 +164,17 @@ func TestEnsureRootOrReexec_AlreadyRoot(t *testing.T) {
 func TestEnsureRootOrReexec_ReexecHappyPath(t *testing.T) {
 	var got execCall
 	opts := Options{
-		Geteuid:           func() int { return 1000 },
-		LookPath:          func(s string) (string, error) { if s == "sudo" { return "/usr/bin/sudo", nil }; return "", errors.New("not found") },
-		Args:              []string{"/bin/prog", "--mode=apply", "--drop-back=false", "--unsafe=1"},
+		Geteuid: func() int { return 1000 },
+		LookPath: func(s string) (string, error) {
+			if s == "sudo" {
+				return "/usr/bin/sudo", nil
+			}
+			return "", errors.New("not found")
+		},
+		Args:               []string{"/bin/prog", "--mode=apply", "--drop-back=false", "--unsafe=1"},
 		AllowedPassthrough: map[string]bool{"--mode": true, "--drop-back": true},
-		ExtraArgs:         []string{"--do-privileged"},
-		SanitizeEnv:       true,
+		ExtraArgs:          []string{"--do-privileged"},
+		SanitizeEnv:        true,
 		Environ: func() []string {
 			return []string{"LD_PRELOAD=/x", "LANG=C", "TERM=dumb", "FOO=BAR"}
 		},
@@ -213,11 +218,29 @@ func TestEnsureRootOrReexec_SudoNotFound(t *testing.T) {
 func TestEnsureRootOrReexec_RunnerError(t *testing.T) {
 	var got execCall
 	_, err := EnsureRootOrReexec(Options{
-		Geteuid:  func() int { return 1000 },
-		LookPath: func(string) (string, error) { return "/usr/bin/sudo", nil },
+		Geteuid:    func() int { return 1000 },
+		LookPath:   func(string) (string, error) { return "/usr/bin/sudo", nil },
 		ExecRunner: fakeRunner(&got, errors.New("boom")),
 	})
 	if err == nil || !strings.Contains(err.Error(), "sudo escalation failed") {
 		t.Fatalf("expected wrapped runner error, got %v", err)
+	}
+}
+
+func TestEnsureRootOrReexec_DropsDisallowedFlags(t *testing.T) {
+	var got execCall
+	reexeced, err := EnsureRootOrReexec(Options{
+		Geteuid:            func() int { return 1000 },
+		LookPath:           func(string) (string, error) { return "/usr/bin/sudo", nil },
+		Args:               []string{"/bin/prog", "--mode=apply", "--unsafe=1"},
+		AllowedPassthrough: map[string]bool{"--mode": true},
+		ExecRunner:         fakeRunner(&got, nil),
+	})
+	if err != nil || !reexeced {
+		t.Fatalf("unexpected result: %v %v", reexeced, err)
+	}
+	joined := strings.Join(got.args, " ")
+	if strings.Contains(joined, "--unsafe=1") {
+		t.Fatalf("disallowed flag forwarded: %v", got.args)
 	}
 }
