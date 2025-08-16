@@ -105,15 +105,24 @@ func TestDialTLS(t *testing.T) {
 		io.ReadAll(conn)
 	}()
 	clientConf := &tls.Config{RootCAs: pool, MinVersion: tls.VersionTLS13, MaxVersion: tls.VersionTLS13}
-	if conn, err := dialTLS(context.Background(), ln.Addr().String(), clientConf, zap.NewNop()); err != nil {
+	core, logs := observer.New(zapcore.InfoLevel)
+	logger := zap.New(core)
+	if conn, err := dialTLS(context.Background(), ln.Addr().String(), clientConf, logger); err != nil {
 		t.Fatalf("dialTLS: %v", err)
 	} else {
 		conn.Close()
 	}
+	checkLogFields(t, logs, "tls_handshake_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "tls_handshake_end", 1, false, zapcore.InfoLevel)
+
 	badConf := &tls.Config{RootCAs: x509.NewCertPool(), MinVersion: tls.VersionTLS13, MaxVersion: tls.VersionTLS13}
-	if _, err := dialTLS(context.Background(), ln.Addr().String(), badConf, zap.NewNop()); err == nil {
+	core2, logs2 := observer.New(zapcore.InfoLevel)
+	logger2 := zap.New(core2)
+	if _, err := dialTLS(context.Background(), ln.Addr().String(), badConf, logger2); err == nil {
 		t.Fatalf("expected error")
 	}
+	checkLogFields(t, logs2, "tls_handshake_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs2, "tls_handshake_end", 1, true, zapcore.ErrorLevel)
 }
 
 func TestPerformH2Handshake(t *testing.T) {
@@ -144,15 +153,20 @@ func TestPerformH2Handshake(t *testing.T) {
 		conn.Close()
 	}()
 	clientConf := &tls.Config{RootCAs: pool, NextProtos: []string{"h2"}, MinVersion: tls.VersionTLS13, MaxVersion: tls.VersionTLS13}
-	conn, err := dialTLS(context.Background(), ln.Addr().String(), clientConf, zap.NewNop())
+	core, logs := observer.New(zapcore.InfoLevel)
+	logger := zap.New(core)
+	conn, err := dialTLS(context.Background(), ln.Addr().String(), clientConf, logger)
 	if err != nil {
 		t.Fatalf("dialTLS: %v", err)
 	}
-	if _, err := performH2Handshake(context.Background(), conn, zap.NewNop()); err != nil {
+	if _, err := performH2Handshake(context.Background(), conn, logger); err != nil {
 		t.Fatalf("handshake: %v", err)
 	}
 	close(done)
 	conn.Close()
+
+	checkLogFields(t, logs, "h2_handshake_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "h2_handshake_end", 1, false, zapcore.InfoLevel)
 
 	// failing handshake: server closes connection immediately; dialTLS should fail
 	go func() {

@@ -87,7 +87,14 @@ func init() {
 
 func (t *Transport) Name() string { return "h2" }
 
-func dialTLS(ctx context.Context, address string, conf *tls.Config, _ *zap.Logger) (*tls.Conn, error) {
+func dialTLS(ctx context.Context, address string, conf *tls.Config, logger *zap.Logger) (*tls.Conn, error) {
+	role := "client"
+	logger.Info("tls_handshake_start",
+		zap.String("address", address),
+		zap.String("role", role),
+		zap.Int64("duration_ms", 0),
+	)
+	start := time.Now()
 	d := net.Dialer{}
 	if dl, ok := ctx.Deadline(); ok {
 		d.Deadline = dl
@@ -99,30 +106,107 @@ func dialTLS(ctx context.Context, address string, conf *tls.Config, _ *zap.Logge
 			d.Deadline = dl
 		}
 	}
-	return tls.DialWithDialer(&d, "tcp", address, conf)
+	conn, err := tls.DialWithDialer(&d, "tcp", address, conf)
+	fields := []zap.Field{
+		zap.String("address", address),
+		zap.String("role", role),
+		zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+	}
+	if err != nil {
+		fields = append(fields, zap.Error(err))
+		logger.Error("tls_handshake_end", fields...)
+		return nil, err
+	}
+	logger.Info("tls_handshake_end", fields...)
+	return conn, nil
 }
 
 func performH2Handshake(ctx context.Context, conn *tls.Conn, logger *zap.Logger) (*http2.Framer, error) {
+	role := "client"
+	address := conn.RemoteAddr().String()
+	logger.Info("h2_handshake_start",
+		zap.String("address", address),
+		zap.String("role", role),
+		zap.Int64("duration_ms", 0),
+	)
+	start := time.Now()
 	fr := http2.NewFramer(conn, conn)
 	if _, err := conn.Write([]byte(http2.ClientPreface)); err != nil {
+		fields := []zap.Field{
+			zap.String("address", address),
+			zap.String("role", role),
+			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+			zap.Error(err),
+		}
+		logger.Error("h2_handshake_end", fields...)
 		return nil, err
 	}
 	if err := fr.WriteSettings(); err != nil {
+		fields := []zap.Field{
+			zap.String("address", address),
+			zap.String("role", role),
+			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+			zap.Error(err),
+		}
+		logger.Error("h2_handshake_end", fields...)
 		return nil, err
 	}
 	if f, err := fr.ReadFrame(); err != nil {
+		fields := []zap.Field{
+			zap.String("address", address),
+			zap.String("role", role),
+			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+			zap.Error(err),
+		}
+		logger.Error("h2_handshake_end", fields...)
 		return nil, err
 	} else if _, ok := f.(*http2.SettingsFrame); !ok {
-		return nil, fmt.Errorf("expected settings frame")
+		err := fmt.Errorf("expected settings frame")
+		fields := []zap.Field{
+			zap.String("address", address),
+			zap.String("role", role),
+			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+			zap.Error(err),
+		}
+		logger.Error("h2_handshake_end", fields...)
+		return nil, err
 	}
 	if err := fr.WriteSettingsAck(); err != nil {
+		fields := []zap.Field{
+			zap.String("address", address),
+			zap.String("role", role),
+			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+			zap.Error(err),
+		}
+		logger.Error("h2_handshake_end", fields...)
 		return nil, err
 	}
 	if f, err := fr.ReadFrame(); err != nil {
+		fields := []zap.Field{
+			zap.String("address", address),
+			zap.String("role", role),
+			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+			zap.Error(err),
+		}
+		logger.Error("h2_handshake_end", fields...)
 		return nil, err
 	} else if sf, ok := f.(*http2.SettingsFrame); !ok || !sf.IsAck() {
-		return nil, fmt.Errorf("expected settings ack")
+		err := fmt.Errorf("expected settings ack")
+		fields := []zap.Field{
+			zap.String("address", address),
+			zap.String("role", role),
+			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+			zap.Error(err),
+		}
+		logger.Error("h2_handshake_end", fields...)
+		return nil, err
 	}
+	fields := []zap.Field{
+		zap.String("address", address),
+		zap.String("role", role),
+		zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+	}
+	logger.Info("h2_handshake_end", fields...)
 	return fr, nil
 }
 
