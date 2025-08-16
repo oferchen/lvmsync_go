@@ -1,0 +1,37 @@
+//go:build linux
+
+package device
+
+import (
+	"os"
+	"unsafe"
+
+	"golang.org/x/sys/unix"
+)
+
+func blkdiscard(f *os.File, offset, length uint64) error {
+	data := [2]uint64{offset, length}
+	_, _, errno := unix.Syscall(unix.SYS_IOCTL, f.Fd(), unix.BLKDISCARD, uintptr(unsafe.Pointer(&data)))
+	if errno != 0 {
+		return errno
+	}
+	return nil
+}
+
+var discardImpl = blkdiscard
+
+// SetDiscardFunc overrides the discard implementation. It returns a restore function.
+func SetDiscardFunc(fn func(*os.File, uint64, uint64) error) func() {
+	orig := discardImpl
+	if fn == nil {
+		discardImpl = blkdiscard
+	} else {
+		discardImpl = fn
+	}
+	return func() { discardImpl = orig }
+}
+
+// DiscardRange issues BLKDISCARD for the specified range on f.
+func DiscardRange(f *os.File, offset, length uint64) error {
+	return discardImpl(f, offset, length)
+}

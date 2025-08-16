@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
 
+	"lvmsync_go/internal/lock"
 	"lvmsync_go/lvm"
 )
 
@@ -24,6 +25,7 @@ type LVMDevice struct {
 	cleanupPath string
 	escalation  string
 	logger      *zap.Logger
+	lock        *lock.Lock
 }
 
 // OpenLVM opens an LVM logical volume and queries its size and block size.
@@ -58,22 +60,32 @@ func OpenLVM(path string, cache *lvm.FDCache, escalation string, logger *zap.Log
 	if mounted {
 		return nil, fmt.Errorf("device %s mounted", path)
 	}
-
+	vg, lv, err := lvm.ParseLVPath(path)
+	if err != nil {
+		return nil, err
+	}
+	lk, err := lockAcquire(vg, lv)
+	if err != nil {
+		return nil, err
+	}
 	f, err := os.OpenFile(path, os.O_RDWR, 0)
 	if err != nil {
+		_ = lk.Release()
 		return nil, err
 	}
 	bs, err := unix.IoctlGetInt(int(f.Fd()), unix.BLKSSZGET)
 	if err != nil {
 		f.Close()
+		_ = lk.Release()
 		return nil, err
 	}
 	size, err := lvm.GetVolumeSize(path, cache, logger)
 	if err != nil {
 		f.Close()
+		_ = lk.Release()
 		return nil, err
 	}
-	return &LVMDevice{f: f, path: path, size: size, blockSize: uint64(bs), escalation: escalation, logger: logger}, nil
+	return &LVMDevice{f: f, path: path, size: size, blockSize: uint64(bs), escalation: escalation, logger: logger, lock: lk}, nil
 }
 
 // Path returns the underlying device path.
@@ -101,6 +113,10 @@ var (
 	autoExtendEnabledFunc = lvm.AutoExtendEnabled
 	discardEnabledFunc    = lvm.DiscardEnabled
 	isMountedRWFunc       = IsMountedRW
+	generateSnapshot      = func() string { return fmt.Sprintf("lvmsync_%d", time.Now().UnixNano()) }
+	geteuid               = os.Geteuid
+	openLVMFunc           = OpenLVM
+	lockAcquire           = lock.Acquire
 )
 
 func runLVM(ctx context.Context, escalation, cmdName string, args ...string) error {
@@ -152,6 +168,10 @@ func (d *LVMDevice) Snapshot(ctx context.Context, snapshotSize string) (Device, 
 
 // Cleanup removes the snapshot if one was created.
 func (d *LVMDevice) Cleanup(ctx context.Context) error {
+	if d.lock != nil {
+		_ = d.lock.Release()
+		d.lock = nil
+	}
 	if d.cleanupPath == "" {
 		return nil
 	}

@@ -32,7 +32,7 @@ func parseOffsetsNoHandshake(t *testing.T, r io.Reader) []int64 {
 	reader := bufio.NewReader(r)
 	var offsets []int64
 	for {
-		header := make([]byte, 12)
+		header := make([]byte, 16)
 		if _, err := io.ReadFull(reader, header); err != nil {
 			if err == io.EOF || err == io.ErrUnexpectedEOF {
 				break

@@ -24,6 +24,7 @@ func composeHandshake(cfg *config.Config, mode string) common.Handshake {
 		CDCMax:      cfg.CDCMax,
 		ResumeToken: cfg.ResumeToken,
 		MaxInFlight: cfg.Concurrency,
+		CRC32C:      true,
 	}
 	switch mode {
 	case StrategyChecksum:
@@ -74,6 +75,9 @@ func readAndValidateHandshake(cfg *config.Config, bufReader *bufio.Reader, dedup
 	}
 	if dedup != nil && !hs.ChecksumDedup {
 		return hs, fmt.Errorf("unexpected protocol handshake: %s", hs.String())
+	}
+	if !hs.CRC32C {
+		return hs, fmt.Errorf("remote lacks CRC32C support")
 	}
 	transport, err := negotiate(splitList(cfg.Transport), hs.Transports)
 	if err == nil && transport != "" {

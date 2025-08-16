@@ -10,6 +10,7 @@ import (
 
 	rootcmd "lvmsync_go/cmd/root"
 	"lvmsync_go/config"
+	"lvmsync_go/internal/exitcode"
 )
 
 type syncCheckCore struct {
@@ -43,8 +44,8 @@ func TestMainLogsStructuredError(t *testing.T) {
 	)
 	runner.Run()
 
-	if code != 1 {
-		t.Fatalf("expected exit code 1, got %d", code)
+	if code != exitcode.ErrRuntime {
+		t.Fatalf("expected exit code %d, got %d", exitcode.ErrRuntime, code)
 	}
 
 	entries := logs.FilterMessage("run failed").All()
@@ -83,8 +84,8 @@ func TestMainLogsConfigError(t *testing.T) {
 	)
 	runner.Run()
 
-	if code != 1 {
-		t.Fatalf("expected exit code 1, got %d", code)
+	if code != exitcode.ErrConfig {
+		t.Fatalf("expected exit code %d, got %d", exitcode.ErrConfig, code)
 	}
 
 	entries := logs.FilterMessage("configuration failed").All()
@@ -123,8 +124,8 @@ func TestMainErrorsOnNonLinux(t *testing.T) {
 	)
 	runner.Run()
 
-	if code != 1 {
-		t.Fatalf("expected exit code 1, got %d", code)
+	if code != exitcode.ErrPlatform {
+		t.Fatalf("expected exit code %d, got %d", exitcode.ErrPlatform, code)
 	}
 
 	entries := logs.FilterMessage("unsupported platform").All()
@@ -143,5 +144,40 @@ func TestMainErrorsOnNonLinux(t *testing.T) {
 
 	if !synced {
 		t.Fatalf("logger was not synced")
+	}
+}
+
+func TestMainCapabilityErrorExitCode(t *testing.T) {
+	var code int
+	runner := NewRunnerWithDeps(
+		func() (*config.Config, []string, *zap.Logger, error) {
+			return nil, nil, nil, errors.New("privilege check failed: caps")
+		},
+		rootcmd.Run,
+		rootcmd.SyncLogger,
+		func(c int) { code = c },
+		func() *zap.Logger { return zap.NewNop() },
+		"linux",
+	)
+	runner.Run()
+	if code != exitcode.ErrCapability {
+		t.Fatalf("expected exit code %d, got %d", exitcode.ErrCapability, code)
+	}
+}
+
+func TestMainDeviceErrorExitCode(t *testing.T) {
+	var code int
+	logger := zap.NewNop()
+	runner := NewRunnerWithDeps(
+		func() (*config.Config, []string, *zap.Logger, error) { return &config.Config{}, nil, logger, nil },
+		func(_ *config.Config, _ []string, _ *zap.Logger) error { return errors.New("device lost") },
+		rootcmd.SyncLogger,
+		func(c int) { code = c },
+		func() *zap.Logger { return zap.NewNop() },
+		"linux",
+	)
+	runner.Run()
+	if code != exitcode.ErrDevice {
+		t.Fatalf("expected exit code %d, got %d", exitcode.ErrDevice, code)
 	}
 }
