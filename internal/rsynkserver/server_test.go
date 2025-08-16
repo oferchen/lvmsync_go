@@ -10,6 +10,8 @@ import (
 	"lvmsync_go/internal/rsynkwire"
 )
 
+const maxFrame = 1 << 20
+
 type memDevice struct {
 	buf  []byte
 	sync bool
@@ -41,9 +43,9 @@ func TestHandleApplyDelta(t *testing.T) {
 	srv := New(dev)
 	ctx := context.Background()
 	errCh := make(chan error)
-	go func() { errCh <- srv.Handle(ctx, rsynkwire.NewStream(c2)) }()
+	go func() { errCh <- srv.Handle(ctx, rsynkwire.NewStream(c2, maxFrame)) }()
 
-	cl := rsynkwire.NewClient(rsynkwire.NewStream(c1))
+	cl := rsynkwire.NewClient(rsynkwire.NewStream(c1, maxFrame))
 	if err := cl.SendDelta(0, []byte("hello")); err != nil {
 		t.Fatalf("SendDelta: %v", err)
 	}
@@ -71,7 +73,7 @@ func TestHandleCRCError(t *testing.T) {
 	srv := New(dev)
 	ctx := context.Background()
 	errCh := make(chan error)
-	go func() { errCh <- srv.Handle(ctx, rsynkwire.NewStream(c2)) }()
+	go func() { errCh <- srv.Handle(ctx, rsynkwire.NewStream(c2, maxFrame)) }()
 
 	// craft invalid CRC frame
 	payload := make([]byte, 1+8) // 'D' + offset 0
@@ -100,9 +102,9 @@ func TestHandleWriteError(t *testing.T) {
 	srv := New(dev)
 	ctx := context.Background()
 	errCh := make(chan error)
-	go func() { errCh <- srv.Handle(ctx, rsynkwire.NewStream(c2)) }()
+	go func() { errCh <- srv.Handle(ctx, rsynkwire.NewStream(c2, maxFrame)) }()
 
-	cl := rsynkwire.NewClient(rsynkwire.NewStream(c1))
+	cl := rsynkwire.NewClient(rsynkwire.NewStream(c1, maxFrame))
 	if err := cl.SendDelta(0, []byte("data")); err != nil {
 		t.Fatalf("SendDelta: %v", err)
 	}

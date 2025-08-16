@@ -18,11 +18,13 @@ var crcTable = crc32.MakeTable(crc32.Castagnoli)
 // with a prepended CRC32C. Each Write becomes a single frame and Recv
 // yields fully validated frames to callers.
 type Stream struct {
-	rw io.ReadWriter
+	rw  io.ReadWriter
+	max uint32
 }
 
 // NewStream wraps the provided io.ReadWriter with CRC32C framing.
-func NewStream(rw io.ReadWriter) *Stream { return &Stream{rw: rw} }
+// max specifies the maximum accepted frame size.
+func NewStream(rw io.ReadWriter, max uint32) *Stream { return &Stream{rw: rw, max: max} }
 
 // Send writes a single frame to the underlying stream, prefixing the
 // payload with its length and CRC32C checksum.
@@ -49,6 +51,9 @@ func (s *Stream) Recv() ([]byte, error) {
 		return nil, err
 	}
 	n := binary.BigEndian.Uint32(hdr[0:4])
+	if n > s.max {
+		return nil, fmt.Errorf("frame %d exceeds max %d", n, s.max)
+	}
 	expected := binary.BigEndian.Uint32(hdr[4:8])
 	buf := make([]byte, n)
 	if _, err := io.ReadFull(s.rw, buf); err != nil {
