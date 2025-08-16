@@ -562,25 +562,6 @@ func TestH2NegotiateContextCancel(t *testing.T) {
 	}
 }
 
-func TestTLSVersionString(t *testing.T) {
-	tests := []struct {
-		version uint16
-		want    string
-	}{
-		{tls.VersionTLS10, "1.0"},
-		{tls.VersionTLS11, "1.1"},
-		{tls.VersionTLS12, "1.2"},
-		{tls.VersionTLS13, "1.3"},
-		{0, "unknown"},
-		{0xffff, "65535"},
-	}
-	for _, tt := range tests {
-		if got := transport.TLSVersionString(tt.version); got != tt.want {
-			t.Errorf("TLSVersionString(%#x) = %q, want %q", tt.version, got, tt.want)
-		}
-	}
-}
-
 func TestRoleString(t *testing.T) {
 	tests := []struct {
 		role transport.Role

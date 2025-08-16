@@ -12,6 +12,7 @@ import (
 	"github.com/zeebo/xxh3"
 	"go.uber.org/zap"
 
+	rootcmd "lvmsync_go/cmd/root"
 	servecmd "lvmsync_go/cmd/serve"
 	verifycmd "lvmsync_go/cmd/verify"
 	"lvmsync_go/config"
@@ -150,7 +151,7 @@ func Execute(args []string, logger *zap.Logger) error {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
-	defer logger.Sync()
+	defer rootcmd.SyncLogger(logger)
 	cmd := NewRootCmd(logger)
 	if args != nil {
 		cmd.SetArgs(args)

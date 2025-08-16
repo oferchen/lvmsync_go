@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 
 	"lvmsync_go/common"
+	"lvmsync_go/internal/logging"
 	"lvmsync_go/transport"
 )
 
@@ -220,7 +221,7 @@ func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport
 			state = tlsConn.ConnectionState()
 		}
 		negotiatedALPN := state.NegotiatedProtocol
-		negotiatedVersion := transport.TLSVersionString(state.Version)
+		negotiatedVersion := logging.TLSVersionString(state.Version)
 		if hs.ALPN != "" && negotiatedALPN != "" && hs.ALPN != negotiatedALPN {
 			return peer, fmt.Errorf("alpn mismatch: %s", negotiatedALPN)
 		}

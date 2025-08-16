@@ -16,6 +16,7 @@ import (
 	"golang.org/x/net/http2"
 
 	"lvmsync_go/common"
+	"lvmsync_go/internal/logging"
 	"lvmsync_go/transport"
 )
 
@@ -402,7 +403,7 @@ func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport
 
 	if h2c, ok := conn.(*Conn); ok {
 		negotiatedALPN := h2c.tlsState.NegotiatedProtocol
-		negotiatedVersion := transport.TLSVersionString(h2c.tlsState.Version)
+		negotiatedVersion := logging.TLSVersionString(h2c.tlsState.Version)
 		if hs.ALPN != "" && negotiatedALPN != "" && hs.ALPN != negotiatedALPN {
 			return peer, fmt.Errorf("alpn mismatch: %s", negotiatedALPN)
 		}
@@ -414,7 +415,7 @@ func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport
 	} else if tlsConn, ok := conn.(*tls.Conn); ok {
 		state := tlsConn.ConnectionState()
 		negotiatedALPN := state.NegotiatedProtocol
-		negotiatedVersion := transport.TLSVersionString(state.Version)
+		negotiatedVersion := logging.TLSVersionString(state.Version)
 		if hs.ALPN != "" && negotiatedALPN != "" && hs.ALPN != negotiatedALPN {
 			return peer, fmt.Errorf("alpn mismatch: %s", negotiatedALPN)
 		}

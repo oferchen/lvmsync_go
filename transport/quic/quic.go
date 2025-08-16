@@ -13,6 +13,7 @@ import (
 	quic "github.com/quic-go/quic-go"
 
 	"lvmsync_go/common"
+	"lvmsync_go/internal/logging"
 	"lvmsync_go/transport"
 )
 
@@ -196,7 +197,7 @@ func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport
 	if qc, ok := conn.(*Conn); ok {
 		state := qc.qconn.ConnectionState()
 		negotiatedALPN := state.TLS.NegotiatedProtocol
-		negotiatedVersion := transport.TLSVersionString(state.TLS.Version)
+		negotiatedVersion := logging.TLSVersionString(state.TLS.Version)
 		if hs.ALPN != "" && negotiatedALPN != "" && hs.ALPN != negotiatedALPN {
 			return peer, fmt.Errorf("alpn mismatch: %s", negotiatedALPN)
 		}
