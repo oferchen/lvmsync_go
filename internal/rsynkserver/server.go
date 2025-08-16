@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"math"
 
 	"github.com/gokrazy/rsync"
 	"go.uber.org/zap"
@@ -83,8 +84,25 @@ func (s *Server) Handle(ctx context.Context, stream *rsynkwire.Stream) error {
 			if len(frame) < 9 {
 				return fmt.Errorf("delta frame too short")
 			}
-			off := int64(binary.BigEndian.Uint64(frame[1:9]))
+			offU := binary.BigEndian.Uint64(frame[1:9])
 			data := frame[9:]
+			if offU > math.MaxInt64 {
+				s.logger.Error("delta_out_of_bounds",
+					zap.Uint64("offset_bytes", offU),
+					zap.Int("delta_size_bytes", len(data)),
+					zap.Int64("device_size_bytes", s.dev.Size()))
+				return fmt.Errorf("delta offset %d overflows int64", offU)
+			}
+			off := int64(offU)
+			end := off + int64(len(data))
+			if end < off || end > s.dev.Size() {
+				s.logger.Error("delta_out_of_bounds",
+					zap.Int64("offset_bytes", off),
+					zap.Int("delta_size_bytes", len(data)),
+					zap.Int64("end_offset_bytes", end),
+					zap.Int64("device_size_bytes", s.dev.Size()))
+				return fmt.Errorf("delta end offset %d exceeds device size %d", end, s.dev.Size())
+			}
 			if _, err := s.dev.WriteAt(data, off); err != nil {
 				return err
 			}
