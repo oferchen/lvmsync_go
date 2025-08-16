@@ -54,7 +54,7 @@ func TestProcessDumpDataUUIDMismatch(t *testing.T) {
 		t.Fatalf("stat before: %v", err)
 	}
 
-	err = tr.ProcessDumpData(cfg, bytes.NewReader(minimalStream(t)), dest)
+	err = tr.ProcessDumpData(context.Background(), cfg, bytes.NewReader(minimalStream(t)), dest)
 	if err == nil {
 		t.Fatalf("expected error for uuid mismatch")
 	}
@@ -106,7 +106,7 @@ func TestProcessDumpDataMountedDevice(t *testing.T) {
 		t.Fatalf("stat before: %v", err)
 	}
 
-	err = tr.ProcessDumpData(cfg, bytes.NewReader(minimalStream(t)), dest)
+	err = tr.ProcessDumpData(context.Background(), cfg, bytes.NewReader(minimalStream(t)), dest)
 	if err == nil {
 		t.Fatalf("expected error for mounted device")
 	}
@@ -129,7 +129,7 @@ func TestProcessDumpDataMountedDevice(t *testing.T) {
 	}
 
 	cfg.Force = true
-	err = tr.ProcessDumpData(cfg, bytes.NewReader(minimalStream(t)), dest)
+	err = tr.ProcessDumpData(context.Background(), cfg, bytes.NewReader(minimalStream(t)), dest)
 	if err != nil {
 		t.Fatalf("unexpected error with force: %v", err)
 	}

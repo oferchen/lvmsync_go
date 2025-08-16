@@ -127,7 +127,7 @@ func TestLoopbackLVMToRawOverSSH(t *testing.T) {
 			SyncIntervalBytes: 512,
 		}
 		tt := NewTransfer(zap.NewNop(), nil)
-		done <- tt.ProcessDumpData(applyCfg, conn, destLoop)
+		done <- tt.ProcessDumpData(context.Background(), applyCfg, conn, destLoop)
 	}()
 
 	conn, err := tr.Dial(ctx, ln.Addr().String())
@@ -240,7 +240,7 @@ func TestLoopbackFileToFileOverTCPTLS(t *testing.T) {
 			SyncIntervalBytes: 512,
 		}
 		tt := NewTransfer(zap.NewNop(), nil)
-		done <- tt.ProcessDumpData(applyCfg, conn, dstLoop)
+		done <- tt.ProcessDumpData(context.Background(), applyCfg, conn, dstLoop)
 	}()
 
 	conn, err := tr.Dial(ctx, ln.Addr().String())
@@ -385,7 +385,7 @@ func TestLoopbackLVMToRawOverTCPTLS(t *testing.T) {
 					SyncIntervalBytes: 512,
 				}
 				tt := NewTransfer(zap.NewNop(), nil)
-				done <- tt.ProcessDumpData(applyCfg, conn, destLoop)
+				done <- tt.ProcessDumpData(context.Background(), applyCfg, conn, destLoop)
 			}()
 
 			conn, err := tr.Dial(ctx, ln.Addr().String())
@@ -510,7 +510,7 @@ func runRawToRawLoopback(t *testing.T, transportName string) {
 					SyncIntervalBytes: 512,
 				}
 				tt := NewTransfer(zap.NewNop(), nil)
-				done <- tt.ProcessDumpData(applyCfg, conn, dstLoop)
+				done <- tt.ProcessDumpData(context.Background(), applyCfg, conn, dstLoop)
 			}()
 
 			conn, err := tr.Dial(ctx, ln.Addr().String())
@@ -684,7 +684,7 @@ func TestLoopbackSparseFileToFileOverSSH(t *testing.T) {
 					SyncIntervalBytes: 512,
 				}
 				tt := NewTransfer(zap.NewNop(), nil)
-				done <- tt.ProcessDumpData(applyCfg, conn, dstLoop)
+				done <- tt.ProcessDumpData(context.Background(), applyCfg, conn, dstLoop)
 			}()
 
 			conn, err := tr.Dial(ctx, ln.Addr().String())

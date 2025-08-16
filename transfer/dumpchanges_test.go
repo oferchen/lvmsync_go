@@ -3,6 +3,7 @@ package transfer
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/binary"
 	"io"
 	"os"
@@ -164,7 +165,7 @@ func TestProcessDumpDataAutoDecompression(t *testing.T) {
 	destFile.Close()
 
 	cfgProcess := &config.Config{BlockSize: int(blockSize), Compress: "zstd,lz4", MaxRetries: 1}
-	if err = tr.ProcessDumpData(cfgProcess, bytes.NewReader(data), dest); err != nil {
+	if err = tr.ProcessDumpData(context.Background(), cfgProcess, bytes.NewReader(data), dest); err != nil {
 		t.Fatalf("ProcessDumpData failed: %v", err)
 	}
 
