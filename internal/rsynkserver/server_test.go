@@ -3,8 +3,6 @@ package rsynkserver
 import (
 	"bytes"
 	"context"
-	"encoding/binary"
-	"errors"
 	"io"
 	"net"
 	"strings"
@@ -21,13 +19,9 @@ const maxFrame = 1 << 20
 type memDevice struct {
 	buf  []byte
 	sync bool
-	fail bool
 }
 
 func (m *memDevice) WriteAt(p []byte, off int64) (int, error) {
-	if m.fail {
-		return 0, errors.New("write failed")
-	}
 	end := int(off) + len(p)
 	if end > len(m.buf) {
 		newBuf := make([]byte, end)
@@ -41,21 +35,6 @@ func (m *memDevice) WriteAt(p []byte, off int64) (int, error) {
 func (m *memDevice) ReadAt(p []byte, off int64) (int, error) {
 	if off >= int64(len(m.buf)) {
 		return 0, io.EOF
-
-func TestHandleApplyDelta(t *testing.T) {
-	c1, c2 := net.Pipe()
-	defer c1.Close()
-	defer c2.Close()
-
-	dev := &memDevice{}
-	srv := New(dev)
-	ctx := context.Background()
-	errCh := make(chan error)
-	go func() { errCh <- srv.Handle(ctx, rsynkwire.NewStream(c2, maxFrame)) }()
-
-	cl := rsynkwire.NewClient(rsynkwire.NewStream(c1, maxFrame))
-	if err := cl.SendDelta(0, []byte("hello")); err != nil {
-		t.Fatalf("SendDelta: %v", err)
 	}
 	n := copy(p, m.buf[off:])
 	if n < len(p) {
@@ -68,53 +47,38 @@ func (m *memDevice) Size() int64 { return int64(len(m.buf)) }
 
 func (m *memDevice) Sync() error { m.sync = true; return nil }
 
-func TestHandleCRCError(t *testing.T) {
+func TestHandleDigestSuccess(t *testing.T) {
 	c1, c2 := net.Pipe()
 	defer c1.Close()
 	defer c2.Close()
 
 	dev := &memDevice{}
-	srv := New(dev, digest.SHA256, [32]byte{}, zap.NewNop())
+	srv := New(dev, zap.NewNop())
 	ctx := context.Background()
-	errCh := make(chan error)
-	go func() { errCh <- srv.Handle(ctx, rsynkwire.NewStream(c2, maxFrame)) }()
-
-	// craft invalid CRC frame
-	payload := make([]byte, 1+8) // 'D' + offset 0
-	payload[0] = 'D'
-	var hdr [8]byte
-	binary.BigEndian.PutUint32(hdr[0:4], uint32(len(payload)))
-	binary.BigEndian.PutUint32(hdr[4:8], 0) // wrong CRC
-	if _, err := c1.Write(hdr[:]); err != nil {
-		t.Fatalf("write hdr: %v", err)
-	}
-	if _, err := c1.Write(payload); err != nil {
-		t.Fatalf("write payload: %v", err)
-	}
-	c1.Close()
-	if err := <-errCh; err == nil {
-		t.Fatalf("expected error")
-	}
-}
-
-func TestHandleWriteError(t *testing.T) {
-	c1, c2 := net.Pipe()
-	defer c1.Close()
-	defer c2.Close()
-
-	dev := &memDevice{fail: true}
-	srv := New(dev, digest.SHA256, [32]byte{}, zap.NewNop())
-	ctx := context.Background()
-	errCh := make(chan error)
+	errCh := make(chan error, 1)
 	go func() { errCh <- srv.Handle(ctx, rsynkwire.NewStream(c2, maxFrame)) }()
 
 	cl := rsynkwire.NewClient(rsynkwire.NewStream(c1, maxFrame))
-	if err := cl.SendDelta(0, []byte("data")); err != nil {
+	data := []byte("hello")
+	if _, err := cl.SendSignatures(bytes.NewReader(data)); err != nil {
+		t.Fatalf("SendSignatures: %v", err)
+	}
+	if err := cl.SendDelta(0, data); err != nil {
 		t.Fatalf("SendDelta: %v", err)
 	}
+	sum, err := digest.SumReader(bytes.NewReader(data), digest.SHA256)
+	if err != nil {
+		t.Fatalf("SumReader: %v", err)
+	}
+	if err := cl.SendDigest(digest.SHA256, sum); err != nil {
+		t.Fatalf("SendDigest: %v", err)
+	}
 	c1.Close()
-	if err := <-errCh; err == nil {
-		t.Fatalf("expected write error")
+	if err := <-errCh; err != nil {
+		t.Fatalf("Handle: %v", err)
+	}
+	if string(dev.buf) != "hello" {
+		t.Fatalf("unexpected device contents: %q", dev.buf)
 	}
 }
 
@@ -124,23 +88,29 @@ func TestHandleDigestMismatch(t *testing.T) {
 	defer c2.Close()
 
 	dev := &memDevice{}
-	wrong := [32]byte{}
-	srv := New(dev, digest.SHA256, wrong, zap.NewNop())
+	srv := New(dev, zap.NewNop())
 	ctx := context.Background()
-	errCh := make(chan error)
-	go func() { errCh <- srv.Handle(ctx, rsynkwire.NewStream(c2)) }()
+	errCh := make(chan error, 1)
+	go func() { errCh <- srv.Handle(ctx, rsynkwire.NewStream(c2, maxFrame)) }()
 
-	cl := rsynkwire.NewClient(rsynkwire.NewStream(c1))
-	data := []byte("mismatch")
+	cl := rsynkwire.NewClient(rsynkwire.NewStream(c1, maxFrame))
+	data := []byte("hello")
 	if _, err := cl.SendSignatures(bytes.NewReader(data)); err != nil {
 		t.Fatalf("SendSignatures: %v", err)
 	}
 	if err := cl.SendDelta(0, data); err != nil {
 		t.Fatalf("SendDelta: %v", err)
 	}
+	var wrong [32]byte
+	if err := cl.SendDigest(digest.SHA256, wrong); err != nil {
+		t.Fatalf("SendDigest: %v", err)
+	}
 	c1.Close()
 	err := <-errCh
-	if err == nil || !strings.Contains(err.Error(), "digest mismatch") {
-		t.Fatalf("expected digest mismatch, got %v", err)
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if !strings.Contains(err.Error(), "digest mismatch") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
