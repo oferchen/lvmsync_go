@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -140,5 +141,57 @@ func TestDetectRawDeviceSuccess(t *testing.T) {
 func TestDetectRawDeviceError(t *testing.T) {
 	if _, err := detectRawDevice(context.Background(), "/dev/null", true, "", "", 0, 0, zap.NewNop()); err == nil {
 		t.Fatalf("expected error")
+	}
+}
+
+func TestDetectRawDeviceFreezeParseError(t *testing.T) {
+	orig := openRawFunc
+	called := false
+	openRawFunc = func(ctx context.Context, path string, offline bool, freezePath string, freezeArgs []string, thawPath string, thawArgs []string, freezeTimeout, thawTimeout time.Duration, logger *zap.Logger) (*RawDevice, error) {
+		called = true
+		return nil, nil
+	}
+	defer func() { openRawFunc = orig }()
+	core, logs := observer.New(zap.ErrorLevel)
+	logger := zap.New(core)
+	_, err := detectRawDevice(context.Background(), "/dev/test", true, "/bin/echo \"unterminated", "", 0, 0, logger)
+	if err == nil || !strings.Contains(err.Error(), "invalid freeze command") {
+		t.Fatalf("expected freeze parse error, got %v", err)
+	}
+	if called {
+		t.Fatalf("openRawFunc should not be called on parse error")
+	}
+	entries := logs.FilterMessage("detect device failed").All()
+	if len(entries) != 1 {
+		t.Fatalf("expected error log, got %v", logs.All())
+	}
+	if entries[0].ContextMap()["device_type"] != "raw" || entries[0].ContextMap()["path"] != "/dev/test" {
+		t.Fatalf("unexpected log fields: %v", entries[0].ContextMap())
+	}
+}
+
+func TestDetectRawDeviceThawParseError(t *testing.T) {
+	orig := openRawFunc
+	called := false
+	openRawFunc = func(ctx context.Context, path string, offline bool, freezePath string, freezeArgs []string, thawPath string, thawArgs []string, freezeTimeout, thawTimeout time.Duration, logger *zap.Logger) (*RawDevice, error) {
+		called = true
+		return nil, nil
+	}
+	defer func() { openRawFunc = orig }()
+	core, logs := observer.New(zap.ErrorLevel)
+	logger := zap.New(core)
+	_, err := detectRawDevice(context.Background(), "/dev/test", true, "", "/bin/echo \"unterminated", 0, 0, logger)
+	if err == nil || !strings.Contains(err.Error(), "invalid thaw command") {
+		t.Fatalf("expected thaw parse error, got %v", err)
+	}
+	if called {
+		t.Fatalf("openRawFunc should not be called on parse error")
+	}
+	entries := logs.FilterMessage("detect device failed").All()
+	if len(entries) != 1 {
+		t.Fatalf("expected error log, got %v", logs.All())
+	}
+	if entries[0].ContextMap()["device_type"] != "raw" || entries[0].ContextMap()["path"] != "/dev/test" {
+		t.Fatalf("unexpected log fields: %v", entries[0].ContextMap())
 	}
 }
