@@ -203,8 +203,16 @@ func manifestHeaderMAC(h *manifestpkg.Header) [32]byte {
 	return blake3.Sum256(buf[:])
 }
 
-func readManifestHeader(path string) (*manifestpkg.Header, error) {
-	f, err := os.Open(path)
+func readManifestHeader(ctx context.Context, path string, timeout time.Duration) (*manifestpkg.Header, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, timeout)
+		defer cancel()
+	}
+	f, err := common.OpenWithContext(ctx, path)
 	if err != nil {
 		return nil, err
 	}
@@ -227,7 +235,7 @@ func (t *Transfer) verifyDestination(ctx context.Context, cfg *config.Config, de
 		ctx = context.Background()
 	}
 	if cfg.ManifestPath != "" {
-		hdr, err := readManifestHeader(cfg.ManifestPath)
+		hdr, err := readManifestHeader(ctx, cfg.ManifestPath, 0)
 		if err != nil {
 			return err
 		}
