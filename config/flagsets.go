@@ -247,3 +247,45 @@ func bindCompressionEnv(fs *pflag.FlagSet, v *viper.Viper) error {
 	})
 	return err
 }
+
+// bindLVMEnv binds LVM flag names to environment variables with the
+// LVMSYNC_LVM_ prefix.
+func bindLVMEnv(fs *pflag.FlagSet, v *viper.Viper) error {
+	var err error
+	fs.VisitAll(func(f *pflag.Flag) {
+		if err != nil {
+			return
+		}
+		name := strings.ToUpper(strings.ReplaceAll(f.Name, "-", "_"))
+		name = strings.TrimPrefix(name, "LVM_")
+		env := "LVMSYNC_LVM"
+		if name != "" {
+			env += "_" + name
+		}
+		if e := v.BindEnv(f.Name, env); e != nil {
+			err = e
+		}
+	})
+	return err
+}
+
+// bindGRPCEnv binds gRPC flag names to environment variables with the
+// LVMSYNC_GRPC_ prefix.
+func bindGRPCEnv(fs *pflag.FlagSet, v *viper.Viper) error {
+	var err error
+	fs.VisitAll(func(f *pflag.Flag) {
+		if err != nil {
+			return
+		}
+		name := strings.ToUpper(strings.ReplaceAll(f.Name, "-", "_"))
+		name = strings.TrimPrefix(name, "GRPC_")
+		env := "LVMSYNC_GRPC"
+		if name != "" {
+			env += "_" + name
+		}
+		if e := v.BindEnv(f.Name, env); e != nil {
+			err = e
+		}
+	})
+	return err
+}

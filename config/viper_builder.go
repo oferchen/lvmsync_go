@@ -313,6 +313,7 @@ func buildViper(flagSets *FlagSets) (*viper.Viper, error) {
 	v.RegisterAlias("zstd_level", "zstd-level")
 	v.RegisterAlias("lz4_level", "lz4-level")
 	v.RegisterAlias("compress_threshold", "compress-threshold")
+	v.RegisterAlias("lvm_escalation", "lvm-escalation")
 	if err := bindTransportEnv(flagSets.Transport, v); err != nil {
 		return nil, err
 	}
@@ -320,6 +321,12 @@ func buildViper(flagSets *FlagSets) (*viper.Viper, error) {
 		return nil, err
 	}
 	if err := bindCompressionEnv(flagSets.Compression, v); err != nil {
+		return nil, err
+	}
+	if err := bindLVMEnv(flagSets.LVM, v); err != nil {
+		return nil, err
+	}
+	if err := bindGRPCEnv(flagSets.GRPC, v); err != nil {
 		return nil, err
 	}
 	if cfgFile := v.GetString("config"); cfgFile != "" {

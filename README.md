@@ -447,6 +447,14 @@ Environment variables for the gRPC daemon use the `LVMSYNC_GRPC_` prefix with da
 LVMSYNC_GRPC_GRPC_PORT=9443 LVMSYNC_GRPC_TLS_CERT=cert.pem lvmsync-grpcd
 ```
 
+Grouped options use dedicated prefixes: `LVMSYNC_DEDUP_`,
+`LVMSYNC_COMPRESSION_`, `LVMSYNC_TRANSPORT_`, `LVMSYNC_LVM_`, and
+`LVMSYNC_GRPC_`. For example:
+
+```sh
+LVMSYNC_LVM_SNAPSHOT_SIZE=25% lvmsync run /dev/vg0/snap0 /mnt/backup
+```
+
 ### Option reference
 
 | Flag | Environment variable | Config key | Description |
@@ -515,7 +523,7 @@ LVMSYNC_GRPC_GRPC_PORT=9443 LVMSYNC_GRPC_TLS_CERT=cert.pem lvmsync-grpcd
 | `--volume_group` | `LVMSYNC_VOLUME_GROUP` | `volume_group` | Source volume group; derived from the source device path when empty |
 | `--target_volume_group` | `LVMSYNC_TARGET_VOLUME_GROUP` | `target_volume_group` | Volume group name of the target LVM volume |
 | `--target_vgs` | `LVMSYNC_TARGET_VGS` | `target_vgs` | Candidate target volume groups for auto-selection |
-| `--dry-run` | `LVMSYNC_DRY_RUN` | `dry_run` | Print actions without executing |
+| `--dry-run` | `LVMSYNC_DRY_RUN` | `dry_run` | Log estimated transfer bytes without sending data; uses manifest sampling when available |
 | `--transport` | `LVMSYNC_TRANSPORT_TRANSPORT` | `transport` | Ordered transports to try (e.g., `quic,h2,tcp+tls,ssh`) |
 | `--tcp_port` | `LVMSYNC_TRANSPORT_TCP_PORT` | `tcp_port` | TCP+TLS port |
 | `--tcp_parallel` | `LVMSYNC_TRANSPORT_TCP_PARALLEL` | `tcp_parallel` | Number of parallel TCP connections |

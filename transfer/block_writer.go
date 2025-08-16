@@ -54,7 +54,7 @@ func newBlockWriter(cfg *config.Config, dest *os.File, dedup DeduplicationStrate
 		verify:   verify,
 		checksum: checksum,
 		logger:   logger,
-		}, nil
+	}, nil
 }
 
 // write consumes block records from reader and writes them to the destination
