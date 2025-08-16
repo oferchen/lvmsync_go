@@ -20,6 +20,7 @@ func buildBlockStream(t *testing.T, verify bool, checksum ChecksumStrategy, bloc
 		offset := uint64(i * len(data))
 		binary.Write(w, binary.BigEndian, offset)
 		binary.Write(w, binary.BigEndian, uint32(len(data)))
+		binary.Write(w, binary.BigEndian, crc32c(data))
 		if verify {
 			sum := checksum.Compute(data)
 			w.Write(sum)
@@ -94,6 +95,7 @@ func TestBlockWriterMACVerification(t *testing.T) {
 	w := bufio.NewWriter(buf)
 	binary.Write(w, binary.BigEndian, uint64(0))
 	binary.Write(w, binary.BigEndian, uint32(len(data)))
+	binary.Write(w, binary.BigEndian, crc32c(data))
 	sum := checksum.Compute(data)
 	sum[0] ^= 0xff
 	w.Write(sum)
@@ -102,5 +104,38 @@ func TestBlockWriterMACVerification(t *testing.T) {
 	badReader := bufio.NewReader(bytes.NewReader(buf.Bytes()))
 	if _, err := bw.write(badReader); err == nil {
 		t.Fatalf("expected checksum mismatch")
+	}
+}
+
+func TestBlockWriterCRCValidation(t *testing.T) {
+	cfg := &config.Config{BlockSize: 4}
+	tmp := t.TempDir()
+	f, err := os.CreateTemp(tmp, "dest")
+	if err != nil {
+		t.Fatalf("create temp: %v", err)
+	}
+	defer f.Close()
+
+	bw, err := newBlockWriter(cfg, f, nil, false, nil, zap.NewNop())
+	if err != nil {
+		t.Fatalf("newBlockWriter: %v", err)
+	}
+	data := []byte{1, 2, 3, 4}
+	reader := buildBlockStream(t, false, nil, [][]byte{data})
+	if _, err := bw.write(reader); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	buf := &bytes.Buffer{}
+	w := bufio.NewWriter(buf)
+	binary.Write(w, binary.BigEndian, uint64(0))
+	binary.Write(w, binary.BigEndian, uint32(len(data)))
+	badCRC := crc32c(data) ^ 0xff
+	binary.Write(w, binary.BigEndian, badCRC)
+	w.Write(data)
+	w.Flush()
+	badReader := bufio.NewReader(bytes.NewReader(buf.Bytes()))
+	if _, err := bw.write(badReader); err == nil {
+		t.Fatalf("expected crc mismatch")
 	}
 }

@@ -35,28 +35,29 @@ func cleanupOutput(buf *bufio.Writer, w io.WriteCloser, logger *zap.Logger) {
 	}
 }
 
-func readBlockHeader(reader *bufio.Reader, headerBuf []byte, verify bool, checksum ChecksumStrategy) (uint64, uint32, []byte, error) {
+func readBlockHeader(reader *bufio.Reader, headerBuf []byte, verify bool, checksum ChecksumStrategy) (uint64, uint32, uint32, []byte, error) {
 	_, err := io.ReadFull(reader, headerBuf)
 	if err == io.EOF || err == io.ErrUnexpectedEOF {
-		return 0, 0, nil, io.EOF
+		return 0, 0, 0, nil, io.EOF
 	}
 	if err != nil {
-		return 0, 0, nil, fmt.Errorf("failed to read chunk header: %w", err)
+		return 0, 0, 0, nil, fmt.Errorf("failed to read chunk header: %w", err)
 	}
 
 	offset := binary.BigEndian.Uint64(headerBuf[0:8])
 	if offset > math.MaxInt64 {
-		return 0, 0, nil, fmt.Errorf("offset %d overflows int64", offset)
+		return 0, 0, 0, nil, fmt.Errorf("offset %d overflows int64", offset)
 	}
 	chunkSize := binary.BigEndian.Uint32(headerBuf[8:12])
+	crc := binary.BigEndian.Uint32(headerBuf[12:16])
 
 	var transmittedSum []byte
 	if verify {
 		transmittedSum = make([]byte, checksum.Size())
-		copy(transmittedSum, headerBuf[12:])
+		copy(transmittedSum, headerBuf[16:])
 	}
 
-	return offset, chunkSize, transmittedSum, nil
+	return offset, chunkSize, crc, transmittedSum, nil
 }
 
 func readBlockData(cfg *config.Config, reader io.Reader, chunkSize uint32) ([]byte, error) {
@@ -82,6 +83,13 @@ func readBlockData(cfg *config.Config, reader io.Reader, chunkSize uint32) ([]by
 		return nil, fmt.Errorf("failed to read chunk data: %w", err)
 	}
 	return data, nil
+}
+
+func verifyCRC(expected uint32, data []byte, offset uint64) error {
+	if crc32c(data) != expected {
+		return fmt.Errorf("crc32c mismatch at offset %d", offset)
+	}
+	return nil
 }
 
 func verifyChecksum(verify bool, checksum ChecksumStrategy, data, transmitted []byte, offset uint64) error {
@@ -122,12 +130,16 @@ func processBlock(
 	verify bool,
 	checksum ChecksumStrategy,
 	offset uint64,
+	crc uint32,
 	transmitted, data []byte,
 	chunkSize uint32,
 	logger *zap.Logger,
 ) (bool, error) {
 	if offset > math.MaxInt64 {
 		return false, fmt.Errorf("offset %d overflows int64", offset)
+	}
+	if err := verifyCRC(crc, data, offset); err != nil {
+		return false, err
 	}
 	if err := verifyChecksum(verify, checksum, data, transmitted, offset); err != nil {
 		return false, err

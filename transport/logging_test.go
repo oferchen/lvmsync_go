@@ -28,6 +28,7 @@ func TestHandshakeFields(t *testing.T) {
 		Transport:     "quic",
 		ALPN:          "lvmsync",
 		TLSVersion:    "1.3",
+		CRC32C:        true,
 	}
 
 	core, logs := observer.New(zap.InfoLevel)

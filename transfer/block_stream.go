@@ -51,7 +51,7 @@ func iterateBlocks(
 ) (int64, int, []byte, error) {
 	var totalBytes int64
 	skippedBlocks := 0
-	var header [12]byte
+	var header [16]byte
 	h := newDigestHasher(cfg.ChecksumAlgorithm)
 	var idx *manifestpkg.Index
 	if cfg.ManifestPath != "" {
@@ -98,7 +98,8 @@ func iterateBlocks(
 		binary.BigEndian.PutUint64(header[0:8], r.Start)
 		if isAllZero(data) {
 			binary.BigEndian.PutUint32(header[8:12], 0)
-			if _, err := bufOut.Write(header[:]); err != nil {
+			binary.BigEndian.PutUint32(header[12:16], 0)
+			if _, err := bufOut.Write(header[:16]); err != nil {
 				putBlockBuffer(data)
 				return totalBytes, skippedBlocks, nil, fmt.Errorf("failed to write header: %w", err)
 			}
@@ -116,7 +117,8 @@ func iterateBlocks(
 		}
 		sum = sumFn()
 		binary.BigEndian.PutUint32(header[8:12], blockSize)
-		if _, err := bufOut.Write(header[:]); err != nil {
+		binary.BigEndian.PutUint32(header[12:16], crc32c(data))
+		if _, err := bufOut.Write(header[:16]); err != nil {
 			putBlockBuffer(data)
 			return totalBytes, skippedBlocks, nil, fmt.Errorf("failed to write header: %w", err)
 		}
@@ -144,10 +146,11 @@ func iterateBlocks(
 func prepareResultHeader(cfg *config.Config, checksum ChecksumStrategy, res *BlockResult, header []byte) int {
 	binary.BigEndian.PutUint64(header[0:8], res.Offset)
 	binary.BigEndian.PutUint32(header[8:12], res.Size)
-	n := 12
+	binary.BigEndian.PutUint32(header[12:16], crc32c(res.Data))
+	n := 16
 	if cfg.VerifyChecksum {
 		sum := checksum.Compute(res.Data)
-		copy(header[12:], sum)
+		copy(header[16:], sum)
 		n += checksum.Size()
 	}
 	return n
@@ -173,7 +176,7 @@ func processParallelResults(
 	logger *zap.Logger,
 	rt *resumeTracker,
 ) (int64, []byte, error) {
-	headerSize := 12
+	headerSize := 16
 	if cfg.VerifyChecksum {
 		headerSize += checksum.Size()
 	}

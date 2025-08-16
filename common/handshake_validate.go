@@ -41,6 +41,9 @@ func ValidateHandshake(local, peer Handshake) error {
 	if peer.Digest != "" && local.Digest != "" && peer.Digest != local.Digest {
 		return fmt.Errorf("digest mismatch: %s", peer.Digest)
 	}
+	if peer.CRC32C != local.CRC32C {
+		return fmt.Errorf("crc32c support mismatch: %v", peer.CRC32C)
+	}
 	if peer.ODirect != local.ODirect {
 		return fmt.Errorf("o_direct mismatch: %v", peer.ODirect)
 	}
