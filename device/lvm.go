@@ -29,6 +29,36 @@ type LVMDevice struct {
 // OpenLVM opens an LVM logical volume and queries its size and block size.
 // Size information is obtained through the lvm package helpers.
 func OpenLVM(path string, cache *lvm.FDCache, escalation string, logger *zap.Logger) (*LVMDevice, error) {
+	ctx := context.Background()
+	exists, err := volumeExistsFunc(ctx, path)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, fmt.Errorf("volume %s does not exist", path)
+	}
+	auto, err := autoExtendEnabledFunc(ctx, path)
+	if err != nil {
+		return nil, err
+	}
+	if auto {
+		return nil, fmt.Errorf("auto-extend enabled for %s", path)
+	}
+	discard, err := discardEnabledFunc(ctx, path)
+	if err != nil {
+		return nil, err
+	}
+	if !discard {
+		return nil, fmt.Errorf("discard disabled for %s", path)
+	}
+	mounted, err := isMountedRWFunc(path)
+	if err != nil {
+		return nil, err
+	}
+	if mounted {
+		return nil, fmt.Errorf("device %s mounted", path)
+	}
+
 	f, err := os.OpenFile(path, os.O_RDWR, 0)
 	if err != nil {
 		return nil, err
@@ -64,9 +94,13 @@ func (d *LVMDevice) Close() error {
 }
 
 var (
-	generateSnapshot = func() string { return fmt.Sprintf("lvmsync_%d", time.Now().UnixNano()) }
-	geteuid          = os.Geteuid
-	openLVMFunc      = OpenLVM
+	generateSnapshot      = func() string { return fmt.Sprintf("lvmsync_%d", time.Now().UnixNano()) }
+	geteuid               = os.Geteuid
+	openLVMFunc           = OpenLVM
+	volumeExistsFunc      = lvm.VolumeExists
+	autoExtendEnabledFunc = lvm.AutoExtendEnabled
+	discardEnabledFunc    = lvm.DiscardEnabled
+	isMountedRWFunc       = IsMountedRW
 )
 
 func runLVM(ctx context.Context, escalation, cmdName string, args ...string) error {

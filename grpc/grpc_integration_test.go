@@ -98,6 +98,18 @@ func (testAgent) FinalizeSync(ctx context.Context, volume, requester string) err
 func (testAgent) GetStatus(ctx context.Context, volume, requester string) (string, error) {
 	return "", nil
 }
+func (testAgent) VolumeExists(ctx context.Context, volume string) (bool, error) {
+	return true, nil
+}
+func (testAgent) AutoExtendEnabled(ctx context.Context, volume string) (bool, error) {
+	return false, nil
+}
+func (testAgent) DiscardEnabled(ctx context.Context, volume string) (bool, error) {
+	return true, nil
+}
+func (testAgent) IsMounted(ctx context.Context, volume string) (bool, error) {
+	return false, nil
+}
 func (testAgent) Probe(ctx context.Context, volume string) error     { return nil }
 func (testAgent) Cancel(ctx context.Context, sessionID string) error { return nil }
 func (testAgent) Progress(ctx context.Context, sessionID string) (<-chan *proto.Progress, error) {
