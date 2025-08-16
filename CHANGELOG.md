@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - device: centralize exec command helper for LVM and raw devices
 - device: add cleanup tests for thaw errors and timeouts
 - transfer: add manifest index persistence test covering read/write, rebuild, and verify paths.
+- transfer: persist resume checkpoints with `--checkpoint-bytes` and `--checkpoint-interval` and add tests for interrupted transfers.
 - cmd: support `--source-type` and `--dest-type` flags and allow `device.Detect` to honor explicit type hints.
 - transfer: unify resume checkpoints across dedup modes and add resume tests for fixed, CDC, and hybrid modes.
 - transfer: add tests verifying resume state alignment across dedup mode transitions.
