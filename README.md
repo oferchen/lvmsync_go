@@ -369,7 +369,8 @@ snapshotted automatically and removed after transfer. Raw block devices and
 regular files do not have a snapshot mechanism; to avoid inconsistent reads you
 must either take them offline with `--offline` or freeze the filesystem with
 `--fs-freeze-command` and `--fs-thaw-command`. Snapshot creation requires root privileges, so non-root
-invocations must permit escalation via `sudo -n`.
+invocations must permit escalation via `sudo -n`. The escalation command is checked during device detection and
+operations abort immediately if escalation fails.
 
 Examples:
 
@@ -497,7 +498,7 @@ LVMSYNC_GRPC_GRPC_PORT=9443 LVMSYNC_GRPC_TLS_CERT=cert.pem lvmsync-grpcd
 | `--skip_snapshot_creation` | `LVMSYNC_SKIP_SNAPSHOT_CREATION` | `skip_snapshot_creation` | Skip automatic snapshot creation |
 | `--skip_disk_check` | `LVMSYNC_SKIP_DISK_CHECK` | `skip_disk_check` | Skip disk space check before snapshot creation |
 | `--snapshot_size` | `LVMSYNC_SNAPSHOT_SIZE` | `snapshot_size` | Snapshot size (e.g., `20G` or `20%`) |
-| `--lvm-escalation` | `LVMSYNC_LVM_ESCALATION` | `lvm_escalation` | Command used to escalate privileges for LVM commands |
+| `--lvm-escalation` | `LVMSYNC_LVM_ESCALATION` | `lvm_escalation` | Command used to escalate privileges for LVM commands; validated at startup |
 | `--lvm_timeout` | `LVMSYNC_LVM_TIMEOUT` | `lvm_timeout` | Timeout for LVM operations |
 | `--volume_group` | `LVMSYNC_VOLUME_GROUP` | `volume_group` | Source volume group; derived from the source device path when empty |
 | `--target_volume_group` | `LVMSYNC_TARGET_VOLUME_GROUP` | `target_volume_group` | Volume group name of the target LVM volume |
@@ -1058,7 +1059,7 @@ timeouts or cancellations are reported separately.
 | `--volume_group` | Source volume group. Derived from the source device path when empty | "" |
 | `--target_volume_group` | Volume group name of the target LVM volume | "" |
 | `--target_vgs` | Candidate target volume groups for auto-selection | [] |
-| `--lvm-escalation` | Command used to re-execute the program with elevated privileges when not running as root (e.g., "sudo -n") | "sudo -n" |
+| `--lvm-escalation` | Command used to re-execute the program with elevated privileges when not running as root (e.g., "sudo -n"); validated at startup | "sudo -n" |
 | `--lvm_timeout` | Timeout for LVM operations | 10s |
 
 #### gRPC Options

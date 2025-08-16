@@ -15,6 +15,7 @@ command-line use, environment variables, and `config.yaml` files.
 
 - `Detect` orchestrates `detectFileDevice`, `detectLVMDevice`, and `detectRawDevice`.
 - Each helper includes dedicated tests for success and error paths.
+- Non-root runs escalate LVM operations using `--lvm-escalation` (default `sudo -n`). The command is validated at startup and detection fails if escalation is unavailable.
 
 ## Logging
 
