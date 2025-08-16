@@ -1,12 +1,17 @@
 package verify
 
 import (
+	"context"
 	"os"
 	"testing"
+	"time"
 
+	"github.com/zeebo/blake3"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
+
+	manifestpkg "lvmsync_go/manifest"
 )
 
 func TestRunLogsMismatchBlock(t *testing.T) {
@@ -21,12 +26,25 @@ func TestRunLogsMismatchBlock(t *testing.T) {
 	}
 	core, logs := observer.New(zapcore.InfoLevel)
 	logger := zap.New(core)
+	orig := rebuildFn
+	rebuildFn = func(ctx context.Context, device, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error {
+		idx, err := manifestpkg.Create(output, "dev", 3, 4096, 0, 0, 0, 0)
+		if err != nil {
+			return err
+		}
+		digest := blake3.Sum256([]byte("foo"))
+		if err := idx.Set(0, 3, 0, 0, digest); err != nil {
+			return err
+		}
+		return idx.Close()
+	}
+	defer func() { rebuildFn = orig }()
 	err := Run([]string{src, dst}, logger)
 	if err == nil {
 		t.Fatalf("expected error")
 	}
-	if logs.FilterMessage("mismatched_block").Len() == 0 {
-		t.Fatalf("expected mismatched_block log, got %v", logs.All())
+	if logs.FilterMessage("digest_mismatch").Len() == 0 {
+		t.Fatalf("expected digest_mismatch log, got %v", logs.All())
 	}
 }
 
@@ -42,11 +60,24 @@ func TestRunLogsMismatchBlockSHA256(t *testing.T) {
 	}
 	core, logs := observer.New(zapcore.InfoLevel)
 	logger := zap.New(core)
+	orig := rebuildFn
+	rebuildFn = func(ctx context.Context, device, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error {
+		idx, err := manifestpkg.Create(output, "dev", 3, 4096, 0, 0, 0, 0)
+		if err != nil {
+			return err
+		}
+		digest := blake3.Sum256([]byte("foo"))
+		if err := idx.Set(0, 3, 0, 0, digest); err != nil {
+			return err
+		}
+		return idx.Close()
+	}
+	defer func() { rebuildFn = orig }()
 	err := Run([]string{"--checksum_algorithm", "sha256", src, dst}, logger)
 	if err == nil {
 		t.Fatalf("expected error")
 	}
-	if logs.FilterMessage("mismatched_block").Len() == 0 {
-		t.Fatalf("expected mismatched_block log, got %v", logs.All())
+	if logs.FilterMessage("digest_mismatch").Len() == 0 {
+		t.Fatalf("expected digest_mismatch log, got %v", logs.All())
 	}
 }

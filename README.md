@@ -69,15 +69,15 @@ Resume interrupted transfers with a state file:
 lvmsync run --resume statefile /dev/vg0/snap0 /dev/vg0/data
 ```
 
-Verify devices against a manifest:
+Generate a manifest and verify a destination:
 
 ```sh
-lvmsync verify --manifest_path snapshot.manifest /dev/vg0/snap0 /dev/vg0/data
+lvmsync manifest rebuild /dev/vg0/snap0
+lvmsync verify /dev/vg0/snap0 /dev/vg0/data
 ```
 
 Resume files track the last completed chunk and are removed after a successful
-transfer. See [docs/manifest.md](docs/manifest.md) for manifest and verification
-details.
+transfer. See [docs/manifest.md](docs/manifest.md) for manifest and verification details.
 
 ## Safety Notes
 
@@ -937,7 +937,7 @@ lvmsync verify --dry-run /dev/vg0/source /dev/vg1/target
 To verify using 4 KiB blocks and a manifest generated earlier:
 
 ```sh
-lvmsync verify --block_size 4K --manifest_path snapshot.manifest /dev/vg0/source /dev/vg1/target
+lvmsync verify --block_size 4K /dev/vg0/source /dev/vg1/target
 ```
 
 Flags are parsed via Viper, so the same settings can be provided through

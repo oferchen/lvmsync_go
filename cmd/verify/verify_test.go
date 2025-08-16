@@ -2,10 +2,12 @@ package verify
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/zeebo/blake3"
 	"go.uber.org/zap"
@@ -13,7 +15,7 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 
 	"lvmsync_go/config"
-	"lvmsync_go/manifest"
+	manifestpkg "lvmsync_go/manifest"
 )
 
 type syncTrackerCore struct {
@@ -94,7 +96,7 @@ func TestVerifyWithManifestAllocations(t *testing.T) {
 	size := blockSize * 3
 	src := createTestFile(t, size)
 	manifestPath := filepath.Join(t.TempDir(), "manifest")
-	idx, err := manifest.Create(manifestPath, "dev", uint64(size), uint32(blockSize), 0, 0, 0, 0)
+	idx, err := manifestpkg.Create(manifestPath, "dev", uint64(size), uint32(blockSize), 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("manifest create: %v", err)
 	}
@@ -123,5 +125,39 @@ func TestVerifyWithManifestAllocations(t *testing.T) {
 	})
 	if allocs >= 40 {
 		t.Fatalf("expected fewer allocations, got %f", allocs)
+	}
+}
+
+func TestVerifyDevicesRebuildsManifest(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "src")
+	dst := filepath.Join(dir, "dst")
+	if err := os.WriteFile(src, []byte("foo"), 0o600); err != nil {
+		t.Fatalf("write src: %v", err)
+	}
+	if err := os.WriteFile(dst, []byte("foo"), 0o600); err != nil {
+		t.Fatalf("write dst: %v", err)
+	}
+	called := false
+	orig := rebuildFn
+	rebuildFn = func(ctx context.Context, device, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error {
+		called = true
+		idx, err := manifestpkg.Create(output, "dev", uint64(len("foo")), 4096, 0, 0, 0, 0)
+		if err != nil {
+			return err
+		}
+		digest := blake3.Sum256([]byte("foo"))
+		if err := idx.Set(0, uint32(len("foo")), 0, 0, digest); err != nil {
+			return err
+		}
+		return idx.Close()
+	}
+	defer func() { rebuildFn = orig }()
+	cfg := &config.Config{}
+	if err := verifyDevices(cfg, src, dst, "", zap.NewNop()); err != nil {
+		t.Fatalf("verifyDevices: %v", err)
+	}
+	if !called {
+		t.Fatalf("expected rebuild invoked")
 	}
 }

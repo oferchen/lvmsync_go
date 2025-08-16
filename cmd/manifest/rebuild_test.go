@@ -2,6 +2,7 @@ package manifest
 
 import (
 	"context"
+	"encoding/binary"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -237,5 +238,29 @@ func TestRunSyncsLoggerDryRun(t *testing.T) {
 	}
 	if logs.FilterMessage("Logger sync error").Len() != 1 {
 		t.Fatalf("expected sync error log")
+	}
+}
+
+func TestRunWritesVersion(t *testing.T) {
+	dir := t.TempDir()
+	devicePath := filepath.Join(dir, "dev.img")
+	if err := os.WriteFile(devicePath, []byte("data"), 0o600); err != nil {
+		t.Fatalf("write device: %v", err)
+	}
+	restore := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "uuid", nil })
+	defer device.SetUUIDFunc(restore)
+	cfg, err := config.DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	if err := Run(cfg, []string{"rebuild", devicePath}, zap.NewNop()); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	data, err := os.ReadFile(devicePath + ".manifest")
+	if err != nil {
+		t.Fatalf("read manifest: %v", err)
+	}
+	if v := binary.LittleEndian.Uint32(data[:4]); v != manifestpkg.Version {
+		t.Fatalf("version mismatch: got %d want %d", v, manifestpkg.Version)
 	}
 }
