@@ -8,4 +8,8 @@ const (
 	StrategyChecksum = "checksum"
 	// StrategyRollingHash uses a rolling hash for deduplication.
 	StrategyRollingHash = "rolling_hash"
+
+	// intraCacheCapacity limits the number of chunks tracked for intra-run
+	// deduplication.
+	intraCacheCapacity = 4096
 )

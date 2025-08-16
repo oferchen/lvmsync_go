@@ -317,6 +317,7 @@ func buildViper(flagSets *FlagSets) (*viper.Viper, []string, error) {
 	v.RegisterAlias("lz4_level", "lz4-level")
 	v.RegisterAlias("compress_threshold", "compress-threshold")
 	v.RegisterAlias("lvm_escalation", "lvm-escalation")
+	v.RegisterAlias("intra_dedup", "intra-dedup")
 	if err := bindTransportEnv(flagSets.Transport, v); err != nil {
 		return nil, nil, err
 	}

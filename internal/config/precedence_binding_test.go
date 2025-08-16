@@ -529,6 +529,64 @@ func TestDedupStrategyEnvOverridesConfig(t *testing.T) {
 	}
 }
 
+func TestIntraDedupCLIOverridesEnvAndConfig(t *testing.T) {
+	cfgPath := writeTempConfig(t, "intra_dedup: false\n")
+	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--intra-dedup=false"})
+	t.Setenv("LVMSYNC_DEDUP_INTRA_DEDUP", "true")
+
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	fs := NewFlagSets(defaults)
+	registerFlags(fs, rootFS)
+	if err := rootFS.Parse(args); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	v, _, err := buildViper(fs)
+	if err != nil {
+		t.Fatalf("buildViper: %v", err)
+	}
+	builder := &builder{v: v, defaults: defaults}
+	conf, err := builder.Build()
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if conf.IntraDedup {
+		t.Fatalf("expected intra_dedup false, got true")
+	}
+}
+
+func TestIntraDedupEnvOverridesConfig(t *testing.T) {
+	cfgPath := writeTempConfig(t, "intra_dedup: false\n")
+	rootFS, args := newFlagSet([]string{"--config", cfgPath})
+	t.Setenv("LVMSYNC_DEDUP_INTRA_DEDUP", "true")
+
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	fs := NewFlagSets(defaults)
+	registerFlags(fs, rootFS)
+	if err := rootFS.Parse(args); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	v, _, err := buildViper(fs)
+	if err != nil {
+		t.Fatalf("buildViper: %v", err)
+	}
+	builder := &builder{v: v, defaults: defaults}
+	conf, err := builder.Build()
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if !conf.IntraDedup {
+		t.Fatalf("expected intra_dedup true, got false")
+	}
+}
+
 func TestCompressCLIOverridesEnvAndConfig(t *testing.T) {
 	cfgPath := writeTempConfig(t, "compress: zstd\n")
 	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--compress", "lz4"})

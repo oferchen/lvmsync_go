@@ -127,6 +127,7 @@ func initDedupFlags(cfg *Config) *pflag.FlagSet {
 	fs.Uint64("chunk-seed", cfg.ChunkSeed, "Seed for chunking")
 	fs.String("dedup_strategy", cfg.DedupStrategy, fmt.Sprintf("Deduplication strategy: %v", SupportedDedupStrategies))
 	fs.String("dedup_state_file", cfg.DedupStateFile, "Path to deduplication state file")
+	fs.Bool("intra-dedup", cfg.IntraDedup, "Enable intra-run deduplication")
 	fs.Int("bloom_entries", cfg.BloomEntries, "Bloom filter entries")
 	fs.Float64("bloom_fp_rate", cfg.BloomFpRate, "Bloom filter false positive rate")
 	fs.Uint("bloom_mbits", cfg.BloomMBits, "Bloom filter M bits per entry")

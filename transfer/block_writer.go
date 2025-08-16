@@ -19,6 +19,7 @@ type blockWriter struct {
 	cfg       *config.Config
 	dest      *os.File
 	dedup     DeduplicationStrategy
+	intra     *chunkCache
 	verify    bool
 	checksum  ChecksumStrategy
 	logger    *zap.Logger
@@ -47,14 +48,18 @@ func newBlockWriter(cfg *config.Config, dest *os.File, dedup DeduplicationStrate
 			cfg.SyncIntervalBytes = int(val)
 		}
 	}
-	return &blockWriter{
+	bw := &blockWriter{
 		cfg:      cfg,
 		dest:     dest,
 		dedup:    dedup,
 		verify:   verify,
 		checksum: checksum,
 		logger:   logger,
-	}, nil
+	}
+	if cfg.IntraDedup {
+		bw.intra = newChunkCache(intraCacheCapacity)
+	}
+	return bw, nil
 }
 
 // write consumes block records from reader and writes them to the destination
@@ -89,7 +94,7 @@ func (bw *blockWriter) write(reader *bufio.Reader) (int64, error) {
 		} else {
 			chunkID = zeroHash(int(chunkSize))
 		}
-		written, err := processBlock(bw.cfg, bw.dest, bw.dedup, bw.verify, bw.checksum, offset, crc, transmitted, data, chunkSize, bw.logger)
+		written, err := processBlock(bw.cfg, bw.dest, bw.dedup, bw.intra, bw.verify, bw.checksum, offset, crc, transmitted, data, chunkSize, bw.logger)
 		if bw.cfg.ODirect {
 			if data != nil {
 				putAlignedBlockBuffer(data)
