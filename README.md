@@ -548,7 +548,7 @@ LVMSYNC_LVM_SNAPSHOT_SIZE=25% lvmsync run /dev/vg0/snap0 /mnt/backup
 | `--remote_post_script` | `LVMSYNC_REMOTE_POST_SCRIPT` | `remote_post_script` | Remote script to run after transfer (separate `ssh_timeout`) |
 | `--dedup_strategy` | `LVMSYNC_DEDUP_STRATEGY` | `dedup_strategy` | Deduplication strategy: `none`, `auto`, `checksum`, `rolling_hash`, or `bloom` |
 | `--dedup_state_file` | `LVMSYNC_DEDUP_STATE_FILE` | `dedup_state_file` | Path to deduplication state file |
-| `--cdc-min` | `LVMSYNC_DEDUP_CDC_MIN` | `cdc_min` | Minimum chunk size for CDC |
+| `--cdc-min` | `LVMSYNC_DEDUP_CDC_MIN` | `cdc_min` | Minimum chunk size for CDC (must be at least 64 bytes) |
 | `--cdc-avg` | `LVMSYNC_DEDUP_CDC_AVG` | `cdc_avg` | Target average chunk size for CDC |
 | `--cdc-max` | `LVMSYNC_DEDUP_CDC_MAX` | `cdc_max` | Maximum chunk size for CDC |
 | `--bloom_entries` | `LVMSYNC_DEDUP_BLOOM_ENTRIES` | `bloom_entries` | Estimated number of entries for bloom filter |
@@ -799,12 +799,12 @@ Hybrid dedup combines fixed-size and content-defined chunking. Enable it with `-
 
 | Flag (`--cdc-*`) | Environment variable | Config key | Description |
 |------------------|----------------------|------------|-------------|
-| `--cdc-min`      | `LVMSYNC_DEDUP_CDC_MIN`    | `cdc_min`  | Minimum chunk size |
+| `--cdc-min`      | `LVMSYNC_DEDUP_CDC_MIN`    | `cdc_min`  | Minimum chunk size (must be at least 64 bytes) |
 | `--cdc-avg`      | `LVMSYNC_DEDUP_CDC_AVG`    | `cdc_avg`  | Target average chunk size |
 | `--cdc-max`      | `LVMSYNC_DEDUP_CDC_MAX`    | `cdc_max`  | Maximum chunk size |
 
-The three values must be positive and satisfy `--cdc-min ≤ --cdc-avg ≤ --cdc-max`.
-LVMSync aborts when the sizes are non-positive or unordered.
+The three values must be positive, with `--cdc-min` at least 64 bytes, and satisfy `--cdc-min ≤ --cdc-avg ≤ --cdc-max`.
+LVMSync aborts when the sizes are non-positive, below the minimum, or unordered.
 
 The Bloom filter de-duplicates previously seen chunks. Size it with `--bloom_entries` and desired false positive rate via `--bloom_fp_rate`. For an mmap-backed index, `--bloom_mbits` controls the bitmap size in megabits.
 
