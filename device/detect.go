@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kballard/go-shellquote"
 	"go.uber.org/zap"
 
 	"lvmsync_go/lvm"
@@ -66,14 +67,20 @@ func Detect(ctx context.Context, path string, offline bool, typeHint, fsFreezeCm
 			var freezePath, thawPath string
 			var freezeArgs, thawArgs []string
 			if fsFreezeCmd != "" {
-				parts := strings.Fields(fsFreezeCmd)
+				parts, err := shellquote.Split(fsFreezeCmd)
+				if err != nil {
+					return nil, fmt.Errorf("invalid freeze command: %w", err)
+				}
 				if len(parts) > 0 {
 					freezePath = parts[0]
 					freezeArgs = parts[1:]
 				}
 			}
 			if fsThawCmd != "" {
-				parts := strings.Fields(fsThawCmd)
+				parts, err := shellquote.Split(fsThawCmd)
+				if err != nil {
+					return nil, fmt.Errorf("invalid thaw command: %w", err)
+				}
 				if len(parts) > 0 {
 					thawPath = parts[0]
 					thawArgs = parts[1:]
@@ -116,14 +123,20 @@ func Detect(ctx context.Context, path string, offline bool, typeHint, fsFreezeCm
 		var freezePath, thawPath string
 		var freezeArgs, thawArgs []string
 		if fsFreezeCmd != "" {
-			parts := strings.Fields(fsFreezeCmd)
+			parts, err := shellquote.Split(fsFreezeCmd)
+			if err != nil {
+				return nil, fmt.Errorf("invalid freeze command: %w", err)
+			}
 			if len(parts) > 0 {
 				freezePath = parts[0]
 				freezeArgs = parts[1:]
 			}
 		}
 		if fsThawCmd != "" {
-			parts := strings.Fields(fsThawCmd)
+			parts, err := shellquote.Split(fsThawCmd)
+			if err != nil {
+				return nil, fmt.Errorf("invalid thaw command: %w", err)
+			}
 			if len(parts) > 0 {
 				thawPath = parts[0]
 				thawArgs = parts[1:]

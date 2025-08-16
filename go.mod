@@ -4,6 +4,7 @@ go 1.24.3
 
 require (
 	github.com/bits-and-blooms/bloom/v3 v3.7.0
+	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/klauspost/compress v1.18.0
 	github.com/klauspost/cpuid/v2 v2.3.0
 	github.com/pierrec/lz4/v4 v4.1.22

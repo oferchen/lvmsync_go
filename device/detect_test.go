@@ -199,3 +199,43 @@ func TestDetectLVM(t *testing.T) {
 	}
 	dev.Close()
 }
+
+func TestDetectRawCommandQuoting(t *testing.T) {
+	if os.Geteuid() != 0 {
+		t.Skip("requires root")
+	}
+	loop, cleanup := setupLoop(t, 1<<20)
+	defer cleanup()
+	var calls []struct {
+		name string
+		args []string
+	}
+	origExec := execCommand
+	execCommand = func(ctx context.Context, name string, args ...string) *exec.Cmd {
+		calls = append(calls, struct {
+			name string
+			args []string
+		}{name: name, args: append([]string(nil), args...)})
+		return exec.CommandContext(ctx, "/bin/true")
+	}
+	defer func() { execCommand = origExec }()
+	freeze := "/bin/echo 'freeze path with spaces'"
+	thaw := "/bin/echo 'thaw path with spaces'"
+	dev, err := Detect(context.Background(), loop, false, "raw", freeze, thaw, "", 0, 0, zap.NewNop())
+	if err != nil {
+		t.Fatalf("detect: %v", err)
+	}
+	if err := dev.Cleanup(context.Background()); err != nil {
+		t.Fatalf("cleanup: %v", err)
+	}
+	if len(calls) != 2 {
+		t.Fatalf("expected 2 exec calls, got %d", len(calls))
+	}
+	if calls[0].name != "/bin/echo" || len(calls[0].args) != 1 || calls[0].args[0] != "freeze path with spaces" {
+		t.Fatalf("unexpected freeze command: %s %v", calls[0].name, calls[0].args)
+	}
+	if calls[1].name != "/bin/echo" || len(calls[1].args) != 1 || calls[1].args[0] != "thaw path with spaces" {
+		t.Fatalf("unexpected thaw command: %s %v", calls[1].name, calls[1].args)
+	}
+	dev.Close()
+}
