@@ -467,17 +467,17 @@ LVMSYNC_GRPC_GRPC_PORT=9443 LVMSYNC_GRPC_TLS_CERT=cert.pem lvmsync-grpcd
 | `--remote_post_script` | `LVMSYNC_REMOTE_POST_SCRIPT` | `remote_post_script` | Remote script to run after transfer (separate `ssh_timeout`) |
 | `--dedup_strategy` | `LVMSYNC_DEDUP_STRATEGY` | `dedup_strategy` | Deduplication strategy: `none`, `auto`, `checksum`, `rolling_hash`, or `bloom` |
 | `--dedup_state_file` | `LVMSYNC_DEDUP_STATE_FILE` | `dedup_state_file` | Path to deduplication state file |
-| `--cdc-min` | `LVMSYNC_CDC_MIN` | `cdc_min` | Minimum chunk size for CDC |
-| `--cdc-avg` | `LVMSYNC_CDC_AVG` | `cdc_avg` | Target average chunk size for CDC |
-| `--cdc-max` | `LVMSYNC_CDC_MAX` | `cdc_max` | Maximum chunk size for CDC |
-| `--bloom_entries` | `LVMSYNC_BLOOM_ENTRIES` | `bloom_entries` | Estimated number of entries for bloom filter |
-| `--bloom_fp_rate` | `LVMSYNC_BLOOM_FP_RATE` | `bloom_fp_rate` | False positive rate for bloom filter |
-| `--bloom_mbits` | `LVMSYNC_BLOOM_MBITS` | `bloom_mbits` | Bloom filter m bits power |
-| `--compress` | `LVMSYNC_COMPRESS` | `compress` | Compression type: `none`, `lz4`, `zstd`, or `auto` |
-| `--zstd_level` | `LVMSYNC_ZSTD_LEVEL` | `zstd_level` | Zstd compression level (`1-5`) |
-| `--lz4_level` | `LVMSYNC_LZ4_LEVEL` | `lz4_level` | LZ4 compression level: `fast` or `hc` |
-| `--compress_concurrency` | `LVMSYNC_COMPRESS_CONCURRENCY` | `compress_concurrency` | Compression concurrency (0 to use `GOMAXPROCS`) |
-| `--compress_threshold` | `LVMSYNC_COMPRESS_THRESHOLD` | `compress_threshold` | Skip compression when estimated ratio exceeds this value |
+| `--cdc-min` | `LVMSYNC_DEDUP_CDC_MIN` | `cdc_min` | Minimum chunk size for CDC |
+| `--cdc-avg` | `LVMSYNC_DEDUP_CDC_AVG` | `cdc_avg` | Target average chunk size for CDC |
+| `--cdc-max` | `LVMSYNC_DEDUP_CDC_MAX` | `cdc_max` | Maximum chunk size for CDC |
+| `--bloom_entries` | `LVMSYNC_DEDUP_BLOOM_ENTRIES` | `bloom_entries` | Estimated number of entries for bloom filter |
+| `--bloom_fp_rate` | `LVMSYNC_DEDUP_BLOOM_FP_RATE` | `bloom_fp_rate` | False positive rate for bloom filter |
+| `--bloom_mbits` | `LVMSYNC_DEDUP_BLOOM_MBITS` | `bloom_mbits` | Bloom filter m bits power |
+| `--compress` | `LVMSYNC_COMPRESSION_COMPRESS` | `compress` | Compression type: `none`, `lz4`, `zstd`, or `auto` |
+| `--zstd_level` | `LVMSYNC_COMPRESSION_ZSTD_LEVEL` | `zstd_level` | Zstd compression level (`1-5`) |
+| `--lz4_level` | `LVMSYNC_COMPRESSION_LZ4_LEVEL` | `lz4_level` | LZ4 compression level: `fast` or `hc` |
+| `--compress_concurrency` | `LVMSYNC_COMPRESSION_COMPRESS_CONCURRENCY` | `compress_concurrency` | Compression concurrency (0 to use `GOMAXPROCS`) |
+| `--compress_threshold` | `LVMSYNC_COMPRESSION_COMPRESS_THRESHOLD` | `compress_threshold` | Skip compression when estimated ratio exceeds this value |
 | `--skip_snapshot_creation` | `LVMSYNC_SKIP_SNAPSHOT_CREATION` | `skip_snapshot_creation` | Skip automatic snapshot creation |
 | `--skip_disk_check` | `LVMSYNC_SKIP_DISK_CHECK` | `skip_disk_check` | Skip disk space check before snapshot creation |
 | `--snapshot_size` | `LVMSYNC_SNAPSHOT_SIZE` | `snapshot_size` | Snapshot size (e.g., `20G` or `20%`) |
@@ -713,9 +713,9 @@ Hybrid dedup combines fixed-size and content-defined chunking. Enable it with `-
 
 | Flag (`--cdc-*`) | Environment variable | Config key | Description |
 |------------------|----------------------|------------|-------------|
-| `--cdc-min`      | `LVMSYNC_CDC_MIN`    | `cdc_min`  | Minimum chunk size |
-| `--cdc-avg`      | `LVMSYNC_CDC_AVG`    | `cdc_avg`  | Target average chunk size |
-| `--cdc-max`      | `LVMSYNC_CDC_MAX`    | `cdc_max`  | Maximum chunk size |
+| `--cdc-min`      | `LVMSYNC_DEDUP_CDC_MIN`    | `cdc_min`  | Minimum chunk size |
+| `--cdc-avg`      | `LVMSYNC_DEDUP_CDC_AVG`    | `cdc_avg`  | Target average chunk size |
+| `--cdc-max`      | `LVMSYNC_DEDUP_CDC_MAX`    | `cdc_max`  | Maximum chunk size |
 
 The three values must be positive and satisfy `--cdc-min ≤ --cdc-avg ≤ --cdc-max`.
 LVMSync aborts when the sizes are non-positive or unordered.
@@ -734,9 +734,9 @@ Environment:
 
 ```sh
 LVMSYNC_DEDUP=hybrid \
-LVMSYNC_CDC_MIN=4096 \
-LVMSYNC_CDC_AVG=65536 \
-LVMSYNC_CDC_MAX=1048576 \
+LVMSYNC_DEDUP_CDC_MIN=4096 \
+LVMSYNC_DEDUP_CDC_AVG=65536 \
+LVMSYNC_DEDUP_CDC_MAX=1048576 \
 lvmsync run /dev/vg0/snap0 /mnt/backup
 ```
 
@@ -1263,7 +1263,7 @@ lvmsync run --compress auto --zstd_level 2 --compress_threshold 0.85 /dev/vg0/sn
 Environment:
 
 ```sh
-LVMSYNC_COMPRESS=auto LVMSYNC_ZSTD_LEVEL=2 LVMSYNC_COMPRESS_THRESHOLD=0.85 lvmsync run /dev/vg0/snap0 /dev/vg0/data
+LVMSYNC_COMPRESSION_COMPRESS=auto LVMSYNC_COMPRESSION_ZSTD_LEVEL=2 LVMSYNC_COMPRESSION_COMPRESS_THRESHOLD=0.85 lvmsync run /dev/vg0/snap0 /dev/vg0/data
 ```
 
 YAML:
