@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"lvmsync_go/config"
+	config "lvmsync_go/internal/config"
 )
 
 func TestNewLoggerSamplingDefaults(t *testing.T) {

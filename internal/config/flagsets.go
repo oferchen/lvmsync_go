@@ -151,6 +151,8 @@ func initLVMFlags(cfg *Config) *pflag.FlagSet {
 	fs.String("snapshot_size", cfg.SnapshotSize, "Snapshot size (bytes or percentage)")
 	fs.String("lvm-escalation", cfg.LVMEscalation, "Command to use for privilege escalation")
 	fs.Duration("lvm_timeout", cfg.LVMTimeout, "Timeout for LVM commands")
+	fs.Duration("sig-cache-ttl", cfg.SigCacheTTL, "TTL for LVM signature cache entries")
+	fs.Int("sig-cache-max", cfg.SigCacheMax, "Maximum LVM signature cache entries")
 	fs.String("volume_group", cfg.VolumeGroup, "LVM volume group")
 	fs.String("target_volume_group", cfg.TargetVolumeGroup, "Target LVM volume group")
 	fs.StringSlice("target_vgs", cfg.TargetVGCandidates, "Candidate target VGs for volume selection")

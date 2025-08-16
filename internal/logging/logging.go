@@ -6,7 +6,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"lvmsync_go/config"
+	config "lvmsync_go/internal/config"
 )
 
 // NewLogger builds a production logger with sampling enabled and
