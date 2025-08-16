@@ -138,10 +138,10 @@ func TestInitCompressionFlags(t *testing.T) {
 	fs := initCompressionFlags(cfg)
 	cases := []struct{ name, want string }{
 		{"compress", cfg.Compress},
-		{"zstd_level", strconv.Itoa(cfg.ZstdLevel)},
-		{"lz4_level", cfg.LZ4Level},
+		{"zstd-level", strconv.Itoa(cfg.ZstdLevel)},
+		{"lz4-level", cfg.LZ4Level},
 		{"compress_concurrency", strconv.Itoa(cfg.CompressConcurrency)},
-		{"compress_threshold", strconv.FormatFloat(cfg.CompressThreshold, 'f', -1, 64)},
+		{"compress-threshold", strconv.FormatFloat(cfg.CompressThreshold, 'f', -1, 64)},
 	}
 	for _, tt := range cases {
 		f := fs.Lookup(tt.name)

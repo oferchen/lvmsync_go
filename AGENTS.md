@@ -124,14 +124,14 @@ The `throughput` preset favors maximal transfer rates:
 ## Compression Policy
 
 - Sample 8 KiB from each chunk to estimate the compression ratio.
-- Skip compression when the ratio is greater than or equal to `--compress_threshold`.
-- Auto mode selects LZ4 for chunks under 256 KiB and Zstd level 1 for larger chunks on AVX2-capable CPUs.
-- Choose the algorithm with `--compress {auto|lz4|zstd|none}` and tune levels using `--zstd_level 1..5` or `--lz4_level {fast|hc}`.
+- Skip compression when the ratio is greater than or equal to `--compress-threshold`.
+- Auto mode selects LZ4 for chunks under 256 KiB and Zstd for larger chunks on CPUs with AVX2 or NEON support.
+- Choose the algorithm with `--compress {auto|lz4|zstd|none}` and tune levels using `--zstd-level 1..5` or `--lz4-level {fast|hc}`.
 
 Example configuration:
 
 ```sh
-lvmsync --compress auto --zstd_level 2 --compress_threshold 0.85
+lvmsync --compress auto --zstd-level 2 --compress-threshold 0.85
 ```
 
 ## Performance Libraries
@@ -157,7 +157,7 @@ lvmsync --compress auto --zstd_level 2 --compress_threshold 0.85
 ### Compression
 
 - Detect CPU features before selecting algorithms.
-- Sample 8 KiB per chunk to estimate ratios and honour `--compress_threshold`.
+- Sample 8 KiB per chunk to estimate ratios and honour `--compress-threshold`.
 - Benchmarks must cover algorithm choice and cache resets.
 
 ## Control Plane Flow

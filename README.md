@@ -11,7 +11,7 @@ LVMSync is a high-performance incremental data replication tool for LVM snapshot
 - **Parallel Execution**: Configurable concurrency for optimal performance.
 - **Adaptive Transport Concurrency**: Maintains ~1–2×BDP of in-flight data and can be overridden with `--concurrency`.
 - **Rate-Limiting**: Control bandwidth usage during transfers.
-- **Compression**: Samples 8 KiB per chunk, skipping compression when the ratio exceeds a threshold. Auto mode selects LZ4 for chunks <256 KiB and Zstd level 1 for larger chunks on CPUs with AVX2 or NEON support.
+- **Compression**: Samples 8 KiB per chunk and skips compression when the ratio exceeds `--compress-threshold`. Auto mode selects LZ4 for chunks <256 KiB and Zstd for larger chunks on CPUs with AVX2 or NEON support. Compression levels are tuned via `--lz4-level` and `--zstd-level`.
 - **Checksum Verification**: Ensures data integrity using SHA-256 or BLAKE3, automatically selecting BLAKE3 on CPUs with AES-NI, AVX2/AVX-512, or NEON.
 - **Native LVM2 Integration**: Uses Go bindings to `liblvm2cmd` instead of shelling out.
 - **Generic Block Device Support**: Access raw `/dev/*` paths and regular files (including loopback images) through a unified device abstraction.
@@ -489,10 +489,10 @@ LVMSYNC_GRPC_GRPC_PORT=9443 LVMSYNC_GRPC_TLS_CERT=cert.pem lvmsync-grpcd
 | `--bloom_fp_rate` | `LVMSYNC_DEDUP_BLOOM_FP_RATE` | `bloom_fp_rate` | False positive rate for bloom filter |
 | `--bloom_mbits` | `LVMSYNC_DEDUP_BLOOM_MBITS` | `bloom_mbits` | Bloom filter m bits power |
 | `--compress` | `LVMSYNC_COMPRESSION_COMPRESS` | `compress` | Compression type: `none`, `lz4`, `zstd`, or `auto` |
-| `--zstd_level` | `LVMSYNC_COMPRESSION_ZSTD_LEVEL` | `zstd_level` | Zstd compression level (`1-5`) |
-| `--lz4_level` | `LVMSYNC_COMPRESSION_LZ4_LEVEL` | `lz4_level` | LZ4 compression level: `fast` or `hc` |
+| `--zstd-level` | `LVMSYNC_COMPRESSION_ZSTD_LEVEL` | `zstd_level` | Zstd compression level (`1-5`) |
+| `--lz4-level` | `LVMSYNC_COMPRESSION_LZ4_LEVEL` | `lz4_level` | LZ4 compression level: `fast` or `hc` |
 | `--compress_concurrency` | `LVMSYNC_COMPRESSION_COMPRESS_CONCURRENCY` | `compress_concurrency` | Compression concurrency (0 to use `GOMAXPROCS`) |
-| `--compress_threshold` | `LVMSYNC_COMPRESSION_COMPRESS_THRESHOLD` | `compress_threshold` | Skip compression when estimated ratio exceeds this value |
+| `--compress-threshold` | `LVMSYNC_COMPRESSION_COMPRESS_THRESHOLD` | `compress_threshold` | Skip compression when estimated ratio exceeds this value |
 | `--skip_snapshot_creation` | `LVMSYNC_SKIP_SNAPSHOT_CREATION` | `skip_snapshot_creation` | Skip automatic snapshot creation |
 | `--skip_disk_check` | `LVMSYNC_SKIP_DISK_CHECK` | `skip_disk_check` | Skip disk space check before snapshot creation |
 | `--snapshot_size` | `LVMSYNC_SNAPSHOT_SIZE` | `snapshot_size` | Snapshot size (e.g., `20G` or `20%`) |
@@ -627,7 +627,10 @@ ssh_host: backup          # SSH Options
 ssh_user: backup          # SSH Options
 remote_pre_script: pre.sh # Remote Options
 dedup_strategy: bloom     # Deduplication Options
-compress: zstd            # Compression Options
+compress: auto            # Compression Options
+zstd_level: 3             # Compression Options
+lz4_level: hc             # Compression Options
+compress_threshold: 0.9   # Compression Options
 snapshot_size: 20%        # LVM Options
 grpc_listen: ":8443"      # gRPC Options
 ```
@@ -639,7 +642,9 @@ Use `--config` to point to a different file.
 With flags:
 
 ```sh
-lvmsync run --parallel 8 --snapshot_size 10% /dev/vg0/snap0 /mnt/backup
+lvmsync run --parallel 8 \
+  --compress auto --zstd-level 3 --lz4-level hc --compress-threshold 0.9 \
+  --snapshot_size 10% /dev/vg0/snap0 /mnt/backup
 ```
 
 With environment variables:
@@ -737,7 +742,7 @@ LVMSync aborts when the sizes are non-positive or unordered.
 
 The Bloom filter de-duplicates previously seen chunks. Size it with `--bloom_entries` and desired false positive rate via `--bloom_fp_rate`. For an mmap-backed index, `--bloom_mbits` controls the bitmap size in megabits.
 
-Compression samples 8 KiB from each chunk and skips when the estimated ratio exceeds `--compress_threshold`. `--compress auto` selects LZ4 for chunks under 256 KiB and Zstd for larger chunks when AVX2 or NEON is available, falling back to LZ4 otherwise.
+Compression samples 8 KiB from each chunk and skips when the estimated ratio exceeds `--compress-threshold`. `--compress auto` selects LZ4 for chunks under 256 KiB and Zstd for larger chunks when AVX2 or NEON is available, falling back to LZ4 otherwise.
 
 CLI:
 
@@ -1037,10 +1042,10 @@ timeouts or cancellations are reported separately.
 | Option                   | Description                                                       | Default  |
 | ------------------------ | ----------------------------------------------------------------- | -------- |
 | `--compress`             | Compression type (options: `"none"`, `"lz4"`, `"zstd"`, `"auto"`) | `"auto"` |
-| `--zstd_level`           | Zstd compression level (`1-5`)                                   | `1`      |
-| `--lz4_level`            | LZ4 compression level: `fast` or `hc`                            | `fast`   |
+| `--zstd-level`           | Zstd compression level (`1-5`)                                   | `1`      |
+| `--lz4-level`            | LZ4 compression level: `fast` or `hc`                            | `fast`   |
 | `--compress_concurrency` | Number of goroutines used for compression (`0` to use all cores)  | `0`      |
-| `--compress_threshold`   | Skip compression when estimated ratio exceeds this value         | `0.9`    |
+| `--compress-threshold`   | Skip compression when estimated ratio exceeds this value         | `0.9`    |
 
 #### LVM Options
 
@@ -1106,7 +1111,7 @@ lvmsync run --apply dumpfile.lvm /dev/vg0/data
 Estimate a sample of each chunk and compress only when it's worthwhile:
 
 ```sh
-lvmsync run --compress auto --zstd_level 2 --compress_threshold 0.85 /dev/vg0/snap0 /dev/vg0/data
+lvmsync run --compress auto --zstd-level 2 --compress-threshold 0.85 /dev/vg0/snap0 /dev/vg0/data
 ```
 
 #### Rate Limiting
@@ -1267,16 +1272,16 @@ LVMSync automatically reloads this state file on startup. Delete it to reset ded
 #### Compression
 
 LVMSync samples 8 KiB from each chunk to gauge compression efficiency. If the
-compressed sample ratio is greater than or equal to `--compress_threshold`, the
+compressed sample ratio is greater than or equal to `--compress-threshold`, the
 chunk is sent uncompressed. In `auto` mode, chunks smaller than 256 KiB use LZ4,
 and larger ones select Zstd (levels 1–3) when AVX2 or NEON is available;
 otherwise LZ4.
-Levels can be tuned with `--zstd_level` (1-5) or `--lz4_level` (`fast` or `hc`).
+Levels can be tuned with `--zstd-level` (1-5) or `--lz4-level` (`fast` or `hc`).
 
 CLI:
 
 ```sh
-lvmsync run --compress auto --zstd_level 2 --compress_threshold 0.85 /dev/vg0/snap0 /dev/vg0/data
+lvmsync run --compress auto --zstd-level 2 --compress-threshold 0.85 /dev/vg0/snap0 /dev/vg0/data
 ```
 
 Environment:

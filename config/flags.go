@@ -134,10 +134,10 @@ func initDedupFlags(cfg *Config) *pflag.FlagSet {
 func initCompressionFlags(cfg *Config) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("Compression Options", pflag.ExitOnError)
 	fs.String("compress", cfg.Compress, fmt.Sprintf("Compression algorithm: %v", SupportedCompression))
-	fs.Int("zstd_level", cfg.ZstdLevel, "Zstd compression level (1-5)")
-	fs.String("lz4_level", cfg.LZ4Level, "LZ4 compression level: fast or hc")
+	fs.Int("zstd-level", cfg.ZstdLevel, "Zstd compression level (1-5)")
+	fs.String("lz4-level", cfg.LZ4Level, "LZ4 compression level: fast or hc")
 	fs.Int("compress_concurrency", cfg.CompressConcurrency, "Compression concurrency")
-	fs.Float64("compress_threshold", cfg.CompressThreshold, "Compression ratio threshold")
+	fs.Float64("compress-threshold", cfg.CompressThreshold, "Skip compression when estimated ratio exceeds this value")
 	return fs
 }
 
