@@ -124,6 +124,25 @@ Configuration can be supplied via flags, environment variables prefixed with
 `LVMSYNC_GRPC_`, or a `grpcd.yaml` file; flag values override environment
 variables, which override configuration files.
 
+## lvmsync daemon
+
+The `lvmsyncd` binary loads optional modules and listens on one or more URIs. Use `--listen` repeatedly to specify addresses and `--module` to load plugin modules. `--once` exits after initialization.
+
+Configuration can come from flags, `LVMSYNC_DAEMON_` environment variables, or a `lvmsyncd.yaml` file. Multi-value environment variables are comma-separated.
+
+| Flag | Environment variable | Config key | Description |
+|------|----------------------|------------|-------------|
+| `--listen` | `LVMSYNC_DAEMON_LISTEN` | `listen` | comma-separated list of listen URIs |
+| `--module` | `LVMSYNC_DAEMON_MODULE` | `module` | comma-separated module paths |
+| `--once` | `LVMSYNC_DAEMON_ONCE` | `once` | run once then exit |
+| `--sudo-helper` | `LVMSYNC_DAEMON_SUDO_HELPER` | `sudo-helper` | optional sudo helper path |
+
+Example:
+
+```sh
+LVMSYNC_DAEMON_LISTEN=unix:///run/lvmsyncd.sock,tcp://:9000 lvmsyncd --module ./mod.so
+```
+
 ## Resume and Verify Workflows
 
 Resume interrupted transfers with a state file:
@@ -181,6 +200,7 @@ LVMSync is organized into modular packages to keep concerns separated:
 - `cmd/root` – configures the application and routes to subcommands.
 - `cmd/apply` – applies streamed data to destination devices.
 - `cmd/lvmsync` – CLI orchestrator with a `signals` subpackage for signal handling and cleanup.
+- `cmd/lvmsyncd` – module loading daemon accepting multiple listen URIs.
 - `cmd/grpcd` – standalone gRPC daemon exposing LVMSync operations remotely.
 
 This structure allows individual packages to be developed and tested in isolation.
@@ -491,9 +511,15 @@ Environment variables for the gRPC daemon use the `LVMSYNC_GRPC_` prefix with da
 LVMSYNC_GRPC_GRPC_PORT=9443 LVMSYNC_GRPC_TLS_CERT=cert.pem lvmsync-grpcd
 ```
 
+Environment variables for the lvmsync daemon use the `LVMSYNC_DAEMON_` prefix. Multi-value settings are comma-separated:
+
+```sh
+LVMSYNC_DAEMON_LISTEN=unix:///run/lvmsyncd.sock,tcp://:9000 lvmsyncd
+```
+
 Grouped options use dedicated prefixes: `LVMSYNC_DEDUP_`,
-`LVMSYNC_COMPRESSION_`, `LVMSYNC_TRANSPORT_`, `LVMSYNC_LVM_`, and
-`LVMSYNC_GRPC_`. For example:
+`LVMSYNC_COMPRESSION_`, `LVMSYNC_TRANSPORT_`, `LVMSYNC_LVM_`, `LVMSYNC_GRPC_`, and
+`LVMSYNC_DAEMON_`. For example:
 
 ```sh
 LVMSYNC_LVM_SNAPSHOT_SIZE=25% lvmsync run /dev/vg0/snap0 /mnt/backup
