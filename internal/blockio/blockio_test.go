@@ -3,6 +3,7 @@ package blockio
 import (
 	"bytes"
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -90,4 +91,39 @@ func TestWritePhysicalMisaligned(t *testing.T) {
 	if f.Direct() {
 		t.Fatalf("expected fallback for physical misalignment")
 	}
+}
+
+func TestOpenNonexistentPath(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "missing")
+	if _, err := Open(path, false, false); err == nil {
+		t.Fatalf("expected error for nonexistent path")
+	}
+}
+
+func TestOpenBlockDevice(t *testing.T) {
+	entries, err := os.ReadDir("/dev")
+	if err != nil {
+		t.Fatalf("readdir /dev: %v", err)
+	}
+	var dev string
+	for _, e := range entries {
+		p := filepath.Join("/dev", e.Name())
+		fi, err := os.Stat(p)
+		if err != nil {
+			continue
+		}
+		mode := fi.Mode()
+		if mode&os.ModeDevice != 0 && mode&os.ModeCharDevice == 0 {
+			dev = p
+			break
+		}
+	}
+	if dev == "" {
+		t.Skip("no block device available")
+	}
+	f, err := Open(dev, false, false)
+	if err != nil {
+		t.Fatalf("open block device %s: %v", dev, err)
+	}
+	f.Close()
 }
