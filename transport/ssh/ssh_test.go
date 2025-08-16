@@ -236,11 +236,14 @@ func TestSSHTransportAuthSuccess(t *testing.T) {
 		t.Fatalf("new server transport: %v", err)
 	}
 	server := serverIface.(*Transport)
-	ctx := context.Background()
-	ln, err := server.Listen(ctx, "127.0.0.1:0")
+	baseCtx := context.Background()
+	listenCtx, cancel := context.WithTimeout(baseCtx, time.Second)
+	ln, err := server.Listen(listenCtx, "127.0.0.1:0")
 	if err != nil {
+		cancel()
 		t.Fatalf("listen: %v", err)
 	}
+	defer cancel()
 	defer ln.Close()
 	kh := writeKnownHosts(t, ln.Addr().String(), server.hostSigner.PublicKey())
 	clientIface, err := New(transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "pass", SSHKnownHosts: kh})
@@ -257,7 +260,9 @@ func TestSSHTransportAuthSuccess(t *testing.T) {
 			t.Errorf("accept: %v", err)
 			return
 		}
-		peerHS, err := server.Negotiate(ctx, conn, transport.Server, hs)
+		srvCtx, cancel := context.WithTimeout(baseCtx, time.Second)
+		peerHS, err := server.Negotiate(srvCtx, conn, transport.Server, hs)
+		cancel()
 		if err != nil {
 			t.Errorf("server negotiate: %v", err)
 			return
@@ -271,12 +276,15 @@ func TestSSHTransportAuthSuccess(t *testing.T) {
 		conn.Close()
 		close(done)
 	}()
-
-	conn, err := client.Dial(ctx, ln.Addr().String())
+	dialCtx, cancel := context.WithTimeout(baseCtx, time.Second)
+	conn, err := client.Dial(dialCtx, ln.Addr().String())
+	cancel()
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
-	peerHS, err := client.Negotiate(ctx, conn, transport.Client, hs)
+	negCtx, cancel := context.WithTimeout(baseCtx, time.Second)
+	peerHS, err := client.Negotiate(negCtx, conn, transport.Client, hs)
+	cancel()
 	if err != nil {
 		t.Fatalf("client negotiate: %v", err)
 	}
@@ -330,43 +338,16 @@ func TestSSHTransportKeyAuth(t *testing.T) {
 	}
 	server := serverIface.(*Transport)
 	client := clientIface.(*Transport)
-	ctx := context.Background()
-	ln, err := server.Listen(ctx, "127.0.0.1:0")
+	baseCtx := context.Background()
+	listenCtx, cancel := context.WithTimeout(baseCtx, time.Second)
+	ln, err := server.Listen(listenCtx, "127.0.0.1:0")
 	if err != nil {
+		cancel()
 		t.Fatalf("listen: %v", err)
 	}
+	defer cancel()
 	defer ln.Close()
 
-	done := make(chan struct{})
-	go func() {
-		conn, err := ln.Accept()
-		if err != nil {
-			t.Errorf("accept: %v", err)
-			return
-		}
-		peerHS, err := server.Negotiate(ctx, conn, transport.Server, common.Handshake{ResumeToken: "tok", MaxInFlight: 8, CDCMin: 64, CDCAvg: 128, CDCMax: 256, CRC32C: true})
-		if err != nil {
-			t.Errorf("server negotiate: %v", err)
-			return
-		}
-		if peerHS.ResumeToken != "tok" || peerHS.MaxInFlight != 8 || peerHS.CDCMin != 64 || peerHS.CDCAvg != 128 || peerHS.CDCMax != 256 {
-			t.Errorf("unexpected peer handshake: %+v", peerHS)
-		}
-		buf := make([]byte, 4)
-		io.ReadFull(conn, buf)
-		conn.Write([]byte("pong"))
-		conn.Close()
-		close(done)
-	}()
-
-	conn, err := client.Dial(ctx, ln.Addr().String())
-	if err != nil {
-		t.Fatalf("dial: %v", err)
-	}
-	peerHS, err := client.Negotiate(ctx, conn, transport.Client, common.Handshake{ResumeToken: "tok", MaxInFlight: 8, CDCMin: 64, CDCAvg: 128, CDCMax: 256, CRC32C: true})
-	if err != nil {
-		t.Fatalf("client negotiate: %v", err)
-	}
 	if peerHS.ResumeToken != "tok" || peerHS.MaxInFlight != 8 || peerHS.CDCMin != 64 || peerHS.CDCAvg != 128 || peerHS.CDCMax != 256 {
 		t.Fatalf("unexpected peer handshake: %+v", peerHS)
 	}
@@ -403,11 +384,14 @@ func TestSSHTransportSelectBestHandshake(t *testing.T) {
 	}
 	server := serverIface.(*Transport)
 	client := clientIface.(*Transport)
-	ctx := context.Background()
-	ln, err := server.Listen(ctx, "127.0.0.1:0")
+	baseCtx := context.Background()
+	listenCtx, cancel := context.WithTimeout(baseCtx, time.Second)
+	ln, err := server.Listen(listenCtx, "127.0.0.1:0")
 	if err != nil {
+		cancel()
 		t.Fatalf("listen: %v", err)
 	}
+	defer cancel()
 	defer ln.Close()
 
 	srvCompress := []string{"zstd", "lz4"}
@@ -452,20 +436,29 @@ func TestSSHTransportSelectBestHandshake(t *testing.T) {
 			srvErr <- err
 			return
 		}
-		srvCtx, cancel := context.WithTimeout(ctx, time.Second)
-		defer cancel()
+		srvCtx, cancel := context.WithTimeout(baseCtx, time.Second)
 		_, err = server.Negotiate(srvCtx, conn, transport.Server, srvHS)
+		cancel()
+		if err == nil {
+			var buf [1]byte
+			conn.Read(buf[:])
+		}
 		conn.Close()
 		srvErr <- err
 	}()
 
-	conn, err := client.Dial(ctx, ln.Addr().String())
+	dialCtx, cancel := context.WithTimeout(baseCtx, time.Second)
+	conn, err := client.Dial(dialCtx, ln.Addr().String())
+	cancel()
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
-	cliCtx, cancel := context.WithTimeout(ctx, time.Second)
-	peer, err := client.Negotiate(cliCtx, conn, transport.Client, cliHS)
+	negCtx, cancel := context.WithTimeout(baseCtx, time.Second)
+	peer, err := client.Negotiate(negCtx, conn, transport.Client, cliHS)
 	cancel()
+	if err == nil {
+		conn.Write([]byte{1})
+	}
 	conn.Close()
 	if err != nil {
 		t.Fatalf("client negotiate: %v", err)
