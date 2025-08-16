@@ -32,13 +32,16 @@ type Chunker struct {
 
 	// reusable buffer to avoid per-chunk allocations
 	buf []byte
+
+	// gear table allowing deterministic seeding
+	gear [256]uint64
 }
 
 // NewChunker returns a new chunker configured with the provided
 // minimum, average, and maximum chunk sizes. All sizes are in bytes. The mask values are
 // derived from the average size.
 // The sizes must be positive and ordered such that minSize ≤ avgSize ≤ maxSize.
-func NewChunker(minSize, avgSize, maxSize int) (*Chunker, error) {
+func NewChunker(minSize, avgSize, maxSize int, seeds ...uint64) (*Chunker, error) {
 	if minSize <= 0 || avgSize <= 0 || maxSize <= 0 {
 		return nil, fmt.Errorf("chunk sizes must be positive: min=%d avg=%d max=%d", minSize, avgSize, maxSize)
 	}
@@ -47,6 +50,13 @@ func NewChunker(minSize, avgSize, maxSize int) (*Chunker, error) {
 	}
 
 	c := &Chunker{Min: minSize, Avg: avgSize, Max: maxSize}
+	copy(c.gear[:], defaultGear[:])
+	if len(seeds) > 0 {
+		seed := seeds[0]
+		for i := range c.gear {
+			c.gear[i] ^= seed
+		}
+	}
 	// derive masks for different entropy levels. The mask controls the
 	// probability of finding a boundary. Higher mask -> larger chunks.
 	bits := uint64(math.Log2(float64(avgSize)))
@@ -114,7 +124,7 @@ func (c *Chunker) NextChunk(r io.Reader) (Chunk, error) {
 		buf[size] = b[0]
 		size++
 		// update rolling hash
-		h = (h << 1) + gear[b[0]]
+		h = (h << 1) + c.gear[b[0]]
 		// update entropy window and determine mask
 		e := c.updateEntropy(b[0], &counts)
 		mask := c.selectMask(e)
@@ -151,8 +161,8 @@ func (c *Chunker) selectMask(e float64) uint64 {
 
 // FastCDC chunks the entirety of r using the FastCDC algorithm with the
 // provided size targets. It returns all detected chunks.
-func FastCDC(r io.Reader, min, avg, max int) ([]Chunk, error) {
-	ch, err := NewChunker(min, avg, max)
+func FastCDC(r io.Reader, min, avg, max int, seeds ...uint64) ([]Chunk, error) {
+	ch, err := NewChunker(min, avg, max, seeds...)
 	if err != nil {
 		return nil, err
 	}
@@ -182,7 +192,7 @@ func FastCDC(r io.Reader, min, avg, max int) ([]Chunk, error) {
 
 // gear table of 256 random 64-bit values as specified by FastCDC.
 // gear table generated using Python random seed 1 (FastCDC reference).
-var gear = [256]uint64{
+var defaultGear = [256]uint64{
 	0x91b7584a2265b1f5,
 	0xcd613e30d8f16adf,
 	0x1027c4d1c386bbc4,

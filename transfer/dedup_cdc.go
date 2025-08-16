@@ -37,7 +37,7 @@ type CDCDedup struct {
 // NewCDCDedup constructs a CDCDedup using the tunables provided in cfg.
 func NewCDCDedup(cfg *config.Config) (*CDCDedup, error) {
 	bf := bloom.NewWithEstimates(uint(cfg.BloomEntries), cfg.BloomFpRate)
-	ch, err := dedup.NewChunker(cfg.CDCMin, cfg.CDCAvg, cfg.CDCMax)
+	ch, err := dedup.NewChunker(cfg.CDCMin, cfg.CDCAvg, cfg.CDCMax, cfg.ChunkSeed)
 	if err != nil {
 		return nil, err
 	}

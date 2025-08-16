@@ -91,3 +91,21 @@ func TestFastCDCDataIsolation(t *testing.T) {
 		t.Fatalf("modifying first chunk altered second chunk data")
 	}
 }
+
+func TestChunkerSeedAffectsBoundaries(t *testing.T) {
+	data := make([]byte, 1024)
+	for i := range data {
+		data[i] = byte(i % 256)
+	}
+	chunks1, err := FastCDC(bytes.NewReader(data), 64, 128, 256, 1)
+	if err != nil {
+		t.Fatalf("FastCDC seed1: %v", err)
+	}
+	chunks2, err := FastCDC(bytes.NewReader(data), 64, 128, 256, 2)
+	if err != nil {
+		t.Fatalf("FastCDC seed2: %v", err)
+	}
+	if reflect.DeepEqual(chunks1, chunks2) {
+		t.Fatalf("expected different chunk boundaries with different seeds")
+	}
+}

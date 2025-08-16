@@ -122,6 +122,7 @@ func initDedupFlags(cfg *Config) *pflag.FlagSet {
 	fs.Int("cdc-min", cfg.CDCMin, "Minimum chunk size for CDC")
 	fs.Int("cdc-avg", cfg.CDCAvg, "Average chunk size for CDC")
 	fs.Int("cdc-max", cfg.CDCMax, "Maximum chunk size for CDC")
+	fs.Uint64("chunk-seed", cfg.ChunkSeed, "Seed for chunking")
 	fs.String("dedup_strategy", cfg.DedupStrategy, fmt.Sprintf("Deduplication strategy: %v", SupportedDedupStrategies))
 	fs.String("dedup_state_file", cfg.DedupStateFile, "Path to deduplication state file")
 	fs.Int("bloom_entries", cfg.BloomEntries, "Bloom filter entries")

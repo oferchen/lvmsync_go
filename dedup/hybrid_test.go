@@ -8,7 +8,10 @@ import (
 
 func TestHybridChunkerProducesChunks(t *testing.T) {
 	data := bytes.Repeat([]byte("a"), 1<<20)
-	h := NewHybridChunker(1<<16, 64, 128, 256)
+	h, err := NewHybridChunker(1<<16, 64, 128, 256)
+	if err != nil {
+		t.Fatalf("NewHybridChunker: %v", err)
+	}
 	r := bytes.NewReader(data)
 	count := 0
 	for {
@@ -32,7 +35,10 @@ func TestHybridChunkerProducesChunks(t *testing.T) {
 func TestHybridChunkerBufferOwnership(t *testing.T) {
 	fixed := 1 << 16
 	data := bytes.Repeat([]byte("a"), fixed*2)
-	h := NewHybridChunker(fixed, 64, 128, 256)
+	h, err := NewHybridChunker(fixed, 64, 128, 256)
+	if err != nil {
+		t.Fatalf("NewHybridChunker: %v", err)
+	}
 	r := bytes.NewReader(data)
 
 	c1, err := h.NextChunk(r)
@@ -71,5 +77,17 @@ func TestHybridChunkerBufferOwnership(t *testing.T) {
 	}
 	if !bytes.Equal(c3.Data, data[offset:offset+c3.Length]) {
 		t.Fatalf("unexpected chunk data")
+	}
+}
+
+func TestHybridChunkerValidation(t *testing.T) {
+	if _, err := NewHybridChunker(0, 1, 2, 3); err == nil {
+		t.Fatalf("expected error for zero fixed size")
+	}
+	if _, err := NewHybridChunker(1, 4, 3, 5); err == nil {
+		t.Fatalf("expected error for min>avg")
+	}
+	if _, err := NewHybridChunker(1, 2, 3, 2); err == nil {
+		t.Fatalf("expected error for avg>max")
 	}
 }
