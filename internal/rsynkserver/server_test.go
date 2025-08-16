@@ -41,6 +41,21 @@ func (m *memDevice) WriteAt(p []byte, off int64) (int, error) {
 func (m *memDevice) ReadAt(p []byte, off int64) (int, error) {
 	if off >= int64(len(m.buf)) {
 		return 0, io.EOF
+
+func TestHandleApplyDelta(t *testing.T) {
+	c1, c2 := net.Pipe()
+	defer c1.Close()
+	defer c2.Close()
+
+	dev := &memDevice{}
+	srv := New(dev)
+	ctx := context.Background()
+	errCh := make(chan error)
+	go func() { errCh <- srv.Handle(ctx, rsynkwire.NewStream(c2, maxFrame)) }()
+
+	cl := rsynkwire.NewClient(rsynkwire.NewStream(c1, maxFrame))
+	if err := cl.SendDelta(0, []byte("hello")); err != nil {
+		t.Fatalf("SendDelta: %v", err)
 	}
 	n := copy(p, m.buf[off:])
 	if n < len(p) {
