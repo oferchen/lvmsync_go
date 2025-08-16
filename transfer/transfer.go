@@ -1,17 +1,24 @@
 package transfer
 
 import (
+	"bytes"
+	"context"
+	"encoding/binary"
 	"encoding/gob"
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/zeebo/blake3"
 	"go.uber.org/zap"
 
 	"lvmsync_go/common"
 	"lvmsync_go/config"
+	"lvmsync_go/device"
+	manifestpkg "lvmsync_go/manifest"
 )
 
 // Transfer encapsulates transfer state shared across operations.
@@ -174,4 +181,85 @@ func (t *Transfer) DumpChanges(cfg *config.Config, snapshot, source string, out 
 	}
 	t.Logger.Info("Deduplication disabled, performing full block transfer")
 	return t.DumpChangesSequential(cfg, snapshot, source, out)
+}
+
+const manifestHeaderSize = 136
+
+func manifestHeaderMAC(h *manifestpkg.Header) [32]byte {
+	var buf [manifestHeaderSize - 32]byte
+	binary.LittleEndian.PutUint32(buf[0:4], h.Version)
+	binary.LittleEndian.PutUint32(buf[4:8], h.BlockSize)
+	binary.LittleEndian.PutUint64(buf[8:16], h.SizeBytes)
+	binary.LittleEndian.PutUint64(buf[16:24], h.ChunkCount)
+	binary.LittleEndian.PutUint32(buf[24:28], h.MinChunkSize)
+	binary.LittleEndian.PutUint32(buf[28:32], h.AvgChunkSize)
+	binary.LittleEndian.PutUint32(buf[32:36], h.MaxChunkSize)
+	binary.LittleEndian.PutUint32(buf[36:40], h.HybridFixedSize)
+	copy(buf[40:], h.DeviceID[:])
+	return blake3.Sum256(buf[:])
+}
+
+func readManifestHeader(path string) (*manifestpkg.Header, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	var hdr manifestpkg.Header
+	if err := binary.Read(f, binary.LittleEndian, &hdr); err != nil {
+		return nil, fmt.Errorf("read manifest header: %w", err)
+	}
+	if mac := manifestHeaderMAC(&hdr); !bytes.Equal(mac[:], hdr.MAC[:]) {
+		return nil, fmt.Errorf("manifest: header MAC mismatch")
+	}
+	if hdr.Version != manifestpkg.Version {
+		return nil, fmt.Errorf("manifest: version mismatch")
+	}
+	return &hdr, nil
+}
+
+func (t *Transfer) verifyDestination(cfg *config.Config, destPath string) error {
+	if cfg.ManifestPath != "" {
+		hdr, err := readManifestHeader(cfg.ManifestPath)
+		if err != nil {
+			return err
+		}
+		id, err := device.GetDeviceID(context.Background(), destPath)
+		if err != nil {
+			return fmt.Errorf("read destination id: %w", err)
+		}
+		manID := strings.TrimRight(string(hdr.DeviceID[:]), "\x00")
+		if id != manID {
+			t.Logger.Error("device_id_mismatch", zap.String("expected_resource_id", manID), zap.String("resource_id", id))
+			return fmt.Errorf("destination device id %s does not match manifest %s", id, manID)
+		}
+		size, err := device.SizeBytes(context.Background(), destPath)
+		if err != nil {
+			return fmt.Errorf("read destination size: %w", err)
+		}
+		if size != hdr.SizeBytes {
+			t.Logger.Error("device_size_mismatch", zap.Uint64("expected_size_bytes", hdr.SizeBytes), zap.Uint64("size_bytes", size))
+			return fmt.Errorf("destination device size %d does not match manifest %d", size, hdr.SizeBytes)
+		}
+		t.Logger.Info("destination_validated", zap.String("resource_id", id), zap.Uint64("size_bytes", size))
+	} else if cfg.DeviceUUID != "" {
+		id, err := device.GetDeviceID(context.Background(), destPath)
+		if err != nil {
+			return fmt.Errorf("read destination uuid: %w", err)
+		}
+		if id != cfg.DeviceUUID {
+			t.Logger.Error("device_id_mismatch", zap.String("expected_resource_id", cfg.DeviceUUID), zap.String("resource_id", id))
+			return fmt.Errorf("destination device uuid %s does not match expected %s", id, cfg.DeviceUUID)
+		}
+		t.Logger.Info("destination_validated", zap.String("resource_id", id))
+	}
+	mounted, err := device.IsMountedRW(destPath)
+	if err != nil {
+		return fmt.Errorf("check mount status: %w", err)
+	}
+	if mounted && !cfg.Force {
+		t.Logger.Error("destination_mounted_rw", zap.String("path", destPath))
+		return fmt.Errorf("destination device %s is mounted read-write", destPath)
+	}
+	return nil
 }

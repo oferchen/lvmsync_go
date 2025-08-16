@@ -97,3 +97,32 @@ func TestSnapshotLifecycle(t *testing.T) {
 		t.Fatalf("commands = %v, want %v", cmds, want)
 	}
 }
+
+func TestSnapshotLVCreateFailure(t *testing.T) {
+	if os.Geteuid() != 0 {
+		t.Skip("root required")
+	}
+	ctx := context.Background()
+	var cmds []string
+	origCmd := execCommand
+	execCommand = func(ctx context.Context, name string, args ...string) *exec.Cmd {
+		cmds = append(cmds, name+" "+strings.Join(args, " "))
+		if strings.Contains(strings.Join(args, " "), "lvcreate") {
+			return exec.CommandContext(ctx, "false")
+		}
+		return exec.CommandContext(ctx, "true")
+	}
+	defer func() { execCommand = origCmd }()
+
+	origEuid := geteuid
+	geteuid = func() int { return 1 }
+	defer func() { geteuid = origEuid }()
+
+	lvd := &LVMDevice{path: "/dev/vg0/origin", escalation: "doas -n", logger: zap.NewNop()}
+	if _, err := lvd.Snapshot(ctx, "1G"); err == nil {
+		t.Fatalf("expected error from lvcreate failure")
+	}
+	if len(cmds) != 1 || !strings.Contains(cmds[0], "lvcreate") {
+		t.Fatalf("unexpected commands: %v", cmds)
+	}
+}

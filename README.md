@@ -104,6 +104,9 @@ transfer. See [docs/manifest.md](docs/manifest.md) for manifest and verification
   manifests consistent.
 - Network transports default to TLS 1.3; `--allow-insecure` should only be used
   for testing.
+- Apply refuses to write when the destination's identity or size differs from the
+  manifest or when the device is mounted read-write; use `--force` to override the
+  mount check.
 
 ## Supported Platforms
 
