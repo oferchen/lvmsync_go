@@ -13,6 +13,7 @@ import (
 
 	"lvmsync_go/internal/digest"
 	"lvmsync_go/internal/rsynkwire"
+	"lvmsync_go/internal/signaturecache"
 )
 
 // Device represents a writable block device supporting random writes and sync.
@@ -41,16 +42,19 @@ type Server struct {
 	expect  [32]byte
 	logger  *zap.Logger
 	sigHead *rsync.SumHead
+	cache   *signaturecache.Cache
+	vg      string
+	lv      string
 }
 
 // New constructs a Server using the provided Device and logger. The digest
 // algorithm and expected sum are supplied via a later digest frame. A nil
 // logger is replaced with zap.NewNop().
-func New(dev Device, logger *zap.Logger) *Server {
+func New(dev Device, logger *zap.Logger, cache *signaturecache.Cache, vg, lv string) *Server {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
-	return &Server{dev: dev, logger: logger}
+	return &Server{dev: dev, logger: logger, cache: cache, vg: vg, lv: lv}
 }
 
 // Handle consumes frames from the Stream until EOF, applying any delta frames to
@@ -123,6 +127,9 @@ func (s *Server) Handle(ctx context.Context, stream *rsynkwire.Stream) error {
 			}
 			s.alg = string(frame[2 : 2+algLen])
 			copy(s.expect[:], frame[2+algLen:])
+			if s.cache != nil && s.cache.Check(s.vg, s.lv, s.dev.Size(), s.expect[:]) {
+				return nil
+			}
 			continue
 		default:
 			return fmt.Errorf("unknown frame type %q", frame[0])
@@ -203,6 +210,11 @@ func (s *Server) verifyDigest() error {
 			zap.String("expected_digest", fmt.Sprintf("%x", s.expect)),
 			zap.String("actual_digest", fmt.Sprintf("%x", got)))
 		return fmt.Errorf("digest mismatch")
+	}
+	if s.cache != nil {
+		if err := s.cache.Put(s.vg, s.lv, s.dev.Size(), got[:]); err != nil {
+			s.logger.Warn("cache_put_failed", zap.Error(err))
+		}
 	}
 	return nil
 }
