@@ -230,6 +230,35 @@ func TestMatchXXHShortcut(t *testing.T) {
 	}
 }
 
+func TestMatchFlagsMismatch(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "flags.man")
+	idx, err := Create(path, "dev", 4096, 4096, 0, 0, 0, 0)
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	data := make([]byte, 4096)
+	if _, err := rand.Read(data); err != nil {
+		t.Fatalf("rand: %v", err)
+	}
+	xx := xxh3.Hash(data)
+	b3 := blake3.Sum256(data)
+	const flags = 1
+	if err := idx.Set(0, 4096, flags, xx, b3); err != nil {
+		t.Fatalf("Set: %v", err)
+	}
+	called := false
+	if idx.Match(0, 4096, flags^2, xx, func() [32]byte {
+		called = true
+		return b3
+	}) {
+		t.Fatalf("unexpected match")
+	}
+	if called {
+		t.Fatalf("digest function called despite flag mismatch")
+	}
+}
+
 func TestIndexLargeOffsets(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "large.man")
