@@ -185,6 +185,9 @@ func Create(path, deviceID string, size uint64, blockSize, cdcMin, cdcAvg, cdcMa
 	if len(deviceID) > 64 {
 		return nil, fmt.Errorf("manifest: device ID exceeds 64 bytes")
 	}
+	if blockSize == 0 {
+		return nil, fmt.Errorf("manifest: block size must be greater than zero")
+	}
 	chunkCount := (size + uint64(blockSize) - 1) / uint64(blockSize)
 	total := headerSize + entrySize*chunkCount
 	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600)

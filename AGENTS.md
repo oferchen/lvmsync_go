@@ -258,6 +258,7 @@ Run these commands locally before opening a pull request:
  - [x] Transport logging: emit connection handshake and teardown events with `snake_case` fields and ensure callers `defer logger.Sync()`.
 - [ ] Manifest rebuild: add a subcommand to regenerate chunk digests when manifests are missing or out of date, exercising rebuild logic in tests.
 - [ ] Verify command: compare source and destination devices against manifest entries and surface mismatched digests with structured logs.
+- [x] Manifest: return error when block size is 0 during creation.
 - [x] Refactor `cmd/grpcd` to defer `syncLogger` for structured log flushing.
 - [x] Expand unit test coverage for remote execution and client signal handling, and run coverage reports (transports coverage ≥50%).
 

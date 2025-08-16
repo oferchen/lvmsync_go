@@ -85,6 +85,14 @@ func TestDeviceIDLength(t *testing.T) {
 	}
 }
 
+func TestCreateZeroBlockSize(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "zero.man")
+	if _, err := Create(path, "dev", 4096, 0, 0, 0, 0, 0); err == nil {
+		t.Fatalf("expected error for zero block size")
+	}
+}
+
 func TestUpgrade(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "old.man")
