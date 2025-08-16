@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"lvmsync_go/common"
 	"lvmsync_go/config"
@@ -237,6 +238,57 @@ func TestApplyDataMountedDevice(t *testing.T) {
 	if !after.ModTime().Equal(before.ModTime()) || after.Size() != before.Size() {
 		t.Fatalf("expected no writes to destination")
 	}
+	data, err := os.ReadFile(dest)
+	if err != nil {
+		t.Fatalf("read dest: %v", err)
+	}
+	if !bytes.HasPrefix(data, sentinel) {
+		t.Fatalf("destination modified")
+	}
+}
+func TestProcessDumpDataCanceledContext(t *testing.T) {
+	prevLVM := device.SetLVMUUIDFunc(func(context.Context, string) (string, error) { return "", errors.New("no lvm") })
+	defer device.SetLVMUUIDFunc(prevLVM)
+	prevUUID := device.SetUUIDFunc(func(ctx context.Context, _ string) (string, error) {
+		<-ctx.Done()
+		return "", ctx.Err()
+	})
+	defer device.SetUUIDFunc(prevUUID)
+	prevMount := device.SetMountFunc(func(string) (bool, error) { return false, nil })
+	defer device.SetMountFunc(prevMount)
+
+	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{})
+	cfg := &config.Config{BlockSize: 1024, Compress: "none", MaxRetries: 1, DeviceUUID: "id", DedupStrategy: "none", VerifyChecksum: true}
+
+	dest := filepath.Join(t.TempDir(), "dest")
+	f, err := os.Create(dest)
+	if err != nil {
+		t.Fatalf("create dest: %v", err)
+	}
+	sentinel := []byte("original")
+	if _, err := f.Write(sentinel); err != nil {
+		t.Fatalf("write sentinel: %v", err)
+	}
+	if err := f.Truncate(1024); err != nil {
+		t.Fatalf("truncate: %v", err)
+	}
+	f.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	errCh := make(chan error, 1)
+	go func() { errCh <- tr.ProcessDumpData(ctx, cfg, bytes.NewReader(minimalStream(t)), dest) }()
+	time.Sleep(10 * time.Millisecond)
+	cancel()
+
+	select {
+	case err := <-errCh:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("expected context canceled, got %v", err)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("ProcessDumpData did not respect context cancellation")
+	}
+
 	data, err := os.ReadFile(dest)
 	if err != nil {
 		t.Fatalf("read dest: %v", err)

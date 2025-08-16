@@ -17,7 +17,8 @@ func TestHandle(t *testing.T) {
 	errCh := make(chan error, 1)
 	var snap string
 	logger := zap.NewNop()
-	go Handle(context.Background(), cfg, logger, sigCh, &snap, errCh)
+	runner := NewRunner()
+	go runner.Handle(context.Background(), cfg, logger, sigCh, &snap, errCh)
 	sigCh <- os.Interrupt
 	err := <-errCh
 	if err == nil || !strings.Contains(err.Error(), "received signal") {

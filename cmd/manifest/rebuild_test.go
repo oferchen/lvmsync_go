@@ -150,13 +150,11 @@ func TestRunAppliesManifestTimeout(t *testing.T) {
 	}
 	cfg.ManifestTimeout = 2 * time.Second
 	var captured context.Context
-	orig := rebuildFn
-	rebuildFn = func(ctx context.Context, device, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error {
+	r := NewRunnerWithDeps(func(ctx context.Context, device, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error {
 		captured = ctx
 		return nil
-	}
-	defer func() { rebuildFn = orig }()
-	if err := Run(cfg, []string{"rebuild", "/dev/test"}, nil); err != nil {
+	})
+	if err := r.Run(cfg, []string{"rebuild", "/dev/test"}, nil); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 	if _, ok := captured.Deadline(); !ok {
@@ -171,13 +169,11 @@ func TestRunZeroManifestTimeoutUsesBackground(t *testing.T) {
 	}
 	cfg.ManifestTimeout = 0
 	var captured context.Context
-	orig := rebuildFn
-	rebuildFn = func(ctx context.Context, device, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error {
+	r := NewRunnerWithDeps(func(ctx context.Context, device, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error {
 		captured = ctx
 		return nil
-	}
-	defer func() { rebuildFn = orig }()
-	if err := Run(cfg, []string{"rebuild", "/dev/test"}, nil); err != nil {
+	})
+	if err := r.Run(cfg, []string{"rebuild", "/dev/test"}, nil); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 	if _, ok := captured.Deadline(); ok {
@@ -198,13 +194,11 @@ func TestRunContextNoDeadline(t *testing.T) {
 	}
 	cfg.ManifestTimeout = 0
 	var captured context.Context
-	orig := rebuildFn
-	rebuildFn = func(ctx context.Context, device, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error {
+	r := NewRunnerWithDeps(func(ctx context.Context, device, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error {
 		captured = ctx
 		return nil
-	}
-	defer func() { rebuildFn = orig }()
-	if err := Run(cfg, []string{"rebuild", "/dev/test"}, zap.NewNop()); err != nil {
+	})
+	if err := r.Run(cfg, []string{"rebuild", "/dev/test"}, zap.NewNop()); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 	if _, ok := captured.Deadline(); ok {

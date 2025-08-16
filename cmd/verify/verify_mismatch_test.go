@@ -26,8 +26,7 @@ func TestRunLogsMismatchBlock(t *testing.T) {
 	}
 	core, logs := observer.New(zapcore.InfoLevel)
 	logger := zap.New(core)
-	orig := rebuildFn
-	rebuildFn = func(ctx context.Context, device, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error {
+	r := NewRunnerWithDeps(func(ctx context.Context, device, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error {
 		idx, err := manifestpkg.Create(output, "dev", 3, 4096, 0, 0, 0, 0)
 		if err != nil {
 			return err
@@ -37,9 +36,8 @@ func TestRunLogsMismatchBlock(t *testing.T) {
 			return err
 		}
 		return idx.Close()
-	}
-	defer func() { rebuildFn = orig }()
-	err := Run([]string{src, dst}, logger)
+	})
+	err := r.Run([]string{src, dst}, logger)
 	if err == nil {
 		t.Fatalf("expected error")
 	}
@@ -60,8 +58,7 @@ func TestRunLogsMismatchBlockSHA256(t *testing.T) {
 	}
 	core, logs := observer.New(zapcore.InfoLevel)
 	logger := zap.New(core)
-	orig := rebuildFn
-	rebuildFn = func(ctx context.Context, device, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error {
+	r := NewRunnerWithDeps(func(ctx context.Context, device, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error {
 		idx, err := manifestpkg.Create(output, "dev", 3, 4096, 0, 0, 0, 0)
 		if err != nil {
 			return err
@@ -71,9 +68,8 @@ func TestRunLogsMismatchBlockSHA256(t *testing.T) {
 			return err
 		}
 		return idx.Close()
-	}
-	defer func() { rebuildFn = orig }()
-	err := Run([]string{"--checksum_algorithm", "sha256", src, dst}, logger)
+	})
+	err := r.Run([]string{"--checksum_algorithm", "sha256", src, dst}, logger)
 	if err == nil {
 		t.Fatalf("expected error")
 	}

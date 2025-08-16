@@ -6,6 +6,7 @@ import (
 
 	"github.com/bits-and-blooms/bloom/v3"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	"lvmsync_go/config"
 )
@@ -69,5 +70,15 @@ func TestNewDeduplicationStrategyInvalidBloomEntries(t *testing.T) {
 	cfg := &config.Config{DedupStrategy: "bloom", BloomEntries: -1, BloomFpRate: 0.05}
 	if NewDeduplicationStrategy(cfg, zap.NewNop()) != nil {
 		t.Fatal("expected nil strategy for invalid bloom entries")
+	}
+}
+
+func TestNewTransferNilLogger(t *testing.T) {
+	tr := NewTransfer(nil, nil)
+	if tr.Logger == nil {
+		t.Fatal("expected non-nil logger")
+	}
+	if tr.Logger.Core().Enabled(zapcore.InfoLevel) {
+		t.Fatal("expected nop logger")
 	}
 }

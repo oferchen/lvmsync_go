@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 
 	dumpcmd "lvmsync_go/cmd/dump"
+	rootcmd "lvmsync_go/cmd/root"
 )
 
 type failingSyncCore struct {
@@ -36,7 +37,7 @@ func TestSyncLoggerLogsError(t *testing.T) {
 	syncErr := errors.New("sync fail")
 	core, observed := observer.New(zap.InfoLevel)
 	logger := zap.New(&failingSyncCore{Core: core, err: syncErr})
-	syncLogger(logger)
+	rootcmd.SyncLogger(logger)
 	logs := observed.All()
 	if len(logs) != 1 {
 		t.Fatalf("expected one log entry, got %d", len(logs))

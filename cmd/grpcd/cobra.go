@@ -27,8 +27,7 @@ type Options struct {
 	RequestTimeout   time.Duration
 }
 
-// startFunc allows tests to stub server startup.
-var startFunc = func(ctx context.Context, opts Options, logger *zap.Logger) error {
+func startServer(ctx context.Context, opts Options, logger *zap.Logger) error {
 	addr := fmt.Sprintf(":%d", opts.GRPCPort)
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
@@ -58,6 +57,19 @@ var startFunc = func(ctx context.Context, opts Options, logger *zap.Logger) erro
 	ln.Close()
 	cleanup()
 	return nil
+}
+
+// Runner holds dependencies for gRPC server execution.
+type Runner struct {
+	Start func(ctx context.Context, opts Options, logger *zap.Logger) error
+}
+
+// NewRunner returns a Runner with production dependencies.
+func NewRunner() *Runner { return &Runner{Start: startServer} }
+
+// NewRunnerWithDeps creates a Runner with custom start function for tests.
+func NewRunnerWithDeps(start func(ctx context.Context, opts Options, logger *zap.Logger) error) *Runner {
+	return &Runner{Start: start}
 }
 
 func bindFlagSets(cmd *cobra.Command, v *viper.Viper) {
@@ -110,7 +122,7 @@ func loadConfig(v *viper.Viper) (Options, error) {
 }
 
 // NewCmd creates the root cobra command.
-func NewCmd(logger *zap.Logger) *cobra.Command {
+func (r *Runner) NewCmd(logger *zap.Logger) *cobra.Command {
 	v := viper.New()
 	cmd := &cobra.Command{
 		Use:   "lvmsync-grpcd",
@@ -124,7 +136,7 @@ func NewCmd(logger *zap.Logger) *cobra.Command {
 			if ctx == nil {
 				ctx = context.Background()
 			}
-			return startFunc(ctx, opts, logger)
+			return r.Start(ctx, opts, logger)
 		},
 	}
 	bindFlagSets(cmd, v)
@@ -132,8 +144,8 @@ func NewCmd(logger *zap.Logger) *cobra.Command {
 }
 
 // Execute runs the command with provided args.
-func Execute(args []string, logger *zap.Logger) error {
-	cmd := NewCmd(logger)
+func (r *Runner) Execute(args []string, logger *zap.Logger) error {
+	cmd := r.NewCmd(logger)
 	if args != nil {
 		cmd.SetArgs(args)
 	}

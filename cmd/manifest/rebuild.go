@@ -3,6 +3,7 @@ package manifest
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
@@ -12,14 +13,28 @@ import (
 	manifestpkg "lvmsync_go/manifest"
 )
 
-var rebuildFn = manifestpkg.Rebuild
+// Runner holds dependencies for manifest operations.
+type Runner struct {
+	Rebuild func(ctx context.Context, device, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error
+}
+
+// NewRunner returns a Runner with production dependencies.
+func NewRunner() *Runner { return &Runner{Rebuild: manifestpkg.Rebuild} }
+
+// NewRunnerWithDeps creates a Runner with custom rebuild function.
+func NewRunnerWithDeps(
+	rebuild func(ctx context.Context, device, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error,
+) *Runner {
+	return &Runner{Rebuild: rebuild}
+}
 
 func init() {
-	rootcmd.RunManifest = Run
+	r := NewRunner()
+	rootcmd.RunManifest = r.Run
 }
 
 // Run executes manifest subcommands. Currently only "rebuild" is supported.
-func Run(cfg *config.Config, args []string, logger *zap.Logger) error {
+func (r *Runner) Run(cfg *config.Config, args []string, logger *zap.Logger) error {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
@@ -65,10 +80,15 @@ func Run(cfg *config.Config, args []string, logger *zap.Logger) error {
 	if conf.DedupMode == "hybrid" {
 		hybridFixed = uint32(conf.BlockSize)
 	}
-	if err := rebuildFn(ctx, device, path, logger, conf.ManifestProgressInterval, conf.ManifestAllowMounted, uint32(conf.CDCMin), uint32(conf.CDCAvg), uint32(conf.CDCMax), hybridFixed); err != nil {
+	if err := r.Rebuild(ctx, device, path, logger, conf.ManifestProgressInterval, conf.ManifestAllowMounted, uint32(conf.CDCMin), uint32(conf.CDCAvg), uint32(conf.CDCMax), hybridFixed); err != nil {
 		logger.Error("rebuild failed", zap.Error(err))
 		return err
 	}
 	logger.Info("rebuild complete")
 	return nil
+}
+
+// Run executes using a default Runner.
+func Run(cfg *config.Config, args []string, logger *zap.Logger) error {
+	return NewRunner().Run(cfg, args, logger)
 }

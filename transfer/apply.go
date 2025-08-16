@@ -28,7 +28,7 @@ func (t *Transfer) processDumpDataCore(ctx context.Context, cfg *config.Config, 
 		return fmt.Errorf("failed to create decompression reader: %w", err)
 	}
 	defer func() {
-		if closeErr := decReader.Close(); closeErr != nil && t.Logger != nil {
+		if closeErr := decReader.Close(); closeErr != nil {
 			t.Logger.Warn("Failed to close decompression reader", zap.Error(closeErr))
 		}
 	}()
@@ -71,12 +71,10 @@ func (t *Transfer) processDumpDataCore(ctx context.Context, cfg *config.Config, 
 	}
 
 	elapsed := time.Since(startTime)
-	if t.Logger != nil {
-		t.Logger.Info("applied_changes",
-			zap.Int64("size_bytes", totalBytes),
-			zap.Int64("duration_ms", elapsed.Milliseconds()),
-			zap.Float64("mb_per_s", float64(totalBytes)/elapsed.Seconds()/1048576.0))
-	}
+	t.Logger.Info("applied_changes",
+		zap.Int64("size_bytes", totalBytes),
+		zap.Int64("duration_ms", elapsed.Milliseconds()),
+		zap.Float64("mb_per_s", float64(totalBytes)/elapsed.Seconds()/1048576.0))
 	return nil
 }
 
