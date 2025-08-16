@@ -30,7 +30,8 @@ type Stream struct {
 func NewStream(rw io.ReadWriter, max uint32) *Stream { return &Stream{rw: rw, max: max} }
 
 // Send writes a single frame to the underlying stream, prefixing the
-// payload with its length and CRC32C checksum.
+// payload with its length and CRC32C checksum. It retries short writes so the
+// header and payload are fully written unless an error occurs.
 func (s *Stream) Send(p []byte) error {
 	if uint32(len(p)) > s.max {
 		return fmt.Errorf("frame %d exceeds max %d", len(p), s.max)
@@ -38,12 +39,28 @@ func (s *Stream) Send(p []byte) error {
 	var hdr [8]byte
 	binary.BigEndian.PutUint32(hdr[0:4], uint32(len(p)))
 	binary.BigEndian.PutUint32(hdr[4:8], crc32.Checksum(p, crcTable))
-	if _, err := s.rw.Write(hdr[:]); err != nil {
+	if err := writeFull(s.rw, hdr[:]); err != nil {
 		return err
 	}
 	if len(p) > 0 {
-		if _, err := s.rw.Write(p); err != nil {
+		if err := writeFull(s.rw, p); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+func writeFull(w io.Writer, buf []byte) error {
+	for len(buf) > 0 {
+		n, err := w.Write(buf)
+		if n > 0 {
+			buf = buf[n:]
+		}
+		if err != nil {
+			return err
+		}
+		if n == 0 {
+			return io.ErrShortWrite
 		}
 	}
 	return nil
