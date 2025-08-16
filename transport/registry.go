@@ -41,3 +41,17 @@ func Get(name string, cfg Config) (Interface, error) {
 	}
 	return nil, fmt.Errorf("transport %q not registered", name)
 }
+
+// GetOrdered returns transports in the provided order using cfg for construction.
+// An error is returned if any named transport is not registered.
+func GetOrdered(names []string, cfg Config) ([]Interface, error) {
+	trs := make([]Interface, 0, len(names))
+	for _, n := range names {
+		tr, err := Get(n, cfg)
+		if err != nil {
+			return nil, err
+		}
+		trs = append(trs, tr)
+	}
+	return trs, nil
+}

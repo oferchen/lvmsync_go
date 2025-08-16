@@ -147,10 +147,21 @@ func TestQUICTransportSelectBestHandshake(t *testing.T) {
 	expDigest := common.SelectBest(srvDigest, cliDigest)
 	expDedup := common.SelectBest(srvDedup, cliDedup)
 
-	hs := common.Handshake{
+	srvHS := common.Handshake{
 		DedupMode:   expDedup,
-		Compress:    expCompress,
-		Digest:      expDigest,
+		Compressors: srvCompress,
+		Digests:     srvDigest,
+		ResumeToken: "tok",
+		ODirect:     true,
+		MaxInFlight: 8,
+		CDCMin:      64,
+		CDCAvg:      128,
+		CDCMax:      256,
+	}
+	cliHS := common.Handshake{
+		DedupMode:   expDedup,
+		Compressors: cliCompress,
+		Digests:     cliDigest,
 		ResumeToken: "tok",
 		ODirect:     true,
 		MaxInFlight: 8,
@@ -159,24 +170,21 @@ func TestQUICTransportSelectBestHandshake(t *testing.T) {
 		CDCMax:      256,
 	}
 
-	srvCh := make(chan common.Handshake)
+	srvErr := make(chan error)
 	go func() {
 		conn, err := ln.Accept()
 		if err != nil {
-			t.Errorf("accept: %v", err)
+			srvErr <- err
 			return
 		}
 		qconn := conn.(*Conn)
-		peer, err := tr.Negotiate(ctx, qconn, transport.Server, hs)
-		if err != nil {
-			t.Errorf("server negotiate: %v", err)
-			qconn.Close()
-			return
+		_, err = tr.Negotiate(ctx, qconn, transport.Server, srvHS)
+		if err == nil {
+			buf := make([]byte, 1)
+			qconn.Read(buf)
 		}
-		buf := make([]byte, 1)
-		qconn.Read(buf)
+		srvErr <- err
 		qconn.Close()
-		srvCh <- peer
 	}()
 
 	conn, err := tr.Dial(ctx, ln.Addr().String())
@@ -184,18 +192,18 @@ func TestQUICTransportSelectBestHandshake(t *testing.T) {
 		t.Fatalf("dial: %v", err)
 	}
 	qconn := conn.(*Conn)
-	peer, err := tr.Negotiate(ctx, qconn, transport.Client, hs)
+	peer, err := tr.Negotiate(ctx, qconn, transport.Client, cliHS)
 	if err != nil {
 		qconn.Close()
 		t.Fatalf("client negotiate: %v", err)
 	}
 	qconn.Write([]byte{1})
 	qconn.Close()
-	srvPeer := <-srvCh
-	for _, p := range []common.Handshake{peer, srvPeer} {
-		if p.DedupMode != expDedup || p.Compress != expCompress || p.Digest != expDigest || p.ResumeToken != "tok" || !p.ODirect || p.CDCMin != 64 || p.CDCAvg != 128 || p.CDCMax != 256 {
-			t.Fatalf("unexpected peer handshake: %+v", p)
-		}
+	if err := <-srvErr; err != nil {
+		t.Fatalf("server negotiate: %v", err)
+	}
+	if peer.DedupMode != expDedup || peer.Compress != expCompress || peer.Digest != expDigest || peer.ResumeToken != "tok" || !peer.ODirect || peer.CDCMin != 64 || peer.CDCAvg != 128 || peer.CDCMax != 256 {
+		t.Fatalf("unexpected peer handshake: %+v", peer)
 	}
 }
 

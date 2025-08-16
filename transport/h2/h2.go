@@ -362,6 +362,7 @@ func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport
 		if err != nil {
 			return peer, err
 		}
+		hs = common.MergeHandshake(hs, peer)
 		if err := common.ValidateHandshake(hs, peer); err != nil {
 			return peer, err
 		}
@@ -375,6 +376,7 @@ func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport
 		if err != nil {
 			return peer, err
 		}
+		hs = common.MergeHandshake(hs, peer)
 		if err := common.ValidateHandshake(hs, peer); err != nil {
 			return peer, err
 		}
