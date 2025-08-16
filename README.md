@@ -67,6 +67,18 @@ See [docs/transports.md](docs/transports.md) for details.
 | `tcp+tls` | TLS 1.3                | Plain TCP wrapped in TLS |
 | `ssh`     | Host key verification  | Uses OpenSSH-style authentication |
 
+## gRPC Control Plane
+
+LVMSync ships a gRPC daemon for remote control. The daemon listens on the port
+specified by `--grpc-port` (default `9443`) and requires TLS 1.3 with mutual
+authentication. Provide certificate files with `--tls-cert`, `--tls-key`, and
+`--ca-cert`. Insecure mode can be enabled with `--allow-insecure`, but it is
+disabled by default and should only be used for testing.
+
+Configuration can be supplied via flags, environment variables prefixed with
+`LVMSYNC_GRPC_`, or a `grpcd.yaml` file; flag values override environment
+variables, which override configuration files.
+
 ## Resume and Verify Workflows
 
 Resume interrupted transfers with a state file:
