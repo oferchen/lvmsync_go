@@ -15,7 +15,7 @@ type Config struct {
 	ClientCert    tls.Certificate
 	ServerCert    tls.Certificate
 	Logger        *zap.Logger
-	AllowInsecure bool
+	AllowInsecure bool // Skip certificate verification (development only)
 	SSHUser       string
 	SSHPassword   string
 	SSHKnownHosts string
