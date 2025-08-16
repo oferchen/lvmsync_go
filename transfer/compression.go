@@ -8,6 +8,7 @@ import (
 	"runtime"
 
 	"github.com/pierrec/lz4/v4"
+	"go.uber.org/zap"
 
 	"lvmsync_go/internal/compressiondetect"
 	cpufeatures "lvmsync_go/internal/cpufeatures"
@@ -17,10 +18,6 @@ const (
 	compressionLZ4  = "lz4"
 	compressionZSTD = "zstd"
 )
-
-// supportsSIMD reports whether the CPU has SIMD acceleration. It is
-// a variable to allow tests to override detection behavior.
-var supportsSIMD = cpufeatures.HasSIMD
 
 // hasNEON reports whether the current CPU supports NEON instructions. It is
 // a variable to allow tests to override the detection behavior.
@@ -90,12 +87,6 @@ func selectAlgorithm(chunkLen int, compress string, level int) (string, int) {
 		}
 		return compressionLZ4, level
 	}
-	if supportsSIMD() {
-		if level <= 0 {
-			level = defaultZstdLv
-		}
-		return compressionZSTD, level
-	}
 	if hasAVX2() || hasNEON() {
 		if level <= 0 {
 			level = defaultZstdLv
@@ -136,16 +127,28 @@ func estimateRatio(data []byte, algo string, level, concurrency int) (float64, e
 // CompressChunk compresses a chunk of data based on the provided compression
 // settings. Compression is skipped when the estimated ratio exceeds the
 // threshold. The returned string indicates the algorithm used; "none" means no
-// compression was applied.
-func CompressChunk(data []byte, compress string, level, concurrency int, threshold float64) ([]byte, string, error) {
+// compression was applied. Decisions are logged using the provided logger.
+func CompressChunk(data []byte, compress string, level, concurrency int, threshold float64, logger *zap.Logger) ([]byte, string, error) {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+
 	algo, lvl := selectAlgorithm(len(data), compress, level)
 	if algo == "none" {
+		logger.Debug("compression_disabled")
 		return data, "none", nil
 	}
 	ratio, err := estimateRatio(data, algo, lvl, concurrency)
 	if err != nil {
+		logger.Debug("compression_ratio_error", zap.Error(err))
 		return nil, "", err
 	}
+	logger.Debug("compression_decision",
+		zap.String("algorithm", algo),
+		zap.Float64("ratio", ratio),
+		zap.Float64("threshold", threshold),
+		zap.Int("size_bytes", len(data)),
+	)
 	if ratio >= threshold {
 		return data, "none", nil
 	}

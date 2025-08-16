@@ -51,7 +51,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Warn when `AllowInsecure` is enabled for gRPC server, client, and transports.
 - manifest: allow custom close hook via index options, removing global hook.
 - Document manifest usage, transport security defaults, and resume/verify workflows.
-
+- compressiondetect: choose zstd when AVX2 or NEON is available.
+- transfer: sample 8 KiB per chunk and log compression decisions.
 
 ### Fixed
 - device: require --offline or freeze/thaw hooks for raw devices

@@ -11,7 +11,6 @@ import (
 
 	"github.com/klauspost/cpuid/v2"
 	"github.com/pierrec/lz4/v4"
-	"golang.org/x/sys/cpu"
 
 	zstd "github.com/klauspost/compress/zstd"
 
@@ -24,6 +23,9 @@ var (
 
 	benchMu    sync.Mutex
 	benchCache = make(map[string]string)
+
+	hasAVX2 = cpufeatures.HasAVX2
+	hasNEON = cpufeatures.HasNEON
 )
 
 // DetectOptimalCompression determines the fastest compression algorithm for the current CPU.
@@ -41,11 +43,11 @@ func DetectOptimalCompression() string {
 			cacheSize += cpuid.CPU.Cache.L2
 		}
 
-		if cpufeatures.HasAVX512() || cpufeatures.HasAVX2() || cpufeatures.HasNEON() || cpu.X86.HasBMI2 || cpu.X86.HasSSE42 || (cores >= 4 && cacheSize >= 2<<20) {
+		if hasAVX2() || hasNEON() {
 			detected = "zstd"
-		} else {
-			detected = benchmarkCached(cores, cacheSize)
+			return
 		}
+		detected = benchmarkCached(cores, cacheSize)
 	})
 	return detected
 }
@@ -152,10 +154,10 @@ func ResetForTest() {
 
 // HasAVX2 reports whether the current CPU supports AVX2 instructions.
 func HasAVX2() bool {
-	return cpu.X86.HasAVX2
+	return hasAVX2()
 }
 
 // HasNEON reports whether the current CPU supports ARM NEON instructions.
 func HasNEON() bool {
-	return cpu.ARM64.HasASIMD || cpu.ARM.HasNEON
+	return hasNEON()
 }

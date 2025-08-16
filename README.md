@@ -11,7 +11,7 @@ LVMSync is a high-performance incremental data replication tool for LVM snapshot
 - **Parallel Execution**: Configurable concurrency for optimal performance.
 - **Adaptive Transport Concurrency**: Maintains ~1–2×BDP of in-flight data and can be overridden with `--concurrency`.
 - **Rate-Limiting**: Control bandwidth usage during transfers.
-- **Compression**: Samples 8 KiB per chunk, skipping compression when the ratio exceeds a threshold. Auto mode selects LZ4 for chunks <256 KiB and Zstd level 1 for larger chunks on CPUs with AVX2, AVX-512, or NEON support.
+- **Compression**: Samples 8 KiB per chunk, skipping compression when the ratio exceeds a threshold. Auto mode selects LZ4 for chunks <256 KiB and Zstd level 1 for larger chunks on CPUs with AVX2 or NEON support.
 - **Checksum Verification**: Ensures data integrity using SHA-256 or BLAKE3, automatically selecting BLAKE3 on CPUs with AES-NI, AVX2/AVX-512, or NEON.
 - **Native LVM2 Integration**: Uses Go bindings to `liblvm2cmd` instead of shelling out.
 - **Generic Block Device Support**: Access raw `/dev/*` paths and regular files (including loopback images) through a unified device abstraction.
@@ -722,7 +722,7 @@ LVMSync aborts when the sizes are non-positive or unordered.
 
 The Bloom filter de-duplicates previously seen chunks. Size it with `--bloom_entries` and desired false positive rate via `--bloom_fp_rate`. For an mmap-backed index, `--bloom_mbits` controls the bitmap size in megabits.
 
-Compression samples 8 KiB from each chunk and skips when the estimated ratio exceeds `--compress_threshold`. `--compress auto` selects LZ4 for chunks under 256 KiB and Zstd otherwise.
+Compression samples 8 KiB from each chunk and skips when the estimated ratio exceeds `--compress_threshold`. `--compress auto` selects LZ4 for chunks under 256 KiB and Zstd for larger chunks when AVX2 or NEON is available, falling back to LZ4 otherwise.
 
 CLI:
 

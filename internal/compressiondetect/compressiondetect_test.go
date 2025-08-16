@@ -37,3 +37,37 @@ func TestHasAVX2(t *testing.T) {
 func TestHasNEON(t *testing.T) {
 	_ = HasNEON()
 }
+
+func TestDetectOptimalCompressionAVX2(t *testing.T) {
+	ResetForTest()
+	origAVX2, origNEON := hasAVX2, hasNEON
+	defer func() { hasAVX2, hasNEON = origAVX2, origNEON }()
+	hasAVX2 = func() bool { return true }
+	hasNEON = func() bool { return false }
+	if got := DetectOptimalCompression(); got != "zstd" {
+		t.Fatalf("expected zstd, got %s", got)
+	}
+}
+
+func TestDetectOptimalCompressionNEON(t *testing.T) {
+	ResetForTest()
+	origAVX2, origNEON := hasAVX2, hasNEON
+	defer func() { hasAVX2, hasNEON = origAVX2, origNEON }()
+	hasAVX2 = func() bool { return false }
+	hasNEON = func() bool { return true }
+	if got := DetectOptimalCompression(); got != "zstd" {
+		t.Fatalf("expected zstd, got %s", got)
+	}
+}
+
+func TestDetectOptimalCompressionBenchmarkFallback(t *testing.T) {
+	ResetForTest()
+	origAVX2, origNEON := hasAVX2, hasNEON
+	defer func() { hasAVX2, hasNEON = origAVX2, origNEON }()
+	hasAVX2 = func() bool { return false }
+	hasNEON = func() bool { return false }
+	expected := BenchmarkCompression()
+	if got := DetectOptimalCompression(); got != expected {
+		t.Fatalf("expected %s, got %s", expected, got)
+	}
+}
