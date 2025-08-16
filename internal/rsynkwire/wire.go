@@ -73,45 +73,65 @@ type Client struct {
 // NewClient constructs a Client using the provided Stream.
 func NewClient(stream *Stream) *Client { return &Client{stream: stream} }
 
-// SendSignatures reads all data from r, computes rsync signatures and sends
-// them as a single frame prefixed with 'S'. It returns the generated SumHead.
+// SendSignatures reads from r incrementally, computes rsync signatures block
+// by block and sends them as a single frame prefixed with 'S'. It returns the
+// generated SumHead. The reader must be seekable so the total length can be
+// determined without buffering the entire input.
 func (c *Client) SendSignatures(r io.Reader) (rsync.SumHead, error) {
-	data, err := io.ReadAll(r)
+	seeker, ok := r.(io.Seeker)
+	if !ok {
+		return rsync.SumHead{}, fmt.Errorf("SendSignatures requires seekable reader")
+	}
+
+	// Determine remaining length and rewind to the original position.
+	start, err := seeker.Seek(0, io.SeekCurrent)
 	if err != nil {
 		return rsync.SumHead{}, err
 	}
-	head := sumSizesSqroot(int64(len(data)))
-	head.Sums = make([]rsync.SumBuf, int(head.ChecksumCount))
-	var offset int64
-	for i := int32(0); i < head.ChecksumCount; i++ {
-		blockLen := int64(head.BlockLength)
-		if i == head.ChecksumCount-1 && head.RemainderLength != 0 {
-			blockLen = int64(head.RemainderLength)
-		}
-		chunk := data[offset : offset+blockLen]
-		sum1 := checksum1(chunk)
-		sum2 := checksum2(chunk)
-		var s2arr [16]byte
-		copy(s2arr[:], sum2[:])
-		head.Sums[i] = rsync.SumBuf{
-			Offset: offset,
-			Len:    blockLen,
-			Index:  i,
-			Sum1:   sum1,
-			Sum2:   s2arr,
-		}
-		offset += blockLen
+	size, err := seeker.Seek(0, io.SeekEnd)
+	if err != nil {
+		return rsync.SumHead{}, err
 	}
+	if _, err := seeker.Seek(start, io.SeekStart); err != nil {
+		return rsync.SumHead{}, err
+	}
+
+	head := sumSizesSqroot(size - start)
+	head.Sums = make([]rsync.SumBuf, 0, head.ChecksumCount)
 
 	var buf bytes.Buffer
 	binary.Write(&buf, binary.LittleEndian, head.ChecksumCount)
 	binary.Write(&buf, binary.LittleEndian, head.BlockLength)
 	binary.Write(&buf, binary.LittleEndian, head.ChecksumLength)
 	binary.Write(&buf, binary.LittleEndian, head.RemainderLength)
-	for _, sb := range head.Sums {
-		binary.Write(&buf, binary.LittleEndian, int32(sb.Sum1))
-		buf.Write(sb.Sum2[:head.ChecksumLength])
+
+	block := make([]byte, head.BlockLength)
+	offset := int64(0)
+	for i := int32(0); i < head.ChecksumCount; i++ {
+		blen := int(head.BlockLength)
+		if i == head.ChecksumCount-1 && head.RemainderLength != 0 {
+			blen = int(head.RemainderLength)
+		}
+		chunk := block[:blen]
+		if _, err := io.ReadFull(r, chunk); err != nil {
+			return rsync.SumHead{}, err
+		}
+		sum1 := checksum1(chunk)
+		sum2 := checksum2(chunk)
+		var s2arr [16]byte
+		copy(s2arr[:], sum2[:])
+		head.Sums = append(head.Sums, rsync.SumBuf{
+			Offset: offset,
+			Len:    int64(blen),
+			Index:  i,
+			Sum1:   sum1,
+			Sum2:   s2arr,
+		})
+		binary.Write(&buf, binary.LittleEndian, int32(sum1))
+		buf.Write(s2arr[:head.ChecksumLength])
+		offset += int64(blen)
 	}
+
 	payload := append([]byte{'S'}, buf.Bytes()...)
 	if err := c.stream.Send(payload); err != nil {
 		return rsync.SumHead{}, err

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"runtime"
 	"testing"
 
 	"github.com/gokrazy/rsync"
@@ -85,6 +86,46 @@ func TestClientSendSignatures(t *testing.T) {
 	}
 	if err := <-errCh; err != nil {
 		t.Fatalf("verify: %v", err)
+	}
+}
+
+func TestClientSendSignaturesLargeInput(t *testing.T) {
+	c1, c2 := net.Pipe()
+	defer c1.Close()
+	defer c2.Close()
+
+	client := NewClient(NewStream(c1, maxFrame))
+	srv := NewStream(c2, maxFrame)
+
+	// Consume the frame so the client can write without blocking.
+	errCh := make(chan error, 1)
+	go func() {
+		_, err := srv.Recv()
+		errCh <- err
+	}()
+
+	// Create a large zeroed buffer and measure memory before and after
+	// sending signatures to ensure we don't retain the entire input.
+	const size = 32 << 20 // 32MiB
+	data := make([]byte, size)
+	r := bytes.NewReader(data)
+
+	runtime.GC()
+	var m1 runtime.MemStats
+	runtime.ReadMemStats(&m1)
+	if _, err := client.SendSignatures(r); err != nil {
+		t.Fatalf("SendSignatures: %v", err)
+	}
+	runtime.GC()
+	var m2 runtime.MemStats
+	runtime.ReadMemStats(&m2)
+	if err := <-errCh; err != nil {
+		t.Fatalf("recv: %v", err)
+	}
+
+	// Expect substantially less additional memory than the input size.
+	if diff := int64(m2.Alloc) - int64(m1.Alloc); diff > 5<<20 {
+		t.Fatalf("unexpected memory use: %d", diff)
 	}
 }
 
