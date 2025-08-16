@@ -144,7 +144,7 @@ func initLVMFlags(cfg *Config) *pflag.FlagSet {
 	fs.Bool("skip_snapshot_creation", cfg.SkipSnapshotCreation, "Skip snapshot creation")
 	fs.Bool("skip_disk_check", cfg.SkipDiskCheck, "Skip disk space check")
 	fs.String("snapshot_size", cfg.SnapshotSize, "Snapshot size (bytes or percentage)")
-	fs.String("lvm_escalation", cfg.LVMEscalation, "Command to use for privilege escalation")
+	fs.String("lvm-escalation", cfg.LVMEscalation, "Command to use for privilege escalation")
 	fs.Duration("lvm_timeout", cfg.LVMTimeout, "Timeout for LVM commands")
 	fs.String("volume_group", cfg.VolumeGroup, "LVM volume group")
 	fs.String("target_volume_group", cfg.TargetVolumeGroup, "Target LVM volume group")

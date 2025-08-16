@@ -512,7 +512,7 @@ func TestApplyThroughputMode(t *testing.T) {
 	}
 }
 
-func TestValidateEscalationCommandPath(t *testing.T) {
+func TestValidateEscalationCommand(t *testing.T) {
 	geteuid := func() int { return 1000 }
 
 	oldPath := os.Getenv("PATH")
@@ -520,18 +520,29 @@ func TestValidateEscalationCommandPath(t *testing.T) {
 
 	dir := t.TempDir()
 	exe := filepath.Join(dir, "sudo")
-	if err := os.WriteFile(exe, []byte("#!/bin/sh\n"), 0755); err != nil {
+	if err := os.WriteFile(exe, []byte("#!/bin/sh\n"), 0o755); err != nil {
 		t.Fatalf("failed to create dummy executable: %v", err)
 	}
 	os.Setenv("PATH", dir)
 
-	cfg := &Config{Mode: "default", LVMEscalation: "sudo", SSHKeepAliveInterval: time.Second, GRPCDialTimeout: time.Second, GRPCSetupTimeout: time.Second, HeartbeatInterval: time.Second, HeartbeatSendTimeout: time.Second, TCPParallel: 1, CDCMin: 64, CDCAvg: 128, CDCMax: 256}
-	if err := cfg.ValidateWith(geteuid); err != nil {
-		t.Fatalf("expected no error, got %v", err)
+	base := &Config{Mode: "default", SSHKeepAliveInterval: time.Second, GRPCDialTimeout: time.Second, GRPCSetupTimeout: time.Second, HeartbeatInterval: time.Second, HeartbeatSendTimeout: time.Second, TCPParallel: 1, CDCMin: 64, CDCAvg: 128, CDCMax: 256}
+
+	cfg := *base
+	cfg.LVMEscalation = "sudo -n"
+	if err := (&cfg).ValidateWith(geteuid); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	cfg = *base
+	cfg.LVMEscalation = "sudo"
+	if err := (&cfg).ValidateWith(geteuid); err == nil {
+		t.Fatalf("expected error without -n")
 	}
 
 	os.Setenv("PATH", "")
-	if err := cfg.ValidateWith(geteuid); err == nil {
+	cfg = *base
+	cfg.LVMEscalation = "sudo -n"
+	if err := (&cfg).ValidateWith(geteuid); err == nil {
 		t.Fatalf("expected error when command missing")
 	}
 }

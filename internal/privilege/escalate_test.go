@@ -27,6 +27,9 @@ func TestEnsureWithCaps(t *testing.T) {
 func TestEnsureWithSudo(t *testing.T) {
 	HasCaps = func() bool { return false }
 	lookPath = fakeLookPath(nil)
+	orig := execCommand
+	execCommand = fakeSudo(0)
+	defer func() { execCommand = orig }()
 	esc := New().(*sudoEscalator)
 	if !esc.useSudo {
 		t.Fatalf("expected sudo usage")
@@ -57,6 +60,18 @@ func TestCommand(t *testing.T) {
 	cmd = esc.Command("echo", "hi")
 	if cmd.Args[0] == "sudo" {
 		t.Fatalf("unexpected sudo prefix")
+	}
+}
+
+func TestEnsureSudoFailure(t *testing.T) {
+	HasCaps = func() bool { return false }
+	lookPath = fakeLookPath(nil)
+	orig := execCommand
+	execCommand = fakeSudo(1)
+	defer func() { execCommand = orig }()
+	esc := New().(*sudoEscalator)
+	if err := esc.Ensure(); err == nil {
+		t.Fatalf("expected error")
 	}
 }
 

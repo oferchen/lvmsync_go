@@ -70,6 +70,18 @@ func (c *Config) ValidateWith(geteuid func() int) error {
 		if _, err := findInPath(parts[0]); err != nil {
 			return fmt.Errorf("lvm escalation command %q not found: %w", parts[0], err)
 		}
+		if parts[0] == "sudo" {
+			hasN := false
+			for _, p := range parts[1:] {
+				if p == "-n" {
+					hasN = true
+					break
+				}
+			}
+			if !hasN {
+				return fmt.Errorf("lvm escalation must use 'sudo -n'")
+			}
+		}
 	}
 	return nil
 }

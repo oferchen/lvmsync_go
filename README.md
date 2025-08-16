@@ -481,7 +481,7 @@ LVMSYNC_GRPC_GRPC_PORT=9443 LVMSYNC_GRPC_TLS_CERT=cert.pem lvmsync-grpcd
 | `--skip_snapshot_creation` | `LVMSYNC_SKIP_SNAPSHOT_CREATION` | `skip_snapshot_creation` | Skip automatic snapshot creation |
 | `--skip_disk_check` | `LVMSYNC_SKIP_DISK_CHECK` | `skip_disk_check` | Skip disk space check before snapshot creation |
 | `--snapshot_size` | `LVMSYNC_SNAPSHOT_SIZE` | `snapshot_size` | Snapshot size (e.g., `20G` or `20%`) |
-| `--lvm_escalation` | `LVMSYNC_LVM_ESCALATION` | `lvm_escalation` | Command used to escalate privileges for LVM commands |
+| `--lvm-escalation` | `LVMSYNC_LVM_ESCALATION` | `lvm_escalation` | Command used to escalate privileges for LVM commands |
 | `--lvm_timeout` | `LVMSYNC_LVM_TIMEOUT` | `lvm_timeout` | Timeout for LVM operations |
 | `--volume_group` | `LVMSYNC_VOLUME_GROUP` | `volume_group` | Source volume group; derived from the source device path when empty |
 | `--target_volume_group` | `LVMSYNC_TARGET_VOLUME_GROUP` | `target_volume_group` | Volume group name of the target LVM volume |
@@ -1033,7 +1033,7 @@ timeouts or cancellations are reported separately.
 | `--volume_group` | Source volume group. Derived from the source device path when empty | "" |
 | `--target_volume_group` | Volume group name of the target LVM volume | "" |
 | `--target_vgs` | Candidate target volume groups for auto-selection | [] |
-| `--lvm_escalation` | Command used to re-execute the program with elevated privileges when not running as root (e.g., "sudo -n") | "sudo -n" |
+| `--lvm-escalation` | Command used to re-execute the program with elevated privileges when not running as root (e.g., "sudo -n") | "sudo -n" |
 | `--lvm_timeout` | Timeout for LVM operations | 10s |
 
 #### gRPC Options
@@ -1111,7 +1111,7 @@ lvmsync run --resume statefile /dev/vg0/snap0 /dev/vg0/data
 #### Full LVM Operation Example
 
 ```sh
-lvmsync run --skip_disk_check=false --snapshot_size "25%" --volume_group "vg_data" --lvm_escalation "sudo -n" /dev/vg_data/original /dev/vg_data/destination
+lvmsync run --skip_disk_check=false --snapshot_size "25%" --volume_group "vg_data" --lvm-escalation "sudo -n" /dev/vg_data/original /dev/vg_data/destination
 ```
 
 In this example, LVMSync will:
