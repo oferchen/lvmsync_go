@@ -94,6 +94,84 @@ func TestWritePhysicalMisaligned(t *testing.T) {
 	}
 }
 
+func TestWriteAtAlignedOffset(t *testing.T) {
+	tmp, err := os.CreateTemp(t.TempDir(), "blk")
+	if err != nil {
+		t.Fatalf("tempfile: %v", err)
+	}
+	f, err := Open(tmp.Name(), true, false)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer f.Close()
+	f.direct = true
+	data := bytes.Repeat([]byte{0x6}, f.Logical())
+	off := int64(f.Logical())
+	if _, err := f.WriteAt(data, off); err != nil {
+		t.Fatalf("WriteAt: %v", err)
+	}
+	if !f.Direct() {
+		t.Fatalf("expected direct IO to remain enabled")
+	}
+	buf := make([]byte, len(data))
+	if _, err := f.ReadAt(buf, off); err != nil {
+		t.Fatalf("ReadAt: %v", err)
+	}
+	if !bytes.Equal(buf, data) {
+		t.Fatalf("data mismatch at aligned offset")
+	}
+}
+
+func TestWriteAtMisalignedOffsetFallback(t *testing.T) {
+	tmp, err := os.CreateTemp(t.TempDir(), "blk")
+	if err != nil {
+		t.Fatalf("tempfile: %v", err)
+	}
+	f, err := Open(tmp.Name(), true, false)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer f.Close()
+	f.direct = true
+	data := bytes.Repeat([]byte{0x7}, f.Logical())
+	off := int64(f.Logical() / 2)
+	if _, err := f.WriteAt(data, off); err != nil {
+		t.Fatalf("WriteAt: %v", err)
+	}
+	if f.Direct() {
+		t.Fatalf("expected fallback to buffered IO for misaligned offset")
+	}
+	buf := make([]byte, len(data))
+	if _, err := f.ReadAt(buf, off); err != nil {
+		t.Fatalf("ReadAt: %v", err)
+	}
+	if !bytes.Equal(buf, data) {
+		t.Fatalf("data mismatch after misaligned offset write")
+	}
+}
+
+func TestWriteAtMisalignedOffsetStrict(t *testing.T) {
+	tmp, err := os.CreateTemp(t.TempDir(), "blk")
+	if err != nil {
+		t.Fatalf("tempfile: %v", err)
+	}
+	f, err := Open(tmp.Name(), true, true)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer f.Close()
+	f.direct = true
+	data := bytes.Repeat([]byte{0x8}, f.Logical())
+	off := int64(f.Logical() / 2)
+	if _, err := f.WriteAt(data, off); err == nil {
+		t.Fatalf("expected error for misaligned offset in strict mode")
+	}
+	fi, _ := tmp.Stat()
+	if fi.Size() != 0 {
+		t.Fatalf("expected no data written")
+	}
+}
+
 func TestReadWriteAtAndSize(t *testing.T) {
 	tmp, err := os.CreateTemp(t.TempDir(), "blk")
 	if err != nil {
