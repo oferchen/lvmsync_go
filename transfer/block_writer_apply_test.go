@@ -42,7 +42,7 @@ func TestBlockWriterSyncInterval(t *testing.T) {
 	}
 	defer f.Close()
 
-	bw := newBlockWriter(cfg, f, nil, false, checksum, zap.NewNop())
+	bw := newBlockWriter(cfg, f, nil, false, checksum, zap.NewNop(), nil)
 	blocks := [][]byte{{1, 1, 1, 1}, {2, 2, 2, 2}, {3, 3, 3, 3}, {4, 4, 4, 4}}
 
 	calls := 0
@@ -76,7 +76,7 @@ func TestBlockWriterMACVerification(t *testing.T) {
 	}
 	defer f.Close()
 
-	bw := newBlockWriter(cfg, f, nil, true, checksum, zap.NewNop())
+	bw := newBlockWriter(cfg, f, nil, true, checksum, zap.NewNop(), nil)
 	data := []byte{1, 2, 3, 4}
 	reader := buildBlockStream(t, true, checksum, [][]byte{data})
 	if _, err := bw.write(reader); err != nil {

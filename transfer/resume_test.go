@@ -39,7 +39,7 @@ func createTestFiles(t *testing.T, blockSize int64, blockCount int, algo string)
 		digest = blake3.Sum256(bytes.Repeat([]byte{2}, int(blockSize)))
 	}
 	cfg := &config.Config{Transport: "ssh", Compress: "none", ChecksumAlgorithm: algo, DedupMode: "fixed"}
-	writeResumeState(cfg, zap.NewNop(), resumePath, 0, uint32(blockSize), digest)
+	writeResumeState(cfg, zap.NewNop(), resumePath, resumeChunks{Fixed: resumeChunk{Chunk: digest, Offset: 0, Length: uint32(blockSize)}})
 	return srcPath, snapshot, resumePath
 }
 
@@ -140,7 +140,17 @@ func TestResumeModeTransitions(t *testing.T) {
 
 			cfgStart := &config.Config{BlockSize: int(blockSize), Compress: "none", Parallel: 1, ResumeState: resume, MaxRetries: 1, ChecksumAlgorithm: "blake3", Transport: "ssh", DedupMode: trc.from}
 			digest := blake3.Sum256(bytes.Repeat([]byte{2}, int(blockSize)))
-			writeResumeState(cfgStart, zap.NewNop(), resume, uint64(blockSize), uint32(blockSize), digest)
+			rc := resumeChunk{Chunk: digest, Offset: uint64(blockSize), Length: uint32(blockSize)}
+			chunks := resumeChunks{}
+			switch trc.from {
+			case "cdc":
+				chunks.CDC = rc
+			case "hybrid":
+				chunks.Hybrid = rc
+			default:
+				chunks.Fixed = rc
+			}
+			writeResumeState(cfgStart, zap.NewNop(), resume, chunks)
 
 			cfgResume := &config.Config{BlockSize: int(blockSize), Compress: "none", Parallel: 1, ResumeState: resume, MaxRetries: 1, ChecksumAlgorithm: "blake3", Transport: "ssh", DedupMode: trc.to}
 

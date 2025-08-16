@@ -21,7 +21,7 @@ func TestResumeHybridOffset(t *testing.T) {
 
 	cfg := &config.Config{ResumeState: state, Compress: "none", ChecksumAlgorithm: "blake3", Transport: "ssh", DedupMode: "hybrid"}
 	digest := blake3.Sum256([]byte("chunk"))
-	writeResumeState(cfg, logger, state, 80, 40, digest)
+	writeResumeState(cfg, logger, state, resumeChunks{Hybrid: resumeChunk{Chunk: digest, Offset: 80, Length: 40}})
 
 	chk := readResumeState(cfg, logger)
 	ranges := []Range{{Start: 0, End: 99}, {Start: 100, End: 199}}
@@ -43,7 +43,7 @@ func TestResumeHybridSequential(t *testing.T) {
 	cfg := &config.Config{BlockSize: int(blockSize), Compress: "none", Parallel: 1, ResumeState: resume, MaxRetries: 1, ChecksumAlgorithm: "blake3", Transport: "ssh", DedupMode: "hybrid"}
 
 	digest := blake3.Sum256(bytes.Repeat([]byte{2}, int(blockSize)))
-	writeResumeState(cfg, zap.NewNop(), resume, uint64(blockSize), uint32(blockSize), digest)
+	writeResumeState(cfg, zap.NewNop(), resume, resumeChunks{Hybrid: resumeChunk{Chunk: digest, Offset: uint64(blockSize), Length: uint32(blockSize)}})
 
 	var buf bytes.Buffer
 	if err := tr.DumpChangesParallel(cfg, snapshot, src, &buf); err != nil {
@@ -56,5 +56,29 @@ func TestResumeHybridSequential(t *testing.T) {
 	expected := []int64{2 * blockSize, 3 * blockSize}
 	if !reflect.DeepEqual(offsets, expected) {
 		t.Fatalf("unexpected offsets %v, want %v", offsets, expected)
+	}
+}
+
+func TestResumeHybridIdempotent(t *testing.T) {
+	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{})
+	blockSize := int64(1024)
+	src, snapshot, resume := createTestFiles(t, blockSize, 4, "blake3")
+	cfg := &config.Config{BlockSize: int(blockSize), Compress: "none", Parallel: 1, ResumeState: resume, MaxRetries: 1, ChecksumAlgorithm: "blake3", Transport: "ssh", DedupMode: "hybrid"}
+	digest := blake3.Sum256(bytes.Repeat([]byte{2}, int(blockSize)))
+	var first, second bytes.Buffer
+	for i := 0; i < 2; i++ {
+		tr.Tracker = &resumeTracker{}
+		writeResumeState(cfg, zap.NewNop(), resume, resumeChunks{Hybrid: resumeChunk{Chunk: digest, Offset: uint64(blockSize), Length: uint32(blockSize)}})
+		buf := &first
+		if i == 1 {
+			buf = &second
+		}
+		if err := tr.DumpChangesParallel(cfg, snapshot, src, buf); err != nil {
+			t.Fatalf("DumpChangesParallel failed: %v", err)
+		}
+		finalizeResumeState(cfg, tr.Tracker, zap.NewNop())
+	}
+	if !bytes.Equal(first.Bytes(), second.Bytes()) {
+		t.Fatalf("resume output mismatch")
 	}
 }
