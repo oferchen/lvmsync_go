@@ -93,6 +93,25 @@ func TestCreateZeroBlockSize(t *testing.T) {
 	}
 }
 
+func TestReadHeaderMACMismatch(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "mac.man")
+	idx, err := Create(path, "dev", 4096, 4096, 0, 0, 0, 0)
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	idx.data[104] ^= 0xff
+	if err := idx.readHeader(); err == nil || !strings.Contains(err.Error(), "header MAC mismatch") {
+		t.Fatalf("expected header MAC mismatch, got %v", err)
+	}
+	if err := idx.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+	if _, err := Open(path); err == nil || !strings.Contains(err.Error(), "header MAC mismatch") {
+		t.Fatalf("expected Open to propagate mismatch, got %v", err)
+	}
+}
+
 func TestUpgrade(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "old.man")
