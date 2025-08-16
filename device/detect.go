@@ -19,6 +19,10 @@ import (
 // empty or "auto", Detect will attempt to open the device using the explicit
 // type and will not perform auto detection. logger must be non-nil.
 func Detect(ctx context.Context, path string, offline bool, typeHint, fsFreezeCmd, fsThawCmd, lvmEscalation string, freezeTimeout, thawTimeout time.Duration, logger *zap.Logger) (Device, error) {
+	if logger == nil {
+		return nil, fmt.Errorf("logger is nil")
+	}
+
 	resolved, err := filepath.EvalSymlinks(path)
 	if err != nil {
 		logger.Error("device detect failed", zap.String("path", path), zap.String("device_type", "symlink"), zap.Error(err))

@@ -115,6 +115,9 @@ func OpenRaw(
 	thawTimeout time.Duration,
 	logger *zap.Logger,
 ) (_ *RawDevice, err error) {
+	if logger == nil {
+		return nil, fmt.Errorf("logger is nil")
+	}
 	d := &RawDevice{
 		logger: logger, freezeTimeout: freezeTimeout, thawTimeout: thawTimeout,
 		thawCmdPath: fsThawCmdPath, thawCmdArgs: fsThawCmdArgs,
