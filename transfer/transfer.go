@@ -218,13 +218,16 @@ func readManifestHeader(path string) (*manifestpkg.Header, error) {
 	return &hdr, nil
 }
 
-func (t *Transfer) verifyDestination(cfg *config.Config, destPath string) error {
+func (t *Transfer) verifyDestination(ctx context.Context, cfg *config.Config, destPath string) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	if cfg.ManifestPath != "" {
 		hdr, err := readManifestHeader(cfg.ManifestPath)
 		if err != nil {
 			return err
 		}
-		id, err := device.GetDeviceID(context.Background(), destPath)
+		id, err := device.GetDeviceID(ctx, destPath)
 		if err != nil {
 			return fmt.Errorf("read destination id: %w", err)
 		}
@@ -233,7 +236,7 @@ func (t *Transfer) verifyDestination(cfg *config.Config, destPath string) error 
 			t.Logger.Error("device_id_mismatch", zap.String("expected_resource_id", manID), zap.String("resource_id", id))
 			return fmt.Errorf("destination device id %s does not match manifest %s", id, manID)
 		}
-		size, err := device.SizeBytes(context.Background(), destPath)
+		size, err := device.SizeBytes(ctx, destPath)
 		if err != nil {
 			return fmt.Errorf("read destination size: %w", err)
 		}
@@ -243,7 +246,7 @@ func (t *Transfer) verifyDestination(cfg *config.Config, destPath string) error 
 		}
 		t.Logger.Info("destination_validated", zap.String("resource_id", id), zap.Uint64("size_bytes", size))
 	} else if cfg.DeviceUUID != "" {
-		id, err := device.GetDeviceID(context.Background(), destPath)
+		id, err := device.GetDeviceID(ctx, destPath)
 		if err != nil {
 			return fmt.Errorf("read destination uuid: %w", err)
 		}

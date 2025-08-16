@@ -100,7 +100,7 @@ func TestProcessDumpDataRejectsManifestMismatch(t *testing.T) {
 		}
 		prev := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "wrong", nil })
 		defer device.SetUUIDFunc(prev)
-		err := tr.ProcessDumpData(cfg, bytes.NewReader(minimalStream(t)), dest)
+		err := tr.ProcessDumpData(context.Background(), cfg, bytes.NewReader(minimalStream(t)), dest)
 		if err == nil || !strings.Contains(err.Error(), "does not match manifest") {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -113,7 +113,7 @@ func TestProcessDumpDataRejectsManifestMismatch(t *testing.T) {
 		}
 		prev := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "id", nil })
 		defer device.SetUUIDFunc(prev)
-		err := tr.ProcessDumpData(cfg, bytes.NewReader(minimalStream(t)), dest)
+		err := tr.ProcessDumpData(context.Background(), cfg, bytes.NewReader(minimalStream(t)), dest)
 		if err == nil || !strings.Contains(err.Error(), "size") {
 			t.Fatalf("unexpected error: %v", err)
 		}
