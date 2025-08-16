@@ -21,6 +21,8 @@ import (
 	"lvmsync_go/transport"
 )
 
+const defaultDialTimeout = 5 * time.Second
+
 // Transport implements the transport.Interface over SSH.
 type Transport struct {
 	serverConf *ssh.ServerConfig
@@ -179,7 +181,26 @@ func (t *Transport) Dial(ctx context.Context, address string) (net.Conn, error) 
 		t.logger.Error("dial_end", fields...)
 		return nil, err
 	}
+	dl, ok := ctx.Deadline()
+	if !ok {
+		dl = time.Now().Add(defaultDialTimeout)
+	}
+	if err := raw.SetDeadline(dl); err != nil {
+		raw.Close()
+		fields = append(fields, zap.Error(err))
+		t.logger.Error("dial_end", fields...)
+		return nil, err
+	}
+	done := make(chan struct{})
+	go func() {
+		select {
+		case <-ctx.Done():
+			raw.SetDeadline(time.Now())
+		case <-done:
+		}
+	}()
 	cc, chans, reqs, err := ssh.NewClientConn(raw, address, t.clientConf)
+	close(done)
 	fields = []zap.Field{
 		zap.String("address", address),
 		zap.String("role", role),
@@ -187,6 +208,16 @@ func (t *Transport) Dial(ctx context.Context, address string) (net.Conn, error) 
 	}
 	if err != nil {
 		raw.Close()
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			err = ctxErr
+		}
+		fields = append(fields, zap.Error(err))
+		t.logger.Error("dial_end", fields...)
+		return nil, err
+	}
+	if err := raw.SetDeadline(time.Time{}); err != nil {
+		raw.Close()
+		cc.Close()
 		fields = append(fields, zap.Error(err))
 		t.logger.Error("dial_end", fields...)
 		return nil, err

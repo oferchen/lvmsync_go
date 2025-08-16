@@ -781,3 +781,34 @@ func TestSSHTransportRejectsUnknownHost(t *testing.T) {
 	checkLogFields(t, logs, "dial_start", 1, false, zapcore.InfoLevel)
 	checkLogFields(t, logs, "dial_end", 1, true, zapcore.ErrorLevel)
 }
+
+func TestSSHTransportDialContextCancel(t *testing.T) {
+	trIface, err := New(transport.Config{Logger: zap.NewNop(), SSHUser: "u", SSHPassword: "p", AllowInsecure: true})
+	if err != nil {
+		t.Fatalf("new transport: %v", err)
+	}
+	tr := trIface.(*Transport)
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer ln.Close()
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		io.Copy(io.Discard, conn)
+	}()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		time.Sleep(10 * time.Millisecond)
+		cancel()
+	}()
+	if _, err := tr.Dial(ctx, ln.Addr().String()); err == nil || !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context cancellation, got %v", err)
+	}
+}
