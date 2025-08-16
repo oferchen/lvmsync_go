@@ -76,29 +76,46 @@ const (
 )
 
 // selectAlgorithm chooses a compression algorithm and level based on the
-// requested strategy, chunk size, and CPU capabilities.
-func selectAlgorithm(chunkLen int, compress string, level int) (string, int) {
+// requested strategy, chunk size, and CPU capabilities. Separate level values
+// are accepted for LZ4 and Zstd to allow independent tuning via CLI flags.
+func selectAlgorithm(chunkLen int, compress string, lz4Level, zstdLevel int) (string, int) {
+	// Explicit selection uses the provided algorithm-specific level.
 	if compress != StrategyAuto {
-		return compress, level
+		switch compress {
+		case compressionLZ4:
+			if lz4Level == 0 {
+				lz4Level = int(lz4.Level1)
+			}
+			return compressionLZ4, lz4Level
+		case compressionZSTD:
+			if zstdLevel == 0 {
+				zstdLevel = defaultZstdLv
+			}
+			return compressionZSTD, zstdLevel
+		default:
+			return compress, lz4Level
+		}
 	}
+	// Automatic selection: small chunks favour LZ4.
 	if chunkLen < lz4MaxChunk {
-		if level == 0 {
-			level = int(lz4.Level1)
+		if lz4Level == 0 {
+			lz4Level = int(lz4.Level1)
 		}
-		return compressionLZ4, level
+		return compressionLZ4, lz4Level
 	}
+	// Larger chunks choose Zstd when SIMD support is available.
 	if hasAVX2() || hasNEON() {
-		if level <= 0 {
-			level = defaultZstdLv
-		} else if level > maxAutoZstdLv {
-			level = maxAutoZstdLv
+		if zstdLevel <= 0 {
+			zstdLevel = defaultZstdLv
+		} else if zstdLevel > maxAutoZstdLv {
+			zstdLevel = maxAutoZstdLv
 		}
-		return compressionZSTD, level
+		return compressionZSTD, zstdLevel
 	}
-	if level == 0 {
-		level = int(lz4.Level1)
+	if lz4Level == 0 {
+		lz4Level = int(lz4.Level1)
 	}
-	return compressionLZ4, level
+	return compressionLZ4, lz4Level
 }
 
 // estimateRatio compresses a sample of the data using the selected algorithm
@@ -128,12 +145,12 @@ func estimateRatio(data []byte, algo string, level, concurrency int) (float64, e
 // settings. Compression is skipped when the estimated ratio exceeds the
 // threshold. The returned string indicates the algorithm used; "none" means no
 // compression was applied. Decisions are logged using the provided logger.
-func CompressChunk(data []byte, compress string, level, concurrency int, threshold float64, logger *zap.Logger) ([]byte, string, error) {
+func CompressChunk(data []byte, compress string, lz4Level, zstdLevel, concurrency int, threshold float64, logger *zap.Logger) ([]byte, string, error) {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
 
-	algo, lvl := selectAlgorithm(len(data), compress, level)
+	algo, lvl := selectAlgorithm(len(data), compress, lz4Level, zstdLevel)
 	if algo == "none" {
 		logger.Debug("compression_disabled")
 		return data, "none", nil

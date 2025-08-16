@@ -310,6 +310,9 @@ func buildViper(flagSets *FlagSets) (*viper.Viper, error) {
 	v.RegisterAlias("cdc_avg", "cdc-avg")
 	v.RegisterAlias("cdc_max", "cdc-max")
 	v.RegisterAlias("chunk_seed", "chunk-seed")
+	v.RegisterAlias("zstd_level", "zstd-level")
+	v.RegisterAlias("lz4_level", "lz4-level")
+	v.RegisterAlias("compress_threshold", "compress-threshold")
 	if err := bindTransportEnv(flagSets.Transport, v); err != nil {
 		return nil, err
 	}

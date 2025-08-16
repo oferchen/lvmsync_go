@@ -67,7 +67,7 @@ type Config struct {
 	LZ4Level                 string        `mapstructure:"lz4_level"`
 	CompressLevel            int           `mapstructure:"-"`
 	CompressConcurrency      int           `mapstructure:"compress_concurrency"`
-	CompressThreshold        float64       `mapstructure:"compress_threshold"`
+	CompressThreshold        float64       `mapstructure:"compress_threshold"` // skip compression when estimated ratio exceeds this value
 	Speed                    string        `mapstructure:"speed"`
 	SpeedLimit               int           `mapstructure:"-"`
 	VerifyChecksum           bool          `mapstructure:"verify_checksum"`
