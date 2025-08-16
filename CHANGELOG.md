@@ -124,6 +124,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - manifest: fix close hook test to remove duplicate rebuild blocks
 - tcp+tls: log listener close errors during shutdown
+- tests: bound QUIC SelectBestHandshake dial and negotiate with timeouts and close server connection before reporting errors
 
 ## [v0.1.0] - 2025-02-27
 ### Added

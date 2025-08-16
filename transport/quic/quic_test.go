@@ -170,7 +170,7 @@ func TestQUICTransportSelectBestHandshake(t *testing.T) {
 		CDCMax:      256,
 	}
 
-	srvErr := make(chan error)
+	srvErr := make(chan error, 1)
 	go func() {
 		conn, err := ln.Accept()
 		if err != nil {
@@ -183,16 +183,21 @@ func TestQUICTransportSelectBestHandshake(t *testing.T) {
 			buf := make([]byte, 1)
 			qconn.Read(buf)
 		}
-		srvErr <- err
 		qconn.Close()
+		srvErr <- err
 	}()
 
-	conn, err := tr.Dial(ctx, ln.Addr().String())
+	dialCtx, cancel := context.WithTimeout(ctx, time.Second)
+	conn, err := tr.Dial(dialCtx, ln.Addr().String())
 	if err != nil {
+		cancel()
 		t.Fatalf("dial: %v", err)
 	}
+	defer cancel()
 	qconn := conn.(*Conn)
-	peer, err := tr.Negotiate(ctx, qconn, transport.Client, cliHS)
+	negCtx, cancel := context.WithTimeout(ctx, time.Second)
+	peer, err := tr.Negotiate(negCtx, qconn, transport.Client, cliHS)
+	cancel()
 	if err != nil {
 		qconn.Close()
 		t.Fatalf("client negotiate: %v", err)
