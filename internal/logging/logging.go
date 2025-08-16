@@ -37,14 +37,3 @@ func TLSVersionString(v uint16) string {
 		return strconv.FormatUint(uint64(v), 10)
 	}
 }
-
-package logging
-
-import (
-	"crypto/tls"
-	"strconv"
-
-	"go.uber.org/zap"
-
-	"lvmsync_go/internal/config"
-)
