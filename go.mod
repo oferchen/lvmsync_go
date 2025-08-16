@@ -8,6 +8,7 @@ require (
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/klauspost/compress v1.18.0
 	github.com/klauspost/cpuid/v2 v2.3.0
+	github.com/mmcloughlin/md4 v0.1.2
 	github.com/moby/sys/mountinfo v0.7.2
 	github.com/pierrec/lz4/v4 v4.1.22
 	github.com/quic-go/quic-go v0.48.1
@@ -28,18 +29,12 @@ require (
 )
 
 require (
-	github.com/BurntSushi/toml v1.4.0 // indirect
 	github.com/bits-and-blooms/bitset v1.24.0 // indirect
-	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf // indirect
 	github.com/fsnotify/fsnotify v1.8.0 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
 	github.com/go-viper/mapstructure/v2 v2.2.1 // indirect
 	github.com/google/pprof v0.0.0-20210407192527-94a9f03dee38 // indirect
-	github.com/google/renameio/v2 v2.0.0 // indirect
-	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/landlock-lsm/go-landlock v0.0.0-20250303204525-1544bccde3a3 // indirect
-	github.com/mmcloughlin/md4 v0.1.2 // indirect
 	github.com/onsi/ginkgo/v2 v2.9.5 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.3 // indirect
 	github.com/sagikazarmark/locafero v0.7.0 // indirect
@@ -54,5 +49,4 @@ require (
 	golang.org/x/text v0.28.0 // indirect
 	golang.org/x/tools v0.35.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250528174236-200df99c418a // indirect
-	kernel.org/pub/linux/libs/security/libcap/psx v1.2.70 // indirect
 )
