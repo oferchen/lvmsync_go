@@ -14,8 +14,8 @@ import (
 
 	rootcmd "lvmsync_go/cmd/root"
 	"lvmsync_go/common"
-	"lvmsync_go/config"
 	"lvmsync_go/device"
+	"lvmsync_go/internal/config"
 	"lvmsync_go/remote"
 	"lvmsync_go/transfer"
 	"lvmsync_go/transport"

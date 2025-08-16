@@ -12,9 +12,9 @@ import (
 	"github.com/bits-and-blooms/bloom/v3"
 	"golang.org/x/sys/unix"
 
-	"lvmsync_go/config"
 	"lvmsync_go/dedup"
 	hashutil "lvmsync_go/hash"
+	"lvmsync_go/internal/config"
 )
 
 // CDCDedup implements a simple FastCDC based deduplication helper.

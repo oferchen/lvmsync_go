@@ -11,8 +11,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"lvmsync_go/config"
 	"lvmsync_go/device"
+	"lvmsync_go/internal/config"
 	remotetest "lvmsync_go/remote/testutil"
 	"lvmsync_go/transfer"
 )

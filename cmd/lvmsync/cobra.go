@@ -15,7 +15,7 @@ import (
 	rootcmd "lvmsync_go/cmd/root"
 	servecmd "lvmsync_go/cmd/serve"
 	verifycmd "lvmsync_go/cmd/verify"
-	"lvmsync_go/config"
+	"lvmsync_go/internal/config"
 	"lvmsync_go/manifest"
 )
 
@@ -55,14 +55,14 @@ func NewRootCmd(logger *zap.Logger) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			builder := config.NewBuilder(defaults)
 			fs := pflag.NewFlagSet("run", pflag.ContinueOnError)
-			flagSets := config.NewFlagSets(defaults)
-			cfg, remaining, err := config.LoadConfig(flagSets, defaults, fs, args)
+			cfg, remaining, warns, err := builder.Build(fs, args)
 			if err != nil {
 				return err
 			}
-			if err := cfg.Validate(); err != nil {
-				return err
+			for _, w := range warns {
+				logger.Warn(w)
 			}
 			if len(remaining) != 2 {
 				fs.Usage()
@@ -102,17 +102,20 @@ func NewRootCmd(logger *zap.Logger) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			builder := config.NewBuilder(defaults)
+			builder.FlagSets.SSH = pflag.NewFlagSet("SSH Options", pflag.ExitOnError)
+			builder.FlagSets.Remote = pflag.NewFlagSet("Remote Options", pflag.ExitOnError)
+			builder.FlagSets.Compression = pflag.NewFlagSet("Compression Options", pflag.ExitOnError)
+			builder.FlagSets.LVM = pflag.NewFlagSet("LVM Options", pflag.ExitOnError)
+			builder.FlagSets.GRPC = pflag.NewFlagSet("gRPC Options", pflag.ExitOnError)
+			builder.FlagSets.Transport = pflag.NewFlagSet("Transport Options", pflag.ExitOnError)
 			fs := pflag.NewFlagSet("rebuild", pflag.ContinueOnError)
-			flagSets := config.NewFlagSets(defaults)
-			flagSets.SSH = pflag.NewFlagSet("SSH Options", pflag.ExitOnError)
-			flagSets.Remote = pflag.NewFlagSet("Remote Options", pflag.ExitOnError)
-			flagSets.Compression = pflag.NewFlagSet("Compression Options", pflag.ExitOnError)
-			flagSets.LVM = pflag.NewFlagSet("LVM Options", pflag.ExitOnError)
-			flagSets.GRPC = pflag.NewFlagSet("gRPC Options", pflag.ExitOnError)
-			flagSets.Transport = pflag.NewFlagSet("Transport Options", pflag.ExitOnError)
-			cfg, remaining, err := config.LoadConfig(flagSets, defaults, fs, args)
+			cfg, remaining, warns, err := builder.Build(fs, args)
 			if err != nil {
 				return err
+			}
+			for _, w := range warns {
+				logger.Warn(w)
 			}
 			if len(remaining) != 1 {
 				fs.Usage()

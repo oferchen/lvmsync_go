@@ -8,7 +8,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"lvmsync_go/config"
+	"lvmsync_go/internal/config"
 )
 
 // resumeState persists transfer checkpoints allowing interrupted transfers to resume.

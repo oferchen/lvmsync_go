@@ -3,121 +3,86 @@ package rsynkserver
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
+	"errors"
 	"net"
-	"os"
-	"path/filepath"
 	"testing"
-	"time"
 
 	"lvmsync_go/internal/rsynkwire"
-
-	"github.com/gokrazy/rsync/rsyncclient"
 )
 
-// helper to run client and server over an in-memory connection
-func run(ctx context.Context, t *testing.T, client *rsynkwire.Client, server *Server, src, dest string) (*rsyncclient.Result, error) {
+type errWriter struct{}
+
+func (errWriter) Write([]byte) (int, error) { return 0, errors.New("write failed") }
+
+func TestHandleGood(t *testing.T) {
 	c1, c2 := net.Pipe()
-	errCh := make(chan error, 1)
-	go func() {
-		errCh <- server.Handle(ctx, c1, client.ServerCommandOptions(dest+string(os.PathSeparator)))
-	}()
-	res, err := client.Run(ctx, c2, []string{src})
-	c2.Close()
-	if err != nil {
-		<-errCh
-		return nil, err
-	}
-	if serr := <-errCh; serr != nil {
-		return nil, serr
-	}
-	return res, nil
-}
+	defer c1.Close()
+	defer c2.Close()
 
-func TestNegotiation(t *testing.T) {
-	t.Parallel()
-	ctx := t.Context()
+	buf := &bytes.Buffer{}
+	srv := New(buf)
+	ctx := context.Background()
+	errCh := make(chan error)
+	go func() { errCh <- srv.Handle(ctx, rsynkwire.NewStream(c2)) }()
 
-	tmp := t.TempDir()
-	src := filepath.Join(tmp, "src")
-	destDir := filepath.Join(tmp, "dest")
-	data := []byte("hello world")
-	if err := os.WriteFile(src, data, 0o644); err != nil {
-		t.Fatal(err)
+	client := rsynkwire.NewStream(c1)
+	if err := client.Send([]byte("hello")); err != nil {
+		t.Fatalf("send: %v", err)
 	}
-
-	client, err := rsynkwire.NewClient([]string{"-av"}, rsyncclient.WithSender())
-	if err != nil {
-		t.Fatal(err)
+	c1.Close()
+	if err := <-errCh; err != nil {
+		t.Fatalf("handle: %v", err)
 	}
-	srv, err := New()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	res, err := run(ctx, t, client, srv, src, destDir)
-	if err != nil {
-		t.Fatalf("transfer: %v", err)
-	}
-
-	got, err := os.ReadFile(filepath.Join(destDir, filepath.Base(src)))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Equal(got, data) {
-		t.Fatalf("dest mismatch: got %q", got)
-	}
-	if res.Stats.Read == 0 || res.Stats.Written == 0 {
-		t.Fatalf("unexpected zero stats: %+v", res.Stats)
+	if got := buf.String(); got != "hello" {
+		t.Fatalf("unexpected write %q", got)
 	}
 }
 
-func TestDeltaTransfer(t *testing.T) {
-	t.Parallel()
-	ctx := t.Context()
+func TestHandleBadCRC(t *testing.T) {
+	c1, c2 := net.Pipe()
+	defer c1.Close()
+	defer c2.Close()
 
-	tmp := t.TempDir()
-	src := filepath.Join(tmp, "src")
-	destDir := filepath.Join(tmp, "dest")
-	srcData := bytes.Repeat([]byte("a"), 32*1024)
-	if err := os.WriteFile(src, srcData, 0o644); err != nil {
-		t.Fatal(err)
-	}
-	destData := append([]byte{}, srcData...)
-	destData[0] = 'b'
-	if err := os.MkdirAll(destDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	destFile := filepath.Join(destDir, filepath.Base(src))
-	if err := os.WriteFile(destFile, destData, 0o644); err != nil {
-		t.Fatal(err)
-	}
-	// Ensure modification time differs so rsync considers the file outdated.
-	if err := os.Chtimes(destFile, time.Unix(0, 0), time.Unix(0, 0)); err != nil {
-		t.Fatal(err)
-	}
+	buf := &bytes.Buffer{}
+	srv := New(buf)
+	ctx := context.Background()
+	errCh := make(chan error)
+	go func() { errCh <- srv.Handle(ctx, rsynkwire.NewStream(c2)) }()
 
-	client, err := rsynkwire.NewClient([]string{"-av"}, rsyncclient.WithSender())
-	if err != nil {
-		t.Fatal(err)
+	// craft frame with incorrect CRC
+	payload := []byte("data")
+	var hdr [8]byte
+	binary.BigEndian.PutUint32(hdr[0:4], uint32(len(payload)))
+	binary.BigEndian.PutUint32(hdr[4:8], 0) // wrong CRC
+	if _, err := c1.Write(hdr[:]); err != nil {
+		t.Fatalf("write hdr: %v", err)
 	}
-	srv, err := New()
-	if err != nil {
-		t.Fatal(err)
+	if _, err := c1.Write(payload); err != nil {
+		t.Fatalf("write payload: %v", err)
 	}
+	c1.Close()
+	if err := <-errCh; err == nil {
+		t.Fatalf("expected error")
+	}
+}
 
-	res, err := run(ctx, t, client, srv, src, destDir)
-	if err != nil {
-		t.Fatalf("transfer: %v", err)
-	}
+func TestHandleWriteError(t *testing.T) {
+	c1, c2 := net.Pipe()
+	defer c1.Close()
+	defer c2.Close()
 
-	got, err := os.ReadFile(destFile)
-	if err != nil {
-		t.Fatal(err)
+	srv := New(errWriter{})
+	ctx := context.Background()
+	errCh := make(chan error)
+	go func() { errCh <- srv.Handle(ctx, rsynkwire.NewStream(c2)) }()
+
+	client := rsynkwire.NewStream(c1)
+	if err := client.Send([]byte("chunk")); err != nil {
+		t.Fatalf("send: %v", err)
 	}
-	if !bytes.Equal(got, srcData) {
-		t.Fatalf("dest mismatch after delta transfer")
-	}
-	if res.Stats.Written >= res.Stats.Size {
-		t.Fatalf("expected delta transfer, wrote %d bytes for size %d", res.Stats.Written, res.Stats.Size)
+	c1.Close()
+	if err := <-errCh; err == nil {
+		t.Fatalf("expected write error")
 	}
 }

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"lvmsync_go/config"
+	"lvmsync_go/internal/config"
 	_ "lvmsync_go/transport/ssh"
 
 	"go.uber.org/zap/zaptest"

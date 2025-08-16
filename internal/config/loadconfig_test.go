@@ -57,7 +57,7 @@ func TestBuildViperPrecedence(t *testing.T) {
 		if err := rootFS.Parse(args); err != nil {
 			t.Fatalf("parse: %v", err)
 		}
-		v, err := buildViper(fs)
+		v, _, err := buildViper(fs)
 		if err != nil {
 			t.Fatalf("buildViper: %v", err)
 		}
@@ -78,7 +78,7 @@ func TestBuildViperPrecedence(t *testing.T) {
 		if err := rootFS.Parse(args); err != nil {
 			t.Fatalf("parse: %v", err)
 		}
-		v, err := buildViper(fs)
+		v, _, err := buildViper(fs)
 		if err != nil {
 			t.Fatalf("buildViper: %v", err)
 		}
@@ -99,7 +99,7 @@ func TestBuildViperPrecedence(t *testing.T) {
 		if err := rootFS.Parse(args); err != nil {
 			t.Fatalf("parse: %v", err)
 		}
-		v, err := buildViper(fs)
+		v, _, err := buildViper(fs)
 		if err != nil {
 			t.Fatalf("buildViper: %v", err)
 		}
@@ -134,5 +134,22 @@ func TestUsageOutput(t *testing.T) {
 		if !strings.Contains(out, w) {
 			t.Fatalf("usage missing %q", w)
 		}
+	}
+}
+
+func TestUnknownKeyWarning(t *testing.T) {
+	cfgPath := writeTempConfig(t, "bogus: 1\n")
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	builder := NewBuilder(defaults)
+	fs, args := newFlagSet([]string{"--config", cfgPath})
+	_, _, warns, err := builder.Build(fs, args)
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if len(warns) != 1 || !strings.Contains(warns[0], "bogus") {
+		t.Fatalf("expected warning for bogus key, got %v", warns)
 	}
 }

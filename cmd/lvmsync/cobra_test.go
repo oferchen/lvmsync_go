@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	verifycmd "lvmsync_go/cmd/verify"
-	"lvmsync_go/config"
+	"lvmsync_go/internal/config"
 	"lvmsync_go/manifest"
 
 	"github.com/zeebo/blake3"

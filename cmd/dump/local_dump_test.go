@@ -8,7 +8,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"lvmsync_go/config"
+	"lvmsync_go/internal/config"
 	"lvmsync_go/transfer"
 )
 

@@ -18,11 +18,11 @@ func TestSSHHostKeyPathCLIOverridesEnvAndConfig(t *testing.T) {
 	if err := rootFS.Parse(args); err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	v, err := buildViper(fs)
+	v, _, err := buildViper(fs)
 	if err != nil {
 		t.Fatalf("buildViper: %v", err)
 	}
-	builder := &Builder{v: v, defaults: defaults}
+	builder := &builder{v: v, defaults: defaults}
 	conf, err := builder.Build()
 	if err != nil {
 		t.Fatalf("Build: %v", err)
@@ -46,11 +46,11 @@ func TestSSHHostKeyPathEnvOverridesConfig(t *testing.T) {
 	if err := rootFS.Parse(args); err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	v, err := buildViper(fs)
+	v, _, err := buildViper(fs)
 	if err != nil {
 		t.Fatalf("buildViper: %v", err)
 	}
-	builder := &Builder{v: v, defaults: defaults}
+	builder := &builder{v: v, defaults: defaults}
 	conf, err := builder.Build()
 	if err != nil {
 		t.Fatalf("Build: %v", err)

@@ -4,32 +4,37 @@ import (
 	"context"
 	"io"
 
-	"github.com/gokrazy/rsync/rsyncd"
-
 	"lvmsync_go/internal/rsynkwire"
 )
 
-// Server provides a minimal wrapper around gokrazy/rsync's rsyncd server
-// operating on a Stream.
+// DeviceWriter represents a block device that accepts sequential writes.
+type DeviceWriter interface {
+	Write([]byte) (int, error)
+}
+
+// Server consumes CRC-validated frames from a Stream and writes them to a device.
 type Server struct {
-	srv *rsyncd.Server
+	w DeviceWriter
 }
 
-// New constructs a new Server instance. Filesystem restrictions are disabled and
-// all stderr output is discarded so that the server can be embedded.
-func New() (*Server, error) {
-	srv, err := rsyncd.NewServer(nil, rsyncd.DontRestrict(), rsyncd.WithStderr(io.Discard))
-	if err != nil {
-		return nil, err
+// New constructs a Server that writes to the provided DeviceWriter.
+func New(w DeviceWriter) *Server { return &Server{w: w} }
+
+// Handle reads frames from stream until EOF and writes them to the DeviceWriter.
+func (s *Server) Handle(ctx context.Context, stream *rsynkwire.Stream) error {
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		frame, err := stream.Recv()
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if _, err := s.w.Write(frame); err != nil {
+			return err
+		}
 	}
-	return &Server{srv: srv}, nil
-}
-
-// Handle processes a single rsync session over the provided Stream. The args
-// parameter should come from rsyncclient.Client.ServerCommandOptions.
-func (s *Server) Handle(ctx context.Context, stream rsynkwire.Stream, args []string) error {
-	conn := rsyncd.NewConnection(stream, stream, "<stream>")
-	// HandleConnArgs performs argument parsing internally using rsync's own
-	// facilities, avoiding the need to depend on its internal packages.
-	return s.srv.HandleConnArgs(ctx, conn, nil, args)
 }

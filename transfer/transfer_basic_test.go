@@ -8,7 +8,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
-	"lvmsync_go/config"
+	"lvmsync_go/internal/config"
 )
 
 func TestWrapRateLimitedWriterDisabled(t *testing.T) {

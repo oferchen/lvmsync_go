@@ -9,7 +9,7 @@ import (
 	"github.com/zeebo/blake3"
 	"go.uber.org/zap"
 
-	"lvmsync_go/config"
+	"lvmsync_go/internal/config"
 )
 
 func TestSaveAndReadResumeState(t *testing.T) {

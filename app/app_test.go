@@ -14,9 +14,9 @@ import (
 	"google.golang.org/grpc"
 
 	signalspkg "lvmsync_go/cmd/lvmsync/signals"
-	"lvmsync_go/config"
 	grpcclient "lvmsync_go/grpc/client"
 	grpcserver "lvmsync_go/grpc/server"
+	"lvmsync_go/internal/config"
 	lvmlib "lvmsync_go/internal/lvm"
 	"lvmsync_go/proto"
 )

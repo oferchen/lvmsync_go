@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"lvmsync_go/common"
-	"lvmsync_go/config"
+	"lvmsync_go/internal/config"
 )
 
 func TestComposeHandshake(t *testing.T) {

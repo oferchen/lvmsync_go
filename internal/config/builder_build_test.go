@@ -15,7 +15,7 @@ func TestBuilderBuildSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
-	b := &Builder{v: v, defaults: defaults}
+	b := &builder{v: v, defaults: defaults}
 	cfg, err := b.Build()
 	if err != nil {
 		t.Fatalf("Build: %v", err)
@@ -35,7 +35,7 @@ func TestBuilderBuildUnsupportedCompression(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
-	b := &Builder{v: v, defaults: defaults}
+	b := &builder{v: v, defaults: defaults}
 	if _, err := b.Build(); err == nil {
 		t.Fatalf("expected error for invalid compression threshold")
 	}

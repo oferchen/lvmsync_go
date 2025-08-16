@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"lvmsync_go/common"
-	"lvmsync_go/config"
 	"lvmsync_go/device"
+	"lvmsync_go/internal/config"
 
 	"go.uber.org/zap"
 )

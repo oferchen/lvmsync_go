@@ -17,8 +17,8 @@ import (
 
 	rootcmd "lvmsync_go/cmd/root"
 	"lvmsync_go/common"
-	"lvmsync_go/config"
 	"lvmsync_go/device"
+	"lvmsync_go/internal/config"
 	manifestpkg "lvmsync_go/manifest"
 )
 

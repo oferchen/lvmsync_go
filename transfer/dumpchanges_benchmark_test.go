@@ -5,7 +5,7 @@ import (
 	"sync"
 	"testing"
 
-	"lvmsync_go/config"
+	"lvmsync_go/internal/config"
 
 	"go.uber.org/zap"
 )

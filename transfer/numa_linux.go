@@ -12,7 +12,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
 
-	"lvmsync_go/config"
+	"lvmsync_go/internal/config"
 )
 
 // pinCurrentThreadToDevice pins the current OS thread to CPUs local to the

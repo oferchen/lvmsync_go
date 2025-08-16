@@ -1,26 +1,29 @@
 package config
 
 import (
+	"bytes"
 	"fmt"
 	"math"
 	"os"
+	"reflect"
 	"runtime"
 	"strings"
 	"time"
 
 	"github.com/pierrec/lz4/v4"
 	"github.com/spf13/viper"
+	"gopkg.in/yaml.v3"
 
 	"lvmsync_go/internal/compressiondetect"
 	"lvmsync_go/internal/sizeparse"
 )
 
-type Builder struct {
+type builder struct {
 	v        *viper.Viper
 	defaults *Config
 }
 
-func (b *Builder) Build() (*Config, error) {
+func (b *builder) Build() (*Config, error) {
 	var conf Config
 	if err := b.v.Unmarshal(&conf); err != nil {
 		return nil, fmt.Errorf("error unmarshaling config: %w", err)
@@ -39,7 +42,7 @@ func (b *Builder) Build() (*Config, error) {
 	return &conf, nil
 }
 
-func (b *Builder) applyDefaults(conf *Config) error {
+func (b *builder) applyDefaults(conf *Config) error {
 	if conf.Mode == "" {
 		conf.Mode = b.defaults.Mode
 	}
@@ -153,7 +156,7 @@ func (b *Builder) applyDefaults(conf *Config) error {
 	return nil
 }
 
-func (b *Builder) applyThroughput(conf *Config) {
+func (b *builder) applyThroughput(conf *Config) {
 	if !b.v.IsSet("transport") {
 		conf.Transport = "tcp+tls"
 	}
@@ -194,7 +197,7 @@ func (b *Builder) applyThroughput(conf *Config) {
 	}
 }
 
-func (b *Builder) validateCompression(conf *Config) error {
+func (b *builder) validateCompression(conf *Config) error {
 	resolved := conf.Compress
 	if resolved == Auto {
 		resolved = compressiondetect.DetectOptimalCompression()
@@ -221,7 +224,7 @@ func (b *Builder) validateCompression(conf *Config) error {
 	return nil
 }
 
-func (b *Builder) finalizeConfig(conf *Config) error {
+func (b *builder) finalizeConfig(conf *Config) error {
 	algo := strings.ToLower(conf.ChecksumAlgorithm)
 	switch algo {
 	case "sha256", "blake3", "blake3-512", Auto:
@@ -249,7 +252,7 @@ func (b *Builder) finalizeConfig(conf *Config) error {
 	return nil
 }
 
-func (b *Builder) parseBytesOrFallback(key, fallback string) (int, error) {
+func (b *builder) parseBytesOrFallback(key, fallback string) (int, error) {
 	raw := strings.ReplaceAll(b.v.GetString(key), " ", "")
 	if raw == "" {
 		raw = fallback
@@ -265,7 +268,7 @@ func (b *Builder) parseBytesOrFallback(key, fallback string) (int, error) {
 	return int(u), nil
 }
 
-func (b *Builder) parseBlockSize() (int, string, error) {
+func (b *builder) parseBlockSize() (int, string, error) {
 	raw := strings.ReplaceAll(strings.TrimSpace(b.v.GetString("block_size")), " ", "")
 	if raw == "" {
 		raw = b.defaults.BlockSizeRaw
@@ -284,7 +287,7 @@ func (b *Builder) parseBlockSize() (int, string, error) {
 	return int(u), raw, nil
 }
 
-func buildViper(flagSets *FlagSets) (*viper.Viper, error) {
+func buildViper(flagSets *FlagSets) (*viper.Viper, []string, error) {
 	v := viper.New()
 	v.SetConfigName("config")
 	v.SetConfigType("yaml")
@@ -298,12 +301,12 @@ func buildViper(flagSets *FlagSets) (*viper.Viper, error) {
 	}
 	for _, k := range keys {
 		if err := v.BindEnv(k); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 	for _, fs := range flagSets.All() {
 		if err := v.BindPFlags(fs); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 	v.RegisterAlias("cdc_min", "cdc-min")
@@ -315,25 +318,51 @@ func buildViper(flagSets *FlagSets) (*viper.Viper, error) {
 	v.RegisterAlias("compress_threshold", "compress-threshold")
 	v.RegisterAlias("lvm_escalation", "lvm-escalation")
 	if err := bindTransportEnv(flagSets.Transport, v); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err := bindDedupEnv(flagSets.Dedup, v); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err := bindCompressionEnv(flagSets.Compression, v); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err := bindLVMEnv(flagSets.LVM, v); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err := bindGRPCEnv(flagSets.GRPC, v); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
+	var warnings []string
 	if cfgFile := v.GetString("config"); cfgFile != "" {
+		data, err := os.ReadFile(cfgFile)
+		if err != nil {
+			return nil, nil, fmt.Errorf("error reading config file %q: %w", cfgFile, err)
+		}
 		v.SetConfigFile(cfgFile)
-		if err := v.ReadInConfig(); err != nil {
-			return nil, fmt.Errorf("error reading config file %q: %w", cfgFile, err)
+		if err := v.ReadConfig(bytes.NewReader(data)); err != nil {
+			return nil, nil, fmt.Errorf("error reading config file %q: %w", cfgFile, err)
+		}
+		var raw map[string]any
+		if err := yaml.Unmarshal(data, &raw); err == nil {
+			valid := knownConfigKeys()
+			for k := range raw {
+				if _, ok := valid[k]; !ok {
+					warnings = append(warnings, fmt.Sprintf("unknown configuration key %q", k))
+				}
+			}
 		}
 	}
-	return v, nil
+	return v, warnings, nil
+}
+
+func knownConfigKeys() map[string]struct{} {
+	keys := make(map[string]struct{})
+	t := reflect.TypeOf(Config{})
+	for i := 0; i < t.NumField(); i++ {
+		tag := t.Field(i).Tag.Get("mapstructure")
+		if tag != "" && tag != "-" {
+			keys[tag] = struct{}{}
+		}
+	}
+	return keys
 }
