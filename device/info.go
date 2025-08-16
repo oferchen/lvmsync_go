@@ -13,8 +13,9 @@ import (
 const uuidTimeout = 5 * time.Second
 
 var (
-	uuidFunc  = defaultUUIDFunc
-	mountFunc = defaultMountFunc
+	uuidFunc    = defaultUUIDFunc
+	lvmUUIDFunc = defaultLVMUUIDFunc
+	mountFunc   = defaultMountFunc
 )
 
 // SetUUIDFunc allows tests to override the implementation used to lookup a
@@ -22,6 +23,14 @@ var (
 func SetUUIDFunc(f func(context.Context, string) (string, error)) func(context.Context, string) (string, error) {
 	prev := uuidFunc
 	uuidFunc = f
+	return prev
+}
+
+// SetLVMUUIDFunc allows tests to override the implementation used to lookup an
+// LVM logical volume's UUID. It returns the previous function for restoration.
+func SetLVMUUIDFunc(f func(context.Context, string) (string, error)) func(context.Context, string) (string, error) {
+	prev := lvmUUIDFunc
+	lvmUUIDFunc = f
 	return prev
 }
 
@@ -39,6 +48,24 @@ func GetUUID(ctx context.Context, path string) (string, error) {
 	return uuidFunc(ctx, path)
 }
 
+// GetDeviceID returns the LVM logical volume UUID if available, falling back to
+// the device's blkid/GPT serial. If ctx has no deadline, a default timeout is
+// applied.
+func GetDeviceID(ctx context.Context, path string) (string, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if _, ok := ctx.Deadline(); !ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, uuidTimeout)
+		defer cancel()
+	}
+	if id, err := lvmUUIDFunc(ctx, path); err == nil && id != "" {
+		return id, nil
+	}
+	return uuidFunc(ctx, path)
+}
+
 func defaultUUIDFunc(ctx context.Context, path string) (string, error) {
 	out, err := exec.CommandContext(ctx, "blkid", "-o", "value", "-s", "UUID", path).Output()
 	if err == nil && len(out) > 0 {
@@ -49,6 +76,29 @@ func defaultUUIDFunc(ctx context.Context, path string) (string, error) {
 		return "", err
 	}
 	return strings.TrimSpace(string(out)), nil
+}
+
+func defaultLVMUUIDFunc(ctx context.Context, path string) (string, error) {
+	out, err := execCommand(ctx, "lvs", "--noheadings", "-o", "lv_uuid", path).Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+// IDsMatch reports whether the devices at src and dest share the same
+// identifier. For LVM volumes the logical volume UUID is compared; otherwise
+// blkid or GPT serial numbers are used.
+func IDsMatch(ctx context.Context, src, dest string) (bool, error) {
+	sid, err := GetDeviceID(ctx, src)
+	if err != nil {
+		return false, err
+	}
+	did, err := GetDeviceID(ctx, dest)
+	if err != nil {
+		return false, err
+	}
+	return sid == did, nil
 }
 
 // SetMountFunc allows tests to override the mount status checker. It returns

@@ -26,7 +26,7 @@ func openApplyReader(applyFile string) (io.ReadCloser, error) {
 
 func (t *Transfer) applyData(cfg *config.Config, in io.Reader, destDevice string) error {
 	if cfg.DeviceUUID != "" {
-		uuid, err := device.GetUUID(context.Background(), destDevice)
+		uuid, err := device.GetDeviceID(context.Background(), destDevice)
 		if err != nil {
 			return fmt.Errorf("read destination uuid: %w", err)
 		}

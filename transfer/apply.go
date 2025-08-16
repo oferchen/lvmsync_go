@@ -85,7 +85,7 @@ func (t *Transfer) processDumpDataCore(cfg *config.Config, in io.Reader, destPat
 	reader := bufio.NewReader(decReader)
 
 	if cfg.DeviceUUID != "" {
-		uuid, err2 := device.GetUUID(context.Background(), destPath)
+		uuid, err2 := device.GetDeviceID(context.Background(), destPath)
 		if err2 != nil {
 			return fmt.Errorf("read destination uuid: %w", err2)
 		}
