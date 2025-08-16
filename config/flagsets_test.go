@@ -61,6 +61,7 @@ func TestInitSSHFlags(t *testing.T) {
 		{"ssh_host", cfg.SSHHost},
 		{"ssh_user", cfg.SSHUser},
 		{"ssh_key", cfg.SSHKeyPath},
+		{"ssh_host_key_path", cfg.SSHHostKeyPath},
 		{"ssh_port", strconv.Itoa(cfg.SSHPort)},
 		{"ssh_timeout", cfg.SSHTimeout.String()},
 		{"ssh_keepalive", cfg.SSHKeepAliveInterval.String()},

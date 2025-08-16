@@ -56,6 +56,7 @@ type Config struct {
 	SSHTimeout               time.Duration `mapstructure:"ssh_timeout"`
 	SSHKeepAliveInterval     time.Duration `mapstructure:"ssh_keepalive"`
 	SSHHostKey               string        `mapstructure:"ssh_host_key"`
+	SSHHostKeyPath           string        `mapstructure:"ssh_host_key_path"`
 	KnownHosts               string        `mapstructure:"known_hosts"`
 	StrictHostKeyCheck       bool          `mapstructure:"strict_host_key_checking"`
 	LVMSyncPath              string        `mapstructure:"lvmsync_path"`
@@ -188,6 +189,7 @@ func DefaultConfig() (*Config, error) {
 		SSHTimeout:               10 * time.Second,
 		SSHKeepAliveInterval:     30 * time.Second,
 		SSHHostKey:               "",
+		SSHHostKeyPath:           "",
 		KnownHosts:               filepath.Join(homeDir, ".ssh", "known_hosts"),
 		StrictHostKeyCheck:       true,
 		LVMSyncPath:              "lvmsync",

@@ -278,6 +278,8 @@ Run these commands locally before opening a pull request:
 golangci-lint run
 ```
 
+- [ ] Add precedence tests for `ssh_host_key_path` flag, environment variable, and YAML configuration.
+
 - [x] Ensure SSH agent connections use context timeouts and cover SSHManager reuse in tests.
 
 - [ ] Review CLI argument parsing: prefer `pflag`, bind flags to `viper`, and group related options into reusable `FlagSet`s. Further flag-binding audits remain for commands beyond `config` and `cmd/grpcd`.
