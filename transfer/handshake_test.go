@@ -82,3 +82,12 @@ func TestHandshakeNegotiation(t *testing.T) {
 		t.Fatalf("unexpected handshake result: %+v", hs)
 	}
 }
+
+func TestHandshakeDigestMismatch(t *testing.T) {
+	buf := &bytes.Buffer{}
+	common.WriteHandshake(buf, common.Handshake{Transports: []string{"ssh"}, Compressors: []string{"zstd"}, Digests: []string{"sha256"}, Checksum: true})
+	cfg := &config.Config{Transport: "ssh", Compress: "zstd", ChecksumAlgorithm: "blake3"}
+	if _, err := readAndValidateHandshake(cfg, bufio.NewReader(buf), nil, true); err == nil {
+		t.Fatal("expected digest mismatch error")
+	}
+}
