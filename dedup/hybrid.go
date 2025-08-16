@@ -2,6 +2,7 @@ package dedup
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 )
 
@@ -13,15 +14,27 @@ type HybridChunker struct {
 	cdcMin  int
 	cdcAvg  int
 	cdcMax  int
+	seed    uint64
 	pending []Chunk
 	// reusable buffer for fixed-size block reads
 	buf []byte
 }
 
 // NewHybridChunker returns a HybridChunker configured with the given block
-// size and CDC window parameters.
-func NewHybridChunker(fixed, min, avg, max int) *HybridChunker {
-	return &HybridChunker{fixed: fixed, cdcMin: min, cdcAvg: avg, cdcMax: max}
+// size and CDC window parameters. A seed may optionally be supplied for
+// deterministic chunking.
+func NewHybridChunker(fixed, min, avg, max int, seeds ...uint64) (*HybridChunker, error) {
+	if fixed <= 0 || min <= 0 || avg <= 0 || max <= 0 {
+		return nil, fmt.Errorf("sizes must be positive: fixed=%d min=%d avg=%d max=%d", fixed, min, avg, max)
+	}
+	if min > avg || avg > max {
+		return nil, fmt.Errorf("sizes must satisfy min ≤ avg ≤ max: min=%d avg=%d max=%d", min, avg, max)
+	}
+	h := &HybridChunker{fixed: fixed, cdcMin: min, cdcAvg: avg, cdcMax: max}
+	if len(seeds) > 0 {
+		h.seed = seeds[0]
+	}
+	return h, nil
 }
 
 // NextChunk returns the next chunk from r. The reader is only consulted when
@@ -54,7 +67,7 @@ func (h *HybridChunker) NextChunk(r io.Reader) (Chunk, error) {
 		buf = buf[:n]
 	}
 
-	chunks, err := FastCDC(bytes.NewReader(buf), h.cdcMin, h.cdcAvg, h.cdcMax)
+	chunks, err := FastCDC(bytes.NewReader(buf), h.cdcMin, h.cdcAvg, h.cdcMax, h.seed)
 	if err != nil && err != io.EOF {
 		return Chunk{}, err
 	}

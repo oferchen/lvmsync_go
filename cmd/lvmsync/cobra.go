@@ -21,6 +21,12 @@ import (
 type RunOptions struct {
 	DryRun    bool
 	Transport string
+	DedupMode string
+	BlockSize int
+	CDCMin    int
+	CDCAvg    int
+	CDCMax    int
+	ChunkSeed uint64
 }
 
 var (
@@ -68,6 +74,12 @@ func NewRootCmd(logger *zap.Logger) *cobra.Command {
 			opts := RunOptions{
 				DryRun:    cfg.DryRun,
 				Transport: cfg.Transport,
+				DedupMode: cfg.DedupMode,
+				BlockSize: cfg.BlockSize,
+				CDCMin:    cfg.CDCMin,
+				CDCAvg:    cfg.CDCAvg,
+				CDCMax:    cfg.CDCMax,
+				ChunkSeed: cfg.ChunkSeed,
 			}
 			return runCommand(remaining[0], remaining[1], opts, logger)
 		},
@@ -91,7 +103,6 @@ func NewRootCmd(logger *zap.Logger) *cobra.Command {
 			flagSets := config.NewFlagSets(defaults)
 			flagSets.SSH = pflag.NewFlagSet("SSH Options", pflag.ExitOnError)
 			flagSets.Remote = pflag.NewFlagSet("Remote Options", pflag.ExitOnError)
-			flagSets.Dedup = pflag.NewFlagSet("Deduplication Options", pflag.ExitOnError)
 			flagSets.Compression = pflag.NewFlagSet("Compression Options", pflag.ExitOnError)
 			flagSets.LVM = pflag.NewFlagSet("LVM Options", pflag.ExitOnError)
 			flagSets.GRPC = pflag.NewFlagSet("gRPC Options", pflag.ExitOnError)

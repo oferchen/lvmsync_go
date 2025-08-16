@@ -98,6 +98,9 @@ func (b *Builder) applyDefaults(conf *Config) error {
 	if conf.CDCMax == 0 {
 		conf.CDCMax = b.defaults.CDCMax
 	}
+	if conf.ChunkSeed == 0 {
+		conf.ChunkSeed = b.defaults.ChunkSeed
+	}
 
 	bs, raw, err := b.parseBlockSize()
 	if err != nil {
@@ -306,6 +309,7 @@ func buildViper(flagSets *FlagSets) (*viper.Viper, error) {
 	v.RegisterAlias("cdc_min", "cdc-min")
 	v.RegisterAlias("cdc_avg", "cdc-avg")
 	v.RegisterAlias("cdc_max", "cdc-max")
+	v.RegisterAlias("chunk_seed", "chunk-seed")
 	if err := bindTransportEnv(flagSets.Transport, v); err != nil {
 		return nil, err
 	}

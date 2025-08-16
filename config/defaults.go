@@ -88,6 +88,7 @@ type Config struct {
 	CDCMin                   int           `mapstructure:"cdc_min"`
 	CDCAvg                   int           `mapstructure:"cdc_avg"`
 	CDCMax                   int           `mapstructure:"cdc_max"`
+	ChunkSeed                uint64        `mapstructure:"chunk_seed"`
 	DedupStrategy            string        `mapstructure:"dedup_strategy"`
 	DedupStateFile           string        `mapstructure:"dedup_state_file"`
 	BloomEntries             int           `mapstructure:"bloom_entries"`
@@ -221,6 +222,7 @@ func DefaultConfig() (*Config, error) {
 		CDCMin:                   4 * 1024,
 		CDCAvg:                   64 * 1024,
 		CDCMax:                   1 * 1024 * 1024,
+		ChunkSeed:                0,
 		DedupStrategy:            "none",
 		DedupStateFile:           filepath.Join(homeDir, ".lvmsync_dedup"),
 		BloomEntries:             1000000,

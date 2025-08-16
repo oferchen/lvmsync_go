@@ -32,7 +32,6 @@ func Run(cfg *config.Config, args []string, logger *zap.Logger) error {
 	flagSets := config.NewFlagSets(cfg)
 	flagSets.SSH = pflag.NewFlagSet("SSH Options", pflag.ExitOnError)
 	flagSets.Remote = pflag.NewFlagSet("Remote Options", pflag.ExitOnError)
-	flagSets.Dedup = pflag.NewFlagSet("Deduplication Options", pflag.ExitOnError)
 	flagSets.Compression = pflag.NewFlagSet("Compression Options", pflag.ExitOnError)
 	flagSets.LVM = pflag.NewFlagSet("LVM Options", pflag.ExitOnError)
 	flagSets.GRPC = pflag.NewFlagSet("gRPC Options", pflag.ExitOnError)
