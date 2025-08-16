@@ -11,13 +11,15 @@ import (
 	"github.com/gokrazy/rsync"
 )
 
+const maxFrame = 1 << 20
+
 func TestClientSendSignatures(t *testing.T) {
 	c1, c2 := net.Pipe()
 	defer c1.Close()
 	defer c2.Close()
 
-	client := NewClient(NewStream(c1))
-	srv := NewStream(c2)
+	client := NewClient(NewStream(c1, maxFrame))
+	srv := NewStream(c2, maxFrame)
 
 	data := []byte("testdata")
 	headExpect := sumSizesSqroot(int64(len(data)))
@@ -91,7 +93,7 @@ func TestStreamBadCRC(t *testing.T) {
 	defer c1.Close()
 	defer c2.Close()
 
-	s := NewStream(c2)
+	s := NewStream(c2, maxFrame)
 	payload := []byte("bad")
 	var hdr [8]byte
 	binary.BigEndian.PutUint32(hdr[0:4], uint32(len(payload)))

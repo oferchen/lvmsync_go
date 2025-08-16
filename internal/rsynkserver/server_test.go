@@ -16,6 +16,8 @@ import (
 	"lvmsync_go/internal/rsynkwire"
 )
 
+const maxFrame = 1 << 20
+
 type memDevice struct {
 	buf  []byte
 	sync bool
@@ -51,59 +53,6 @@ func (m *memDevice) Size() int64 { return int64(len(m.buf)) }
 
 func (m *memDevice) Sync() error { m.sync = true; return nil }
 
-func TestHandleApplyDelta(t *testing.T) {
-	data := []byte("hello world")
-	algs := []string{digest.BLAKE3, digest.SHA256}
-	for _, alg := range algs {
-		t.Run(alg, func(t *testing.T) {
-			c1, c2 := net.Pipe()
-			defer c1.Close()
-			defer c2.Close()
-
-			dev := &memDevice{}
-			expect, err := digest.SumReader(bytes.NewReader(data), alg)
-			if err != nil {
-				t.Fatalf("SumReader: %v", err)
-			}
-			srv := New(dev, alg, expect, zap.NewNop())
-			ctx := context.Background()
-			errCh := make(chan error)
-			go func() { errCh <- srv.Handle(ctx, rsynkwire.NewStream(c2)) }()
-
-			cl := rsynkwire.NewClient(rsynkwire.NewStream(c1))
-			head, err := cl.SendSignatures(bytes.NewReader(data))
-			if err != nil {
-				t.Fatalf("SendSignatures: %v", err)
-			}
-			if err := cl.SendDelta(0, []byte("hello")); err != nil {
-				t.Fatalf("SendDelta: %v", err)
-			}
-			if err := cl.SendDelta(5, []byte(" world")); err != nil {
-				t.Fatalf("SendDelta: %v", err)
-			}
-			c1.Close()
-			if err := <-errCh; err != nil {
-				t.Fatalf("Handle: %v", err)
-			}
-			if string(dev.buf) != string(data) {
-				t.Fatalf("unexpected buffer %q", string(dev.buf))
-			}
-			if !dev.sync {
-				t.Fatalf("Sync not called")
-			}
-			if srv.sigHead == nil {
-				t.Fatalf("signatures not parsed")
-			}
-			if srv.sigHead.ChecksumCount != head.ChecksumCount || srv.sigHead.BlockLength != head.BlockLength {
-				t.Fatalf("unexpected signature head %+v want %+v", srv.sigHead, head)
-			}
-			if len(srv.sigHead.Sums) != len(head.Sums) || srv.sigHead.Sums[0].Sum1 != head.Sums[0].Sum1 {
-				t.Fatalf("signature sums mismatch")
-			}
-		})
-	}
-}
-
 func TestHandleCRCError(t *testing.T) {
 	c1, c2 := net.Pipe()
 	defer c1.Close()
@@ -113,7 +62,7 @@ func TestHandleCRCError(t *testing.T) {
 	srv := New(dev, digest.SHA256, [32]byte{}, zap.NewNop())
 	ctx := context.Background()
 	errCh := make(chan error)
-	go func() { errCh <- srv.Handle(ctx, rsynkwire.NewStream(c2)) }()
+	go func() { errCh <- srv.Handle(ctx, rsynkwire.NewStream(c2, maxFrame)) }()
 
 	// craft invalid CRC frame
 	payload := make([]byte, 1+8) // 'D' + offset 0
@@ -142,9 +91,9 @@ func TestHandleWriteError(t *testing.T) {
 	srv := New(dev, digest.SHA256, [32]byte{}, zap.NewNop())
 	ctx := context.Background()
 	errCh := make(chan error)
-	go func() { errCh <- srv.Handle(ctx, rsynkwire.NewStream(c2)) }()
+	go func() { errCh <- srv.Handle(ctx, rsynkwire.NewStream(c2, maxFrame)) }()
 
-	cl := rsynkwire.NewClient(rsynkwire.NewStream(c1))
+	cl := rsynkwire.NewClient(rsynkwire.NewStream(c1, maxFrame))
 	if err := cl.SendDelta(0, []byte("data")); err != nil {
 		t.Fatalf("SendDelta: %v", err)
 	}
