@@ -19,6 +19,116 @@ import (
 	"go.uber.org/zap"
 )
 
+func TestDispatchSubcommandManifest(t *testing.T) {
+	cfg := &config.Config{}
+	logger := zap.NewNop()
+	called := false
+	origManifest := RunManifest
+	defer func() { RunManifest = origManifest }()
+	RunManifest = func(c *config.Config, args []string, l *zap.Logger) error {
+		called = true
+		if args[0] != "arg" {
+			t.Fatalf("unexpected arg")
+		}
+		return nil
+	}
+	handled, err := dispatchSubcommand(cfg, []string{"manifest", "arg"}, logger)
+	if err != nil || !handled || !called {
+		t.Fatalf("dispatch failed")
+	}
+}
+
+func TestDispatchSubcommandApplyError(t *testing.T) {
+	cfg := &config.Config{ApplyMode: "apply"}
+	logger := zap.NewNop()
+	origApply := RunApply
+	defer func() { RunApply = origApply }()
+	RunApply = func(*config.Config, string, []string, *zap.Logger) error { return errors.New("boom") }
+	handled, err := dispatchSubcommand(cfg, []string{"vol"}, logger)
+	if !handled || err == nil || err.Error() != "apply operation failed: boom" {
+		t.Fatalf("expected wrapped apply error, got %v", err)
+	}
+}
+
+func TestPrepareClientSuccess(t *testing.T) {
+	cfg := &config.Config{StdoutMode: true, GRPCSetupTimeout: time.Second, SourceType: "file"}
+	logger := zap.NewNop()
+	selectCalled := false
+	srvClean := false
+	clientClean := false
+	origSelect := SelectTransport
+	origStart := startGRPCServer
+	origClient := clientHandshake
+	origSetup := setupSignalHandle
+	defer func() {
+		SelectTransport = origSelect
+		startGRPCServer = origStart
+		clientHandshake = origClient
+		setupSignalHandle = origSetup
+	}()
+	SelectTransport = func(*config.Config, *zap.Logger) (transport.Interface, error) {
+		selectCalled = true
+		return nil, nil
+	}
+	startGRPCServer = func(context.Context, *config.Config, *zap.Logger) (func(), <-chan error, error) {
+		ch := make(chan error, 1)
+		go func() {
+			ch <- nil
+			close(ch)
+		}()
+		return func() { srvClean = true }, ch, nil
+	}
+	clientHandshake = func(context.Context, *config.Config, *zap.Logger) (func(), chan error, error) {
+		return func() { clientClean = true }, nil, nil
+	}
+	setupSignalHandle = func(context.Context, *config.Config, *string, *zap.Logger) (chan os.Signal, chan error) {
+		return make(chan os.Signal), make(chan error)
+	}
+	ctx, cleanup, snap, dest, sigErrCh, err := prepareClient(cfg, []string{"vol"}, logger)
+	if err != nil || ctx == nil || cleanup == nil || snap != "vol" || dest != "" || sigErrCh == nil || !selectCalled {
+		t.Fatalf("prepareClient failed: %v", err)
+	}
+	cleanup()
+	if !srvClean || !clientClean {
+		t.Fatalf("cleanup not called")
+	}
+}
+
+func TestPrepareClientSelectTransportError(t *testing.T) {
+	cfg := &config.Config{StdoutMode: true, GRPCSetupTimeout: time.Second, SourceType: "file"}
+	logger := zap.NewNop()
+	origSelect := SelectTransport
+	defer func() { SelectTransport = origSelect }()
+	SelectTransport = func(*config.Config, *zap.Logger) (transport.Interface, error) {
+		return nil, errors.New("bad")
+	}
+	_, _, _, _, _, err := prepareClient(cfg, []string{"vol"}, logger)
+	if err == nil || err.Error() != "select transport: bad" {
+		t.Fatalf("expected select transport error, got %v", err)
+	}
+}
+
+func TestExecuteSync(t *testing.T) {
+	cfg := &config.Config{}
+	logger := zap.NewNop()
+	called := false
+	origExec := executeClientFn
+	defer func() { executeClientFn = origExec }()
+	executeClientFn = func(context.Context, func(context.Context, string, string) error, string, string, chan error, chan error) error {
+		called = true
+		return nil
+	}
+	if err := executeSync(context.Background(), cfg, "s", "d", nil, logger); err != nil || !called {
+		t.Fatalf("executeSync failed: %v", err)
+	}
+	executeClientFn = func(context.Context, func(context.Context, string, string) error, string, string, chan error, chan error) error {
+		return errors.New("x")
+	}
+	if err := executeSync(context.Background(), cfg, "s", "d", nil, logger); err == nil || err.Error() != "x" {
+		t.Fatalf("expected error")
+	}
+}
+
 func TestSetupGRPCSuccess(t *testing.T) {
 	cfg := &config.Config{SourceType: "file"}
 	logger := zap.NewNop()
