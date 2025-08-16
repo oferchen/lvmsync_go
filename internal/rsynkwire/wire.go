@@ -1,3 +1,6 @@
+// Package rsynkwire implements a length-prefixed framing protocol with CRC32C
+// for streaming rsync data. Frames larger than the configured maximum cause
+// Send and Recv to return an error.
 package rsynkwire
 
 import (
@@ -29,6 +32,9 @@ func NewStream(rw io.ReadWriter, max uint32) *Stream { return &Stream{rw: rw, ma
 // Send writes a single frame to the underlying stream, prefixing the
 // payload with its length and CRC32C checksum.
 func (s *Stream) Send(p []byte) error {
+	if uint32(len(p)) > s.max {
+		return fmt.Errorf("frame %d exceeds max %d", len(p), s.max)
+	}
 	var hdr [8]byte
 	binary.BigEndian.PutUint32(hdr[0:4], uint32(len(p)))
 	binary.BigEndian.PutUint32(hdr[4:8], crc32.Checksum(p, crcTable))
