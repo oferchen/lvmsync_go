@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/zeebo/blake3"
 	"go.uber.org/zap"
 
 	"lvmsync_go/config"
@@ -20,10 +21,11 @@ type blockWriter struct {
 	checksum  ChecksumStrategy
 	logger    *zap.Logger
 	sinceSync int64
+	rt        *resumeTracker
 }
 
 // newBlockWriter constructs a blockWriter.
-func newBlockWriter(cfg *config.Config, dest *os.File, dedup DeduplicationStrategy, verify bool, checksum ChecksumStrategy, logger *zap.Logger) *blockWriter {
+func newBlockWriter(cfg *config.Config, dest *os.File, dedup DeduplicationStrategy, verify bool, checksum ChecksumStrategy, logger *zap.Logger, rt *resumeTracker) *blockWriter {
 	return &blockWriter{
 		cfg:      cfg,
 		dest:     dest,
@@ -31,6 +33,7 @@ func newBlockWriter(cfg *config.Config, dest *os.File, dedup DeduplicationStrate
 		verify:   verify,
 		checksum: checksum,
 		logger:   logger,
+		rt:       rt,
 	}
 }
 
@@ -60,6 +63,12 @@ func (bw *blockWriter) write(reader *bufio.Reader) (int64, error) {
 		if err != nil {
 			return total, err
 		}
+		var chunkID [32]byte
+		if data != nil {
+			chunkID = blake3.Sum256(data)
+		} else {
+			chunkID = zeroHash(int(chunkSize))
+		}
 		written, err := processBlock(bw.cfg, bw.dest, bw.dedup, bw.verify, bw.checksum, offset, transmitted, data, chunkSize, bw.logger)
 		if bw.cfg.ODirect {
 			if data != nil {
@@ -71,6 +80,7 @@ func (bw *blockWriter) write(reader *bufio.Reader) (int64, error) {
 		if err != nil {
 			return total, err
 		}
+		saveResumeState(bw.cfg, bw.rt, offset, chunkID, int64(chunkSize), bw.logger)
 		if written {
 			total += int64(chunkSize)
 			bw.sinceSync += int64(chunkSize)

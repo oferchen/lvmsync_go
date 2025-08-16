@@ -6,6 +6,6 @@ import (
 	"lvmsync_go/config"
 )
 
-func findResumeIndexHybrid(cfg *config.Config, ranges []Range, chk resumeCheckpoint, logger *zap.Logger) int {
+func findResumeIndexHybrid(cfg *config.Config, ranges []Range, chk resumeChunk, logger *zap.Logger) int {
 	return findResumeIndexCDC(cfg, ranges, chk, logger)
 }

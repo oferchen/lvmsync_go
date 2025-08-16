@@ -1121,7 +1121,7 @@ lvmsync run --speed 50MB /dev/vg0/snap0 /dev/vg0/data
 
 #### Resuming a Transfer
 
-Resume an interrupted transfer using a resume state file. The file records the deduplication mode, the digest of the last successful chunk, and its CDC boundaries. Progress is checkpointed every `--checkpoint-bytes` or `--checkpoint-interval`, and the resume file is removed on successful completion:
+Resume an interrupted transfer using a resume state file. The file records the last chunk boundaries and digests for fixed, CDC, and hybrid modes. Progress is checkpointed every `--checkpoint-bytes` or `--checkpoint-interval`, and the resume file is removed on successful completion. Changing the transport, compression, checksum algorithm, or dedup mode invalidates the checkpoint:
 
 ```sh
 lvmsync run --resume statefile /dev/vg0/snap0 /dev/vg0/data

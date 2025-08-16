@@ -17,16 +17,16 @@ func findResumeIndex(cfg *config.Config, srcFile *os.File, ranges []Range, chk r
 	}
 	switch cfg.DedupMode {
 	case "cdc":
-		return findResumeIndexCDC(cfg, ranges, chk, logger)
+		return findResumeIndexCDC(cfg, ranges, chk.CDC, logger)
 	case "hybrid":
-		return findResumeIndexHybrid(cfg, ranges, chk, logger)
+		return findResumeIndexHybrid(cfg, ranges, chk.Hybrid, logger)
 	default:
-		return findResumeIndexFixed(cfg, srcFile, ranges, chk, logger)
+		return findResumeIndexFixed(cfg, srcFile, ranges, chk.Fixed, logger)
 	}
 }
 
 // findResumeIndexFixed finds resume index using fixed-size blocks; logger must be non-nil.
-func findResumeIndexFixed(cfg *config.Config, srcFile *os.File, ranges []Range, chk resumeCheckpoint, logger *zap.Logger) int {
+func findResumeIndexFixed(cfg *config.Config, srcFile *os.File, ranges []Range, chk resumeChunk, logger *zap.Logger) int {
 	if chk.Chunk == [32]byte{} {
 		return 0
 	}
