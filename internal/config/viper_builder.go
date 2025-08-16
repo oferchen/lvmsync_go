@@ -227,7 +227,7 @@ func (b *builder) validateCompression(conf *Config) error {
 func (b *builder) finalizeConfig(conf *Config) error {
 	algo := strings.ToLower(conf.ChecksumAlgorithm)
 	switch algo {
-	case "sha256", "blake3", "blake3-512", Auto:
+	case "sha256", "blake3", Auto:
 		conf.ChecksumAlgorithm = algo
 	default:
 		return fmt.Errorf("unsupported checksum algorithm: %s", conf.ChecksumAlgorithm)
