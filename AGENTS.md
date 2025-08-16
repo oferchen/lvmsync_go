@@ -7,7 +7,8 @@ This project maintains a set of conventions to keep contributions consistent and
 LVMSync is a high-performance tool for streaming LVM snapshots across hosts. The codebase targets
 production reliability, favoring small, single-purpose components with clear interfaces. Each
 function should do one thing well, include dedicated tests, and rely on dependency injection where
-practical. Logging and configuration are fully structured to keep behavior predictable across
+practical. Break down large functions into focused helpers and test each helper individually.
+Logging and configuration are fully structured to keep behavior predictable across
 command-line use, environment variables, and `config.yaml` files.
 
 ## Logging

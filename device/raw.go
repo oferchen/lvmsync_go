@@ -31,6 +31,75 @@ type RawDevice struct {
 	thawCmdArgs   []string
 }
 
+// prepareFreeze validates and runs the filesystem freeze command when offline is false.
+func prepareFreeze(
+	ctx context.Context,
+	offline bool,
+	fsFreezeCmdPath string,
+	fsFreezeCmdArgs []string,
+	fsThawCmdPath string,
+	fsThawCmdArgs []string,
+	freezeTimeout time.Duration,
+	logger *zap.Logger,
+) (bool, error) {
+	if offline {
+		return false, nil
+	}
+	if fsFreezeCmdPath == "" || fsThawCmdPath == "" {
+		return false, fmt.Errorf("raw sources require --offline or --fs-freeze-command/--fs-thaw-command")
+	}
+	if err := validateCmd(fsFreezeCmdPath, fsFreezeCmdArgs); err != nil {
+		return false, fmt.Errorf("invalid freeze command: %w", err)
+	}
+	if err := validateCmd(fsThawCmdPath, fsThawCmdArgs); err != nil {
+		return false, fmt.Errorf("invalid thaw command: %w", err)
+	}
+	logger.Info("fs freeze start", zap.String("command", fsFreezeCmdPath), zap.Strings("args", fsFreezeCmdArgs))
+	freezeCtx := ctx
+	if _, ok := ctx.Deadline(); !ok && freezeTimeout > 0 {
+		var cancel context.CancelFunc
+		freezeCtx, cancel = context.WithTimeout(ctx, freezeTimeout)
+		defer cancel()
+	}
+	out, cmdErr := execCommand(freezeCtx, fsFreezeCmdPath, fsFreezeCmdArgs...).CombinedOutput()
+	if cmdErr != nil {
+		output := strings.TrimSpace(string(out))
+		logger.Error("fs freeze failed", zap.Error(cmdErr), zap.String("output", output))
+		return false, fmt.Errorf("freeze command failed: %w: %s", cmdErr, output)
+	}
+	logger.Info("fs freeze complete")
+	return true, nil
+}
+
+// openDevice ensures the path is a block device and opens it for reading and writing.
+func openDevice(path string) (*os.File, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return nil, err
+	}
+	if info.Mode()&os.ModeDevice == 0 || info.Mode()&os.ModeCharDevice != 0 {
+		return nil, fmt.Errorf("%s is not a block device", path)
+	}
+	return os.OpenFile(path, os.O_RDWR, 0)
+}
+
+// queryDeviceInfo retrieves the size and block size for an opened block device and logs them.
+func queryDeviceInfo(f *os.File, path string, logger *zap.Logger) (uint64, uint64, error) {
+	size, err := ioctlGetUint64(int(f.Fd()), unix.BLKGETSIZE64)
+	if err != nil {
+		return 0, 0, err
+	}
+	bs, err := unix.IoctlGetInt(int(f.Fd()), unix.BLKSSZGET)
+	if err != nil {
+		return 0, 0, err
+	}
+	logger.Info("raw device info",
+		zap.String("path", path),
+		zap.Uint64("size_bytes", size),
+		zap.Uint64("block_size_bytes", uint64(bs)))
+	return size, uint64(bs), nil
+}
+
 // OpenRaw opens a block device at the given path and queries its size and block
 // size. If offline is false, fsFreezeCmdPath and fsThawCmdPath must be commands
 // that successfully freeze and thaw the filesystem around the device access. logger must be non-nil.
@@ -50,65 +119,30 @@ func OpenRaw(
 		logger: logger, freezeTimeout: freezeTimeout, thawTimeout: thawTimeout,
 		thawCmdPath: fsThawCmdPath, thawCmdArgs: fsThawCmdArgs,
 	}
-	if !offline {
-		if fsFreezeCmdPath == "" || fsThawCmdPath == "" {
-			return nil, fmt.Errorf("raw sources require --offline or --fs-freeze-command/--fs-thaw-command")
-		}
-		if err := validateCmd(fsFreezeCmdPath, fsFreezeCmdArgs); err != nil {
-			return nil, fmt.Errorf("invalid freeze command: %w", err)
-		}
-		if err := validateCmd(fsThawCmdPath, fsThawCmdArgs); err != nil {
-			return nil, fmt.Errorf("invalid thaw command: %w", err)
-		}
-		d.logger.Info("fs freeze start", zap.String("command", fsFreezeCmdPath), zap.Strings("args", fsFreezeCmdArgs))
-		freezeCtx := ctx
-		if _, ok := ctx.Deadline(); !ok && d.freezeTimeout > 0 {
-			var cancel context.CancelFunc
-			freezeCtx, cancel = context.WithTimeout(ctx, d.freezeTimeout)
-			defer cancel()
-		}
-		out, cmdErr := execCommand(freezeCtx, fsFreezeCmdPath, fsFreezeCmdArgs...).CombinedOutput()
-		if cmdErr != nil {
-			output := strings.TrimSpace(string(out))
-			d.logger.Error("fs freeze failed", zap.Error(cmdErr), zap.String("output", output))
-			return nil, fmt.Errorf("freeze command failed: %w: %s", cmdErr, output)
-		}
-		d.logger.Info("fs freeze complete")
-		d.freezeIssued = true
+	freezeIssued, err := prepareFreeze(ctx, offline, fsFreezeCmdPath, fsFreezeCmdArgs, fsThawCmdPath, fsThawCmdArgs, freezeTimeout, logger)
+	if err != nil {
+		return nil, err
+	}
+	d.freezeIssued = freezeIssued
+	if freezeIssued {
 		defer func() {
 			if err != nil {
 				_ = d.Cleanup(ctx)
 			}
 		}()
 	}
-	info, err := os.Stat(path)
+	f, err := openDevice(path)
 	if err != nil {
 		return nil, err
 	}
-	if info.Mode()&os.ModeDevice == 0 || info.Mode()&os.ModeCharDevice != 0 {
-		return nil, fmt.Errorf("%s is not a block device", path)
-	}
-	f, err := os.OpenFile(path, os.O_RDWR, 0)
-	if err != nil {
-		return nil, err
-	}
-	size, err := ioctlGetUint64(int(f.Fd()), unix.BLKGETSIZE64)
-	if err != nil {
-		f.Close()
-		return nil, err
-	}
-	bs, err := unix.IoctlGetInt(int(f.Fd()), unix.BLKSSZGET)
+	size, blockSize, err := queryDeviceInfo(f, path, logger)
 	if err != nil {
 		f.Close()
 		return nil, err
 	}
 	d.f = f
 	d.size = size
-	d.blockSize = uint64(bs)
-	d.logger.Info("raw device info",
-		zap.String("path", path),
-		zap.Uint64("size_bytes", size),
-		zap.Uint64("block_size_bytes", uint64(bs)))
+	d.blockSize = blockSize
 	return d, nil
 }
 
