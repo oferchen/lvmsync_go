@@ -91,7 +91,8 @@ func (s *MockSSHServer) serve(config *ssh.ServerConfig) {
 func (s *MockSSHServer) handleChannel(ch ssh.Channel, in <-chan *ssh.Request) {
 	defer ch.Close() //nolint:errcheck
 	for req := range in {
-		if req.Type == "exec" {
+		switch req.Type {
+		case "exec":
 			var payload struct {
 				Command string `ssh:"command"`
 			}
@@ -112,6 +113,10 @@ func (s *MockSSHServer) handleChannel(ch ssh.Channel, in <-chan *ssh.Request) {
 			exitPayload := struct{ Status uint32 }{Status: exitStatus}
 			ch.SendRequest("exit-status", false, ssh.Marshal(exitPayload)) //nolint:errcheck
 			return
+		case "env":
+			req.Reply(true, nil) //nolint:errcheck
+		default:
+			req.Reply(false, nil) //nolint:errcheck
 		}
 	}
 }

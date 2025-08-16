@@ -2,6 +2,9 @@ package apply
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -10,6 +13,7 @@ import (
 
 	"lvmsync_go/device"
 	"lvmsync_go/internal/config"
+	digestpkg "lvmsync_go/internal/digest"
 )
 
 func TestRun(t *testing.T) {
@@ -77,6 +81,82 @@ func TestRunSyncsLogger(t *testing.T) {
 	}
 	if core.count != 1 {
 		t.Fatalf("expected Sync to be called once, got %d", core.count)
+	}
+}
+
+func TestRunVerifyModes(t *testing.T) {
+	data := make([]byte, 3<<20)
+	destFile := t.TempDir() + "/dest"
+	if err := os.WriteFile(destFile, data, 0o600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	cases := []struct {
+		name      string
+		verify    string
+		setDigest func(string) string
+		wantErr   bool
+	}{
+		{
+			name:   "full",
+			verify: "full",
+			setDigest: func(path string) string {
+				sum, err := digestpkg.SumFile(path, digestpkg.SHA256)
+				if err != nil {
+					t.Fatalf("SumFile: %v", err)
+				}
+				return fmt.Sprintf("%x", sum[:])
+			},
+		},
+		{
+			name:   "sampled",
+			verify: "sampled",
+			setDigest: func(path string) string {
+				sum, err := digestpkg.SampledSumFile(path, digestpkg.SHA256)
+				if err != nil {
+					t.Fatalf("SampledSumFile: %v", err)
+				}
+				return fmt.Sprintf("%x", sum[:])
+			},
+		},
+		{
+			name:      "none",
+			verify:    "none",
+			setDigest: func(string) string { return "" },
+		},
+		{
+			name:      "mismatch",
+			verify:    "full",
+			setDigest: func(string) string { return strings.Repeat("0", 64) },
+			wantErr:   true,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg, err := config.DefaultConfig()
+			if err != nil {
+				t.Fatalf("DefaultConfig returned error: %v", err)
+			}
+			cfg.VerifyLevel = tc.verify
+			cfg.ChecksumAlgorithm = digestpkg.SHA256
+			if d := tc.setDigest(destFile); d != "" {
+				t.Setenv("LVMSYNC_SOURCE_DIGEST", d)
+			}
+			origApply := applyFunc
+			origDetect := detectDevice
+			applyFunc = func(*config.Config, string, string, *zap.Logger) error { return nil }
+			detectDevice = func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger) (device.Device, error) {
+				return &fakeDevice{path: destFile}, nil
+			}
+			defer func() { applyFunc = origApply; detectDevice = origDetect }()
+			err = Run(cfg, "-", []string{destFile}, zap.NewNop())
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("expected error")
+				}
+			} else if err != nil {
+				t.Fatalf("Run returned error: %v", err)
+			}
+		})
 	}
 }
 

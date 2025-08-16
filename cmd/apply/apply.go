@@ -2,7 +2,9 @@ package apply
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 
@@ -69,6 +71,19 @@ func Run(cfg *config.Config, applyFile string, args []string, logger *zap.Logger
 	if strings.ToLower(cfg.VerifyLevel) == "none" {
 		return nil
 	}
+	expectedHex := os.Getenv("LVMSYNC_SOURCE_DIGEST")
+	if expectedHex == "" {
+		return fmt.Errorf("missing source digest")
+	}
+	expected, err := hex.DecodeString(expectedHex)
+	if err != nil {
+		return fmt.Errorf("decode source digest: %w", err)
+	}
+	if len(expected) != 32 {
+		return fmt.Errorf("invalid source digest length")
+	}
+	var srcSum [32]byte
+	copy(srcSum[:], expected)
 	alg := strings.ToLower(cfg.ChecksumAlgorithm)
 	if alg == "" || alg == "auto" {
 		alg = digestpkg.Select()
@@ -78,20 +93,26 @@ func Run(cfg *config.Config, applyFile string, args []string, logger *zap.Logger
 		zap.Bool("avx512", cpufeatures.HasAVX512()),
 		zap.Bool("neon", cpufeatures.HasNEON()),
 	)
+	var dstSum [32]byte
 	sampled := strings.ToLower(cfg.VerifyLevel) == "sampled"
-	match, srcSum, dstSum, err := digestpkg.VerifyFiles(applyFile, dev.Path(), alg, sampled)
+	if sampled {
+		dstSum, err = digestpkg.SampledSumFile(dev.Path(), alg)
+	} else {
+		dstSum, err = digestpkg.SumFile(dev.Path(), alg)
+	}
 	if err != nil {
 		return err
 	}
-	if !match {
+	if srcSum != dstSum {
 		logger.Error("digest_mismatch",
+			zap.String("digest_alg", alg),
 			zap.String("source_digest", fmt.Sprintf("%x", srcSum[:])),
 			zap.String("dest_digest", fmt.Sprintf("%x", dstSum[:])),
 		)
 		return fmt.Errorf("digest mismatch")
 	}
 	logger.Info("verification_success",
-		zap.String("digest_algorithm", alg),
+		zap.String("digest_alg", alg),
 		zap.String("verify_level", cfg.VerifyLevel),
 	)
 	return nil
