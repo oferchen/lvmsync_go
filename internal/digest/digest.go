@@ -13,10 +13,11 @@ var (
 	hasAVX2   = cpufeatures.HasAVX2
 	hasAVX512 = cpufeatures.HasAVX512
 	hasNEON   = cpufeatures.HasNEON
+	hasAESNI  = cpufeatures.HasAESNI
 )
 
 func detect() string {
-	if hasAVX512() || hasAVX2() || hasNEON() {
+	if hasAVX512() || hasAVX2() || hasNEON() || hasAESNI() {
 		return BLAKE3
 	}
 	return SHA256
