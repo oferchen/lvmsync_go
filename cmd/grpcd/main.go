@@ -16,7 +16,8 @@ func main() {
 			logger.Error("logger sync error", zap.Error(err))
 		}
 	}()
-	if err := Execute(nil, logger); err != nil {
+	runner := NewRunner()
+	if err := runner.Execute(nil, logger); err != nil {
 		logger.Error("run failed", zap.Error(err))
 		os.Exit(1)
 	}

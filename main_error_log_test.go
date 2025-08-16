@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 
+	rootcmd "lvmsync_go/cmd/root"
 	"lvmsync_go/config"
 )
 
@@ -26,27 +27,21 @@ func (c *syncCheckCore) Sync() error {
 }
 
 func TestMainLogsStructuredError(t *testing.T) {
-	// stub run to force an error
-	oldRun := runFunc
-	runFunc = func(_ *config.Config, _ []string, _ *zap.Logger) error { return errors.New("boom") }
-	defer func() { runFunc = oldRun }()
-
-	// capture exit code
-	oldExit := exitFunc
-	var code int
-	exitFunc = func(c int) { code = c }
-	defer func() { exitFunc = oldExit }()
-
 	syncErr := errors.New("sync fail")
 	core, logs := observer.New(zap.ErrorLevel)
 	synced := false
 	logger := zap.New(&syncCheckCore{Core: core, synced: &synced, err: syncErr})
 
-	oldConfigure := configureFunc
-	configureFunc = func() (*config.Config, []string, *zap.Logger, error) { return &config.Config{}, nil, logger, nil }
-	defer func() { configureFunc = oldConfigure }()
-
-	main()
+	var code int
+	runner := NewRunnerWithDeps(
+		func() (*config.Config, []string, *zap.Logger, error) { return &config.Config{}, nil, logger, nil },
+		func(_ *config.Config, _ []string, _ *zap.Logger) error { return errors.New("boom") },
+		rootcmd.SyncLogger,
+		func(c int) { code = c },
+		func() *zap.Logger { return zap.NewNop() },
+		"linux",
+	)
+	runner.Run()
 
 	if code != 1 {
 		t.Fatalf("expected exit code 1, got %d", code)
@@ -72,27 +67,21 @@ func TestMainLogsStructuredError(t *testing.T) {
 }
 
 func TestMainLogsConfigError(t *testing.T) {
-	// stub configure to return an error
-	oldConfigure := configureFunc
-	configureFunc = func() (*config.Config, []string, *zap.Logger, error) { return nil, nil, nil, errors.New("cfg fail") }
-	defer func() { configureFunc = oldConfigure }()
-
-	// capture exit code
-	oldExit := exitFunc
-	var code int
-	exitFunc = func(c int) { code = c }
-	defer func() { exitFunc = oldExit }()
-
 	syncErr := errors.New("sync fail")
 	core, logs := observer.New(zap.ErrorLevel)
 	synced := false
 	tmpLogger := zap.New(&syncCheckCore{Core: core, synced: &synced, err: syncErr})
 
-	oldExample := exampleLoggerFunc
-	exampleLoggerFunc = func() *zap.Logger { return tmpLogger }
-	defer func() { exampleLoggerFunc = oldExample }()
-
-	main()
+	var code int
+	runner := NewRunnerWithDeps(
+		func() (*config.Config, []string, *zap.Logger, error) { return nil, nil, nil, errors.New("cfg fail") },
+		rootcmd.Run,
+		rootcmd.SyncLogger,
+		func(c int) { code = c },
+		func() *zap.Logger { return tmpLogger },
+		"linux",
+	)
+	runner.Run()
 
 	if code != 1 {
 		t.Fatalf("expected exit code 1, got %d", code)
@@ -118,25 +107,21 @@ func TestMainLogsConfigError(t *testing.T) {
 }
 
 func TestMainErrorsOnNonLinux(t *testing.T) {
-	oldGOOS := runtimeGOOS
-	runtimeGOOS = "darwin"
-	defer func() { runtimeGOOS = oldGOOS }()
-
-	oldExit := exitFunc
-	var code int
-	exitFunc = func(c int) { code = c }
-	defer func() { exitFunc = oldExit }()
-
 	syncErr := errors.New("sync fail")
 	core, logs := observer.New(zap.ErrorLevel)
 	synced := false
 	tmpLogger := zap.New(&syncCheckCore{Core: core, synced: &synced, err: syncErr})
 
-	oldExample := exampleLoggerFunc
-	exampleLoggerFunc = func() *zap.Logger { return tmpLogger }
-	defer func() { exampleLoggerFunc = oldExample }()
-
-	main()
+	var code int
+	runner := NewRunnerWithDeps(
+		rootcmd.Configure,
+		rootcmd.Run,
+		rootcmd.SyncLogger,
+		func(c int) { code = c },
+		func() *zap.Logger { return tmpLogger },
+		"darwin",
+	)
+	runner.Run()
 
 	if code != 1 {
 		t.Fatalf("expected exit code 1, got %d", code)
