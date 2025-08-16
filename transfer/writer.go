@@ -128,6 +128,7 @@ func processBlock(
 	cfg *config.Config,
 	destFile *os.File,
 	dedup DeduplicationStrategy,
+	intra *chunkCache,
 	verify bool,
 	checksum ChecksumStrategy,
 	offset uint64,
@@ -157,6 +158,9 @@ func processBlock(
 			return false, nil
 		}
 		dedup.RecordTransfer(intOffset, data)
+	}
+	if intra != nil && intra.Seen(data) {
+		return false, nil
 	}
 	if cfg.Discard {
 		if err := device.DiscardRange(destFile, offset, uint64(chunkSize)); err != nil {

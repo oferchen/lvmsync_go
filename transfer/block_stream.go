@@ -59,6 +59,7 @@ func iterateBlocks(
 	var header [16]byte
 	h := newDigestHasher(cfg.ChecksumAlgorithm)
 	var idx *manifestpkg.Index
+	var intra *chunkCache
 	if cfg.ManifestPath != "" {
 		var err error
 		idx, err = manifestpkg.Open(cfg.ManifestPath)
@@ -66,6 +67,9 @@ func iterateBlocks(
 			return totalBytes, skippedBlocks, nil, fmt.Errorf("open manifest: %w", err)
 		}
 		defer idx.Close()
+	}
+	if cfg.IntraDedup {
+		intra = newChunkCache(intraCacheCapacity)
 	}
 	for _, r := range ranges {
 		offset, blockSize, err := validateOffsetAndSize(r.Start, cfg.BlockSize)
@@ -98,6 +102,11 @@ func iterateBlocks(
 				continue
 			}
 			dedup.RecordTransfer(offset, data)
+		}
+		if intra != nil && intra.Seen(data) {
+			skippedBlocks++
+			putBlockBuffer(data)
+			continue
 		}
 
 		binary.BigEndian.PutUint64(header[0:8], r.Start)

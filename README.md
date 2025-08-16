@@ -575,6 +575,7 @@ LVMSYNC_LVM_SNAPSHOT_SIZE=25% lvmsync run /dev/vg0/snap0 /mnt/backup
 | `--remote_post_script` | `LVMSYNC_REMOTE_POST_SCRIPT` | `remote_post_script` | Remote script to run after transfer (separate `ssh_timeout`) |
 | `--dedup_strategy` | `LVMSYNC_DEDUP_STRATEGY` | `dedup_strategy` | Deduplication strategy: `none`, `auto`, `checksum`, `rolling_hash`, or `bloom` |
 | `--dedup_state_file` | `LVMSYNC_DEDUP_STATE_FILE` | `dedup_state_file` | Path to deduplication state file |
+| `--intra-dedup` | `LVMSYNC_DEDUP_INTRA_DEDUP` | `intra_dedup` | Enable intra-run deduplication |
 | `--cdc-min` | `LVMSYNC_DEDUP_CDC_MIN` | `cdc_min` | Minimum chunk size for CDC (must be at least 64 bytes) |
 | `--cdc-avg` | `LVMSYNC_DEDUP_CDC_AVG` | `cdc_avg` | Target average chunk size for CDC |
 | `--cdc-max` | `LVMSYNC_DEDUP_CDC_MAX` | `cdc_max` | Maximum chunk size for CDC |

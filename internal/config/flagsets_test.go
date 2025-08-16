@@ -145,6 +145,7 @@ func TestInitDedupFlags(t *testing.T) {
 		{"cdc-max", strconv.Itoa(cfg.CDCMax)},
 		{"dedup_strategy", cfg.DedupStrategy},
 		{"dedup_state_file", cfg.DedupStateFile},
+		{"intra-dedup", strconv.FormatBool(cfg.IntraDedup)},
 		{"bloom_entries", strconv.Itoa(cfg.BloomEntries)},
 		{"bloom_fp_rate", fmt.Sprint(cfg.BloomFpRate)},
 		{"bloom_mbits", strconv.FormatUint(uint64(cfg.BloomMBits), 10)},

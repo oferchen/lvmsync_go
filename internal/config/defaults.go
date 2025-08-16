@@ -95,6 +95,7 @@ type Config struct {
 	ChunkSeed                uint64        `mapstructure:"chunk_seed"`
 	DedupStrategy            string        `mapstructure:"dedup_strategy"`
 	DedupStateFile           string        `mapstructure:"dedup_state_file"`
+	IntraDedup               bool          `mapstructure:"intra_dedup"`
 	BloomEntries             int           `mapstructure:"bloom_entries"`
 	BloomFpRate              float64       `mapstructure:"bloom_fp_rate"`
 	BloomMBits               uint          `mapstructure:"bloom_mbits"`
@@ -232,6 +233,7 @@ func DefaultConfig() (*Config, error) {
 		ChunkSeed:                0,
 		DedupStrategy:            "none",
 		DedupStateFile:           filepath.Join(homeDir, ".lvmsync_dedup"),
+		IntraDedup:               false,
 		BloomEntries:             1000000,
 		BloomFpRate:              0.01,
 		BloomMBits:               0,
