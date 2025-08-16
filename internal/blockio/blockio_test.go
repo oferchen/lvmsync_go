@@ -2,6 +2,7 @@ package blockio
 
 import (
 	"bytes"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -152,4 +153,105 @@ func TestOpenBlockDevice(t *testing.T) {
 		t.Fatalf("open block device %s: %v", dev, err)
 	}
 	f.Close()
+}
+
+type countingReader struct {
+	data  []byte
+	off   int
+	calls int
+}
+
+func newCountingReader(size int) *countingReader {
+	return &countingReader{data: bytes.Repeat([]byte{0x5}, size)}
+}
+
+func (r *countingReader) Read(p []byte) (int, error) {
+	r.calls++
+	if r.off >= len(r.data) {
+		return 0, io.EOF
+	}
+	n := copy(p, r.data[r.off:])
+	r.off += n
+	return n, nil
+}
+
+type countingWriter struct {
+	w     io.Writer
+	calls int
+}
+
+func (w *countingWriter) Write(p []byte) (int, error) {
+	w.calls++
+	return w.w.Write(p)
+}
+
+func TestReadFromSyscallReduction(t *testing.T) {
+	const size = 1 << 20
+	base := newCountingReader(size)
+	if _, err := io.Copy(io.Discard, base); err != nil {
+		t.Fatalf("baseline copy: %v", err)
+	}
+	if base.calls <= 1 {
+		t.Fatalf("expected baseline reads >1, got %d", base.calls)
+	}
+
+	cr := newCountingReader(size)
+	tmp, err := os.CreateTemp(t.TempDir(), "blk")
+	if err != nil {
+		t.Fatalf("tempfile: %v", err)
+	}
+	f, err := Open(tmp.Name(), false, false)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer f.Close()
+	n, err := io.Copy(f, cr)
+	if err != nil {
+		t.Fatalf("copy: %v", err)
+	}
+	if n != size {
+		t.Fatalf("copied %d want %d", n, size)
+	}
+	if cr.calls >= base.calls {
+		t.Fatalf("expected fewer reads: %d >= %d", cr.calls, base.calls)
+	}
+}
+
+func TestWriteToSyscallReduction(t *testing.T) {
+	const size = 1 << 20
+	data := bytes.Repeat([]byte{0x6}, size)
+	tmp, err := os.CreateTemp(t.TempDir(), "blk")
+	if err != nil {
+		t.Fatalf("tempfile: %v", err)
+	}
+	if err := os.WriteFile(tmp.Name(), data, 0600); err != nil {
+		t.Fatalf("writefile: %v", err)
+	}
+
+	fBase, err := Open(tmp.Name(), false, false)
+	if err != nil {
+		t.Fatalf("open baseline: %v", err)
+	}
+	cwBase := &countingWriter{w: io.Discard}
+	type noWriteTo struct{ io.Reader }
+	if _, err := io.Copy(cwBase, noWriteTo{fBase}); err != nil {
+		t.Fatalf("baseline copy: %v", err)
+	}
+	if cwBase.calls <= 1 {
+		t.Fatalf("expected baseline writes >1, got %d", cwBase.calls)
+	}
+	fBase.Close()
+
+	f, err := Open(tmp.Name(), false, false)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer f.Close()
+	cw := &countingWriter{w: io.Discard}
+	if _, err := io.Copy(cw, f); err != nil {
+		t.Fatalf("copy: %v", err)
+	}
+	if cw.calls >= cwBase.calls {
+		t.Fatalf("expected fewer writes: %d >= %d", cw.calls, cwBase.calls)
+	}
 }

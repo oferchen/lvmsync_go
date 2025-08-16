@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"go.uber.org/zap"
 
 	"lvmsync_go/internal/config"
+	digestpkg "lvmsync_go/internal/digest"
 	"lvmsync_go/remote"
 	"lvmsync_go/transfer"
 )
@@ -163,13 +165,17 @@ func TestStreamToRemote(t *testing.T) {
 		{name: "both errors", dumpErr: errors.New("dump"), closeErr: errors.New("close")},
 	}
 
+	snapFile := t.TempDir() + "/snap"
+	if err := os.WriteFile(snapFile, []byte("data"), 0o600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			dumpChangesSequential = func(_ *transfer.Transfer, c *config.Config, snapshot, origin string, out io.Writer) error {
 				return tc.dumpErr
 			}
 			remoteStdin := &mockWriteCloser{Writer: io.Discard, closeErr: tc.closeErr}
-			err := StreamToRemote(cfg, remoteStdin, "snap", "origin", zap.NewNop())
+			err := StreamToRemote(cfg, remoteStdin, snapFile, "origin", digestpkg.SHA256, zap.NewNop())
 			if tc.dumpErr == nil && tc.closeErr == nil {
 				if err != nil {
 					t.Fatalf("expected nil error, got %v", err)

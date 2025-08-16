@@ -42,13 +42,14 @@ type Server struct {
 	sigHead *rsync.SumHead
 }
 
-// New constructs a Server using the provided Device, digest algorithm, expected
-// manifest digest, and logger. A nil logger is replaced with zap.NewNop().
-func New(dev Device, alg string, expect [32]byte, logger *zap.Logger) *Server {
+// New constructs a Server using the provided Device and logger. The digest
+// algorithm and expected sum are supplied via a later digest frame. A nil
+// logger is replaced with zap.NewNop().
+func New(dev Device, logger *zap.Logger) *Server {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
-	return &Server{dev: dev, alg: alg, expect: expect, logger: logger}
+	return &Server{dev: dev, logger: logger}
 }
 
 // Handle consumes frames from the Stream until EOF, applying any delta frames to
@@ -85,9 +86,29 @@ func (s *Server) Handle(ctx context.Context, stream *rsynkwire.Stream) error {
 			}
 			off := int64(binary.BigEndian.Uint64(frame[1:9]))
 			data := frame[9:]
+			size := s.dev.Size()
+			dataLen := int64(len(data))
+			if off < 0 || off > size-dataLen {
+				s.logger.Warn("delta_out_of_bounds",
+					zap.Int64("offset_bytes", off),
+					zap.Int("data_size_bytes", len(data)),
+					zap.Int64("device_size_bytes", size))
+				return fmt.Errorf("delta out of bounds")
+			}
 			if _, err := s.dev.WriteAt(data, off); err != nil {
 				return err
 			}
+		case 'G':
+			if len(frame) < 2+32 {
+				return fmt.Errorf("digest frame too short")
+			}
+			algLen := int(frame[1])
+			if len(frame) != 2+algLen+32 {
+				return fmt.Errorf("digest frame length mismatch")
+			}
+			s.alg = string(frame[2 : 2+algLen])
+			copy(s.expect[:], frame[2+algLen:])
+			continue
 		default:
 			return fmt.Errorf("unknown frame type %q", frame[0])
 		}
@@ -137,6 +158,9 @@ func parseSignatures(p []byte) (rsync.SumHead, error) {
 }
 
 func (s *Server) verifyDigest() error {
+	if s.alg == "" {
+		return fmt.Errorf("missing digest frame")
+	}
 	r := io.NewSectionReader(s.dev, 0, s.dev.Size())
 	got, err := digest.SumReader(r, s.alg)
 	if err != nil {
