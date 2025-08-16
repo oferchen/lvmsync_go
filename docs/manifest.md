@@ -133,7 +133,8 @@ occur during the scan. To ensure a stable view:
 
 - `--offline` asserts that no process will modify the device while it is read.
 - `--fs-freeze-command`/`--fs-thaw-command` run commands that freeze the
-  filesystem and thaw it once the read completes.
+  filesystem and thaw it once the read completes. Command paths must be
+  absolute.
 
 Example scripts in this repository:
 
@@ -143,5 +144,5 @@ Example scripts in this repository:
 Use them together:
 
 ```sh
-lvmsync manifest rebuild --fs-freeze-command "./docs/fsfreeze-freeze.sh /mnt" --fs-thaw-command "./docs/fsfreeze-thaw.sh /mnt" /dev/sdb
+lvmsync manifest rebuild --fs-freeze-command "$(pwd)/docs/fsfreeze-freeze.sh /mnt" --fs-thaw-command "$(pwd)/docs/fsfreeze-thaw.sh /mnt" /dev/sdb
 ```

@@ -24,20 +24,20 @@ func TestValidateCmd(t *testing.T) {
 			wantErr: "command path is empty",
 		},
 		{
+			name:    "relative command path",
+			path:    "true",
+			wantErr: "command path must be absolute",
+		},
+		{
 			name:    "nul in path",
-			path:    "true\x00",
+			path:    "/true\x00",
 			wantErr: "command path contains NUL byte",
 		},
 		{
 			name:    "nul in arg",
-			path:    "true",
+			path:    truePath,
 			args:    []string{"foo\x00"},
 			wantErr: "command argument contains NUL byte",
-		},
-		{
-			name:    "invalid characters",
-			path:    "tr ue",
-			wantErr: "command path tr ue contains invalid characters",
 		},
 		{
 			name:    "invalid characters in basename",
@@ -46,12 +46,8 @@ func TestValidateCmd(t *testing.T) {
 		},
 		{
 			name:    "nonexistent command",
-			path:    "does-not-exist",
-			wantErr: "does-not-exist: exec: \"does-not-exist\": executable file not found in $PATH",
-		},
-		{
-			name: "valid command",
-			path: "true",
+			path:    "/does-not-exist",
+			wantErr: "/does-not-exist: exec: \"/does-not-exist\": stat /does-not-exist: no such file or directory",
 		},
 		{
 			name: "valid absolute path",

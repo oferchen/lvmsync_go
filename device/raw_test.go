@@ -16,13 +16,11 @@ import (
 
 func helperCommand(t *testing.T) string {
 	dir := t.TempDir()
-	name := "cmdhelper"
-	link := filepath.Join(dir, name)
+	link := filepath.Join(dir, "cmdhelper")
 	if err := os.Symlink(os.Args[0], link); err != nil {
 		t.Fatalf("symlink: %v", err)
 	}
-	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
-	return name
+	return link
 }
 
 func TestOpenRawLogsInfoAndClose(t *testing.T) {
@@ -114,7 +112,15 @@ func TestOpenRawRequiresOfflineOrFreeze(t *testing.T) {
 }
 
 func TestOpenRawFreezeCommandFailure(t *testing.T) {
-	if _, err := OpenRaw(context.Background(), "/dev/null", false, "false", nil, "true", nil, time.Second, time.Second, zap.NewNop()); err == nil {
+	falsePath, err := exec.LookPath("false")
+	if err != nil {
+		t.Fatalf("missing false binary: %v", err)
+	}
+	truePath, err := exec.LookPath("true")
+	if err != nil {
+		t.Fatalf("missing true binary: %v", err)
+	}
+	if _, err := OpenRaw(context.Background(), "/dev/null", false, falsePath, nil, truePath, nil, time.Second, time.Second, zap.NewNop()); err == nil {
 		t.Fatalf("expected freeze command failure")
 	}
 }
@@ -122,11 +128,13 @@ func TestOpenRawFreezeCommandFailure(t *testing.T) {
 func TestOpenRawThawsOnFailure(t *testing.T) {
 	freezeTmp := filepath.Join(t.TempDir(), "freeze")
 	thawTmp := filepath.Join(t.TempDir(), "thaw")
-	freezeCmdPath := "touch"
+	touchPath, err := exec.LookPath("touch")
+	if err != nil {
+		t.Fatalf("missing touch binary: %v", err)
+	}
 	freezeArgs := []string{freezeTmp}
-	thawCmdPath := "touch"
 	thawArgs := []string{thawTmp}
-	if _, err := OpenRaw(context.Background(), "/dev/null", false, freezeCmdPath, freezeArgs, thawCmdPath, thawArgs, time.Second, time.Second, zap.NewNop()); err == nil {
+	if _, err := OpenRaw(context.Background(), "/dev/null", false, touchPath, freezeArgs, touchPath, thawArgs, time.Second, time.Second, zap.NewNop()); err == nil {
 		t.Fatalf("expected error for char device")
 	}
 	if _, err := os.Stat(freezeTmp); err != nil {
@@ -139,7 +147,11 @@ func TestOpenRawThawsOnFailure(t *testing.T) {
 
 func TestCleanupRunsThawCommand(t *testing.T) {
 	tmp := filepath.Join(t.TempDir(), "thaw")
-	d := &RawDevice{freezeIssued: true, logger: zap.NewNop(), thawCmdPath: "touch", thawCmdArgs: []string{tmp}}
+	touchPath, err := exec.LookPath("touch")
+	if err != nil {
+		t.Fatalf("missing touch binary: %v", err)
+	}
+	d := &RawDevice{freezeIssued: true, logger: zap.NewNop(), thawCmdPath: touchPath, thawCmdArgs: []string{tmp}}
 	if err := d.Cleanup(context.Background()); err != nil {
 		t.Fatalf("cleanup: %v", err)
 	}
@@ -149,27 +161,37 @@ func TestCleanupRunsThawCommand(t *testing.T) {
 }
 
 func TestCleanupThawCommandFailure(t *testing.T) {
-	d := &RawDevice{freezeIssued: true, logger: zap.NewNop(), thawCmdPath: "false"}
+	falsePath, err := exec.LookPath("false")
+	if err != nil {
+		t.Fatalf("missing false binary: %v", err)
+	}
+	d := &RawDevice{freezeIssued: true, logger: zap.NewNop(), thawCmdPath: falsePath}
 	if err := d.Cleanup(context.Background()); err == nil {
 		t.Fatalf("expected thaw command failure")
 	}
 }
 
 func TestOpenRawFreezeTimeout(t *testing.T) {
-	if _, err := exec.LookPath("sleep"); err != nil {
+	sleepPath, err := exec.LookPath("sleep")
+	if err != nil {
 		t.Skip("sleep command not found")
 	}
-	_, err := OpenRaw(context.Background(), "/dev/null", false, "sleep", []string{"2"}, "true", nil, 100*time.Millisecond, time.Second, zap.NewNop())
+	truePath, err := exec.LookPath("true")
+	if err != nil {
+		t.Fatalf("missing true binary: %v", err)
+	}
+	_, err = OpenRaw(context.Background(), "/dev/null", false, sleepPath, []string{"2"}, truePath, nil, 100*time.Millisecond, time.Second, zap.NewNop())
 	if err == nil || !strings.Contains(err.Error(), "signal: killed") {
 		t.Fatalf("expected freeze command to be killed, got %v", err)
 	}
 }
 
 func TestCleanupThawTimeout(t *testing.T) {
-	if _, err := exec.LookPath("sleep"); err != nil {
+	sleepPath, err := exec.LookPath("sleep")
+	if err != nil {
 		t.Skip("sleep command not found")
 	}
-	d := &RawDevice{freezeIssued: true, logger: zap.NewNop(), thawTimeout: 100 * time.Millisecond, thawCmdPath: "sleep", thawCmdArgs: []string{"2"}}
+	d := &RawDevice{freezeIssued: true, logger: zap.NewNop(), thawTimeout: 100 * time.Millisecond, thawCmdPath: sleepPath, thawCmdArgs: []string{"2"}}
 	if err := d.Cleanup(context.Background()); err == nil || !strings.Contains(err.Error(), "signal: killed") {
 		t.Fatalf("expected thaw command to be killed, got %v", err)
 	}
@@ -182,11 +204,19 @@ func TestOpenRawStoresThawConfig(t *testing.T) {
 	loop, cleanup := setupLoop(t, 1<<20)
 	defer cleanup()
 	thawTmp := filepath.Join(t.TempDir(), "thaw")
-	d, err := OpenRaw(context.Background(), loop, false, "true", nil, "touch", []string{thawTmp}, time.Second, time.Second, zap.NewNop())
+	truePath, err := exec.LookPath("true")
+	if err != nil {
+		t.Fatalf("missing true binary: %v", err)
+	}
+	touchPath, err := exec.LookPath("touch")
+	if err != nil {
+		t.Fatalf("missing touch binary: %v", err)
+	}
+	d, err := OpenRaw(context.Background(), loop, false, truePath, nil, touchPath, []string{thawTmp}, time.Second, time.Second, zap.NewNop())
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
-	if d.thawCmdPath != "touch" || len(d.thawCmdArgs) != 1 || d.thawCmdArgs[0] != thawTmp {
+	if d.thawCmdPath != touchPath || len(d.thawCmdArgs) != 1 || d.thawCmdArgs[0] != thawTmp {
 		t.Fatalf("thaw configuration not stored")
 	}
 	if err := d.Cleanup(context.Background()); err != nil {
@@ -271,7 +301,11 @@ func TestOpenRawFreezeCommandFailureIncludesOutput(t *testing.T) {
 	execCommand = fakeExecCommandContext
 	t.Cleanup(func() { execCommand = oldExec })
 	helper := helperCommand(t)
-	if _, err := OpenRaw(context.Background(), "/dev/null", false, helper, []string{"freeze-fail-output"}, "true", nil, time.Second, time.Second, logger); err == nil || !strings.Contains(err.Error(), "freeze output") {
+	truePath, err := exec.LookPath("true")
+	if err != nil {
+		t.Fatalf("missing true binary: %v", err)
+	}
+	if _, err := OpenRaw(context.Background(), "/dev/null", false, helper, []string{"freeze-fail-output"}, truePath, nil, time.Second, time.Second, logger); err == nil || !strings.Contains(err.Error(), "freeze output") {
 		t.Fatalf("expected freeze output in error, got %v", err)
 	}
 	entries := logs.FilterMessage("fs freeze failed").All()

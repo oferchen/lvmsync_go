@@ -50,8 +50,9 @@ Override automatic detection with `--source-type` and `--dest-type` when a devic
 ### Offline requirements
 
 Raw sources must be quiescent or provide filesystem freeze/thaw hooks using
-`--fs-freeze-command` and `--fs-thaw-command`. LVM snapshots are consistent by
-design, while regular files require no additional coordination.
+`--fs-freeze-command` and `--fs-thaw-command`. These command paths must be
+absolute. LVM snapshots are consistent by design, while regular files require
+no additional coordination.
 
 ## Transport Options
 
@@ -433,7 +434,7 @@ Examples:
 lvmsync --source-type lvm /dev/vg0/origin /tmp/dump
 lvmsync --dest-type raw dumpfile /dev/sdb
 lvmsync --source-type raw --offline /dev/sdb /tmp/dump
-lvmsync --source-type raw --fs-freeze-command "fsfreeze -f '/mnt/data dir'" --fs-thaw-command "fsfreeze -u '/mnt/data dir'" /dev/sdb /tmp/dump
+lvmsync --source-type raw --fs-freeze-command "/usr/sbin/fsfreeze -f '/mnt/data dir'" --fs-thaw-command "/usr/sbin/fsfreeze -u '/mnt/data dir'" /dev/sdb /tmp/dump
 ```
 
 ### Raw device safety
@@ -441,17 +442,17 @@ lvmsync --source-type raw --fs-freeze-command "fsfreeze -f '/mnt/data dir'" --fs
 Reading from a live block device can corrupt data if writes occur during the transfer. Ensure a consistent view with one of the following options:
 
 - `--offline` – assert that no process will write to the source device.
-- `--fs-freeze-command`/`--fs-thaw-command` – run commands that freeze and thaw the filesystem around the read. Arguments are parsed with shell-style quoting, so wrap paths containing spaces in quotes.
+- `--fs-freeze-command`/`--fs-thaw-command` – run commands that freeze and thaw the filesystem around the read. Command paths must be absolute. Arguments are parsed with shell-style quoting, so wrap paths containing spaces in quotes.
 - Time out freeze and thaw helpers with `--freeze-timeout` and `--thaw-timeout` (default `10s`).
 
-Freeze and thaw commands are validated before execution. The command name must match `^[a-zA-Z0-9._-]+$`, be set, free of NUL bytes, every argument must avoid NULs, and the executable must be discoverable in `$PATH`; otherwise lvmsync returns an error.
+Freeze and thaw commands are validated before execution. Paths must be absolute, command names must match `^[a-zA-Z0-9._-]+$`, be set, free of NUL bytes, every argument must avoid NULs, and the executable must exist; otherwise lvmsync returns an error.
 
 Example using the provided scripts:
 
 ```sh
 lvmsync --source-type raw \
-  --fs-freeze-command "fsfreeze-freeze.sh /mnt" \
-  --fs-thaw-command "fsfreeze-thaw.sh /mnt" \
+  --fs-freeze-command "$(pwd)/docs/fsfreeze-freeze.sh /mnt" \
+  --fs-thaw-command "$(pwd)/docs/fsfreeze-thaw.sh /mnt" \
   /dev/sdb /tmp/dump
 ```
 
@@ -508,8 +509,8 @@ LVMSYNC_LVM_SNAPSHOT_SIZE=25% lvmsync run /dev/vg0/snap0 /mnt/backup
 | `--source-type` | `LVMSYNC_SOURCE_TYPE` | `source-type` | Source device type: `auto`, `file`, `raw`, or `lvm` |
 | `--dest-type` | `LVMSYNC_DEST_TYPE` | `dest-type` | Destination device type: `auto`, `file`, `raw`, or `lvm` |
 | `--offline` | `LVMSYNC_OFFLINE` | `offline` | Assume source raw device is offline |
-| `--fs-freeze-command` | `LVMSYNC_FS_FREEZE_COMMAND` | `fs-freeze-command` | Command to freeze filesystem before reading raw source; arguments are split with shell-style quoting and executable name must match `^[a-zA-Z0-9._-]+$` |
-| `--fs-thaw-command` | `LVMSYNC_FS_THAW_COMMAND` | `fs-thaw-command` | Command to thaw filesystem after reading raw source; arguments are split with shell-style quoting and executable name must match `^[a-zA-Z0-9._-]+$` |
+| `--fs-freeze-command` | `LVMSYNC_FS_FREEZE_COMMAND` | `fs-freeze-command` | Command to freeze filesystem before reading raw source; path must be absolute, arguments are split with shell-style quoting and executable name must match `^[a-zA-Z0-9._-]+$` |
+| `--fs-thaw-command` | `LVMSYNC_FS_THAW_COMMAND` | `fs-thaw-command` | Command to thaw filesystem after reading raw source; path must be absolute, arguments are split with shell-style quoting and executable name must match `^[a-zA-Z0-9._-]+$` |
 | `--freeze-timeout` | `LVMSYNC_FREEZE_TIMEOUT` | `freeze_timeout` | Timeout for filesystem freeze command |
 | `--thaw-timeout` | `LVMSYNC_THAW_TIMEOUT` | `thaw_timeout` | Timeout for filesystem thaw command |
 | `--mode` | `LVMSYNC_MODE` | `mode` | Configuration preset: `default` or `throughput`; unknown modes fail validation |
@@ -1039,8 +1040,8 @@ Flags are parsed via Viper, so the same settings can be provided through
 | `--block_size`      | Block size for data transfer (e.g., `"4K"`, `"64K"`, `"512K"`, `"1M"`), use `0` for automatic detection | `"4K"`    |
 | `--dry-run`         | Print actions without executing | `false`   |
 | `--offline`         | Assume source raw device is offline | `false`   |
-| `--fs-freeze-command` | Command to freeze filesystem before reading raw source; arguments use shell-style quoting | `""` |
-| `--fs-thaw-command`  | Command to thaw filesystem after reading raw source; arguments use shell-style quoting | `""` |
+| `--fs-freeze-command` | Command to freeze filesystem before reading raw source; path must be absolute and arguments use shell-style quoting | `""` |
+| `--fs-thaw-command`  | Command to thaw filesystem after reading raw source; path must be absolute and arguments use shell-style quoting | `""` |
 | `--freeze-timeout`   | Timeout for filesystem freeze command | `10s` |
 | `--thaw-timeout`     | Timeout for filesystem thaw command | `10s` |
 | `--transport`       | Ordered transports to try (e.g., `quic,h2,tcp+tls,ssh`) | `""`      |
