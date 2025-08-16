@@ -68,11 +68,14 @@ func TestQUICTransportHandshake(t *testing.T) {
 		t.Fatalf("new transport: %v", err)
 	}
 	tr := trIface.(*Transport)
-	ctx := context.Background()
-	ln, err := tr.Listen(ctx, "127.0.0.1:0")
+	baseCtx := context.Background()
+	listenCtx, cancel := context.WithTimeout(baseCtx, time.Second)
+	ln, err := tr.Listen(listenCtx, "127.0.0.1:0")
 	if err != nil {
+		cancel()
 		t.Fatalf("listen: %v", err)
 	}
+	defer cancel()
 	defer ln.Close()
 
 	hs := common.Handshake{ResumeToken: "tok", DedupMode: "cdc", BlockSize: 4096, Compress: "zstd", Digest: "sha256", MaxInFlight: 8, CDCMin: 64, CDCAvg: 128, CDCMax: 256}
@@ -84,7 +87,9 @@ func TestQUICTransportHandshake(t *testing.T) {
 			return
 		}
 		qconn := conn.(*Conn)
-		peerHS, err := tr.Negotiate(ctx, qconn, transport.Server, hs)
+		srvCtx, cancel := context.WithTimeout(baseCtx, time.Second)
+		peerHS, err := tr.Negotiate(srvCtx, qconn, transport.Server, hs)
+		cancel()
 		if err != nil {
 			t.Errorf("server negotiate: %v", err)
 			return
@@ -97,13 +102,16 @@ func TestQUICTransportHandshake(t *testing.T) {
 		qconn.Close()
 		close(done)
 	}()
-
-	conn, err := tr.Dial(ctx, ln.Addr().String())
+	dialCtx, cancel := context.WithTimeout(baseCtx, time.Second)
+	conn, err := tr.Dial(dialCtx, ln.Addr().String())
+	cancel()
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
 	qconn := conn.(*Conn)
-	peerHS, err := tr.Negotiate(ctx, qconn, transport.Client, hs)
+	negCtx, cancel := context.WithTimeout(baseCtx, time.Second)
+	peerHS, err := tr.Negotiate(negCtx, qconn, transport.Client, hs)
+	cancel()
 	if err != nil {
 		t.Fatalf("client negotiate: %v", err)
 	}
@@ -130,11 +138,14 @@ func TestQUICTransportSelectBestHandshake(t *testing.T) {
 		t.Fatalf("new transport: %v", err)
 	}
 	tr := trIface.(*Transport)
-	ctx := context.Background()
-	ln, err := tr.Listen(ctx, "127.0.0.1:0")
+	baseCtx := context.Background()
+	listenCtx, cancel := context.WithTimeout(baseCtx, time.Second)
+	ln, err := tr.Listen(listenCtx, "127.0.0.1:0")
 	if err != nil {
+		cancel()
 		t.Fatalf("listen: %v", err)
 	}
+	defer cancel()
 	defer ln.Close()
 
 	srvCompress := []string{"zstd", "lz4"}
@@ -178,7 +189,9 @@ func TestQUICTransportSelectBestHandshake(t *testing.T) {
 			return
 		}
 		qconn := conn.(*Conn)
-		_, err = tr.Negotiate(ctx, qconn, transport.Server, srvHS)
+		srvCtx, cancel := context.WithTimeout(baseCtx, time.Second)
+		_, err = tr.Negotiate(srvCtx, qconn, transport.Server, srvHS)
+		cancel()
 		if err == nil {
 			buf := make([]byte, 1)
 			qconn.Read(buf)
@@ -186,16 +199,14 @@ func TestQUICTransportSelectBestHandshake(t *testing.T) {
 		qconn.Close()
 		srvErr <- err
 	}()
-
-	dialCtx, cancel := context.WithTimeout(ctx, time.Second)
+	dialCtx, cancel := context.WithTimeout(baseCtx, time.Second)
 	conn, err := tr.Dial(dialCtx, ln.Addr().String())
+	cancel()
 	if err != nil {
-		cancel()
 		t.Fatalf("dial: %v", err)
 	}
-	defer cancel()
 	qconn := conn.(*Conn)
-	negCtx, cancel := context.WithTimeout(ctx, time.Second)
+	negCtx, cancel := context.WithTimeout(baseCtx, time.Second)
 	peer, err := tr.Negotiate(negCtx, qconn, transport.Client, cliHS)
 	cancel()
 	if err != nil {

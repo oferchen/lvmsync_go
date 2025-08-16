@@ -261,8 +261,6 @@ func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport
 			t.logger.Info("negotiate_end", fields...)
 		}
 	}()
-	defer conn.SetDeadline(time.Time{})
-
 	hs.Version = common.ProtocolVersion
 	if hs.Endianness == "" {
 		hs.Endianness = common.NativeEndianness()
@@ -273,12 +271,16 @@ func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport
 			return peer, err
 		}
 		if err = common.WriteHandshake(conn, hs); err != nil {
+			clearDeadline(conn)
 			return peer, err
 		}
+		clearDeadline(conn)
+
 		if err = setDeadline(ctx, conn); err != nil {
 			return peer, err
 		}
 		peer, err = common.ReadHandshake(bufio.NewReader(conn))
+		clearDeadline(conn)
 		if err != nil {
 			return peer, err
 		}
@@ -292,6 +294,7 @@ func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport
 			return peer, err
 		}
 		peer, err = common.ReadHandshake(bufio.NewReader(conn))
+		clearDeadline(conn)
 		if err != nil {
 			return peer, err
 		}
@@ -303,8 +306,10 @@ func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport
 			return peer, err
 		}
 		if err = common.WriteHandshake(conn, hs); err != nil {
+			clearDeadline(conn)
 			return peer, err
 		}
+		clearDeadline(conn)
 		return peer, nil
 	default:
 		return peer, nil
@@ -424,5 +429,9 @@ func setDeadline(ctx context.Context, conn net.Conn) error {
 	if d, ok := ctx.Deadline(); ok {
 		return conn.SetDeadline(d)
 	}
-	return conn.SetDeadline(time.Time{})
+	return nil
+}
+
+func clearDeadline(conn net.Conn) {
+	_ = conn.SetDeadline(time.Time{})
 }
