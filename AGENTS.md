@@ -60,6 +60,7 @@ logger.Info("snapshot complete",
 - Define flags within `pflag.FlagSet`s and bind them to `viper`; the standard library `flag` package is not used.
 - Expose configuration via both config files and environment variables for easy automation.
 - New flag groups must include tests demonstrating configuration precedence.
+- `--fs-freeze-command` and `--fs-thaw-command` values are split with shell-style quoting; tests should cover paths with spaces and README examples must quote such arguments.
 
 ### Flag Grouping Example
 

@@ -118,6 +118,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - device: reject freeze/thaw command paths with invalid characters and document allowed format
 - device: allow freeze/thaw command paths containing directories by validating basename only
 - dedup: ensure FastCDC chunks own their data slices to prevent cross-chunk mutation
+- device: parse freeze/thaw commands with shell-style quoting
 
 - manifest: fix close hook test to remove duplicate rebuild blocks
 - tcp+tls: log listener close errors during shutdown

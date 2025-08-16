@@ -363,7 +363,7 @@ Examples:
 lvmsync --source-type lvm /dev/vg0/origin /tmp/dump
 lvmsync --dest-type raw dumpfile /dev/sdb
 lvmsync --source-type raw --offline /dev/sdb /tmp/dump
-lvmsync --source-type raw --fs-freeze-command "fsfreeze -f /mnt" --fs-thaw-command "fsfreeze -u /mnt" /dev/sdb /tmp/dump
+lvmsync --source-type raw --fs-freeze-command "fsfreeze -f '/mnt/data dir'" --fs-thaw-command "fsfreeze -u '/mnt/data dir'" /dev/sdb /tmp/dump
 ```
 
 ### Raw device safety
@@ -371,7 +371,7 @@ lvmsync --source-type raw --fs-freeze-command "fsfreeze -f /mnt" --fs-thaw-comma
 Reading from a live block device can corrupt data if writes occur during the transfer. Ensure a consistent view with one of the following options:
 
 - `--offline` – assert that no process will write to the source device.
-- `--fs-freeze-command`/`--fs-thaw-command` – run commands that freeze and thaw the filesystem around the read.
+- `--fs-freeze-command`/`--fs-thaw-command` – run commands that freeze and thaw the filesystem around the read. Arguments are parsed with shell-style quoting, so wrap paths containing spaces in quotes.
 - Time out freeze and thaw helpers with `--freeze-timeout` and `--thaw-timeout` (default `10s`).
 
 Freeze and thaw commands are validated before execution. The command name must match `^[a-zA-Z0-9._-]+$`, be set, free of NUL bytes, every argument must avoid NULs, and the executable must be discoverable in `$PATH`; otherwise lvmsync returns an error.
@@ -430,8 +430,8 @@ LVMSYNC_GRPC_GRPC_PORT=9443 LVMSYNC_GRPC_TLS_CERT=cert.pem lvmsync-grpcd
 | `--source-type` | `LVMSYNC_SOURCE_TYPE` | `source-type` | Source device type: `auto`, `file`, `raw`, or `lvm` |
 | `--dest-type` | `LVMSYNC_DEST_TYPE` | `dest-type` | Destination device type: `auto`, `file`, `raw`, or `lvm` |
 | `--offline` | `LVMSYNC_OFFLINE` | `offline` | Assume source raw device is offline |
-| `--fs-freeze-command` | `LVMSYNC_FS_FREEZE_COMMAND` | `fs-freeze-command` | Command to freeze filesystem before reading raw source; executable name must match `^[a-zA-Z0-9._-]+$` |
-| `--fs-thaw-command` | `LVMSYNC_FS_THAW_COMMAND` | `fs-thaw-command` | Command to thaw filesystem after reading raw source; executable name must match `^[a-zA-Z0-9._-]+$` |
+| `--fs-freeze-command` | `LVMSYNC_FS_FREEZE_COMMAND` | `fs-freeze-command` | Command to freeze filesystem before reading raw source; arguments are split with shell-style quoting and executable name must match `^[a-zA-Z0-9._-]+$` |
+| `--fs-thaw-command` | `LVMSYNC_FS_THAW_COMMAND` | `fs-thaw-command` | Command to thaw filesystem after reading raw source; arguments are split with shell-style quoting and executable name must match `^[a-zA-Z0-9._-]+$` |
 | `--freeze-timeout` | `LVMSYNC_FREEZE_TIMEOUT` | `freeze_timeout` | Timeout for filesystem freeze command |
 | `--thaw-timeout` | `LVMSYNC_THAW_TIMEOUT` | `thaw_timeout` | Timeout for filesystem thaw command |
 | `--mode` | `LVMSYNC_MODE` | `mode` | Configuration preset: `default` or `throughput`; unknown modes fail validation |
@@ -953,8 +953,8 @@ Flags are parsed via Viper, so the same settings can be provided through
 | `--block_size`      | Block size for data transfer (e.g., `"4K"`, `"64K"`, `"512K"`, `"1M"`), use `0` for automatic detection | `"4K"`    |
 | `--dry-run`         | Print actions without executing | `false`   |
 | `--offline`         | Assume source raw device is offline | `false`   |
-| `--fs-freeze-command` | Command to freeze filesystem before reading raw source | `""` |
-| `--fs-thaw-command`  | Command to thaw filesystem after reading raw source | `""` |
+| `--fs-freeze-command` | Command to freeze filesystem before reading raw source; arguments use shell-style quoting | `""` |
+| `--fs-thaw-command`  | Command to thaw filesystem after reading raw source; arguments use shell-style quoting | `""` |
 | `--freeze-timeout`   | Timeout for filesystem freeze command | `10s` |
 | `--thaw-timeout`     | Timeout for filesystem thaw command | `10s` |
 | `--transport`       | Ordered transports to try (e.g., `quic,h2,tcp+tls,ssh`) | `""`      |
