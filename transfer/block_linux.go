@@ -88,7 +88,7 @@ func punchHole(f *os.File, offset uint64, length int) error {
 	return unix.Fallocate(int(f.Fd()), unix.FALLOC_FL_PUNCH_HOLE|unix.FALLOC_FL_KEEP_SIZE, int64(offset), int64(length))
 }
 
-func fdatasyncFile(f *os.File) error {
+var fdatasyncFile = func(f *os.File) error {
 	return unix.Fdatasync(int(f.Fd()))
 }
 
