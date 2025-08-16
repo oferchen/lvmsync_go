@@ -6,13 +6,17 @@ import (
 	"encoding/binary"
 	"io"
 	"net"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"go.uber.org/zap"
 
 	"lvmsync_go/internal/digest"
 	"lvmsync_go/internal/rsynkwire"
+	"lvmsync_go/internal/signaturecache"
 )
 
 const maxFrame = 1 << 20
@@ -55,7 +59,7 @@ func (m *memDevice) Sync() error { m.sync = true; return nil }
 
 func newServer(t *testing.T, dev *memDevice, data []byte) *Server {
 	t.Helper()
-	srv := New(dev, zap.NewNop())
+	srv := New(dev, zap.NewNop(), nil, "", "")
 	exp, err := digest.SumReader(bytes.NewReader(data), digest.SHA256)
 	if err != nil {
 		t.Fatalf("digest: %v", err)
@@ -121,7 +125,7 @@ func TestHandleRejectsOversizedSignatures(t *testing.T) {
 	defer c2.Close()
 
 	dev := &memDevice{buf: make([]byte, 1)}
-	srv := New(dev, zap.NewNop())
+	srv := New(dev, zap.NewNop(), nil, "", "")
 	ctx := context.Background()
 	errCh := make(chan error, 1)
 	go func() { errCh <- srv.Handle(ctx, rsynkwire.NewStream(c2, maxFrame)) }()
@@ -143,5 +147,162 @@ func TestHandleRejectsOversizedSignatures(t *testing.T) {
 	err := <-errCh
 	if err == nil || !strings.Contains(err.Error(), "checksum count") {
 		t.Fatalf("expected checksum count error, got %v", err)
+	}
+}
+
+func TestHandleCacheHit(t *testing.T) {
+	dir := t.TempDir()
+	cache := signaturecache.New(dir, time.Hour, 10)
+	data := []byte("hello")
+	dev := &memDevice{buf: append([]byte{}, data...)}
+	dgst, err := digest.SumReader(bytes.NewReader(data), digest.SHA256)
+	if err != nil {
+		t.Fatalf("digest: %v", err)
+	}
+	if err := cache.Put("vg", "lv", int64(len(data)), dgst[:]); err != nil {
+		t.Fatalf("Put: %v", err)
+	}
+	srv := New(dev, zap.NewNop(), cache, "vg", "lv")
+	c1, c2 := net.Pipe()
+	defer c1.Close()
+	defer c2.Close()
+	ctx := context.Background()
+	errCh := make(chan error, 1)
+	go func() { errCh <- srv.Handle(ctx, rsynkwire.NewStream(c2, maxFrame)) }()
+
+	var buf bytes.Buffer
+	buf.WriteByte('G')
+	buf.WriteByte(byte(len(digest.SHA256)))
+	buf.WriteString(digest.SHA256)
+	buf.Write(dgst[:])
+	if err := rsynkwire.NewStream(c1, maxFrame).Send(buf.Bytes()); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	c1.Close()
+	if err := <-errCh; err != nil {
+		t.Fatalf("Handle: %v", err)
+	}
+	if dev.sync {
+		t.Fatalf("expected no sync on cache hit")
+	}
+}
+
+func TestHandleCacheMissUpdates(t *testing.T) {
+	dir := t.TempDir()
+	cache := signaturecache.New(dir, time.Hour, 10)
+	data := []byte("hi")
+	dev := &memDevice{buf: make([]byte, len(data))}
+	srv := New(dev, zap.NewNop(), cache, "vg", "lv")
+	dgst, err := digest.SumReader(bytes.NewReader(data), digest.SHA256)
+	if err != nil {
+		t.Fatalf("digest: %v", err)
+	}
+	c1, c2 := net.Pipe()
+	defer c1.Close()
+	defer c2.Close()
+	ctx := context.Background()
+	errCh := make(chan error, 1)
+	go func() { errCh <- srv.Handle(ctx, rsynkwire.NewStream(c2, maxFrame)) }()
+	stream := rsynkwire.NewStream(c1, maxFrame)
+
+	var gbuf bytes.Buffer
+	gbuf.WriteByte('G')
+	gbuf.WriteByte(byte(len(digest.SHA256)))
+	gbuf.WriteString(digest.SHA256)
+	gbuf.Write(dgst[:])
+	if err := stream.Send(gbuf.Bytes()); err != nil {
+		t.Fatalf("Send digest: %v", err)
+	}
+	if err := rsynkwire.NewClient(stream).SendDelta(0, data); err != nil {
+		t.Fatalf("SendDelta: %v", err)
+	}
+	c1.Close()
+	if err := <-errCh; err != nil {
+		t.Fatalf("Handle: %v", err)
+	}
+	if string(dev.buf) != string(data) {
+		t.Fatalf("device %q want %q", dev.buf, data)
+	}
+	if !dev.sync {
+		t.Fatalf("expected sync")
+	}
+	if _, ok := cache.Get("vg", "lv", int64(len(data))); !ok {
+		t.Fatalf("expected cache populated")
+	}
+}
+
+func TestHandleCacheTTLExpiry(t *testing.T) {
+	dir := t.TempDir()
+	cache := signaturecache.New(dir, 10*time.Millisecond, 10)
+	data := []byte("hello")
+	dgst, err := digest.SumReader(bytes.NewReader(data), digest.SHA256)
+	if err != nil {
+		t.Fatalf("digest: %v", err)
+	}
+	if err := cache.Put("vg", "lv", int64(len(data)), dgst[:]); err != nil {
+		t.Fatalf("Put: %v", err)
+	}
+	time.Sleep(20 * time.Millisecond)
+	dev := &memDevice{buf: append([]byte{}, data...)}
+	srv := New(dev, zap.NewNop(), cache, "vg", "lv")
+	c1, c2 := net.Pipe()
+	defer c1.Close()
+	defer c2.Close()
+	ctx := context.Background()
+	errCh := make(chan error, 1)
+	go func() { errCh <- srv.Handle(ctx, rsynkwire.NewStream(c2, maxFrame)) }()
+	var buf bytes.Buffer
+	buf.WriteByte('G')
+	buf.WriteByte(byte(len(digest.SHA256)))
+	buf.WriteString(digest.SHA256)
+	buf.Write(dgst[:])
+	if err := rsynkwire.NewStream(c1, maxFrame).Send(buf.Bytes()); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	c1.Close()
+	if err := <-errCh; err != nil {
+		t.Fatalf("Handle: %v", err)
+	}
+	if !dev.sync {
+		t.Fatalf("expected sync after TTL expiry")
+	}
+}
+
+func TestHandleCacheLRUEviction(t *testing.T) {
+	dir := t.TempDir()
+	cache := signaturecache.New(dir, time.Hour, 1)
+
+	run := func(vg, lv, content string) {
+		dev := &memDevice{buf: []byte(content)}
+		dgst, err := digest.SumReader(bytes.NewReader([]byte(content)), digest.SHA256)
+		if err != nil {
+			t.Fatalf("digest: %v", err)
+		}
+		srv := New(dev, zap.NewNop(), cache, vg, lv)
+		c1, c2 := net.Pipe()
+		ctx := context.Background()
+		errCh := make(chan error, 1)
+		go func() { errCh <- srv.Handle(ctx, rsynkwire.NewStream(c2, maxFrame)) }()
+		var buf bytes.Buffer
+		buf.WriteByte('G')
+		buf.WriteByte(byte(len(digest.SHA256)))
+		buf.WriteString(digest.SHA256)
+		buf.Write(dgst[:])
+		if err := rsynkwire.NewStream(c1, maxFrame).Send(buf.Bytes()); err != nil {
+			t.Fatalf("Send: %v", err)
+		}
+		c1.Close()
+		if err := <-errCh; err != nil {
+			t.Fatalf("Handle: %v", err)
+		}
+	}
+
+	run("vg", "a", "a")
+	if _, err := os.Stat(filepath.Join(dir, "vg", "a.sig")); err != nil {
+		t.Fatalf("expected a.sig present: %v", err)
+	}
+	run("vg", "b", "b")
+	if _, err := os.Stat(filepath.Join(dir, "vg", "a.sig")); !os.IsNotExist(err) {
+		t.Fatalf("expected a.sig evicted, got %v", err)
 	}
 }
