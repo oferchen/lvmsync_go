@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	digest "lvmsync_go/internal/digest"
 	"lvmsync_go/lvm"
 )
 
@@ -14,6 +15,9 @@ import (
 func (c *Config) ValidateWith(geteuid func() int) error {
 	if c.Mode != "default" && c.Mode != "throughput" {
 		return fmt.Errorf("invalid mode %q: must be \"default\" or \"throughput\"", c.Mode)
+	}
+	if strings.ToLower(c.ChecksumAlgorithm) == "" || strings.ToLower(c.ChecksumAlgorithm) == Auto {
+		c.ChecksumAlgorithm = digest.Select()
 	}
 	if c.SourceType != "" && c.SourceType != "auto" && c.SourceType != "file" && c.SourceType != "raw" && c.SourceType != "lvm" {
 		return fmt.Errorf("invalid source type %q", c.SourceType)

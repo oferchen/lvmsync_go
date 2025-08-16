@@ -36,6 +36,9 @@ func TestReadAndValidateHandshake(t *testing.T) {
 	if cfg.CDCMin != 64 || cfg.CDCAvg != 128 || cfg.CDCMax != 256 || cfg.ResumeToken != "tok" || cfg.Concurrency != 8 {
 		t.Fatalf("values not propagated: %+v", cfg)
 	}
+	if hs.Digest != "sha256" {
+		t.Fatalf("expected digest sha256, got %s", hs.Digest)
+	}
 }
 
 func TestReadAndValidateHandshakeError(t *testing.T) {

@@ -91,7 +91,7 @@ func TestProcessDumpDataRejectsManifestMismatch(t *testing.T) {
 	}
 
 	tr := NewTransfer(zap.NewNop(), nil)
-	cfg := &config.Config{BlockSize: 4096, ManifestPath: manPath, MaxRetries: 1, Compress: "none"}
+	cfg := &config.Config{BlockSize: 4096, ManifestPath: manPath, MaxRetries: 1, Compress: "none", ChecksumAlgorithm: "sha256"}
 
 	t.Run("id mismatch", func(t *testing.T) {
 		dest := filepath.Join(dir, "dest-id")
