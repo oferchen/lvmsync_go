@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- device: split Detect into detectFileDevice, detectLVMDevice, and detectRawDevice helpers with dedicated tests
 - device: detect LVM, raw, or file devices using blkid metadata
 - cmd: manage LVM snapshot lifecycle within dump and apply commands
 - tests: add coverage for adaptive chunk sizing, index option application, TLS version helper, capability checks, and data size overflow; include loop device setup integration test.
@@ -64,6 +65,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - transfer: sample 8 KiB per chunk and log compression decisions.
 
 ### Fixed
+- tests: flush H2 handshake data by buffering server errors, closing connections before sending, and applying context timeouts
 - manifest: return error when block size is zero
 - device: Detect, OpenFile, and OpenRaw return error when logger is nil
 - device: parse mount info using github.com/moby/sys/mountinfo to handle spaces and special characters
@@ -78,6 +80,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - tests: assert context deadline exceeded for tcp+tls unreachable dial
 - handshake: validate digest mismatches in protocol negotiation
 - Enforce CDC chunk size ordering in handshake validation.
+- tests: add timeouts and connection cleanup in tcp+tls handshake selection test.
 - config: validate positive CDC tunables and ordering.
 - tcp+tls: ensure negotiation performs TLS handshake and only records ALPN/TLS version when negotiated.
 - config: enforce CDC chunk size ordering during validation.
@@ -125,6 +128,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - manifest: fix close hook test to remove duplicate rebuild blocks
 - tcp+tls: log listener close errors during shutdown
 - tests: bound QUIC SelectBestHandshake dial and negotiate with timeouts and close server connection before reporting errors
+- tests: use timeouts and close connections before returning errors in SSH handshake selection test
 
 ## [v0.1.0] - 2025-02-27
 ### Added

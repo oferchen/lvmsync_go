@@ -255,7 +255,8 @@ func TestH2TransportSelectBestHandshake(t *testing.T) {
 		t.Fatalf("new transport: %v", err)
 	}
 	tr := trIface.(*Transport)
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
 	ln, err := tr.Listen(ctx, "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("listen: %v", err)
@@ -295,7 +296,7 @@ func TestH2TransportSelectBestHandshake(t *testing.T) {
 		CDCMax:      256,
 	}
 
-	srvErr := make(chan error)
+	srvErr := make(chan error, 1)
 	go func() {
 		conn, err := ln.Accept()
 		if err != nil {
@@ -303,8 +304,8 @@ func TestH2TransportSelectBestHandshake(t *testing.T) {
 			return
 		}
 		_, err = tr.Negotiate(ctx, conn, transport.Server, srvHS)
-		srvErr <- err
 		conn.Close()
+		srvErr <- err
 	}()
 
 	conn, err := tr.Dial(ctx, ln.Addr().String())

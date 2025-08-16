@@ -11,6 +11,11 @@ practical. Break down large functions into focused helpers and test each helper 
 Logging and configuration are fully structured to keep behavior predictable across
 command-line use, environment variables, and `config.yaml` files.
 
+## Device Detection
+
+- `Detect` orchestrates `detectFileDevice`, `detectLVMDevice`, and `detectRawDevice`.
+- Each helper includes dedicated tests for success and error paths.
+
 ## Logging
 
 - Use [zap](https://github.com/uber-go/zap) for structured logging.
