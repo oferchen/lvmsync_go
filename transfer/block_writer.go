@@ -2,6 +2,7 @@ package transfer
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"os"
 
@@ -9,6 +10,7 @@ import (
 	"go.uber.org/zap"
 
 	"lvmsync_go/config"
+	"lvmsync_go/internal/sizeparse"
 )
 
 // blockWriter streams block records to a destination file, optionally
@@ -24,8 +26,27 @@ type blockWriter struct {
 	rt        *resumeTracker
 }
 
-// newBlockWriter constructs a blockWriter.
-func newBlockWriter(cfg *config.Config, dest *os.File, dedup DeduplicationStrategy, verify bool, checksum ChecksumStrategy, logger *zap.Logger, rt *resumeTracker) *blockWriter {
+// newBlockWriter constructs a blockWriter, detecting the destination's physical
+// block size when the configured block size is "auto" (0) and parsing the
+// sync interval when provided as a string. It validates that the configured
+// block size is aligned to the underlying sector size.
+func newBlockWriter(cfg *config.Config, dest *os.File, dedup DeduplicationStrategy, verify bool, checksum ChecksumStrategy, logger *zap.Logger) (*blockWriter, error) {
+	if cfg.BlockSize <= 0 || cfg.ODirect {
+		sector, err := DetectSectorSize(dest)
+		if err != nil {
+			return nil, fmt.Errorf("detect sector size: %w", err)
+		}
+		if cfg.BlockSize <= 0 {
+			cfg.BlockSize = sector
+		} else if cfg.ODirect && cfg.BlockSize%sector != 0 {
+			return nil, fmt.Errorf("block size %d not multiple of sector %d", cfg.BlockSize, sector)
+		}
+	}
+	if cfg.SyncIntervalBytes == 0 && cfg.SyncInterval != "" {
+		if val, _, err := sizeparse.Parse(cfg.SyncInterval); err == nil {
+			cfg.SyncIntervalBytes = int(val)
+		}
+	}
 	return &blockWriter{
 		cfg:      cfg,
 		dest:     dest,
@@ -33,8 +54,7 @@ func newBlockWriter(cfg *config.Config, dest *os.File, dedup DeduplicationStrate
 		verify:   verify,
 		checksum: checksum,
 		logger:   logger,
-		rt:       rt,
-	}
+		}, nil
 }
 
 // write consumes block records from reader and writes them to the destination

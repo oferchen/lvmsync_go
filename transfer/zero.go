@@ -2,9 +2,13 @@ package transfer
 
 import (
 	"bytes"
+	"os"
 	"sync"
 
 	"github.com/zeebo/blake3"
+	"go.uber.org/zap"
+
+	"lvmsync_go/config"
 )
 
 // zeroBufCache stores zero-filled buffers keyed by their size to avoid repeated
@@ -36,4 +40,26 @@ func zeroHash(size int) [32]byte {
 // using memcmp semantics via bytes.Equal.
 func isAllZero(b []byte) bool {
 	return bytes.Equal(b, zeroBuf(len(b)))
+}
+
+// writeZeroBlock attempts to punch a sparse hole at the given offset. If the
+// filesystem does not support hole punching it falls back to writing a zero
+// filled buffer. The buffer respects the O_DIRECT setting by using aligned
+// allocations when necessary.
+func writeZeroBlock(cfg *config.Config, dest *os.File, offset uint64, logger *zap.Logger) error {
+	if err := punchHole(dest, offset, cfg.BlockSize); err == nil {
+		return nil
+	}
+	var zero []byte
+	if cfg.ODirect {
+		zero = getAlignedBlockBuffer(cfg.BlockSize)
+		defer putAlignedBlockBuffer(zero)
+	} else {
+		zero = getBlockBuffer(cfg.BlockSize)
+		defer putBlockBuffer(zero)
+	}
+	if err := writeData(dest, offset, zero, logger); err != nil {
+		return err
+	}
+	return nil
 }
