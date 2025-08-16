@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
+	"math"
 	"net"
 	"strings"
 	"testing"
@@ -191,5 +192,53 @@ func TestHandleDeltaOutOfBounds(t *testing.T) {
 	}
 	if logs.Len() == 0 || logs.All()[0].Message != "delta_out_of_bounds" {
 		t.Fatalf("expected delta_out_of_bounds log, got %v", logs.All())
+	}
+	ctxFields := logs.All()[0].ContextMap()
+	if ctxFields["offset_bytes"].(int64) != 6 ||
+		ctxFields["delta_size_bytes"].(int64) != 4 ||
+		ctxFields["end_offset_bytes"].(int64) != 10 ||
+		ctxFields["device_size_bytes"].(int64) != 8 {
+		t.Fatalf("unexpected log fields: %v", ctxFields)
+	}
+}
+
+func TestHandleDeltaOffsetOverflow(t *testing.T) {
+	c1, c2 := net.Pipe()
+	defer c1.Close()
+	defer c2.Close()
+
+	dev := &memDevice{buf: make([]byte, 8)}
+	core, logs := observer.New(zap.ErrorLevel)
+	srv := New(dev, digest.SHA256, [32]byte{}, zap.New(core))
+	ctx := context.Background()
+	errCh := make(chan error)
+	go func() { errCh <- srv.Handle(ctx, rsynkwire.NewStream(c2, maxFrame)) }()
+
+	stream := rsynkwire.NewStream(c1, maxFrame)
+	var buf bytes.Buffer
+	buf.WriteByte('D')
+	var offBytes [8]byte
+	binary.BigEndian.PutUint64(offBytes[:], uint64(math.MaxInt64)+1)
+	buf.Write(offBytes[:])
+	buf.WriteByte('x')
+	if err := stream.Send(buf.Bytes()); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	c1.Close()
+	err := <-errCh
+	if err == nil || !strings.Contains(err.Error(), "overflows int64") {
+		t.Fatalf("expected overflow error, got %v", err)
+	}
+	if dev.writeCalled {
+		t.Fatalf("device write should not be called")
+	}
+	if logs.Len() == 0 || logs.All()[0].Message != "delta_out_of_bounds" {
+		t.Fatalf("expected delta_out_of_bounds log, got %v", logs.All())
+	}
+	ctxFields := logs.All()[0].ContextMap()
+	if ctxFields["offset_bytes"].(uint64) != uint64(math.MaxInt64)+1 ||
+		ctxFields["delta_size_bytes"].(int64) != 1 ||
+		ctxFields["device_size_bytes"].(int64) != 8 {
+		t.Fatalf("unexpected log fields: %v", ctxFields)
 	}
 }

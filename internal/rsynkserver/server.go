@@ -89,19 +89,20 @@ func (s *Server) Handle(ctx context.Context, stream *rsynkwire.Stream) error {
 			if offU > math.MaxInt64 {
 				s.logger.Error("delta_out_of_bounds",
 					zap.Uint64("offset_bytes", offU),
-					zap.Int("delta_size_bytes", len(data)),
+					zap.Int64("delta_size_bytes", int64(len(data))),
 					zap.Int64("device_size_bytes", s.dev.Size()))
 				return fmt.Errorf("delta offset %d overflows int64", offU)
 			}
 			off := int64(offU)
-			end := off + int64(len(data))
+			deltaLen := int64(len(data))
+			end := off + deltaLen
 			if end < off || end > s.dev.Size() {
 				s.logger.Error("delta_out_of_bounds",
 					zap.Int64("offset_bytes", off),
-					zap.Int("delta_size_bytes", len(data)),
+					zap.Int64("delta_size_bytes", deltaLen),
 					zap.Int64("end_offset_bytes", end),
 					zap.Int64("device_size_bytes", s.dev.Size()))
-				return fmt.Errorf("delta end offset %d exceeds device size %d", end, s.dev.Size())
+				return fmt.Errorf("delta end offset %d (offset %d + length %d) exceeds device size %d", end, off, deltaLen, s.dev.Size())
 			}
 			if _, err := s.dev.WriteAt(data, off); err != nil {
 				return err
