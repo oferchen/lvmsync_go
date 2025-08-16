@@ -125,6 +125,7 @@ lvmsync verify /dev/vg0/snap0 /dev/null
 |------|----------------------|------------|-------------|
 | `--resume` | `LVMSYNC_RESUME` | `resume` | Path to resume state file |
 | `--verify_checksum` | `LVMSYNC_VERIFY_CHECKSUM` | `verify_checksum` | Enable checksum verification |
+| `--digest` | `LVMSYNC_DIGEST` | `digest` | Digest algorithm: `auto`, `blake3`, or `sha256` |
 
 ### Freeze and Thaw Live Filesystems
 

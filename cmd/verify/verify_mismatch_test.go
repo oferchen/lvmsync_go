@@ -69,7 +69,7 @@ func TestRunLogsMismatchBlockSHA256(t *testing.T) {
 		}
 		return idx.Close()
 	})
-	err := r.Run([]string{"--checksum_algorithm", "sha256", src, dst}, logger)
+	err := r.Run([]string{"--digest", "sha256", src, dst}, logger)
 	if err == nil {
 		t.Fatalf("expected error")
 	}
