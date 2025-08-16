@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - cmd: manage LVM snapshot lifecycle within dump and apply commands
 - tests: add coverage for adaptive chunk sizing, index option application, TLS version helper, capability checks, and data size overflow; include loop device setup integration test.
 - Log dial and listen lifecycle events with duration_ms and error fields across transports, with tests covering handshake and teardown logs.
+- ssh: log connection close events with address, role, and duration fields.
 - Log final handshake parameters for all transports.
 - Log manifest rebuild completion with size and duration metrics.
 - Add handshake parsing tests for unknown and malformed tokens.

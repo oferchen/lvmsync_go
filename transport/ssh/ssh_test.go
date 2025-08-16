@@ -258,6 +258,8 @@ func TestSSHTransportAuthSuccess(t *testing.T) {
 	checkLogFields(t, logs, "listen_end", 1, false, zapcore.InfoLevel)
 	checkLogFields(t, logs, "negotiate_start", 2, false, zapcore.InfoLevel)
 	checkLogFields(t, logs, "negotiate_end", 2, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "close_start", 2, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "close_end", 2, false, zapcore.InfoLevel)
 	checkHandshakeFields(t, logs, "negotiate_end", 2)
 }
 
@@ -343,6 +345,8 @@ func TestSSHTransportKeyAuth(t *testing.T) {
 	checkLogFields(t, logs, "listen_end", 1, false, zapcore.InfoLevel)
 	checkLogFields(t, logs, "negotiate_start", 2, false, zapcore.InfoLevel)
 	checkLogFields(t, logs, "negotiate_end", 2, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "close_start", 2, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "close_end", 2, false, zapcore.InfoLevel)
 }
 
 func TestSSHTransportSelectBestHandshake(t *testing.T) {

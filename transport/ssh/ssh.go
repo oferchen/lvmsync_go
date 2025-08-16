@@ -191,7 +191,7 @@ func (t *Transport) Dial(ctx context.Context, address string) (net.Conn, error) 
 	}
 	go ssh.DiscardRequests(chReqs)
 	t.logger.Info("dial_end", fields...)
-	return &sshConn{netConn: raw, channel: ch, client: client}, nil
+	return &sshConn{netConn: raw, channel: ch, client: client, logger: t.logger}, nil
 }
 
 func (t *Transport) Listen(ctx context.Context, address string) (net.Listener, error) {
@@ -300,13 +300,34 @@ type sshConn struct {
 	netConn net.Conn
 	channel ssh.Channel
 	client  *ssh.Client
+	logger  *zap.Logger
 }
 
 func (s *sshConn) Read(b []byte) (int, error)  { return s.channel.Read(b) }
 func (s *sshConn) Write(b []byte) (int, error) { return s.channel.Write(b) }
 func (s *sshConn) Close() error {
+	role := "client"
+	address := s.netConn.RemoteAddr().String()
+	s.logger.Info("close_start",
+		zap.String("address", address),
+		zap.String("role", role),
+		zap.Int64("duration_ms", 0),
+	)
+	start := time.Now()
+	err := s.client.Close()
 	s.channel.Close()
-	return s.client.Close()
+	fields := []zap.Field{
+		zap.String("address", address),
+		zap.String("role", role),
+		zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+	}
+	if err != nil {
+		fields = append(fields, zap.Error(err))
+		s.logger.Error("close_end", fields...)
+	} else {
+		s.logger.Info("close_end", fields...)
+	}
+	return err
 }
 func (s *sshConn) LocalAddr() net.Addr                { return s.netConn.LocalAddr() }
 func (s *sshConn) RemoteAddr() net.Addr               { return s.netConn.RemoteAddr() }
@@ -342,20 +363,41 @@ func (l *sshListener) Accept() (net.Conn, error) {
 		return nil, err
 	}
 	go ssh.DiscardRequests(chReqs)
-	return &serverConn{sshConn: sc, netConn: raw, channel: ch}, nil
+	return &serverConn{sshConn: sc, netConn: raw, channel: ch, logger: l.logger}, nil
 }
 
 type serverConn struct {
 	sshConn *ssh.ServerConn
 	netConn net.Conn
 	channel ssh.Channel
+	logger  *zap.Logger
 }
 
 func (s *serverConn) Read(b []byte) (int, error)  { return s.channel.Read(b) }
 func (s *serverConn) Write(b []byte) (int, error) { return s.channel.Write(b) }
 func (s *serverConn) Close() error {
+	role := "server"
+	address := s.netConn.RemoteAddr().String()
+	s.logger.Info("close_start",
+		zap.String("address", address),
+		zap.String("role", role),
+		zap.Int64("duration_ms", 0),
+	)
+	start := time.Now()
+	err := s.sshConn.Close()
 	s.channel.Close()
-	return s.sshConn.Close()
+	fields := []zap.Field{
+		zap.String("address", address),
+		zap.String("role", role),
+		zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+	}
+	if err != nil {
+		fields = append(fields, zap.Error(err))
+		s.logger.Error("close_end", fields...)
+	} else {
+		s.logger.Info("close_end", fields...)
+	}
+	return err
 }
 func (s *serverConn) LocalAddr() net.Addr                { return s.netConn.LocalAddr() }
 func (s *serverConn) RemoteAddr() net.Addr               { return s.netConn.RemoteAddr() }
