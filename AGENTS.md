@@ -21,6 +21,10 @@ command-line use, environment variables, and `config.yaml` files.
 - Do not log secrets or authentication tokens; scrub sensitive values before emitting them.
 - Callers using transports should `defer logger.Sync()` to ensure logs are flushed.
 
+### Logging utilities
+
+- `TLSVersionString` returns `"unknown"` or the numeric TLS version when the value is unrecognized to avoid empty strings in logs.
+
 ### Field Naming
 
 - Use `snake_case` for all field keys.

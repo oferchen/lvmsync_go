@@ -62,6 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - transfer: sample 8 KiB per chunk and log compression decisions.
 
 ### Fixed
+- transport: return "unknown" or numeric string for unrecognized TLS versions
 - config: remove duplicate prefixes in LVMSYNC_DEDUP_* environment bindings.
 - device: require --offline or freeze/thaw hooks for raw devices
 - device, transfer: require non-nil loggers and remove conditional logging

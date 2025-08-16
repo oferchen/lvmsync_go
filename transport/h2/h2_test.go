@@ -539,7 +539,8 @@ func TestTLSVersionString(t *testing.T) {
 		{tls.VersionTLS11, "1.1"},
 		{tls.VersionTLS12, "1.2"},
 		{tls.VersionTLS13, "1.3"},
-		{0xffff, ""},
+		{0, "unknown"},
+		{0xffff, "65535"},
 	}
 	for _, tt := range tests {
 		if got := transport.TLSVersionString(tt.version); got != tt.want {

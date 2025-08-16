@@ -1,6 +1,9 @@
 package transport
 
-import "crypto/tls"
+import (
+	"crypto/tls"
+	"strconv"
+)
 
 // TLSVersionString returns a string representation of the TLS version number.
 func TLSVersionString(v uint16) string {
@@ -14,6 +17,9 @@ func TLSVersionString(v uint16) string {
 	case tls.VersionTLS13:
 		return "1.3"
 	default:
-		return ""
+		if v == 0 {
+			return "unknown"
+		}
+		return strconv.FormatUint(uint64(v), 10)
 	}
 }
