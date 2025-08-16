@@ -78,6 +78,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - tests: assert context deadline exceeded for tcp+tls unreachable dial
 - handshake: validate digest mismatches in protocol negotiation
 - Enforce CDC chunk size ordering in handshake validation.
+- tests: add timeouts and connection cleanup in tcp+tls handshake selection test.
 - config: validate positive CDC tunables and ordering.
 - tcp+tls: ensure negotiation performs TLS handshake and only records ALPN/TLS version when negotiated.
 - config: enforce CDC chunk size ordering during validation.

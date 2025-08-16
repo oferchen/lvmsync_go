@@ -175,23 +175,29 @@ func TestTCPTLSTransportSelectBestHandshake(t *testing.T) {
 		CDCMax:      256,
 	}
 
-	srvErr := make(chan error)
+	srvErr := make(chan error, 1)
 	go func() {
 		conn, err := ln.Accept()
 		if err != nil {
 			srvErr <- err
 			return
 		}
-		_, err = tr.Negotiate(ctx, conn, transport.Server, srvHS)
-		srvErr <- err
+		nctx, cancel := context.WithTimeout(ctx, time.Second)
+		_, err = tr.Negotiate(nctx, conn, transport.Server, srvHS)
+		cancel()
 		conn.Close()
+		srvErr <- err
 	}()
 
-	conn, err := tr.Dial(ctx, ln.Addr().String())
+	dctx, cancel := context.WithTimeout(ctx, time.Second)
+	conn, err := tr.Dial(dctx, ln.Addr().String())
+	cancel()
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
-	peer, err := tr.Negotiate(ctx, conn, transport.Client, cliHS)
+	nctx, cancel := context.WithTimeout(ctx, time.Second)
+	peer, err := tr.Negotiate(nctx, conn, transport.Client, cliHS)
+	cancel()
 	conn.Close()
 	if err != nil {
 		t.Fatalf("client negotiate: %v", err)
