@@ -18,6 +18,7 @@ type File struct {
 	physical int
 	direct   bool
 	strict   bool
+	perm     os.FileMode
 	syncFunc func() error
 }
 
@@ -25,13 +26,15 @@ type File struct {
 // When strict is false and a later write is not block aligned, the file
 // reopens without O_DIRECT to allow buffered I/O.
 func Open(path string, direct, strict bool) (*File, error) {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return nil, fmt.Errorf("stat %q: %w", path, err)
+	}
+	perm := fi.Mode().Perm()
 	logical, physical := detectBlockSizes(path)
-	var (
-		fd  int
-		err error
-	)
+	var fd int
 	if direct {
-		fd, err = unix.Open(path, unix.O_RDWR|unix.O_DIRECT, 0)
+		fd, err = unix.Open(path, unix.O_RDWR|unix.O_DIRECT, uint32(perm))
 		if err != nil {
 			if errors.Is(err, unix.EINVAL) && !strict {
 				direct = false
@@ -44,12 +47,12 @@ func Open(path string, direct, strict bool) (*File, error) {
 	if direct && err == nil {
 		f = os.NewFile(uintptr(fd), path)
 	} else {
-		f, err = os.OpenFile(path, os.O_RDWR, 0)
+		f, err = os.OpenFile(path, os.O_RDWR, perm)
 		if err != nil {
 			return nil, fmt.Errorf("open %q: %w", path, err)
 		}
 	}
-	bf := &File{f: f, logical: logical, physical: physical, direct: direct, strict: strict}
+	bf := &File{f: f, logical: logical, physical: physical, direct: direct, strict: strict, perm: perm}
 	bf.syncFunc = f.Sync
 	return bf, nil
 }
@@ -102,7 +105,7 @@ func (f *File) Sync() error {
 }
 
 func (f *File) reopen() error {
-	nf, err := os.OpenFile(f.f.Name(), os.O_RDWR, 0)
+	nf, err := os.OpenFile(f.f.Name(), os.O_RDWR, f.perm)
 	if err != nil {
 		return fmt.Errorf("open %q: %w", f.f.Name(), err)
 	}

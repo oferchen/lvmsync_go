@@ -113,7 +113,7 @@ func TestOpenBlockDevice(t *testing.T) {
 			continue
 		}
 		mode := fi.Mode()
-		if mode&os.ModeDevice != 0 && mode&os.ModeCharDevice == 0 {
+		if mode&os.ModeDevice != 0 && mode&os.ModeCharDevice == 0 && mode.Perm()&0600 == 0600 {
 			dev = p
 			break
 		}
