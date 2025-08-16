@@ -255,3 +255,55 @@ func TestWriteToSyscallReduction(t *testing.T) {
 		t.Fatalf("expected fewer writes: %d >= %d", cw.calls, cwBase.calls)
 	}
 }
+
+func BenchmarkReadFromPool(b *testing.B) {
+	tmp, err := os.CreateTemp(b.TempDir(), "blk")
+	if err != nil {
+		b.Fatalf("tempfile: %v", err)
+	}
+	f, err := Open(tmp.Name(), false, false)
+	if err != nil {
+		b.Fatalf("open: %v", err)
+	}
+	defer f.Close()
+	data := bytes.Repeat([]byte{0x7}, 1<<20)
+	r := bytes.NewReader(data)
+	b.SetBytes(int64(len(data)))
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		r.Reset(data)
+		if _, err := f.Seek(0, io.SeekStart); err != nil {
+			b.Fatalf("seek: %v", err)
+		}
+		if _, err := f.ReadFrom(r); err != nil {
+			b.Fatalf("readfrom: %v", err)
+		}
+	}
+}
+
+func BenchmarkWriteToPool(b *testing.B) {
+	data := bytes.Repeat([]byte{0x8}, 1<<20)
+	tmp, err := os.CreateTemp(b.TempDir(), "blk")
+	if err != nil {
+		b.Fatalf("tempfile: %v", err)
+	}
+	if _, err := tmp.Write(data); err != nil {
+		b.Fatalf("write: %v", err)
+	}
+	tmp.Close()
+	f, err := Open(tmp.Name(), false, false)
+	if err != nil {
+		b.Fatalf("open: %v", err)
+	}
+	defer f.Close()
+	b.SetBytes(int64(len(data)))
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := f.Seek(0, io.SeekStart); err != nil {
+			b.Fatalf("seek: %v", err)
+		}
+		if _, err := f.WriteTo(io.Discard); err != nil {
+			b.Fatalf("writeto: %v", err)
+		}
+	}
+}

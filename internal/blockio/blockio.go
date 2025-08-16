@@ -100,7 +100,8 @@ func (f *File) WriteTo(w io.Writer) (int64, error) {
 	if size%block != 0 {
 		size = block*(size/block) + block
 	}
-	buf := make([]byte, size)
+	buf := getAlignedBlockBuffer(size)
+	defer putAlignedBlockBuffer(buf)
 	var n int64
 	for {
 		nr, er := f.Read(buf)
@@ -129,7 +130,8 @@ func (f *File) ReadFrom(r io.Reader) (int64, error) {
 	if size%block != 0 {
 		size = block*(size/block) + block
 	}
-	buf := make([]byte, size)
+	buf := getAlignedBlockBuffer(size)
+	defer putAlignedBlockBuffer(buf)
 	var n int64
 	for {
 		nr, er := r.Read(buf)
@@ -182,20 +184,20 @@ func (f *File) WriteAt(p []byte, off int64) (int, error) {
 
 // Size returns the current size of the underlying file.
 func (f *File) Size() int64 {
-       if fi, err := f.f.Stat(); err == nil {
-               return fi.Size()
-       }
-       cur, err := f.f.Seek(0, io.SeekCurrent)
-       if err != nil {
-               return 0
-       }
-       end, err := f.f.Seek(0, io.SeekEnd)
-       if err != nil {
-               _, _ = f.f.Seek(cur, io.SeekStart)
-               return 0
-       }
-       _, _ = f.f.Seek(cur, io.SeekStart)
-       return end
+	if fi, err := f.f.Stat(); err == nil {
+		return fi.Size()
+	}
+	cur, err := f.f.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return 0
+	}
+	end, err := f.f.Seek(0, io.SeekEnd)
+	if err != nil {
+		_, _ = f.f.Seek(cur, io.SeekStart)
+		return 0
+	}
+	_, _ = f.f.Seek(cur, io.SeekStart)
+	return end
 }
 
 func (f *File) Sync() error {
