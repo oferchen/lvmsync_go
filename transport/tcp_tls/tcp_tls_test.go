@@ -67,14 +67,17 @@ func TestTCPTLSTransportHandshake(t *testing.T) {
 		t.Fatalf("new transport: %v", err)
 	}
 	tr := trIface.(*Transport)
-	ctx := context.Background()
-	ln, err := tr.Listen(ctx, "127.0.0.1:0")
+	baseCtx := context.Background()
+	listenCtx, cancel := context.WithTimeout(baseCtx, time.Second)
+	ln, err := tr.Listen(listenCtx, "127.0.0.1:0")
 	if err != nil {
+		cancel()
 		t.Fatalf("listen: %v", err)
 	}
+	defer cancel()
 	defer ln.Close()
 
-	hs := common.Handshake{ResumeToken: "tok", DedupMode: "cdc", BlockSize: 4096, Compress: "zstd", Digest: "sha256", MaxInFlight: 8, CDCMin: 64, CDCAvg: 128, CDCMax: 256}
+	hs := common.Handshake{ResumeToken: "tok", DedupMode: "cdc", BlockSize: 4096, Compress: "zstd", Digest: "sha256", MaxInFlight: 8, CDCMin: 64, CDCAvg: 128, CDCMax: 256, CRC32C: true}
 	done := make(chan struct{})
 	go func() {
 		conn, err := ln.Accept()
@@ -82,7 +85,9 @@ func TestTCPTLSTransportHandshake(t *testing.T) {
 			t.Errorf("accept: %v", err)
 			return
 		}
-		peerHS, err := tr.Negotiate(ctx, conn, transport.Server, hs)
+		srvCtx, cancel := context.WithTimeout(baseCtx, time.Second)
+		peerHS, err := tr.Negotiate(srvCtx, conn, transport.Server, hs)
+		cancel()
 		if err != nil {
 			t.Errorf("server negotiate: %v", err)
 			return
@@ -97,11 +102,15 @@ func TestTCPTLSTransportHandshake(t *testing.T) {
 		close(done)
 	}()
 
-	conn, err := tr.Dial(ctx, ln.Addr().String())
+	dialCtx, cancel := context.WithTimeout(baseCtx, time.Second)
+	conn, err := tr.Dial(dialCtx, ln.Addr().String())
+	cancel()
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
-	peerHS, err := tr.Negotiate(ctx, conn, transport.Client, hs)
+	negCtx, cancel := context.WithTimeout(baseCtx, time.Second)
+	peerHS, err := tr.Negotiate(negCtx, conn, transport.Client, hs)
+	cancel()
 	if err != nil {
 		t.Fatalf("client negotiate: %v", err)
 	}
@@ -135,11 +144,14 @@ func TestTCPTLSTransportSelectBestHandshake(t *testing.T) {
 		t.Fatalf("new transport: %v", err)
 	}
 	tr := trIface.(*Transport)
-	ctx := context.Background()
-	ln, err := tr.Listen(ctx, "127.0.0.1:0")
+	baseCtx := context.Background()
+	listenCtx, cancel := context.WithTimeout(baseCtx, time.Second)
+	ln, err := tr.Listen(listenCtx, "127.0.0.1:0")
 	if err != nil {
+		cancel()
 		t.Fatalf("listen: %v", err)
 	}
+	defer cancel()
 	defer ln.Close()
 
 	srvCompress := []string{"zstd", "lz4"}
@@ -162,6 +174,7 @@ func TestTCPTLSTransportSelectBestHandshake(t *testing.T) {
 		CDCMin:      64,
 		CDCAvg:      128,
 		CDCMax:      256,
+		CRC32C:      true,
 	}
 	cliHS := common.Handshake{
 		DedupMode:   expDedup,
@@ -173,6 +186,7 @@ func TestTCPTLSTransportSelectBestHandshake(t *testing.T) {
 		CDCMin:      64,
 		CDCAvg:      128,
 		CDCMax:      256,
+		CRC32C:      true,
 	}
 
 	srvErr := make(chan error, 1)
@@ -182,22 +196,28 @@ func TestTCPTLSTransportSelectBestHandshake(t *testing.T) {
 			srvErr <- err
 			return
 		}
-		nctx, cancel := context.WithTimeout(ctx, time.Second)
-		_, err = tr.Negotiate(nctx, conn, transport.Server, srvHS)
+		srvCtx, cancel := context.WithTimeout(baseCtx, time.Second)
+		_, err = tr.Negotiate(srvCtx, conn, transport.Server, srvHS)
 		cancel()
+		if err == nil {
+			var buf [1]byte
+			conn.Read(buf[:])
+		}
 		conn.Close()
 		srvErr <- err
 	}()
-
-	dctx, cancel := context.WithTimeout(ctx, time.Second)
-	conn, err := tr.Dial(dctx, ln.Addr().String())
+	dialCtx, cancel := context.WithTimeout(baseCtx, time.Second)
+	conn, err := tr.Dial(dialCtx, ln.Addr().String())
 	cancel()
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
-	nctx, cancel := context.WithTimeout(ctx, time.Second)
-	peer, err := tr.Negotiate(nctx, conn, transport.Client, cliHS)
+	negCtx, cancel := context.WithTimeout(baseCtx, time.Second)
+	peer, err := tr.Negotiate(negCtx, conn, transport.Client, cliHS)
 	cancel()
+	if err == nil {
+		conn.Write([]byte{1})
+	}
 	conn.Close()
 	if err != nil {
 		t.Fatalf("client negotiate: %v", err)
@@ -241,7 +261,7 @@ func TestTCPTLSTransportHandshakeError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
-	if _, err := tr.Negotiate(ctx, conn, transport.Client, common.Handshake{CDCMin: 64, CDCAvg: 128, CDCMax: 256}); err == nil {
+	if _, err := tr.Negotiate(ctx, conn, transport.Client, common.Handshake{CDCMin: 64, CDCAvg: 128, CDCMax: 256, CRC32C: true}); err == nil {
 		t.Fatalf("expected negotiate error")
 	}
 	conn.Close()
@@ -278,7 +298,7 @@ func TestTCPTLSTransportCDCMismatch(t *testing.T) {
 			close(done)
 			return
 		}
-		if _, err := tr.Negotiate(ctx, conn, transport.Server, common.Handshake{ResumeToken: "tok", MaxInFlight: 8, CDCMin: 64, CDCAvg: 128, CDCMax: 256}); err == nil {
+		if _, err := tr.Negotiate(ctx, conn, transport.Server, common.Handshake{ResumeToken: "tok", MaxInFlight: 8, CDCMin: 64, CDCAvg: 128, CDCMax: 256, CRC32C: true}); err == nil {
 			t.Errorf("expected server negotiate error")
 		}
 		conn.Close()
@@ -289,7 +309,7 @@ func TestTCPTLSTransportCDCMismatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
-	if _, err := tr.Negotiate(ctx, conn, transport.Client, common.Handshake{ResumeToken: "tok", MaxInFlight: 8, CDCMin: 64, CDCAvg: 256, CDCMax: 256}); err == nil {
+	if _, err := tr.Negotiate(ctx, conn, transport.Client, common.Handshake{ResumeToken: "tok", MaxInFlight: 8, CDCMin: 64, CDCAvg: 256, CDCMax: 256, CRC32C: true}); err == nil {
 		t.Fatalf("expected client negotiate error")
 	}
 	conn.Close()
@@ -373,7 +393,7 @@ func TestTCPTLSNegotiateInvalidRole(t *testing.T) {
 	c1, c2 := net.Pipe()
 	defer c1.Close()
 	defer c2.Close()
-	if _, err := tr.Negotiate(ctx, c1, transport.Role(99), common.Handshake{CDCMin: 64, CDCAvg: 128, CDCMax: 256}); err == nil {
+	if _, err := tr.Negotiate(ctx, c1, transport.Role(99), common.Handshake{CDCMin: 64, CDCAvg: 128, CDCMax: 256, CRC32C: true}); err == nil {
 		t.Fatalf("expected error for invalid role")
 	}
 }
@@ -445,7 +465,7 @@ func TestTCPTLSNegotiateContextCancel(t *testing.T) {
 	defer cancel()
 
 	start := time.Now()
-	if _, err := tr.Negotiate(ctx, c1, transport.Client, common.Handshake{CDCMin: 64, CDCAvg: 128, CDCMax: 256}); err == nil {
+	if _, err := tr.Negotiate(ctx, c1, transport.Client, common.Handshake{CDCMin: 64, CDCAvg: 128, CDCMax: 256, CRC32C: true}); err == nil {
 		t.Fatalf("expected negotiate error")
 	} else {
 		var ne net.Error

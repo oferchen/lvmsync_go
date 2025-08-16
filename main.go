@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"runtime"
+	"strings"
 
 	"go.uber.org/zap"
 
@@ -10,6 +11,7 @@ import (
 	_ "lvmsync_go/cmd/dump"
 	rootcmd "lvmsync_go/cmd/root"
 	"lvmsync_go/config"
+	"lvmsync_go/internal/exitcode"
 )
 
 // Runner executes the application with injected dependencies.
@@ -67,7 +69,7 @@ func (r *Runner) Run() {
 		if err := tmpLogger.Sync(); err != nil {
 			tmpLogger.Error("Logger sync error", zap.Error(err))
 		}
-		r.Exit(1)
+		r.Exit(exitcode.ErrPlatform)
 		return
 	}
 
@@ -78,13 +80,21 @@ func (r *Runner) Run() {
 		if err := tmpLogger.Sync(); err != nil {
 			tmpLogger.Error("Logger sync error", zap.Error(err))
 		}
-		r.Exit(1)
+		if strings.Contains(err.Error(), "privilege check failed") {
+			r.Exit(exitcode.ErrCapability)
+		} else {
+			r.Exit(exitcode.ErrConfig)
+		}
 		return
 	}
 	if err := r.RunFunc(cfg, args, logger); err != nil {
 		logger.Error("run failed", zap.Error(err))
 		r.SyncLogger(logger)
-		r.Exit(1)
+		if strings.Contains(err.Error(), "device") {
+			r.Exit(exitcode.ErrDevice)
+		} else {
+			r.Exit(exitcode.ErrRuntime)
+		}
 		return
 	}
 	r.SyncLogger(logger)

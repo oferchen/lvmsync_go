@@ -56,12 +56,13 @@ func TestSaveResumeStatePermissions(t *testing.T) {
 }
 
 func TestReadBlockHeaderOffsetBoundary(t *testing.T) {
-	header := make([]byte, 12)
+	header := make([]byte, 16)
 	offset := uint64(math.MaxInt64)
 	binary.BigEndian.PutUint64(header[0:8], offset)
 	binary.BigEndian.PutUint32(header[8:12], 1)
+	binary.BigEndian.PutUint32(header[12:16], 0)
 	reader := bufio.NewReader(bytes.NewReader(header))
-	gotOffset, gotSize, _, err := readBlockHeader(reader, make([]byte, 12), false, nil)
+	gotOffset, gotSize, _, _, err := readBlockHeader(reader, make([]byte, 16), false, nil)
 	if err != nil {
 		t.Fatalf("readBlockHeader returned error: %v", err)
 	}
@@ -71,12 +72,13 @@ func TestReadBlockHeaderOffsetBoundary(t *testing.T) {
 }
 
 func TestReadBlockHeaderOffsetOverflow(t *testing.T) {
-	header := make([]byte, 12)
+	header := make([]byte, 16)
 	offset := uint64(math.MaxUint64)
 	binary.BigEndian.PutUint64(header[0:8], offset)
 	binary.BigEndian.PutUint32(header[8:12], 1)
+	binary.BigEndian.PutUint32(header[12:16], 0)
 	reader := bufio.NewReader(bytes.NewReader(header))
-	if _, _, _, err := readBlockHeader(reader, make([]byte, 12), false, nil); err == nil {
+	if _, _, _, _, err := readBlockHeader(reader, make([]byte, 16), false, nil); err == nil {
 		t.Fatalf("expected overflow error")
 	}
 }

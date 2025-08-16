@@ -55,7 +55,7 @@ func parseOffsets(t *testing.T, data []byte, blockSize int64) []int64 {
 	}
 	var offsets []int64
 	for {
-		header := make([]byte, 12)
+		header := make([]byte, 16)
 		if _, err = io.ReadFull(reader, header); err != nil {
 			if err == io.EOF || err == io.ErrUnexpectedEOF {
 				break

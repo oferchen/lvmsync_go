@@ -22,6 +22,14 @@ type mockLVM struct {
 	finalizeErr     error
 	status          string
 	statusErr       error
+	exists          bool
+	existsErr       error
+	autoExtend      bool
+	autoErr         error
+	discard         bool
+	discardErr      error
+	mounted         bool
+	mountedErr      error
 }
 
 func (m *mockLVM) Lock(_ context.Context, _, _ string) error {
@@ -51,6 +59,22 @@ func (m *mockLVM) FinalizeSync(_ context.Context, _, _ string) error {
 
 func (m *mockLVM) GetStatus(_ context.Context, _, _ string) (string, error) {
 	return m.status, m.statusErr
+}
+
+func (m *mockLVM) VolumeExists(_ context.Context, _ string) (bool, error) {
+	return m.exists, m.existsErr
+}
+
+func (m *mockLVM) AutoExtendEnabled(_ context.Context, _ string) (bool, error) {
+	return m.autoExtend, m.autoErr
+}
+
+func (m *mockLVM) DiscardEnabled(_ context.Context, _ string) (bool, error) {
+	return m.discard, m.discardErr
+}
+
+func (m *mockLVM) IsMounted(_ context.Context, _ string) (bool, error) {
+	return m.mounted, m.mountedErr
 }
 
 func TestAgentLock(t *testing.T) {
@@ -153,6 +177,62 @@ func TestAgentGetStatus(t *testing.T) {
 	}
 	mock.statusErr = errors.New("boom")
 	if _, err := a.GetStatus(ctx, "vol", "req"); err == nil {
+		t.Fatalf("expected error")
+	}
+}
+
+func TestAgentVolumeExists(t *testing.T) {
+	ctx := context.Background()
+	mock := &mockLVM{exists: true}
+	a := NewAgent(mock, fakeEsc{})
+	ok, err := a.VolumeExists(ctx, "vol")
+	if err != nil || !ok {
+		t.Fatalf("volume exists check failed: %v %v", ok, err)
+	}
+	mock.existsErr = errors.New("boom")
+	if _, err := a.VolumeExists(ctx, "vol"); err == nil {
+		t.Fatalf("expected error")
+	}
+}
+
+func TestAgentAutoExtendEnabled(t *testing.T) {
+	ctx := context.Background()
+	mock := &mockLVM{autoExtend: true}
+	a := NewAgent(mock, fakeEsc{})
+	ok, err := a.AutoExtendEnabled(ctx, "vol")
+	if err != nil || !ok {
+		t.Fatalf("auto extend check failed: %v %v", ok, err)
+	}
+	mock.autoErr = errors.New("boom")
+	if _, err := a.AutoExtendEnabled(ctx, "vol"); err == nil {
+		t.Fatalf("expected error")
+	}
+}
+
+func TestAgentDiscardEnabled(t *testing.T) {
+	ctx := context.Background()
+	mock := &mockLVM{discard: true}
+	a := NewAgent(mock, fakeEsc{})
+	ok, err := a.DiscardEnabled(ctx, "vol")
+	if err != nil || !ok {
+		t.Fatalf("discard check failed: %v %v", ok, err)
+	}
+	mock.discardErr = errors.New("boom")
+	if _, err := a.DiscardEnabled(ctx, "vol"); err == nil {
+		t.Fatalf("expected error")
+	}
+}
+
+func TestAgentIsMounted(t *testing.T) {
+	ctx := context.Background()
+	mock := &mockLVM{mounted: true}
+	a := NewAgent(mock, fakeEsc{})
+	ok, err := a.IsMounted(ctx, "vol")
+	if err != nil || !ok {
+		t.Fatalf("mount check failed: %v %v", ok, err)
+	}
+	mock.mountedErr = errors.New("boom")
+	if _, err := a.IsMounted(ctx, "vol"); err == nil {
 		t.Fatalf("expected error")
 	}
 }

@@ -52,7 +52,9 @@ func detectRawDevice(ctx context.Context, path string, offline bool, fsFreezeCmd
 	if fsFreezeCmd != "" {
 		parts, err := shellquote.Split(fsFreezeCmd)
 		if err != nil {
-			return nil, fmt.Errorf("invalid freeze command: %w", err)
+			err = fmt.Errorf("invalid freeze command: %w", err)
+			logger.Error("detect device failed", zap.String("path", path), zap.String("device_type", TypeRaw), zap.Error(err))
+			return nil, err
 		}
 		if len(parts) > 0 {
 			freezePath = parts[0]
@@ -62,7 +64,9 @@ func detectRawDevice(ctx context.Context, path string, offline bool, fsFreezeCmd
 	if fsThawCmd != "" {
 		parts, err := shellquote.Split(fsThawCmd)
 		if err != nil {
-			return nil, fmt.Errorf("invalid thaw command: %w", err)
+			err = fmt.Errorf("invalid thaw command: %w", err)
+			logger.Error("detect device failed", zap.String("path", path), zap.String("device_type", TypeRaw), zap.Error(err))
+			return nil, err
 		}
 		if len(parts) > 0 {
 			thawPath = parts[0]
