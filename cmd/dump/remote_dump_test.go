@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 
 	"lvmsync_go/internal/config"
 	digestpkg "lvmsync_go/internal/digest"
@@ -202,9 +203,7 @@ func TestRunRemoteDumpTimeout(t *testing.T) {
 
 	origDump := dumpChangesSequential
 	origSum := sumFile
-	origSelect := digestpkg.Select
 	origStream := streamToRemote
-	digestpkg.Select = func() string { return digestpkg.SHA256 }
 	sumFile = func(string, string) ([32]byte, error) { return [32]byte{}, nil }
 	streamToRemote = func(_ *config.Config, _ io.WriteCloser, snap, origin, alg string, _ *zap.Logger) error {
 		return nil
@@ -215,7 +214,6 @@ func TestRunRemoteDumpTimeout(t *testing.T) {
 	defer func() {
 		dumpChangesSequential = origDump
 		sumFile = origSum
-		digestpkg.Select = origSelect
 		streamToRemote = origStream
 	}()
 
@@ -248,5 +246,85 @@ func TestRunRemoteDumpInvalidDest(t *testing.T) {
 	err = RunRemoteDump(ctx, cfg, "snap", "origin", dest, zap.NewNop())
 	if err == nil || !strings.Contains(err.Error(), "host:device") {
 		t.Fatalf("expected host:device format error, got %v", err)
+	}
+}
+
+// TestRunRemoteDumpLogsDigestSelection verifies that digest algorithm and CPU
+// feature flags are logged when selecting the digest.
+func TestRunRemoteDumpLogsDigestSelection(t *testing.T) {
+	server := remotetest.NewMockSSHServer(t, func(cmd string) int {
+		switch {
+		case cmd == "lvmsync --version":
+			return 0
+		case strings.HasPrefix(cmd, "lvmsync --apply - --digest sha256 --verify none /dev/null"):
+			return 0
+		default:
+			t.Fatalf("unexpected command: %s", cmd)
+			return 1
+		}
+	})
+	defer server.Close()
+
+	host, portStr, err := net.SplitHostPort(server.Addr)
+	if err != nil {
+		t.Fatalf("SplitHostPort: %v", err)
+	}
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		t.Fatalf("Atoi: %v", err)
+	}
+
+	cfg, err := config.DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig returned error: %v", err)
+	}
+	cfg.SSHUser = "test"
+	cfg.SSHPort = port
+	cfg.SSHKeyPath = remotetest.CreateTempKey(t)
+	cfg.KnownHosts = remotetest.CreateKnownHostsFile(t, server)
+	cfg.StrictHostKeyCheck = true
+	cfg.LVMSyncPath = "lvmsync"
+	cfg.Parallel = 1
+	cfg.ChecksumAlgorithm = digestpkg.SHA256
+
+	origDump := dumpChangesSequential
+	origSum := sumFile
+	origStream := streamToRemote
+	sumFile = func(string, string) ([32]byte, error) { return [32]byte{}, nil }
+	streamToRemote = func(_ *config.Config, _ io.WriteCloser, snap, origin, alg string, _ *zap.Logger) error {
+		return nil
+	}
+	dumpChangesSequential = func(_ *transfer.Transfer, c *config.Config, snap, origin string, out io.Writer) error {
+		return nil
+	}
+	defer func() {
+		dumpChangesSequential = origDump
+		sumFile = origSum
+		streamToRemote = origStream
+	}()
+
+	dest := host + ":/dev/null"
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	core, observed := observer.New(zap.InfoLevel)
+	logger := zap.New(core)
+
+	if err := RunRemoteDump(ctx, cfg, "snap", "origin", dest, logger); err != nil {
+		t.Fatalf("RunRemoteDump returned error: %v", err)
+	}
+
+	logs := observed.FilterMessage("digest_selected").All()
+	if len(logs) != 1 {
+		t.Fatalf("expected 1 digest_selected log, got %d", len(logs))
+	}
+	fields := logs[0].ContextMap()
+	if fields["digest_alg"] != digestpkg.SHA256 {
+		t.Fatalf("expected digest_alg %s, got %v", digestpkg.SHA256, fields["digest_alg"])
+	}
+	for _, key := range []string{"avx2", "avx512", "neon"} {
+		if _, ok := fields[key]; !ok {
+			t.Fatalf("missing %s field", key)
+		}
 	}
 }
