@@ -6,10 +6,10 @@ import (
 	"strings"
 )
 
-// parseLVPath splits a logical volume path into its volume group and logical volume names.
+// ParseLVPath splits a logical volume path into its volume group and logical volume names.
 // It resolves symlinks before parsing and understands both /dev/<vg>/<lv> and
 // /dev/mapper/<vg>-<lv> style paths.
-func parseLVPath(p string) (string, string, error) {
+func ParseLVPath(p string) (string, string, error) {
 	if p == "" {
 		return "", "", fmt.Errorf("empty logical volume path")
 	}

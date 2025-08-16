@@ -11,6 +11,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"lvmsync_go/internal/lock"
 	"lvmsync_go/lvm"
 )
 
@@ -18,6 +19,8 @@ func TestOpenLVM(t *testing.T) {
 	if os.Geteuid() != 0 {
 		t.Skip("requires root")
 	}
+	restoreDir := lock.SetBaseDir(t.TempDir())
+	t.Cleanup(restoreDir)
 	loop, cleanup := setupLoop(t, 1<<20)
 	defer cleanup()
 	cache := lvm.NewDeviceFDCache(zap.NewNop())

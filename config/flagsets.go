@@ -58,6 +58,7 @@ func initGeneralFlags(cfg *Config) *pflag.FlagSet {
 	fs.Bool("stdout", cfg.StdoutMode, "Write change dump to STDOUT")
 	fs.Bool("dry-run", cfg.DryRun, "Print actions without executing")
 	fs.Bool("force", cfg.Force, "Override safety checks and proceed on mounted destination")
+	fs.Bool("discard", cfg.Discard, "Issue BLKDISCARD before writing blocks")
 	fs.Bool("offline", cfg.Offline, "Assume source raw device is offline")
 	fs.String("fs-freeze-command", cfg.FSFreezeCommand, "Command to freeze filesystem before reading raw source")
 	fs.String("fs-thaw-command", cfg.FSThawCommand, "Command to thaw filesystem after reading raw source")

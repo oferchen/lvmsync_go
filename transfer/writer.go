@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap"
 
 	"lvmsync_go/config"
+	"lvmsync_go/device"
 )
 
 func prepareOutputWriter(out io.Writer, cfg *config.Config, logger *zap.Logger) (io.WriteCloser, *bufio.Writer, error) {
@@ -144,6 +145,11 @@ func processBlock(
 			return false, nil
 		}
 		dedup.RecordTransfer(intOffset, data)
+	}
+	if cfg.Discard {
+		if err := device.DiscardRange(destFile, offset, uint64(chunkSize)); err != nil {
+			logger.Debug("discard failed", zap.Error(err))
+		}
 	}
 	if err := writeData(destFile, offset, data, logger); err != nil {
 		return false, err

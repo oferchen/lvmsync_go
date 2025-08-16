@@ -33,6 +33,7 @@ type Config struct {
 	StdoutMode               bool          `mapstructure:"stdout"`
 	DryRun                   bool          `mapstructure:"dry-run"`
 	Force                    bool          `mapstructure:"force"`
+	Discard                  bool          `mapstructure:"discard"`
 	Offline                  bool          `mapstructure:"offline"`
 	FSFreezeCommand          string        `mapstructure:"fs-freeze-command"`
 	FSThawCommand            string        `mapstructure:"fs-thaw-command"`
