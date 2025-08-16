@@ -137,42 +137,38 @@ func ExecuteClient(ctx context.Context, cfg *config.Config, snapshotPath, destPa
 }
 
 // Run orchestrates the command execution.
-func Run(cfg *config.Config, args []string, logger *zap.Logger) error {
+func dispatchSubcommand(cfg *config.Config, args []string, logger *zap.Logger) (bool, error) {
 	if len(args) > 0 {
 		switch args[0] {
 		case "manifest":
-			return RunManifest(cfg, args[1:], logger)
+			return true, RunManifest(cfg, args[1:], logger)
 		case "verify":
-			return RunVerify(args[1:], logger)
+			return true, RunVerify(args[1:], logger)
 		}
 	}
-
 	if cfg.ApplyMode != "" {
 		if err := RunApply(cfg, cfg.ApplyMode, args, logger); err != nil {
-			return fmt.Errorf("apply operation failed: %w", err)
+			return true, fmt.Errorf("apply operation failed: %w", err)
 		}
-		return nil
+		return true, nil
 	}
+	return false, nil
+}
 
+func prepareClient(cfg *config.Config, args []string, logger *zap.Logger) (context.Context, func(), string, string, chan error, error) {
 	if _, err := SelectTransport(cfg, logger); err != nil {
-		return fmt.Errorf("select transport: %w", err)
+		return nil, nil, "", "", nil, fmt.Errorf("select transport: %w", err)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.GRPCSetupTimeout)
 	cleanupSrv, cleanupClient, hbErrCh, err := SetupGRPC(ctx, cfg, logger)
 	if err != nil {
 		cancel()
-		return err
+		return nil, nil, "", "", nil, err
 	}
-	defer func() {
-		cancel()
-		cleanupSrv()
-	}()
-	defer cleanupClient()
 
 	var snapshotPath string
 	signals, sigErrCh := setupSignalHandle(ctx, cfg, &snapshotPath, logger)
-	defer signal.Stop(signals)
 
 	if hbErrCh != nil {
 		go func() {
@@ -185,16 +181,45 @@ func Run(cfg *config.Config, args []string, logger *zap.Logger) error {
 
 	if (cfg.StdoutMode && len(args) < 1) || (!cfg.StdoutMode && len(args) < 2) {
 		pflag.Usage()
-		return fmt.Errorf("invalid arguments")
+		cancel()
+		cleanupSrv()
+		cleanupClient()
+		signal.Stop(signals)
+		return nil, nil, "", "", nil, fmt.Errorf("invalid arguments")
 	}
 	originalVolume := args[0]
 	destPath := ""
 	if !cfg.StdoutMode {
 		destPath = args[1]
 	}
-
 	snapshotPath = originalVolume
+
+	cleanup := func() {
+		signal.Stop(signals)
+		cancel()
+		cleanupSrv()
+		cleanupClient()
+	}
+	return ctx, cleanup, snapshotPath, destPath, sigErrCh, nil
+}
+
+func executeSync(ctx context.Context, cfg *config.Config, snapshotPath, destPath string, sigErrCh chan error, logger *zap.Logger) error {
 	return ExecuteClient(ctx, cfg, snapshotPath, destPath, sigErrCh, nil, logger)
+}
+
+func Run(cfg *config.Config, args []string, logger *zap.Logger) error {
+	handled, err := dispatchSubcommand(cfg, args, logger)
+	if handled || err != nil {
+		return err
+	}
+
+	ctx, cleanup, snapshotPath, destPath, sigErrCh, err := prepareClient(cfg, args, logger)
+	if err != nil {
+		return err
+	}
+	defer cleanup()
+
+	return executeSync(ctx, cfg, snapshotPath, destPath, sigErrCh, logger)
 }
 
 // Execute is a helper that configures and runs the root command.
