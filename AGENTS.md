@@ -348,3 +348,16 @@ golangci-lint run
 - [ ] Provide `FlagSet`-grouped CLI options bound to Viper, with parity across flags, environment variables, and config files.
 - [ ] Ensure each new function includes unit tests and documentation updates in README.md.
 - [ ] Maintain modular, single-responsibility design to ease future maintenance.
+
+## TODO
+
+### Coding Conventions for New Packages
+- [ ] Document file layout, naming, and single-purpose design for new packages.
+
+### Testing Expectations
+- [ ] Include unit tests for success and failure paths.
+- [ ] Run `go build ./...`, `go test -coverprofile=coverage.out ./...`, and `golangci-lint run` before submitting patches.
+
+### Logging Rules
+- [ ] Use zap for structured logging with snake_case fields.
+- [ ] Call `logger.Sync()` on shutdown and avoid `fmt.Print*` for progress output.

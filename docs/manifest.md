@@ -19,6 +19,29 @@ copies can be verified.
 - `lvmsync verify <source> <dest>` compares a destination against the manifest
   for the source. Override the manifest path with `--manifest_path` if needed.
 
+Manifest commands group flags with pflag and bind them to Viper while logging progress with zap.
+
+## Flag Group Example
+
+```go
+import (
+    "github.com/spf13/pflag"
+    "github.com/spf13/viper"
+    "go.uber.org/zap"
+)
+
+func initFlags() {
+    logger, _ := zap.NewProduction()
+    defer logger.Sync()
+
+    fs := pflag.NewFlagSet("manifest", pflag.ExitOnError)
+    fs.String("manifest-path", "", "path to manifest file")
+
+    v := viper.New()
+    v.BindPFlags(fs)
+}
+```
+
 Chunk offsets are determined using FastCDC. The gear table now uses the
 standard 256-entry random values from the FastCDC specification, replacing the
 placeholder table previously used.
