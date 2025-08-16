@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/moby/sys/mountinfo"
+	"go.uber.org/zap"
 )
 
 const uuidTimeout = 5 * time.Second
@@ -132,4 +133,18 @@ func defaultMountFunc(path string) (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+// SizeBytes returns the total size of the device at path in bytes.
+// If ctx has no deadline, a default timeout is applied.
+func SizeBytes(ctx context.Context, path string) (uint64, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	dev, err := Detect(ctx, path, true, "", "", "", "", 0, 0, zap.NewNop())
+	if err != nil {
+		return 0, err
+	}
+	defer dev.Close()
+	return dev.SizeBytes(), nil
 }

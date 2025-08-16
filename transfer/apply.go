@@ -2,7 +2,6 @@ package transfer
 
 import (
 	"bufio"
-	"context"
 	"fmt"
 	"io"
 	"os"
@@ -12,10 +11,10 @@ import (
 
 	"lvmsync_go/common"
 	"lvmsync_go/config"
-	"lvmsync_go/device"
 )
 
 func (t *Transfer) processDumpDataCore(cfg *config.Config, in io.Reader, destPath string, dedup DeduplicationStrategy, verify bool) (err error) {
+	defer func() { _ = t.Logger.Sync() }()
 	bufReader := bufio.NewReader(in)
 	var hs common.Handshake
 	hs, err = readAndValidateHandshake(cfg, bufReader, dedup, verify)
@@ -35,21 +34,8 @@ func (t *Transfer) processDumpDataCore(cfg *config.Config, in io.Reader, destPat
 
 	reader := bufio.NewReader(decReader)
 
-	if cfg.DeviceUUID != "" {
-		uuid, err2 := device.GetDeviceID(context.Background(), destPath)
-		if err2 != nil {
-			return fmt.Errorf("read destination uuid: %w", err2)
-		}
-		if uuid != cfg.DeviceUUID {
-			return fmt.Errorf("destination device uuid %s does not match expected %s", uuid, cfg.DeviceUUID)
-		}
-	}
-	mounted, err2 := device.IsMountedRW(destPath)
-	if err2 != nil {
-		return fmt.Errorf("check mount status: %w", err2)
-	}
-	if mounted && !cfg.Force {
-		return fmt.Errorf("destination device %s is mounted read-write", destPath)
+	if err := t.verifyDestination(cfg, destPath); err != nil {
+		return err
 	}
 
 	var destFile *os.File
@@ -83,12 +69,12 @@ func (t *Transfer) processDumpDataCore(cfg *config.Config, in io.Reader, destPat
 		return err
 	}
 
-	elapsed := time.Since(startTime).Seconds()
+	elapsed := time.Since(startTime)
 	if t.Logger != nil {
-		t.Logger.Info("Applied changes",
-			zap.Int64("bytes", totalBytes),
-			zap.Float64("seconds", elapsed),
-			zap.Float64("MB/s", float64(totalBytes)/elapsed/1048576.0))
+		t.Logger.Info("applied_changes",
+			zap.Int64("size_bytes", totalBytes),
+			zap.Int64("duration_ms", elapsed.Milliseconds()),
+			zap.Float64("mb_per_s", float64(totalBytes)/elapsed.Seconds()/1048576.0))
 	}
 	return nil
 }
