@@ -86,6 +86,14 @@ func TestValidateHandshakeTransportMismatch(t *testing.T) {
 	}
 }
 
+func TestValidateHandshakeEndiannessMismatch(t *testing.T) {
+	local := Handshake{Endianness: "little"}
+	peer := Handshake{Endianness: "big"}
+	if err := ValidateHandshake(local, peer); err == nil {
+		t.Fatal("expected endianness mismatch error")
+	}
+}
+
 func TestValidateHandshakeDigestMismatch(t *testing.T) {
 	local := Handshake{Digest: "blake3"}
 	peer := Handshake{Digest: "sha256"}

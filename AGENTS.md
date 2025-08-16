@@ -274,6 +274,7 @@ golangci-lint run
 ```
 
 - [x] Ensure SSH agent connections use context timeouts and cover SSHManager reuse in tests.
+- [x] common: add endianness mismatch handshake validation test.
 
 - [ ] Review CLI argument parsing: prefer `pflag`, bind flags to `viper`, and group related options into reusable `FlagSet`s. Further flag-binding audits remain for commands beyond `config` and `cmd/grpcd`.
 - [ ] Implement QUIC `serve` command with minimal flags and `zap`-only logging.

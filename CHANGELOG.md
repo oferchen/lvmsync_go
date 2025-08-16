@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - transport: tests covering SelectBest handshake negotiation with custom CDC settings, resume tokens, and O_DIRECT for ssh, tcp+tls, h2, and quic transports.
 - transport: test registry fallback dialing sequence with logged attempts.
 - common: add MergeHandshake helper for compressor and digest negotiation.
+- common: add handshake validation test for endianness mismatches.
 - device: add raw device freeze/thaw tests with exec command stubs
 - device: centralize exec command helper for LVM and raw devices
 - device: add cleanup tests for thaw errors and timeouts
