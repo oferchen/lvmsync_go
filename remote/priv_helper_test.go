@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"io"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -56,5 +57,14 @@ func TestPrivilegedHelperACKNACK(t *testing.T) {
 	}
 	if string(data) != "hello" {
 		t.Fatalf("unexpected file content %q", string(data))
+	}
+}
+
+func TestStartPrivHelperInvalidCommand(t *testing.T) {
+	_, client := newSSHServerClientWithChannel(t, func(cmd string, ch ssh.Channel) int { return 0 })
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if _, err := StartPrivHelper(ctx, client, "bad;cmd", zap.NewNop()); err == nil || !strings.Contains(err.Error(), "invalid characters") {
+		t.Fatalf("expected invalid characters error, got %v", err)
 	}
 }

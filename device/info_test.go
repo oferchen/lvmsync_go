@@ -34,6 +34,58 @@ func TestGetUUIDStub(t *testing.T) {
 	}
 }
 
+func TestGetDeviceIDPrefersLVM(t *testing.T) {
+	prevLVM := SetLVMUUIDFunc(func(context.Context, string) (string, error) { return "lv-id", nil })
+	defer SetLVMUUIDFunc(prevLVM)
+	called := false
+	prev := SetUUIDFunc(func(context.Context, string) (string, error) { called = true; return "blkid-id", nil })
+	defer SetUUIDFunc(prev)
+
+	got, err := GetDeviceID(context.Background(), "/dev/lvm0")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != "lv-id" {
+		t.Fatalf("expected lv-id, got %q", got)
+	}
+	if called {
+		t.Fatalf("expected blkid lookup to be skipped")
+	}
+}
+
+func TestIDsMatch(t *testing.T) {
+	prevLVM := SetLVMUUIDFunc(func(context.Context, string) (string, error) { return "", errors.New("no lvm") })
+	defer SetLVMUUIDFunc(prevLVM)
+	prev := SetUUIDFunc(func(_ context.Context, path string) (string, error) {
+		if strings.Contains(path, "src") {
+			return "id1", nil
+		}
+		if strings.Contains(path, "dest") {
+			return "id2", nil
+		}
+		return "", nil
+	})
+	defer SetUUIDFunc(prev)
+
+	match, err := IDsMatch(context.Background(), "/dev/src", "/dev/dest")
+	if err != nil {
+		t.Fatalf("IDsMatch: %v", err)
+	}
+	if match {
+		t.Fatalf("expected mismatch")
+	}
+
+	prev2 := SetUUIDFunc(func(_ context.Context, path string) (string, error) { return "same", nil })
+	defer SetUUIDFunc(prev2)
+	match, err = IDsMatch(context.Background(), "/dev/a", "/dev/b")
+	if err != nil {
+		t.Fatalf("IDsMatch: %v", err)
+	}
+	if !match {
+		t.Fatalf("expected match")
+	}
+}
+
 func TestIsMountedRW(t *testing.T) {
 	tests := []struct {
 		name string

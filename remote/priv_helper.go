@@ -6,7 +6,9 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
+	"strings"
 
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
@@ -28,6 +30,10 @@ type PrivHelperClient struct {
 func StartPrivHelper(ctx context.Context, client *ssh.Client, command string, logger *zap.Logger) (*PrivHelperClient, error) {
 	if logger == nil {
 		logger = zap.NewNop()
+	}
+	command = strings.TrimSpace(command)
+	if !RemoteCmdRe.MatchString(command) {
+		return nil, fmt.Errorf("remote command %s contains invalid characters", command)
 	}
 	session, err := client.NewSession()
 	if err != nil {

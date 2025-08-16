@@ -3,6 +3,7 @@ package transfer
 import (
 	"bytes"
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -25,6 +26,8 @@ func minimalStream(t *testing.T) []byte {
 }
 
 func TestProcessDumpDataUUIDMismatch(t *testing.T) {
+	prevLVM := device.SetLVMUUIDFunc(func(context.Context, string) (string, error) { return "", errors.New("no lvm") })
+	defer device.SetLVMUUIDFunc(prevLVM)
 	prevUUID := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "actual", nil })
 	defer device.SetUUIDFunc(prevUUID)
 	prevMount := device.SetMountFunc(func(string) (bool, error) { return false, nil })
@@ -75,6 +78,8 @@ func TestProcessDumpDataUUIDMismatch(t *testing.T) {
 }
 
 func TestProcessDumpDataMountedDevice(t *testing.T) {
+	prevLVM := device.SetLVMUUIDFunc(func(context.Context, string) (string, error) { return "", errors.New("no lvm") })
+	defer device.SetLVMUUIDFunc(prevLVM)
 	prevUUID := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "id", nil })
 	defer device.SetUUIDFunc(prevUUID)
 	prevMount := device.SetMountFunc(func(string) (bool, error) { return true, nil })
@@ -138,6 +143,8 @@ func TestProcessDumpDataMountedDevice(t *testing.T) {
 }
 
 func TestApplyDataUUIDMismatch(t *testing.T) {
+	prevLVM := device.SetLVMUUIDFunc(func(context.Context, string) (string, error) { return "", errors.New("no lvm") })
+	defer device.SetLVMUUIDFunc(prevLVM)
 	prevUUID := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "actual", nil })
 	defer device.SetUUIDFunc(prevUUID)
 	prevMount := device.SetMountFunc(func(string) (bool, error) { return false, nil })
@@ -188,6 +195,8 @@ func TestApplyDataUUIDMismatch(t *testing.T) {
 }
 
 func TestApplyDataMountedDevice(t *testing.T) {
+	prevLVM := device.SetLVMUUIDFunc(func(context.Context, string) (string, error) { return "", errors.New("no lvm") })
+	defer device.SetLVMUUIDFunc(prevLVM)
 	prevUUID := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "id", nil })
 	defer device.SetUUIDFunc(prevUUID)
 	prevMount := device.SetMountFunc(func(string) (bool, error) { return true, nil })
