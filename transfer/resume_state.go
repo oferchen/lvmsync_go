@@ -22,22 +22,6 @@ type resumeState struct {
 	Chunk             string `json:"chunk"`
 }
 
-// resumeCheckpoint represents the last processed chunk on disk.
-type resumeCheckpoint struct {
-	Chunk  [32]byte
-	Offset uint64
-	Length uint32
-}
-
-// resumeTracker tracks checkpoint progress for an ongoing transfer.
-type resumeTracker struct {
-	bytes  int64
-	last   time.Time
-	chunk  [32]byte
-	offset uint64
-	length uint32
-}
-
 // writeResumeState persists resume state; logger must be non-nil.
 func writeResumeState(cfg *config.Config, logger *zap.Logger, path string, offset uint64, length uint32, chunk [32]byte) {
 	rs := resumeState{
@@ -67,12 +51,10 @@ func saveResumeState(cfg *config.Config, rt *resumeTracker, offset uint64, chunk
 		rt.last = time.Now()
 	}
 	rt.bytes += size
-	rt.chunk = chunk
-	rt.offset = offset
-	rt.length = uint32(size)
+	rt.resumeChunk = resumeChunk{Chunk: chunk, Offset: offset, Length: uint32(size)}
 	if (cfg.CheckpointBytes > 0 && rt.bytes >= int64(cfg.CheckpointBytes)) ||
 		(cfg.CheckpointInterval > 0 && time.Since(rt.last) >= cfg.CheckpointInterval) {
-		writeResumeState(cfg, logger, cfg.ResumeState, rt.offset, rt.length, rt.chunk)
+		writeResumeState(cfg, logger, cfg.ResumeState, rt.Offset, rt.Length, rt.Chunk)
 		rt.bytes = 0
 		rt.last = time.Now()
 	}
