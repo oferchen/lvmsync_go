@@ -72,6 +72,7 @@ type Config struct {
 	Speed                    string        `mapstructure:"speed"`
 	SpeedLimit               int           `mapstructure:"-"`
 	VerifyChecksum           bool          `mapstructure:"verify_checksum"`
+	VerifyLevel              string        `mapstructure:"verify"`
 	ChecksumAlgorithm        string        `mapstructure:"checksum_algorithm"`
 	Verbose                  int           `mapstructure:"verbose"`
 	SkipSnapshotCreation     bool          `mapstructure:"skip_snapshot_creation"`
@@ -204,6 +205,7 @@ func DefaultConfig() (*Config, error) {
 		CompressThreshold:        0.9,
 		Speed:                    "100MB",
 		VerifyChecksum:           false,
+		VerifyLevel:              "none",
 		ChecksumAlgorithm:        Auto,
 		Verbose:                  0,
 		SkipSnapshotCreation:     false,

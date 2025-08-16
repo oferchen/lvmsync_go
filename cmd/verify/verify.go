@@ -16,6 +16,8 @@ import (
 
 	rootcmd "lvmsync_go/cmd/root"
 	"lvmsync_go/internal/config"
+	cpufeatures "lvmsync_go/internal/cpufeatures"
+	digestpkg "lvmsync_go/internal/digest"
 	manifestpkg "lvmsync_go/manifest"
 	"lvmsync_go/transfer"
 )
@@ -118,7 +120,38 @@ func (r *Runner) verifyDevices(cfg *config.Config, src, dst, manifestPath string
 			return fmt.Errorf("stat manifest: %w", err)
 		}
 	}
-	return verifyWithManifest(cfg, dst, manifestPath, logger)
+	if err := verifyWithManifest(cfg, dst, manifestPath, logger); err != nil {
+		return err
+	}
+	if strings.ToLower(cfg.VerifyLevel) == "none" {
+		return nil
+	}
+	alg := strings.ToLower(cfg.ChecksumAlgorithm)
+	if alg == "" || alg == "auto" {
+		alg = digestpkg.Select()
+	}
+	logger.Info("cpu_features",
+		zap.Bool("avx2", cpufeatures.HasAVX2()),
+		zap.Bool("avx512", cpufeatures.HasAVX512()),
+		zap.Bool("neon", cpufeatures.HasNEON()),
+	)
+	sampled := strings.ToLower(cfg.VerifyLevel) == "sampled"
+	match, srcSum, dstSum, err := digestpkg.VerifyFiles(src, dst, alg, sampled)
+	if err != nil {
+		return err
+	}
+	if !match {
+		logger.Error("digest_mismatch",
+			zap.String("source_digest", fmt.Sprintf("%x", srcSum[:])),
+			zap.String("dest_digest", fmt.Sprintf("%x", dstSum[:])),
+		)
+		return fmt.Errorf("digest mismatch")
+	}
+	logger.Info("verification_success",
+		zap.String("digest_algorithm", alg),
+		zap.String("verify_level", cfg.VerifyLevel),
+	)
+	return nil
 }
 
 // Run executes using a default Runner.
