@@ -163,7 +163,9 @@ func (t *Transport) Listen(ctx context.Context, address string) (net.Listener, e
 		ln = tls.NewListener(ln, t.serverConf)
 		go func() {
 			<-ctx.Done()
-			ln.Close()
+			if err := ln.Close(); err != nil {
+				t.logger.Warn("listener_close_error", zap.Error(err))
+			}
 		}()
 	}
 	fields := []zap.Field{

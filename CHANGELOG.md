@@ -116,6 +116,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - dedup: ensure FastCDC chunks own their data slices to prevent cross-chunk mutation
 
 - manifest: fix close hook test to remove duplicate rebuild blocks
+- tcp+tls: log listener close errors during shutdown
 
 ## [v0.1.0] - 2025-02-27
 ### Added

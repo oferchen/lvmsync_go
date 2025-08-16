@@ -63,6 +63,7 @@ lvmsync --transport quic --tls_cert cert.pem --tls_key key.pem --ca_cert ca.pem
 
 - Plain TCP encapsulated in TLS 1.3
 - Requires mutual TLS authentication
+- Logs a warning if listener shutdown encounters an error
 
 ## SSH
 
