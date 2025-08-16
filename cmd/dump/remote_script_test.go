@@ -48,7 +48,9 @@ func TestRemotePostScriptRunsOnError(t *testing.T) {
 	dumpChangesSequential = func(_ *transfer.Transfer, c *config.Config, snapshot, source string, out io.Writer) error {
 		return io.ErrUnexpectedEOF
 	}
-	defer func() { dumpChangesSequential = original }()
+	origSum := sumFile
+	sumFile = func(string, string) ([32]byte, error) { return [32]byte{}, nil }
+	defer func() { dumpChangesSequential = original; sumFile = origSum }()
 
 	dest := host + ":/dev/null"
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)

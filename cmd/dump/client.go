@@ -16,6 +16,7 @@ import (
 	"lvmsync_go/common"
 	"lvmsync_go/device"
 	"lvmsync_go/internal/config"
+	digestpkg "lvmsync_go/internal/digest"
 	"lvmsync_go/remote"
 	"lvmsync_go/transfer"
 	"lvmsync_go/transport"
@@ -41,6 +42,7 @@ var (
 	newSSHClient = remote.NewSSHClient
 	openFile     = os.OpenFile
 	detectDevice = device.Detect
+	sumFile      = digestpkg.SumFile
 )
 
 var copyBufferPool = sync.Pool{New: func() any {
@@ -289,7 +291,7 @@ func WaitForRemoteCompletion(session waitSession, stdoutErrCh, stderrErrCh <-cha
 }
 
 // ExecuteRemoteCommand runs the remote apply command over SSH.
-func ExecuteRemoteCommand(ctx context.Context, cfg *config.Config, client *remote.SSHClient, destDevice, snapshotDevice, originDevice string, logger *zap.Logger) (err error) {
+func ExecuteRemoteCommand(ctx context.Context, cfg *config.Config, client *remote.SSHClient, destDevice, snapshotDevice, originDevice, digestHex, alg string, logger *zap.Logger) (err error) {
 	if err = client.ValidateRemoteCommand(ctx, cfg.LVMSyncPath); err != nil {
 		return fmt.Errorf("remote command validation failed: %w", err)
 	}
@@ -309,8 +311,12 @@ func ExecuteRemoteCommand(ctx context.Context, cfg *config.Config, client *remot
 	if cfg.DestType != "" && cfg.DestType != "auto" {
 		baseCmd = fmt.Sprintf("%s --dest-type %s", baseCmd, cfg.DestType)
 	}
-	remoteCmd := fmt.Sprintf("%s --apply - %s", baseCmd, destDevice)
+	remoteCmd := fmt.Sprintf("%s --apply - --digest %s --verify %s %s", baseCmd, alg, cfg.VerifyLevel, destDevice)
 	logger.Info("Starting remote apply command", zap.String("command", remoteCmd))
+
+	if err = session.Setenv("LVMSYNC_SOURCE_DIGEST", digestHex); err != nil {
+		return fmt.Errorf("failed to set source digest: %w", err)
+	}
 
 	if err = session.Start(remoteCmd); err != nil {
 		return fmt.Errorf("failed to start remote command: %w", err)
@@ -374,9 +380,18 @@ func RunRemoteDump(ctx context.Context, cfg *config.Config, snapshotDevice, orig
 		}()
 	}
 
+	alg := strings.ToLower(cfg.ChecksumAlgorithm)
+	if alg == "" || alg == "auto" {
+		alg = digestpkg.Select()
+	}
+	sum, err := sumFile(snapshotDevice, alg)
+	if err != nil {
+		return err
+	}
+	digestHex := fmt.Sprintf("%x", sum[:])
 	validationCtx, cancel := context.WithTimeout(ctx, cfg.SSHTimeout)
 	defer cancel()
-	return ExecuteRemoteCommand(validationCtx, cfg, client, destDevice, snapshotDevice, originDevice, logger)
+	return ExecuteRemoteCommand(validationCtx, cfg, client, destDevice, snapshotDevice, originDevice, digestHex, alg, logger)
 }
 
 // SelectTransport chooses the first supported transport from cfg.Transport and

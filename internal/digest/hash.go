@@ -50,10 +50,10 @@ func SumFile(path, alg string) ([32]byte, error) {
 // performing sampled verification.
 const sampleSize int64 = 1 << 20 // 1MiB
 
-// sampledSumFile computes a digest of the first and last sampleSize bytes of
+// SampledSumFile computes a digest of the first and last sampleSize bytes of
 // the file at path using the specified algorithm. If the file is smaller than
 // 2*sampleSize, the entire file is hashed.
-func sampledSumFile(path, alg string) ([32]byte, error) {
+func SampledSumFile(path, alg string) ([32]byte, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return [32]byte{}, err
@@ -95,11 +95,11 @@ func VerifyFiles(src, dst, alg string, sampled bool) (bool, [32]byte, [32]byte, 
 	var s1, s2 [32]byte
 	var err error
 	if sampled {
-		s1, err = sampledSumFile(src, alg)
+		s1, err = SampledSumFile(src, alg)
 		if err != nil {
 			return false, s1, s2, err
 		}
-		s2, err = sampledSumFile(dst, alg)
+		s2, err = SampledSumFile(dst, alg)
 		if err != nil {
 			return false, s1, s2, err
 		}

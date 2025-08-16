@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap"
 
 	"lvmsync_go/internal/config"
+	digestpkg "lvmsync_go/internal/digest"
 	remotetest "lvmsync_go/remote/testutil"
 	"lvmsync_go/transfer"
 )
@@ -23,7 +24,7 @@ func TestRunRemoteDump(t *testing.T) {
 		switch {
 		case cmd == "lvmsync --version":
 			return 0
-		case strings.HasPrefix(cmd, "lvmsync --apply - /dev/null"):
+		case strings.HasPrefix(cmd, "lvmsync --apply - --digest sha256 --verify none /dev/null"):
 			return 0
 		default:
 			t.Fatalf("unexpected command: %s", cmd)
@@ -54,13 +55,17 @@ func TestRunRemoteDump(t *testing.T) {
 	cfg.Parallel = 1
 
 	origDump := dumpChangesSequential
+	origSum := sumFile
+	origSelect := digestpkg.Select
+	digestpkg.Select = func() string { return digestpkg.SHA256 }
+	sumFile = func(string, string) ([32]byte, error) { return [32]byte{}, nil }
 	dumpChangesSequential = func(_ *transfer.Transfer, c *config.Config, snap, origin string, out io.Writer) error {
 		if snap != "snap" || origin != "origin" {
 			t.Fatalf("unexpected devices: %s %s", snap, origin)
 		}
 		return nil
 	}
-	defer func() { dumpChangesSequential = origDump }()
+	defer func() { dumpChangesSequential = origDump; sumFile = origSum; digestpkg.Select = origSelect }()
 
 	dest := host + ":/dev/null"
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -73,7 +78,7 @@ func TestRunRemoteDump(t *testing.T) {
 	if len(cmds) != 2 {
 		t.Fatalf("expected 2 commands, got %d: %v", len(cmds), cmds)
 	}
-	if cmds[0] != "lvmsync --version" || cmds[1] != "lvmsync --apply - /dev/null" {
+	if cmds[0] != "lvmsync --version" || cmds[1] != "lvmsync --apply - --digest sha256 --verify none /dev/null" {
 		t.Fatalf("unexpected commands: %v", cmds)
 	}
 }
@@ -84,7 +89,7 @@ func TestRunRemoteDumpError(t *testing.T) {
 		if cmd == "lvmsync --version" {
 			return 0
 		}
-		if strings.HasPrefix(cmd, "lvmsync --apply - /dev/null") {
+		if strings.HasPrefix(cmd, "lvmsync --apply - --digest sha256 --verify none /dev/null") {
 			return 1
 		}
 		return 0
@@ -113,10 +118,14 @@ func TestRunRemoteDumpError(t *testing.T) {
 	cfg.Parallel = 1
 
 	origDump := dumpChangesSequential
+	origSum := sumFile
+	origSelect := digestpkg.Select
+	digestpkg.Select = func() string { return digestpkg.SHA256 }
+	sumFile = func(string, string) ([32]byte, error) { return [32]byte{}, nil }
 	dumpChangesSequential = func(_ *transfer.Transfer, c *config.Config, snap, origin string, out io.Writer) error {
 		return nil
 	}
-	defer func() { dumpChangesSequential = origDump }()
+	defer func() { dumpChangesSequential = origDump; sumFile = origSum; digestpkg.Select = origSelect }()
 
 	dest := host + ":/dev/null"
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -136,7 +145,7 @@ func TestRunRemoteDumpTimeout(t *testing.T) {
 		case cmd == "lvmsync --version":
 			time.Sleep(100 * time.Millisecond)
 			return 0
-		case strings.HasPrefix(cmd, "lvmsync --apply - /dev/null"):
+		case strings.HasPrefix(cmd, "lvmsync --apply - --digest sha256 --verify none /dev/null"):
 			return 0
 		default:
 			t.Fatalf("unexpected command: %s", cmd)
@@ -168,10 +177,14 @@ func TestRunRemoteDumpTimeout(t *testing.T) {
 	cfg.SSHTimeout = 20 * time.Millisecond
 
 	origDump := dumpChangesSequential
+	origSum := sumFile
+	origSelect := digestpkg.Select
+	digestpkg.Select = func() string { return digestpkg.SHA256 }
+	sumFile = func(string, string) ([32]byte, error) { return [32]byte{}, nil }
 	dumpChangesSequential = func(_ *transfer.Transfer, c *config.Config, snap, origin string, out io.Writer) error {
 		return nil
 	}
-	defer func() { dumpChangesSequential = origDump }()
+	defer func() { dumpChangesSequential = origDump; sumFile = origSum; digestpkg.Select = origSelect }()
 
 	dest := host + ":/dev/null"
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
