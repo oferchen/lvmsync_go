@@ -27,18 +27,14 @@ func (s *SHA256Checksum) Compute(data []byte) []byte {
 
 func (s *SHA256Checksum) Size() int { return sha256.Size }
 
-type BLAKE3Checksum struct{ size int }
+type BLAKE3Checksum struct{}
 
 func (b *BLAKE3Checksum) Compute(data []byte) []byte {
-	if b.size > 32 {
-		sum := blake3.Sum512(data)
-		return sum[:]
-	}
 	sum := blake3.Sum256(data)
 	return sum[:]
 }
 
-func (b *BLAKE3Checksum) Size() int { return b.size }
+func (b *BLAKE3Checksum) Size() int { return 32 }
 
 var (
 	strategies map[string]ChecksumStrategy
@@ -50,9 +46,8 @@ var detectChecksumAlgorithm = digest.Select
 func initChecksumStrategies() {
 	strategies = map[string]ChecksumStrategy{
 		"sha256":     &SHA256Checksum{},
-		"blake3":     &BLAKE3Checksum{size: 32},
-		"blake3-256": &BLAKE3Checksum{size: 32},
-		"blake3-512": &BLAKE3Checksum{size: 64},
+		"blake3":     &BLAKE3Checksum{},
+		"blake3-256": &BLAKE3Checksum{},
 	}
 }
 

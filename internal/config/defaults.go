@@ -22,7 +22,7 @@ var (
 	SupportedCompression        = []string{"none", "lz4", Zstd, Auto}
 	SupportedDedupStrategies    = []string{"none", Auto, "checksum", "rolling_hash", "bloom"}
 	SupportedDedupModes         = []string{"fixed", "cdc", "hybrid"}
-	SupportedChecksumAlgorithms = []string{"sha256", "blake3", "blake3-512", Auto}
+	SupportedChecksumAlgorithms = []string{"sha256", "blake3", Auto}
 )
 
 type Config struct {

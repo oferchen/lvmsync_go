@@ -925,3 +925,16 @@ func TestLoadConfigInvalidPath(t *testing.T) {
 		t.Fatalf("expected config file error, got %v", err)
 	}
 }
+
+func TestUnsupportedChecksumAlgorithm(t *testing.T) {
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	v := viper.New()
+	v.Set("checksum_algorithm", "blake3-512")
+	b := &builder{v: v, defaults: defaults}
+	if _, err := b.Build(); err == nil {
+		t.Fatalf("expected error for unsupported checksum algorithm")
+	}
+}
