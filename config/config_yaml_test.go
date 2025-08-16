@@ -1,8 +1,11 @@
 package config
 
 import (
+	"os"
 	"os/exec"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 func TestConfigYAMLLint(t *testing.T) {
@@ -15,5 +18,22 @@ func TestConfigYAMLLint(t *testing.T) {
 		t.Fatalf("yamllint reported issues: %v\nOutput: %s", err, output)
 	} else if len(output) > 0 {
 		t.Fatalf("yamllint produced warnings:\n%s", output)
+	}
+}
+
+func TestConfigYAMLContainsGroups(t *testing.T) {
+	data, err := os.ReadFile("../config.yaml")
+	if err != nil {
+		t.Fatalf("read config.yaml: %v", err)
+	}
+	var cfg map[string]any
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	keys := []string{"dedup_strategy", "compress", "transport", "lvm_escalation", "grpc_port"}
+	for _, k := range keys {
+		if _, ok := cfg[k]; !ok {
+			t.Fatalf("missing %s key", k)
+		}
 	}
 }

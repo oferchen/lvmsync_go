@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strconv"
 	"testing"
+
+	"github.com/spf13/viper"
 )
 
 func TestInitGeneralFlags(t *testing.T) {
@@ -255,5 +257,45 @@ func TestInitTransportFlags(t *testing.T) {
 		if f.DefValue != tt.want {
 			t.Fatalf("%s default %s want %s", tt.name, f.DefValue, tt.want)
 		}
+	}
+}
+
+func TestBindLVMEnv(t *testing.T) {
+	cfg, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	fs := initLVMFlags(cfg)
+	v := viper.New()
+	if err := bindLVMEnv(fs, v); err != nil {
+		t.Fatalf("bindLVMEnv: %v", err)
+	}
+	t.Setenv("LVMSYNC_LVM_SNAPSHOT_SIZE", "10%")
+	t.Setenv("LVMSYNC_LVM_ESCALATION", "doas")
+	if got := v.GetString("snapshot_size"); got != "10%" {
+		t.Fatalf("snapshot_size got %q want %q", got, "10%")
+	}
+	if got := v.GetString("lvm-escalation"); got != "doas" {
+		t.Fatalf("lvm-escalation got %q want %q", got, "doas")
+	}
+}
+
+func TestBindGRPCEnv(t *testing.T) {
+	cfg, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	fs := initGRPCFlags(cfg)
+	v := viper.New()
+	if err := bindGRPCEnv(fs, v); err != nil {
+		t.Fatalf("bindGRPCEnv: %v", err)
+	}
+	t.Setenv("LVMSYNC_GRPC_PORT", "9443")
+	t.Setenv("LVMSYNC_GRPC_TLS_CERT", "cert.pem")
+	if got := v.GetInt("grpc_port"); got != 9443 {
+		t.Fatalf("grpc_port got %d want %d", got, 9443)
+	}
+	if got := v.GetString("tls_cert"); got != "cert.pem" {
+		t.Fatalf("tls_cert got %q want %q", got, "cert.pem")
 	}
 }

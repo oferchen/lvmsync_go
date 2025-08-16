@@ -1,28 +1,28 @@
 // Package escalate implements a minimal, audited pattern to:
-//  1) Detect whether the process is already privileged (EUID==0).
-//  2) If not, re-exec itself via `sudo -n` with a tight argument allowlist
+//  1. Detect whether the process is already privileged (EUID==0).
+//  2. If not, re-exec itself via `sudo -n` with a tight argument allowlist
 //     and a hardened environment.
-//  3) Optionally drop back to the invoking user (SUDO_UID/GID) after doing
+//  3. Optionally drop back to the invoking user (SUDO_UID/GID) after doing
 //     the privileged section.
 //
 // Design goals:
-//  - Efficiency & correctness: zero reflection, zero global env mutation,
-//    no deprecated packages (uses x/sys/unix), strict allowlist behavior.
-//  - Testability: all external effects (geteuid, lookpath, exec) are overridable
-//    via Options; syscalls for dropping privileges are abstracted behind a tiny
-//    interface and are mocked in tests.
-//  - Maintainability: tiny API surface, clean separation between pure helpers
-//    and effectful code paths.
+//   - Efficiency & correctness: zero reflection, zero global env mutation,
+//     no deprecated packages (uses x/sys/unix), strict allowlist behavior.
+//   - Testability: all external effects (geteuid, lookpath, exec) are overridable
+//     via Options; syscalls for dropping privileges are abstracted behind a tiny
+//     interface and are mocked in tests.
+//   - Maintainability: tiny API surface, clean separation between pure helpers
+//     and effectful code paths.
 //
 // Typical usage:
 //
-//   reexeced, err := escalate.EnsureRootOrReexec(escalate.Options{})
-//   if err != nil { log.Fatal(err) }
-//   if reexeced { return } // parent should exit after delegating to sudo
+//	reexeced, err := escalate.EnsureRootOrReexec(escalate.Options{})
+//	if err != nil { log.Fatal(err) }
+//	if reexeced { return } // parent should exit after delegating to sudo
 //
-//   // ... privileged work ...
-//   if err := escalate.DropToInvokerIfSudo(); err != nil { log.Fatal(err) }
-//   // ... continue unprivileged work ...
+//	// ... privileged work ...
+//	if err := escalate.DropToInvokerIfSudo(); err != nil { log.Fatal(err) }
+//	// ... continue unprivileged work ...
 package escalate
 
 import (
@@ -48,11 +48,11 @@ type Options struct {
 	SanitizeEnv bool
 
 	// Dependency seams (optional; default to real OS functions):
-	Args       []string                                        // defaults to os.Args
-	Environ    func() []string                                 // defaults to os.Environ
-	Geteuid    func() int                                      // defaults to os.Geteuid
-	LookPath   func(file string) (string, error)               // defaults to exec.LookPath
-	ExecRunner func(name string, args []string, env []string, stdin io.Reader, stdout, stderr io.Writer) error
+	Args       []string                          // defaults to os.Args
+	Environ    func() []string                   // defaults to os.Environ
+	Geteuid    func() int                        // defaults to os.Geteuid
+	LookPath   func(file string) (string, error) // defaults to exec.LookPath
+	ExecRunner func(name string, args, env []string, stdin io.Reader, stdout, stderr io.Writer) error
 	Stdin      io.Reader // defaults to nil (no prompting)
 	Stdout     io.Writer // defaults to os.Stdout
 	Stderr     io.Writer // defaults to os.Stderr
@@ -241,13 +241,13 @@ type syscallFacade interface {
 
 type unixFacade struct{}
 
-func (unixFacade) Setgroups(gids []int) error      { return unix.Setgroups(gids) }
-func (unixFacade) Setresgid(r, e, s int) error     { return unix.Setresgid(r, e, s) }
-func (unixFacade) Setresuid(r, e, s int) error     { return unix.Setresuid(r, e, s) }
+func (unixFacade) Setgroups(gids []int) error  { return unix.Setgroups(gids) }
+func (unixFacade) Setresgid(r, e, s int) error { return unix.Setresgid(r, e, s) }
+func (unixFacade) Setresuid(r, e, s int) error { return unix.Setresuid(r, e, s) }
 
 var sys syscallFacade = unixFacade{}
 
-func defaultExecRunner(name string, args []string, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
+func defaultExecRunner(name string, args, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
 	cmd := exec.Command(name, args...)
 	if env != nil {
 		cmd.Env = env
