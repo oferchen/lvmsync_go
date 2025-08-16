@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 
+	rootcmd "lvmsync_go/cmd/root"
 	grpcserver "lvmsync_go/grpc/server"
 )
 
@@ -145,6 +146,10 @@ func (r *Runner) NewCmd(logger *zap.Logger) *cobra.Command {
 
 // Execute runs the command with provided args.
 func (r *Runner) Execute(args []string, logger *zap.Logger) error {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+	defer rootcmd.SyncLogger(logger)
 	cmd := r.NewCmd(logger)
 	if args != nil {
 		cmd.SetArgs(args)

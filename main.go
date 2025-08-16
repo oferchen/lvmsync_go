@@ -12,6 +12,7 @@ import (
 	rootcmd "lvmsync_go/cmd/root"
 	"lvmsync_go/internal/config"
 	"lvmsync_go/internal/exitcode"
+	"lvmsync_go/internal/logging"
 )
 
 // Runner executes the application with injected dependencies.
@@ -32,7 +33,7 @@ func NewRunner() *Runner {
 		SyncLogger: rootcmd.SyncLogger,
 		Exit:       os.Exit,
 		ExampleLogger: func() *zap.Logger {
-			logger, err := zap.NewProduction()
+			logger, err := logging.NewLogger(nil)
 			if err != nil {
 				return zap.NewNop()
 			}
@@ -66,9 +67,7 @@ func (r *Runner) Run() {
 	if r.GOOS != "linux" {
 		tmpLogger := r.ExampleLogger()
 		tmpLogger.Error("unsupported platform", zap.String("goos", r.GOOS))
-		if err := tmpLogger.Sync(); err != nil {
-			tmpLogger.Error("Logger sync error", zap.Error(err))
-		}
+		rootcmd.SyncLogger(tmpLogger)
 		r.Exit(exitcode.ErrPlatform)
 		return
 	}
@@ -77,9 +76,7 @@ func (r *Runner) Run() {
 	if err != nil {
 		tmpLogger := r.ExampleLogger()
 		tmpLogger.Error("configuration failed", zap.Error(err))
-		if err := tmpLogger.Sync(); err != nil {
-			tmpLogger.Error("Logger sync error", zap.Error(err))
-		}
+		rootcmd.SyncLogger(tmpLogger)
 		if strings.Contains(err.Error(), "privilege check failed") {
 			r.Exit(exitcode.ErrCapability)
 		} else {
