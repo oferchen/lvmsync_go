@@ -21,5 +21,6 @@ type Config struct {
 	SSHKnownHosts string
 	SSHHostKey    string
 	SSHKeyPath    string
+	HostKeyPath   string
 	SSHUseAgent   bool
 }

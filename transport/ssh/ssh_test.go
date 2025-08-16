@@ -1,6 +1,7 @@
 package ssh
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
@@ -168,6 +169,47 @@ func TestNewWithHostKey(t *testing.T) {
 	cfg := transport.Config{Logger: zap.New(core), SSHUser: "u", SSHPassword: "p", SSHHostKey: hostKey}
 	if _, err := New(cfg); err != nil {
 		t.Fatalf("New: %v", err)
+	}
+}
+
+func TestNewWithHostKeyPath(t *testing.T) {
+	core, _ := observer.New(zap.InfoLevel)
+	dir := t.TempDir()
+	keyPath := filepath.Join(dir, "id_rsa")
+	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("GenerateKey: %v", err)
+	}
+	privBytes := x509.MarshalPKCS1PrivateKey(priv)
+	pemBytes := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: privBytes})
+	if err := os.WriteFile(keyPath, pemBytes, 0600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	cfg := transport.Config{Logger: zap.New(core), SSHUser: "u", SSHPassword: "p", HostKeyPath: keyPath, AllowInsecure: true}
+	trIface, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	tr := trIface.(*Transport)
+	signer, err := ssh.NewSignerFromKey(priv)
+	if err != nil {
+		t.Fatalf("NewSignerFromKey: %v", err)
+	}
+	if !bytes.Equal(tr.hostSigner.PublicKey().Marshal(), signer.PublicKey().Marshal()) {
+		t.Fatalf("loaded host key does not match file")
+	}
+}
+
+func TestNewGeneratesHostKey(t *testing.T) {
+	core, _ := observer.New(zap.InfoLevel)
+	cfg := transport.Config{Logger: zap.New(core), SSHUser: "u", SSHPassword: "p", AllowInsecure: true}
+	trIface, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	tr := trIface.(*Transport)
+	if tr.hostSigner == nil {
+		t.Fatalf("expected generated host key")
 	}
 }
 

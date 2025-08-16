@@ -396,6 +396,7 @@ func SelectTransport(cfg *config.Config, logger *zap.Logger) (transport.Interfac
 				SSHPassword:   cfg.SSHPassword,
 				SSHKnownHosts: cfg.KnownHosts,
 				SSHHostKey:    cfg.SSHHostKey,
+				HostKeyPath:   cfg.SSHHostKeyPath,
 				AllowInsecure: cfg.AllowInsecure,
 			},
 		)

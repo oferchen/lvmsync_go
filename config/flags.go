@@ -98,6 +98,7 @@ func initSSHFlags(cfg *Config) *pflag.FlagSet {
 	fs.String("ssh_host", cfg.SSHHost, "SSH host")
 	fs.String("ssh_user", cfg.SSHUser, "SSH username")
 	fs.String("ssh_key", cfg.SSHKeyPath, "Path to SSH private key or use agent")
+	fs.String("ssh_host_key_path", cfg.SSHHostKeyPath, "Path to SSH host private key")
 	fs.Int("ssh_port", cfg.SSHPort, "SSH port")
 	fs.Duration("ssh_timeout", cfg.SSHTimeout, "SSH connection timeout")
 	fs.Duration("ssh_keepalive", cfg.SSHKeepAliveInterval, "SSH keepalive interval")

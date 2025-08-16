@@ -37,7 +37,11 @@ func New(cfg transport.Config) (transport.Interface, error) {
 	if cfg.SSHUser == "" {
 		return nil, fmt.Errorf("ssh user is required")
 	}
-	var keySigner ssh.Signer
+	var (
+		keySigner  ssh.Signer
+		hostSigner ssh.Signer
+		err        error
+	)
 	if cfg.SSHKeyPath != "" {
 		keyBytes, err := os.ReadFile(cfg.SSHKeyPath)
 		if err != nil {
@@ -49,13 +53,24 @@ func New(cfg transport.Config) (transport.Interface, error) {
 		}
 	}
 
-	hostKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		return nil, err
-	}
-	hostSigner, err := ssh.NewSignerFromKey(hostKey)
-	if err != nil {
-		return nil, err
+	if cfg.HostKeyPath != "" {
+		hostBytes, err := os.ReadFile(cfg.HostKeyPath)
+		if err != nil {
+			return nil, err
+		}
+		hostSigner, err = ssh.ParsePrivateKey(hostBytes)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		hostKey, err := rsa.GenerateKey(rand.Reader, 2048)
+		if err != nil {
+			return nil, err
+		}
+		hostSigner, err = ssh.NewSignerFromKey(hostKey)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	serverConf := &ssh.ServerConfig{

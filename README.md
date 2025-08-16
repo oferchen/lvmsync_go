@@ -464,6 +464,7 @@ LVMSYNC_GRPC_GRPC_PORT=9443 LVMSYNC_GRPC_TLS_CERT=cert.pem lvmsync-grpcd
 | `--ssh_host` | `LVMSYNC_SSH_HOST` | `ssh_host` | SSH host |
 | `--ssh_user` | `LVMSYNC_SSH_USER` | `ssh_user` | SSH username |
 | `--ssh_key` | `LVMSYNC_SSH_KEY` | `ssh_key` | Path to SSH private key |
+| `--ssh_host_key_path` | `LVMSYNC_SSH_HOST_KEY_PATH` | `ssh_host_key_path` | Path to SSH host private key |
 | `--ssh_agent` | `LVMSYNC_SSH_AGENT` | `ssh_agent` | Use SSH agent for authentication |
 | `--ssh_port` | `LVMSYNC_SSH_PORT` | `ssh_port` | SSH port |
 | `--ssh_timeout` | `LVMSYNC_SSH_TIMEOUT` | `ssh_timeout` | SSH connection timeout |
@@ -975,6 +976,7 @@ Flags are parsed via Viper, so the same settings can be provided through
 | `--ssh_host`              | SSH host                                                        | `"localhost"`            |
 | `--ssh_user`              | SSH username                                                    | `"root"`                 |
 | `--ssh_key`               | Path to SSH private key                                          | `""`                     |
+| `--ssh_host_key_path`     | Path to SSH host private key (generates one if empty)            | `""`                     |
 | `--ssh_agent`             | Use the SSH agent for authentication                            | `false`                  |
 | `--ssh_port`              | SSH port number                                                 | `22`                     |
 | `--known_hosts`           | Path to known_hosts file (defaults to `$HOME/.ssh/known_hosts`) | `$HOME/.ssh/known_hosts` |
@@ -982,9 +984,10 @@ Flags are parsed via Viper, so the same settings can be provided through
 | `--ssh_host_key`          | Expected SSH host public key (authorized_keys format)          | `""`                    |
 
 Unknown hosts are rejected unless their keys are present in `known_hosts` or match `--ssh_host_key`.
+The host key can also be supplied via `LVMSYNC_SSH_HOST_KEY_PATH` or the `ssh_host_key_path` YAML option.
 
 Programmatic use of the SSH transport requires a configuration populated with
-fields like `SSHUser`, `SSHKeyPath`, `SSHUseAgent`, `SSHPort`, `KnownHosts`,
+fields like `SSHUser`, `SSHKeyPath`, `HostKeyPath`, `SSHUseAgent`, `SSHPort`, `KnownHosts`,
 `StrictHostKeyCheck`, `SSHTimeout`, `SSHKeepAliveInterval`, and `MaxRetries`.
 The constructor also requires a `*zap.Logger`:
 
