@@ -43,14 +43,10 @@ func (t *Transfer) applyData(cfg *config.Config, in io.Reader, destDevice string
 	}
 	dedup := NewDeduplicationStrategy(cfg, t.Logger)
 	if dedup != nil {
-		if t.Logger != nil {
-			t.Logger.Info("Applying deduplication during restore", zap.String("strategy", cfg.DedupStrategy))
-		}
+		t.Logger.Info("Applying deduplication during restore", zap.String("strategy", cfg.DedupStrategy))
 		defer func() {
 			if err := dedup.SaveState(); err != nil {
-				if t.Logger != nil {
-					t.Logger.Error("Failed to save dedup state", zap.Error(err))
-				}
+				t.Logger.Error("Failed to save dedup state", zap.Error(err))
 			}
 		}()
 		return t.ProcessDumpDataWithDeduplication(context.Background(), cfg, in, destDevice, dedup)

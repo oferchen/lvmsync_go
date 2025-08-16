@@ -29,8 +29,12 @@ type Transfer struct {
 }
 
 // NewTransfer creates a Transfer with the provided logger and wait group.
-// When wg is nil, a new instance is allocated. logger must be non-nil.
+// When wg is nil, a new instance is allocated. A nil logger is replaced with
+// zap.NewNop().
 func NewTransfer(logger *zap.Logger, wg *sync.WaitGroup) *Transfer {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
 	if wg == nil {
 		wg = &sync.WaitGroup{}
 	}
