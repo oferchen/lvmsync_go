@@ -67,6 +67,50 @@ See [docs/transports.md](docs/transports.md) for details.
 | `tcp+tls` | TLS 1.3                | Plain TCP wrapped in TLS |
 | `ssh`     | Host key verification  | Uses OpenSSH-style authentication |
 
+### Examples
+
+Select multiple transports and a custom port:
+
+```sh
+lvmsync run --transport quic,h2,tcp+tls,ssh --tcp-port 9443 /dev/vg0/source /dev/vg0/backup
+```
+
+Force SSH only:
+
+```sh
+lvmsync run --transport ssh user@backup:/dev/vg1/target /dev/vg0/source
+```
+
+The CLI groups transport flags using [`pflag`](https://github.com/spf13/pflag) and binds them to [`viper`](https://github.com/spf13/viper) while emitting structured logs via [`zap`](https://github.com/uber-go/zap):
+
+```go
+import (
+    "github.com/spf13/pflag"
+    "github.com/spf13/viper"
+    "go.uber.org/zap"
+)
+
+func main() {
+    logger, _ := zap.NewProduction()
+    defer logger.Sync()
+
+    transport := pflag.NewFlagSet("transport", pflag.ExitOnError)
+    transport.String("transport", "quic,h2,tcp+tls,ssh", "ordered transports")
+    transport.Int("tcp-port", 9443, "TCP listener port")
+
+    v := viper.New()
+    v.BindPFlags(transport)
+}
+```
+
+## Manifest Lifecycle
+
+Transfers rely on a manifest that tracks chunk offsets and digests:
+
+1. `lvmsync manifest rebuild <device>` refreshes or creates the manifest.
+2. `lvmsync run <source> <destination>` streams blocks, skipping chunks already recorded in the manifest.
+3. `lvmsync verify <source> <destination>` compares the destination with the manifest and logs any mismatches.
+
 ## gRPC Control Plane
 
 LVMSync ships a gRPC daemon for remote control. The daemon listens on the port
@@ -100,14 +144,10 @@ transfer. See [docs/manifest.md](docs/manifest.md) for manifest and verification
 ## Safety Notes
 
 - Run `manifest rebuild` and `verify` against quiescent devices.
-- Use `--offline` or freeze/thaw hooks when scanning live filesystems to keep
-  manifests consistent.
-- Network transports default to TLS 1.3; `--allow-insecure` should only be used
-  for testing.
-- Apply refuses to write when the destination's identity or size differs from the
-  manifest or when the device is mounted read-write; use `--force` to override the
-  mount check.
-
+- Use `--offline` or freeze/thaw hooks when scanning live filesystems to keep manifests consistent.
+- Network transports default to TLS 1.3; `--allow-insecure` should only be used for testing.
+- Apply refuses to write when the destination's identity or size differs from the manifest or when the device is mounted read-write; use `--force` to override the mount check.
+- Back up destination data before running apply; writes are destructive.
 ## Supported Platforms
 
 LVMSync targets Linux systems only. Builds are tested on the `amd64` and `arm64` architectures.

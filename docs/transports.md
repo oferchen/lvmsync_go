@@ -14,6 +14,31 @@ mode (`dedup:<mode>`), content-defined chunking ranges (`cdcmin:<n>`
 also carries a resume token (`resume:<token>`) so interrupted sessions can
 continue and a maximum in-flight hint (`inflight:<n>`) to negotiate concurrency.
 
+
+Transport configuration groups flags with pflag, binds them to Viper, and logs connection events with zap.
+
+## Flag Group Example
+
+```go
+import (
+    "github.com/spf13/pflag"
+    "github.com/spf13/viper"
+    "go.uber.org/zap"
+)
+
+func initTransports() {
+    logger, _ := zap.NewProduction()
+    defer logger.Sync()
+
+    fs := pflag.NewFlagSet("transport", pflag.ExitOnError)
+    fs.String("transport", "quic,h2,tcp+tls,ssh", "ordered transports")
+    fs.Int("tcp-port", 9443, "TCP listener port")
+
+    v := viper.New()
+    v.BindPFlags(fs)
+}
+```
+
 ## Security Defaults
 
 Handshake validation rejects mismatched ALPN protocols or TLS versions to ensure
