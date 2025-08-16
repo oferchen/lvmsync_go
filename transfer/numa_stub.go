@@ -7,7 +7,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"lvmsync_go/config"
+	"lvmsync_go/internal/config"
 )
 
 func pinWorkerToDevice(cfg *config.Config, src *os.File, _ *zap.Logger) func() {

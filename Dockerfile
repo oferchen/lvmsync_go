@@ -25,7 +25,7 @@ RUN --mount=type=cache,target=/go/pkg/mod go mod download
 
 COPY . .
 RUN --mount=type=cache,target=/root/.cache/go-build \
-    go build -trimpath -ldflags "-s -w -X lvmsync_go/config.BuildVersion=${GIT_SHA}" -o /out/${BIN} ${BUILD_PATH} && \
+    go build -trimpath -ldflags "-s -w -X lvmsync_go/internal/config.BuildVersion=${GIT_SHA}" -o /out/${BIN} ${BUILD_PATH} && \
 
 # 2) Strip
 # checkov:skip=CKV_DOCKER_7: we intentionally track Alpine latest for this stage

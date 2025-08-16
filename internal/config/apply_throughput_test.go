@@ -13,7 +13,7 @@ func TestBuilderApplyThroughput(t *testing.T) {
 	}
 	v := viper.New()
 	v.Set("mode", "throughput")
-	b := &Builder{v: v, defaults: defaults}
+	b := &builder{v: v, defaults: defaults}
 	conf := &Config{Mode: "throughput"}
 	b.applyThroughput(conf)
 	if conf.Transport != "tcp+tls" {

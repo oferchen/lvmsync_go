@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"lvmsync_go/config"
+	"lvmsync_go/internal/config"
 	privilege "lvmsync_go/internal/privilege"
 	"lvmsync_go/transport"
 

@@ -9,7 +9,7 @@ import (
 
 	"syscall"
 
-	"lvmsync_go/config"
+	"lvmsync_go/internal/config"
 )
 
 func prepareTestFile(size int) (*os.File, func(), error) {

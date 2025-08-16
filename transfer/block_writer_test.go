@@ -9,7 +9,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"lvmsync_go/config"
+	"lvmsync_go/internal/config"
 )
 
 func TestBlockWriterSyncIntervalTriggers(t *testing.T) {

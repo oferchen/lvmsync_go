@@ -11,8 +11,8 @@ import (
 
 	rootcmd "lvmsync_go/cmd/root"
 	"lvmsync_go/common"
-	"lvmsync_go/config"
 	"lvmsync_go/internal/blocksize"
+	"lvmsync_go/internal/config"
 )
 
 // detectBlockSize sets cfg.BlockSize by probing source; logger must be non-nil.

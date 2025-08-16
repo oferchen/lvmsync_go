@@ -15,8 +15,8 @@ import (
 	"github.com/zeebo/blake3"
 	"go.uber.org/zap"
 
-	"lvmsync_go/config"
 	hashutil "lvmsync_go/hash"
+	"lvmsync_go/internal/config"
 	digest "lvmsync_go/internal/digest"
 	manifestpkg "lvmsync_go/manifest"
 )

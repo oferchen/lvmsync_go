@@ -7,7 +7,7 @@ import (
 	"github.com/zeebo/blake3"
 	"go.uber.org/zap"
 
-	"lvmsync_go/config"
+	"lvmsync_go/internal/config"
 )
 
 // findResumeIndex determines the starting range index based on the checkpoint and dedup mode.

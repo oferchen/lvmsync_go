@@ -172,7 +172,7 @@ LVMSync is organized into modular packages to keep concerns separated:
 - `transfer` – performs block-level synchronization, compression, deduplication, and resume logic.
   - Internally split into focused modules: `progress.go`, `handshake.go`, and `block_writer.go` for clearer responsibilities.
 - `remote` – wraps SSH functionality for running commands on remote hosts and coordinating transfers. Callers must provide a `context.Context` with a timeout when starting the privileged helper to allow cancellation if the remote command fails to launch.
-- `config` – parses and validates configuration files and CLI options.
+- `internal/config` – parses and validates configuration files and CLI options.
 - `dedup` – houses Bloom filter helpers, chunking logic, and other deduplication utilities.
 - `grpc` – provides the gRPC server and authentication helpers used by the remote daemon.
 - `common` and `internal` – shared helpers and internal utilities such as multi-error handling.
@@ -376,8 +376,8 @@ This groups related flags once and lets Viper merge values from flags, `LVMSYNC_
 The overall loading flow now passes an explicit `FlagSet` and argument slice:
 
 1. `registerFlags(flagSets, fs)` adds all flag groups to the provided flag set.
-2. `LoadConfig(flagSets, defaults, fs, args)` parses the arguments, binds flags and `LVMSYNC_*` environment variables with Viper,
-   merges them with defaults, and returns the effective configuration along with any leftover positional arguments.
+2. `config.NewBuilder(defaults).Build(fs, args)` parses the arguments, binds flags and `LVMSYNC_*` environment variables with Viper,
+   merges them with defaults and any `config.yaml` file, and returns the effective configuration plus leftover positional arguments.
 
 `cmd/root.Configure` surfaces those leftover arguments so `Run` operates purely on provided inputs.
 

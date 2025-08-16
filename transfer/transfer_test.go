@@ -13,7 +13,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"lvmsync_go/config"
+	"lvmsync_go/internal/config"
 )
 
 func TestIterateBlocksOffsetOverflow(t *testing.T) {

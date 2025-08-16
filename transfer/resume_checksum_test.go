@@ -10,7 +10,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"lvmsync_go/config"
+	"lvmsync_go/internal/config"
 )
 
 func TestResumeFinalChecksum(t *testing.T) {

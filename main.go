@@ -10,7 +10,7 @@ import (
 	_ "lvmsync_go/cmd/apply"
 	_ "lvmsync_go/cmd/dump"
 	rootcmd "lvmsync_go/cmd/root"
-	"lvmsync_go/config"
+	"lvmsync_go/internal/config"
 	"lvmsync_go/internal/exitcode"
 )
 

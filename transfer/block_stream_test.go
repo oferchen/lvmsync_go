@@ -9,7 +9,7 @@ import (
 
 	"github.com/zeebo/blake3"
 
-	"lvmsync_go/config"
+	"lvmsync_go/internal/config"
 	digest "lvmsync_go/internal/digest"
 )
 

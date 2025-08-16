@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
 
-	"lvmsync_go/config"
+	"lvmsync_go/internal/config"
 	"lvmsync_go/lvm"
 )
 

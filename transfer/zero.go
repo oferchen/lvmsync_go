@@ -8,7 +8,7 @@ import (
 	"github.com/zeebo/blake3"
 	"go.uber.org/zap"
 
-	"lvmsync_go/config"
+	"lvmsync_go/internal/config"
 )
 
 // zeroBufCache stores zero-filled buffers keyed by their size to avoid repeated

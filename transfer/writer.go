@@ -11,8 +11,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"lvmsync_go/config"
 	"lvmsync_go/device"
+	"lvmsync_go/internal/config"
 )
 
 func prepareOutputWriter(out io.Writer, cfg *config.Config, logger *zap.Logger) (io.WriteCloser, *bufio.Writer, error) {
