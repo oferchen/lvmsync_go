@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"math"
 
 	"github.com/gokrazy/rsync"
 	"go.uber.org/zap"
@@ -50,69 +51,6 @@ func New(dev Device, logger *zap.Logger) *Server {
 		logger = zap.NewNop()
 	}
 	return &Server{dev: dev, logger: logger}
-}
-
-// Handle consumes frames from the Stream until EOF, applying any delta frames to
-// the Device. On graceful EOF the Device is fsynced.
-func (s *Server) Handle(ctx context.Context, stream *rsynkwire.Stream) error {
-	for {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		frame, err := stream.Recv()
-		if err == io.EOF {
-			if err := s.dev.Sync(); err != nil {
-				return err
-			}
-			return s.verifyDigest()
-		}
-		if err != nil {
-			return err
-		}
-		if len(frame) == 0 {
-			continue
-		}
-		switch frame[0] {
-		case 'S':
-			head, err := parseSignatures(frame[1:])
-			if err != nil {
-				return err
-			}
-			s.sigHead = &head
-			continue
-		case 'D':
-			if len(frame) < 9 {
-				return fmt.Errorf("delta frame too short")
-			}
-			off := int64(binary.BigEndian.Uint64(frame[1:9]))
-			data := frame[9:]
-			size := s.dev.Size()
-			dataLen := int64(len(data))
-			if off < 0 || off > size-dataLen {
-				s.logger.Warn("delta_out_of_bounds",
-					zap.Int64("offset_bytes", off),
-					zap.Int("data_size_bytes", len(data)),
-					zap.Int64("device_size_bytes", size))
-				return fmt.Errorf("delta out of bounds")
-			}
-			if _, err := s.dev.WriteAt(data, off); err != nil {
-				return err
-			}
-		case 'G':
-			if len(frame) < 2+32 {
-				return fmt.Errorf("digest frame too short")
-			}
-			algLen := int(frame[1])
-			if len(frame) != 2+algLen+32 {
-				return fmt.Errorf("digest frame length mismatch")
-			}
-			s.alg = string(frame[2 : 2+algLen])
-			copy(s.expect[:], frame[2+algLen:])
-			continue
-		default:
-			return fmt.Errorf("unknown frame type %q", frame[0])
-		}
-	}
 }
 
 func parseSignatures(p []byte) (rsync.SumHead, error) {
