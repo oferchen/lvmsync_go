@@ -15,55 +15,6 @@ import (
 	"lvmsync_go/device"
 )
 
-func applyBlocks(cfg *config.Config, reader *bufio.Reader, destFile *os.File, dedup DeduplicationStrategy, verify bool, checksum ChecksumStrategy, logger *zap.Logger) (int64, error) {
-	var totalBytes int64
-	var sinceSync int64
-	headerLen := 12
-	if verify {
-		headerLen += checksum.Size()
-	}
-	headerBuf := make([]byte, headerLen)
-	for {
-		offset, chunkSize, transmittedSum, err := readBlockHeader(reader, headerBuf, verify, checksum)
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return totalBytes, err
-		}
-
-		data, err := readBlockData(cfg, reader, chunkSize)
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return totalBytes, err
-		}
-		written, err := processBlock(cfg, destFile, dedup, verify, checksum, offset, transmittedSum, data, chunkSize, logger)
-		if cfg.ODirect {
-			if data != nil {
-				putAlignedBlockBuffer(data)
-			}
-		} else if data != nil {
-			putBlockBuffer(data)
-		}
-		if err != nil {
-			return totalBytes, err
-		}
-		if written {
-			totalBytes += int64(chunkSize)
-			sinceSync += int64(chunkSize)
-			if cfg.SyncIntervalBytes > 0 && sinceSync >= int64(cfg.SyncIntervalBytes) {
-				if err := fdatasyncFile(destFile); err != nil {
-					return totalBytes, err
-				}
-				sinceSync = 0
-			}
-		}
-	}
-	return totalBytes, nil
-}
-
 func (t *Transfer) processDumpDataCore(cfg *config.Config, in io.Reader, destPath string, dedup DeduplicationStrategy, verify bool) (err error) {
 	bufReader := bufio.NewReader(in)
 	var hs common.Handshake
@@ -125,8 +76,9 @@ func (t *Transfer) processDumpDataCore(cfg *config.Config, in io.Reader, destPat
 
 	startTime := time.Now()
 	checksum := GetChecksumStrategy(cfg.ChecksumAlgorithm)
+	bw := newBlockWriter(cfg, destFile, dedup, verify, checksum, t.Logger)
 	var totalBytes int64
-	totalBytes, err = applyBlocks(cfg, reader, destFile, dedup, verify, checksum, t.Logger)
+	totalBytes, err = bw.write(reader)
 	if err != nil {
 		return err
 	}

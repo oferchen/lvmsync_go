@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - device: tests for GetUUID and IsMountedRW
 - device: persist thaw command configuration for raw devices
 - transport/h2: refactor Dial into dialTLS, performH2Handshake, and logDialResult with unit tests.
+- transfer: block writer with sync interval and optional checksum verification; tests for fdatasync intervals and MAC mismatches
 - transport: tests covering SelectBest handshake negotiation with custom CDC settings, resume tokens, and O_DIRECT for ssh, tcp+tls, h2, and quic transports.
 - transport: test registry fallback dialing sequence with logged attempts.
 - common: add MergeHandshake helper for compressor and digest negotiation.
@@ -25,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - device: centralize exec command helper for LVM and raw devices
 - device: add cleanup tests for thaw errors and timeouts
 - transfer: add manifest index persistence test covering read/write, rebuild, and verify paths.
+- transfer: persist resume checkpoints with `--checkpoint-bytes` and `--checkpoint-interval` and add tests for interrupted transfers.
 - cmd: support `--source-type` and `--dest-type` flags and allow `device.Detect` to honor explicit type hints.
 - transfer: unify resume checkpoints across dedup modes and add resume tests for fixed, CDC, and hybrid modes.
 - transfer: add tests verifying resume state alignment across dedup mode transitions.
@@ -40,6 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - README: document CDC parameter ordering and the error when violated.
 - device: compare device identifiers via LVM LV UUID or blkid/PARTUUID
 - remote: validate privileged helper command names against `^[a-zA-Z0-9._-]+$`
+- privilege: ensure non-interactive sudo escalation via `--lvm-escalation` flag with validation.
 - README: note that commands accept an explicit `*zap.Logger` defaulting to `zap.NewNop()`.
 - tests: validate O_DIRECT mismatch and agreement in handshake validation.
 - transport: add Role.String and shared TLSVersionString helpers.
