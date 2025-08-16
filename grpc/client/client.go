@@ -118,3 +118,27 @@ func AckStream(ctx context.Context, c proto.ReplicationClient, sessionID string)
 func SendFinalManifest(ctx context.Context, c proto.ReplicationClient, sessionID string, manifest []byte) (*proto.StatusResponse, error) {
 	return c.SendFinalManifest(ctx, &proto.ManifestMessage{SessionId: sessionID, Manifest: manifest})
 }
+
+func Probe(ctx context.Context, c proto.ReplicationClient, volume string) (*proto.StatusResponse, error) {
+	return c.Probe(ctx, &proto.ProbeRequest{VolumeName: volume})
+}
+
+func StartSync(ctx context.Context, c proto.ReplicationClient, volume, requester string) (*proto.StatusResponse, error) {
+	return c.StartSync(ctx, &proto.StartSyncRequest{VolumeName: volume, Requester: requester})
+}
+
+func Cancel(ctx context.Context, c proto.ReplicationClient, sessionID string) (*proto.StatusResponse, error) {
+	return c.Cancel(ctx, &proto.CancelRequest{SessionId: sessionID})
+}
+
+func Progress(ctx context.Context, c proto.ReplicationClient, sessionID string) (proto.Replication_ProgressStreamClient, error) {
+	return c.ProgressStream(ctx, &proto.ProgressRequest{SessionId: sessionID})
+}
+
+func BuildManifest(ctx context.Context, c proto.ReplicationClient, sessionID string) (*proto.StatusResponse, error) {
+	return c.BuildManifest(ctx, &proto.BuildManifestRequest{SessionId: sessionID})
+}
+
+func Verify(ctx context.Context, c proto.ReplicationClient, sessionID string) (*proto.StatusResponse, error) {
+	return c.Verify(ctx, &proto.VerifyRequest{SessionId: sessionID})
+}

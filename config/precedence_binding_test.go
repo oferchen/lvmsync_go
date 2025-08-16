@@ -645,6 +645,64 @@ func TestGRPCPortEnvOverridesConfig(t *testing.T) {
 	}
 }
 
+func TestTLSCertCLIOverridesEnvAndConfig(t *testing.T) {
+	cfgPath := writeTempConfig(t, "tls_cert: cfg.pem\n")
+	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--tls_cert", "cli.pem"})
+	t.Setenv("LVMSYNC_TLS_CERT", "env.pem")
+
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	fs := NewFlagSets(defaults)
+	registerFlags(fs, rootFS)
+	if err := rootFS.Parse(args); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	v, err := buildViper(fs)
+	if err != nil {
+		t.Fatalf("buildViper: %v", err)
+	}
+	builder := &Builder{v: v, defaults: defaults}
+	conf, err := builder.Build()
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if conf.TLSCert != "cli.pem" {
+		t.Fatalf("expected tls_cert cli.pem, got %s", conf.TLSCert)
+	}
+}
+
+func TestTLSCertEnvOverridesConfig(t *testing.T) {
+	cfgPath := writeTempConfig(t, "tls_cert: cfg.pem\n")
+	rootFS, args := newFlagSet([]string{"--config", cfgPath})
+	t.Setenv("LVMSYNC_TLS_CERT", "env.pem")
+
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	fs := NewFlagSets(defaults)
+	registerFlags(fs, rootFS)
+	if err := rootFS.Parse(args); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	v, err := buildViper(fs)
+	if err != nil {
+		t.Fatalf("buildViper: %v", err)
+	}
+	builder := &Builder{v: v, defaults: defaults}
+	conf, err := builder.Build()
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if conf.TLSCert != "env.pem" {
+		t.Fatalf("expected tls_cert env.pem, got %s", conf.TLSCert)
+	}
+}
+
 // CLI flag should win over LVMSYNC_MANIFEST_PATH and manifest_path in YAML.
 func TestManifestPathCLIOverridesEnvAndConfig(t *testing.T) {
 	cfgPath := writeTempConfig(t, "manifest_path: cfg.manifest\n")

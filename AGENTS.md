@@ -109,6 +109,16 @@ lvmsync --transport quic,h2,tcp+tls,ssh --tcp-port 9443
 BDP-based autotuning keeps roughly one to two times the bandwidth–delay product
 in flight. Override the autotuned value with `--concurrency`.
 
+## gRPC Daemon
+
+- `cmd/grpcd` exposes replication operations over gRPC.
+- TLS 1.3 with mutual authentication is required by default; `AllowInsecure`
+  is for development only.
+- Flags: `--grpc-port`, `--tls-cert`, `--tls-key`, `--ca-cert`, and
+  `--allow-insecure` (defaults to false).
+- Configuration sources: flags, `LVMSYNC_GRPC_*` environment variables, and a
+  `grpcd.yaml` file. Precedence is flag > env > config file.
+
 ## Throughput Mode
 
 The `throughput` preset favors maximal transfer rates:

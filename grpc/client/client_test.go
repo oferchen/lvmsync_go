@@ -8,6 +8,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"errors"
+	"io"
 	"math/big"
 	"net"
 	"os"
@@ -394,6 +395,214 @@ func TestAckStreamError(t *testing.T) {
 	c := fakeAckClient{}
 	if _, err := AckStream(context.Background(), c, "sess"); err == nil {
 		t.Fatalf("expected error")
+	}
+}
+
+type fakeProbeClient struct {
+	stubClient
+	resp *proto.StatusResponse
+	err  error
+}
+
+func (f *fakeProbeClient) Probe(ctx context.Context, _ *proto.ProbeRequest, _ ...grpc.CallOption) (*proto.StatusResponse, error) {
+	return f.resp, f.err
+}
+
+func TestProbe(t *testing.T) {
+	cases := []struct {
+		name    string
+		client  proto.ReplicationClient
+		wantErr bool
+	}{
+		{"success", &fakeProbeClient{resp: &proto.StatusResponse{Ok: true}}, false},
+		{"rpcError", &fakeProbeClient{err: errors.New("fail")}, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := Probe(context.Background(), tc.client, "vol")
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("expected error")
+				}
+			} else if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+type fakeStartSyncClient struct {
+	stubClient
+	resp *proto.StatusResponse
+	err  error
+}
+
+func (f *fakeStartSyncClient) StartSync(ctx context.Context, _ *proto.StartSyncRequest, _ ...grpc.CallOption) (*proto.StatusResponse, error) {
+	return f.resp, f.err
+}
+
+func TestStartSync(t *testing.T) {
+	cases := []struct {
+		name    string
+		client  proto.ReplicationClient
+		wantErr bool
+	}{
+		{"success", &fakeStartSyncClient{resp: &proto.StatusResponse{Ok: true}}, false},
+		{"rpcError", &fakeStartSyncClient{err: errors.New("fail")}, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := StartSync(context.Background(), tc.client, "vol", "req")
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("expected error")
+				}
+			} else if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+type fakeCancelClient struct {
+	stubClient
+	resp *proto.StatusResponse
+	err  error
+}
+
+func (f *fakeCancelClient) Cancel(ctx context.Context, _ *proto.CancelRequest, _ ...grpc.CallOption) (*proto.StatusResponse, error) {
+	return f.resp, f.err
+}
+
+func TestCancel(t *testing.T) {
+	cases := []struct {
+		name    string
+		client  proto.ReplicationClient
+		wantErr bool
+	}{
+		{"success", &fakeCancelClient{resp: &proto.StatusResponse{Ok: true}}, false},
+		{"rpcError", &fakeCancelClient{err: errors.New("fail")}, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := Cancel(context.Background(), tc.client, "sess")
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("expected error")
+				}
+			} else if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+type fakeProgressClient struct {
+	stubClient
+	stream proto.Replication_ProgressStreamClient
+	err    error
+}
+
+func (f *fakeProgressClient) ProgressStream(ctx context.Context, _ *proto.ProgressRequest, _ ...grpc.CallOption) (proto.Replication_ProgressStreamClient, error) {
+	return f.stream, f.err
+}
+
+type fakeProgressStream struct{ grpc.ClientStream }
+
+func (fakeProgressStream) Recv() (*proto.Progress, error) { return nil, io.EOF }
+
+func TestProgress(t *testing.T) {
+	ps := &fakeProgressStream{}
+	cases := []struct {
+		name    string
+		client  proto.ReplicationClient
+		wantErr bool
+	}{
+		{"success", &fakeProgressClient{stream: ps}, false},
+		{"rpcError", &fakeProgressClient{err: errors.New("fail")}, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			stream, err := Progress(context.Background(), tc.client, "sess")
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("expected error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if stream != ps {
+				t.Fatalf("unexpected stream")
+			}
+		})
+	}
+}
+
+type fakeBuildManifestClient struct {
+	stubClient
+	resp *proto.StatusResponse
+	err  error
+}
+
+func (f *fakeBuildManifestClient) BuildManifest(ctx context.Context, _ *proto.BuildManifestRequest, _ ...grpc.CallOption) (*proto.StatusResponse, error) {
+	return f.resp, f.err
+}
+
+func TestBuildManifest(t *testing.T) {
+	cases := []struct {
+		name    string
+		client  proto.ReplicationClient
+		wantErr bool
+	}{
+		{"success", &fakeBuildManifestClient{resp: &proto.StatusResponse{Ok: true}}, false},
+		{"rpcError", &fakeBuildManifestClient{err: errors.New("fail")}, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := BuildManifest(context.Background(), tc.client, "sess")
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("expected error")
+				}
+			} else if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+type fakeVerifyClient struct {
+	stubClient
+	resp *proto.StatusResponse
+	err  error
+}
+
+func (f *fakeVerifyClient) Verify(ctx context.Context, _ *proto.VerifyRequest, _ ...grpc.CallOption) (*proto.StatusResponse, error) {
+	return f.resp, f.err
+}
+
+func TestVerify(t *testing.T) {
+	cases := []struct {
+		name    string
+		client  proto.ReplicationClient
+		wantErr bool
+	}{
+		{"success", &fakeVerifyClient{resp: &proto.StatusResponse{Ok: true}}, false},
+		{"rpcError", &fakeVerifyClient{err: errors.New("fail")}, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := Verify(context.Background(), tc.client, "sess")
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("expected error")
+				}
+			} else if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
 	}
 }
 
