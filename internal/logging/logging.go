@@ -6,7 +6,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"lvmsync_go/internal/config"
+	config "lvmsync_go/internal/config"
 )
 
 // NewLogger builds a production logger with sampling enabled and
@@ -37,3 +37,14 @@ func TLSVersionString(v uint16) string {
 		return strconv.FormatUint(uint64(v), 10)
 	}
 }
+
+package logging
+
+import (
+	"crypto/tls"
+	"strconv"
+
+	"go.uber.org/zap"
+
+	"lvmsync_go/internal/config"
+)

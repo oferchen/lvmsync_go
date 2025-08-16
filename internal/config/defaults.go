@@ -83,6 +83,8 @@ type Config struct {
 	TargetVGCandidates       []string      `mapstructure:"target_vgs"`
 	LVMEscalation            string        `mapstructure:"lvm_escalation"`
 	LVMTimeout               time.Duration `mapstructure:"lvm_timeout"`
+	SigCacheTTL              time.Duration `mapstructure:"sig_cache_ttl"`
+	SigCacheMax              int           `mapstructure:"sig_cache_max"`
 	Progress                 bool          `mapstructure:"progress"`
 	BlockSize                int           `mapstructure:"-"`
 	BlockSizeRaw             string        `mapstructure:"-"`
@@ -218,6 +220,8 @@ func DefaultConfig() (*Config, error) {
 		TargetVGCandidates:       []string{},
 		LVMEscalation:            "sudo -n",
 		LVMTimeout:               10 * time.Second,
+		SigCacheTTL:              24 * time.Hour,
+		SigCacheMax:              128,
 		Progress:                 true,
 		BlockSize:                0,
 		BlockSizeRaw:             Auto,

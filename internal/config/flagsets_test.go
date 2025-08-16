@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/spf13/viper"
 )
@@ -171,6 +172,8 @@ func TestInitLVMFlags(t *testing.T) {
 		{"snapshot_size", cfg.SnapshotSize},
 		{"lvm-escalation", cfg.LVMEscalation},
 		{"lvm_timeout", cfg.LVMTimeout.String()},
+		{"sig-cache-ttl", cfg.SigCacheTTL.String()},
+		{"sig-cache-max", strconv.Itoa(cfg.SigCacheMax)},
 		{"volume_group", cfg.VolumeGroup},
 		{"target_volume_group", cfg.TargetVolumeGroup},
 		{"target_vgs", "[]"},
@@ -275,11 +278,15 @@ func TestBindLVMEnv(t *testing.T) {
 	}
 	t.Setenv("LVMSYNC_LVM_SNAPSHOT_SIZE", "10%")
 	t.Setenv("LVMSYNC_LVM_ESCALATION", "doas")
+	t.Setenv("LVMSYNC_LVM_SIG_CACHE_TTL", "1m")
 	if got := v.GetString("snapshot_size"); got != "10%" {
 		t.Fatalf("snapshot_size got %q want %q", got, "10%")
 	}
 	if got := v.GetString("lvm-escalation"); got != "doas" {
 		t.Fatalf("lvm-escalation got %q want %q", got, "doas")
+	}
+	if got := v.GetDuration("sig-cache-ttl"); got != time.Minute {
+		t.Fatalf("sig-cache-ttl got %v want %v", got, time.Minute)
 	}
 }
 

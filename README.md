@@ -1154,6 +1154,8 @@ timeouts or cancellations are reported separately.
 | `--target_vgs` | Candidate target volume groups for auto-selection | [] |
 | `--lvm-escalation` | Command used to re-execute the program with elevated privileges when not running as root (e.g., "sudo -n"); validated at startup | "sudo -n" |
 | `--lvm_timeout` | Timeout for LVM operations | 10s |
+| `--sig-cache-ttl` | TTL for cached LVM signatures | 24h |
+| `--sig-cache-max` | Maximum cached LVM signatures | 128 |
 
 #### gRPC Options
 
