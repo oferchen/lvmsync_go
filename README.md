@@ -1040,6 +1040,7 @@ Flags are parsed via Viper, so the same settings can be provided through
 | `--progress`        | Show progress percentage during the transfer                                                            | `true`    |
 | `--block_size`      | Block size for data transfer (e.g., `"4K"`, `"64K"`, `"512K"`, `"1M"`), use `0` for automatic detection | `"4K"`    |
 | `--dry-run`         | Print actions without executing | `false`   |
+| `--discard`         | Issue BLKDISCARD before writing blocks | `false`   |
 | `--offline`         | Assume source raw device is offline | `false`   |
 | `--fs-freeze-command` | Command to freeze filesystem before reading raw source; path must be absolute and arguments use shell-style quoting | `""` |
 | `--fs-thaw-command`  | Command to thaw filesystem after reading raw source; path must be absolute and arguments use shell-style quoting | `""` |

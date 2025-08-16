@@ -109,12 +109,12 @@ func TestParseLVPath(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		vg, lv, err := parseLVPath(tt.path)
+		vg, lv, err := ParseLVPath(tt.path)
 		if err != nil {
-			t.Fatalf("parseLVPath(%s) error: %v", tt.path, err)
+			t.Fatalf("ParseLVPath(%s) error: %v", tt.path, err)
 		}
 		if vg != tt.vg || lv != tt.lv {
-			t.Fatalf("parseLVPath(%s) = %s/%s, want %s/%s", tt.path, vg, lv, tt.vg, tt.lv)
+			t.Fatalf("ParseLVPath(%s) = %s/%s, want %s/%s", tt.path, vg, lv, tt.vg, tt.lv)
 		}
 	}
 }
