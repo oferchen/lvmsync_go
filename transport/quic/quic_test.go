@@ -1,3 +1,5 @@
+//go:build quic
+
 package quic
 
 import (

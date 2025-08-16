@@ -27,7 +27,7 @@ func TestProcessBlockDiscard(t *testing.T) {
 	})
 	defer restore()
 	data := []byte("abcd")
-	if written, err := processBlock(cfg, f, nil, false, nil, 0, nil, data, 4, zap.NewNop()); err != nil || !written {
+	if written, err := processBlock(cfg, f, nil, false, nil, 0, 0, nil, data, 4, zap.NewNop()); err != nil || !written {
 		t.Fatalf("processBlock: %v written=%v", err, written)
 	}
 	if !called {
@@ -49,7 +49,7 @@ func TestProcessBlockDiscardDisabled(t *testing.T) {
 	})
 	defer restore()
 	data := []byte("abcd")
-	if _, err := processBlock(cfg, f, nil, false, nil, 0, nil, data, 4, zap.NewNop()); err != nil {
+	if _, err := processBlock(cfg, f, nil, false, nil, 0, 0, nil, data, 4, zap.NewNop()); err != nil {
 		t.Fatalf("processBlock: %v", err)
 	}
 	if called {
