@@ -401,23 +401,27 @@ func TestSSHTransportSelectBestHandshake(t *testing.T) {
 		CDCMax:      256,
 	}
 
-	srvErr := make(chan error)
+	srvErr := make(chan error, 1)
 	go func() {
 		conn, err := ln.Accept()
 		if err != nil {
 			srvErr <- err
 			return
 		}
-		_, err = server.Negotiate(ctx, conn, transport.Server, srvHS)
-		srvErr <- err
+		srvCtx, cancel := context.WithTimeout(ctx, time.Second)
+		defer cancel()
+		_, err = server.Negotiate(srvCtx, conn, transport.Server, srvHS)
 		conn.Close()
+		srvErr <- err
 	}()
 
 	conn, err := client.Dial(ctx, ln.Addr().String())
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
-	peer, err := client.Negotiate(ctx, conn, transport.Client, cliHS)
+	cliCtx, cancel := context.WithTimeout(ctx, time.Second)
+	peer, err := client.Negotiate(cliCtx, conn, transport.Client, cliHS)
+	cancel()
 	conn.Close()
 	if err != nil {
 		t.Fatalf("client negotiate: %v", err)
