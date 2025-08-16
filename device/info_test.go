@@ -1,7 +1,6 @@
 package device
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -9,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/moby/sys/mountinfo"
 )
 
 func TestGetUUIDCanceledContext(t *testing.T) {
@@ -130,17 +131,19 @@ func TestDefaultMountFunc(t *testing.T) {
 			defer os.Remove(dev.Name())
 			dev.Close()
 
-			mounts, err := os.CreateTemp("", "mounts")
+			mounts, err := os.CreateTemp("", "mountinfo")
 			if err != nil {
-				t.Fatalf("create mounts: %v", err)
+				t.Fatalf("create mountinfo: %v", err)
 			}
-			if _, err := fmt.Fprintf(mounts, "%s /mnt/test ext4 %s,relatime 0 0\n", dev.Name(), tc.opts); err != nil {
-				t.Fatalf("write mounts: %v", err)
+			escaped := strings.ReplaceAll(dev.Name(), " ", "\\040")
+			line := fmt.Sprintf("42 24 0:0 / /mnt/test %s,relatime - ext4 %s rw\n", tc.opts, escaped)
+			if _, err := mounts.WriteString(line); err != nil {
+				t.Fatalf("write mountinfo: %v", err)
 			}
 			mounts.Close()
 			defer os.Remove(mounts.Name())
 
-			prev := SetMountFunc(mountFuncFromFile(mounts.Name()))
+			prev := SetMountFunc(mountFuncFromMountInfoFile(mounts.Name()))
 			defer SetMountFunc(prev)
 
 			got, err := IsMountedRW(dev.Name())
@@ -154,6 +157,38 @@ func TestDefaultMountFunc(t *testing.T) {
 	}
 }
 
+func TestDefaultMountFuncSpecialChars(t *testing.T) {
+	dev, err := os.CreateTemp("", "dev with space")
+	if err != nil {
+		t.Fatalf("create device: %v", err)
+	}
+	defer os.Remove(dev.Name())
+	dev.Close()
+
+	mounts, err := os.CreateTemp("", "mountinfo")
+	if err != nil {
+		t.Fatalf("create mountinfo: %v", err)
+	}
+	escaped := strings.ReplaceAll(dev.Name(), " ", "\\040")
+	line := fmt.Sprintf("42 24 0:0 / /mnt/test rw,foo=bar\\040baz - ext4 %s rw\n", escaped)
+	if _, err := mounts.WriteString(line); err != nil {
+		t.Fatalf("write mountinfo: %v", err)
+	}
+	mounts.Close()
+	defer os.Remove(mounts.Name())
+
+	prev := SetMountFunc(mountFuncFromMountInfoFile(mounts.Name()))
+	defer SetMountFunc(prev)
+
+	got, err := IsMountedRW(dev.Name())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !got {
+		t.Fatalf("expected mounted read-write")
+	}
+}
+
 func TestDefaultMountFuncError(t *testing.T) {
 	dev, err := os.CreateTemp("", "dev")
 	if err != nil {
@@ -163,42 +198,38 @@ func TestDefaultMountFuncError(t *testing.T) {
 	dev.Close()
 
 	nonexistent := filepath.Join(os.TempDir(), "does-not-exist")
-	prev := SetMountFunc(mountFuncFromFile(nonexistent))
+	prev := SetMountFunc(mountFuncFromMountInfoFile(nonexistent))
 	defer SetMountFunc(prev)
 
 	if _, err := IsMountedRW(dev.Name()); err == nil {
-		t.Fatalf("expected error when reading mounts file")
+		t.Fatalf("expected error when reading mountinfo file")
 	}
 }
 
-func mountFuncFromFile(mountsPath string) func(string) (bool, error) {
+func mountFuncFromMountInfoFile(p string) func(string) (bool, error) {
 	return func(path string) (bool, error) {
 		real, err := filepath.EvalSymlinks(path)
 		if err != nil {
 			return false, err
 		}
-		f, err := os.Open(mountsPath)
+		f, err := os.Open(p)
 		if err != nil {
 			return false, err
 		}
 		defer f.Close()
-		scanner := bufio.NewScanner(f)
-		for scanner.Scan() {
-			fields := strings.Fields(scanner.Text())
-			if len(fields) < 4 {
-				continue
-			}
-			if fields[0] == real {
-				for _, opt := range strings.Split(fields[3], ",") {
+		infos, err := mountinfo.GetMountsFromReader(f, nil)
+		if err != nil {
+			return false, err
+		}
+		for _, mi := range infos {
+			if mi.Source == real {
+				for _, opt := range strings.Split(mi.Options, ",") {
 					if opt == "rw" {
 						return true, nil
 					}
 				}
 				return false, nil
 			}
-		}
-		if err := scanner.Err(); err != nil {
-			return false, err
 		}
 		return false, nil
 	}

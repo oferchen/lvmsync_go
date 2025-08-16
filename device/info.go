@@ -1,13 +1,13 @@
 package device
 
 import (
-	"bufio"
 	"context"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/moby/sys/mountinfo"
 )
 
 const uuidTimeout = 5 * time.Second
@@ -117,28 +117,19 @@ func defaultMountFunc(path string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	f, err := os.Open("/proc/self/mounts")
+	infos, err := mountinfo.GetMounts(nil)
 	if err != nil {
 		return false, err
 	}
-	defer f.Close()
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		fields := strings.Fields(scanner.Text())
-		if len(fields) < 4 {
-			continue
-		}
-		if fields[0] == real {
-			for _, opt := range strings.Split(fields[3], ",") {
+	for _, mi := range infos {
+		if mi.Source == real {
+			for _, opt := range strings.Split(mi.Options, ",") {
 				if opt == "rw" {
 					return true, nil
 				}
 			}
 			return false, nil
 		}
-	}
-	if err := scanner.Err(); err != nil {
-		return false, err
 	}
 	return false, nil
 }
