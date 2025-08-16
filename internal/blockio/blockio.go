@@ -179,6 +179,16 @@ func (f *File) WriteAt(p []byte, off int64) (int, error) {
 			}
 		}
 	}
+	if off%int64(f.logical) != 0 || off%int64(f.physical) != 0 {
+		if f.strict {
+			return 0, fmt.Errorf("write offset %d not multiple of %d or %d", off, f.logical, f.physical)
+		}
+		if f.direct {
+			if err := f.reopen(); err != nil {
+				return 0, err
+			}
+		}
+	}
 	return f.f.WriteAt(p, off)
 }
 
