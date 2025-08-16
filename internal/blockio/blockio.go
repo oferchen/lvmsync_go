@@ -1,6 +1,7 @@
 package blockio
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -24,27 +25,29 @@ type File struct {
 // When strict is false and a later write is not block aligned, the file
 // reopens without O_DIRECT to allow buffered I/O.
 func Open(path string, direct, strict bool) (*File, error) {
+	var err error
+	if _, err = os.Stat(path); err != nil {
+		return nil, fmt.Errorf("stat %q: %w", path, err)
+	}
 	logical, physical := detectBlockSizes(path)
-	var (
-		fd  int
-		err error
-	)
+	var fd int
 	if direct {
-		fd, err = unix.Open(path, unix.O_RDWR|unix.O_CREAT|unix.O_DIRECT, 0)
+		fd, err = unix.Open(path, unix.O_RDWR|unix.O_DIRECT, 0)
 		if err != nil {
-			if strict {
-				return nil, err
+			if errors.Is(err, unix.EINVAL) && !strict {
+				direct = false
+			} else {
+				return nil, fmt.Errorf("open %q: %w", path, err)
 			}
-			direct = false
 		}
 	}
 	var f *os.File
 	if direct && err == nil {
 		f = os.NewFile(uintptr(fd), path)
 	} else {
-		f, err = os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0)
+		f, err = os.OpenFile(path, os.O_RDWR, 0)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("open %q: %w", path, err)
 		}
 	}
 	bf := &File{f: f, logical: logical, physical: physical, direct: direct, strict: strict}
@@ -100,9 +103,9 @@ func (f *File) Sync() error {
 }
 
 func (f *File) reopen() error {
-	nf, err := os.OpenFile(f.f.Name(), os.O_RDWR|os.O_CREATE, 0)
+	nf, err := os.OpenFile(f.f.Name(), os.O_RDWR, 0)
 	if err != nil {
-		return err
+		return fmt.Errorf("open %q: %w", f.f.Name(), err)
 	}
 	old := f.f
 	f.f = nf
