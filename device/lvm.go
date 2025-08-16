@@ -113,9 +113,6 @@ var (
 	autoExtendEnabledFunc = lvm.AutoExtendEnabled
 	discardEnabledFunc    = lvm.DiscardEnabled
 	isMountedRWFunc       = IsMountedRW
-	generateSnapshot      = func() string { return fmt.Sprintf("lvmsync_%d", time.Now().UnixNano()) }
-	geteuid               = os.Geteuid
-	openLVMFunc           = OpenLVM
 	lockAcquire           = lock.Acquire
 )
 
