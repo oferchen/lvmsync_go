@@ -3,6 +3,7 @@ package blockio
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -93,6 +94,64 @@ func (f *File) Read(p []byte) (int, error) {
 	return n, err
 }
 
+func (f *File) WriteTo(w io.Writer) (int64, error) {
+	block := lcm(f.logical, f.physical)
+	size := 1 << 20
+	if size%block != 0 {
+		size = block*(size/block) + block
+	}
+	buf := make([]byte, size)
+	var n int64
+	for {
+		nr, er := f.Read(buf)
+		if nr > 0 {
+			nw, ew := w.Write(buf[:nr])
+			n += int64(nw)
+			if ew != nil {
+				return n, ew
+			}
+			if nw != nr {
+				return n, io.ErrShortWrite
+			}
+		}
+		if er != nil {
+			if er == io.EOF {
+				return n, nil
+			}
+			return n, er
+		}
+	}
+}
+
+func (f *File) ReadFrom(r io.Reader) (int64, error) {
+	block := lcm(f.logical, f.physical)
+	size := 1 << 20
+	if size%block != 0 {
+		size = block*(size/block) + block
+	}
+	buf := make([]byte, size)
+	var n int64
+	for {
+		nr, er := r.Read(buf)
+		if nr > 0 {
+			nw, ew := f.Write(buf[:nr])
+			n += int64(nw)
+			if ew != nil {
+				return n, ew
+			}
+			if nw != nr {
+				return n, io.ErrShortWrite
+			}
+		}
+		if er != nil {
+			if er == io.EOF {
+				return n, nil
+			}
+			return n, er
+		}
+	}
+}
+
 func (f *File) Seek(offset int64, whence int) (int64, error) { return f.f.Seek(offset, whence) }
 
 func (f *File) Sync() error {
@@ -149,4 +208,22 @@ func readInt(dir, name string) int {
 		return 0
 	}
 	return v
+}
+
+func gcd(a, b int) int {
+	for b != 0 {
+		a, b = b, a%b
+	}
+	if a < 0 {
+		return -a
+	}
+	return a
+}
+
+func lcm(a, b int) int {
+	g := gcd(a, b)
+	if g == 0 {
+		return 0
+	}
+	return a / g * b
 }
