@@ -7,6 +7,7 @@ require (
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/klauspost/compress v1.18.0
 	github.com/klauspost/cpuid/v2 v2.3.0
+	github.com/moby/sys/mountinfo v0.7.2
 	github.com/pierrec/lz4/v4 v4.1.22
 	github.com/quic-go/quic-go v0.48.1
 	github.com/spf13/cobra v1.7.0

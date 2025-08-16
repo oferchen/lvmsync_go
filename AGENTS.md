@@ -253,6 +253,7 @@ Run these commands locally before opening a pull request:
 - [ ] Remove package-wide loggers; transport constructors such as `ssh.New(cfg, logger)` now require an explicit `*zap.Logger` parameter.
 - [ ] Remove stray `fmt.Print*` calls in favor of structured logs.
 - [ ] Monitor elimination of `fmt.Print*` calls to keep progress logging fully structured.
+- [ ] device: expand mountinfo parsing to handle bind mounts and multiple entries.
 - [ ] Review QUIC constructor refactor and expand tests for sender/receiver coverage.
 - [ ] LVM device support: plumb snapshot creation through the device abstraction, allow raw device fallbacks, and unit test LVM vs. file paths.
  - [x] Transport logging: emit connection handshake and teardown events with `snake_case` fields and ensure callers `defer logger.Sync()`.
