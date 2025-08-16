@@ -98,7 +98,7 @@ func TestRunCommandInvalidConfig(t *testing.T) {
 	}
 	t.Cleanup(func() { runCommand = func(src, dst string, opts RunOptions, logger *zap.Logger) error { return nil } })
 
-	if err := Execute([]string{"run", "--ssh_keepalive=0s", "src", "dst"}, zap.NewNop()); err == nil {
+	if err := Execute([]string{"run", "--cdc-min=65536", "--cdc-avg=1024", "src", "dst"}, zap.NewNop()); err == nil {
 		t.Fatalf("expected error for invalid config")
 	}
 	if called {

@@ -87,6 +87,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - manifest: record CDC chunk size parameters and hybrid flags in header and index entries
 - cmd/manifest: add `manifest rebuild` subcommand for regenerating manifests
 - config: expose `--cdc-min`, `--cdc-avg`, and `--cdc-max` flags bound to Viper
+- config: apply defaults for escalation, gRPC, heartbeat, TCP, and CDC settings when unset
 - docs: document manifest lifecycle and CDC options
 - Remove obsolete gap and pruning entries after rerunning static analysis.
 - Wrap README logging example in `package main` to compile with `go build`.
