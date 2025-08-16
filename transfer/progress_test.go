@@ -30,6 +30,20 @@ func TestReportProgress(t *testing.T) {
 	}
 }
 
+func TestReportProgressVerbose(t *testing.T) {
+	core, logs := observer.New(zap.DebugLevel)
+	logger := zap.New(core)
+	cfg := &config.Config{Progress: true, Verbose: 1}
+	start := time.Now().Add(-time.Second)
+	reportProgress(cfg, 1024, 2048, 100, start, logger)
+	if logs.FilterMessage("transfer progress").Len() != 1 {
+		t.Fatalf("expected transfer progress log, got %d", logs.FilterMessage("transfer progress").Len())
+	}
+	if logs.FilterMessage("parallel dump progress").Len() != 1 {
+		t.Fatalf("expected parallel dump progress log, got %d", logs.FilterMessage("parallel dump progress").Len())
+	}
+}
+
 func TestLogSummaries(t *testing.T) {
 	core, logs := observer.New(zap.InfoLevel)
 	logger := zap.New(core)

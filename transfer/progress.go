@@ -9,15 +9,12 @@ import (
 )
 
 func finalizeProgress(cfg *config.Config, logger *zap.Logger) {
-	if cfg.Progress && logger != nil {
+	if cfg.Progress {
 		logger.Info("progress complete")
 	}
 }
 
 func reportProgress(cfg *config.Config, transferred, total int64, index int, start time.Time, logger *zap.Logger) {
-	if logger == nil {
-		return
-	}
 	if cfg.Progress {
 		progressPercent := float64(transferred) / float64(total) * 100.0
 
@@ -33,9 +30,6 @@ func reportProgress(cfg *config.Config, transferred, total int64, index int, sta
 }
 
 func logSequentialSummary(logger *zap.Logger, bytes int64, skipped int, start time.Time) {
-	if logger == nil {
-		return
-	}
 	elapsed := time.Since(start).Seconds()
 	logger.Info("Sequential transfer complete",
 		zap.Int64("size_bytes", bytes),
@@ -45,9 +39,6 @@ func logSequentialSummary(logger *zap.Logger, bytes int64, skipped int, start ti
 }
 
 func logParallelSummary(logger *zap.Logger, bytes int64, start time.Time) {
-	if logger == nil {
-		return
-	}
 	elapsed := time.Since(start).Seconds()
 	logger.Info("Parallel transfer complete",
 		zap.Int64("size_bytes", bytes),
