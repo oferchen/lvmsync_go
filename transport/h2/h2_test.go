@@ -423,8 +423,13 @@ func TestH2DialUnreachable(t *testing.T) {
 	ctx := context.Background()
 	dctx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
-	if _, err := tr.Dial(dctx, "203.0.113.1:1"); err == nil || (!errors.Is(err, context.DeadlineExceeded) && !strings.Contains(err.Error(), "network is unreachable")) {
-		t.Fatalf("unexpected error: %v", err)
+	if _, err := tr.Dial(dctx, "203.0.113.1:1"); err == nil {
+		t.Fatalf("expected error")
+	} else {
+		var netErr net.Error
+		if !errors.Is(err, context.DeadlineExceeded) && !strings.Contains(err.Error(), "network is unreachable") && (!errors.As(err, &netErr) || !netErr.Timeout()) {
+			t.Fatalf("unexpected error: %v", err)
+		}
 	}
 }
 
