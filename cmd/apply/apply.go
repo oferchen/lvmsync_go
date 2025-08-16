@@ -3,6 +3,7 @@ package apply
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 
 	"go.uber.org/zap"
@@ -10,6 +11,8 @@ import (
 	rootcmd "lvmsync_go/cmd/root"
 	"lvmsync_go/device"
 	"lvmsync_go/internal/config"
+	cpufeatures "lvmsync_go/internal/cpufeatures"
+	digestpkg "lvmsync_go/internal/digest"
 	"lvmsync_go/transfer"
 )
 
@@ -60,5 +63,36 @@ func Run(cfg *config.Config, applyFile string, args []string, logger *zap.Logger
 	if cleanupErr != nil {
 		return cleanupErr
 	}
-	return closeErr
+	if closeErr != nil {
+		return closeErr
+	}
+	if strings.ToLower(cfg.VerifyLevel) == "none" {
+		return nil
+	}
+	alg := strings.ToLower(cfg.ChecksumAlgorithm)
+	if alg == "" || alg == "auto" {
+		alg = digestpkg.Select()
+	}
+	logger.Info("cpu_features",
+		zap.Bool("avx2", cpufeatures.HasAVX2()),
+		zap.Bool("avx512", cpufeatures.HasAVX512()),
+		zap.Bool("neon", cpufeatures.HasNEON()),
+	)
+	sampled := strings.ToLower(cfg.VerifyLevel) == "sampled"
+	match, srcSum, dstSum, err := digestpkg.VerifyFiles(applyFile, dev.Path(), alg, sampled)
+	if err != nil {
+		return err
+	}
+	if !match {
+		logger.Error("digest_mismatch",
+			zap.String("source_digest", fmt.Sprintf("%x", srcSum[:])),
+			zap.String("dest_digest", fmt.Sprintf("%x", dstSum[:])),
+		)
+		return fmt.Errorf("digest mismatch")
+	}
+	logger.Info("verification_success",
+		zap.String("digest_algorithm", alg),
+		zap.String("verify_level", cfg.VerifyLevel),
+	)
+	return nil
 }

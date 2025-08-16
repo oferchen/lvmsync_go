@@ -40,7 +40,9 @@ func TestInitGeneralFlags(t *testing.T) {
 		{"block_size", cfg.BlockSizeRaw},
 		{"verbose", "0"},
 		{"verify_checksum", strconv.FormatBool(cfg.VerifyChecksum)},
+		{"verify", cfg.VerifyLevel},
 		{"checksum_algorithm", cfg.ChecksumAlgorithm},
+		{"digest", cfg.ChecksumAlgorithm},
 		{"progress", strconv.FormatBool(cfg.Progress)},
 	}
 	for _, tt := range cases {

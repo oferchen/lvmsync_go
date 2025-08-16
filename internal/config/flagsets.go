@@ -80,7 +80,9 @@ func initGeneralFlags(cfg *Config) *pflag.FlagSet {
 	fs.String("block_size", cfg.BlockSizeRaw, "Block size for data transfer; specify 'auto' or 0 for automatic detection")
 	fs.CountP("verbose", "v", "Verbosity level")
 	fs.Bool("verify_checksum", cfg.VerifyChecksum, "Enable checksum verification")
+	fs.String("verify", cfg.VerifyLevel, "Verification level: full, sampled, or none")
 	fs.String("checksum_algorithm", cfg.ChecksumAlgorithm, fmt.Sprintf("Checksum algorithm: %v", SupportedChecksumAlgorithms))
+	fs.String("digest", cfg.ChecksumAlgorithm, fmt.Sprintf("Digest algorithm: %v", SupportedChecksumAlgorithms))
 	fs.Bool("progress", cfg.Progress, "Show progress during transfer")
 	return fs
 }
