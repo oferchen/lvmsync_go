@@ -529,6 +529,64 @@ func TestCDCMinEnvOverridesConfig(t *testing.T) {
 	}
 }
 
+func TestCompressCLIOverridesEnvAndConfig(t *testing.T) {
+	cfgPath := writeTempConfig(t, "compress: zstd\n")
+	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--compress", "lz4"})
+	t.Setenv("LVMSYNC_COMPRESSION_COMPRESS", "none")
+
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	fs := NewFlagSets(defaults)
+	registerFlags(fs, rootFS)
+	if err := rootFS.Parse(args); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	v, err := buildViper(fs)
+	if err != nil {
+		t.Fatalf("buildViper: %v", err)
+	}
+	builder := &Builder{v: v, defaults: defaults}
+	conf, err := builder.Build()
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if conf.Compress != "lz4" {
+		t.Fatalf("expected compress lz4, got %s", conf.Compress)
+	}
+}
+
+func TestCompressEnvOverridesConfig(t *testing.T) {
+	cfgPath := writeTempConfig(t, "compress: zstd\n")
+	rootFS, args := newFlagSet([]string{"--config", cfgPath})
+	t.Setenv("LVMSYNC_COMPRESSION_COMPRESS", "none")
+
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	fs := NewFlagSets(defaults)
+	registerFlags(fs, rootFS)
+	if err := rootFS.Parse(args); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	v, err := buildViper(fs)
+	if err != nil {
+		t.Fatalf("buildViper: %v", err)
+	}
+	builder := &Builder{v: v, defaults: defaults}
+	conf, err := builder.Build()
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if conf.Compress != "none" {
+		t.Fatalf("expected compress none, got %s", conf.Compress)
+	}
+}
+
 func TestGRPCPortCLIOverridesEnvAndConfig(t *testing.T) {
 	cfgPath := writeTempConfig(t, "grpc_port: 1111\n")
 	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--grpc_port", "3333"})

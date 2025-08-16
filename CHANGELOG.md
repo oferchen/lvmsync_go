@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Log manifest rebuild completion with size and duration metrics.
 - Add handshake parsing tests for unknown and malformed tokens.
 - Bind LVMSYNC_DEDUP_* environment variables and extend tests for dedup flag precedence.
+- Bind LVMSYNC_COMPRESSION_* environment variables and add tests for compression flag precedence.
 - Privilege escalation tests covering sudo success and failure modes.
 - device: tests for GetUUID and IsMountedRW
 - device: persist thaw command configuration for raw devices
@@ -61,6 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - transfer: sample 8 KiB per chunk and log compression decisions.
 
 ### Fixed
+- config: remove duplicate prefixes in LVMSYNC_DEDUP_* environment bindings.
 - device: require --offline or freeze/thaw hooks for raw devices
 - device, transfer: require non-nil loggers and remove conditional logging
 - tests: fix O_DIRECT match and transport mismatch handshake validation tests

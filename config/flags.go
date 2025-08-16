@@ -217,7 +217,28 @@ func bindDedupEnv(fs *pflag.FlagSet, v *viper.Viper) error {
 		if err != nil {
 			return
 		}
-		env := "LVMSYNC_DEDUP_" + strings.ToUpper(strings.ReplaceAll(f.Name, "-", "_"))
+		name := strings.ToUpper(strings.ReplaceAll(f.Name, "-", "_"))
+		name = strings.TrimPrefix(name, "DEDUP_")
+		env := "LVMSYNC_DEDUP"
+		if name != "" {
+			env += "_" + name
+		}
+		if e := v.BindEnv(f.Name, env); e != nil {
+			err = e
+		}
+	})
+	return err
+}
+
+// bindCompressionEnv binds compression flag names to environment variables with the
+// LVMSYNC_COMPRESSION_ prefix.
+func bindCompressionEnv(fs *pflag.FlagSet, v *viper.Viper) error {
+	var err error
+	fs.VisitAll(func(f *pflag.Flag) {
+		if err != nil {
+			return
+		}
+		env := "LVMSYNC_COMPRESSION_" + strings.ToUpper(strings.ReplaceAll(f.Name, "-", "_"))
 		if e := v.BindEnv(f.Name, env); e != nil {
 			err = e
 		}
