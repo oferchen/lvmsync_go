@@ -51,6 +51,17 @@ func TestOpenLVMNonBlockDevice(t *testing.T) {
 	}
 }
 
+func TestOpenLVMChecks(t *testing.T) {
+	orig := volumeExistsFunc
+	volumeExistsFunc = func(ctx context.Context, path string) (bool, error) { return false, nil }
+	t.Cleanup(func() { volumeExistsFunc = orig })
+	cache := lvm.NewDeviceFDCache(zap.NewNop())
+	defer cache.Close()
+	if _, err := OpenLVM("/dev/missing", cache, "", zap.NewNop()); err == nil {
+		t.Fatalf("expected error when volume missing")
+	}
+}
+
 func TestRunLVMPrivilegeEscalation(t *testing.T) {
 	ctx := context.Background()
 	var gotName string

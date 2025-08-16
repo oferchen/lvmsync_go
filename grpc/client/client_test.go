@@ -154,6 +154,10 @@ func (ackAgent) StartTransferSession(context.Context, string, string) error  { r
 func (ackAgent) FinalizeSync(context.Context, string, string) error          { return nil }
 func (ackAgent) GetStatus(context.Context, string, string) (string, error)   { return "", nil }
 func (ackAgent) Ack(ctx context.Context, ack *proto.Ack) (*proto.Ack, error) { return ack, nil }
+func (ackAgent) VolumeExists(context.Context, string) (bool, error)          { return true, nil }
+func (ackAgent) AutoExtendEnabled(context.Context, string) (bool, error)     { return false, nil }
+func (ackAgent) DiscardEnabled(context.Context, string) (bool, error)        { return true, nil }
+func (ackAgent) IsMounted(context.Context, string) (bool, error)             { return false, nil }
 
 func TestHandshakeAndAck(t *testing.T) {
 	client, cleanup := setupClient(t)

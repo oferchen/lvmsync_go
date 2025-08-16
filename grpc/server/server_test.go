@@ -67,6 +67,11 @@ type mockAgent struct {
 	progress      func(ctx context.Context, sessionID string) (<-chan *proto.Progress, error)
 	buildManifest func(ctx context.Context, sessionID string) error
 	verify        func(ctx context.Context, sessionID string) error
+
+	volumeExists func(ctx context.Context, volume string) (bool, error)
+	autoExtend   func(ctx context.Context, volume string) (bool, error)
+	discard      func(ctx context.Context, volume string) (bool, error)
+	mounted      func(ctx context.Context, volume string) (bool, error)
 }
 
 func (m *mockAgent) Lock(ctx context.Context, volume, requester string) error {
@@ -110,6 +115,34 @@ func (m *mockAgent) GetStatus(ctx context.Context, volume, requester string) (st
 		return m.status(ctx, volume, requester)
 	}
 	return "", nil
+}
+
+func (m *mockAgent) VolumeExists(ctx context.Context, volume string) (bool, error) {
+	if m.volumeExists != nil {
+		return m.volumeExists(ctx, volume)
+	}
+	return true, nil
+}
+
+func (m *mockAgent) AutoExtendEnabled(ctx context.Context, volume string) (bool, error) {
+	if m.autoExtend != nil {
+		return m.autoExtend(ctx, volume)
+	}
+	return false, nil
+}
+
+func (m *mockAgent) DiscardEnabled(ctx context.Context, volume string) (bool, error) {
+	if m.discard != nil {
+		return m.discard(ctx, volume)
+	}
+	return true, nil
+}
+
+func (m *mockAgent) IsMounted(ctx context.Context, volume string) (bool, error) {
+	if m.mounted != nil {
+		return m.mounted(ctx, volume)
+	}
+	return false, nil
 }
 
 func (m *mockAgent) SendResumeBitmap(ctx context.Context, sessionID string, bitmap []byte) error {
