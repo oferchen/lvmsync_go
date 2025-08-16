@@ -24,30 +24,36 @@ import (
 )
 
 func handshakeRoundTrip(t transport.Interface, tname string) error {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	ln, err := t.Listen(ctx, "127.0.0.1:0")
 	if err != nil {
 		return err
 	}
 	defer ln.Close()
 
-	done := make(chan error)
+	done := make(chan error, 1)
 	go func() {
+		send := func(err error) {
+			select {
+			case done <- err:
+			case <-ctx.Done():
+			}
+		}
 		conn, err := ln.Accept()
 		if err != nil {
-			done <- err
+			send(err)
 			return
 		}
 		req, err := common.ReadHandshake(bufio.NewReader(conn))
 		if err != nil {
 			conn.Close()
-			done <- err
+			send(err)
 			return
 		}
 		if req.ALPN != "h2" || req.TLSVersion != "1.3" {
-			// Expect ALPN "h2" and TLS version "1.3" from the client handshake
 			conn.Close()
-			done <- fmt.Errorf("unexpected request: %+v", req)
+			send(fmt.Errorf("unexpected request: %+v", req))
 			return
 		}
 		resp := common.Handshake{Version: common.ProtocolVersion, ALPN: req.ALPN, TLSVersion: req.TLSVersion}
@@ -56,11 +62,11 @@ func handshakeRoundTrip(t transport.Interface, tname string) error {
 		resp.Digest = common.SelectBest([]string{"blake3", "sha256"}, req.Digests)
 		if err := common.WriteHandshake(conn, resp); err != nil {
 			conn.Close()
-			done <- err
+			send(err)
 			return
 		}
 		conn.Close()
-		done <- nil
+		send(nil)
 	}()
 
 	conn, err := t.Dial(ctx, ln.Addr().String())
