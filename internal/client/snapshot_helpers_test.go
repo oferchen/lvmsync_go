@@ -6,7 +6,7 @@ import (
 	"math"
 	"testing"
 
-	"lvmsync_go/config"
+	"lvmsync_go/internal/config"
 	"lvmsync_go/lvm"
 
 	"go.uber.org/zap"

@@ -22,11 +22,11 @@ func TestCLIFlagsOverrideEnvAndConfig(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	v, err := buildViper(fs)
+	v, _, err := buildViper(fs)
 	if err != nil {
 		t.Fatalf("buildViper: %v", err)
 	}
-	builder := &Builder{v: v, defaults: defaults}
+	builder := &builder{v: v, defaults: defaults}
 	conf, err := builder.Build()
 	if err != nil {
 		t.Fatalf("Build: %v", err)
@@ -51,11 +51,11 @@ func TestEnvOverridesConfig(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	v, err := buildViper(fs)
+	v, _, err := buildViper(fs)
 	if err != nil {
 		t.Fatalf("buildViper: %v", err)
 	}
-	builder := &Builder{v: v, defaults: defaults}
+	builder := &builder{v: v, defaults: defaults}
 	conf, err := builder.Build()
 	if err != nil {
 		t.Fatalf("Build: %v", err)
@@ -80,11 +80,11 @@ func TestCDCMinCLIOverridesEnvAndConfig(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	v, err := buildViper(fs)
+	v, _, err := buildViper(fs)
 	if err != nil {
 		t.Fatalf("buildViper: %v", err)
 	}
-	builder := &Builder{v: v, defaults: defaults}
+	builder := &builder{v: v, defaults: defaults}
 	conf, err := builder.Build()
 	if err != nil {
 		t.Fatalf("Build: %v", err)
@@ -109,11 +109,11 @@ func TestCDCMinEnvOverridesConfig(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	v, err := buildViper(fs)
+	v, _, err := buildViper(fs)
 	if err != nil {
 		t.Fatalf("buildViper: %v", err)
 	}
-	builder := &Builder{v: v, defaults: defaults}
+	builder := &builder{v: v, defaults: defaults}
 	conf, err := builder.Build()
 	if err != nil {
 		t.Fatalf("Build: %v", err)
@@ -147,7 +147,7 @@ func TestFlagSetsBindToViper(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	v, err := buildViper(fs)
+	v, _, err := buildViper(fs)
 	if err != nil {
 		t.Fatalf("buildViper: %v", err)
 	}
@@ -196,11 +196,11 @@ func TestSSHUserCLIOverridesEnvAndConfig(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	v, err := buildViper(fs)
+	v, _, err := buildViper(fs)
 	if err != nil {
 		t.Fatalf("buildViper: %v", err)
 	}
-	builder := &Builder{v: v, defaults: defaults}
+	builder := &builder{v: v, defaults: defaults}
 	conf, err := builder.Build()
 	if err != nil {
 		t.Fatalf("Build: %v", err)
@@ -225,11 +225,11 @@ func TestSSHUserEnvOverridesConfig(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	v, err := buildViper(fs)
+	v, _, err := buildViper(fs)
 	if err != nil {
 		t.Fatalf("buildViper: %v", err)
 	}
-	builder := &Builder{v: v, defaults: defaults}
+	builder := &builder{v: v, defaults: defaults}
 	conf, err := builder.Build()
 	if err != nil {
 		t.Fatalf("Build: %v", err)
@@ -254,11 +254,11 @@ func TestSSHHostCLIOverridesEnvAndConfig(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	v, err := buildViper(fs)
+	v, _, err := buildViper(fs)
 	if err != nil {
 		t.Fatalf("buildViper: %v", err)
 	}
-	builder := &Builder{v: v, defaults: defaults}
+	builder := &builder{v: v, defaults: defaults}
 	conf, err := builder.Build()
 	if err != nil {
 		t.Fatalf("Build: %v", err)
@@ -283,11 +283,11 @@ func TestSSHHostEnvOverridesConfig(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	v, err := buildViper(fs)
+	v, _, err := buildViper(fs)
 	if err != nil {
 		t.Fatalf("buildViper: %v", err)
 	}
-	builder := &Builder{v: v, defaults: defaults}
+	builder := &builder{v: v, defaults: defaults}
 	conf, err := builder.Build()
 	if err != nil {
 		t.Fatalf("Build: %v", err)
@@ -312,11 +312,11 @@ func TestTransportCLIOverridesEnvAndConfig(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	v, err := buildViper(fs)
+	v, _, err := buildViper(fs)
 	if err != nil {
 		t.Fatalf("buildViper: %v", err)
 	}
-	builder := &Builder{v: v, defaults: defaults}
+	builder := &builder{v: v, defaults: defaults}
 	conf, err := builder.Build()
 	if err != nil {
 		t.Fatalf("Build: %v", err)
@@ -341,11 +341,11 @@ func TestTransportEnvOverridesConfig(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	v, err := buildViper(fs)
+	v, _, err := buildViper(fs)
 	if err != nil {
 		t.Fatalf("buildViper: %v", err)
 	}
-	builder := &Builder{v: v, defaults: defaults}
+	builder := &builder{v: v, defaults: defaults}
 	conf, err := builder.Build()
 	if err != nil {
 		t.Fatalf("Build: %v", err)
@@ -370,11 +370,11 @@ func TestConcurrencyCLIOverridesEnvAndConfig(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	v, err := buildViper(fs)
+	v, _, err := buildViper(fs)
 	if err != nil {
 		t.Fatalf("buildViper: %v", err)
 	}
-	builder := &Builder{v: v, defaults: defaults}
+	builder := &builder{v: v, defaults: defaults}
 	conf, err := builder.Build()
 	if err != nil {
 		t.Fatalf("Build: %v", err)
@@ -399,11 +399,11 @@ func TestConcurrencyEnvOverridesConfig(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	v, err := buildViper(fs)
+	v, _, err := buildViper(fs)
 	if err != nil {
 		t.Fatalf("buildViper: %v", err)
 	}
-	builder := &Builder{v: v, defaults: defaults}
+	builder := &builder{v: v, defaults: defaults}
 	conf, err := builder.Build()
 	if err != nil {
 		t.Fatalf("Build: %v", err)
@@ -428,11 +428,11 @@ func TestTCPPortCLIOverridesEnvAndConfig(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	v, err := buildViper(fs)
+	v, _, err := buildViper(fs)
 	if err != nil {
 		t.Fatalf("buildViper: %v", err)
 	}
-	builder := &Builder{v: v, defaults: defaults}
+	builder := &builder{v: v, defaults: defaults}
 	conf, err := builder.Build()
 	if err != nil {
 		t.Fatalf("Build: %v", err)
@@ -457,11 +457,11 @@ func TestTCPPortEnvOverridesConfig(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	v, err := buildViper(fs)
+	v, _, err := buildViper(fs)
 	if err != nil {
 		t.Fatalf("buildViper: %v", err)
 	}
-	builder := &Builder{v: v, defaults: defaults}
+	builder := &builder{v: v, defaults: defaults}
 	conf, err := builder.Build()
 	if err != nil {
 		t.Fatalf("Build: %v", err)
@@ -486,11 +486,11 @@ func TestDedupStrategyCLIOverridesEnvAndConfig(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	v, err := buildViper(fs)
+	v, _, err := buildViper(fs)
 	if err != nil {
 		t.Fatalf("buildViper: %v", err)
 	}
-	builder := &Builder{v: v, defaults: defaults}
+	builder := &builder{v: v, defaults: defaults}
 	conf, err := builder.Build()
 	if err != nil {
 		t.Fatalf("Build: %v", err)
@@ -515,11 +515,11 @@ func TestDedupStrategyEnvOverridesConfig(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	v, err := buildViper(fs)
+	v, _, err := buildViper(fs)
 	if err != nil {
 		t.Fatalf("buildViper: %v", err)
 	}
-	builder := &Builder{v: v, defaults: defaults}
+	builder := &builder{v: v, defaults: defaults}
 	conf, err := builder.Build()
 	if err != nil {
 		t.Fatalf("Build: %v", err)
@@ -544,11 +544,11 @@ func TestCompressCLIOverridesEnvAndConfig(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	v, err := buildViper(fs)
+	v, _, err := buildViper(fs)
 	if err != nil {
 		t.Fatalf("buildViper: %v", err)
 	}
-	builder := &Builder{v: v, defaults: defaults}
+	builder := &builder{v: v, defaults: defaults}
 	conf, err := builder.Build()
 	if err != nil {
 		t.Fatalf("Build: %v", err)
@@ -573,11 +573,11 @@ func TestCompressEnvOverridesConfig(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	v, err := buildViper(fs)
+	v, _, err := buildViper(fs)
 	if err != nil {
 		t.Fatalf("buildViper: %v", err)
 	}
-	builder := &Builder{v: v, defaults: defaults}
+	builder := &builder{v: v, defaults: defaults}
 	conf, err := builder.Build()
 	if err != nil {
 		t.Fatalf("Build: %v", err)
@@ -602,11 +602,11 @@ func TestGRPCPortCLIOverridesEnvAndConfig(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	v, err := buildViper(fs)
+	v, _, err := buildViper(fs)
 	if err != nil {
 		t.Fatalf("buildViper: %v", err)
 	}
-	builder := &Builder{v: v, defaults: defaults}
+	builder := &builder{v: v, defaults: defaults}
 	conf, err := builder.Build()
 	if err != nil {
 		t.Fatalf("Build: %v", err)
@@ -631,11 +631,11 @@ func TestGRPCPortEnvOverridesConfig(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	v, err := buildViper(fs)
+	v, _, err := buildViper(fs)
 	if err != nil {
 		t.Fatalf("buildViper: %v", err)
 	}
-	builder := &Builder{v: v, defaults: defaults}
+	builder := &builder{v: v, defaults: defaults}
 	conf, err := builder.Build()
 	if err != nil {
 		t.Fatalf("Build: %v", err)
@@ -660,11 +660,11 @@ func TestTLSCertCLIOverridesEnvAndConfig(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	v, err := buildViper(fs)
+	v, _, err := buildViper(fs)
 	if err != nil {
 		t.Fatalf("buildViper: %v", err)
 	}
-	builder := &Builder{v: v, defaults: defaults}
+	builder := &builder{v: v, defaults: defaults}
 	conf, err := builder.Build()
 	if err != nil {
 		t.Fatalf("Build: %v", err)
@@ -689,11 +689,11 @@ func TestTLSCertEnvOverridesConfig(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	v, err := buildViper(fs)
+	v, _, err := buildViper(fs)
 	if err != nil {
 		t.Fatalf("buildViper: %v", err)
 	}
-	builder := &Builder{v: v, defaults: defaults}
+	builder := &builder{v: v, defaults: defaults}
 	conf, err := builder.Build()
 	if err != nil {
 		t.Fatalf("Build: %v", err)
@@ -719,11 +719,11 @@ func TestManifestPathCLIOverridesEnvAndConfig(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	v, err := buildViper(fs)
+	v, _, err := buildViper(fs)
 	if err != nil {
 		t.Fatalf("buildViper: %v", err)
 	}
-	builder := &Builder{v: v, defaults: defaults}
+	builder := &builder{v: v, defaults: defaults}
 	conf, err := builder.Build()
 	if err != nil {
 		t.Fatalf("Build: %v", err)
@@ -749,11 +749,11 @@ func TestManifestPathEnvOverridesConfig(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	v, err := buildViper(fs)
+	v, _, err := buildViper(fs)
 	if err != nil {
 		t.Fatalf("buildViper: %v", err)
 	}
-	builder := &Builder{v: v, defaults: defaults}
+	builder := &builder{v: v, defaults: defaults}
 	conf, err := builder.Build()
 	if err != nil {
 		t.Fatalf("Build: %v", err)
@@ -778,11 +778,11 @@ func TestManifestProgressIntervalCLIOverridesEnvAndConfig(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	v, err := buildViper(fs)
+	v, _, err := buildViper(fs)
 	if err != nil {
 		t.Fatalf("buildViper: %v", err)
 	}
-	builder := &Builder{v: v, defaults: defaults}
+	builder := &builder{v: v, defaults: defaults}
 	conf, err := builder.Build()
 	if err != nil {
 		t.Fatalf("Build: %v", err)
@@ -807,11 +807,11 @@ func TestManifestProgressIntervalEnvOverridesConfig(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	v, err := buildViper(fs)
+	v, _, err := buildViper(fs)
 	if err != nil {
 		t.Fatalf("buildViper: %v", err)
 	}
-	builder := &Builder{v: v, defaults: defaults}
+	builder := &builder{v: v, defaults: defaults}
 	conf, err := builder.Build()
 	if err != nil {
 		t.Fatalf("Build: %v", err)
@@ -837,11 +837,11 @@ func TestManifestTimeoutCLIOverridesEnvAndConfig(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	v, err := buildViper(fs)
+	v, _, err := buildViper(fs)
 	if err != nil {
 		t.Fatalf("buildViper: %v", err)
 	}
-	builder := &Builder{v: v, defaults: defaults}
+	builder := &builder{v: v, defaults: defaults}
 	conf, err := builder.Build()
 	if err != nil {
 		t.Fatalf("Build: %v", err)
@@ -867,11 +867,11 @@ func TestManifestTimeoutEnvOverridesConfig(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	v, err := buildViper(fs)
+	v, _, err := buildViper(fs)
 	if err != nil {
 		t.Fatalf("buildViper: %v", err)
 	}
-	builder := &Builder{v: v, defaults: defaults}
+	builder := &builder{v: v, defaults: defaults}
 	conf, err := builder.Build()
 	if err != nil {
 		t.Fatalf("Build: %v", err)
@@ -897,11 +897,11 @@ func TestManifestAllowMountedCLIOverridesEnvAndConfig(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	v, err := buildViper(fs)
+	v, _, err := buildViper(fs)
 	if err != nil {
 		t.Fatalf("buildViper: %v", err)
 	}
-	builder := &Builder{v: v, defaults: defaults}
+	builder := &builder{v: v, defaults: defaults}
 	conf, err := builder.Build()
 	if err != nil {
 		t.Fatalf("Build: %v", err)
@@ -927,11 +927,11 @@ func TestManifestAllowMountedEnvOverridesConfig(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	v, err := buildViper(fs)
+	v, _, err := buildViper(fs)
 	if err != nil {
 		t.Fatalf("buildViper: %v", err)
 	}
-	builder := &Builder{v: v, defaults: defaults}
+	builder := &builder{v: v, defaults: defaults}
 	conf, err := builder.Build()
 	if err != nil {
 		t.Fatalf("Build: %v", err)
@@ -963,7 +963,7 @@ func TestSubsetFlagSetsBinding(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	v, err := buildViper(fs)
+	v, _, err := buildViper(fs)
 	if err != nil {
 		t.Fatalf("buildViper: %v", err)
 	}

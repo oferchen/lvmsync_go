@@ -15,7 +15,7 @@ import (
 	"github.com/bits-and-blooms/bloom/v3"
 	"go.uber.org/zap"
 
-	"lvmsync_go/config"
+	"lvmsync_go/internal/config"
 	cpufeatures "lvmsync_go/internal/cpufeatures"
 )
 

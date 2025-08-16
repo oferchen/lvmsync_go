@@ -11,6 +11,9 @@ import (
 	"lvmsync_go/lvm"
 )
 
+// Validate verifies configuration values using the real OS euid.
+func (c *Config) Validate() error { return c.ValidateWith(os.Geteuid) }
+
 // ValidateWith verifies configuration values using the provided geteuid function.
 func (c *Config) ValidateWith(geteuid func() int) error {
 	if c.Mode != "default" && c.Mode != "throughput" {

@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"lvmsync_go/config"
+	"lvmsync_go/internal/config"
 )
 
 type cdcFailingWriter struct {

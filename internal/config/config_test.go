@@ -131,7 +131,7 @@ func TestParseBytesOrFallback(t *testing.T) {
 	t.Run("valid", func(t *testing.T) {
 		v := viper.New()
 		v.Set("block_size", "1KB")
-		b := &Builder{v: v}
+		b := &builder{v: v}
 		got, err := b.parseBytesOrFallback("block_size", "4KB")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -143,7 +143,7 @@ func TestParseBytesOrFallback(t *testing.T) {
 
 	t.Run("fallback", func(t *testing.T) {
 		v := viper.New()
-		b := &Builder{v: v}
+		b := &builder{v: v}
 		got, err := b.parseBytesOrFallback("block_size", "2KB")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -156,7 +156,7 @@ func TestParseBytesOrFallback(t *testing.T) {
 	t.Run("invalid", func(t *testing.T) {
 		v := viper.New()
 		v.Set("block_size", "notbytes")
-		b := &Builder{v: v}
+		b := &builder{v: v}
 		if _, err := b.parseBytesOrFallback("block_size", "4KB"); err == nil {
 			t.Fatalf("expected error")
 		}
@@ -165,7 +165,7 @@ func TestParseBytesOrFallback(t *testing.T) {
 	t.Run("nearMaxInt", func(t *testing.T) {
 		v := viper.New()
 		v.Set("block_size", fmt.Sprintf("%d", uint64(math.MaxInt-1023)))
-		b := &Builder{v: v}
+		b := &builder{v: v}
 		got, err := b.parseBytesOrFallback("block_size", "4KB")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -178,7 +178,7 @@ func TestParseBytesOrFallback(t *testing.T) {
 	t.Run("overflow", func(t *testing.T) {
 		v := viper.New()
 		v.Set("block_size", fmt.Sprintf("%d", uint64(math.MaxInt)+1))
-		b := &Builder{v: v}
+		b := &builder{v: v}
 		if _, err := b.parseBytesOrFallback("block_size", "4KB"); err == nil {
 			t.Fatalf("expected error")
 		}
@@ -191,7 +191,7 @@ func TestBuilderApplyDefaults(t *testing.T) {
 		t.Fatalf("DefaultConfig returned error: %v", err)
 	}
 	v := viper.New()
-	b := &Builder{v: v, defaults: defaults}
+	b := &builder{v: v, defaults: defaults}
 	var conf Config
 	if err := b.applyDefaults(&conf); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -218,7 +218,7 @@ func TestBuilderApplyDefaults(t *testing.T) {
 	t.Run("invalidBlockSize", func(t *testing.T) {
 		v := viper.New()
 		v.Set("block_size", "bad")
-		b := &Builder{v: v, defaults: defaults}
+		b := &builder{v: v, defaults: defaults}
 		if err := b.applyDefaults(&conf); err == nil {
 			t.Fatalf("expected error")
 		}
@@ -230,7 +230,7 @@ func TestBuilderValidateCompression(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DefaultConfig returned error: %v", err)
 	}
-	b := &Builder{defaults: defaults}
+	b := &builder{defaults: defaults}
 
 	t.Run(Zstd+"Valid", func(t *testing.T) {
 		conf := &Config{Compress: Zstd, ZstdLevel: 3, CompressThreshold: 0.9}
@@ -278,7 +278,7 @@ func TestBuilderFinalizeConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DefaultConfig returned error: %v", err)
 	}
-	b := &Builder{defaults: defaults}
+	b := &builder{defaults: defaults}
 
 	t.Run("validInsecure", func(t *testing.T) {
 		conf := &Config{AllowInsecure: true, ChecksumAlgorithm: "sha256"}
@@ -475,7 +475,7 @@ func TestApplyThroughputMode(t *testing.T) {
 	}
 	v := viper.New()
 	conf := &Config{Mode: "throughput"}
-	b := &Builder{v: v, defaults: defaults}
+	b := &builder{v: v, defaults: defaults}
 	if err := b.applyDefaults(conf); err != nil {
 		t.Fatalf("applyDefaults returned error: %v", err)
 	}
@@ -675,7 +675,7 @@ func TestBuildBlockSize(t *testing.T) {
 		if err != nil {
 			t.Fatalf("DefaultConfig returned error: %v", err)
 		}
-		b := &Builder{v: v, defaults: defaults}
+		b := &builder{v: v, defaults: defaults}
 		cfg, err := b.Build()
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -692,7 +692,7 @@ func TestBuildBlockSize(t *testing.T) {
 		if err != nil {
 			t.Fatalf("DefaultConfig returned error: %v", err)
 		}
-		b := &Builder{v: v, defaults: defaults}
+		b := &builder{v: v, defaults: defaults}
 		cfg, err := b.Build()
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -713,7 +713,7 @@ func TestCompressionLevelValidation(t *testing.T) {
 		if err != nil {
 			t.Fatalf("DefaultConfig returned error: %v", err)
 		}
-		b := &Builder{v: v, defaults: defaults}
+		b := &builder{v: v, defaults: defaults}
 		if _, err := b.Build(); err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
@@ -727,7 +727,7 @@ func TestCompressionLevelValidation(t *testing.T) {
 		if err != nil {
 			t.Fatalf("DefaultConfig returned error: %v", err)
 		}
-		b := &Builder{v: v, defaults: defaults}
+		b := &builder{v: v, defaults: defaults}
 		if _, err := b.Build(); err == nil {
 			t.Fatalf("expected error")
 		}
@@ -745,7 +745,7 @@ func TestCompressionLevelValidation(t *testing.T) {
 		if err != nil {
 			t.Fatalf("DefaultConfig returned error: %v", err)
 		}
-		b := &Builder{v: v, defaults: defaults}
+		b := &builder{v: v, defaults: defaults}
 		if _, err := b.Build(); err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
@@ -763,7 +763,7 @@ func TestCompressionLevelValidation(t *testing.T) {
 		if err != nil {
 			t.Fatalf("DefaultConfig returned error: %v", err)
 		}
-		b := &Builder{v: v, defaults: defaults}
+		b := &builder{v: v, defaults: defaults}
 		if _, err := b.Build(); err == nil {
 			t.Fatalf("expected error")
 		}
@@ -777,7 +777,7 @@ func TestCompressionLevelValidation(t *testing.T) {
 		if err != nil {
 			t.Fatalf("DefaultConfig returned error: %v", err)
 		}
-		b := &Builder{v: v, defaults: defaults}
+		b := &builder{v: v, defaults: defaults}
 		if _, err := b.Build(); err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
@@ -791,7 +791,7 @@ func TestCompressionLevelValidation(t *testing.T) {
 		if err != nil {
 			t.Fatalf("DefaultConfig returned error: %v", err)
 		}
-		b := &Builder{v: v, defaults: defaults}
+		b := &builder{v: v, defaults: defaults}
 		if _, err := b.Build(); err == nil {
 			t.Fatalf("expected error")
 		}
@@ -805,7 +805,7 @@ func TestCompressConcurrency(t *testing.T) {
 		if err != nil {
 			t.Fatalf("DefaultConfig returned error: %v", err)
 		}
-		b := &Builder{v: v, defaults: defaults}
+		b := &builder{v: v, defaults: defaults}
 		cfg, err := b.Build()
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -822,7 +822,7 @@ func TestCompressConcurrency(t *testing.T) {
 		if err != nil {
 			t.Fatalf("DefaultConfig returned error: %v", err)
 		}
-		b := &Builder{v: v, defaults: defaults}
+		b := &builder{v: v, defaults: defaults}
 		cfg, err := b.Build()
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -842,7 +842,7 @@ func TestTLSFileValidation(t *testing.T) {
 	t.Run("insecure", func(t *testing.T) {
 		v := viper.New()
 		v.Set("allow_insecure", true)
-		b := &Builder{v: v, defaults: defaults}
+		b := &builder{v: v, defaults: defaults}
 		if _, err := b.Build(); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -852,7 +852,7 @@ func TestTLSFileValidation(t *testing.T) {
 		v := viper.New()
 		v.Set("allow_insecure", false)
 		v.Set("grpc_listen", ":1")
-		b := &Builder{v: v, defaults: defaults}
+		b := &builder{v: v, defaults: defaults}
 		if _, err := b.Build(); err == nil {
 			t.Fatalf("expected error")
 		}
@@ -874,7 +874,7 @@ func TestTLSFileValidation(t *testing.T) {
 		v.Set("tls_cert", cert)
 		v.Set("tls_key", key)
 		v.Set("ca_cert", ca)
-		b := &Builder{v: v, defaults: defaults}
+		b := &builder{v: v, defaults: defaults}
 		if _, err := b.Build(); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -902,10 +902,10 @@ func TestLoadConfigPrecedence(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
-	fs := NewFlagSets(defaults)
-	conf, _, err := LoadConfig(fs, defaults, rootFS, args)
+	builder := NewBuilder(defaults)
+	conf, _, _, err := builder.Build(rootFS, args)
 	if err != nil {
-		t.Fatalf("LoadConfig: %v", err)
+		t.Fatalf("Build: %v", err)
 	}
 	if conf.Parallel != 3 {
 		t.Fatalf("expected parallel 3, got %d", conf.Parallel)
@@ -920,8 +920,8 @@ func TestLoadConfigInvalidPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
-	fs := NewFlagSets(defaults)
-	if _, _, err := LoadConfig(fs, defaults, rootFS, args); err == nil || !strings.Contains(err.Error(), "error reading config file") {
+	builder := NewBuilder(defaults)
+	if _, _, _, err := builder.Build(rootFS, args); err == nil || !strings.Contains(err.Error(), "error reading config file") {
 		t.Fatalf("expected config file error, got %v", err)
 	}
 }

@@ -13,7 +13,7 @@ func TestConfigYAMLLint(t *testing.T) {
 		t.Skip("yamllint not installed")
 	}
 	cfg := "{extends: default, rules: {brackets: {min-spaces-inside-empty: 1, max-spaces-inside-empty: 1}}}"
-	cmd := exec.Command("yamllint", "-d", cfg, "../config.yaml")
+	cmd := exec.Command("yamllint", "-d", cfg, "../../config.yaml")
 	if output, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("yamllint reported issues: %v\nOutput: %s", err, output)
 	} else if len(output) > 0 {
@@ -22,7 +22,7 @@ func TestConfigYAMLLint(t *testing.T) {
 }
 
 func TestConfigYAMLContainsGroups(t *testing.T) {
-	data, err := os.ReadFile("../config.yaml")
+	data, err := os.ReadFile("../../config.yaml")
 	if err != nil {
 		t.Fatalf("read config.yaml: %v", err)
 	}

@@ -16,11 +16,10 @@ func TestLoadConfigDefaults(t *testing.T) {
 
 	fs := pflag.NewFlagSet(os.Args[0], pflag.ContinueOnError)
 	fs.SetOutput(io.Discard)
-	flagSets := NewFlagSets(defaults)
-
-	conf, _, err := LoadConfig(flagSets, defaults, fs, nil)
+	builder := NewBuilder(defaults)
+	conf, _, _, err := builder.Build(fs, nil)
 	if err != nil {
-		t.Fatalf("LoadConfig: %v", err)
+		t.Fatalf("Build: %v", err)
 	}
 
 	if conf.LVMEscalation != defaults.LVMEscalation {

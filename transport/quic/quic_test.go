@@ -203,6 +203,8 @@ func TestQUICTransportSelectBestHandshake(t *testing.T) {
 		qconn.Close()
 		srvErr <- err
 	}()
+	<-srvErr
+}
 
 func TestQUICTransportHandshakeError(t *testing.T) {
 	cert, _ := generateSelfSignedCert(t)

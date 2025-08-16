@@ -10,8 +10,8 @@ import (
 	"go.uber.org/zap"
 
 	"lvmsync_go/app"
-	"lvmsync_go/config"
 	clientpkg "lvmsync_go/internal/client"
+	"lvmsync_go/internal/config"
 	"lvmsync_go/internal/privilege"
 	"lvmsync_go/transport"
 )
@@ -58,9 +58,9 @@ func Configure() (*config.Config, []string, *zap.Logger, error) {
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("configuration error: %w", err)
 	}
-	flagSets := config.NewFlagSets(defaults)
+	builder := config.NewBuilder(defaults)
 	fs := pflag.NewFlagSet(os.Args[0], pflag.ContinueOnError)
-	cfg, args, err := config.LoadConfig(flagSets, defaults, fs, os.Args[1:])
+	cfg, args, warns, err := builder.Build(fs, os.Args[1:])
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("configuration error: %w", err)
 	}
@@ -68,12 +68,12 @@ func Configure() (*config.Config, []string, *zap.Logger, error) {
 	if err = esc.Ensure(); err != nil {
 		return nil, nil, nil, fmt.Errorf("privilege check failed: %w", err)
 	}
-	if err = cfg.Validate(); err != nil {
-		return nil, nil, nil, fmt.Errorf("configuration validation error: %w", err)
-	}
 	logger, err := zap.NewProduction()
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("logger initialization error: %w", err)
+	}
+	for _, w := range warns {
+		logger.Warn(w)
 	}
 	logger.Info("Effective configuration",
 		zap.String("block_size", cfg.HumanBlockSize()),

@@ -9,7 +9,7 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 
 	rootcmd "lvmsync_go/cmd/root"
-	"lvmsync_go/config"
+	"lvmsync_go/internal/config"
 	"lvmsync_go/internal/exitcode"
 )
 

@@ -9,7 +9,7 @@ import (
 	"go.uber.org/zap"
 
 	rootcmd "lvmsync_go/cmd/root"
-	"lvmsync_go/config"
+	"lvmsync_go/internal/config"
 	manifestpkg "lvmsync_go/manifest"
 )
 
@@ -44,17 +44,20 @@ func (r *Runner) Run(cfg *config.Config, args []string, logger *zap.Logger) erro
 		fs.Usage()
 		return fmt.Errorf("usage: lvmsync manifest rebuild <device>")
 	}
-	flagSets := config.NewFlagSets(cfg)
-	flagSets.SSH = pflag.NewFlagSet("SSH Options", pflag.ExitOnError)
-	flagSets.Remote = pflag.NewFlagSet("Remote Options", pflag.ExitOnError)
-	flagSets.Compression = pflag.NewFlagSet("Compression Options", pflag.ExitOnError)
-	flagSets.LVM = pflag.NewFlagSet("LVM Options", pflag.ExitOnError)
-	flagSets.GRPC = pflag.NewFlagSet("gRPC Options", pflag.ExitOnError)
-	flagSets.Transport = pflag.NewFlagSet("Transport Options", pflag.ExitOnError)
+	builder := config.NewBuilder(cfg)
+	builder.FlagSets.SSH = pflag.NewFlagSet("SSH Options", pflag.ExitOnError)
+	builder.FlagSets.Remote = pflag.NewFlagSet("Remote Options", pflag.ExitOnError)
+	builder.FlagSets.Compression = pflag.NewFlagSet("Compression Options", pflag.ExitOnError)
+	builder.FlagSets.LVM = pflag.NewFlagSet("LVM Options", pflag.ExitOnError)
+	builder.FlagSets.GRPC = pflag.NewFlagSet("gRPC Options", pflag.ExitOnError)
+	builder.FlagSets.Transport = pflag.NewFlagSet("Transport Options", pflag.ExitOnError)
 	fs := pflag.NewFlagSet("manifest rebuild", pflag.ContinueOnError)
-	conf, remaining, err := config.LoadConfig(flagSets, cfg, fs, args[1:])
+	conf, remaining, warns, err := builder.Build(fs, args[1:])
 	if err != nil {
 		return err
+	}
+	for _, w := range warns {
+		logger.Warn(w)
 	}
 	if len(remaining) != 1 {
 		fs.Usage()

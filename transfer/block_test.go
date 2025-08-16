@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"lvmsync_go/config"
+	"lvmsync_go/internal/config"
 
 	"go.uber.org/zap"
 )
