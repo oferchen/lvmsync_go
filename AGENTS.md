@@ -18,6 +18,7 @@ command-line use, environment variables, and `config.yaml` files.
 - Always call `Sync()` (e.g., `defer logger.Sync()`) before program exit to flush buffers.
 - Transport constructors must accept a `*zap.Logger`; avoid package-level loggers.
 - Pass loggers explicitly to commands and helpers; do not use `zap.L()` or other globals.
+- Use `zap.NewNop()` instead of `nil` when no logging is needed.
 - Log connection lifecycle events and errors with `snake_case` fields including units (e.g., `bytes_transferred`, `duration_ms`).
 - Do not log secrets or authentication tokens; scrub sensitive values before emitting them.
 - Callers using transports should `defer logger.Sync()` to ensure logs are flushed.

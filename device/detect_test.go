@@ -65,6 +65,12 @@ func TestDetectFile(t *testing.T) {
 	}
 }
 
+func TestDetectNilLogger(t *testing.T) {
+	if _, err := Detect(context.Background(), "", true, "", "", "", "", 0, 0, nil); err == nil {
+		t.Fatalf("expected error when logger is nil")
+	}
+}
+
 func TestDetectFileSymlink(t *testing.T) {
 	f, err := os.CreateTemp(t.TempDir(), "file")
 	if err != nil {

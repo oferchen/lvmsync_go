@@ -65,6 +65,17 @@ func TestOpenFileRejectsNonRegular(t *testing.T) {
 	}
 }
 
+func TestOpenFileNilLogger(t *testing.T) {
+	f, err := os.CreateTemp(t.TempDir(), "file")
+	if err != nil {
+		t.Fatalf("temp file: %v", err)
+	}
+	f.Close()
+	if _, err := OpenFile(f.Name(), nil); err == nil {
+		t.Fatalf("expected error when logger is nil")
+	}
+}
+
 func fdCount(t *testing.T) int {
 	t.Helper()
 	entries, err := os.ReadDir("/proc/self/fd")
