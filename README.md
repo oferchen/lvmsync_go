@@ -1061,7 +1061,7 @@ Flags are parsed via Viper, so the same settings can be provided through
 | `--ssh_host_key`          | Expected SSH host public key (authorized_keys format)          | `""`                    |
 
 Unknown hosts are rejected unless their keys are present in `known_hosts` or match `--ssh_host_key`.
-The host key can also be supplied via `LVMSYNC_SSH_HOST_KEY_PATH` or the `ssh_host_key_path` YAML option.
+The host key can also be supplied via `LVMSYNC_SSH_HOST_KEY_PATH` or the `ssh_host_key_path` YAML option; precedence follows flags over environment variables over YAML.
 
 Programmatic use of the SSH transport requires a configuration populated with
 fields like `SSHUser`, `SSHKeyPath`, `HostKeyPath`, `SSHUseAgent`, `SSHPort`, `KnownHosts`,
