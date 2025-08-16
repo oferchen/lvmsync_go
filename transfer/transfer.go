@@ -15,6 +15,7 @@ import (
 	"github.com/zeebo/blake3"
 	"go.uber.org/zap"
 
+	rootcmd "lvmsync_go/cmd/root"
 	"lvmsync_go/common"
 	"lvmsync_go/config"
 	"lvmsync_go/device"
@@ -140,7 +141,7 @@ func (t *Transfer) dumpChangesCore(cfg *config.Config, snapshot, source string, 
 	if len(finalDigest) > 0 {
 		t.Logger.Info("final checksum", zap.String("final_digest", fmt.Sprintf("%x", finalDigest)))
 	}
-	_ = t.Logger.Sync()
+	rootcmd.SyncLogger(t.Logger)
 	return nil
 }
 
