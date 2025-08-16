@@ -465,6 +465,50 @@ func TestH2TransportRequiresLogger(t *testing.T) {
 	}
 }
 
+func TestH2TransportAllowInsecureWarn(t *testing.T) {
+	core, obs := observer.New(zap.WarnLevel)
+	if _, err := New(transport.Config{Logger: zap.New(core), AllowInsecure: true}); err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	entries := obs.FilterMessage("allow_insecure_enabled").All()
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 warning log, got %d", len(entries))
+	}
+	if tr := entries[0].ContextMap()["transport"]; tr != "h2" {
+		t.Fatalf("unexpected transport %v", tr)
+	}
+}
+
+func TestH2TransportRequiresRootsOrAllowInsecure(t *testing.T) {
+	cert, _ := generateSelfSignedCert(t)
+	if _, err := New(transport.Config{Logger: zap.NewNop(), ClientCert: cert, ServerCert: cert}); err == nil {
+		t.Fatalf("expected error when roots are nil without AllowInsecure")
+	}
+	if _, err := New(transport.Config{Logger: zap.NewNop(), AllowInsecure: true}); err != nil {
+		t.Fatalf("allow insecure should permit missing roots: %v", err)
+	}
+}
+
+func TestH2TransportRequiresServerCert(t *testing.T) {
+	cert, pool := generateSelfSignedCert(t)
+	if _, err := New(transport.Config{Logger: zap.NewNop(), Roots: pool, ClientCert: cert}); err == nil {
+		t.Fatalf("expected error when server cert is nil")
+	}
+	if _, err := New(transport.Config{Logger: zap.NewNop(), Roots: pool, ClientCert: cert, AllowInsecure: true}); err != nil {
+		t.Fatalf("allow insecure should permit missing server cert: %v", err)
+	}
+}
+
+func TestH2TransportRequiresClientCert(t *testing.T) {
+	cert, pool := generateSelfSignedCert(t)
+	if _, err := New(transport.Config{Logger: zap.NewNop(), Roots: pool, ServerCert: cert}); err == nil {
+		t.Fatalf("expected error when client cert is nil")
+	}
+	if _, err := New(transport.Config{Logger: zap.NewNop(), Roots: pool, ServerCert: cert, AllowInsecure: true}); err != nil {
+		t.Fatalf("allow insecure should permit missing client cert: %v", err)
+	}
+}
+
 func TestH2DialTimeout(t *testing.T) {
 	cert, pool := generateSelfSignedCert(t)
 	trIface, err := New(transport.Config{Logger: zap.NewNop(), Roots: pool, ClientCert: cert, ServerCert: cert})

@@ -86,6 +86,15 @@ func (s *Server) Handle(ctx context.Context, stream *rsynkwire.Stream) error {
 			}
 			off := int64(binary.BigEndian.Uint64(frame[1:9]))
 			data := frame[9:]
+			size := s.dev.Size()
+			dataLen := int64(len(data))
+			if off < 0 || off > size-dataLen {
+				s.logger.Warn("delta_out_of_bounds",
+					zap.Int64("offset_bytes", off),
+					zap.Int("data_size_bytes", len(data)),
+					zap.Int64("device_size_bytes", size))
+				return fmt.Errorf("delta out of bounds")
+			}
 			if _, err := s.dev.WriteAt(data, off); err != nil {
 				return err
 			}
