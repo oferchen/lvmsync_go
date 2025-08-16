@@ -124,11 +124,20 @@ func (f *File) WriteAt(p []byte, off int64) (int, error) {
 
 // Size returns the current size of the underlying file.
 func (f *File) Size() int64 {
-	if fi, err := f.f.Stat(); err == nil {
-		return fi.Size()
-	}
-	off, _ := f.f.Seek(0, io.SeekEnd)
-	return off
+       if fi, err := f.f.Stat(); err == nil {
+               return fi.Size()
+       }
+       cur, err := f.f.Seek(0, io.SeekCurrent)
+       if err != nil {
+               return 0
+       }
+       end, err := f.f.Seek(0, io.SeekEnd)
+       if err != nil {
+               _, _ = f.f.Seek(cur, io.SeekStart)
+               return 0
+       }
+       _, _ = f.f.Seek(cur, io.SeekStart)
+       return end
 }
 
 func (f *File) Sync() error {
