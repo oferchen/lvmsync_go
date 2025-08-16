@@ -1442,15 +1442,18 @@ Invalid configurations will cause the tool to abort with a clear error message.
 
 ## Exit Codes
 
-LVMSync commands such as `lvmsync` and `lvmsync-grpcd` return conventional exit codes to indicate overall status:
+LVMSync commands such as `lvmsync` and `lvmsync-grpcd` return specific exit codes:
 
 | Code | Meaning |
 |------|---------|
 | `0`  | Success |
-| `1`  | Configuration or runtime failure |
-| other | Subcommand-specific codes (see individual command docs) |
+| `10` | Privilege or capability check failed |
+| `20` | Device error |
+| `30` | Unsupported platform |
+| `40` | Configuration error |
+| `50` | Runtime failure |
 
-Exit code handling lives in [main.go](main.go#L21-L37), with configuration errors bubbling up from [cmd/root/root.go](cmd/root/root.go#L42-L52) and runtime errors from [cmd/root/root.go](cmd/root/root.go#L121-L186). Subcommands may return additional exit codes to communicate their own failure modes.
+Exit code definitions live in [internal/exitcode](internal/exitcode/exitcode.go), and handling resides in [main.go](main.go).
 
 Shell scripts can rely on `set -e` to abort on non-zero exit codes:
 
