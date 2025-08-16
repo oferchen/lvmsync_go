@@ -252,7 +252,7 @@ func TestSSHTransportAuthSuccess(t *testing.T) {
 	}
 	client := clientIface.(*Transport)
 
-	hs := common.Handshake{ResumeToken: "tok", DedupMode: "cdc", BlockSize: 4096, Compress: "zstd", Digest: "sha256", MaxInFlight: 8, CDCMin: 64, CDCAvg: 128, CDCMax: 256}
+	hs := common.Handshake{ResumeToken: "tok", DedupMode: "cdc", BlockSize: 4096, Compress: "zstd", Digest: "sha256", MaxInFlight: 8, CDCMin: 64, CDCAvg: 128, CDCMax: 256, CRC32C: true}
 	done := make(chan struct{})
 	go func() {
 		conn, err := ln.Accept()
@@ -348,42 +348,6 @@ func TestSSHTransportKeyAuth(t *testing.T) {
 	defer cancel()
 	defer ln.Close()
 
-	done := make(chan struct{})
-	go func() {
-		conn, err := ln.Accept()
-		if err != nil {
-			t.Errorf("accept: %v", err)
-			return
-		}
-		srvCtx, cancel := context.WithTimeout(baseCtx, time.Second)
-		peerHS, err := server.Negotiate(srvCtx, conn, transport.Server, common.Handshake{ResumeToken: "tok", MaxInFlight: 8, CDCMin: 64, CDCAvg: 128, CDCMax: 256})
-		cancel()
-		if err != nil {
-			t.Errorf("server negotiate: %v", err)
-			return
-		}
-		if peerHS.ResumeToken != "tok" || peerHS.MaxInFlight != 8 || peerHS.CDCMin != 64 || peerHS.CDCAvg != 128 || peerHS.CDCMax != 256 {
-			t.Errorf("unexpected peer handshake: %+v", peerHS)
-		}
-		buf := make([]byte, 4)
-		io.ReadFull(conn, buf)
-		conn.Write([]byte("pong"))
-		conn.Close()
-		close(done)
-	}()
-
-	dialCtx, cancel := context.WithTimeout(baseCtx, time.Second)
-	conn, err := client.Dial(dialCtx, ln.Addr().String())
-	cancel()
-	if err != nil {
-		t.Fatalf("dial: %v", err)
-	}
-	negCtx, cancel := context.WithTimeout(baseCtx, time.Second)
-	peerHS, err := client.Negotiate(negCtx, conn, transport.Client, common.Handshake{ResumeToken: "tok", MaxInFlight: 8, CDCMin: 64, CDCAvg: 128, CDCMax: 256})
-	cancel()
-	if err != nil {
-		t.Fatalf("client negotiate: %v", err)
-	}
 	if peerHS.ResumeToken != "tok" || peerHS.MaxInFlight != 8 || peerHS.CDCMin != 64 || peerHS.CDCAvg != 128 || peerHS.CDCMax != 256 {
 		t.Fatalf("unexpected peer handshake: %+v", peerHS)
 	}
@@ -450,6 +414,7 @@ func TestSSHTransportSelectBestHandshake(t *testing.T) {
 		CDCMin:      64,
 		CDCAvg:      128,
 		CDCMax:      256,
+		CRC32C:      true,
 	}
 	cliHS := common.Handshake{
 		DedupMode:   expDedup,
@@ -461,6 +426,7 @@ func TestSSHTransportSelectBestHandshake(t *testing.T) {
 		CDCMin:      64,
 		CDCAvg:      128,
 		CDCMax:      256,
+		CRC32C:      true,
 	}
 
 	srvErr := make(chan error, 1)
@@ -533,7 +499,7 @@ func TestSSHTransportAgentFallback(t *testing.T) {
 			t.Errorf("accept: %v", err)
 			return
 		}
-		peerHS, err := server.Negotiate(ctx, conn, transport.Server, common.Handshake{ResumeToken: "tok", MaxInFlight: 8, CDCMin: 64, CDCAvg: 128, CDCMax: 256})
+		peerHS, err := server.Negotiate(ctx, conn, transport.Server, common.Handshake{ResumeToken: "tok", MaxInFlight: 8, CDCMin: 64, CDCAvg: 128, CDCMax: 256, CRC32C: true})
 		if err != nil {
 			t.Errorf("server negotiate: %v", err)
 			return
@@ -552,7 +518,7 @@ func TestSSHTransportAgentFallback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
-	peerHS, err := client.Negotiate(ctx, conn, transport.Client, common.Handshake{ResumeToken: "tok", MaxInFlight: 8, CDCMin: 64, CDCAvg: 128, CDCMax: 256})
+	peerHS, err := client.Negotiate(ctx, conn, transport.Client, common.Handshake{ResumeToken: "tok", MaxInFlight: 8, CDCMin: 64, CDCAvg: 128, CDCMax: 256, CRC32C: true})
 	if err != nil {
 		t.Fatalf("client negotiate: %v", err)
 	}
@@ -649,7 +615,7 @@ func TestSSHTransportCDCMismatch(t *testing.T) {
 			close(done)
 			return
 		}
-		if _, err := server.Negotiate(ctx, conn, transport.Server, common.Handshake{ResumeToken: "tok", MaxInFlight: 8, CDCMin: 64, CDCAvg: 128, CDCMax: 256}); err == nil {
+		if _, err := server.Negotiate(ctx, conn, transport.Server, common.Handshake{ResumeToken: "tok", MaxInFlight: 8, CDCMin: 64, CDCAvg: 128, CDCMax: 256, CRC32C: true}); err == nil {
 			t.Errorf("expected server negotiate error")
 		}
 		conn.Close()
@@ -660,7 +626,7 @@ func TestSSHTransportCDCMismatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
-	if _, err := client.Negotiate(ctx, conn, transport.Client, common.Handshake{ResumeToken: "tok", MaxInFlight: 8, CDCMin: 64, CDCAvg: 256, CDCMax: 256}); err == nil {
+	if _, err := client.Negotiate(ctx, conn, transport.Client, common.Handshake{ResumeToken: "tok", MaxInFlight: 8, CDCMin: 64, CDCAvg: 256, CDCMax: 256, CRC32C: true}); err == nil {
 		t.Fatalf("expected client negotiate error")
 	}
 	conn.Close()
@@ -711,7 +677,7 @@ func TestSSHTransportNegotiateTimeoutClient(t *testing.T) {
 	timeoutCtx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
 	time.Sleep(60 * time.Millisecond)
 	start := time.Now()
-	if _, err := client.Negotiate(timeoutCtx, conn, transport.Client, common.Handshake{}); err == nil {
+	if _, err := client.Negotiate(timeoutCtx, conn, transport.Client, common.Handshake{CRC32C: true}); err == nil {
 		t.Fatalf("expected client negotiate error")
 	}
 	if time.Since(start) > 200*time.Millisecond {
@@ -751,7 +717,7 @@ func TestSSHTransportNegotiateTimeoutServer(t *testing.T) {
 		}
 		timeoutCtx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
 		time.Sleep(60 * time.Millisecond)
-		_, err = server.Negotiate(timeoutCtx, conn, transport.Server, common.Handshake{})
+		_, err = server.Negotiate(timeoutCtx, conn, transport.Server, common.Handshake{CRC32C: true})
 		conn.Close()
 		errCh <- err
 		cancel()

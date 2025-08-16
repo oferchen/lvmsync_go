@@ -154,6 +154,10 @@ func (ackAgent) StartTransferSession(context.Context, string, string) error  { r
 func (ackAgent) FinalizeSync(context.Context, string, string) error          { return nil }
 func (ackAgent) GetStatus(context.Context, string, string) (string, error)   { return "", nil }
 func (ackAgent) Ack(ctx context.Context, ack *proto.Ack) (*proto.Ack, error) { return ack, nil }
+func (ackAgent) VolumeExists(context.Context, string) (bool, error)          { return true, nil }
+func (ackAgent) AutoExtendEnabled(context.Context, string) (bool, error)     { return false, nil }
+func (ackAgent) DiscardEnabled(context.Context, string) (bool, error)        { return true, nil }
+func (ackAgent) IsMounted(context.Context, string) (bool, error)             { return false, nil }
 
 func TestHandshakeAndAck(t *testing.T) {
 	client, cleanup := setupClient(t)
@@ -254,7 +258,9 @@ func TestDialFailure(t *testing.T) {
 	failDialer := func(ctx context.Context, s string) (net.Conn, error) {
 		return nil, errors.New("fail")
 	}
-	_, err := Dial(context.Background(), "fail", Config{AllowInsecure: true, DialTimeout: time.Second}, zap.NewNop(), grpc.WithContextDialer(failDialer))
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	_, err := Dial(ctx, "fail", Config{AllowInsecure: true, DialTimeout: time.Second}, zap.NewNop(), grpc.WithContextDialer(failDialer))
 	if err == nil {
 		t.Fatalf("expected error")
 	}
@@ -265,7 +271,9 @@ func TestDialTimeoutExceeded(t *testing.T) {
 		<-ctx.Done()
 		return nil, ctx.Err()
 	}
-	_, err := Dial(context.Background(), "slow", Config{AllowInsecure: true, DialTimeout: 10 * time.Millisecond}, zap.NewNop(), grpc.WithContextDialer(slowDialer))
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	_, err := Dial(ctx, "slow", Config{AllowInsecure: true, DialTimeout: 10 * time.Millisecond}, zap.NewNop(), grpc.WithContextDialer(slowDialer))
 	if err == nil {
 		t.Fatalf("expected error")
 	}

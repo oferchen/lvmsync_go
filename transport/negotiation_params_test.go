@@ -129,6 +129,7 @@ func TestTransportNegotiationMatrix(t *testing.T) {
 				Endianness:    common.NativeEndianness(),
 				ALPN:          "lvmsync",
 				TLSVersion:    "1.3",
+				CRC32C:        true,
 			}
 			if name == "h2" {
 				base.ALPN = "h2"

@@ -11,6 +11,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"lvmsync_go/internal/lock"
 	"lvmsync_go/lvm"
 )
 
@@ -18,6 +19,8 @@ func TestOpenLVM(t *testing.T) {
 	if os.Geteuid() != 0 {
 		t.Skip("requires root")
 	}
+	restoreDir := lock.SetBaseDir(t.TempDir())
+	t.Cleanup(restoreDir)
 	loop, cleanup := setupLoop(t, 1<<20)
 	defer cleanup()
 	cache := lvm.NewDeviceFDCache(zap.NewNop())
@@ -45,6 +48,17 @@ func TestOpenLVMNonBlockDevice(t *testing.T) {
 	defer cache.Close()
 	if _, err := OpenLVM(f.Name(), cache, "", zap.NewNop()); err == nil {
 		t.Fatalf("expected error for non-block device")
+	}
+}
+
+func TestOpenLVMChecks(t *testing.T) {
+	orig := volumeExistsFunc
+	volumeExistsFunc = func(ctx context.Context, path string) (bool, error) { return false, nil }
+	t.Cleanup(func() { volumeExistsFunc = orig })
+	cache := lvm.NewDeviceFDCache(zap.NewNop())
+	defer cache.Close()
+	if _, err := OpenLVM("/dev/missing", cache, "", zap.NewNop()); err == nil {
+		t.Fatalf("expected error when volume missing")
 	}
 }
 

@@ -25,6 +25,10 @@ type Agent interface {
 	StartTransferSession(ctx context.Context, volume, requester string) error
 	FinalizeSync(ctx context.Context, volume, requester string) error
 	GetStatus(ctx context.Context, volume, requester string) (string, error)
+	VolumeExists(ctx context.Context, volume string) (bool, error)
+	AutoExtendEnabled(ctx context.Context, volume string) (bool, error)
+	DiscardEnabled(ctx context.Context, volume string) (bool, error)
+	IsMounted(ctx context.Context, volume string) (bool, error)
 }
 
 // lvmAPI describes the subset of the LVM library used by the agent.
@@ -36,6 +40,10 @@ type lvmAPI interface {
 	StartTransferSession(context.Context, string, string) error
 	FinalizeSync(context.Context, string, string) error
 	GetStatus(context.Context, string, string) (string, error)
+	VolumeExists(context.Context, string) (bool, error)
+	AutoExtendEnabled(context.Context, string) (bool, error)
+	DiscardEnabled(context.Context, string) (bool, error)
+	IsMounted(context.Context, string) (bool, error)
 }
 
 // agent ensures privileges via an Escalator before delegating to the LVM API.
@@ -132,4 +140,44 @@ func (a *agent) GetStatus(ctx context.Context, volume, requester string) (string
 		return "", errors.New("lvm api not provided")
 	}
 	return a.lvm.GetStatus(ctx, volume, requester)
+}
+
+func (a *agent) VolumeExists(ctx context.Context, volume string) (bool, error) {
+	if err := a.esc.Ensure(); err != nil {
+		return false, err
+	}
+	if a.lvm == nil {
+		return false, errors.New("lvm api not provided")
+	}
+	return a.lvm.VolumeExists(ctx, volume)
+}
+
+func (a *agent) AutoExtendEnabled(ctx context.Context, volume string) (bool, error) {
+	if err := a.esc.Ensure(); err != nil {
+		return false, err
+	}
+	if a.lvm == nil {
+		return false, errors.New("lvm api not provided")
+	}
+	return a.lvm.AutoExtendEnabled(ctx, volume)
+}
+
+func (a *agent) DiscardEnabled(ctx context.Context, volume string) (bool, error) {
+	if err := a.esc.Ensure(); err != nil {
+		return false, err
+	}
+	if a.lvm == nil {
+		return false, errors.New("lvm api not provided")
+	}
+	return a.lvm.DiscardEnabled(ctx, volume)
+}
+
+func (a *agent) IsMounted(ctx context.Context, volume string) (bool, error) {
+	if err := a.esc.Ensure(); err != nil {
+		return false, err
+	}
+	if a.lvm == nil {
+		return false, errors.New("lvm api not provided")
+	}
+	return a.lvm.IsMounted(ctx, volume)
 }

@@ -77,7 +77,7 @@ func TestTCPTLSTransportHandshake(t *testing.T) {
 	defer cancel()
 	defer ln.Close()
 
-	hs := common.Handshake{ResumeToken: "tok", DedupMode: "cdc", BlockSize: 4096, Compress: "zstd", Digest: "sha256", MaxInFlight: 8, CDCMin: 64, CDCAvg: 128, CDCMax: 256}
+	hs := common.Handshake{ResumeToken: "tok", DedupMode: "cdc", BlockSize: 4096, Compress: "zstd", Digest: "sha256", MaxInFlight: 8, CDCMin: 64, CDCAvg: 128, CDCMax: 256, CRC32C: true}
 	done := make(chan struct{})
 	go func() {
 		conn, err := ln.Accept()
@@ -174,6 +174,7 @@ func TestTCPTLSTransportSelectBestHandshake(t *testing.T) {
 		CDCMin:      64,
 		CDCAvg:      128,
 		CDCMax:      256,
+		CRC32C:      true,
 	}
 	cliHS := common.Handshake{
 		DedupMode:   expDedup,
@@ -185,6 +186,7 @@ func TestTCPTLSTransportSelectBestHandshake(t *testing.T) {
 		CDCMin:      64,
 		CDCAvg:      128,
 		CDCMax:      256,
+		CRC32C:      true,
 	}
 
 	srvErr := make(chan error, 1)
@@ -259,7 +261,7 @@ func TestTCPTLSTransportHandshakeError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
-	if _, err := tr.Negotiate(ctx, conn, transport.Client, common.Handshake{CDCMin: 64, CDCAvg: 128, CDCMax: 256}); err == nil {
+	if _, err := tr.Negotiate(ctx, conn, transport.Client, common.Handshake{CDCMin: 64, CDCAvg: 128, CDCMax: 256, CRC32C: true}); err == nil {
 		t.Fatalf("expected negotiate error")
 	}
 	conn.Close()
@@ -296,7 +298,7 @@ func TestTCPTLSTransportCDCMismatch(t *testing.T) {
 			close(done)
 			return
 		}
-		if _, err := tr.Negotiate(ctx, conn, transport.Server, common.Handshake{ResumeToken: "tok", MaxInFlight: 8, CDCMin: 64, CDCAvg: 128, CDCMax: 256}); err == nil {
+		if _, err := tr.Negotiate(ctx, conn, transport.Server, common.Handshake{ResumeToken: "tok", MaxInFlight: 8, CDCMin: 64, CDCAvg: 128, CDCMax: 256, CRC32C: true}); err == nil {
 			t.Errorf("expected server negotiate error")
 		}
 		conn.Close()
@@ -307,7 +309,7 @@ func TestTCPTLSTransportCDCMismatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
-	if _, err := tr.Negotiate(ctx, conn, transport.Client, common.Handshake{ResumeToken: "tok", MaxInFlight: 8, CDCMin: 64, CDCAvg: 256, CDCMax: 256}); err == nil {
+	if _, err := tr.Negotiate(ctx, conn, transport.Client, common.Handshake{ResumeToken: "tok", MaxInFlight: 8, CDCMin: 64, CDCAvg: 256, CDCMax: 256, CRC32C: true}); err == nil {
 		t.Fatalf("expected client negotiate error")
 	}
 	conn.Close()
@@ -391,7 +393,7 @@ func TestTCPTLSNegotiateInvalidRole(t *testing.T) {
 	c1, c2 := net.Pipe()
 	defer c1.Close()
 	defer c2.Close()
-	if _, err := tr.Negotiate(ctx, c1, transport.Role(99), common.Handshake{CDCMin: 64, CDCAvg: 128, CDCMax: 256}); err == nil {
+	if _, err := tr.Negotiate(ctx, c1, transport.Role(99), common.Handshake{CDCMin: 64, CDCAvg: 128, CDCMax: 256, CRC32C: true}); err == nil {
 		t.Fatalf("expected error for invalid role")
 	}
 }
@@ -463,7 +465,7 @@ func TestTCPTLSNegotiateContextCancel(t *testing.T) {
 	defer cancel()
 
 	start := time.Now()
-	if _, err := tr.Negotiate(ctx, c1, transport.Client, common.Handshake{CDCMin: 64, CDCAvg: 128, CDCMax: 256}); err == nil {
+	if _, err := tr.Negotiate(ctx, c1, transport.Client, common.Handshake{CDCMin: 64, CDCAvg: 128, CDCMax: 256, CRC32C: true}); err == nil {
 		t.Fatalf("expected negotiate error")
 	} else {
 		var ne net.Error

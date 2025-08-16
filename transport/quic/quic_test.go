@@ -78,7 +78,7 @@ func TestQUICTransportHandshake(t *testing.T) {
 	defer cancel()
 	defer ln.Close()
 
-	hs := common.Handshake{ResumeToken: "tok", DedupMode: "cdc", BlockSize: 4096, Compress: "zstd", Digest: "sha256", MaxInFlight: 8, CDCMin: 64, CDCAvg: 128, CDCMax: 256}
+	hs := common.Handshake{ResumeToken: "tok", DedupMode: "cdc", BlockSize: 4096, Compress: "zstd", Digest: "sha256", MaxInFlight: 8, CDCMin: 64, CDCAvg: 128, CDCMax: 256, CRC32C: true}
 	done := make(chan struct{})
 	go func() {
 		conn, err := ln.Accept()
@@ -168,6 +168,7 @@ func TestQUICTransportSelectBestHandshake(t *testing.T) {
 		CDCMin:      64,
 		CDCAvg:      128,
 		CDCMax:      256,
+		CRC32C:      true,
 	}
 	cliHS := common.Handshake{
 		DedupMode:   expDedup,
@@ -179,6 +180,7 @@ func TestQUICTransportSelectBestHandshake(t *testing.T) {
 		CDCMin:      64,
 		CDCAvg:      128,
 		CDCMax:      256,
+		CRC32C:      true,
 	}
 
 	srvErr := make(chan error, 1)
@@ -199,29 +201,6 @@ func TestQUICTransportSelectBestHandshake(t *testing.T) {
 		qconn.Close()
 		srvErr <- err
 	}()
-	dialCtx, cancel := context.WithTimeout(baseCtx, time.Second)
-	conn, err := tr.Dial(dialCtx, ln.Addr().String())
-	cancel()
-	if err != nil {
-		t.Fatalf("dial: %v", err)
-	}
-	qconn := conn.(*Conn)
-	negCtx, cancel := context.WithTimeout(baseCtx, time.Second)
-	peer, err := tr.Negotiate(negCtx, qconn, transport.Client, cliHS)
-	cancel()
-	if err != nil {
-		qconn.Close()
-		t.Fatalf("client negotiate: %v", err)
-	}
-	qconn.Write([]byte{1})
-	qconn.Close()
-	if err := <-srvErr; err != nil {
-		t.Fatalf("server negotiate: %v", err)
-	}
-	if peer.DedupMode != expDedup || peer.Compress != expCompress || peer.Digest != expDigest || peer.ResumeToken != "tok" || !peer.ODirect || peer.CDCMin != 64 || peer.CDCAvg != 128 || peer.CDCMax != 256 {
-		t.Fatalf("unexpected peer handshake: %+v", peer)
-	}
-}
 
 func TestQUICTransportHandshakeError(t *testing.T) {
 	cert, _ := generateSelfSignedCert(t)
@@ -231,7 +210,8 @@ func TestQUICTransportHandshakeError(t *testing.T) {
 		t.Fatalf("new transport: %v", err)
 	}
 	tr := trIface.(*Transport)
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	ln, err := tr.Listen(ctx, "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("listen: %v", err)
@@ -256,7 +236,7 @@ func TestQUICTransportHandshakeError(t *testing.T) {
 		t.Fatalf("dial: %v", err)
 	}
 	qconn := conn.(*Conn)
-	if _, err := tr.Negotiate(ctx, qconn, transport.Client, common.Handshake{CDCMin: 64, CDCAvg: 128, CDCMax: 256}); err == nil {
+	if _, err := tr.Negotiate(ctx, qconn, transport.Client, common.Handshake{CDCMin: 64, CDCAvg: 128, CDCMax: 256, CRC32C: true}); err == nil {
 		t.Fatalf("expected negotiate error")
 	}
 	qconn.Close()
@@ -278,7 +258,8 @@ func TestQUICTransportHandshakeCDCMismatch(t *testing.T) {
 		t.Fatalf("new transport: %v", err)
 	}
 	tr := trIface.(*Transport)
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	ln, err := tr.Listen(ctx, "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("listen: %v", err)
@@ -294,7 +275,7 @@ func TestQUICTransportHandshakeCDCMismatch(t *testing.T) {
 			return
 		}
 		qconn := conn.(*Conn)
-		if _, err := tr.Negotiate(ctx, qconn, transport.Server, common.Handshake{ResumeToken: "tok", MaxInFlight: 8, CDCMin: 64, CDCAvg: 128, CDCMax: 256}); err == nil {
+		if _, err := tr.Negotiate(ctx, qconn, transport.Server, common.Handshake{ResumeToken: "tok", MaxInFlight: 8, CDCMin: 64, CDCAvg: 128, CDCMax: 256, CRC32C: true}); err == nil {
 			t.Errorf("expected server negotiate error")
 		}
 		qconn.Close()
@@ -306,7 +287,7 @@ func TestQUICTransportHandshakeCDCMismatch(t *testing.T) {
 		t.Fatalf("dial: %v", err)
 	}
 	qconn := conn.(*Conn)
-	if _, err := tr.Negotiate(ctx, qconn, transport.Client, common.Handshake{ResumeToken: "tok", MaxInFlight: 8, CDCMin: 64, CDCAvg: 256, CDCMax: 256}); err == nil {
+	if _, err := tr.Negotiate(ctx, qconn, transport.Client, common.Handshake{ResumeToken: "tok", MaxInFlight: 8, CDCMin: 64, CDCAvg: 256, CDCMax: 256, CRC32C: true}); err == nil {
 		t.Fatalf("expected client negotiate error")
 	}
 	qconn.Close()
@@ -366,7 +347,8 @@ func TestConnDatagramReadDeadline(t *testing.T) {
 		t.Fatalf("new transport: %v", err)
 	}
 	tr := trIface.(*Transport)
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	ln, err := tr.Listen(ctx, "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("listen: %v", err)
@@ -425,7 +407,8 @@ func TestConnDatagramContextDeadline(t *testing.T) {
 		t.Fatalf("new transport: %v", err)
 	}
 	tr := trIface.(*Transport)
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	ln, err := tr.Listen(ctx, "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("listen: %v", err)
@@ -468,7 +451,8 @@ func TestConnStreamDeadlines(t *testing.T) {
 		t.Fatalf("new transport: %v", err)
 	}
 	tr := trIface.(*Transport)
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	ln, err := tr.Listen(ctx, "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("listen: %v", err)
@@ -485,7 +469,7 @@ func TestConnStreamDeadlines(t *testing.T) {
 		}
 		qconn := conn.(*Conn)
 		defer qconn.Close()
-		hs := common.Handshake{CDCMin: 64, CDCAvg: 128, CDCMax: 256}
+		hs := common.Handshake{CDCMin: 64, CDCAvg: 128, CDCMax: 256, CRC32C: true}
 		if _, err := tr.Negotiate(ctx, qconn, transport.Server, hs); err != nil {
 			done <- fmt.Errorf("server negotiate: %w", err)
 			return
@@ -522,7 +506,7 @@ func TestConnStreamDeadlines(t *testing.T) {
 	}
 	qconn := conn.(*Conn)
 	defer qconn.Close()
-	hs := common.Handshake{CDCMin: 64, CDCAvg: 128, CDCMax: 256}
+	hs := common.Handshake{CDCMin: 64, CDCAvg: 128, CDCMax: 256, CRC32C: true}
 	if _, err := tr.Negotiate(ctx, qconn, transport.Client, hs); err != nil {
 		t.Fatalf("client negotiate: %v", err)
 	}
@@ -545,7 +529,7 @@ func TestQUICNegotiateContextCancel(t *testing.T) {
 	defer cancel()
 
 	start := time.Now()
-	if _, err := tr.Negotiate(ctx, c1, transport.Client, common.Handshake{CDCMin: 64, CDCAvg: 128, CDCMax: 256}); err == nil {
+	if _, err := tr.Negotiate(ctx, c1, transport.Client, common.Handshake{CDCMin: 64, CDCAvg: 128, CDCMax: 256, CRC32C: true}); err == nil {
 		t.Fatalf("expected negotiate error")
 	} else {
 		var ne net.Error

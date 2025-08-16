@@ -7,6 +7,7 @@ import (
 	"net"
 	"reflect"
 	"testing"
+	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
@@ -60,7 +61,9 @@ func TestRegistryDialFallbackSequence(t *testing.T) {
 	logger := zap.New(core)
 	defer logger.Sync()
 
-	tr, conn, err := DialWithFallback(context.Background(), "127.0.0.1:0", []string{"quic", "h2", "tcp+tls", "ssh"}, Config{Logger: logger})
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	tr, conn, err := DialWithFallback(ctx, "127.0.0.1:0", []string{"quic", "h2", "tcp+tls", "ssh"}, Config{Logger: logger})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
