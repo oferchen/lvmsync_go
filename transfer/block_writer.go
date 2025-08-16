@@ -62,14 +62,14 @@ func newBlockWriter(cfg *config.Config, dest *os.File, dedup DeduplicationStrate
 // checksum verification, and issues fdatasync calls after each configured
 // interval. It returns the total number of bytes written.
 func (bw *blockWriter) write(reader *bufio.Reader) (int64, error) {
-	headerLen := 12
+	headerLen := 16
 	if bw.verify {
 		headerLen += bw.checksum.Size()
 	}
 	headerBuf := make([]byte, headerLen)
 	var total int64
 	for {
-		offset, chunkSize, transmitted, err := readBlockHeader(reader, headerBuf, bw.verify, bw.checksum)
+		offset, chunkSize, crc, transmitted, err := readBlockHeader(reader, headerBuf, bw.verify, bw.checksum)
 		if err == io.EOF {
 			break
 		}
@@ -89,7 +89,7 @@ func (bw *blockWriter) write(reader *bufio.Reader) (int64, error) {
 		} else {
 			chunkID = zeroHash(int(chunkSize))
 		}
-		written, err := processBlock(bw.cfg, bw.dest, bw.dedup, bw.verify, bw.checksum, offset, transmitted, data, chunkSize, bw.logger)
+		written, err := processBlock(bw.cfg, bw.dest, bw.dedup, bw.verify, bw.checksum, offset, crc, transmitted, data, chunkSize, bw.logger)
 		if bw.cfg.ODirect {
 			if data != nil {
 				putAlignedBlockBuffer(data)

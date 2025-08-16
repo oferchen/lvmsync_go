@@ -26,14 +26,19 @@ func TestBlockWriterSyncIntervalTriggers(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	hdr := make([]byte, 12)
+	hdr := make([]byte, 16)
+	data1 := []byte{1, 2, 3, 4}
 	binary.BigEndian.PutUint64(hdr[0:8], 0)
 	binary.BigEndian.PutUint32(hdr[8:12], 4)
+	binary.BigEndian.PutUint32(hdr[12:16], crc32c(data1))
 	buf.Write(hdr)
-	buf.Write([]byte{1, 2, 3, 4})
+	buf.Write(data1)
+	data2 := []byte{5, 6, 7, 8}
 	binary.BigEndian.PutUint64(hdr[0:8], 4)
+	binary.BigEndian.PutUint32(hdr[8:12], 4)
+	binary.BigEndian.PutUint32(hdr[12:16], crc32c(data2))
 	buf.Write(hdr)
-	buf.Write([]byte{5, 6, 7, 8})
+	buf.Write(data2)
 
 	calls := 0
 	orig := fdatasyncFile

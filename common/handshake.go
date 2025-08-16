@@ -25,6 +25,7 @@ type Handshake struct {
 
 	Checksum      bool
 	ChecksumDedup bool
+	CRC32C        bool
 	Endianness    string
 	BlockSize     int
 	DedupMode     string
@@ -109,6 +110,9 @@ func WriteHandshake(w io.Writer, h Handshake) error {
 		tokens = append(tokens, "digests:"+strings.Join(h.Digests, ","))
 	}
 
+	if h.CRC32C {
+		tokens = append(tokens, "crc32c")
+	}
 	if h.ChecksumDedup {
 		tokens = append(tokens, "checksum-dedup")
 	} else if h.Checksum {
@@ -211,6 +215,8 @@ func ReadHandshake(r *bufio.Reader) (Handshake, error) {
 			h.ALPN = strings.TrimPrefix(t, "alpn:")
 		case strings.HasPrefix(t, "tls:"):
 			h.TLSVersion = strings.TrimPrefix(t, "tls:")
+		case t == "crc32c":
+			h.CRC32C = true
 		case t == "checksum":
 			h.Checksum = true
 		case t == "checksum-dedup":
