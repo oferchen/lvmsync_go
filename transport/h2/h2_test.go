@@ -581,6 +581,31 @@ func TestTLSVersionString(t *testing.T) {
 	}
 }
 
+func TestH2TransportAllowInsecureWarn(t *testing.T) {
+	cert, _ := generateSelfSignedCert(t)
+	core, obs := observer.New(zap.WarnLevel)
+	if _, err := New(transport.Config{Logger: zap.New(core), ServerCert: cert, AllowInsecure: true}); err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	entries := obs.FilterMessage("allow_insecure_enabled").All()
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 warning log, got %d", len(entries))
+	}
+	if tr := entries[0].ContextMap()["transport"]; tr != "h2" {
+		t.Fatalf("unexpected transport %v", tr)
+	}
+}
+
+func TestH2TransportRequiresRootsOrAllowInsecure(t *testing.T) {
+	cert, _ := generateSelfSignedCert(t)
+	if _, err := New(transport.Config{Logger: zap.NewNop(), ServerCert: cert}); err == nil {
+		t.Fatalf("expected error when roots are nil without AllowInsecure")
+	}
+	if _, err := New(transport.Config{Logger: zap.NewNop(), ServerCert: cert, AllowInsecure: true}); err != nil {
+		t.Fatalf("allow insecure should permit missing roots: %v", err)
+	}
+}
+
 func TestRoleString(t *testing.T) {
 	tests := []struct {
 		role transport.Role

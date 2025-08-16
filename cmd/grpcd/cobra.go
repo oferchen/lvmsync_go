@@ -82,6 +82,7 @@ func bindFlagSets(cmd *cobra.Command, v *viper.Viper) {
 	grpc.String("tls-key", "", "TLS key file")
 	grpc.String("ca-cert", "", "CA certificate file")
 	grpc.Bool("allow-insecure", false, "allow plaintext gRPC")
+	grpc.Bool("insecure", false, "allow plaintext gRPC")
 	grpc.Duration("keepalive-time", 2*time.Minute, "interval between server pings")
 	grpc.Duration("keepalive-timeout", 20*time.Second, "timeout waiting for keepalive ack")
 	grpc.Duration("request-timeout", 15*time.Second, "deadline for unary RPCs")
@@ -114,7 +115,7 @@ func loadConfig(v *viper.Viper) (Options, error) {
 		TLSCert:          v.GetString("tls-cert"),
 		TLSKey:           v.GetString("tls-key"),
 		CACert:           v.GetString("ca-cert"),
-		AllowInsecure:    v.GetBool("allow-insecure"),
+		AllowInsecure:    v.GetBool("allow-insecure") || v.GetBool("insecure"),
 		KeepaliveTime:    v.GetDuration("keepalive-time"),
 		KeepaliveTimeout: v.GetDuration("keepalive-timeout"),
 		RequestTimeout:   v.GetDuration("request-timeout"),

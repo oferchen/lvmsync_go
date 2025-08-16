@@ -202,6 +202,8 @@ func TestInitGRPCFlags(t *testing.T) {
 		{"tls_key", cfg.TLSKey},
 		{"ca_cert", cfg.CACert},
 		{"allow_insecure", strconv.FormatBool(cfg.AllowInsecure)},
+		{"allow-insecure", strconv.FormatBool(cfg.AllowInsecure)},
+		{"insecure", strconv.FormatBool(cfg.AllowInsecure)},
 	}
 	for _, tt := range cases {
 		f := fs.Lookup(tt.name)

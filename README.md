@@ -58,7 +58,7 @@ no additional coordination.
 
 LVMSync negotiates transports in the order provided by `--transport` (default
 `quic,h2,tcp+tls,ssh`). All transports require TLS 1.3 with mutual
-authentication unless `--allow-insecure` is set or the SSH transport is used.
+authentication unless `--allow-insecure` (or `--insecure`) is set or the SSH transport is used.
 See [docs/transports.md](docs/transports.md) for details.
 
 | Transport | Security defaults | Notes |
@@ -117,7 +117,7 @@ Transfers rely on a manifest that tracks chunk offsets and digests:
 LVMSync ships a gRPC daemon for remote control. The daemon listens on the port
 specified by `--grpc-port` (default `9443`) and requires TLS 1.3 with mutual
 authentication. Provide certificate files with `--tls-cert`, `--tls-key`, and
-`--ca-cert`. Insecure mode can be enabled with `--allow-insecure`, but it is
+`--ca-cert`. Insecure mode can be enabled with `--allow-insecure` (or `--insecure`), but it is
 disabled by default and should only be used for testing.
 
 Configuration can be supplied via flags, environment variables prefixed with
@@ -165,7 +165,7 @@ transfer. See [docs/manifest.md](docs/manifest.md) for manifest and verification
 
 - Run `manifest rebuild` and `verify` against quiescent devices.
 - Use `--offline` or freeze/thaw hooks when scanning live filesystems to keep manifests consistent.
-- Network transports default to TLS 1.3; `--allow-insecure` should only be used for testing.
+- Network transports default to TLS 1.3; `--allow-insecure` (or `--insecure`) should only be used for testing.
 - Apply refuses to write when the destination's identity or size differs from the manifest or when the device is mounted read-write; use `--force` to override the mount check.
 - Back up destination data before running apply; writes are destructive.
 ## Supported Platforms
@@ -611,7 +611,7 @@ LVMSYNC_LVM_SNAPSHOT_SIZE=25% lvmsync run /dev/vg0/snap0 /mnt/backup
 | `--tls_cert` | `LVMSYNC_TLS_CERT` | `tls_cert` | TLS certificate file |
 | `--tls_key` | `LVMSYNC_TLS_KEY` | `tls_key` | TLS key file |
 | `--ca_cert` | `LVMSYNC_CA_CERT` | `ca_cert` | CA certificate file |
-| `--allow_insecure` | `LVMSYNC_ALLOW_INSECURE` | `allow_insecure` | Allow insecure (no TLS) |
+| `--allow-insecure`, `--insecure` | `LVMSYNC_ALLOW_INSECURE` | `allow_insecure` | Allow insecure (no TLS) |
 
 If `--ssh_key` is empty, lvmsync contacts the SSH agent referenced by `SSH_AUTH_SOCK`. The agent connection uses `--ssh_timeout` as its deadline.
 SSH transport negotiation also derives read and write deadlines from the caller's context; when the context expires, the handshake fails quickly and deadlines are cleared afterward.
@@ -657,11 +657,11 @@ lvmsync serve --transport quic --quic-listen :12000 --tls-cert cert.pem --tls-ke
 | `--tls-cert` | `LVMSYNC_SERVE_TLS_CERT` | TLS certificate file |
 | `--tls-key` | `LVMSYNC_SERVE_TLS_KEY` | TLS key file |
 | `--ca-cert` | `LVMSYNC_SERVE_CA_CERT` | CA certificate file |
-| `--allow-insecure` | `LVMSYNC_SERVE_ALLOW_INSECURE` | Permit insecure (no TLS) connections |
+| `--allow-insecure`, `--insecure` | `LVMSYNC_SERVE_ALLOW_INSECURE` | Permit insecure (no TLS) connections |
 
 ## gRPC Control Plane
 
-The optional gRPC daemon exposes snapshot management and replication over a mutually authenticated channel. Plaintext connections are rejected unless `--allow-insecure` is explicitly set.
+The optional gRPC daemon exposes snapshot management and replication over a mutually authenticated channel. Plaintext connections are rejected unless `--allow-insecure` (or `--insecure`) is explicitly set.
 
 TLS mode requires explicit certificates. Provide `--tls-cert`, `--tls-key`, and `--ca-cert`; the daemon fails to start if any are missing and does not generate self-signed certificates.
 
@@ -686,7 +686,7 @@ Run the daemon with TLS:
 lvmsync-grpcd --grpc-port 9443 --tls-cert cert.pem --tls-key key.pem --ca-cert ca.pem
 ```
 
-Disabling TLS with `--allow-insecure` is supported for development but is unsafe for production deployments.
+Disabling TLS with `--allow-insecure` (or `--insecure`) is supported for development but is unsafe for production deployments.
 
 On failure, `lvmsync-grpcd` logs the error and exits with status `1` so calling scripts can inspect `$?`.
 
@@ -775,7 +775,7 @@ transports to attempt (for example `quic,h2,tcp+tls,ssh`). The `quic` transport 
 authentication, negotiates the `lvmsync` ALPN, and exposes both bidirectional streams and datagrams. The `h2`
 transport also requires TLS 1.3 with client certificates and negotiates the `h2` ALPN. Provide certificates via
 `--tls_cert`, `--tls_key`, and `--ca_cert`. TLS transports require a trusted CA certificate and will refuse
-connections when no roots are provided unless `--allow_insecure` (or the `AllowInsecure` configuration flag) is
+connections when no roots are provided unless `--allow-insecure` (or `--insecure`, or the `AllowInsecure` configuration flag) is
 set. Enabling this option logs a warning. Client certificates must be supplied explicitly; transports no longer generate self-signed certificates
 automatically. The [transport documentation](docs/transports.md) covers each option in depth. The flags below
 configure transport behavior.
@@ -1172,7 +1172,7 @@ The client aborts dialing if a connection cannot be established within
 | `--tls_cert`       | TLS certificate file         | `""`            |
 | `--tls_key`        | TLS key file                 | `""`            |
 | `--ca_cert`        | CA certificate file          | `""`            |
-| `--allow_insecure` | Allow insecure (disable TLS) | `false`         |
+| `--allow-insecure`, `--insecure` | Allow insecure (disable TLS) | `false`         |
 
 ### Examples
 
@@ -1423,7 +1423,7 @@ volume_group: vg_data
 | `--tls-cert` | `LVMSYNC_GRPC_TLS_CERT` | `tls-cert` | TLS certificate file |
 | `--tls-key` | `LVMSYNC_GRPC_TLS_KEY` | `tls-key` | TLS key file |
 | `--ca-cert` | `LVMSYNC_GRPC_CA_CERT` | `ca-cert` | CA certificate file |
-| `--allow-insecure` | `LVMSYNC_GRPC_ALLOW_INSECURE` | `allow-insecure` | Allow insecure (no TLS) |
+| `--allow-insecure`, `--insecure` | `LVMSYNC_GRPC_ALLOW_INSECURE` | `allow-insecure` | Allow insecure (no TLS) |
 | `--config` | `LVMSYNC_GRPC_CONFIG` | `config` | Path to config YAML file |
 
 Precedence example:

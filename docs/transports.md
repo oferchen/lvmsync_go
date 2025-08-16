@@ -73,7 +73,7 @@ clients. Defaults:
 - ALPN negotiation using `lvmsync`
 - Bidirectional streams and datagram support
 - BBR congestion control
-- Flags: `--tls_cert`, `--tls_key`, `--ca_cert`, `--allow_insecure`
+ - Flags: `--tls_cert`, `--tls_key`, `--ca_cert`, `--allow-insecure`/`--insecure`
 
 Example:
 
@@ -92,14 +92,14 @@ lvmsync serve --transport quic --quic-listen :12000 --tls-cert cert.pem --tls-ke
 - Runs over TLS 1.3 with mutual authentication
 - Provides stream-level back-pressure
 - Enforces context deadlines during connection and HTTP/2 handshakes
-- Flags: `--tls_cert`, `--tls_key`, `--ca_cert`, `--allow_insecure`, `--tcp_port`
+ - Flags: `--tls_cert`, `--tls_key`, `--ca_cert`, `--allow-insecure`/`--insecure`, `--tcp_port`
 
 ## TCP+TLS
 
 - Plain TCP encapsulated in TLS 1.3
 - Requires mutual TLS authentication
 - Logs a warning if listener shutdown encounters an error
-- Flags: `--tls_cert`, `--tls_key`, `--ca_cert`, `--allow_insecure`, `--tcp_port`
+ - Flags: `--tls_cert`, `--tls_key`, `--ca_cert`, `--allow-insecure`/`--insecure`, `--tcp_port`
 
 ## SSH
 
@@ -109,4 +109,4 @@ lvmsync serve --transport quic --quic-listen :12000 --tls-cert cert.pem --tls-ke
 - Verifies server host keys using `known_hosts` or an explicit `--ssh_host_key`; unknown hosts are rejected
 - Key authentication via `--ssh_key`/`LVMSYNC_SSH_KEY`
 - Optional agent auth with `--ssh_agent`/`LVMSYNC_SSH_AGENT` using `SSH_AUTH_SOCK`
-- Flags: `--ssh_user`, `--ssh_password`, `--ssh_key`, `--ssh_host_key`, `--ssh_host_key_path`, `--ssh_agent`, `--allow_insecure`
+ - Flags: `--ssh_user`, `--ssh_password`, `--ssh_key`, `--ssh_host_key`, `--ssh_host_key_path`, `--ssh_agent`, `--allow-insecure`/`--insecure`

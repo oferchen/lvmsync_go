@@ -168,6 +168,8 @@ func initGRPCFlags(cfg *Config) *pflag.FlagSet {
 	fs.String("tls_key", cfg.TLSKey, "Path to TLS private key")
 	fs.String("ca_cert", cfg.CACert, "Path to CA certificate")
 	fs.Bool("allow_insecure", cfg.AllowInsecure, "Allow insecure connections")
+	fs.Bool("allow-insecure", cfg.AllowInsecure, "Allow insecure connections")
+	fs.Bool("insecure", cfg.AllowInsecure, "Allow insecure connections")
 	return fs
 }
 

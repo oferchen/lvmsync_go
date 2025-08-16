@@ -47,6 +47,19 @@ func TestFlagParsing(t *testing.T) {
 	}
 }
 
+func TestFlagParsingInsecureAlias(t *testing.T) {
+	v := viper.New()
+	cmd := &cobra.Command{Use: "serve"}
+	bindFlags(cmd, v)
+	args := []string{"--insecure"}
+	if err := cmd.ParseFlags(args); err != nil {
+		t.Fatalf("parse flags: %v", err)
+	}
+	if !(v.GetBool("allow-insecure") || v.GetBool("insecure")) {
+		t.Fatalf("expected allow-insecure to be true")
+	}
+}
+
 func TestStartServer(t *testing.T) {
 	logger := zap.NewNop()
 	ctx, cancel := context.WithCancel(context.Background())

@@ -335,5 +335,11 @@ func buildViper(flagSets *FlagSets) (*viper.Viper, error) {
 			return nil, fmt.Errorf("error reading config file %q: %w", cfgFile, err)
 		}
 	}
+	if v.IsSet("allow-insecure") {
+		v.Set("allow_insecure", v.Get("allow-insecure"))
+	}
+	if v.IsSet("insecure") {
+		v.Set("allow_insecure", v.Get("insecure"))
+	}
 	return v, nil
 }

@@ -54,25 +54,31 @@ func New(cfg transport.Config) (transport.Interface, error) {
 	if cfg.Logger == nil {
 		return nil, fmt.Errorf("logger is required")
 	}
-	if cfg.Roots == nil {
-		return nil, fmt.Errorf("tls roots are required")
+	if cfg.Roots == nil && !cfg.AllowInsecure {
+		return nil, fmt.Errorf("tls roots are required unless AllowInsecure is set")
 	}
 	if len(cfg.ServerCert.Certificate) == 0 {
 		return nil, fmt.Errorf("server certificate is required")
 	}
 	clientConf := &tls.Config{
-		RootCAs:    cfg.Roots,
-		NextProtos: []string{"h2"},
-		MinVersion: tls.VersionTLS13,
-		MaxVersion: tls.VersionTLS13,
+		RootCAs:            cfg.Roots,
+		InsecureSkipVerify: cfg.AllowInsecure,
+		NextProtos:         []string{"h2"},
+		MinVersion:         tls.VersionTLS13,
+		MaxVersion:         tls.VersionTLS13,
 	}
 	if len(cfg.ClientCert.Certificate) != 0 {
 		clientConf.Certificates = []tls.Certificate{cfg.ClientCert}
 	}
+	clientAuth := tls.RequireAndVerifyClientCert
+	if cfg.AllowInsecure {
+		cfg.Logger.Warn("allow_insecure_enabled", zap.String("transport", "h2"))
+		clientAuth = tls.RequireAnyClientCert
+	}
 	serverConf := &tls.Config{
 		Certificates: []tls.Certificate{cfg.ServerCert},
 		ClientCAs:    cfg.Roots,
-		ClientAuth:   tls.RequireAndVerifyClientCert,
+		ClientAuth:   clientAuth,
 		MinVersion:   tls.VersionTLS13,
 		MaxVersion:   tls.VersionTLS13,
 		NextProtos:   []string{"h2"},

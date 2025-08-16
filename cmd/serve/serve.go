@@ -48,7 +48,7 @@ func Run(args []string, logger *zap.Logger) error {
 				TLSCert:       v.GetString("tls-cert"),
 				TLSKey:        v.GetString("tls-key"),
 				CACert:        v.GetString("ca-cert"),
-				AllowInsecure: v.GetBool("allow-insecure"),
+				AllowInsecure: v.GetBool("allow-insecure") || v.GetBool("insecure"),
 			}
 			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 			defer stop()
@@ -68,6 +68,7 @@ func bindFlags(cmd *cobra.Command, v *viper.Viper) {
 	fs.String("tls-key", "", "TLS key file")
 	fs.String("ca-cert", "", "CA certificate file")
 	fs.Bool("allow-insecure", false, "allow insecure (no TLS)")
+	fs.Bool("insecure", false, "allow insecure (no TLS)")
 	cmd.Flags().AddFlagSet(fs)
 	v.BindPFlags(fs)
 	v.SetEnvPrefix("LVMSYNC_SERVE")

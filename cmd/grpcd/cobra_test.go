@@ -36,6 +36,22 @@ func TestFlagParsing(t *testing.T) {
 	}
 }
 
+func TestFlagParsingInsecureAlias(t *testing.T) {
+	logger := zap.NewNop()
+	var got Options
+	runner := NewRunnerWithDeps(func(ctx context.Context, opts Options, _ *zap.Logger) error {
+		got = opts
+		return nil
+	})
+	args := []string{"--insecure"}
+	if err := runner.Execute(args, logger); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if !got.AllowInsecure {
+		t.Fatalf("expected AllowInsecure true")
+	}
+}
+
 func TestGRPCPortPrecedence(t *testing.T) {
 	logger := zap.NewNop()
 	cfgPath := writeTempConfig(t, "grpc-port: 1111\n")
