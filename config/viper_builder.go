@@ -65,6 +65,40 @@ func (b *Builder) applyDefaults(conf *Config) error {
 		conf.ManifestAllowMounted = b.defaults.ManifestAllowMounted
 	}
 
+	if conf.LVMEscalation == "" {
+		conf.LVMEscalation = b.defaults.LVMEscalation
+	}
+	if conf.SSHKeepAliveInterval == 0 {
+		conf.SSHKeepAliveInterval = b.defaults.SSHKeepAliveInterval
+	}
+	if conf.LVMTimeout == 0 {
+		conf.LVMTimeout = b.defaults.LVMTimeout
+	}
+	if conf.GRPCDialTimeout == 0 {
+		conf.GRPCDialTimeout = b.defaults.GRPCDialTimeout
+	}
+	if conf.GRPCSetupTimeout == 0 {
+		conf.GRPCSetupTimeout = b.defaults.GRPCSetupTimeout
+	}
+	if conf.HeartbeatInterval == 0 {
+		conf.HeartbeatInterval = b.defaults.HeartbeatInterval
+	}
+	if conf.HeartbeatSendTimeout == 0 {
+		conf.HeartbeatSendTimeout = b.defaults.HeartbeatSendTimeout
+	}
+	if conf.TCPParallel == 0 {
+		conf.TCPParallel = b.defaults.TCPParallel
+	}
+	if conf.CDCMin == 0 {
+		conf.CDCMin = b.defaults.CDCMin
+	}
+	if conf.CDCAvg == 0 {
+		conf.CDCAvg = b.defaults.CDCAvg
+	}
+	if conf.CDCMax == 0 {
+		conf.CDCMax = b.defaults.CDCMax
+	}
+
 	bs, raw, err := b.parseBlockSize()
 	if err != nil {
 		return err
