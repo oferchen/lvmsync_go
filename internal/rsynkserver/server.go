@@ -43,74 +43,14 @@ type Server struct {
 	sigHead *rsync.SumHead
 }
 
-// New constructs a Server using the provided Device, digest algorithm, expected
-// manifest digest, and logger. A nil logger is replaced with zap.NewNop().
-func New(dev Device, alg string, expect [32]byte, logger *zap.Logger) *Server {
+// New constructs a Server using the provided Device and logger. The digest
+// algorithm and expected sum are supplied via a later digest frame. A nil
+// logger is replaced with zap.NewNop().
+func New(dev Device, logger *zap.Logger) *Server {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
-	return &Server{dev: dev, alg: alg, expect: expect, logger: logger}
-}
-
-// Handle consumes frames from the Stream until EOF, applying any delta frames to
-// the Device. On graceful EOF the Device is fsynced.
-func (s *Server) Handle(ctx context.Context, stream *rsynkwire.Stream) error {
-	for {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		frame, err := stream.Recv()
-		if err == io.EOF {
-			if err := s.dev.Sync(); err != nil {
-				return err
-			}
-			return s.verifyDigest()
-		}
-		if err != nil {
-			return err
-		}
-		if len(frame) == 0 {
-			continue
-		}
-		switch frame[0] {
-		case 'S':
-			head, err := parseSignatures(frame[1:])
-			if err != nil {
-				return err
-			}
-			s.sigHead = &head
-			continue
-		case 'D':
-			if len(frame) < 9 {
-				return fmt.Errorf("delta frame too short")
-			}
-			offU := binary.BigEndian.Uint64(frame[1:9])
-			data := frame[9:]
-			if offU > math.MaxInt64 {
-				s.logger.Error("delta_out_of_bounds",
-					zap.Uint64("offset_bytes", offU),
-					zap.Int64("delta_size_bytes", int64(len(data))),
-					zap.Int64("device_size_bytes", s.dev.Size()))
-				return fmt.Errorf("delta offset %d overflows int64", offU)
-			}
-			off := int64(offU)
-			deltaLen := int64(len(data))
-			end := off + deltaLen
-			if end < off || end > s.dev.Size() {
-				s.logger.Error("delta_out_of_bounds",
-					zap.Int64("offset_bytes", off),
-					zap.Int64("delta_size_bytes", deltaLen),
-					zap.Int64("end_offset_bytes", end),
-					zap.Int64("device_size_bytes", s.dev.Size()))
-				return fmt.Errorf("delta end offset %d (offset %d + length %d) exceeds device size %d", end, off, deltaLen, s.dev.Size())
-			}
-			if _, err := s.dev.WriteAt(data, off); err != nil {
-				return err
-			}
-		default:
-			return fmt.Errorf("unknown frame type %q", frame[0])
-		}
-	}
+	return &Server{dev: dev, logger: logger}
 }
 
 func parseSignatures(p []byte) (rsync.SumHead, error) {
@@ -156,6 +96,9 @@ func parseSignatures(p []byte) (rsync.SumHead, error) {
 }
 
 func (s *Server) verifyDigest() error {
+	if s.alg == "" {
+		return fmt.Errorf("missing digest frame")
+	}
 	r := io.NewSectionReader(s.dev, 0, s.dev.Size())
 	got, err := digest.SumReader(r, s.alg)
 	if err != nil {

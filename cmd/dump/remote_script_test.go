@@ -131,7 +131,7 @@ func TestRemotePostScriptContextError(t *testing.T) {
 		switch {
 		case cmd == "lvmsync --version":
 			return 0
-		case strings.HasPrefix(cmd, "lvmsync --apply - /dev/null"):
+		case strings.HasPrefix(cmd, "lvmsync --apply -"):
 			return 0
 		case cmd == "slow-post":
 			time.Sleep(100 * time.Millisecond)

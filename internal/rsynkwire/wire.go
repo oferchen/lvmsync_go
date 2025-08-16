@@ -155,6 +155,21 @@ func (c *Client) SendDelta(offset int64, data []byte) error {
 	return c.stream.Send(buf.Bytes())
 }
 
+// SendDigest transmits a digest frame prefixed with 'G'. The frame contains the
+// length of the algorithm name followed by the UTF-8 algorithm string and the
+// 32-byte digest sum.
+func (c *Client) SendDigest(alg string, sum [32]byte) error {
+	if len(alg) > 255 {
+		return fmt.Errorf("algorithm name too long")
+	}
+	var buf bytes.Buffer
+	buf.WriteByte('G')
+	buf.WriteByte(byte(len(alg)))
+	buf.WriteString(alg)
+	buf.Write(sum[:])
+	return c.stream.Send(buf.Bytes())
+}
+
 // sumSizesSqroot mirrors rsync's block size and count calculation.
 func sumSizesSqroot(contentLen int64) rsync.SumHead {
 	const minBlock = 700

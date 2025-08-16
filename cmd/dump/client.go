@@ -17,6 +17,7 @@ import (
 	"lvmsync_go/device"
 	"lvmsync_go/internal/config"
 	digestpkg "lvmsync_go/internal/digest"
+	"lvmsync_go/internal/rsynkwire"
 	"lvmsync_go/remote"
 	"lvmsync_go/transfer"
 	"lvmsync_go/transport"
@@ -29,6 +30,8 @@ import (
 // ErrRemoteCommand indicates that execution of the remote command failed.
 var ErrRemoteCommand = errors.New("remote command error")
 
+const maxFrame = 1 << 20
+
 var (
 	dumpChangesSequential = func(t *transfer.Transfer, cfg *config.Config, snap, origin string, out io.Writer) error {
 		return t.DumpChangesSequential(cfg, snap, origin, out)
@@ -39,16 +42,21 @@ var (
 	dumpChangesWithDeduplication = func(t *transfer.Transfer, cfg *config.Config, snap, origin string, out io.Writer, d transfer.DeduplicationStrategy) error {
 		return t.DumpChangesWithDeduplication(cfg, snap, origin, out, d)
 	}
-	newSSHClient = remote.NewSSHClient
-	openFile     = os.OpenFile
-	detectDevice = device.Detect
-	sumFile      = digestpkg.SumFile
+	newSSHClient   = remote.NewSSHClient
+	openFile       = os.OpenFile
+	detectDevice   = device.Detect
+	sumFile        = digestpkg.SumFile
+	streamToRemote = StreamToRemote
 )
 
 var copyBufferPool = sync.Pool{New: func() any {
 	buf := make([]byte, 32*1024)
 	return &buf
 }}
+
+type writeOnlyReadWriter struct{ io.Writer }
+
+func (writeOnlyReadWriter) Read(p []byte) (int, error) { return 0, io.EOF }
 
 type contextReader struct {
 	ctx context.Context
@@ -255,20 +263,33 @@ func SetupSessionStreams(ctx context.Context, session pipeSession) (io.WriteClos
 	return remoteStdin, stdoutErrCh, stderrErrCh, nil
 }
 
-// StreamToRemote dumps snapshot data to the remote stdin and closes the stream.
-func StreamToRemote(cfg *config.Config, remoteStdin io.WriteCloser, snapshotDevice, originDevice string, logger *zap.Logger) error {
+// StreamToRemote dumps snapshot data to the remote stdin, then computes and
+// transmits the digest before closing the stream.
+func StreamToRemote(cfg *config.Config, remoteStdin io.WriteCloser, snapshotDevice, originDevice, alg string, logger *zap.Logger) error {
 	streamErr := ExecuteDump(cfg, snapshotDevice, originDevice, remoteStdin, logger)
-
-	if err := remoteStdin.Close(); err != nil && !errors.Is(err, io.EOF) {
-		if streamErr != nil {
+	if streamErr != nil {
+		if err := remoteStdin.Close(); err != nil && !errors.Is(err, io.EOF) {
 			return fmt.Errorf("%v; failed to close remote stdin: %w", streamErr, err)
 		}
-		return fmt.Errorf("failed to close remote stdin: %w", err)
-	}
-	if streamErr != nil {
 		return fmt.Errorf("error during dumpChanges: %w", streamErr)
 	}
 
+	sum, err := sumFile(snapshotDevice, alg)
+	if err != nil {
+		remoteStdin.Close()
+		return fmt.Errorf("compute digest: %w", err)
+	}
+
+	rw := writeOnlyReadWriter{remoteStdin}
+	cl := rsynkwire.NewClient(rsynkwire.NewStream(rw, maxFrame))
+	if err := cl.SendDigest(alg, sum); err != nil {
+		remoteStdin.Close()
+		return fmt.Errorf("send digest: %w", err)
+	}
+
+	if err := remoteStdin.Close(); err != nil && !errors.Is(err, io.EOF) {
+		return fmt.Errorf("failed to close remote stdin: %w", err)
+	}
 	return nil
 }
 
@@ -291,7 +312,7 @@ func WaitForRemoteCompletion(session waitSession, stdoutErrCh, stderrErrCh <-cha
 }
 
 // ExecuteRemoteCommand runs the remote apply command over SSH.
-func ExecuteRemoteCommand(ctx context.Context, cfg *config.Config, client *remote.SSHClient, destDevice, snapshotDevice, originDevice, digestHex, alg string, logger *zap.Logger) (err error) {
+func ExecuteRemoteCommand(ctx context.Context, cfg *config.Config, client *remote.SSHClient, destDevice, snapshotDevice, originDevice, alg string, logger *zap.Logger) (err error) {
 	if err = client.ValidateRemoteCommand(ctx, cfg.LVMSyncPath); err != nil {
 		return fmt.Errorf("remote command validation failed: %w", err)
 	}
@@ -314,15 +335,11 @@ func ExecuteRemoteCommand(ctx context.Context, cfg *config.Config, client *remot
 	remoteCmd := fmt.Sprintf("%s --apply - --digest %s --verify %s %s", baseCmd, alg, cfg.VerifyLevel, destDevice)
 	logger.Info("Starting remote apply command", zap.String("command", remoteCmd))
 
-	if err = session.Setenv("LVMSYNC_SOURCE_DIGEST", digestHex); err != nil {
-		return fmt.Errorf("failed to set source digest: %w", err)
-	}
-
 	if err = session.Start(remoteCmd); err != nil {
 		return fmt.Errorf("failed to start remote command: %w", err)
 	}
 
-	if err = StreamToRemote(cfg, remoteStdin, snapshotDevice, originDevice, logger); err != nil {
+	if err = streamToRemote(cfg, remoteStdin, snapshotDevice, originDevice, alg, logger); err != nil {
 		return err
 	}
 
@@ -384,14 +401,9 @@ func RunRemoteDump(ctx context.Context, cfg *config.Config, snapshotDevice, orig
 	if alg == "" || alg == "auto" {
 		alg = digestpkg.Select()
 	}
-	sum, err := sumFile(snapshotDevice, alg)
-	if err != nil {
-		return err
-	}
-	digestHex := fmt.Sprintf("%x", sum[:])
 	validationCtx, cancel := context.WithTimeout(ctx, cfg.SSHTimeout)
 	defer cancel()
-	return ExecuteRemoteCommand(validationCtx, cfg, client, destDevice, snapshotDevice, originDevice, digestHex, alg, logger)
+	return ExecuteRemoteCommand(validationCtx, cfg, client, destDevice, snapshotDevice, originDevice, alg, logger)
 }
 
 // SelectTransport chooses the first supported transport from cfg.Transport and

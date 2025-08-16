@@ -57,15 +57,27 @@ func TestRunRemoteDump(t *testing.T) {
 	origDump := dumpChangesSequential
 	origSum := sumFile
 	origSelect := digestpkg.Select
+	origStream := streamToRemote
 	digestpkg.Select = func() string { return digestpkg.SHA256 }
 	sumFile = func(string, string) ([32]byte, error) { return [32]byte{}, nil }
+	streamToRemote = func(_ *config.Config, _ io.WriteCloser, snap, origin, alg string, _ *zap.Logger) error {
+		if snap != "snap" || origin != "origin" || alg != digestpkg.SHA256 {
+			t.Fatalf("unexpected params: %s %s %s", snap, origin, alg)
+		}
+		return nil
+	}
 	dumpChangesSequential = func(_ *transfer.Transfer, c *config.Config, snap, origin string, out io.Writer) error {
 		if snap != "snap" || origin != "origin" {
 			t.Fatalf("unexpected devices: %s %s", snap, origin)
 		}
 		return nil
 	}
-	defer func() { dumpChangesSequential = origDump; sumFile = origSum; digestpkg.Select = origSelect }()
+	defer func() {
+		dumpChangesSequential = origDump
+		sumFile = origSum
+		digestpkg.Select = origSelect
+		streamToRemote = origStream
+	}()
 
 	dest := host + ":/dev/null"
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -120,12 +132,24 @@ func TestRunRemoteDumpError(t *testing.T) {
 	origDump := dumpChangesSequential
 	origSum := sumFile
 	origSelect := digestpkg.Select
+	origStream := streamToRemote
 	digestpkg.Select = func() string { return digestpkg.SHA256 }
 	sumFile = func(string, string) ([32]byte, error) { return [32]byte{}, nil }
+	streamToRemote = func(_ *config.Config, _ io.WriteCloser, snap, origin, alg string, _ *zap.Logger) error {
+		if snap != "snap" || origin != "origin" || alg != digestpkg.SHA256 {
+			t.Fatalf("unexpected params: %s %s %s", snap, origin, alg)
+		}
+		return nil
+	}
 	dumpChangesSequential = func(_ *transfer.Transfer, c *config.Config, snap, origin string, out io.Writer) error {
 		return nil
 	}
-	defer func() { dumpChangesSequential = origDump; sumFile = origSum; digestpkg.Select = origSelect }()
+	defer func() {
+		dumpChangesSequential = origDump
+		sumFile = origSum
+		digestpkg.Select = origSelect
+		streamToRemote = origStream
+	}()
 
 	dest := host + ":/dev/null"
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -179,12 +203,21 @@ func TestRunRemoteDumpTimeout(t *testing.T) {
 	origDump := dumpChangesSequential
 	origSum := sumFile
 	origSelect := digestpkg.Select
+	origStream := streamToRemote
 	digestpkg.Select = func() string { return digestpkg.SHA256 }
 	sumFile = func(string, string) ([32]byte, error) { return [32]byte{}, nil }
+	streamToRemote = func(_ *config.Config, _ io.WriteCloser, snap, origin, alg string, _ *zap.Logger) error {
+		return nil
+	}
 	dumpChangesSequential = func(_ *transfer.Transfer, c *config.Config, snap, origin string, out io.Writer) error {
 		return nil
 	}
-	defer func() { dumpChangesSequential = origDump; sumFile = origSum; digestpkg.Select = origSelect }()
+	defer func() {
+		dumpChangesSequential = origDump
+		sumFile = origSum
+		digestpkg.Select = origSelect
+		streamToRemote = origStream
+	}()
 
 	dest := host + ":/dev/null"
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
