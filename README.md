@@ -935,26 +935,10 @@ CGO_ENABLED=0 go build -o lvmsync .
 
 ### Makefile
 
-````sh
+```sh
 make proto   # generate gRPC code
 make build   # build binaries
 make test    # run tests
-=======
-### systemd Service
-
-Install the gRPC daemon as a systemd service:
-
-```sh
-sudo useradd --system --no-create-home --shell /usr/sbin/nologin lvmsync
-sudo cp packaging/systemd/lvmsync-grpcd.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now lvmsync-grpcd
-````
-
-Logs are collected by journald and can be viewed with:
-
-```sh
-journalctl -u lvmsync-grpcd
 ```
 
 ## Usage
