@@ -55,6 +55,51 @@ func TestHandleApplyDelta(t *testing.T) {
 	defer c1.Close()
 	defer c2.Close()
 
+	dev := &memDevice{}
+	expect, err := digest.SumReader(bytes.NewReader([]byte("hello")), digest.SHA256)
+	if err != nil {
+		t.Fatalf("digest: %v", err)
+	}
+	srv := New(dev, digest.SHA256, expect, zap.NewNop())
+	ctx := context.Background()
+	errCh := make(chan error, 1)
+	go func() { errCh <- srv.Handle(ctx, rsynkwire.NewStream(c2, maxFrame)) }()
+
+	cl := rsynkwire.NewClient(rsynkwire.NewStream(c1, maxFrame))
+	if err := cl.SendDelta(0, []byte("hello")); err != nil {
+		t.Fatalf("SendDelta: %v", err)
+	}
+	c1.Close()
+	if err := <-errCh; err != nil {
+		t.Fatalf("Handle: %v", err)
+	}
+	buf := make([]byte, 5)
+	if _, err := dev.ReadAt(buf, 0); err != nil {
+		t.Fatalf("ReadAt: %v", err)
+	}
+	if string(buf) != "hello" {
+		t.Fatalf("data %q want %q", string(buf), "hello")
+	}
+	if dev.Size() != 5 {
+		t.Fatalf("size %d want 5", dev.Size())
+	}
+	if !dev.sync {
+		t.Fatalf("expected sync called")
+	}
+}
+
+
+func TestHandleCRCError(t *testing.T) {
+
+func (m *memDevice) Size() int64 { return int64(len(m.buf)) }
+
+func (m *memDevice) Sync() error { m.sync = true; return nil }
+
+func TestHandleDigestSuccess(t *testing.T) {
+	c1, c2 := net.Pipe()
+	defer c1.Close()
+	defer c2.Close()
+
 	data := []byte("hello")
 	exp, err := digest.SumReader(bytes.NewReader(data), digest.SHA256)
 	if err != nil {
@@ -67,6 +112,13 @@ func TestHandleApplyDelta(t *testing.T) {
 	errCh := make(chan error)
 	go func() { errCh <- srv.Handle(ctx, rsynkwire.NewStream(c2, maxFrame)) }()
 
+	payload := make([]byte, 1+8)
+	payload[0] = 'D'
+	var hdr [8]byte
+	binary.BigEndian.PutUint32(hdr[0:4], uint32(len(payload)))
+	binary.BigEndian.PutUint32(hdr[4:8], 0)
+	if _, err := c1.Write(hdr[:]); err != nil {
+		t.Fatalf("write hdr: %v", err)
 	cl := rsynkwire.NewClient(rsynkwire.NewStream(c1, maxFrame))
 	if err := cl.SendDelta(0, data); err != nil {
 		t.Fatalf("SendDelta: %v", err)
@@ -103,6 +155,11 @@ func runDelta(t *testing.T, srv *Server, offset int64, data []byte) error {
 	defer c1.Close()
 	defer c2.Close()
 	ctx := context.Background()
+	errCh := make(chan error, 1)
+	go func() { errCh <- srv.Handle(ctx, rsynkwire.NewStream(c2, maxFrame)) }()
+
+	cl := rsynkwire.NewClient(rsynkwire.NewStream(c1, maxFrame))
+	if err := cl.SendDelta(0, []byte("data")); err != nil {
 	errCh := make(chan error)
 	go func() { errCh <- srv.Handle(ctx, rsynkwire.NewStream(c2, 1<<20)) }()
 	cl := rsynkwire.NewClient(rsynkwire.NewStream(c1, 1<<20))
@@ -138,6 +195,22 @@ func TestDeltaAtBoundary(t *testing.T) {
 		t.Fatalf("device mismatch: %q != %q", dev.buf, expected)
 	}
 }
+
+	dev := &memDevice{}
+	wrong := [32]byte{}
+	srv := New(dev, digest.SHA256, wrong, zap.NewNop())
+	ctx := context.Background()
+	errCh := make(chan error, 1)
+	go func() { errCh <- srv.Handle(ctx, rsynkwire.NewStream(c2, maxFrame)) }()
+
+	cl := rsynkwire.NewClient(rsynkwire.NewStream(c1, maxFrame))
+	data := []byte("mismatch")
+	if _, err := cl.SendSignatures(bytes.NewReader(data)); err != nil {
+		t.Fatalf("SendSignatures: %v", err)
+	}
+	if err := cl.SendDelta(0, data); err != nil {
+		t.Fatalf("SendDelta: %v", err)
+
 
 func TestDeltaNegativeOffset(t *testing.T) {
 	dev := &memDevice{buf: make([]byte, 5)}

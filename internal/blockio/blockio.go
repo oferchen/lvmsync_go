@@ -154,6 +154,50 @@ func (f *File) ReadFrom(r io.Reader) (int64, error) {
 
 func (f *File) Seek(offset int64, whence int) (int64, error) { return f.f.Seek(offset, whence) }
 
+// ReadAt reads from the file at a specific offset.
+func (f *File) ReadAt(p []byte, off int64) (int, error) {
+	n, err := f.f.ReadAt(p, off)
+	if n%f.logical != 0 && f.strict {
+		return n, fmt.Errorf("read size %d not multiple of %d", n, f.logical)
+	}
+	return n, err
+}
+
+// WriteAt writes to the file at a specific offset, falling back to buffered
+// I/O when misaligned and strict mode is disabled.
+func (f *File) WriteAt(p []byte, off int64) (int, error) {
+	n := len(p)
+	if n%f.logical != 0 || n%f.physical != 0 {
+		if f.strict {
+			return 0, fmt.Errorf("write size %d not multiple of %d or %d", n, f.logical, f.physical)
+		}
+		if f.direct {
+			if err := f.reopen(); err != nil {
+				return 0, err
+			}
+		}
+	}
+	return f.f.WriteAt(p, off)
+}
+
+// Size returns the current size of the underlying file.
+func (f *File) Size() int64 {
+       if fi, err := f.f.Stat(); err == nil {
+               return fi.Size()
+       }
+       cur, err := f.f.Seek(0, io.SeekCurrent)
+       if err != nil {
+               return 0
+       }
+       end, err := f.f.Seek(0, io.SeekEnd)
+       if err != nil {
+               _, _ = f.f.Seek(cur, io.SeekStart)
+               return 0
+       }
+       _, _ = f.f.Seek(cur, io.SeekStart)
+       return end
+}
+
 func (f *File) Sync() error {
 	if f.syncFunc != nil {
 		return f.syncFunc()
