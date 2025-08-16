@@ -29,13 +29,13 @@ command-line use, environment variables, and `config.yaml` files.
 
 - Use [zap](https://github.com/uber-go/zap) for structured logging.
 - Zap is the sole logging backend; avoid `log` or `fmt.Print*` for progress output.
-- Always call `Sync()` (e.g., `defer logger.Sync()`) before program exit to flush buffers.
+- Always flush logs using the `SyncLogger` helper (e.g., `defer rootcmd.SyncLogger(logger)`) so `logger.Sync()` errors are recorded.
 - Transport constructors must accept a `*zap.Logger`; avoid package-level loggers.
 - Pass loggers explicitly to commands and helpers; do not use `zap.L()` or other globals.
 - Use `zap.NewNop()` instead of `nil` when no logging is needed.
 - Log connection lifecycle events and errors with `snake_case` fields including units (e.g., `bytes_transferred`, `duration_ms`).
 - Do not log secrets or authentication tokens; scrub sensitive values before emitting them.
-- Callers using transports should `defer logger.Sync()` to ensure logs are flushed.
+- Callers using transports should `defer rootcmd.SyncLogger(logger)` to ensure logs are flushed.
 
 ### Logging utilities
 
@@ -258,7 +258,7 @@ Run these commands locally before opening a pull request:
 
 ## Production Readiness Checklist
 
-- Use `zap` for all structured logging and call `logger.Sync()` on shutdown.
+- Use `zap` for all structured logging and call `rootcmd.SyncLogger(logger)` on shutdown.
 - Parse configuration with `pflag` and `viper`; expose every option via CLI flags, `LVMSYNC_*` environment variables, and the
   `config.yaml` file.
 - Group related CLI options into dedicated `FlagSet`s with clear descriptions.
@@ -273,14 +273,14 @@ Run these commands locally before opening a pull request:
 
 ## TODO
 
-- [ ] Audit logging: ensure `zap` is used with `snake_case` fields, include units, and call `logger.Sync()` before exit (block size logs now use `size_bytes`).
+- [ ] Audit logging: ensure `zap` is used with `snake_case` fields, include units, and call `rootcmd.SyncLogger(logger)` before exit (block size logs now use `size_bytes`).
 - [ ] Remove package-wide loggers; transport constructors such as `ssh.New(cfg, logger)` now require an explicit `*zap.Logger` parameter.
 - [ ] Remove stray `fmt.Print*` calls in favor of structured logs.
 - [ ] Monitor elimination of `fmt.Print*` calls to keep progress logging fully structured.
 - [ ] device: expand mountinfo parsing to handle bind mounts and multiple entries.
 - [ ] Review QUIC constructor refactor and expand tests for sender/receiver coverage.
 - [ ] LVM device support: plumb snapshot creation through the device abstraction, allow raw device fallbacks, and unit test LVM vs. file paths.
- - [x] Transport logging: emit connection handshake and teardown events with `snake_case` fields and ensure callers `defer logger.Sync()`.
+ - [x] Transport logging: emit connection handshake and teardown events with `snake_case` fields and ensure callers `defer rootcmd.SyncLogger(logger)`.
 - [ ] Manifest rebuild: add a subcommand to regenerate chunk digests when manifests are missing or out of date, exercising rebuild logic in tests.
 - [ ] Verify command: compare source and destination devices against manifest entries and surface mismatched digests with structured logs.
 - [x] Manifest: return error when block size is 0 during creation.
@@ -368,4 +368,4 @@ golangci-lint run
 
 ### Logging Rules
 - [ ] Use zap for structured logging with snake_case fields.
-- [ ] Call `logger.Sync()` on shutdown and avoid `fmt.Print*` for progress output.
+ - [ ] Call `rootcmd.SyncLogger(logger)` on shutdown and avoid `fmt.Print*` for progress output.

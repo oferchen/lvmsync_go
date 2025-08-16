@@ -10,12 +10,13 @@ import (
 
 	"go.uber.org/zap"
 
+	rootcmd "lvmsync_go/cmd/root"
 	"lvmsync_go/common"
 	"lvmsync_go/config"
 )
 
 func (t *Transfer) processDumpDataCore(ctx context.Context, cfg *config.Config, in io.Reader, destPath string, dedup DeduplicationStrategy, verify bool) (err error) {
-	defer func() { _ = t.Logger.Sync() }()
+	defer rootcmd.SyncLogger(t.Logger)
 	bufReader := bufio.NewReader(in)
 	var hs common.Handshake
 	hs, err = readAndValidateHandshake(cfg, bufReader, dedup, verify)
