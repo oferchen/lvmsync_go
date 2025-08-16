@@ -374,10 +374,21 @@ func TestSSHTransportSelectBestHandshake(t *testing.T) {
 	expDigest := common.SelectBest(srvDigest, cliDigest)
 	expDedup := common.SelectBest(srvDedup, cliDedup)
 
-	hs := common.Handshake{
+	srvHS := common.Handshake{
 		DedupMode:   expDedup,
-		Compress:    expCompress,
-		Digest:      expDigest,
+		Compressors: srvCompress,
+		Digests:     srvDigest,
+		ResumeToken: "tok",
+		ODirect:     true,
+		MaxInFlight: 8,
+		CDCMin:      64,
+		CDCAvg:      128,
+		CDCMax:      256,
+	}
+	cliHS := common.Handshake{
+		DedupMode:   expDedup,
+		Compressors: cliCompress,
+		Digests:     cliDigest,
 		ResumeToken: "tok",
 		ODirect:     true,
 		MaxInFlight: 8,
@@ -386,35 +397,32 @@ func TestSSHTransportSelectBestHandshake(t *testing.T) {
 		CDCMax:      256,
 	}
 
-	srvCh := make(chan common.Handshake)
+	srvErr := make(chan error)
 	go func() {
 		conn, err := ln.Accept()
 		if err != nil {
-			t.Errorf("accept: %v", err)
+			srvErr <- err
 			return
 		}
-		peer, err := server.Negotiate(ctx, conn, transport.Server, hs)
-		if err != nil {
-			t.Errorf("server negotiate: %v", err)
-		}
+		_, err = server.Negotiate(ctx, conn, transport.Server, srvHS)
+		srvErr <- err
 		conn.Close()
-		srvCh <- peer
 	}()
 
 	conn, err := client.Dial(ctx, ln.Addr().String())
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
-	peer, err := client.Negotiate(ctx, conn, transport.Client, hs)
+	peer, err := client.Negotiate(ctx, conn, transport.Client, cliHS)
 	conn.Close()
 	if err != nil {
 		t.Fatalf("client negotiate: %v", err)
 	}
-	srvPeer := <-srvCh
-	for _, p := range []common.Handshake{peer, srvPeer} {
-		if p.DedupMode != expDedup || p.Compress != expCompress || p.Digest != expDigest || p.ResumeToken != "tok" || !p.ODirect || p.CDCMin != 64 || p.CDCAvg != 128 || p.CDCMax != 256 {
-			t.Fatalf("unexpected peer handshake: %+v", p)
-		}
+	if err := <-srvErr; err != nil {
+		t.Fatalf("server negotiate: %v", err)
+	}
+	if peer.DedupMode != expDedup || peer.Compress != expCompress || peer.Digest != expDigest || peer.ResumeToken != "tok" || !peer.ODirect || peer.CDCMin != 64 || peer.CDCAvg != 128 || peer.CDCMax != 256 {
+		t.Fatalf("unexpected peer handshake: %+v", peer)
 	}
 }
 

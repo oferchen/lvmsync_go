@@ -85,3 +85,11 @@ func TestValidateHandshakeTransportMismatch(t *testing.T) {
 		t.Fatal("expected transport mismatch error")
 	}
 }
+
+func TestValidateHandshakeDigestMismatch(t *testing.T) {
+	local := Handshake{Digest: "blake3"}
+	peer := Handshake{Digest: "sha256"}
+	if err := ValidateHandshake(local, peer); err == nil {
+		t.Fatal("expected digest mismatch error")
+	}
+}

@@ -236,6 +236,14 @@ func TestTransportNegotiationMatrix(t *testing.T) {
 			if srv, cli := runNegotiation(t, tr, serverHS, clientHS); srv.err == nil || cli.err == nil {
 				t.Fatalf("expected tls version mismatch error")
 			}
+			// digest algorithm
+			serverHS = base
+			serverHS.Digest = "blake3"
+			clientHS = base
+			clientHS.Digest = "sha256"
+			if srv, cli := runNegotiation(t, tr, serverHS, clientHS); srv.err == nil || cli.err == nil {
+				t.Fatalf("expected digest mismatch error")
+			}
 		})
 	}
 }

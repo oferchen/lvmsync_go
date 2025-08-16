@@ -38,6 +38,9 @@ func ValidateHandshake(local, peer Handshake) error {
 	if peer.CompressLevel != 0 && local.CompressLevel != 0 && peer.CompressLevel != local.CompressLevel {
 		return fmt.Errorf("compression level mismatch: %d", peer.CompressLevel)
 	}
+	if peer.Digest != "" && local.Digest != "" && peer.Digest != local.Digest {
+		return fmt.Errorf("digest mismatch: %s", peer.Digest)
+	}
 	if peer.ODirect != local.ODirect {
 		return fmt.Errorf("o_direct mismatch: %v", peer.ODirect)
 	}
