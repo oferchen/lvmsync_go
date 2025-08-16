@@ -16,6 +16,7 @@ import (
 	"lvmsync_go/common"
 	"lvmsync_go/device"
 	"lvmsync_go/internal/config"
+	cpufeatures "lvmsync_go/internal/cpufeatures"
 	digestpkg "lvmsync_go/internal/digest"
 	"lvmsync_go/internal/rsynkwire"
 	"lvmsync_go/remote"
@@ -401,6 +402,12 @@ func RunRemoteDump(ctx context.Context, cfg *config.Config, snapshotDevice, orig
 	if alg == "" || alg == "auto" {
 		alg = digestpkg.Select()
 	}
+	logger.Info("digest_selected",
+		zap.String("digest_alg", alg),
+		zap.Bool("avx2", cpufeatures.HasAVX2()),
+		zap.Bool("avx512", cpufeatures.HasAVX512()),
+		zap.Bool("neon", cpufeatures.HasNEON()),
+	)
 	validationCtx, cancel := context.WithTimeout(ctx, cfg.SSHTimeout)
 	defer cancel()
 	return ExecuteRemoteCommand(validationCtx, cfg, client, destDevice, snapshotDevice, originDevice, alg, logger)
