@@ -30,8 +30,9 @@ type Transport struct {
 // Conn wraps a QUIC connection and stream to satisfy net.Conn and expose
 // datagram APIs.
 type Conn struct {
-	qconn  quic.Connection
-	stream quic.Stream
+	qconn        quic.Connection
+	stream       quic.Stream
+	readDeadline time.Time
 }
 
 // listener adapts a quic.Listener to net.Listener by accepting a stream for
@@ -279,8 +280,18 @@ func (c *Conn) SendDatagram(b []byte) error {
 	return c.qconn.SendDatagram(b)
 }
 
-// ReceiveDatagram waits for the next datagram.
+// ReceiveDatagram waits for the next datagram while honoring read deadlines.
 func (c *Conn) ReceiveDatagram(ctx context.Context) ([]byte, error) {
+	if !c.readDeadline.IsZero() {
+		if time.Now().After(c.readDeadline) {
+			return nil, context.DeadlineExceeded
+		}
+		if dl, ok := ctx.Deadline(); !ok || c.readDeadline.Before(dl) {
+			var cancel context.CancelFunc
+			ctx, cancel = context.WithDeadline(ctx, c.readDeadline)
+			defer cancel()
+		}
+	}
 	return c.qconn.ReceiveDatagram(ctx)
 }
 
@@ -294,6 +305,7 @@ func (c *Conn) Close() error {
 func (c *Conn) LocalAddr() net.Addr  { return c.qconn.LocalAddr() }
 func (c *Conn) RemoteAddr() net.Addr { return c.qconn.RemoteAddr() }
 func (c *Conn) SetDeadline(t time.Time) error {
+	c.readDeadline = t
 	if err := c.stream.SetDeadline(t); err != nil {
 		return err
 	}
@@ -304,6 +316,7 @@ func (c *Conn) SetDeadline(t time.Time) error {
 }
 
 func (c *Conn) SetReadDeadline(t time.Time) error {
+	c.readDeadline = t
 	if err := c.stream.SetReadDeadline(t); err != nil {
 		return err
 	}

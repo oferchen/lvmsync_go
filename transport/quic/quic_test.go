@@ -373,14 +373,8 @@ func TestConnDatagramReadDeadline(t *testing.T) {
 		qconn := conn.(*Conn)
 		defer qconn.Close()
 		qconn.SetReadDeadline(time.Now().Add(-time.Second))
-		if _, err := qconn.ReceiveDatagram(ctx); err != nil {
-			var ne net.Error
-			if !errors.As(err, &ne) || !ne.Timeout() {
-				done <- fmt.Errorf("expected timeout error, got %v", err)
-				return
-			}
-		} else {
-			done <- errors.New("expected timeout error")
+		if _, err := qconn.ReceiveDatagram(ctx); !errors.Is(err, context.DeadlineExceeded) {
+			done <- fmt.Errorf("expected deadline exceeded, got %v", err)
 			return
 		}
 		qconn.SetReadDeadline(time.Time{})
@@ -408,6 +402,49 @@ func TestConnDatagramReadDeadline(t *testing.T) {
 	if err := qconn.SendDatagram([]byte("hi")); err != nil {
 		t.Fatalf("send datagram: %v", err)
 	}
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestConnDatagramContextDeadline(t *testing.T) {
+	cert, _ := generateSelfSignedCert(t)
+	trIface, err := New(transport.Config{Logger: zap.NewNop(), ClientCert: cert, AllowInsecure: true})
+	if err != nil {
+		t.Fatalf("new transport: %v", err)
+	}
+	tr := trIface.(*Transport)
+	ctx := context.Background()
+	ln, err := tr.Listen(ctx, "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer ln.Close()
+
+	done := make(chan error, 1)
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			done <- fmt.Errorf("accept: %w", err)
+			return
+		}
+		qconn := conn.(*Conn)
+		defer qconn.Close()
+		qconn.SetReadDeadline(time.Now().Add(time.Second))
+		cctx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
+		defer cancel()
+		if _, err := qconn.ReceiveDatagram(cctx); !errors.Is(err, context.DeadlineExceeded) {
+			done <- fmt.Errorf("expected context deadline exceeded, got %v", err)
+			return
+		}
+		done <- nil
+	}()
+
+	conn, err := tr.Dial(ctx, ln.Addr().String())
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	conn.Close()
 	if err := <-done; err != nil {
 		t.Fatal(err)
 	}
