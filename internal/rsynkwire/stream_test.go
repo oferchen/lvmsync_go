@@ -1,6 +1,7 @@
 package rsynkwire
 
 import (
+	"bytes"
 	"encoding/binary"
 	"hash/crc32"
 	"net"
@@ -51,5 +52,18 @@ func TestStreamRecvTooLarge(t *testing.T) {
 
 	if _, err := recv.Recv(); err == nil || !strings.Contains(err.Error(), "exceeds max") {
 		t.Fatalf("expected size limit error, got %v", err)
+	}
+}
+
+func TestStreamSendTooLarge(t *testing.T) {
+	var buf bytes.Buffer
+	const max = 4
+	s := NewStream(&buf, max)
+	payload := []byte("hello")
+	if err := s.Send(payload); err == nil || !strings.Contains(err.Error(), "exceeds max") {
+		t.Fatalf("expected size limit error, got %v", err)
+	}
+	if buf.Len() != 0 {
+		t.Fatalf("expected no data written, got %d bytes", buf.Len())
 	}
 }
