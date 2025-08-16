@@ -2,7 +2,6 @@ package blockio
 
 import (
 	"context"
-	"io"
 	"path/filepath"
 
 	"lvmsync_go/internal/lvm"
@@ -15,8 +14,8 @@ type DeviceWriter struct {
 	Strict  bool
 }
 
-// Open prepares the logical volume and returns a writer with a close callback.
-func (d DeviceWriter) Open(ctx context.Context, vg, lv string, direct bool) (io.ReadWriteSeeker, func() error, error) {
+// Open prepares the logical volume and returns a file with a close callback.
+func (d DeviceWriter) Open(ctx context.Context, vg, lv string, direct bool) (*File, func() error, error) {
 	path, err := d.Checker.PreOpen(ctx, vg, lv)
 	if err != nil {
 		return nil, nil, err
