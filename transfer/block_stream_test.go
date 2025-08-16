@@ -1,12 +1,15 @@
 package transfer
 
 import (
+	"bytes"
+	"crypto/sha256"
 	"math"
 	"testing"
 
 	"github.com/zeebo/blake3"
 
 	"lvmsync_go/config"
+	digest "lvmsync_go/internal/digest"
 )
 
 func TestValidateOffsetAndSizeFunc(t *testing.T) {
@@ -31,4 +34,23 @@ func TestPrepareResultHeader(t *testing.T) {
 	if n != len(header) {
 		t.Fatalf("expected header length %d, got %d", len(header), n)
 	}
+}
+
+func TestNewDigestHasherAuto(t *testing.T) {
+	data := []byte("data")
+	orig := digest.Select
+	digest.Select = func() string { return digest.BLAKE3 }
+	h := newDigestHasher(config.Auto)
+	if _, ok := h.(*blake3.Hasher); !ok {
+		t.Fatalf("expected BLAKE3 hasher")
+	}
+	digest.Select = func() string { return digest.SHA256 }
+	h = newDigestHasher(config.Auto)
+	h.Write(data)
+	sum := h.Sum(nil)
+	exp := sha256.Sum256(data)
+	if !bytes.Equal(sum, exp[:]) {
+		t.Fatalf("expected SHA-256 sum, got %x", sum)
+	}
+	digest.Select = orig
 }

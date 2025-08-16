@@ -35,7 +35,7 @@ func TestProcessDumpDataUUIDMismatch(t *testing.T) {
 	defer device.SetMountFunc(prevMount)
 
 	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{})
-	cfg := &config.Config{BlockSize: 1024, Compress: "none", MaxRetries: 1, DeviceUUID: "expected", DedupStrategy: "none", VerifyChecksum: true}
+	cfg := &config.Config{BlockSize: 1024, Compress: "none", MaxRetries: 1, DeviceUUID: "expected", DedupStrategy: "none", VerifyChecksum: true, ChecksumAlgorithm: "sha256"}
 
 	dest := filepath.Join(t.TempDir(), "dest")
 	f, err := os.Create(dest)
@@ -87,7 +87,7 @@ func TestProcessDumpDataMountedDevice(t *testing.T) {
 	defer device.SetMountFunc(prevMount)
 
 	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{})
-	cfg := &config.Config{BlockSize: 1024, Compress: "none", MaxRetries: 1, DeviceUUID: "id", DedupStrategy: "none", VerifyChecksum: true}
+	cfg := &config.Config{BlockSize: 1024, Compress: "none", MaxRetries: 1, DeviceUUID: "id", DedupStrategy: "none", VerifyChecksum: true, ChecksumAlgorithm: "sha256"}
 
 	dest := filepath.Join(t.TempDir(), "dest")
 	f, err := os.Create(dest)
@@ -258,7 +258,7 @@ func TestProcessDumpDataCanceledContext(t *testing.T) {
 	defer device.SetMountFunc(prevMount)
 
 	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{})
-	cfg := &config.Config{BlockSize: 1024, Compress: "none", MaxRetries: 1, DeviceUUID: "id", DedupStrategy: "none", VerifyChecksum: true}
+	cfg := &config.Config{BlockSize: 1024, Compress: "none", MaxRetries: 1, DeviceUUID: "id", DedupStrategy: "none", VerifyChecksum: true, ChecksumAlgorithm: "sha256"}
 
 	dest := filepath.Join(t.TempDir(), "dest")
 	f, err := os.Create(dest)

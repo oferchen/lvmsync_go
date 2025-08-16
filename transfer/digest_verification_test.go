@@ -18,7 +18,7 @@ func TestIterateBlocksFinalSHA(t *testing.T) {
 	blockSize := int64(1024)
 	snapshot := "vg-lv"
 	_, src := createVolumeFiles(t, snapshot, blockSize, []int{0})
-	cfg := &config.Config{BlockSize: int(blockSize), Compress: "zstd", ZstdLevel: 1, CompressLevel: 1, MaxRetries: 1}
+	cfg := &config.Config{BlockSize: int(blockSize), Compress: "zstd", ZstdLevel: 1, CompressLevel: 1, MaxRetries: 1, ChecksumAlgorithm: "sha256"}
 	ranges, err := gatherChangedRanges(snapshot, blockSize, logger)
 	if err != nil {
 		t.Fatalf("gather ranges: %v", err)

@@ -17,6 +17,7 @@ import (
 
 	"lvmsync_go/config"
 	hashutil "lvmsync_go/hash"
+	digest "lvmsync_go/internal/digest"
 	manifestpkg "lvmsync_go/manifest"
 )
 
@@ -31,7 +32,11 @@ func validateOffsetAndSize(offset uint64, size int) (int64, uint32, error) {
 }
 
 func newDigestHasher(algo string) hash.Hash {
-	switch strings.ToLower(algo) {
+	a := strings.ToLower(algo)
+	if a == "" || a == config.Auto {
+		a = digest.Select()
+	}
+	switch a {
 	case "blake3", "blake3-256":
 		return blake3.New()
 	default:

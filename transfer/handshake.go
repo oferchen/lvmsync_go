@@ -10,6 +10,7 @@ import (
 
 	"lvmsync_go/common"
 	"lvmsync_go/config"
+	digest "lvmsync_go/internal/digest"
 )
 
 func composeHandshake(cfg *config.Config, mode string) common.Handshake {
@@ -91,12 +92,13 @@ func readAndValidateHandshake(cfg *config.Config, bufReader *bufio.Reader, dedup
 	cfg.Compress = compress
 	hs.Compress = compress
 	hs.Compressors = []string{compress}
-	digest, err := negotiate(splitDigests(cfg.ChecksumAlgorithm), hs.Digests)
+	digestAlg, err := negotiate(splitDigests(cfg.ChecksumAlgorithm), hs.Digests)
 	if err != nil {
 		return hs, fmt.Errorf("no common digest algorithm")
 	}
-	cfg.ChecksumAlgorithm = digest
-	hs.Digests = []string{digest}
+	cfg.ChecksumAlgorithm = digestAlg
+	hs.Digests = []string{digestAlg}
+	hs.Digest = digestAlg
 
 	if hs.Endianness != "" && hs.Endianness != common.NativeEndianness() {
 		return hs, fmt.Errorf("endianness mismatch: %s", hs.Endianness)
@@ -158,10 +160,11 @@ func splitCompression(s string) []string {
 }
 
 func splitDigests(s string) []string {
-	if s == "" {
-		return []string{"blake3", "sha256"}
+	a := strings.TrimSpace(strings.ToLower(s))
+	if a == "" || a == config.Auto {
+		return []string{digest.Select()}
 	}
-	return commonSplit(s)
+	return commonSplit(a)
 }
 
 func commonSplit(s string) []string {

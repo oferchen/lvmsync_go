@@ -289,6 +289,7 @@ func TestH2TransportSelectBestHandshake(t *testing.T) {
 
 	srvHS := common.Handshake{
 		DedupMode:   expDedup,
+		Compress:    expCompress,
 		Compressors: srvCompress,
 		Digests:     srvDigest,
 		ResumeToken: "tok",
@@ -300,6 +301,7 @@ func TestH2TransportSelectBestHandshake(t *testing.T) {
 	}
 	cliHS := common.Handshake{
 		DedupMode:   expDedup,
+		Compress:    expCompress,
 		Compressors: cliCompress,
 		Digests:     cliDigest,
 		ResumeToken: "tok",
