@@ -93,6 +93,32 @@ func TestWritePhysicalMisaligned(t *testing.T) {
 	}
 }
 
+func TestReadWriteAtAndSize(t *testing.T) {
+	tmp, err := os.CreateTemp(t.TempDir(), "blk")
+	if err != nil {
+		t.Fatalf("tempfile: %v", err)
+	}
+	f, err := Open(tmp.Name(), false, false)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer f.Close()
+	data := bytes.Repeat([]byte{0x5}, f.Logical()*2)
+	if _, err := f.WriteAt(data, 0); err != nil {
+		t.Fatalf("WriteAt: %v", err)
+	}
+	buf := make([]byte, len(data))
+	if _, err := f.ReadAt(buf, 0); err != nil {
+		t.Fatalf("ReadAt: %v", err)
+	}
+	if !bytes.Equal(buf, data) {
+		t.Fatalf("ReadAt data mismatch")
+	}
+	if size := f.Size(); size != int64(len(data)) {
+		t.Fatalf("size %d want %d", size, len(data))
+	}
+}
+
 func TestOpenNonexistentPath(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "missing")
 	if _, err := Open(path, false, false); err == nil {
