@@ -616,6 +616,23 @@ SSH transport negotiation also derives read and write deadlines from the caller'
   lvmsync run --mode throughput /dev/vg0/source /dev/vg1/target
   ```
 
+## Serve Subcommand
+
+Run a standalone QUIC listener:
+
+```sh
+lvmsync serve --transport quic --quic-listen :12000 --tls-cert cert.pem --tls-key key.pem --ca-cert ca.pem
+```
+
+| Flag | Environment | Description |
+|------|-------------|-------------|
+| `--transport` | `LVMSYNC_SERVE_TRANSPORT` | Transport to serve |
+| `--quic-listen` | `LVMSYNC_SERVE_QUIC_LISTEN` | QUIC listen address |
+| `--tls-cert` | `LVMSYNC_SERVE_TLS_CERT` | TLS certificate file |
+| `--tls-key` | `LVMSYNC_SERVE_TLS_KEY` | TLS key file |
+| `--ca-cert` | `LVMSYNC_SERVE_CA_CERT` | CA certificate file |
+| `--allow-insecure` | `LVMSYNC_SERVE_ALLOW_INSECURE` | Permit insecure (no TLS) connections |
+
 ## gRPC Control Plane
 
 The optional gRPC daemon exposes snapshot management and replication over a mutually authenticated channel. Plaintext connections are rejected unless `--allow-insecure` is explicitly set.

@@ -12,6 +12,7 @@ import (
 	"github.com/zeebo/xxh3"
 	"go.uber.org/zap"
 
+	servecmd "lvmsync_go/cmd/serve"
 	verifycmd "lvmsync_go/cmd/verify"
 	"lvmsync_go/config"
 	"lvmsync_go/manifest"
@@ -34,6 +35,7 @@ var (
 	runCommand      = func(src, dst string, opts RunOptions, logger *zap.Logger) error { return nil }
 	manifestRebuild = func(device string, dryRun bool, logger *zap.Logger) error { return nil }
 	verifyRun       = func(args []string, logger *zap.Logger) error { return verifycmd.Run(args, logger) }
+	serveRun        = func(args []string, logger *zap.Logger) error { return servecmd.Run(args, logger) }
 )
 
 // NewRootCmd creates the root cobra command with all subcommands wired.
@@ -129,7 +131,16 @@ func NewRootCmd(logger *zap.Logger) *cobra.Command {
 		},
 	}
 
-	rootCmd.AddCommand(runCmd, manifestCmd, verifyCmd)
+	serveCmd := &cobra.Command{
+		Use:                "serve [flags]",
+		Short:              "Run a transport listener",
+		DisableFlagParsing: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return serveRun(args, logger)
+		},
+	}
+
+	rootCmd.AddCommand(runCmd, manifestCmd, verifyCmd, serveCmd)
 	return rootCmd
 }
 

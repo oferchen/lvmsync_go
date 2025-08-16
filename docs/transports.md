@@ -81,6 +81,12 @@ Example:
 lvmsync --transport quic --tls_cert cert.pem --tls_key key.pem --ca_cert ca.pem
 ```
 
+Run a listener with the `serve` subcommand:
+
+```sh
+lvmsync serve --transport quic --quic-listen :12000 --tls-cert cert.pem --tls-key key.pem --ca-cert ca.pem
+```
+
 ## HTTP/2 (h2)
 
 - Runs over TLS 1.3 with mutual authentication
