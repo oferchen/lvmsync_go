@@ -570,3 +570,50 @@ func TestRoleString(t *testing.T) {
 		}
 	}
 }
+
+type errConn struct {
+	writeErr error
+	closeErr error
+}
+
+func (e *errConn) Read(_ []byte) (int, error)  { return 0, io.EOF }
+func (e *errConn) Write(_ []byte) (int, error) { return 0, e.writeErr }
+func (e *errConn) Close() error                { return e.closeErr }
+func (e *errConn) LocalAddr() net.Addr         { return nil }
+func (e *errConn) RemoteAddr() net.Addr        { return nil }
+func (e *errConn) SetDeadline(time.Time) error { return nil }
+func (e *errConn) SetReadDeadline(time.Time) error {
+	return nil
+}
+func (e *errConn) SetWriteDeadline(time.Time) error {
+	return nil
+}
+
+func TestConnCloseWriteError(t *testing.T) {
+	writeErr := errors.New("write fail")
+	closeErr := errors.New("close fail")
+
+	tests := []struct {
+		name     string
+		wc       *errConn
+		wantErrs []error
+	}{
+		{"write_error", &errConn{writeErr: writeErr}, []error{writeErr}},
+		{"write_and_close_error", &errConn{writeErr: writeErr, closeErr: closeErr}, []error{writeErr, closeErr}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &Conn{Conn: tt.wc, fr: http2.NewFramer(tt.wc, tt.wc), streamID: 1}
+			err := c.Close()
+			if err == nil {
+				t.Fatalf("expected error")
+			}
+			for _, we := range tt.wantErrs {
+				if !errors.Is(err, we) {
+					t.Fatalf("expected error %v, got %v", we, err)
+				}
+			}
+		})
+	}
+}

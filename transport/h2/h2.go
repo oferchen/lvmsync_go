@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"golang.org/x/net/http2"
 
@@ -450,9 +451,10 @@ func (c *Conn) Write(p []byte) (int, error) {
 
 func (c *Conn) Close() error {
 	c.writeMu.Lock()
-	_ = c.fr.WriteData(c.streamID, true, nil)
+	err1 := c.fr.WriteData(c.streamID, true, nil)
 	c.writeMu.Unlock()
-	return c.Conn.Close()
+	err2 := c.Conn.Close()
+	return multierr.Append(err1, err2)
 }
 
 func (c *Conn) SetDeadline(t time.Time) error      { return c.Conn.SetDeadline(t) }
