@@ -11,6 +11,14 @@ practical. Break down large functions into focused helpers and test each helper 
 Logging and configuration are fully structured to keep behavior predictable across
 command-line use, environment variables, and `config.yaml` files.
 
+## Dependency Injection
+
+- Avoid package-level function variables for stubbing dependencies.
+- Use a `Runner` struct to hold external interactions and provide `NewRunner` and
+  `NewRunnerWithDeps` constructors so tests can inject mocks.
+- Callers and subcommands should invoke methods on a `Runner` instance rather than
+  modifying global variables.
+
 ## Device Detection
 
 - `Detect` orchestrates `detectFileDevice`, `detectLVMDevice`, and `detectRawDevice`.

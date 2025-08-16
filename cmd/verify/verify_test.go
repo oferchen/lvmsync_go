@@ -139,8 +139,7 @@ func TestVerifyDevicesRebuildsManifest(t *testing.T) {
 		t.Fatalf("write dst: %v", err)
 	}
 	called := false
-	orig := rebuildFn
-	rebuildFn = func(ctx context.Context, device, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error {
+	r := NewRunnerWithDeps(func(ctx context.Context, device, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error {
 		called = true
 		idx, err := manifestpkg.Create(output, "dev", uint64(len("foo")), 4096, 0, 0, 0, 0)
 		if err != nil {
@@ -151,10 +150,9 @@ func TestVerifyDevicesRebuildsManifest(t *testing.T) {
 			return err
 		}
 		return idx.Close()
-	}
-	defer func() { rebuildFn = orig }()
+	})
 	cfg := &config.Config{}
-	if err := verifyDevices(cfg, src, dst, "", zap.NewNop()); err != nil {
+	if err := r.verifyDevices(cfg, src, dst, "", zap.NewNop()); err != nil {
 		t.Fatalf("verifyDevices: %v", err)
 	}
 	if !called {

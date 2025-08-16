@@ -13,12 +13,10 @@ import (
 func TestFlagParsing(t *testing.T) {
 	logger := zap.NewNop()
 	var got Options
-	orig := startFunc
-	startFunc = func(ctx context.Context, opts Options, _ *zap.Logger) error {
+	runner := NewRunnerWithDeps(func(ctx context.Context, opts Options, _ *zap.Logger) error {
 		got = opts
 		return nil
-	}
-	defer func() { startFunc = orig }()
+	})
 	args := []string{
 		"--grpc-port", "1234",
 		"--tls-cert", "cert",
@@ -29,7 +27,7 @@ func TestFlagParsing(t *testing.T) {
 		"--keepalive-timeout", "5s",
 		"--request-timeout", "1m",
 	}
-	if err := Execute(args, logger); err != nil {
+	if err := runner.Execute(args, logger); err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
 	want := Options{GRPCPort: 1234, TLSCert: "cert", TLSKey: "key", CACert: "ca", AllowInsecure: true, KeepaliveTime: 30 * time.Second, KeepaliveTimeout: 5 * time.Second, RequestTimeout: time.Minute}
@@ -44,15 +42,13 @@ func TestGRPCPortPrecedence(t *testing.T) {
 	t.Setenv("LVMSYNC_GRPC_GRPC_PORT", "2222")
 
 	var got Options
-	orig := startFunc
-	startFunc = func(ctx context.Context, opts Options, _ *zap.Logger) error {
+	runner := NewRunnerWithDeps(func(ctx context.Context, opts Options, _ *zap.Logger) error {
 		got = opts
 		return nil
-	}
-	defer func() { startFunc = orig }()
+	})
 
 	args := []string{"--config", cfgPath, "--grpc-port", "3333"}
-	if err := Execute(args, logger); err != nil {
+	if err := runner.Execute(args, logger); err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
 	if got.GRPCPort != 3333 {
@@ -60,7 +56,7 @@ func TestGRPCPortPrecedence(t *testing.T) {
 	}
 
 	got = Options{}
-	if err := Execute([]string{"--config", cfgPath}, logger); err != nil {
+	if err := runner.Execute([]string{"--config", cfgPath}, logger); err != nil {
 		t.Fatalf("Execute env: %v", err)
 	}
 	if got.GRPCPort != 2222 {

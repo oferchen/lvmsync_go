@@ -20,15 +20,29 @@ import (
 	"lvmsync_go/transfer"
 )
 
-func init() {
-	rootcmd.RunVerify = Run
+// Runner holds dependencies for verify operations.
+type Runner struct {
+	Rebuild func(ctx context.Context, device, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error
 }
 
-var rebuildFn = manifestpkg.Rebuild
+// NewRunner returns a Runner with production dependencies.
+func NewRunner() *Runner { return &Runner{Rebuild: manifestpkg.Rebuild} }
+
+// NewRunnerWithDeps creates a Runner with custom rebuild function.
+func NewRunnerWithDeps(
+	rebuild func(ctx context.Context, device, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error,
+) *Runner {
+	return &Runner{Rebuild: rebuild}
+}
+
+func init() {
+	r := NewRunner()
+	rootcmd.RunVerify = r.Run
+}
 
 // Run executes the verify command with the provided arguments and logger.
 // Args should exclude the "verify" subcommand itself.
-func Run(args []string, logger *zap.Logger) error {
+func (r *Runner) Run(args []string, logger *zap.Logger) error {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
@@ -71,14 +85,14 @@ func Run(args []string, logger *zap.Logger) error {
 				logger.Info("dry run", zap.Int64("size_bytes", size), zap.Duration("eta", eta))
 				return nil
 			}
-			return verifyDevices(cfg, remaining[0], remaining[1], cfg.ManifestPath, logger)
+			return r.verifyDevices(cfg, remaining[0], remaining[1], cfg.ManifestPath, logger)
 		},
 	}
 	cmd.SetArgs(args)
 	return cmd.Execute()
 }
 
-func verifyDevices(cfg *config.Config, src, dst, manifestPath string, logger *zap.Logger) error {
+func (r *Runner) verifyDevices(cfg *config.Config, src, dst, manifestPath string, logger *zap.Logger) error {
 	if manifestPath == "" {
 		manifestPath = src + ".manifest"
 	}
@@ -94,7 +108,7 @@ func verifyDevices(cfg *config.Config, src, dst, manifestPath string, logger *za
 			if cfg.DedupMode == "hybrid" {
 				hybridFixed = uint32(cfg.BlockSize)
 			}
-			if err := rebuildFn(ctx, src, manifestPath, logger, cfg.ManifestProgressInterval, cfg.ManifestAllowMounted, uint32(cfg.CDCMin), uint32(cfg.CDCAvg), uint32(cfg.CDCMax), hybridFixed); err != nil {
+			if err := r.Rebuild(ctx, src, manifestPath, logger, cfg.ManifestProgressInterval, cfg.ManifestAllowMounted, uint32(cfg.CDCMin), uint32(cfg.CDCAvg), uint32(cfg.CDCMax), hybridFixed); err != nil {
 				return fmt.Errorf("rebuild manifest: %w", err)
 			}
 		} else {
@@ -102,6 +116,11 @@ func verifyDevices(cfg *config.Config, src, dst, manifestPath string, logger *za
 		}
 	}
 	return verifyWithManifest(cfg, dst, manifestPath, logger)
+}
+
+// Run executes using a default Runner.
+func Run(args []string, logger *zap.Logger) error {
+	return NewRunner().Run(args, logger)
 }
 
 func digestFunc(cfg *config.Config) func([]byte) [32]byte {

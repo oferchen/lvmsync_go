@@ -35,9 +35,9 @@ var (
 	ackStream     = func(ctx context.Context, c proto.ReplicationClient, id string) (ackStreamClient, error) {
 		return grpcclient.AckStream(ctx, c, id)
 	}
-	handleSignals   = signalspkg.Handle
-	prepareSnapshot = clientpkg.PrepareSnapshot
-	newTicker       = time.NewTicker
+	signalsHandler  signalspkg.Handler = signalspkg.NewRunner()
+	prepareSnapshot                    = clientpkg.PrepareSnapshot
+	newTicker                          = time.NewTicker
 )
 
 type grpcServer interface {
@@ -181,7 +181,7 @@ func SetupSignalHandling(ctx context.Context, cfg *config.Config, snapshotPath *
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
 	sigErrCh := make(chan error, 1)
-	go handleSignals(ctx, cfg, logger, signals, snapshotPath, sigErrCh)
+	go signalsHandler.Handle(ctx, cfg, logger, signals, snapshotPath, sigErrCh)
 	return signals, sigErrCh
 }
 

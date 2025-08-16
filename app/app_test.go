@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
+	signalspkg "lvmsync_go/cmd/lvmsync/signals"
 	"lvmsync_go/config"
 	grpcclient "lvmsync_go/grpc/client"
 	grpcserver "lvmsync_go/grpc/server"
@@ -282,13 +283,13 @@ func TestSetupSignalHandling(t *testing.T) {
 	cfg := &config.Config{}
 	var path string
 	called := make(chan struct{})
-	origHandle := handleSignals
-	defer func() { handleSignals = origHandle }()
-	handleSignals = func(ctx context.Context, cfg *config.Config, _ *zap.Logger, sigs <-chan os.Signal, p *string, errCh chan<- error) {
+	origHandle := signalsHandler
+	defer func() { signalsHandler = origHandle }()
+	signalsHandler = signalspkg.HandlerFunc(func(ctx context.Context, cfg *config.Config, _ *zap.Logger, sigs <-chan os.Signal, p *string, errCh chan<- error) {
 		<-sigs
 		*p = "set"
 		close(called)
-	}
+	})
 	logger := zap.NewNop()
 	signals, sigErrCh := SetupSignalHandling(context.Background(), cfg, &path, logger)
 	signals <- os.Interrupt
@@ -313,11 +314,11 @@ func TestSetupSignalHandling(t *testing.T) {
 func TestSetupSignalHandlingError(t *testing.T) {
 	cfg := &config.Config{}
 	var path string
-	origHandle := handleSignals
-	defer func() { handleSignals = origHandle }()
-	handleSignals = func(ctx context.Context, cfg *config.Config, _ *zap.Logger, sigs <-chan os.Signal, p *string, errCh chan<- error) {
+	origHandle := signalsHandler
+	defer func() { signalsHandler = origHandle }()
+	signalsHandler = signalspkg.HandlerFunc(func(ctx context.Context, cfg *config.Config, _ *zap.Logger, sigs <-chan os.Signal, p *string, errCh chan<- error) {
 		errCh <- errors.New("boom")
-	}
+	})
 	logger := zap.NewNop()
 	_, sigErrCh := SetupSignalHandling(context.Background(), cfg, &path, logger)
 	if err := <-sigErrCh; err == nil {
