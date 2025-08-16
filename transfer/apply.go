@@ -2,6 +2,7 @@ package transfer
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -13,7 +14,7 @@ import (
 	"lvmsync_go/config"
 )
 
-func (t *Transfer) processDumpDataCore(cfg *config.Config, in io.Reader, destPath string, dedup DeduplicationStrategy, verify bool) (err error) {
+func (t *Transfer) processDumpDataCore(ctx context.Context, cfg *config.Config, in io.Reader, destPath string, dedup DeduplicationStrategy, verify bool) (err error) {
 	defer func() { _ = t.Logger.Sync() }()
 	bufReader := bufio.NewReader(in)
 	var hs common.Handshake
@@ -34,7 +35,7 @@ func (t *Transfer) processDumpDataCore(cfg *config.Config, in io.Reader, destPat
 
 	reader := bufio.NewReader(decReader)
 
-	if err := t.verifyDestination(cfg, destPath); err != nil {
+	if err := t.verifyDestination(ctx, cfg, destPath); err != nil {
 		return err
 	}
 
@@ -80,11 +81,11 @@ func (t *Transfer) processDumpDataCore(cfg *config.Config, in io.Reader, destPat
 }
 
 // ProcessDumpDataWithDeduplication applies a dump stream to destPath using the given dedup strategy without checksum verification, updating the strategy's state.
-func (t *Transfer) ProcessDumpDataWithDeduplication(cfg *config.Config, in io.Reader, destPath string, dedup DeduplicationStrategy) error {
-	return t.processDumpDataCore(cfg, in, destPath, dedup, false)
+func (t *Transfer) ProcessDumpDataWithDeduplication(ctx context.Context, cfg *config.Config, in io.Reader, destPath string, dedup DeduplicationStrategy) error {
+	return t.processDumpDataCore(ctx, cfg, in, destPath, dedup, false)
 }
 
 // ProcessDumpData applies a dump stream to destPath with checksum verification for each block before writing.
-func (t *Transfer) ProcessDumpData(cfg *config.Config, in io.Reader, destPath string) error {
-	return t.processDumpDataCore(cfg, in, destPath, nil, true)
+func (t *Transfer) ProcessDumpData(ctx context.Context, cfg *config.Config, in io.Reader, destPath string) error {
+	return t.processDumpDataCore(ctx, cfg, in, destPath, nil, true)
 }

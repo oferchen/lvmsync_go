@@ -53,9 +53,9 @@ func (t *Transfer) applyData(cfg *config.Config, in io.Reader, destDevice string
 				}
 			}
 		}()
-		return t.ProcessDumpDataWithDeduplication(cfg, in, destDevice, dedup)
+		return t.ProcessDumpDataWithDeduplication(context.Background(), cfg, in, destDevice, dedup)
 	}
-	return t.ProcessDumpData(cfg, in, destDevice)
+	return t.ProcessDumpData(context.Background(), cfg, in, destDevice)
 }
 
 // RunApply reads a dump file or stdin and writes the data to destDevice.
