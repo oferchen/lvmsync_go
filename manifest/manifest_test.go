@@ -311,7 +311,7 @@ func TestRebuild(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open manifest: %v", err)
 	}
-	if idx.hdr.BlockSize != 4096 || idx.hdr.ChunkCount != 2 || idx.hdr.SizeBytes != 8192 {
+	if idx.hdr.Version != Version || idx.hdr.BlockSize != 4096 || idx.hdr.ChunkCount != 2 || idx.hdr.SizeBytes != 8192 {
 		t.Fatalf("header mismatch: %+v", idx.hdr)
 	}
 	if id := string(bytes.TrimRight(idx.hdr.DeviceID[:], "\x00")); id != "uuid-test" {

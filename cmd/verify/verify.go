@@ -1,6 +1,7 @@
 package verify
 
 import (
+	"context"
 	"crypto/sha256"
 	"fmt"
 	"io"
@@ -15,13 +16,15 @@ import (
 
 	rootcmd "lvmsync_go/cmd/root"
 	"lvmsync_go/config"
-	"lvmsync_go/manifest"
+	manifestpkg "lvmsync_go/manifest"
 	"lvmsync_go/transfer"
 )
 
 func init() {
 	rootcmd.RunVerify = Run
 }
+
+var rebuildFn = manifestpkg.Rebuild
 
 // Run executes the verify command with the provided arguments and logger.
 // Args should exclude the "verify" subcommand itself.
@@ -75,11 +78,30 @@ func Run(args []string, logger *zap.Logger) error {
 	return cmd.Execute()
 }
 
-func verifyDevices(cfg *config.Config, src, dst, manifest string, logger *zap.Logger) error {
-	if manifest != "" {
-		return verifyWithManifest(cfg, src, manifest, logger)
+func verifyDevices(cfg *config.Config, src, dst, manifestPath string, logger *zap.Logger) error {
+	if manifestPath == "" {
+		manifestPath = src + ".manifest"
 	}
-	return verifyFull(cfg, src, dst, logger)
+	if _, err := os.Stat(manifestPath); err != nil {
+		if os.IsNotExist(err) {
+			ctx := context.Background()
+			if cfg.ManifestTimeout > 0 {
+				var cancel context.CancelFunc
+				ctx, cancel = context.WithTimeout(ctx, cfg.ManifestTimeout)
+				defer cancel()
+			}
+			hybridFixed := uint32(0)
+			if cfg.DedupMode == "hybrid" {
+				hybridFixed = uint32(cfg.BlockSize)
+			}
+			if err := rebuildFn(ctx, src, manifestPath, logger, cfg.ManifestProgressInterval, cfg.ManifestAllowMounted, uint32(cfg.CDCMin), uint32(cfg.CDCAvg), uint32(cfg.CDCMax), hybridFixed); err != nil {
+				return fmt.Errorf("rebuild manifest: %w", err)
+			}
+		} else {
+			return fmt.Errorf("stat manifest: %w", err)
+		}
+	}
+	return verifyWithManifest(cfg, dst, manifestPath, logger)
 }
 
 func digestFunc(cfg *config.Config) func([]byte) [32]byte {
@@ -146,15 +168,15 @@ func verifyFull(cfg *config.Config, src, dst string, logger *zap.Logger) error {
 	return nil
 }
 
-func verifyWithManifest(cfg *config.Config, src, manifestPath string, logger *zap.Logger) error {
-	idx, err := manifest.Open(manifestPath)
+func verifyWithManifest(cfg *config.Config, devicePath, manifestPath string, logger *zap.Logger) error {
+	idx, err := manifestpkg.Open(manifestPath)
 	if err != nil {
 		return fmt.Errorf("open manifest: %w", err)
 	}
 	defer idx.Close()
-	fSrc, err := os.Open(src)
+	fSrc, err := os.Open(devicePath)
 	if err != nil {
-		return fmt.Errorf("open source: %w", err)
+		return fmt.Errorf("open device: %w", err)
 	}
 	defer fSrc.Close()
 

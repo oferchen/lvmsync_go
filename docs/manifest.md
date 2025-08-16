@@ -4,12 +4,20 @@ LVMSync writes a binary manifest alongside each transfer. The manifest tracks
 chunk offsets and digests so that interrupted sessions can resume and completed
 copies can be verified.
 
+## Lifecycle
+
+1. Rebuild a manifest for the source device:
+   `lvmsync manifest rebuild <device>`
+2. Run a transfer using `lvmsync run`.
+3. Verify that the destination matches the manifest:
+   `lvmsync verify <source> <dest>`
+
 ## Usage
 
 - `lvmsync manifest rebuild <device>` regenerates a manifest when one is
   missing or out of date.
-- `lvmsync verify --manifest_path <manifest> <source> <dest>` compares a source
-  and destination using the manifest.
+- `lvmsync verify <source> <dest>` compares a destination against the manifest
+  for the source. Override the manifest path with `--manifest_path` if needed.
 
 Chunk offsets are determined using FastCDC. The gear table now uses the
 standard 256-entry random values from the FastCDC specification, replacing the
@@ -85,7 +93,7 @@ Progress logs are emitted every 10s by default; adjust with
 Use a manifest to verify that a source and destination match:
 
 ```sh
-lvmsync verify --manifest_path snapshot.manifest /dev/vg0/snap0 /dev/null
+lvmsync verify /dev/vg0/snap0 /dev/null
 ```
 
 #### Flags
