@@ -202,6 +202,9 @@ func validateCmd(path string, args []string) error {
 	if path == "" {
 		return fmt.Errorf("command path is empty")
 	}
+	if !filepath.IsAbs(path) {
+		return fmt.Errorf("command path must be absolute")
+	}
 	if strings.ContainsRune(path, '\x00') {
 		return fmt.Errorf("command path contains NUL byte")
 	}

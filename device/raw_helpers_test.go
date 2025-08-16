@@ -3,6 +3,7 @@ package device
 import (
 	"context"
 	"os"
+	"os/exec"
 	"testing"
 	"time"
 
@@ -10,7 +11,11 @@ import (
 )
 
 func TestPrepareFreezeSuccess(t *testing.T) {
-	issued, err := prepareFreeze(context.Background(), false, "true", nil, "true", nil, time.Second, zap.NewNop())
+	truePath, err := exec.LookPath("true")
+	if err != nil {
+		t.Fatalf("missing true binary: %v", err)
+	}
+	issued, err := prepareFreeze(context.Background(), false, truePath, nil, truePath, nil, time.Second, zap.NewNop())
 	if err != nil {
 		t.Fatalf("prepareFreeze: %v", err)
 	}
@@ -20,7 +25,15 @@ func TestPrepareFreezeSuccess(t *testing.T) {
 }
 
 func TestPrepareFreezeFailure(t *testing.T) {
-	if _, err := prepareFreeze(context.Background(), false, "false", nil, "true", nil, time.Second, zap.NewNop()); err == nil {
+	falsePath, err := exec.LookPath("false")
+	if err != nil {
+		t.Fatalf("missing false binary: %v", err)
+	}
+	truePath, err := exec.LookPath("true")
+	if err != nil {
+		t.Fatalf("missing true binary: %v", err)
+	}
+	if _, err := prepareFreeze(context.Background(), false, falsePath, nil, truePath, nil, time.Second, zap.NewNop()); err == nil {
 		t.Fatalf("expected freeze command failure")
 	}
 }
