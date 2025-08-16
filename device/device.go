@@ -19,3 +19,11 @@ type Device interface {
 	// Close releases any resources associated with the device.
 	Close() error
 }
+
+// Device type identifiers for Detect and CLI hints.
+const (
+	TypeAuto = "auto"
+	TypeFile = "file"
+	TypeLVM  = "lvm"
+	TypeRaw  = "raw"
+)

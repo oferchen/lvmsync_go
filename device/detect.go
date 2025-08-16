@@ -21,10 +21,10 @@ var openRawFunc = OpenRaw
 func detectFileDevice(path string, logger *zap.Logger) (Device, error) {
 	dev, err := OpenFile(path, logger)
 	if err != nil {
-		logger.Error("detect device failed", zap.String("path", path), zap.String("device_type", "file"), zap.Error(err))
+		logger.Error("detect device failed", zap.String("path", path), zap.String("device_type", TypeFile), zap.Error(err))
 		return nil, err
 	}
-	logger.Info("detect device success", zap.String("path", path), zap.String("device_type", "file"))
+	logger.Info("detect device success", zap.String("path", path), zap.String("device_type", TypeFile))
 	return dev, nil
 }
 
@@ -34,10 +34,10 @@ func detectLVMDevice(path, lvmEscalation string, logger *zap.Logger) (Device, er
 	defer cache.Close()
 	dev, err := openLVMFunc(path, cache, lvmEscalation, logger)
 	if err != nil {
-		logger.Error("detect device failed", zap.String("path", path), zap.String("device_type", "lvm"), zap.Error(err))
+		logger.Error("detect device failed", zap.String("path", path), zap.String("device_type", TypeLVM), zap.Error(err))
 		return nil, err
 	}
-	logger.Info("detect device success", zap.String("path", path), zap.String("device_type", "lvm"))
+	logger.Info("detect device success", zap.String("path", path), zap.String("device_type", TypeLVM))
 	return dev, nil
 }
 
@@ -67,19 +67,20 @@ func detectRawDevice(ctx context.Context, path string, offline bool, fsFreezeCmd
 	}
 	dev, err := openRawFunc(ctx, path, offline, freezePath, freezeArgs, thawPath, thawArgs, freezeTimeout, thawTimeout, logger)
 	if err != nil {
-		logger.Error("detect device failed", zap.String("path", path), zap.String("device_type", "raw"), zap.Error(err))
+		logger.Error("detect device failed", zap.String("path", path), zap.String("device_type", TypeRaw), zap.Error(err))
 		return nil, err
 	}
-	logger.Info("detect device success", zap.String("path", path), zap.String("device_type", "raw"))
+	logger.Info("detect device success", zap.String("path", path), zap.String("device_type", TypeRaw))
 	return dev, nil
 }
 
 // Detect inspects the path and returns the appropriate Device implementation.
 // Regular files return FileDevice, block devices are classified as either LVM
-// logical volumes or raw devices based on LVM metadata. When typeHint is not
-// empty or "auto", Detect will attempt to open the device using the explicit
-// type and will not perform auto detection. logger must be non-nil.
-func Detect(ctx context.Context, path string, offline bool, typeHint, fsFreezeCmd, fsThawCmd, lvmEscalation string, freezeTimeout, thawTimeout time.Duration, logger *zap.Logger) (Device, error) {
+// logical volumes or raw devices based on LVM metadata. When explicitType is
+// set via --source-type or --dest-type and is not TypeAuto, Detect will attempt
+// to open the device using the explicit type without auto detection. logger
+// must be non-nil.
+func Detect(ctx context.Context, path string, offline bool, explicitType, fsFreezeCmd, fsThawCmd, lvmEscalation string, freezeTimeout, thawTimeout time.Duration, logger *zap.Logger) (Device, error) {
 	if logger == nil {
 		return nil, fmt.Errorf("logger is nil")
 	}
@@ -93,25 +94,25 @@ func Detect(ctx context.Context, path string, offline bool, typeHint, fsFreezeCm
 		logger.Error("device detect failed", zap.String("path", resolved), zap.String("device_type", "stat"), zap.Error(err))
 		return nil, err
 	}
-	if typeHint != "" && typeHint != "auto" {
-		switch typeHint {
-		case "file":
+	if explicitType != "" && explicitType != TypeAuto {
+		switch explicitType {
+		case TypeFile:
 			if !info.Mode().IsRegular() {
 				return nil, fmt.Errorf("expected regular file for type file: %s", resolved)
 			}
 			return detectFileDevice(resolved, logger)
-		case "lvm":
+		case TypeLVM:
 			if info.Mode()&os.ModeDevice == 0 || info.Mode()&os.ModeCharDevice != 0 {
 				return nil, fmt.Errorf("expected block device for type lvm: %s", resolved)
 			}
 			return detectLVMDevice(resolved, lvmEscalation, logger)
-		case "raw":
+		case TypeRaw:
 			if info.Mode()&os.ModeDevice == 0 || info.Mode()&os.ModeCharDevice != 0 {
 				return nil, fmt.Errorf("expected block device for type raw: %s", resolved)
 			}
 			return detectRawDevice(ctx, resolved, offline, fsFreezeCmd, fsThawCmd, freezeTimeout, thawTimeout, logger)
 		default:
-			return nil, fmt.Errorf("unknown device type %q", typeHint)
+			return nil, fmt.Errorf("unknown device type %q", explicitType)
 		}
 	}
 	if info.Mode().IsRegular() {

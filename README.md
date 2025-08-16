@@ -47,6 +47,12 @@ LVMSync is a high-performance incremental data replication tool for LVM snapshot
 
 Override automatic detection with `--source-type` and `--dest-type` when a device's type is known in advance.
 
+### Offline requirements
+
+Raw sources must be quiescent or provide filesystem freeze/thaw hooks using
+`--fs-freeze-command` and `--fs-thaw-command`. LVM snapshots are consistent by
+design, while regular files require no additional coordination.
+
 ## Transport Options
 
 LVMSync negotiates transports in the order provided by `--transport` (default
