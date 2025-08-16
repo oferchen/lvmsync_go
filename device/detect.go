@@ -30,6 +30,10 @@ func detectFileDevice(path string, logger *zap.Logger) (Device, error) {
 
 // detectLVMDevice opens an LVM logical volume.
 func detectLVMDevice(path, lvmEscalation string, logger *zap.Logger) (Device, error) {
+	if err := lvm.VerifyEscalationCommand(lvmEscalation); err != nil {
+		logger.Error("detect device failed", zap.String("path", path), zap.String("device_type", TypeLVM), zap.Error(err))
+		return nil, err
+	}
 	cache := lvm.NewDeviceFDCache(logger)
 	defer cache.Close()
 	dev, err := openLVMFunc(path, cache, lvmEscalation, logger)

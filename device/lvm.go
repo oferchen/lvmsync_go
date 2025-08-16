@@ -70,6 +70,9 @@ var (
 )
 
 func runLVM(ctx context.Context, escalation, cmdName string, args ...string) error {
+	if err := lvm.VerifyEscalationCommand(escalation); err != nil {
+		return err
+	}
 	if geteuid() != 0 {
 		parts := strings.Fields(escalation)
 		if len(parts) > 0 {

@@ -87,6 +87,24 @@ func TestDetectLVMDeviceError(t *testing.T) {
 	}
 }
 
+func TestDetectLVMDeviceEscalationError(t *testing.T) {
+	restore := lvm.SetEscalationChecker(func(string) error { return errors.New("escalate fail") })
+	defer restore()
+	orig := openLVMFunc
+	called := false
+	openLVMFunc = func(string, *lvm.FDCache, string, *zap.Logger) (*LVMDevice, error) {
+		called = true
+		return &LVMDevice{path: "/dev/test", logger: zap.NewNop()}, nil
+	}
+	defer func() { openLVMFunc = orig }()
+	if _, err := detectLVMDevice("/dev/test", "sudo -n", zap.NewNop()); err == nil {
+		t.Fatalf("expected error")
+	}
+	if called {
+		t.Fatalf("openLVMFunc should not be called on escalation failure")
+	}
+}
+
 func TestDetectRawDeviceSuccess(t *testing.T) {
 	orig := openRawFunc
 	openRawFunc = func(ctx context.Context, path string, offline bool, freezePath string, freezeArgs []string, thawPath string, thawArgs []string, freezeTimeout, thawTimeout time.Duration, logger *zap.Logger) (*RawDevice, error) {
