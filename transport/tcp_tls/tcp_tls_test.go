@@ -492,6 +492,34 @@ func TestTCPTLSTransportRequiresClientCert(t *testing.T) {
 	}
 }
 
+func TestTCPTLSListenCloseErrorWarn(t *testing.T) {
+	cert, root := generateSelfSignedCert(t)
+	core, obs := observer.New(zap.WarnLevel)
+	logger := zap.New(core)
+	ctx, cancel := context.WithCancel(context.Background())
+	trIface, err := New(transport.Config{Logger: logger, Roots: root, ClientCert: cert})
+	if err != nil {
+		t.Fatalf("new transport: %v", err)
+	}
+	tr := trIface.(*Transport)
+	ln, err := tr.Listen(ctx, "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	if err := ln.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+	cancel()
+	time.Sleep(10 * time.Millisecond)
+	entries := obs.FilterMessage("listener_close_error").All()
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 warning log, got %d", len(entries))
+	}
+	if entries[0].Level != zapcore.WarnLevel {
+		t.Fatalf("expected warn level, got %s", entries[0].Level)
+	}
+}
+
 func generateSelfSignedCert(t *testing.T) (tls.Certificate, *x509.CertPool) {
 	t.Helper()
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
