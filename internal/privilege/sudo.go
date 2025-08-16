@@ -16,6 +16,9 @@ func (s *sudoEscalator) Ensure() error {
 		if _, err := lookPath("sudo"); err != nil {
 			return fmt.Errorf("sudo not found: %w", err)
 		}
+		if err := execCommand("sudo", "-n", "true").Run(); err != nil {
+			return fmt.Errorf("sudo escalation failed: %w", err)
+		}
 		return nil
 	}
 	return checkCaps()
