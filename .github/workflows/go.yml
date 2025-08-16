@@ -89,6 +89,18 @@ jobs:
 
       - name: golangci-lint
         run: golangci-lint run
+        
+      - name: Build, test, and lint
+        run: make verify
+
+      - name: Verify prune candidates
+        run: |
+          go run ./cmd/reachmap > .prune_candidates.txt
+          test ! -s .prune_candidates.txt
+
+      - name: Verify gaps resolved
+        run: |
+          jq -e 'map(select(.type | contains("(resolved)") | not)) | length == 0' reports/machine/gaps.json
 
       - name: Show coverage
         run: go tool cover -func=coverage.out | tail -n 1
