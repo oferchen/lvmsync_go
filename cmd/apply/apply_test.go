@@ -25,9 +25,8 @@ func TestRun(t *testing.T) {
 	dest := "/dev/null"
 
 	called := false
-	origApply := applyFunc
-	origDetect := detectDevice
-	applyFunc = func(c *config.Config, applyFileArg, destDevice string, _ *zap.Logger) error {
+	r := NewRunner()
+	r.applyFunc = func(c *config.Config, applyFileArg, destDevice string, _ *zap.Logger) error {
 		called = true
 		if applyFileArg != applyFile {
 			t.Fatalf("expected applyFile %s, got %s", applyFile, applyFileArg)
@@ -37,12 +36,11 @@ func TestRun(t *testing.T) {
 		}
 		return nil
 	}
-	detectDevice = func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger, *device.Runner) (device.Device, error) {
+	r.detectDevice = func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger, *device.Runner) (device.Device, error) {
 		return &fakeDevice{path: dest}, nil
 	}
-	defer func() { applyFunc = origApply; detectDevice = origDetect }()
 
-	if err := Run(cfg, applyFile, []string{dest}, zap.NewNop()); err != nil {
+	if err := r.Run(cfg, applyFile, []string{dest}, zap.NewNop()); err != nil {
 		t.Fatalf("Run returned error: %v", err)
 	}
 	if !called {
@@ -69,14 +67,12 @@ func TestRunSyncsLogger(t *testing.T) {
 	logger := zap.New(core)
 	applyFile := "dumpfile"
 	dest := "/dev/null"
-	origApply := applyFunc
-	origDetect := detectDevice
-	applyFunc = func(*config.Config, string, string, *zap.Logger) error { return nil }
-	detectDevice = func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger, *device.Runner) (device.Device, error) {
+	r := NewRunner()
+	r.applyFunc = func(*config.Config, string, string, *zap.Logger) error { return nil }
+	r.detectDevice = func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger, *device.Runner) (device.Device, error) {
 		return &fakeDevice{path: dest}, nil
 	}
-	defer func() { applyFunc = origApply; detectDevice = origDetect }()
-	if err := Run(cfg, applyFile, []string{dest}, logger); err != nil {
+	if err := r.Run(cfg, applyFile, []string{dest}, logger); err != nil {
 		t.Fatalf("Run returned error: %v", err)
 	}
 	if core.count != 1 {
@@ -141,14 +137,12 @@ func TestRunVerifyModes(t *testing.T) {
 			if d := tc.setDigest(destFile); d != "" {
 				t.Setenv("LVMSYNC_SOURCE_DIGEST", d)
 			}
-			origApply := applyFunc
-			origDetect := detectDevice
-			applyFunc = func(*config.Config, string, string, *zap.Logger) error { return nil }
-			detectDevice = func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger, *device.Runner) (device.Device, error) {
+			r := NewRunner()
+			r.applyFunc = func(*config.Config, string, string, *zap.Logger) error { return nil }
+			r.detectDevice = func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger, *device.Runner) (device.Device, error) {
 				return &fakeDevice{path: destFile}, nil
 			}
-			defer func() { applyFunc = origApply; detectDevice = origDetect }()
-			err = Run(cfg, "-", []string{destFile}, zap.NewNop())
+			err = r.Run(cfg, "-", []string{destFile}, zap.NewNop())
 			if tc.wantErr {
 				if err == nil {
 					t.Fatalf("expected error")
