@@ -9,8 +9,10 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/moby/sys/mountinfo"
+	"go.uber.org/zap"
 )
 
 func TestGetUUIDCanceledContext(t *testing.T) {
@@ -325,6 +327,51 @@ func TestDefaultMountFuncError(t *testing.T) {
 		t.Fatalf("expected error when reading mountinfo file")
 	}
 }
+
+func TestSizeBytes(t *testing.T) {
+	dev := &stubDevice{size: 123}
+	prev := detectFunc
+	detectFunc = func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger, *Runner) (Device, error) {
+		return dev, nil
+	}
+	defer func() { detectFunc = prev }()
+	got, err := SizeBytes(context.Background(), "/dev/fake")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != 123 {
+		t.Fatalf("SizeBytes() = %d, want 123", got)
+	}
+}
+
+func TestSizeBytesCloseError(t *testing.T) {
+	want := errors.New("close boom")
+	dev := &stubDevice{size: 456, closeErr: want}
+	prev := detectFunc
+	detectFunc = func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger, *Runner) (Device, error) {
+		return dev, nil
+	}
+	defer func() { detectFunc = prev }()
+	got, err := SizeBytes(context.Background(), "/dev/fake")
+	if !errors.Is(err, want) {
+		t.Fatalf("expected %v, got %v", want, err)
+	}
+	if got != 456 {
+		t.Fatalf("SizeBytes() = %d, want 456", got)
+	}
+}
+
+type stubDevice struct {
+	size     uint64
+	closeErr error
+}
+
+func (s *stubDevice) Path() string                                     { return "" }
+func (s *stubDevice) SizeBytes() uint64                                { return s.size }
+func (s *stubDevice) BlockSize() uint64                                { return 0 }
+func (s *stubDevice) Snapshot(context.Context, string) (Device, error) { return nil, nil }
+func (s *stubDevice) Cleanup(context.Context) error                    { return nil }
+func (s *stubDevice) Close() error                                     { return s.closeErr }
 
 func mountFuncFromMountInfoFile(p string) func(string) (bool, error) {
 	return func(path string) (bool, error) {

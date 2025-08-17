@@ -2,6 +2,7 @@ package device
 
 import (
 	"context"
+	"fmt"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -17,6 +18,7 @@ var (
 	uuidFunc    = defaultUUIDFunc
 	lvmUUIDFunc = defaultLVMUUIDFunc
 	mountFunc   = defaultMountFunc
+	detectFunc  = Detect
 )
 
 // SetUUIDFunc allows tests to override the implementation used to lookup a
@@ -137,14 +139,19 @@ func defaultMountFunc(path string) (bool, error) {
 
 // SizeBytes returns the total size of the device at path in bytes.
 // If ctx has no deadline, a default timeout is applied.
-func SizeBytes(ctx context.Context, path string) (uint64, error) {
+func SizeBytes(ctx context.Context, path string) (size uint64, err error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	dev, err := Detect(ctx, path, true, "", "", "", "", 0, 0, zap.NewNop(), NewRunner())
+	dev, err := detectFunc(ctx, path, true, "", "", "", "", 0, 0, zap.NewNop(), NewRunner())
 	if err != nil {
 		return 0, err
 	}
-	defer dev.Close()
-	return dev.SizeBytes(), nil
+	defer func() {
+		if closeErr := dev.Close(); closeErr != nil {
+			err = fmt.Errorf("close block device: %w", closeErr)
+		}
+	}()
+	size = dev.SizeBytes()
+	return size, err
 }
