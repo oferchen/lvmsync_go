@@ -166,7 +166,7 @@ func dialWithRetry(ctx context.Context, logger *zap.Logger, addr string, config 
 // executable on the remote host by attempting to run it with a --version flag.
 // It returns an error if the command is missing or cannot be executed.
 func (c *SSHClient) ValidateRemoteCommand(ctx context.Context, remoteCmd string) error {
-	if strings.ContainsAny(remoteCmd, "&|;<>$`\"'!*") {
+	if strings.ContainsAny(remoteCmd, "&|;<>$`\"'!\n\r*") {
 		return fmt.Errorf("remote command contains shell metacharacters")
 	}
 	tokens := strings.Fields(remoteCmd)
