@@ -24,7 +24,7 @@ func TestSetupSSHClient(t *testing.T) {
 	}
 
 	t.Run("success", func(t *testing.T) {
-		dummy := &remote.SSHClient{}
+		dummy := &remote.SSHClient{Logger: zap.NewNop()}
 		called := false
 		newSSHClient = func(ctx context.Context, host, user, keyPath string, port int, knownHostsPath string, verify bool, timeout, keepAliveInterval time.Duration, retries int, logger *zap.Logger) (*remote.SSHClient, error) {
 			called = true

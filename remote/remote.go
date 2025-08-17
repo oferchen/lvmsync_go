@@ -24,9 +24,8 @@ var RemoteCmdRe = regexp.MustCompile("^[a-zA-Z0-9._-]+$")
 
 // SSHClient wraps an ssh.Client and provides structured logging.
 //
-// The embedded *zap.Logger defaults to a no-op logger when nil to avoid
-// nil-pointer dereferences while still allowing callers to inject their own
-// logger for observability.
+// The embedded *zap.Logger must be non-nil; callers can pass
+// zap.NewNop() to disable logging.
 type SSHClient struct {
 	*ssh.Client
 	*zap.Logger
@@ -35,7 +34,8 @@ type SSHClient struct {
 // NewSSHClient establishes an SSH connection to the given host using either a
 // private key or the local SSH agent for authentication. The connection is
 // configured with a keep-alive mechanism and host key verification based on the
-// provided known_hosts file.
+// provided known_hosts file. The logger must not be nil; use zap.NewNop() when
+// logging is undesired.
 func NewSSHClient(
 	ctx context.Context,
 	host, user, keyPath string,
@@ -46,9 +46,6 @@ func NewSSHClient(
 	retries int,
 	logger *zap.Logger,
 ) (*SSHClient, error) {
-	if logger == nil {
-		logger = zap.NewNop()
-	}
 
 	authMethods, err := selectAuthMethods(ctx, logger, keyPath, timeout)
 	if err != nil {
