@@ -37,6 +37,19 @@ LVMSync is a high-performance incremental data replication tool for LVM snapshot
 - **Flexible Configuration**: Flags, environment variables, or `config.yaml`. See [Configuration](#configuration).
 - **Configuration Validation**: Checks key parameters (e.g., volume group existence, escalation command) before starting operations.
 
+## Supported Platforms
+
+LVMSync supports Linux only. A runtime check in [`main.go`](main.go) aborts
+execution on other operating systems with exit code `30`. The project is
+regularly tested on `amd64` and `arm64` architectures.
+
+To cross-compile for another Linux architecture, set `GOOS=linux` and the
+desired `GOARCH`:
+
+```sh
+GOOS=linux GOARCH=arm64 go build ./...
+```
+
 ## Device Support Matrix
 
 | Device type      | Source | Destination | Notes |
