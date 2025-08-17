@@ -188,10 +188,8 @@ func (t *Transfer) DumpChanges(cfg *config.Config, snapshot, source string, out 
 	return t.DumpChangesSequential(cfg, snapshot, source, out)
 }
 
-const manifestHeaderSize = 136
-
 func manifestHeaderMAC(h *manifestpkg.Header) [32]byte {
-	var buf [manifestHeaderSize - 32]byte
+	var buf [manifestpkg.HeaderSize - 32]byte
 	binary.LittleEndian.PutUint32(buf[0:4], h.Version)
 	binary.LittleEndian.PutUint32(buf[4:8], h.BlockSize)
 	binary.LittleEndian.PutUint64(buf[8:16], h.SizeBytes)
