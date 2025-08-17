@@ -15,9 +15,9 @@ func run(newLogger func() (*zap.Logger, error), runner *Runner) int {
 	if err != nil {
 		return exitcode.ErrConfig
 	}
+	defer rootcmd.SyncLogger(logger)
 	if err := runner.Execute(nil, logger); err != nil {
 		logger.Error("run failed", zap.Error(err))
-		rootcmd.SyncLogger(logger)
 		return exitcode.ErrRuntime
 	}
 	return exitcode.OK
