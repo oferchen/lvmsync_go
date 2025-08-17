@@ -50,6 +50,8 @@ func TestDetectFileDeviceError(t *testing.T) {
 }
 
 func TestDetectLVMDeviceSuccess(t *testing.T) {
+	restore := lvm.SetEscalationChecker(func(string) error { return nil })
+	defer restore()
 	core, logs := observer.New(zap.InfoLevel)
 	logger := zap.New(core)
 	runner := NewRunner()
@@ -77,6 +79,8 @@ func TestDetectLVMDeviceSuccess(t *testing.T) {
 }
 
 func TestDetectLVMDeviceError(t *testing.T) {
+	restore := lvm.SetEscalationChecker(func(string) error { return nil })
+	defer restore()
 	runner := NewRunner()
 	runner.openLVMOverride = func(string, *lvm.FDCache, string, *zap.Logger) (*LVMDevice, error) {
 		return nil, errors.New("fail")
