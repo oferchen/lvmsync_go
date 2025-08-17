@@ -11,7 +11,7 @@ parallel: 4  # Number of concurrent workers
 zerocopy: false
 max_retries: 3  # Maximum number of retries per block
 resume: ""  # Path to resume state file
-sync_interval: "1GB"  # Bytes between fdatasync calls (supports size suffixes like "64KB"; invalid values error)
+sync-interval: "1GB"  # Bytes between fdatasync calls (supports size suffixes like "64KB"; invalid values error)
 
 # Manifest Options
 manifest_timeout: 1m  # Timeout for manifest rebuild (0 disables)

@@ -120,7 +120,7 @@ func (b *builder) applyDefaults(conf *Config) error {
 	}
 	conf.SpeedLimit = sl
 
-	si, err := b.parseBytesOrFallback("sync_interval", b.defaults.SyncInterval)
+	si, err := b.parseBytesOrFallback("sync-interval", b.defaults.SyncInterval)
 	if err != nil {
 		return err
 	}
@@ -188,7 +188,7 @@ func (b *builder) applyThroughput(conf *Config) {
 	if !b.v.IsSet("odirect") {
 		conf.ODirect = true
 	}
-	if !b.v.IsSet("sync_interval") {
+	if !b.v.IsSet("sync-interval") {
 		conf.SyncInterval = "1GB"
 		conf.SyncIntervalBytes = 1000000000
 	}
@@ -318,6 +318,9 @@ func buildViper(flagSets *FlagSets) (*viper.Viper, []string, error) {
 	v.RegisterAlias("compress_threshold", "compress-threshold")
 	v.RegisterAlias("lvm_escalation", "lvm-escalation")
 	v.RegisterAlias("intra_dedup", "intra-dedup")
+	v.RegisterAlias("freeze_timeout", "freeze-timeout")
+	v.RegisterAlias("thaw_timeout", "thaw-timeout")
+	v.RegisterAlias("sync_interval", "sync-interval")
 	if err := bindTransportEnv(flagSets.Transport, v); err != nil {
 		return nil, nil, err
 	}

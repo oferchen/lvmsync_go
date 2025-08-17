@@ -37,8 +37,8 @@ type Config struct {
 	Offline                  bool          `mapstructure:"offline"`
 	FSFreezeCommand          string        `mapstructure:"fs-freeze-command"`
 	FSThawCommand            string        `mapstructure:"fs-thaw-command"`
-	FreezeTimeout            time.Duration `mapstructure:"freeze_timeout"`
-	ThawTimeout              time.Duration `mapstructure:"thaw_timeout"`
+	FreezeTimeout            time.Duration `mapstructure:"freeze-timeout"`
+	ThawTimeout              time.Duration `mapstructure:"thaw-timeout"`
 	Mode                     string        `mapstructure:"mode"`
 	Parallel                 int           `mapstructure:"parallel"`
 	Concurrency              int           `mapstructure:"concurrency"`
@@ -118,7 +118,7 @@ type Config struct {
 	TCPPort                  int           `mapstructure:"tcp_port"`
 	TCPParallel              int           `mapstructure:"tcp_parallel"`
 	TCPNotSentLowAt          int           `mapstructure:"tcp_lowat"`
-	SyncInterval             string        `mapstructure:"sync_interval"`
+	SyncInterval             string        `mapstructure:"sync-interval"`
 	CheckpointInterval       time.Duration `mapstructure:"checkpoint_interval"`
 	CheckpointBytesRaw       string        `mapstructure:"checkpoint_bytes"`
 	SyncIntervalBytes        int           `mapstructure:"-"`
