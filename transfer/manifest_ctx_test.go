@@ -8,6 +8,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -28,6 +29,15 @@ func writeHeader(t *testing.T, path string) {
 		t.Fatalf("write header: %v", err)
 	}
 	f.Close()
+}
+
+func TestReadManifestHeaderNilContext(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "man")
+	writeHeader(t, p)
+	if _, err := readManifestHeader(nil, p, 0); err == nil || !strings.Contains(err.Error(), "nil context") {
+		t.Fatalf("expected nil context error, got %v", err)
+	}
 }
 
 func TestReadManifestHeaderCanceled(t *testing.T) {
