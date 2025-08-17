@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
@@ -33,22 +34,77 @@ var ErrRemoteCommand = errors.New("remote command error")
 
 const maxFrame = 1 << 20
 
-var (
-	dumpChangesSequential = func(ctx context.Context, t *transfer.Transfer, cfg *config.Config, snap, origin string, out io.Writer) error {
-		return t.DumpChangesSequential(ctx, cfg, snap, origin, out)
+// Runner manages external interactions for dump operations.
+type Runner struct {
+	dumpSeq        func(context.Context, *transfer.Transfer, *config.Config, string, string, io.Writer) error
+	dumpPar        func(context.Context, *transfer.Transfer, *config.Config, string, string, io.Writer) error
+	dumpDedup      func(context.Context, *transfer.Transfer, *config.Config, string, string, io.Writer, transfer.DeduplicationStrategy) error
+	newSSHClient   func(context.Context, string, string, string, int, string, bool, time.Duration, time.Duration, int, *zap.Logger) (*remote.SSHClient, error)
+	openFile       func(string, int, os.FileMode) (*os.File, error)
+	detectDevice   func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger, *device.Runner) (device.Device, error)
+	sumFile        func(string, string) ([32]byte, error)
+	streamToRemote func(context.Context, *config.Config, io.WriteCloser, string, string, string, *zap.Logger) error
+}
+
+// NewRunner constructs a Runner with production dependencies.
+func NewRunner() *Runner {
+	r := &Runner{
+		dumpSeq: func(ctx context.Context, t *transfer.Transfer, cfg *config.Config, snap, origin string, out io.Writer) error {
+			return t.DumpChangesSequential(ctx, cfg, snap, origin, out)
+		},
+		dumpPar: func(ctx context.Context, t *transfer.Transfer, cfg *config.Config, snap, origin string, out io.Writer) error {
+			return t.DumpChangesParallel(ctx, cfg, snap, origin, out)
+		},
+		dumpDedup: func(ctx context.Context, t *transfer.Transfer, cfg *config.Config, snap, origin string, out io.Writer, d transfer.DeduplicationStrategy) error {
+			return t.DumpChangesWithDeduplication(ctx, cfg, snap, origin, out, d)
+		},
+		newSSHClient: remote.NewSSHClient,
+		openFile:     os.OpenFile,
+		detectDevice: device.Detect,
+		sumFile:      digestpkg.SumFile,
 	}
-	dumpChangesParallel = func(ctx context.Context, t *transfer.Transfer, cfg *config.Config, snap, origin string, out io.Writer) error {
-		return t.DumpChangesParallel(ctx, cfg, snap, origin, out)
+	r.streamToRemote = r.StreamToRemote
+	return r
+}
+
+// NewRunnerWithDeps constructs a Runner overriding defaults.
+func NewRunnerWithDeps(deps *Runner) *Runner {
+	r := NewRunner()
+	if deps == nil {
+		return r
 	}
-	dumpChangesWithDeduplication = func(ctx context.Context, t *transfer.Transfer, cfg *config.Config, snap, origin string, out io.Writer, d transfer.DeduplicationStrategy) error {
-		return t.DumpChangesWithDeduplication(ctx, cfg, snap, origin, out, d)
+	if deps.dumpSeq != nil {
+		r.dumpSeq = deps.dumpSeq
 	}
-	newSSHClient   = remote.NewSSHClient
-	openFile       = os.OpenFile
-	detectDevice   = device.Detect
-	sumFile        = digestpkg.SumFile
-	streamToRemote = StreamToRemote
-)
+	if deps.dumpPar != nil {
+		r.dumpPar = deps.dumpPar
+	}
+	if deps.dumpDedup != nil {
+		r.dumpDedup = deps.dumpDedup
+	}
+	if deps.newSSHClient != nil {
+		r.newSSHClient = deps.newSSHClient
+	}
+	if deps.openFile != nil {
+		r.openFile = deps.openFile
+	}
+	if deps.detectDevice != nil {
+		r.detectDevice = deps.detectDevice
+	}
+	if deps.sumFile != nil {
+		r.sumFile = deps.sumFile
+	}
+	if deps.streamToRemote != nil {
+		r.streamToRemote = deps.streamToRemote
+	}
+	return r
+}
+
+func init() {
+	r := NewRunner()
+	rootcmd.RegisterDump(r.Run)
+	rootcmd.RegisterSelectTransport(SelectTransport)
+}
 
 var copyBufferPool = sync.Pool{New: func() any {
 	buf := make([]byte, 32*1024)
@@ -124,7 +180,7 @@ func init() {
 }
 
 // ExecuteDump selects the appropriate dump implementation based on configuration.
-func ExecuteDump(ctx context.Context, cfg *config.Config, snapshotDevice, originDevice string, out io.Writer, logger *zap.Logger) error {
+func (r *Runner) ExecuteDump(ctx context.Context, cfg *config.Config, snapshotDevice, originDevice string, out io.Writer, logger *zap.Logger) error {
 	t := transfer.NewTransfer(logger, &sync.WaitGroup{})
 	dedup := transfer.NewDeduplicationStrategy(cfg, logger)
 	if dedup != nil {
@@ -133,18 +189,18 @@ func ExecuteDump(ctx context.Context, cfg *config.Config, snapshotDevice, origin
 				logger.Error("Failed to save dedup state", zap.Error(err))
 			}
 		}()
-		return dumpChangesWithDeduplication(ctx, t, cfg, snapshotDevice, originDevice, out, dedup)
+		return r.dumpDedup(ctx, t, cfg, snapshotDevice, originDevice, out, dedup)
 	}
 	if cfg.Parallel <= 1 {
-		return dumpChangesSequential(ctx, t, cfg, snapshotDevice, originDevice, out)
+		return r.dumpSeq(ctx, t, cfg, snapshotDevice, originDevice, out)
 	}
-	return dumpChangesParallel(ctx, t, cfg, snapshotDevice, originDevice, out)
+	return r.dumpPar(ctx, t, cfg, snapshotDevice, originDevice, out)
 }
 
 // Run executes client mode transferring data to dest and returns the destination type.
-func Run(ctx context.Context, cfg *config.Config, source, dest string, logger *zap.Logger) (string, error) {
+func (r *Runner) Run(ctx context.Context, cfg *config.Config, source, dest string, logger *zap.Logger) (string, error) {
 	defer rootcmd.SyncLogger(logger)
-	dev, err := detectDevice(ctx, source, cfg.Offline, cfg.SourceType, cfg.FSFreezeCommand, cfg.FSThawCommand, cfg.LVMEscalation, cfg.FreezeTimeout, cfg.ThawTimeout, logger, device.NewRunner())
+	dev, err := r.detectDevice(ctx, source, cfg.Offline, cfg.SourceType, cfg.FSFreezeCommand, cfg.FSThawCommand, cfg.LVMEscalation, cfg.FreezeTimeout, cfg.ThawTimeout, logger, device.NewRunner())
 	if err != nil {
 		return cfg.DestType, err
 	}
@@ -179,16 +235,16 @@ func Run(ctx context.Context, cfg *config.Config, source, dest string, logger *z
 	}()
 	if cfg.StdoutMode {
 		limitedOut := transfer.WrapRateLimitedWriter(os.Stdout, cfg.SpeedLimit)
-		return cfg.DestType, ExecuteDump(ctx, cfg, snapshotDevice, originDevice, limitedOut, logger)
+		return cfg.DestType, r.ExecuteDump(ctx, cfg, snapshotDevice, originDevice, limitedOut, logger)
 	}
 	if strings.Contains(dest, ":") {
-		return cfg.DestType, RunRemoteDump(ctx, cfg, snapshotDevice, originDevice, dest, logger)
+		return cfg.DestType, r.RunRemoteDump(ctx, cfg, snapshotDevice, originDevice, dest, logger)
 	}
-	return RunLocalDump(ctx, cfg, snapshotDevice, originDevice, dest, logger)
+	return r.RunLocalDump(ctx, cfg, snapshotDevice, originDevice, dest, logger)
 }
 
 // RunLocalDump dumps changes to a local destination device and returns the detected destination type.
-func RunLocalDump(ctx context.Context, cfg *config.Config, snapshotDevice, originDevice, dest string, logger *zap.Logger) (string, error) {
+func (r *Runner) RunLocalDump(ctx context.Context, cfg *config.Config, snapshotDevice, originDevice, dest string, logger *zap.Logger) (string, error) {
 	destType := cfg.DestType
 	if destType == "auto" {
 		if dev, err := device.Detect(context.Background(), dest, true, destType, "", "", cfg.LVMEscalation, cfg.FreezeTimeout, cfg.ThawTimeout, logger, device.NewRunner()); err == nil {
@@ -207,19 +263,19 @@ func RunLocalDump(ctx context.Context, cfg *config.Config, snapshotDevice, origi
 			dev.Close()
 		}
 	}
-	destFile, err := openFile(dest, os.O_RDWR, 0)
+	destFile, err := r.openFile(dest, os.O_RDWR, 0)
 	if err != nil {
 		return destType, fmt.Errorf("failed to open destination device %s: %w", dest, err)
 	}
 	defer common.CloseWithErr(destFile, &err, "close destination device")
 	limitedOut := transfer.WrapRateLimitedWriter(destFile, cfg.SpeedLimit)
-	return destType, ExecuteDump(ctx, cfg, snapshotDevice, originDevice, limitedOut, logger)
+	return destType, r.ExecuteDump(ctx, cfg, snapshotDevice, originDevice, limitedOut, logger)
 }
 
 // SetupSSHClient creates an SSH client for remote operations.
-func SetupSSHClient(ctx context.Context, cfg *config.Config, destHost string, logger *zap.Logger) (*remote.SSHClient, context.CancelFunc, error) {
+func (r *Runner) SetupSSHClient(ctx context.Context, cfg *config.Config, destHost string, logger *zap.Logger) (*remote.SSHClient, context.CancelFunc, error) {
 	ctx, cancel := context.WithTimeout(ctx, cfg.SSHTimeout)
-	client, err := newSSHClient(ctx, destHost, cfg.SSHUser, cfg.SSHKeyPath, cfg.SSHPort, cfg.KnownHosts, cfg.StrictHostKeyCheck, cfg.SSHTimeout, cfg.SSHKeepAliveInterval, cfg.MaxRetries, logger)
+	client, err := r.newSSHClient(ctx, destHost, cfg.SSHUser, cfg.SSHKeyPath, cfg.SSHPort, cfg.KnownHosts, cfg.StrictHostKeyCheck, cfg.SSHTimeout, cfg.SSHKeepAliveInterval, cfg.MaxRetries, logger)
 	if err != nil {
 		cancel()
 		return nil, nil, fmt.Errorf("failed to create SSH client: %w", err)
@@ -266,8 +322,8 @@ func SetupSessionStreams(ctx context.Context, session pipeSession) (io.WriteClos
 
 // StreamToRemote dumps snapshot data to the remote stdin, then computes and
 // transmits the digest before closing the stream.
-func StreamToRemote(ctx context.Context, cfg *config.Config, remoteStdin io.WriteCloser, snapshotDevice, originDevice, alg string, logger *zap.Logger) error {
-	streamErr := ExecuteDump(ctx, cfg, snapshotDevice, originDevice, remoteStdin, logger)
+func (r *Runner) StreamToRemote(ctx context.Context, cfg *config.Config, remoteStdin io.WriteCloser, snapshotDevice, originDevice, alg string, logger *zap.Logger) error {
+	streamErr := r.ExecuteDump(ctx, cfg, snapshotDevice, originDevice, remoteStdin, logger)
 	if streamErr != nil {
 		if err := remoteStdin.Close(); err != nil && !errors.Is(err, io.EOF) {
 			return fmt.Errorf("%v; failed to close remote stdin: %w", streamErr, err)
@@ -275,7 +331,7 @@ func StreamToRemote(ctx context.Context, cfg *config.Config, remoteStdin io.Writ
 		return fmt.Errorf("error during dumpChanges: %w", streamErr)
 	}
 
-	sum, err := sumFile(snapshotDevice, alg)
+	sum, err := r.sumFile(snapshotDevice, alg)
 	if err != nil {
 		remoteStdin.Close()
 		return fmt.Errorf("compute digest: %w", err)
@@ -313,7 +369,7 @@ func WaitForRemoteCompletion(session waitSession, stdoutErrCh, stderrErrCh <-cha
 }
 
 // ExecuteRemoteCommand runs the remote apply command over SSH.
-func ExecuteRemoteCommand(ctx context.Context, cfg *config.Config, client *remote.SSHClient, destDevice, snapshotDevice, originDevice, alg string, logger *zap.Logger) (err error) {
+func (r *Runner) ExecuteRemoteCommand(ctx context.Context, cfg *config.Config, client *remote.SSHClient, destDevice, snapshotDevice, originDevice, alg string, logger *zap.Logger) (err error) {
 	if err = client.ValidateRemoteCommand(ctx, cfg.LVMSyncPath); err != nil {
 		return fmt.Errorf("remote command validation failed: %w", err)
 	}
@@ -340,7 +396,7 @@ func ExecuteRemoteCommand(ctx context.Context, cfg *config.Config, client *remot
 		return fmt.Errorf("failed to start remote command: %w", err)
 	}
 
-	if err = streamToRemote(ctx, cfg, remoteStdin, snapshotDevice, originDevice, alg, logger); err != nil {
+	if err = r.streamToRemote(ctx, cfg, remoteStdin, snapshotDevice, originDevice, alg, logger); err != nil {
 		return err
 	}
 
@@ -348,13 +404,13 @@ func ExecuteRemoteCommand(ctx context.Context, cfg *config.Config, client *remot
 }
 
 // RunRemoteDump streams snapshot data to a remote host over SSH.
-func RunRemoteDump(ctx context.Context, cfg *config.Config, snapshotDevice, originDevice, dest string, logger *zap.Logger) (err error) {
+func (r *Runner) RunRemoteDump(ctx context.Context, cfg *config.Config, snapshotDevice, originDevice, dest string, logger *zap.Logger) (err error) {
 	parts := strings.SplitN(dest, ":", 2)
 	if len(parts) != 2 {
 		return fmt.Errorf("invalid destination %q: expected host:device", dest)
 	}
 	destHost, destDevice := parts[0], parts[1]
-	client, cancel, err := SetupSSHClient(ctx, cfg, destHost, logger)
+	client, cancel, err := r.SetupSSHClient(ctx, cfg, destHost, logger)
 	if err != nil {
 		return err
 	}
@@ -410,7 +466,7 @@ func RunRemoteDump(ctx context.Context, cfg *config.Config, snapshotDevice, orig
 	)
 	validationCtx, cancel := context.WithTimeout(ctx, cfg.SSHTimeout)
 	defer cancel()
-	return ExecuteRemoteCommand(validationCtx, cfg, client, destDevice, snapshotDevice, originDevice, alg, logger)
+	return r.ExecuteRemoteCommand(validationCtx, cfg, client, destDevice, snapshotDevice, originDevice, alg, logger)
 }
 
 // SelectTransport chooses the first supported transport from cfg.Transport and

@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -18,28 +19,51 @@ import (
 	"lvmsync_go/transfer"
 )
 
-// applyFunc allows tests to override the apply implementation.
-var (
-	applyFunc = func(cfg *config.Config, applyFile, destDevice string, logger *zap.Logger) error {
-		t := transfer.NewTransfer(logger, &sync.WaitGroup{})
-		return t.RunApply(cfg, applyFile, destDevice)
+// Runner manages external interactions for the apply command.
+type Runner struct {
+	applyFunc    func(*config.Config, string, string, *zap.Logger) error
+	detectDevice func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger, *device.Runner) (device.Device, error)
+}
+
+// NewRunner constructs a Runner with production dependencies.
+func NewRunner() *Runner {
+	return &Runner{
+		applyFunc: func(cfg *config.Config, applyFile, destDevice string, logger *zap.Logger) error {
+			t := transfer.NewTransfer(logger, &sync.WaitGroup{})
+			return t.RunApply(cfg, applyFile, destDevice)
+		},
+		detectDevice: device.Detect,
 	}
-	detectDevice = device.Detect
-)
+}
+
+// NewRunnerWithDeps constructs a Runner overriding defaults.
+func NewRunnerWithDeps(deps *Runner) *Runner {
+	r := NewRunner()
+	if deps == nil {
+		return r
+	}
+	if deps.applyFunc != nil {
+		r.applyFunc = deps.applyFunc
+	}
+	if deps.detectDevice != nil {
+		r.detectDevice = deps.detectDevice
+	}
+	return r
+}
 
 func init() {
-	rootcmd.RunApply = Run
+	rootcmd.RegisterApply(NewRunner().Run)
 }
 
 // Run executes apply mode using the provided configuration and arguments.
 // args should contain the destination device as the first element.
-func Run(cfg *config.Config, applyFile string, args []string, logger *zap.Logger) error {
+func (r *Runner) Run(cfg *config.Config, applyFile string, args []string, logger *zap.Logger) error {
 	defer rootcmd.SyncLogger(logger)
 	if len(args) < 1 {
 		return fmt.Errorf("no destination device specified for apply mode")
 	}
 	destPath := args[0]
-	dev, err := detectDevice(
+	dev, err := r.detectDevice(
 		context.Background(),
 		destPath,
 		cfg.Offline,
@@ -68,7 +92,7 @@ func Run(cfg *config.Config, applyFile string, args []string, logger *zap.Logger
 		dev.Close()
 		return fmt.Errorf("raw destinations require --skip_snapshot_creation or external freeze hooks")
 	}
-	err = applyFunc(cfg, applyFile, dev.Path(), logger)
+	err = r.applyFunc(cfg, applyFile, dev.Path(), logger)
 	cleanupErr := dev.Cleanup(context.Background())
 	closeErr := dev.Close()
 	if err != nil {

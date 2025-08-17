@@ -17,33 +17,110 @@ import (
 	"lvmsync_go/transport"
 )
 
-// function variables for testing
-var (
-	startGRPCServer   = app.StartGRPCServer
-	clientHandshake   = app.ClientHandshake
-	setupSignalHandle = app.SetupSignalHandling
-	prepareSnapshotFn = app.PrepareSnapshot
-	executeClientFn   = clientpkg.ExecuteClient
-	RunApply          = func(cfg *config.Config, applyFile string, args []string, logger *zap.Logger) error {
-		return fmt.Errorf("apply command not registered")
-	}
-	SelectTransport = func(cfg *config.Config, logger *zap.Logger) (transport.Interface, error) {
-		return nil, fmt.Errorf("transport not registered")
-	}
-	RunDump = func(ctx context.Context, cfg *config.Config, snapshot, dest string, logger *zap.Logger) (string, error) {
-		return "", fmt.Errorf("dump command not registered")
-	}
-	RunManifest = func(cfg *config.Config, args []string, logger *zap.Logger) error {
-		return fmt.Errorf("manifest command not registered")
-	}
-	RunVerify = func(args []string, logger *zap.Logger) error {
-		return fmt.Errorf("verify command not registered")
-	}
-)
+// Runner manages external interactions for the root command.
+type Runner struct {
+	startGRPCServerFn   func(context.Context, *config.Config, *zap.Logger) (func(), <-chan error, error)
+	clientHandshakeFn   func(context.Context, *config.Config, *zap.Logger) (func(), chan error, error)
+	setupSignalHandleFn func(context.Context, *config.Config, *string, *zap.Logger) (chan os.Signal, chan error)
+	prepareSnapshotFn   func(context.Context, *config.Config, string, *zap.Logger) (string, chan error, func(), error)
+	executeClientFn     func(context.Context, func(context.Context, string, string) error, string, string, chan error, chan error, *zap.Logger) error
+	runApplyFn          func(cfg *config.Config, applyFile string, args []string, logger *zap.Logger) error
+	selectTransportFn   func(cfg *config.Config, logger *zap.Logger) (transport.Interface, error)
+	runDumpFn           func(ctx context.Context, cfg *config.Config, snapshot, dest string, logger *zap.Logger) (string, error)
+	runManifestFn       func(cfg *config.Config, args []string, logger *zap.Logger) error
+	runVerifyFn         func(args []string, logger *zap.Logger) error
+}
 
-func runDump(ctx context.Context, cfg *config.Config, snapshot, dest string, logger *zap.Logger) error {
-	_, err := RunDump(ctx, cfg, snapshot, dest, logger)
-	return err
+// NewRunner constructs a Runner with production dependencies.
+func NewRunner() *Runner {
+	return &Runner{
+		startGRPCServerFn:   app.StartGRPCServer,
+		clientHandshakeFn:   app.ClientHandshake,
+		setupSignalHandleFn: app.SetupSignalHandling,
+		prepareSnapshotFn:   app.PrepareSnapshot,
+		executeClientFn:     clientpkg.ExecuteClient,
+		runApplyFn: func(cfg *config.Config, applyFile string, args []string, logger *zap.Logger) error {
+			return fmt.Errorf("apply command not registered")
+		},
+		selectTransportFn: func(cfg *config.Config, logger *zap.Logger) (transport.Interface, error) {
+			return nil, fmt.Errorf("transport not registered")
+		},
+		runDumpFn: func(ctx context.Context, cfg *config.Config, snapshot, dest string, logger *zap.Logger) (string, error) {
+			return "", fmt.Errorf("dump command not registered")
+		},
+		runManifestFn: func(cfg *config.Config, args []string, logger *zap.Logger) error {
+			return fmt.Errorf("manifest command not registered")
+		},
+		runVerifyFn: func(args []string, logger *zap.Logger) error {
+			return fmt.Errorf("verify command not registered")
+		},
+	}
+}
+
+// NewRunnerWithDeps constructs a Runner overriding default dependencies.
+func NewRunnerWithDeps(deps *Runner) *Runner {
+	r := NewRunner()
+	if deps == nil {
+		return r
+	}
+	if deps.startGRPCServerFn != nil {
+		r.startGRPCServerFn = deps.startGRPCServerFn
+	}
+	if deps.clientHandshakeFn != nil {
+		r.clientHandshakeFn = deps.clientHandshakeFn
+	}
+	if deps.setupSignalHandleFn != nil {
+		r.setupSignalHandleFn = deps.setupSignalHandleFn
+	}
+	if deps.prepareSnapshotFn != nil {
+		r.prepareSnapshotFn = deps.prepareSnapshotFn
+	}
+	if deps.executeClientFn != nil {
+		r.executeClientFn = deps.executeClientFn
+	}
+	if deps.runApplyFn != nil {
+		r.runApplyFn = deps.runApplyFn
+	}
+	if deps.selectTransportFn != nil {
+		r.selectTransportFn = deps.selectTransportFn
+	}
+	if deps.runDumpFn != nil {
+		r.runDumpFn = deps.runDumpFn
+	}
+	if deps.runManifestFn != nil {
+		r.runManifestFn = deps.runManifestFn
+	}
+	if deps.runVerifyFn != nil {
+		r.runVerifyFn = deps.runVerifyFn
+	}
+	return r
+}
+
+var defaultRunner = NewRunner()
+
+// RegisterApply sets the apply handler used by the default Runner.
+func RegisterApply(fn func(*config.Config, string, []string, *zap.Logger) error) {
+	defaultRunner.runApplyFn = fn
+}
+
+// RegisterDump sets the dump handler used by the default Runner.
+func RegisterDump(fn func(context.Context, *config.Config, string, string, *zap.Logger) (string, error)) {
+	defaultRunner.runDumpFn = fn
+}
+
+// RegisterSelectTransport sets the transport selector used by the default Runner.
+func RegisterSelectTransport(fn func(*config.Config, *zap.Logger) (transport.Interface, error)) {
+	defaultRunner.selectTransportFn = fn
+}
+
+// RegisterManifest sets the manifest handler used by the default Runner.
+func RegisterManifest(fn func(*config.Config, []string, *zap.Logger) error) {
+	defaultRunner.runManifestFn = fn
+}
+
+// RegisterVerify sets the verify handler used by the default Runner.
+func RegisterVerify(fn func([]string, *zap.Logger) error) {
+	defaultRunner.runVerifyFn = fn
 }
 
 // SyncLogger flushes buffered log entries and logs if syncing fails.
@@ -102,8 +179,8 @@ func Configure() (*config.Config, []string, *zap.Logger, error) {
 }
 
 // SetupGRPC starts the server and performs client handshake returning cleanup functions and heartbeat error channel.
-func SetupGRPC(ctx context.Context, cfg *config.Config, logger *zap.Logger) (func(), func(), chan error, error) {
-	cleanupSrv, srvErrCh, err := startGRPCServer(ctx, cfg, logger)
+func (r *Runner) SetupGRPC(ctx context.Context, cfg *config.Config, logger *zap.Logger) (func(), func(), chan error, error) {
+	cleanupSrv, srvErrCh, err := r.startGRPCServerFn(ctx, cfg, logger)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -115,7 +192,7 @@ func SetupGRPC(ctx context.Context, cfg *config.Config, logger *zap.Logger) (fun
 		}
 	default:
 	}
-	cleanupClient, hbErrCh, err := clientHandshake(ctx, cfg, logger)
+	cleanupClient, hbErrCh, err := r.clientHandshakeFn(ctx, cfg, logger)
 	if err != nil {
 		cleanupSrv()
 		<-srvErrCh
@@ -129,29 +206,45 @@ func SetupGRPC(ctx context.Context, cfg *config.Config, logger *zap.Logger) (fun
 }
 
 // PrepareSnapshot wraps snapshot preparation.
-func PrepareSnapshot(ctx context.Context, cfg *config.Config, originalVolume string, logger *zap.Logger) (string, chan error, func(), error) {
-	return prepareSnapshotFn(ctx, cfg, originalVolume, logger)
+func (r *Runner) PrepareSnapshot(ctx context.Context, cfg *config.Config, originalVolume string, logger *zap.Logger) (string, chan error, func(), error) {
+	return r.prepareSnapshotFn(ctx, cfg, originalVolume, logger)
 }
 
 // ExecuteClient runs the client transfer logic.
+func (r *Runner) ExecuteClient(ctx context.Context, cfg *config.Config, snapshotPath, destPath string, sigErrCh, monitorErrCh chan error, logger *zap.Logger) error {
+	return r.executeClientFn(ctx, func(ctx context.Context, snapshot, dest string) error {
+		_, err := r.runDumpFn(ctx, cfg, snapshot, dest, logger)
+		return err
+	}, snapshotPath, destPath, sigErrCh, monitorErrCh, logger)
+}
+
+// SetupGRPC wraps the default runner's SetupGRPC.
+func SetupGRPC(ctx context.Context, cfg *config.Config, logger *zap.Logger) (func(), func(), chan error, error) {
+	return defaultRunner.SetupGRPC(ctx, cfg, logger)
+}
+
+// PrepareSnapshot wraps the default runner's PrepareSnapshot.
+func PrepareSnapshot(ctx context.Context, cfg *config.Config, originalVolume string, logger *zap.Logger) (string, chan error, func(), error) {
+	return defaultRunner.PrepareSnapshot(ctx, cfg, originalVolume, logger)
+}
+
+// ExecuteClient wraps the default runner's ExecuteClient.
 func ExecuteClient(ctx context.Context, cfg *config.Config, snapshotPath, destPath string, sigErrCh, monitorErrCh chan error, logger *zap.Logger) error {
-	return executeClientFn(ctx, func(ctx context.Context, snapshot, dest string) error {
-		return runDump(ctx, cfg, snapshot, dest, logger)
-	}, snapshotPath, destPath, sigErrCh, monitorErrCh)
+	return defaultRunner.ExecuteClient(ctx, cfg, snapshotPath, destPath, sigErrCh, monitorErrCh, logger)
 }
 
 // Run orchestrates the command execution.
-func dispatchSubcommand(cfg *config.Config, args []string, logger *zap.Logger) (bool, error) {
+func (r *Runner) dispatchSubcommand(cfg *config.Config, args []string, logger *zap.Logger) (bool, error) {
 	if len(args) > 0 {
 		switch args[0] {
 		case "manifest":
-			return true, RunManifest(cfg, args[1:], logger)
+			return true, r.runManifestFn(cfg, args[1:], logger)
 		case "verify":
-			return true, RunVerify(args[1:], logger)
+			return true, r.runVerifyFn(args[1:], logger)
 		}
 	}
 	if cfg.ApplyMode != "" {
-		if err := RunApply(cfg, cfg.ApplyMode, args, logger); err != nil {
+		if err := r.runApplyFn(cfg, cfg.ApplyMode, args, logger); err != nil {
 			return true, fmt.Errorf("apply operation failed: %w", err)
 		}
 		return true, nil
@@ -159,20 +252,20 @@ func dispatchSubcommand(cfg *config.Config, args []string, logger *zap.Logger) (
 	return false, nil
 }
 
-func prepareClient(cfg *config.Config, args []string, logger *zap.Logger) (context.Context, func(), string, string, chan error, error) {
-	if _, err := SelectTransport(cfg, logger); err != nil {
+func (r *Runner) prepareClient(cfg *config.Config, args []string, logger *zap.Logger) (context.Context, func(), string, string, chan error, error) {
+	if _, err := r.selectTransportFn(cfg, logger); err != nil {
 		return nil, nil, "", "", nil, fmt.Errorf("select transport: %w", err)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.GRPCSetupTimeout)
-	cleanupSrv, cleanupClient, hbErrCh, err := SetupGRPC(ctx, cfg, logger)
+	cleanupSrv, cleanupClient, hbErrCh, err := r.SetupGRPC(ctx, cfg, logger)
 	if err != nil {
 		cancel()
 		return nil, nil, "", "", nil, err
 	}
 
 	var snapshotPath string
-	signals, sigErrCh := setupSignalHandle(ctx, cfg, &snapshotPath, logger)
+	signals, sigErrCh := r.setupSignalHandleFn(ctx, cfg, &snapshotPath, logger)
 
 	if hbErrCh != nil {
 		go func() {
@@ -207,23 +300,28 @@ func prepareClient(cfg *config.Config, args []string, logger *zap.Logger) (conte
 	return ctx, cleanup, snapshotPath, destPath, sigErrCh, nil
 }
 
-func executeSync(ctx context.Context, cfg *config.Config, snapshotPath, destPath string, sigErrCh chan error, logger *zap.Logger) error {
-	return ExecuteClient(ctx, cfg, snapshotPath, destPath, sigErrCh, nil, logger)
+func (r *Runner) executeSync(ctx context.Context, cfg *config.Config, snapshotPath, destPath string, sigErrCh chan error, logger *zap.Logger) error {
+	return r.ExecuteClient(ctx, cfg, snapshotPath, destPath, sigErrCh, nil, logger)
 }
 
-func Run(cfg *config.Config, args []string, logger *zap.Logger) error {
-	handled, err := dispatchSubcommand(cfg, args, logger)
+func (r *Runner) Run(cfg *config.Config, args []string, logger *zap.Logger) error {
+	handled, err := r.dispatchSubcommand(cfg, args, logger)
 	if handled || err != nil {
 		return err
 	}
 
-	ctx, cleanup, snapshotPath, destPath, sigErrCh, err := prepareClient(cfg, args, logger)
+	ctx, cleanup, snapshotPath, destPath, sigErrCh, err := r.prepareClient(cfg, args, logger)
 	if err != nil {
 		return err
 	}
 	defer cleanup()
 
-	return executeSync(ctx, cfg, snapshotPath, destPath, sigErrCh, logger)
+	return r.executeSync(ctx, cfg, snapshotPath, destPath, sigErrCh, logger)
+}
+
+// Run invokes the default runner's Run method.
+func Run(cfg *config.Config, args []string, logger *zap.Logger) error {
+	return defaultRunner.Run(cfg, args, logger)
 }
 
 // Execute is a helper that configures and runs the root command.
