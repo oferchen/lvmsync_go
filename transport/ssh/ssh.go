@@ -64,7 +64,7 @@ func New(ctx context.Context, cfg transport.Config) (transport.Interface, error)
 		if err != nil {
 			return nil, err
 		}
-	} else {
+	} else if cfg.AllowInsecure {
 		hostKey, err := rsa.GenerateKey(rand.Reader, 2048)
 		if err != nil {
 			return nil, err
@@ -73,6 +73,8 @@ func New(ctx context.Context, cfg transport.Config) (transport.Interface, error)
 		if err != nil {
 			return nil, err
 		}
+	} else {
+		return nil, fmt.Errorf("host key path required when allow_insecure is false")
 	}
 
 	serverConf := &ssh.ServerConfig{
