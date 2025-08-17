@@ -3,9 +3,10 @@ package client
 import (
 	"context"
 	"errors"
-	"strings"
 	"testing"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 func TestExecuteRunError(t *testing.T) {
@@ -13,9 +14,10 @@ func TestExecuteRunError(t *testing.T) {
 	sigCh := make(chan error, 1)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	err := ExecuteClient(ctx, runClient, "snap", "dest", sigCh, nil)
-	if err == nil || !strings.Contains(err.Error(), "copy operation failed") {
-		t.Fatalf("expected copy failure, got %v", err)
+	logger := zap.NewNop()
+	err := ExecuteClient(ctx, runClient, "snap", "dest", sigCh, nil, logger)
+	if err == nil || err.Error() != "run" {
+		t.Fatalf("expected run error, got %v", err)
 	}
 }
 
@@ -32,9 +34,10 @@ func TestExecuteSignal(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 		sigCh <- errors.New("signal")
 	}()
-	err := ExecuteClient(ctx, runClient, "snap", "dest", sigCh, nil)
+	logger := zap.NewNop()
+	err := ExecuteClient(ctx, runClient, "snap", "dest", sigCh, nil, logger)
 	close(block)
-	if err == nil || !strings.Contains(err.Error(), "signal") {
+	if err == nil || err.Error() != "signal" {
 		t.Fatalf("expected signal error, got %v", err)
 	}
 }
@@ -47,8 +50,9 @@ func TestExecuteMonitorError(t *testing.T) {
 	close(monitorCh)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	err := ExecuteClient(ctx, runClient, "snap", "dest", sigCh, monitorCh)
-	if err == nil || !strings.Contains(err.Error(), "snapshot monitor error") {
+	logger := zap.NewNop()
+	err := ExecuteClient(ctx, runClient, "snap", "dest", sigCh, monitorCh, logger)
+	if err == nil || err.Error() != "monitor" {
 		t.Fatalf("expected monitor error, got %v", err)
 	}
 }
