@@ -409,7 +409,7 @@ Recent refactors added several configuration options:
 - `--tcp_port` and `--ssh_port` expose TCP+TLS and SSH endpoints.
 - `--tcp_parallel` controls the number of parallel TCP connections (2–4).
 - `--tcp_lowat` sets TCP_NOTSENT_LOWAT to limit unsent bytes.
-- `--sync-interval` controls how many bytes are written between `fdatasync` calls (flag uses underscores in the CLI: `--sync_interval`). Accepts size suffixes like `64KB` or `1GB`; invalid values return an error.
+- `--sync-interval` controls how many bytes are written between `fdatasync` calls. Accepts size suffixes like `64KB` or `1GB`; invalid values return an error.
 - `--checkpoint_interval` sets how often resume state is persisted.
 - `--checkpoint_bytes` sets how many bytes are written between resume checkpoints.
 - `--block_size` sets the transfer block size (use `auto` for detection).
@@ -417,7 +417,7 @@ Recent refactors added several configuration options:
 ### I/O tuning
 
 - `--block_size` selects the transfer block size. Use `auto` to match the destination's physical sector size.
-- `--sync-interval` sets how many bytes are written between `fdatasync` calls (flag uses underscores in the CLI: `--sync_interval`). Accepts size suffixes like `64KB` or `1GB`; invalid values cause startup errors.
+- `--sync-interval` sets how many bytes are written between `fdatasync` calls. Accepts size suffixes like `64KB` or `1GB`; invalid values cause startup errors.
 - `--odirect` uses O_DIRECT with block-size aligned buffers.
 - `--numa_pin` pins worker goroutines to CPUs local to the source device's NUMA node.
 
@@ -540,8 +540,8 @@ Flags override environment variables, which override `config.yaml` values.
 | `--offline` | `LVMSYNC_OFFLINE` | `offline` | Assume source raw device is offline |
 | `--fs-freeze-command` | `LVMSYNC_FS_FREEZE_COMMAND` | `fs-freeze-command` | Command to freeze filesystem before reading raw source; path must be absolute, arguments are split with shell-style quoting and executable name must match `^[a-zA-Z0-9._-]+$` |
 | `--fs-thaw-command` | `LVMSYNC_FS_THAW_COMMAND` | `fs-thaw-command` | Command to thaw filesystem after reading raw source; path must be absolute, arguments are split with shell-style quoting and executable name must match `^[a-zA-Z0-9._-]+$` |
-| `--freeze-timeout` | `LVMSYNC_FREEZE_TIMEOUT` | `freeze_timeout` | Timeout for filesystem freeze command |
-| `--thaw-timeout` | `LVMSYNC_THAW_TIMEOUT` | `thaw_timeout` | Timeout for filesystem thaw command |
+| `--freeze-timeout` | `LVMSYNC_FREEZE_TIMEOUT` | `freeze-timeout` | Timeout for filesystem freeze command |
+| `--thaw-timeout` | `LVMSYNC_THAW_TIMEOUT` | `thaw-timeout` | Timeout for filesystem thaw command |
 | `--mode` | `LVMSYNC_MODE` | `mode` | Configuration preset: `default` or `throughput`; unknown modes fail validation |
 | `--parallel` | `LVMSYNC_PARALLEL` | `parallel` | Number of concurrent workers |
 | `--concurrency` | `LVMSYNC_TRANSPORT_CONCURRENCY` | `concurrency` | Stream concurrency (0 to autotune based on BDP) |
@@ -551,7 +551,7 @@ Flags override environment variables, which override `config.yaml` values.
 | `--max_retries` | `LVMSYNC_MAX_RETRIES` | `max_retries` | Maximum number of retries per block |
 | `--resume` | `LVMSYNC_RESUME` | `resume` | Path to resume state file (records dedup mode and last chunk boundary) |
 | `--speed` | `LVMSYNC_SPEED` | `speed` | Transfer speed limit |
-| `--sync-interval` | `LVMSYNC_SYNC_INTERVAL` | `sync_interval` | Bytes between fdatasync calls (CLI flag: `--sync_interval`; accepts size suffixes like `64KB`; invalid values error) |
+| `--sync-interval` | `LVMSYNC_SYNC_INTERVAL` | `sync-interval` | Bytes between fdatasync calls (accepts size suffixes like `64KB`; invalid values error) |
 | `--checkpoint_bytes` | `LVMSYNC_CHECKPOINT_BYTES` | `checkpoint_bytes` | Bytes between resume checkpoints |
 | `--checkpoint_interval` | `LVMSYNC_CHECKPOINT_INTERVAL` | `checkpoint_interval` | Duration between checkpoints |
 | `--block_size` | `LVMSYNC_BLOCK_SIZE` | `block_size` | Block size for data transfer; specify 'auto' or 0 for automatic detection |
