@@ -380,33 +380,3 @@ func (s *stubDevice) BlockSize() uint64                                { return 
 func (s *stubDevice) Snapshot(context.Context, string) (Device, error) { return nil, nil }
 func (s *stubDevice) Cleanup(context.Context) error                    { return nil }
 func (s *stubDevice) Close() error                                     { return s.closeErr }
-
-func mountFuncFromMountInfoFile(p string) func(context.Context, string) (bool, error) {
-	return func(_ context.Context, path string) (bool, error) {
-		real, err := filepath.EvalSymlinks(path)
-		if err != nil {
-			return false, err
-		}
-		f, err := os.Open(p)
-		if err != nil {
-			return false, err
-		}
-		defer f.Close()
-		infos, err := mountinfo.GetMountsFromReader(f, nil)
-		if err != nil {
-			return false, err
-		}
-		for _, mi := range infos {
-			if mi.Source != real {
-				continue
-			}
-			for _, opt := range strings.Split(mi.Options, ",") {
-				if opt == "rw" {
-					return true, nil
-				}
-			}
-		}
-		return false, nil
-	}
-}
-
