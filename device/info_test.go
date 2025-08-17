@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -25,7 +26,7 @@ func TestGetUUIDCanceledContext(t *testing.T) {
 func TestGetUUIDStub(t *testing.T) {
 	info := NewInfoWithDeps(func(context.Context, string) (string, error) {
 		return "stub-uuid", nil
-	}, nil, nil)
+	}, nil, nil, nil)
 	got, err := info.GetUUID(context.Background(), "/dev/sda")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -45,7 +46,7 @@ func TestGetUUIDError(t *testing.T) {
 			t.Fatalf("unexpected path %q", path)
 		}
 		return "", wantErr
-	}, nil, nil)
+	}, nil, nil, nil)
 	if _, err := info.GetUUID(context.Background(), "/dev/fail"); !errors.Is(err, wantErr) {
 		t.Fatalf("expected %v, got %v", wantErr, err)
 	}
@@ -55,6 +56,7 @@ func TestGetDeviceIDPrefersLVM(t *testing.T) {
 	info := NewInfoWithDeps(
 		func(context.Context, string) (string, error) { return "blkid-id", nil },
 		func(context.Context, string) (string, error) { return "lv-id", nil },
+		nil,
 		nil,
 	)
 	got, err := info.GetDeviceID(context.Background(), "/dev/lvm0")
@@ -76,7 +78,7 @@ func TestIDsMatch(t *testing.T) {
 				return "id2", nil
 			}
 			return "same", nil
-		}, nil, nil)
+		}, nil, nil, nil)
 	match, err := info.IDsMatch(context.Background(), "/dev/src", "/dev/dest")
 	if err != nil {
 		t.Fatalf("IDsMatch: %v", err)
@@ -94,17 +96,27 @@ func TestIDsMatch(t *testing.T) {
 }
 
 func TestSetMountFunc(t *testing.T) {
-	orig := mountFunc
+	info := NewInfo()
+	orig := reflect.ValueOf(info.mountFunc).Pointer()
 	stub := func(context.Context, string) (bool, error) { return true, nil }
-	prev := SetMountFunc(stub)
-	if reflect.ValueOf(prev).Pointer() != reflect.ValueOf(orig).Pointer() {
+	prev := info.SetMountFunc(stub)
+	if reflect.ValueOf(prev).Pointer() != orig {
 		t.Fatalf("expected previous function to be original")
 	}
-	if reflect.ValueOf(mountFunc).Pointer() != reflect.ValueOf(stub).Pointer() {
+	if reflect.ValueOf(info.mountFunc).Pointer() != reflect.ValueOf(stub).Pointer() {
 		t.Fatalf("mountFunc not replaced")
 	}
-	SetMountFunc(prev)
+	info.SetMountFunc(prev)
 }
+
+func TestIsMountedRW(t *testing.T) {
+	tests := []struct {
+		name string
+		val  bool
+	}{
+		{name: "mounted", val: true},
+		{name: "unmounted", val: false},
+	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -119,8 +131,6 @@ func TestSetMountFunc(t *testing.T) {
 				t.Fatalf("expected %v, got %v", tt.val, got)
 			}
 		})
-	if !got {
-		t.Fatalf("expected mounted read-write")
 	}
 }
 
@@ -300,54 +310,6 @@ func TestDefaultMountFuncError(t *testing.T) {
 
 func mountFuncFromMountInfoFile(p string) func(context.Context, string) (bool, error) {
 	return func(_ context.Context, path string) (bool, error) {
-
-func TestSizeBytes(t *testing.T) {
-	dev := &stubDevice{size: 123}
-	prev := detectFunc
-	detectFunc = func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger, *Runner) (Device, error) {
-		return dev, nil
-	}
-	defer func() { detectFunc = prev }()
-	got, err := SizeBytes(context.Background(), "/dev/fake")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if got != 123 {
-		t.Fatalf("SizeBytes() = %d, want 123", got)
-	}
-}
-
-func TestSizeBytesCloseError(t *testing.T) {
-	want := errors.New("close boom")
-	dev := &stubDevice{size: 456, closeErr: want}
-	prev := detectFunc
-	detectFunc = func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger, *Runner) (Device, error) {
-		return dev, nil
-	}
-	defer func() { detectFunc = prev }()
-	got, err := SizeBytes(context.Background(), "/dev/fake")
-	if !errors.Is(err, want) {
-		t.Fatalf("expected %v, got %v", want, err)
-	}
-	if got != 456 {
-		t.Fatalf("SizeBytes() = %d, want 456", got)
-	}
-}
-
-type stubDevice struct {
-	size     uint64
-	closeErr error
-}
-
-func (s *stubDevice) Path() string                                     { return "" }
-func (s *stubDevice) SizeBytes() uint64                                { return s.size }
-func (s *stubDevice) BlockSize() uint64                                { return 0 }
-func (s *stubDevice) Snapshot(context.Context, string) (Device, error) { return nil, nil }
-func (s *stubDevice) Cleanup(context.Context) error                    { return nil }
-func (s *stubDevice) Close() error                                     { return s.closeErr }
-
-func mountFuncFromMountInfoFile(p string) func(string) (bool, error) {
-	return func(path string) (bool, error) {
 		real, err := filepath.EvalSymlinks(path)
 		if err != nil {
 			return false, err
@@ -374,3 +336,46 @@ func mountFuncFromMountInfoFile(p string) func(string) (bool, error) {
 		return false, nil
 	}
 }
+
+func TestSizeBytes(t *testing.T) {
+	dev := &stubDevice{size: 123}
+	prev := defaultInfo.SetDetectFunc(func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger, *Runner) (Device, error) {
+		return dev, nil
+	})
+	defer defaultInfo.SetDetectFunc(prev)
+	got, err := SizeBytes(context.Background(), "/dev/fake")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != 123 {
+		t.Fatalf("SizeBytes() = %d, want 123", got)
+	}
+}
+
+func TestSizeBytesCloseError(t *testing.T) {
+	want := errors.New("close boom")
+	dev := &stubDevice{size: 456, closeErr: want}
+	prev := defaultInfo.SetDetectFunc(func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger, *Runner) (Device, error) {
+		return dev, nil
+	})
+	defer defaultInfo.SetDetectFunc(prev)
+	got, err := SizeBytes(context.Background(), "/dev/fake")
+	if !errors.Is(err, want) {
+		t.Fatalf("expected %v, got %v", want, err)
+	}
+	if got != 456 {
+		t.Fatalf("SizeBytes() = %d, want 456", got)
+	}
+}
+
+type stubDevice struct {
+	size     uint64
+	closeErr error
+}
+
+func (s *stubDevice) Path() string                                     { return "" }
+func (s *stubDevice) SizeBytes() uint64                                { return s.size }
+func (s *stubDevice) BlockSize() uint64                                { return 0 }
+func (s *stubDevice) Snapshot(context.Context, string) (Device, error) { return nil, nil }
+func (s *stubDevice) Cleanup(context.Context) error                    { return nil }
+func (s *stubDevice) Close() error                                     { return s.closeErr }
