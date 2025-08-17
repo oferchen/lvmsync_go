@@ -95,6 +95,7 @@ func (r *Runner) Run() {
 		return
 	}
 	r.SyncLogger(logger)
+	r.Exit(exitcode.OK)
 }
 
 func main() {
