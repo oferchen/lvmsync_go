@@ -57,7 +57,7 @@ func (r *Runner) Run(cfg *config.Config, args []string, logger *zap.Logger) erro
 		return err
 	}
 	for _, w := range warns {
-		logger.Warn(w)
+		logger.Warn("config_warning", zap.String("detail", w))
 	}
 	if len(remaining) != 1 {
 		fs.Usage()

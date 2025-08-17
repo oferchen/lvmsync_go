@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -110,6 +111,42 @@ func TestRunManifestPathFlag(t *testing.T) {
 	completeLogs := logs.FilterMessage("rebuild complete").All()
 	if len(completeLogs) != 1 {
 		t.Fatalf("expected 1 complete log, got %d", len(completeLogs))
+	}
+}
+
+func TestRunLogsConfigWarnings(t *testing.T) {
+	dir := t.TempDir()
+	devicePath := filepath.Join(dir, "dev.img")
+	if err := os.WriteFile(devicePath, []byte("data"), 0o600); err != nil {
+		t.Fatalf("write device: %v", err)
+	}
+
+	cfg, err := config.DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	cfg.DryRun = true
+
+	cfgPath := filepath.Join(dir, "config.yaml")
+	if err := os.WriteFile(cfgPath, []byte("bogus: 1\n"), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	args := []string{"rebuild", "--config", cfgPath, devicePath}
+	core, logs := observer.New(zap.InfoLevel)
+	logger := zap.New(core)
+	if err := Run(cfg, args, logger); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	warnLogs := logs.FilterMessage("config_warning").All()
+	if len(warnLogs) != 1 {
+		t.Fatalf("expected 1 config warning, got %d", len(warnLogs))
+	}
+	ctx := warnLogs[0].ContextMap()
+	detail, ok := ctx["detail"].(string)
+	if !ok || !strings.Contains(detail, "bogus") {
+		t.Fatalf("unexpected detail field: %v", ctx["detail"])
 	}
 }
 
