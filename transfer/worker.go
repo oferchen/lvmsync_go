@@ -131,6 +131,8 @@ func (t *Transfer) startParallelWorkers(cfg *config.Config, srcFile *os.File, ra
 
 // DumpChangesParallel streams changes in parallel; logger must be non-nil.
 func (t *Transfer) DumpChangesParallel(cfg *config.Config, snapshot, source string, out io.Writer) (err error) {
+	defer rootcmd.SyncLogger(t.Logger)
+
 	if cfg.ZeroCopy {
 		t.Logger.Warn("ZeroCopy mode enabled, falling back to sequential execution")
 		return t.DumpChangesSequential(cfg, snapshot, source, out)
@@ -176,6 +178,5 @@ func (t *Transfer) DumpChangesParallel(cfg *config.Config, snapshot, source stri
 	if len(finalDigest) > 0 {
 		t.Logger.Info("final checksum", zap.String("final_digest", fmt.Sprintf("%x", finalDigest)))
 	}
-	rootcmd.SyncLogger(t.Logger)
 	return nil
 }
