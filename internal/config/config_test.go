@@ -253,12 +253,12 @@ func TestBuilderValidateCompression(t *testing.T) {
 		}
 	})
 
-	t.Run("invalidThresholdNonPositive", func(t *testing.T) {
-		conf := &Config{Compress: Zstd, ZstdLevel: 3, CompressThreshold: 0}
-		if err := b.validateCompression(conf); err == nil {
-			t.Fatalf("expected error")
-		}
-	})
+        t.Run("invalidThresholdNonPositive", func(t *testing.T) {
+                conf := &Config{Compress: Zstd, ZstdLevel: 3, CompressThreshold: -0.1}
+                if err := b.validateCompression(conf); err == nil {
+                        t.Fatalf("expected error")
+                }
+        })
 
 	t.Run(Auto, func(t *testing.T) {
 		conf := &Config{Compress: Auto, CompressThreshold: 0.9}

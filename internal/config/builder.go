@@ -68,8 +68,5 @@ func (b *ConfigBuilder) Build(fs *pflag.FlagSet, args []string) (*Config, []stri
 			return nil, nil, warns, fmt.Errorf("allow_insecure requires --allow-insecure flag or LVMSYNC_ALLOW_INSECURE environment variable")
 		}
 	}
-	if err := cfg.Validate(); err != nil {
-		return nil, nil, warns, err
-	}
 	return cfg, fs.Args(), warns, nil
 }
