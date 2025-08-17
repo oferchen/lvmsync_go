@@ -174,11 +174,6 @@ func CopyPipeAsync(ctx context.Context, dst io.Writer, src io.Reader) <-chan err
 	return errCh
 }
 
-func init() {
-	rootcmd.RunDump = Run
-	rootcmd.SelectTransport = SelectTransport
-}
-
 // ExecuteDump selects the appropriate dump implementation based on configuration.
 func (r *Runner) ExecuteDump(ctx context.Context, cfg *config.Config, snapshotDevice, originDevice string, out io.Writer, logger *zap.Logger) error {
 	t := transfer.NewTransfer(logger, &sync.WaitGroup{})
