@@ -2,6 +2,7 @@ package transfer
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"sync"
 	"testing"
@@ -32,7 +33,7 @@ func TestDumpChangesLogsSyncError(t *testing.T) {
 	src, snapshot := createDumpTestFiles(t, blockSize, changed)
 	cfg := &config.Config{BlockSize: int(blockSize), Compress: "none", MaxRetries: 1}
 	var buf bytes.Buffer
-	if err := tr.DumpChangesSequential(cfg, snapshot, src, &buf); err != nil {
+	if err := tr.DumpChangesSequential(context.Background(), cfg, snapshot, src, &buf); err != nil {
 		t.Fatalf("DumpChangesSequential failed: %v", err)
 	}
 	logs := observed.FilterMessage("Logger sync error").All()

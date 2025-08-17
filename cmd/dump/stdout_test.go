@@ -27,7 +27,7 @@ func TestRunStdout(t *testing.T) {
 	expected := "test output"
 
 	originalFunc := dumpChangesSequential
-	dumpChangesSequential = func(_ *transfer.Transfer, c *config.Config, snapshot, source string, out io.Writer) error {
+	dumpChangesSequential = func(_ context.Context, _ *transfer.Transfer, c *config.Config, snapshot, source string, out io.Writer) error {
 		_, writeErr := out.Write([]byte(expected))
 		return writeErr
 	}

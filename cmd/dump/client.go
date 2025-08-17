@@ -34,14 +34,14 @@ var ErrRemoteCommand = errors.New("remote command error")
 const maxFrame = 1 << 20
 
 var (
-	dumpChangesSequential = func(t *transfer.Transfer, cfg *config.Config, snap, origin string, out io.Writer) error {
-		return t.DumpChangesSequential(cfg, snap, origin, out)
+	dumpChangesSequential = func(ctx context.Context, t *transfer.Transfer, cfg *config.Config, snap, origin string, out io.Writer) error {
+		return t.DumpChangesSequential(ctx, cfg, snap, origin, out)
 	}
-	dumpChangesParallel = func(t *transfer.Transfer, cfg *config.Config, snap, origin string, out io.Writer) error {
-		return t.DumpChangesParallel(cfg, snap, origin, out)
+	dumpChangesParallel = func(ctx context.Context, t *transfer.Transfer, cfg *config.Config, snap, origin string, out io.Writer) error {
+		return t.DumpChangesParallel(ctx, cfg, snap, origin, out)
 	}
-	dumpChangesWithDeduplication = func(t *transfer.Transfer, cfg *config.Config, snap, origin string, out io.Writer, d transfer.DeduplicationStrategy) error {
-		return t.DumpChangesWithDeduplication(cfg, snap, origin, out, d)
+	dumpChangesWithDeduplication = func(ctx context.Context, t *transfer.Transfer, cfg *config.Config, snap, origin string, out io.Writer, d transfer.DeduplicationStrategy) error {
+		return t.DumpChangesWithDeduplication(ctx, cfg, snap, origin, out, d)
 	}
 	newSSHClient   = remote.NewSSHClient
 	openFile       = os.OpenFile
@@ -124,7 +124,7 @@ func init() {
 }
 
 // ExecuteDump selects the appropriate dump implementation based on configuration.
-func ExecuteDump(cfg *config.Config, snapshotDevice, originDevice string, out io.Writer, logger *zap.Logger) error {
+func ExecuteDump(ctx context.Context, cfg *config.Config, snapshotDevice, originDevice string, out io.Writer, logger *zap.Logger) error {
 	t := transfer.NewTransfer(logger, &sync.WaitGroup{})
 	dedup := transfer.NewDeduplicationStrategy(cfg, logger)
 	if dedup != nil {
@@ -133,12 +133,12 @@ func ExecuteDump(cfg *config.Config, snapshotDevice, originDevice string, out io
 				logger.Error("Failed to save dedup state", zap.Error(err))
 			}
 		}()
-		return dumpChangesWithDeduplication(t, cfg, snapshotDevice, originDevice, out, dedup)
+		return dumpChangesWithDeduplication(ctx, t, cfg, snapshotDevice, originDevice, out, dedup)
 	}
 	if cfg.Parallel <= 1 {
-		return dumpChangesSequential(t, cfg, snapshotDevice, originDevice, out)
+		return dumpChangesSequential(ctx, t, cfg, snapshotDevice, originDevice, out)
 	}
-	return dumpChangesParallel(t, cfg, snapshotDevice, originDevice, out)
+	return dumpChangesParallel(ctx, t, cfg, snapshotDevice, originDevice, out)
 }
 
 // Run executes client mode transferring data to dest and returns the destination type.
@@ -179,16 +179,16 @@ func Run(ctx context.Context, cfg *config.Config, source, dest string, logger *z
 	}()
 	if cfg.StdoutMode {
 		limitedOut := transfer.WrapRateLimitedWriter(os.Stdout, cfg.SpeedLimit)
-		return cfg.DestType, ExecuteDump(cfg, snapshotDevice, originDevice, limitedOut, logger)
+		return cfg.DestType, ExecuteDump(ctx, cfg, snapshotDevice, originDevice, limitedOut, logger)
 	}
 	if strings.Contains(dest, ":") {
 		return cfg.DestType, RunRemoteDump(ctx, cfg, snapshotDevice, originDevice, dest, logger)
 	}
-	return RunLocalDump(cfg, snapshotDevice, originDevice, dest, logger)
+	return RunLocalDump(ctx, cfg, snapshotDevice, originDevice, dest, logger)
 }
 
 // RunLocalDump dumps changes to a local destination device and returns the detected destination type.
-func RunLocalDump(cfg *config.Config, snapshotDevice, originDevice, dest string, logger *zap.Logger) (string, error) {
+func RunLocalDump(ctx context.Context, cfg *config.Config, snapshotDevice, originDevice, dest string, logger *zap.Logger) (string, error) {
 	destType := cfg.DestType
 	if destType == "auto" {
 		if dev, err := device.Detect(context.Background(), dest, true, destType, "", "", cfg.LVMEscalation, cfg.FreezeTimeout, cfg.ThawTimeout, logger, device.NewRunner()); err == nil {
@@ -213,7 +213,7 @@ func RunLocalDump(cfg *config.Config, snapshotDevice, originDevice, dest string,
 	}
 	defer common.CloseWithErr(destFile, &err, "close destination device")
 	limitedOut := transfer.WrapRateLimitedWriter(destFile, cfg.SpeedLimit)
-	return destType, ExecuteDump(cfg, snapshotDevice, originDevice, limitedOut, logger)
+	return destType, ExecuteDump(ctx, cfg, snapshotDevice, originDevice, limitedOut, logger)
 }
 
 // SetupSSHClient creates an SSH client for remote operations.
@@ -266,8 +266,8 @@ func SetupSessionStreams(ctx context.Context, session pipeSession) (io.WriteClos
 
 // StreamToRemote dumps snapshot data to the remote stdin, then computes and
 // transmits the digest before closing the stream.
-func StreamToRemote(cfg *config.Config, remoteStdin io.WriteCloser, snapshotDevice, originDevice, alg string, logger *zap.Logger) error {
-	streamErr := ExecuteDump(cfg, snapshotDevice, originDevice, remoteStdin, logger)
+func StreamToRemote(ctx context.Context, cfg *config.Config, remoteStdin io.WriteCloser, snapshotDevice, originDevice, alg string, logger *zap.Logger) error {
+	streamErr := ExecuteDump(ctx, cfg, snapshotDevice, originDevice, remoteStdin, logger)
 	if streamErr != nil {
 		if err := remoteStdin.Close(); err != nil && !errors.Is(err, io.EOF) {
 			return fmt.Errorf("%v; failed to close remote stdin: %w", streamErr, err)
@@ -340,7 +340,7 @@ func ExecuteRemoteCommand(ctx context.Context, cfg *config.Config, client *remot
 		return fmt.Errorf("failed to start remote command: %w", err)
 	}
 
-	if err = streamToRemote(cfg, remoteStdin, snapshotDevice, originDevice, alg, logger); err != nil {
+	if err = streamToRemote(ctx, cfg, remoteStdin, snapshotDevice, originDevice, alg, logger); err != nil {
 		return err
 	}
 

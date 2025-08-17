@@ -2,6 +2,7 @@ package transfer
 
 import (
 	"bufio"
+	"context"
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
@@ -45,6 +46,7 @@ func newDigestHasher(algo string) hash.Hash {
 }
 
 func iterateBlocks(
+	ctx context.Context,
 	cfg *config.Config,
 	ranges []Range,
 	srcFile *os.File,
@@ -72,6 +74,9 @@ func iterateBlocks(
 		intra = newChunkCache(intraCacheCapacity)
 	}
 	for _, r := range ranges {
+		if err := ctx.Err(); err != nil {
+			return totalBytes, skippedBlocks, nil, err
+		}
 		offset, blockSize, err := validateOffsetAndSize(r.Start, cfg.BlockSize)
 		if err != nil {
 			return totalBytes, skippedBlocks, nil, err
@@ -181,6 +186,7 @@ func writeResult(bufOut *bufio.Writer, header, data []byte) error {
 }
 
 func processParallelResults(
+	ctx context.Context,
 	cfg *config.Config,
 	results <-chan *BlockResult,
 	bufOut *bufio.Writer,
@@ -206,83 +212,98 @@ func processParallelResults(
 		}
 		defer idx.Close()
 	}
-	for res := range results {
-		if res.Err != nil {
-			return totalBytesTransferred, nil, fmt.Errorf("error in block %d: %w", res.Index, res.Err)
-		}
-		if idx != nil && res.Data != nil {
-			xx := hashutil.SumXXH3(res.Data)
-			if idx.Match(res.Offset, res.Size, 0, xx, func() [32]byte { return res.ChunkID }) {
-				putBlockBuffer(res.Data)
-				continue
+	for {
+		select {
+		case <-ctx.Done():
+			return totalBytesTransferred, nil, ctx.Err()
+		case res, ok := <-results:
+			if !ok {
+				return totalBytesTransferred, h.Sum(nil), nil
 			}
-		}
-
-		n := prepareResultHeader(cfg, checksum, res, header)
-		if err := writeResult(bufOut, header[:n], res.Data); err != nil {
-			if res.Data != nil {
-				putBlockBuffer(res.Data)
+			if res.Err != nil {
+				return totalBytesTransferred, nil, fmt.Errorf("error in block %d: %w", res.Index, res.Err)
 			}
-			return totalBytesTransferred, nil, err
-		}
-		if res.Data != nil {
-			h.Write(res.Data)
-			if idx != nil {
+			if idx != nil && res.Data != nil {
 				xx := hashutil.SumXXH3(res.Data)
-				if err := idx.Set(res.Offset, res.Size, 0, xx, res.ChunkID); err != nil {
+				if idx.Match(res.Offset, res.Size, 0, xx, func() [32]byte { return res.ChunkID }) {
 					putBlockBuffer(res.Data)
-					return totalBytesTransferred, nil, fmt.Errorf("manifest set: %w", err)
+					continue
 				}
 			}
-			saveResumeState(cfg, rt, res.Offset, res.ChunkID, int64(res.Size), logger)
-			putBlockBuffer(res.Data)
-		} else {
-			if idx != nil {
-				xx := hashutil.SumXXH3(nil)
-				if err := idx.Set(res.Offset, res.Size, 0, xx, res.ChunkID); err != nil {
-					return totalBytesTransferred, nil, fmt.Errorf("manifest set: %w", err)
-				}
-			}
-			saveResumeState(cfg, rt, res.Offset, res.ChunkID, 0, logger)
-		}
 
-		totalBytesTransferred += int64(res.Size)
-		reportProgress(cfg, totalBytesTransferred, totalDataSize, res.Index, startTime, logger)
+			n := prepareResultHeader(cfg, checksum, res, header)
+			if err := writeResult(bufOut, header[:n], res.Data); err != nil {
+				if res.Data != nil {
+					putBlockBuffer(res.Data)
+				}
+				return totalBytesTransferred, nil, err
+			}
+			if res.Data != nil {
+				h.Write(res.Data)
+				if idx != nil {
+					xx := hashutil.SumXXH3(res.Data)
+					if err := idx.Set(res.Offset, res.Size, 0, xx, res.ChunkID); err != nil {
+						putBlockBuffer(res.Data)
+						return totalBytesTransferred, nil, fmt.Errorf("manifest set: %w", err)
+					}
+				}
+				saveResumeState(cfg, rt, res.Offset, res.ChunkID, int64(res.Size), logger)
+				putBlockBuffer(res.Data)
+			} else {
+				if idx != nil {
+					xx := hashutil.SumXXH3(nil)
+					if err := idx.Set(res.Offset, res.Size, 0, xx, res.ChunkID); err != nil {
+						return totalBytesTransferred, nil, fmt.Errorf("manifest set: %w", err)
+					}
+				}
+				saveResumeState(cfg, rt, res.Offset, res.ChunkID, 0, logger)
+			}
+
+			totalBytesTransferred += int64(res.Size)
+			reportProgress(cfg, totalBytesTransferred, totalDataSize, res.Index, startTime, logger)
+		}
 	}
-	return totalBytesTransferred, h.Sum(nil), nil
 }
 
-func worker(cfg *config.Config, srcFile *os.File, tasks <-chan BlockTask, results chan<- *BlockResult, wg *sync.WaitGroup, logger *zap.Logger) {
+func worker(ctx context.Context, cfg *config.Config, srcFile *os.File, tasks <-chan BlockTask, results chan<- *BlockResult, wg *sync.WaitGroup, logger *zap.Logger) {
 	defer wg.Done()
 	unlock := pinWorkerToDevice(cfg, srcFile, logger)
 	defer unlock()
-	for task := range tasks {
-		offset, blockSize, err := validateOffsetAndSize(task.R.Start, cfg.BlockSize)
-		if err != nil {
-			results <- &BlockResult{Index: task.Index, Err: err}
-			continue
-		}
-		data, err := ReadBlockWithRetries(cfg, srcFile, offset, false, [2]int{-1, -1}, logger)
-		zero := err == nil && isAllZero(data)
-		var resData []byte
-		size := blockSize
-		var chunkID [32]byte
-		if zero {
-			putBlockBuffer(data)
-			resData = nil
-			size = 0
-			chunkID = zeroHash(int(blockSize))
-		} else {
-			resData = data
-			chunkID = blake3.Sum256(data)
-		}
-		results <- &BlockResult{
-			Index:   task.Index,
-			Offset:  task.R.Start,
-			Size:    size,
-			Data:    resData,
-			ChunkID: chunkID,
-			Err:     err,
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case task, ok := <-tasks:
+			if !ok {
+				return
+			}
+			offset, blockSize, err := validateOffsetAndSize(task.R.Start, cfg.BlockSize)
+			if err != nil {
+				results <- &BlockResult{Index: task.Index, Err: err}
+				continue
+			}
+			data, err := ReadBlockWithRetries(cfg, srcFile, offset, false, [2]int{-1, -1}, logger)
+			zero := err == nil && isAllZero(data)
+			var resData []byte
+			size := blockSize
+			var chunkID [32]byte
+			if zero {
+				putBlockBuffer(data)
+				resData = nil
+				size = 0
+				chunkID = zeroHash(int(blockSize))
+			} else {
+				resData = data
+				chunkID = blake3.Sum256(data)
+			}
+			results <- &BlockResult{
+				Index:   task.Index,
+				Offset:  task.R.Start,
+				Size:    size,
+				Data:    resData,
+				ChunkID: chunkID,
+				Err:     err,
+			}
 		}
 	}
 }

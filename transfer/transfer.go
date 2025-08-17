@@ -100,10 +100,10 @@ func SaveChecksumState(filename string, state *ChecksumState, logger *zap.Logger
 }
 
 // dumpChangesCore handles core transfer logic; logger must be non-nil.
-func (t *Transfer) dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer, dedup DeduplicationStrategy, handshake string) (err error) {
+func (t *Transfer) dumpChangesCore(ctx context.Context, cfg *config.Config, snapshot, source string, out io.Writer, dedup DeduplicationStrategy, handshake string) (err error) {
 	defer rootcmd.SyncLogger(t.Logger)
 
-	ranges, err := prepareRanges(cfg, snapshot, source, t.Logger)
+	ranges, err := prepareRanges(ctx, cfg, snapshot, source, t.Logger)
 	if err != nil {
 		return err
 	}
@@ -136,7 +136,7 @@ func (t *Transfer) dumpChangesCore(cfg *config.Config, snapshot, source string, 
 	var totalBytesTransferred int64
 	var skippedBlocks int
 	var finalDigest []byte
-	totalBytesTransferred, skippedBlocks, finalDigest, err = iterateBlocks(cfg, ranges, srcFile, bufOut, dedup, pipeFds, t.Logger, t.Tracker)
+	totalBytesTransferred, skippedBlocks, finalDigest, err = iterateBlocks(ctx, cfg, ranges, srcFile, bufOut, dedup, pipeFds, t.Logger, t.Tracker)
 	if err != nil {
 		return err
 	}
@@ -164,29 +164,29 @@ func (t *Transfer) setupDedup(cfg *config.Config) (DeduplicationStrategy, func()
 }
 
 // DumpChangesSequential streams changed blocks from snapshot to out sequentially and saves dedup state if enabled.
-func (t *Transfer) DumpChangesSequential(cfg *config.Config, snapshot, source string, out io.Writer) error {
+func (t *Transfer) DumpChangesSequential(ctx context.Context, cfg *config.Config, snapshot, source string, out io.Writer) error {
 	dedup, cleanup := t.setupDedup(cfg)
 	if dedup != nil {
 		defer cleanup()
 	}
-	return t.dumpChangesCore(cfg, snapshot, source, out, dedup, "")
+	return t.dumpChangesCore(ctx, cfg, snapshot, source, out, dedup, "")
 }
 
 // DumpChangesWithDeduplication transfers changed blocks using the provided dedup strategy and a checksum-dedup handshake, updating the strategy's state.
-func (t *Transfer) DumpChangesWithDeduplication(cfg *config.Config, snapshot, source string, out io.Writer, dedup DeduplicationStrategy) error {
-	return t.dumpChangesCore(cfg, snapshot, source, out, dedup, "checksum-dedup")
+func (t *Transfer) DumpChangesWithDeduplication(ctx context.Context, cfg *config.Config, snapshot, source string, out io.Writer, dedup DeduplicationStrategy) error {
+	return t.dumpChangesCore(ctx, cfg, snapshot, source, out, dedup, "checksum-dedup")
 }
 
 // DumpChanges chooses an appropriate transfer mode and persists dedup state when a strategy is configured.
-func (t *Transfer) DumpChanges(cfg *config.Config, snapshot, source string, out io.Writer) error {
+func (t *Transfer) DumpChanges(ctx context.Context, cfg *config.Config, snapshot, source string, out io.Writer) error {
 	dedup, cleanup := t.setupDedup(cfg)
 	if dedup != nil {
 		defer cleanup()
 		t.Logger.Info("Deduplication enabled", zap.String("strategy", cfg.DedupStrategy))
-		return t.DumpChangesWithDeduplication(cfg, snapshot, source, out, dedup)
+		return t.DumpChangesWithDeduplication(ctx, cfg, snapshot, source, out, dedup)
 	}
 	t.Logger.Info("Deduplication disabled, performing full block transfer")
-	return t.DumpChangesSequential(cfg, snapshot, source, out)
+	return t.DumpChangesSequential(ctx, cfg, snapshot, source, out)
 }
 
 const manifestHeaderSize = 136

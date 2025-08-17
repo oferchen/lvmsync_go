@@ -2,6 +2,7 @@ package transfer
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 	"path/filepath"
 	"sync"
@@ -24,7 +25,7 @@ func TestDumpChangesSequentialLogFields(t *testing.T) {
 
 	cfg := &config.Config{BlockSize: int(blockSize), Compress: "none", MaxRetries: 1}
 	var buf bytes.Buffer
-	if err := tr.DumpChangesSequential(cfg, snapshot, src, &buf); err != nil {
+	if err := tr.DumpChangesSequential(context.Background(), cfg, snapshot, src, &buf); err != nil {
 		t.Fatalf("DumpChangesSequential failed: %v", err)
 	}
 

@@ -3,6 +3,7 @@ package transfer
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"io"
 	"path/filepath"
 	"reflect"
@@ -47,7 +48,7 @@ func runInterrupted(t *testing.T, mode string) {
 	close(results)
 	checksum := GetChecksumStrategy(cfg.ChecksumAlgorithm)
 	bufOut := bufio.NewWriter(io.Discard)
-	if _, _, err := processParallelResults(cfg, results, bufOut, checksum, 0, time.Now(), zap.NewNop(), tr.Tracker); err == nil {
+	if _, _, err := processParallelResults(context.Background(), cfg, results, bufOut, checksum, 0, time.Now(), zap.NewNop(), tr.Tracker); err == nil {
 		t.Fatalf("expected error")
 	}
 
@@ -57,7 +58,7 @@ func runInterrupted(t *testing.T, mode string) {
 	}
 
 	var buf bytes.Buffer
-	if err := tr.DumpChangesParallel(cfg, snapshot, src, &buf); err != nil {
+	if err := tr.DumpChangesParallel(context.Background(), cfg, snapshot, src, &buf); err != nil {
 		t.Fatalf("DumpChangesParallel failed: %v", err)
 	}
 	finalizeResumeState(cfg, tr.Tracker, zap.NewNop())

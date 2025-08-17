@@ -84,7 +84,7 @@ func TestRunSyncsLogger(t *testing.T) {
 	core := &countingSyncCore{Core: zapcore.NewNopCore()}
 	logger := zap.New(core)
 	origSeq := dumpChangesSequential
-	dumpChangesSequential = func(*transfer.Transfer, *config.Config, string, string, io.Writer) error { return nil }
+	dumpChangesSequential = func(context.Context, *transfer.Transfer, *config.Config, string, string, io.Writer) error { return nil }
 	defer func() { dumpChangesSequential = origSeq }()
 	snap := filepath.Join(t.TempDir(), "snap")
 	if err := os.WriteFile(snap, []byte("data"), 0o600); err != nil {

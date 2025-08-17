@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -57,7 +58,7 @@ func TestDumpChangesSequential(t *testing.T) {
 
 	cfg := &config.Config{BlockSize: int(blockSize), Compress: "none", DedupStateFile: filepath.Join(t.TempDir(), "state"), DedupStrategy: "checksum", MaxRetries: 1}
 	var buf bytes.Buffer
-	if err := tr.DumpChangesSequential(cfg, snapshot, src, &buf); err != nil {
+	if err := tr.DumpChangesSequential(context.Background(), cfg, snapshot, src, &buf); err != nil {
 		t.Fatalf("DumpChangesSequential failed: %v", err)
 	}
 	reader := bufio.NewReader(bytes.NewReader(buf.Bytes()))
@@ -91,7 +92,7 @@ func TestDumpChangesWithDeduplication(t *testing.T) {
 	cfg := &config.Config{BlockSize: int(blockSize), Compress: "none", MaxRetries: 1}
 	var buf bytes.Buffer
 	dedup := &dummyDedup{}
-	if err := tr.DumpChangesWithDeduplication(cfg, snapshot, src, &buf, dedup); err != nil {
+	if err := tr.DumpChangesWithDeduplication(context.Background(), cfg, snapshot, src, &buf, dedup); err != nil {
 		t.Fatalf("DumpChangesWithDeduplication failed: %v", err)
 	}
 	reader := bufio.NewReader(bytes.NewReader(buf.Bytes()))
@@ -120,7 +121,7 @@ func TestDumpChangesParallelProgress(t *testing.T) {
 
 	cfg := &config.Config{BlockSize: int(blockSize), Compress: "none", Parallel: 1, MaxRetries: 1, Progress: true}
 	var buf bytes.Buffer
-	if err := tr.DumpChangesParallel(cfg, snapshot, src, &buf); err != nil {
+	if err := tr.DumpChangesParallel(context.Background(), cfg, snapshot, src, &buf); err != nil {
 		t.Fatalf("DumpChangesParallel failed: %v", err)
 	}
 	if logs.FilterMessage("transfer progress").Len() == 0 {
@@ -136,7 +137,7 @@ func TestProcessDumpDataAutoDecompression(t *testing.T) {
 
 	cfgDump := &config.Config{BlockSize: int(blockSize), Compress: "zstd", ZstdLevel: 1, CompressLevel: 1, VerifyChecksum: true, Parallel: 1, MaxRetries: 1}
 	var buf bytes.Buffer
-	if err := tr.DumpChangesParallel(cfgDump, snapshot, src, &buf); err != nil {
+	if err := tr.DumpChangesParallel(context.Background(), cfgDump, snapshot, src, &buf); err != nil {
 		t.Fatalf("DumpChangesParallel failed: %v", err)
 	}
 
@@ -181,5 +182,31 @@ func TestProcessDumpDataAutoDecompression(t *testing.T) {
 	want := bytes.Repeat([]byte{1}, int(blockSize))
 	if !bytes.Equal(got, want) {
 		t.Fatalf("unexpected data %v, want %v", got[:4], want[:4])
+	}
+}
+
+func TestDumpChangesSequentialCanceled(t *testing.T) {
+	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{})
+	blockSize := int64(1024)
+	changed := []int{0, 1}
+	src, snapshot := createDumpTestFiles(t, blockSize, changed)
+	cfg := &config.Config{BlockSize: int(blockSize), Compress: "none", MaxRetries: 1}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := tr.DumpChangesSequential(ctx, cfg, snapshot, src, io.Discard); !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context canceled, got %v", err)
+	}
+}
+
+func TestDumpChangesParallelCanceled(t *testing.T) {
+	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{})
+	blockSize := int64(1024)
+	changed := []int{0, 1}
+	src, snapshot := createDumpTestFiles(t, blockSize, changed)
+	cfg := &config.Config{BlockSize: int(blockSize), Compress: "none", Parallel: 1, MaxRetries: 1}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := tr.DumpChangesParallel(ctx, cfg, snapshot, src, io.Discard); !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context canceled, got %v", err)
 	}
 }

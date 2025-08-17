@@ -3,6 +3,7 @@ package transfer
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/binary"
 	"io"
 	"path/filepath"
@@ -81,7 +82,7 @@ func TestResumeSequential(t *testing.T) {
 	cfg := &config.Config{BlockSize: int(blockSize), Compress: "none", Parallel: 1, ResumeState: resume, MaxRetries: 1, ChecksumAlgorithm: "blake3", Transport: "ssh", DedupMode: "fixed"}
 
 	var buf bytes.Buffer
-	if err := tr.DumpChangesParallel(cfg, snapshot, src, &buf); err != nil {
+	if err := tr.DumpChangesParallel(context.Background(), cfg, snapshot, src, &buf); err != nil {
 		t.Fatalf("DumpChangesParallel failed: %v", err)
 	}
 	finalizeResumeState(cfg, tr.Tracker, zap.NewNop())
@@ -106,7 +107,7 @@ func TestResumeParallel(t *testing.T) {
 	cfg := &config.Config{BlockSize: int(blockSize), Compress: "none", Parallel: 2, ResumeState: resume, MaxRetries: 1, ChecksumAlgorithm: "blake3", Transport: "ssh", DedupMode: "fixed"}
 
 	var buf bytes.Buffer
-	if err := tr.DumpChangesParallel(cfg, snapshot, src, &buf); err != nil {
+	if err := tr.DumpChangesParallel(context.Background(), cfg, snapshot, src, &buf); err != nil {
 		t.Fatalf("DumpChangesParallel failed: %v", err)
 	}
 	finalizeResumeState(cfg, tr.Tracker, zap.NewNop())
@@ -155,7 +156,7 @@ func TestResumeModeTransitions(t *testing.T) {
 			cfgResume := &config.Config{BlockSize: int(blockSize), Compress: "none", Parallel: 1, ResumeState: resume, MaxRetries: 1, ChecksumAlgorithm: "blake3", Transport: "ssh", DedupMode: trc.to}
 
 			var buf bytes.Buffer
-			if err := tr.DumpChangesParallel(cfgResume, snapshot, src, &buf); err != nil {
+			if err := tr.DumpChangesParallel(context.Background(), cfgResume, snapshot, src, &buf); err != nil {
 				t.Fatalf("DumpChangesParallel failed: %v", err)
 			}
 			finalizeResumeState(cfgResume, tr.Tracker, zap.NewNop())

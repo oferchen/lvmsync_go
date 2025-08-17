@@ -2,6 +2,7 @@ package transfer
 
 import (
 	"bytes"
+	"context"
 	"sync"
 	"testing"
 
@@ -27,7 +28,7 @@ func TestResumeFixedIdempotent(t *testing.T) {
 		if i == 1 {
 			buf = &second
 		}
-		if err := tr.DumpChangesParallel(cfg, snapshot, src, buf); err != nil {
+		if err := tr.DumpChangesParallel(context.Background(), cfg, snapshot, src, buf); err != nil {
 			t.Fatalf("DumpChangesParallel failed: %v", err)
 		}
 		finalizeResumeState(cfg, tr.Tracker, zap.NewNop())

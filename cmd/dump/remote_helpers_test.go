@@ -171,11 +171,11 @@ func TestStreamToRemote(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			dumpChangesSequential = func(_ *transfer.Transfer, c *config.Config, snapshot, origin string, out io.Writer) error {
+			dumpChangesSequential = func(_ context.Context, _ *transfer.Transfer, c *config.Config, snapshot, origin string, out io.Writer) error {
 				return tc.dumpErr
 			}
 			remoteStdin := &mockWriteCloser{Writer: io.Discard, closeErr: tc.closeErr}
-			err := StreamToRemote(cfg, remoteStdin, snapFile, "origin", digestpkg.SHA256, zap.NewNop())
+			err := StreamToRemote(context.Background(), cfg, remoteStdin, snapFile, "origin", digestpkg.SHA256, zap.NewNop())
 			if tc.dumpErr == nil && tc.closeErr == nil {
 				if err != nil {
 					t.Fatalf("expected nil error, got %v", err)

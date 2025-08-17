@@ -3,6 +3,7 @@ package transfer
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"io"
 	"os"
@@ -19,7 +20,7 @@ func TestIterateBlocksFinalSHA(t *testing.T) {
 	snapshot := "vg-lv"
 	_, src := createVolumeFiles(t, snapshot, blockSize, []int{0})
 	cfg := &config.Config{BlockSize: int(blockSize), Compress: "zstd", ZstdLevel: 1, CompressLevel: 1, MaxRetries: 1, ChecksumAlgorithm: "sha256"}
-	ranges, err := gatherChangedRanges(snapshot, blockSize, logger)
+	ranges, err := gatherChangedRanges(context.Background(), snapshot, blockSize, logger)
 	if err != nil {
 		t.Fatalf("gather ranges: %v", err)
 	}
@@ -33,7 +34,7 @@ func TestIterateBlocksFinalSHA(t *testing.T) {
 		t.Fatalf("compression writer: %v", err)
 	}
 	bufOut := bufio.NewWriter(w)
-	_, _, digest, err := iterateBlocks(cfg, ranges, srcFile, bufOut, nil, [2]int{-1, -1}, logger, nil)
+	_, _, digest, err := iterateBlocks(context.Background(), cfg, ranges, srcFile, bufOut, nil, [2]int{-1, -1}, logger, nil)
 	if err != nil {
 		t.Fatalf("iterateBlocks: %v", err)
 	}
