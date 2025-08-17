@@ -30,7 +30,7 @@ func NewRunnerWithDeps(
 
 func init() {
 	r := NewRunner()
-	rootcmd.RunManifest = r.Run
+	rootcmd.RegisterManifest(r.Run)
 }
 
 // Run executes manifest subcommands. Currently only "rebuild" is supported.

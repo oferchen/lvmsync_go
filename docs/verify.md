@@ -19,4 +19,5 @@ lvmsync verify --block_size 4K --manifest_path snapshot.manifest /dev/vg0/source
 ```
 
 All flags can also be provided via `LVMSYNC_*` environment variables or a
-`config.yaml` file thanks to Viper binding.
+`config.yaml` file thanks to Viper binding. Flags override environment
+variables, which override configuration files.
