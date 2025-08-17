@@ -19,13 +19,13 @@ import (
 	"lvmsync_go/transfer"
 )
 
-// TestRunRemoteDump executes a remote apply command through SSH.
+// TestRunRemoteDump executes a remote command through SSH.
 func TestRunRemoteDump(t *testing.T) {
 	server := remotetest.NewMockSSHServer(t, func(cmd string) int {
 		switch {
 		case cmd == "lvmsync --version":
 			return 0
-		case strings.HasPrefix(cmd, "lvmsync --apply - --digest sha256 --verify none /dev/null"):
+		case strings.HasPrefix(cmd, "lvmsync --digest sha256 --verify none /dev/null"):
 			return 0
 		default:
 			t.Fatalf("unexpected command: %s", cmd)
@@ -91,7 +91,7 @@ func TestRunRemoteDump(t *testing.T) {
 	if len(cmds) != 2 {
 		t.Fatalf("expected 2 commands, got %d: %v", len(cmds), cmds)
 	}
-	if cmds[0] != "lvmsync --version" || cmds[1] != "lvmsync --apply - --digest sha256 --verify none /dev/null" {
+	if cmds[0] != "lvmsync --version" || cmds[1] != "lvmsync --digest sha256 --verify none /dev/null" {
 		t.Fatalf("unexpected commands: %v", cmds)
 	}
 }
@@ -102,7 +102,7 @@ func TestRunRemoteDumpError(t *testing.T) {
 		if cmd == "lvmsync --version" {
 			return 0
 		}
-		if strings.HasPrefix(cmd, "lvmsync --apply - --digest sha256 --verify none /dev/null") {
+		if strings.HasPrefix(cmd, "lvmsync --digest sha256 --verify none /dev/null") {
 			return 1
 		}
 		return 0
@@ -170,7 +170,7 @@ func TestRunRemoteDumpTimeout(t *testing.T) {
 		case cmd == "lvmsync --version":
 			time.Sleep(100 * time.Millisecond)
 			return 0
-		case strings.HasPrefix(cmd, "lvmsync --apply - --digest sha256 --verify none /dev/null"):
+		case strings.HasPrefix(cmd, "lvmsync --digest sha256 --verify none /dev/null"):
 			return 0
 		default:
 			t.Fatalf("unexpected command: %s", cmd)
@@ -256,7 +256,7 @@ func TestRunRemoteDumpLogsDigestSelection(t *testing.T) {
 		switch {
 		case cmd == "lvmsync --version":
 			return 0
-		case strings.HasPrefix(cmd, "lvmsync --apply - --digest sha256 --verify none /dev/null"):
+		case strings.HasPrefix(cmd, "lvmsync --digest sha256 --verify none /dev/null"):
 			return 0
 		default:
 			t.Fatalf("unexpected command: %s", cmd)

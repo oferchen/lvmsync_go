@@ -37,17 +37,6 @@ func TestDispatchSubcommandManifest(t *testing.T) {
 	}
 }
 
-func TestDispatchSubcommandApplyError(t *testing.T) {
-	cfg := &config.Config{ApplyMode: "apply"}
-	logger := zap.NewNop()
-	r := NewRunner()
-	r.runApplyFn = func(*config.Config, string, []string, *zap.Logger) error { return errors.New("boom") }
-	handled, err := r.dispatchSubcommand(cfg, []string{"vol"}, logger)
-	if !handled || err == nil || err.Error() != "apply operation failed: boom" {
-		t.Fatalf("expected wrapped apply error, got %v", err)
-	}
-}
-
 func TestPrepareClientSuccess(t *testing.T) {
 	cfg := &config.Config{StdoutMode: true, GRPCSetupTimeout: time.Second, SourceType: "file"}
 	logger := zap.NewNop()

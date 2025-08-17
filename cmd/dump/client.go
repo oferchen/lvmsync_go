@@ -411,7 +411,7 @@ func WaitForRemoteCompletion(session waitSession, stdoutErrCh, stderrErrCh <-cha
 	return nil
 }
 
-// ExecuteRemoteCommand runs the remote apply command over SSH.
+// ExecuteRemoteCommand runs the remote command over SSH.
 func (r *Runner) ExecuteRemoteCommand(ctx context.Context, cfg *config.Config, client *remote.SSHClient, destDevice, snapshotDevice, originDevice, alg string, logger *zap.Logger) (err error) {
 	if err = client.ValidateRemoteCommand(ctx, cfg.LVMSyncPath); err != nil {
 		return fmt.Errorf("remote command validation failed: %w", err)
@@ -432,8 +432,8 @@ func (r *Runner) ExecuteRemoteCommand(ctx context.Context, cfg *config.Config, c
 	if cfg.DestType != "" && cfg.DestType != "auto" {
 		baseCmd = fmt.Sprintf("%s --dest-type %s", baseCmd, cfg.DestType)
 	}
-	remoteCmd := fmt.Sprintf("%s --apply - --digest %s --verify %s %s", baseCmd, alg, cfg.VerifyLevel, destDevice)
-	logger.Info("Starting remote apply command", zap.String("command", remoteCmd))
+	remoteCmd := fmt.Sprintf("%s --digest %s --verify %s %s", baseCmd, alg, cfg.VerifyLevel, destDevice)
+	logger.Info("Starting remote command", zap.String("command", remoteCmd))
 
 	if err = session.Start(remoteCmd); err != nil {
 		return fmt.Errorf("failed to start remote command: %w", err)

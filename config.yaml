@@ -1,9 +1,6 @@
 ---
 # config.yaml - LVMSync default configuration
 
-# Apply mode: read change dump from file ('-' for STDIN)
-# and apply to destination device
-apply: ""
 stdout: false  # Write change dump to STDOUT
 dry_run: false  # Print actions without executing (same as --dry-run)
 parallel: 4  # Number of concurrent workers

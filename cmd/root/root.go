@@ -24,7 +24,6 @@ type Runner struct {
 	setupSignalHandleFn func(context.Context, *config.Config, *string, *zap.Logger) (chan os.Signal, chan error)
 	prepareSnapshotFn   func(context.Context, *config.Config, string, *zap.Logger) (string, chan error, func(), error)
 	executeClientFn     func(context.Context, func(context.Context, string, string) error, string, string, chan error, chan error, *zap.Logger) error
-	runApplyFn          func(cfg *config.Config, applyFile string, args []string, logger *zap.Logger) error
 	selectTransportFn   func(cfg *config.Config, logger *zap.Logger) (transport.Interface, error)
 	runDumpFn           func(ctx context.Context, cfg *config.Config, snapshot, dest string, logger *zap.Logger) (string, error)
 	runManifestFn       func(cfg *config.Config, args []string, logger *zap.Logger) error
@@ -39,9 +38,6 @@ func NewRunner() *Runner {
 		setupSignalHandleFn: app.SetupSignalHandling,
 		prepareSnapshotFn:   app.PrepareSnapshot,
 		executeClientFn:     clientpkg.ExecuteClient,
-		runApplyFn: func(cfg *config.Config, applyFile string, args []string, logger *zap.Logger) error {
-			return fmt.Errorf("apply command not registered")
-		},
 		selectTransportFn: func(cfg *config.Config, logger *zap.Logger) (transport.Interface, error) {
 			return nil, fmt.Errorf("transport not registered")
 		},
@@ -78,9 +74,6 @@ func NewRunnerWithDeps(deps *Runner) *Runner {
 	if deps.executeClientFn != nil {
 		r.executeClientFn = deps.executeClientFn
 	}
-	if deps.runApplyFn != nil {
-		r.runApplyFn = deps.runApplyFn
-	}
 	if deps.selectTransportFn != nil {
 		r.selectTransportFn = deps.selectTransportFn
 	}
@@ -97,11 +90,6 @@ func NewRunnerWithDeps(deps *Runner) *Runner {
 }
 
 var defaultRunner = NewRunner()
-
-// RegisterApply sets the apply handler used by the default Runner.
-func RegisterApply(fn func(*config.Config, string, []string, *zap.Logger) error) {
-	defaultRunner.runApplyFn = fn
-}
 
 // RegisterDump sets the dump handler used by the default Runner.
 func RegisterDump(fn func(context.Context, *config.Config, string, string, *zap.Logger) (string, error)) {
@@ -244,12 +232,6 @@ func (r *Runner) dispatchSubcommand(cfg *config.Config, args []string, logger *z
 		case "verify":
 			return true, r.runVerifyFn(args[1:], logger)
 		}
-	}
-	if cfg.ApplyMode != "" {
-		if err := r.runApplyFn(cfg, cfg.ApplyMode, args, logger); err != nil {
-			return true, fmt.Errorf("apply operation failed: %w", err)
-		}
-		return true, nil
 	}
 	return false, nil
 }

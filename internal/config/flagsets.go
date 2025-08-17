@@ -54,7 +54,6 @@ func (f *FlagSets) All() []*pflag.FlagSet {
 func initGeneralFlags(cfg *Config) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("General Options", pflag.ExitOnError)
 	fs.String("config", "", "Path to config YAML file")
-	fs.String("apply", cfg.ApplyMode, "Apply mode: read change dump from file ('-' for STDIN) and apply to destination device")
 	fs.Bool("stdout", cfg.StdoutMode, "Write change dump to STDOUT")
 	fs.Bool("dry-run", cfg.DryRun, "Print actions without executing")
 	fs.Bool("force", cfg.Force, "Override safety checks and proceed on mounted destination")
