@@ -21,27 +21,27 @@ var openRawFunc = OpenRaw
 func detectFileDevice(path string, logger *zap.Logger) (Device, error) {
 	dev, err := OpenFile(path, logger)
 	if err != nil {
-		logger.Error("detect device failed", zap.String("path", path), zap.String("device_type", TypeFile), zap.Error(err))
+		logger.Error("detect_device_failed", zap.String("path", path), zap.String("device_type", TypeFile), zap.Error(err))
 		return nil, err
 	}
-	logger.Info("detect device success", zap.String("path", path), zap.String("device_type", TypeFile))
+	logger.Info("detect_device_success", zap.String("path", path), zap.String("device_type", TypeFile))
 	return dev, nil
 }
 
 // detectLVMDevice opens an LVM logical volume.
 func detectLVMDevice(path, lvmEscalation string, runner *Runner, logger *zap.Logger) (Device, error) {
 	if err := lvm.VerifyEscalationCommand(lvmEscalation); err != nil {
-		logger.Error("detect device failed", zap.String("path", path), zap.String("device_type", TypeLVM), zap.Error(err))
+		logger.Error("detect_device_failed", zap.String("path", path), zap.String("device_type", TypeLVM), zap.Error(err))
 		return nil, err
 	}
 	cache := lvm.NewDeviceFDCache(logger)
 	defer cache.Close()
 	dev, err := runner.OpenLVM(path, cache, lvmEscalation, logger)
 	if err != nil {
-		logger.Error("detect device failed", zap.String("path", path), zap.String("device_type", TypeLVM), zap.Error(err))
+		logger.Error("detect_device_failed", zap.String("path", path), zap.String("device_type", TypeLVM), zap.Error(err))
 		return nil, err
 	}
-	logger.Info("detect device success", zap.String("path", path), zap.String("device_type", TypeLVM))
+	logger.Info("detect_device_success", zap.String("path", path), zap.String("device_type", TypeLVM))
 	return dev, nil
 }
 
@@ -53,7 +53,7 @@ func detectRawDevice(ctx context.Context, path string, offline bool, fsFreezeCmd
 		parts, err := shellquote.Split(fsFreezeCmd)
 		if err != nil {
 			err = fmt.Errorf("invalid freeze command: %w", err)
-			logger.Error("detect device failed", zap.String("path", path), zap.String("device_type", TypeRaw), zap.Error(err))
+			logger.Error("detect_device_failed", zap.String("path", path), zap.String("device_type", TypeRaw), zap.Error(err))
 			return nil, err
 		}
 		if len(parts) > 0 {
@@ -65,7 +65,7 @@ func detectRawDevice(ctx context.Context, path string, offline bool, fsFreezeCmd
 		parts, err := shellquote.Split(fsThawCmd)
 		if err != nil {
 			err = fmt.Errorf("invalid thaw command: %w", err)
-			logger.Error("detect device failed", zap.String("path", path), zap.String("device_type", TypeRaw), zap.Error(err))
+			logger.Error("detect_device_failed", zap.String("path", path), zap.String("device_type", TypeRaw), zap.Error(err))
 			return nil, err
 		}
 		if len(parts) > 0 {
@@ -75,10 +75,10 @@ func detectRawDevice(ctx context.Context, path string, offline bool, fsFreezeCmd
 	}
 	dev, err := openRawFunc(ctx, path, offline, freezePath, freezeArgs, thawPath, thawArgs, freezeTimeout, thawTimeout, logger)
 	if err != nil {
-		logger.Error("detect device failed", zap.String("path", path), zap.String("device_type", TypeRaw), zap.Error(err))
+		logger.Error("detect_device_failed", zap.String("path", path), zap.String("device_type", TypeRaw), zap.Error(err))
 		return nil, err
 	}
-	logger.Info("detect device success", zap.String("path", path), zap.String("device_type", TypeRaw))
+	logger.Info("detect_device_success", zap.String("path", path), zap.String("device_type", TypeRaw))
 	return dev, nil
 }
 
@@ -105,12 +105,12 @@ func Detect(
 	}
 	resolved, err := filepath.EvalSymlinks(path)
 	if err != nil {
-		logger.Error("device detect failed", zap.String("path", path), zap.String("device_type", "symlink"), zap.Error(err))
+		logger.Error("device_detect_failed", zap.String("path", path), zap.String("device_type", "symlink"), zap.Error(err))
 		return nil, err
 	}
 	info, err := os.Stat(resolved)
 	if err != nil {
-		logger.Error("device detect failed", zap.String("path", resolved), zap.String("device_type", "stat"), zap.Error(err))
+		logger.Error("device_detect_failed", zap.String("path", resolved), zap.String("device_type", "stat"), zap.Error(err))
 		return nil, err
 	}
 	if explicitType != "" && explicitType != TypeAuto {
@@ -146,6 +146,6 @@ func Detect(
 		return detectRawDevice(ctx, resolved, offline, fsFreezeCmd, fsThawCmd, freezeTimeout, thawTimeout, logger)
 	}
 	err = fmt.Errorf("unsupported path type: %s", resolved)
-	logger.Error("device detect failed", zap.String("path", resolved), zap.String("device_type", "unknown"), zap.Error(err))
+	logger.Error("device_detect_failed", zap.String("path", resolved), zap.String("device_type", "unknown"), zap.Error(err))
 	return nil, err
 }

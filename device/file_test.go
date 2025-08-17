@@ -38,10 +38,10 @@ func TestOpenFile(t *testing.T) {
 		t.Fatalf("expected non-zero block size")
 	}
 
-	if logs.FilterMessage("file device opened").Len() == 0 {
-		t.Fatalf("expected file device opened log")
+	if logs.FilterMessage("file_device_opened").Len() == 0 {
+		t.Fatalf("expected file_device_opened log")
 	}
-	entries := logs.FilterMessage("file device info").All()
+	entries := logs.FilterMessage("file_device_info").All()
 	found := false
 	for _, e := range entries {
 		if e.ContextMap()["path"] == path &&
@@ -51,10 +51,10 @@ func TestOpenFile(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Fatalf("expected file device info log with fields, got %v", logs.All())
+		t.Fatalf("expected file_device_info log with fields, got %v", logs.All())
 	}
-	if logs.FilterMessage("file device closed").Len() == 0 {
-		t.Fatalf("expected file device closed log")
+	if logs.FilterMessage("file_device_closed").Len() == 0 {
+		t.Fatalf("expected file_device_closed log")
 	}
 }
 
