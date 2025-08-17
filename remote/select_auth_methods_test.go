@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 	"golang.org/x/crypto/ssh/agent"
 )
 
@@ -68,3 +69,30 @@ func TestSelectAuthMethodsCanceled(t *testing.T) {
 	}
 }
 
+func TestSelectAuthMethodsLogsAgentFailure(t *testing.T) {
+	sock := filepath.Join(t.TempDir(), "missing.sock")
+	t.Setenv("SSH_AUTH_SOCK", sock)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	core, obs := observer.New(zap.WarnLevel)
+	logger := zap.New(core)
+
+	_, err := selectAuthMethods(ctx, logger, "", 50*time.Millisecond)
+	if err == nil {
+		t.Fatalf("expected error, got nil")
+	}
+	logs := obs.All()
+	if len(logs) != 1 {
+		t.Fatalf("expected one log entry, got %d", len(logs))
+	}
+	if logs[0].Message != "ssh agent dial failed" {
+		t.Fatalf("unexpected log message %q", logs[0].Message)
+	}
+	if logs[0].ContextMap()["socket_path"] != sock {
+		t.Fatalf("expected socket_path %q, got %v", sock, logs[0].ContextMap()["socket_path"])
+	}
+	if _, ok := logs[0].ContextMap()["sock"]; ok {
+		t.Fatalf("unexpected sock field in log context")
+	}
+}

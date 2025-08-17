@@ -99,7 +99,7 @@ func selectAuthMethods(ctx context.Context, logger *zap.Logger, keyPath string, 
 				if ctxErr := ctx.Err(); ctxErr != nil {
 					return nil, ctxErr
 				}
-				logger.Warn("ssh agent dial failed", zap.String("sock", sshAgentSock), zap.Error(err))
+				logger.Warn("ssh agent dial failed", zap.String("socket_path", sshAgentSock), zap.Error(err))
 			} else {
 				agentClient := agent.NewClient(conn)
 				authMethods = append(authMethods, ssh.PublicKeysCallback(func() ([]ssh.Signer, error) {
