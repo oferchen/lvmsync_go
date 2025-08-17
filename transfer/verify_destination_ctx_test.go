@@ -29,15 +29,16 @@ func TestVerifyDestinationNilContext(t *testing.T) {
 }
 
 func TestVerifyDestinationCanceledContext(t *testing.T) {
-	prevUUID := device.SetUUIDFunc(func(ctx context.Context, _ string) (string, error) {
-		<-ctx.Done()
-		return "", ctx.Err()
-	})
-	defer device.SetUUIDFunc(prevUUID)
-	prevMount := device.SetMountFunc(func(context.Context, string) (bool, error) { return false, nil })
-	defer device.SetMountFunc(prevMount)
-
-	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, nil)
+	info := device.NewInfoWithDeps(
+		func(ctx context.Context, _ string) (string, error) {
+			<-ctx.Done()
+			return "", ctx.Err()
+		},
+		func(context.Context, string) (string, error) { return "", errors.New("no lvm") },
+		func(context.Context, string) (bool, error) { return false, nil },
+		nil,
+	)
+	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, info)
 	cfg := &config.Config{DeviceUUID: "id"}
 	dest := filepath.Join(t.TempDir(), "dest")
 	if err := os.WriteFile(dest, nil, 0600); err != nil {

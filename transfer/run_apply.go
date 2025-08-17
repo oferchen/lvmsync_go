@@ -9,7 +9,6 @@ import (
 	"go.uber.org/zap"
 
 	"lvmsync_go/common"
-	"lvmsync_go/device"
 	"lvmsync_go/internal/config"
 )
 
@@ -34,7 +33,7 @@ func (t *Transfer) applyData(cfg *config.Config, in io.Reader, destDevice string
 			return fmt.Errorf("destination device uuid %s does not match expected %s", uuid, cfg.DeviceUUID)
 		}
 	}
-	mounted, err := device.IsMountedRW(context.Background(), destDevice)
+	mounted, err := t.Info.IsMountedRW(context.Background(), destDevice)
 	if err != nil {
 		return fmt.Errorf("check mount status: %w", err)
 	}
