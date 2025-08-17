@@ -63,12 +63,21 @@ func Run(args []string, logger *zap.Logger) error {
 			return nil
 		},
 	}
-	bindFlags(cmd, v)
+	if err := bindFlags(cmd, v); err != nil {
+		return err
+	}
 	cmd.SetArgs(args)
 	return cmd.Execute()
 }
 
-func bindFlags(cmd *cobra.Command, v *viper.Viper) {
+type flagBinder interface {
+	BindPFlags(*pflag.FlagSet) error
+	SetEnvPrefix(string)
+	SetEnvKeyReplacer(*strings.Replacer)
+	AutomaticEnv()
+}
+
+func bindFlags(cmd *cobra.Command, v flagBinder) error {
 	fs := pflag.NewFlagSet("serve", pflag.ExitOnError)
 	fs.String("transport", "quic", "transport to use")
 	fs.String("quic-listen", ":12000", "QUIC listen address")
@@ -77,10 +86,13 @@ func bindFlags(cmd *cobra.Command, v *viper.Viper) {
 	fs.String("ca-cert", "", "CA certificate file")
 	fs.Bool("allow-insecure", false, "allow insecure (no TLS)")
 	cmd.Flags().AddFlagSet(fs)
-	v.BindPFlags(fs)
+	if err := v.BindPFlags(fs); err != nil {
+		return err
+	}
 	v.SetEnvPrefix("LVMSYNC_SERVE")
 	v.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	v.AutomaticEnv()
+	return nil
 }
 
 func startServer(ctx context.Context, opts Options, logger *zap.Logger) error {

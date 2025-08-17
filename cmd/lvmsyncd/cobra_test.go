@@ -2,9 +2,12 @@ package main
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"testing"
 
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
 
@@ -34,5 +37,19 @@ func TestFlagParsing(t *testing.T) {
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %#v want %#v", got, want)
+	}
+}
+
+type bindErrViper struct {
+	*viper.Viper
+}
+
+func (b *bindErrViper) BindPFlags(_ *pflag.FlagSet) error { return errors.New("bind fail") }
+func (b *bindErrViper) Underlying() *viper.Viper          { return b.Viper }
+
+func TestNewCmdBindError(t *testing.T) {
+	r := NewRunner()
+	if _, err := r.NewCmd(zap.NewNop(), &bindErrViper{Viper: viper.New()}); err == nil || err.Error() != "bind fail" {
+		t.Fatalf("expected bind fail, got %v", err)
 	}
 }
