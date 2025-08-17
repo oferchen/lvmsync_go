@@ -32,7 +32,7 @@ func StartPrivHelper(ctx context.Context, client *ssh.Client, command string, lo
 		logger = zap.NewNop()
 	}
 	command = strings.TrimSpace(command)
-	if !RemoteCmdRe.MatchString(command) {
+	if !ValidRemoteCommand(command) {
 		return nil, fmt.Errorf("remote command %s contains invalid characters", command)
 	}
 	session, err := client.NewSession()
