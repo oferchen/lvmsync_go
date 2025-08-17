@@ -1,121 +1,21 @@
 package transport_test
 
 import (
-	"context"
-	"crypto/rand"
-	"crypto/rsa"
-	"crypto/tls"
-	"crypto/x509"
-	"math/big"
-	"net"
 	"testing"
-	"time"
-
-	"go.uber.org/zap"
 
 	"lvmsync_go/common"
-	"lvmsync_go/transport"
 	_ "lvmsync_go/transport/h2"
 	_ "lvmsync_go/transport/quic"
 	_ "lvmsync_go/transport/ssh"
 	_ "lvmsync_go/transport/tcp_tls"
+	"lvmsync_go/transport/testutil"
 )
-
-func generateSelfSignedCert(t *testing.T) (tls.Certificate, *x509.CertPool) {
-	t.Helper()
-	key, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatalf("generate key: %v", err)
-	}
-	tmpl := x509.Certificate{
-		SerialNumber: big.NewInt(1),
-		NotBefore:    time.Now(),
-		NotAfter:     time.Now().Add(time.Hour),
-		IPAddresses:  []net.IP{net.ParseIP("127.0.0.1")},
-	}
-	der, err := x509.CreateCertificate(rand.Reader, &tmpl, &tmpl, &key.PublicKey, key)
-	if err != nil {
-		t.Fatalf("create cert: %v", err)
-	}
-	cert := tls.Certificate{Certificate: [][]byte{der}, PrivateKey: key}
-	parsed, err := x509.ParseCertificate(der)
-	if err != nil {
-		t.Fatalf("parse cert: %v", err)
-	}
-	pool := x509.NewCertPool()
-	pool.AddCert(parsed)
-	return cert, pool
-}
-
-func newTransport(t *testing.T, name string) transport.Interface {
-	t.Helper()
-	cfg := transport.Config{Logger: zap.NewNop()}
-	if name == "tcp+tls" || name == "quic" || name == "h2" {
-		cert, pool := generateSelfSignedCert(t)
-		cfg.ClientCert = cert
-		cfg.ServerCert = cert
-		cfg.Roots = pool
-	}
-	if name == "ssh" {
-		cfg.SSHUser = "test"
-		cfg.SSHPassword = "pass"
-		cfg.AllowInsecure = true
-	}
-	tr, err := transport.Get(name, cfg)
-	if err != nil {
-		t.Fatalf("get transport %s: %v", name, err)
-	}
-	return tr
-}
-
-type result struct {
-	peer common.Handshake
-	err  error
-}
-
-func runNegotiation(t *testing.T, tr transport.Interface, serverHS, clientHS common.Handshake) (result, result) {
-	t.Helper()
-	ctx := context.Background()
-	ln, err := tr.Listen(ctx, "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("listen: %v", err)
-	}
-	defer ln.Close()
-	addr := ln.Addr().String()
-	srvCh := make(chan result)
-	done := make(chan struct{})
-	go func() {
-		conn, err := ln.Accept()
-		if err != nil {
-			srvCh <- result{err: err}
-			return
-		}
-		peer, err := tr.Negotiate(ctx, conn, transport.Server, serverHS)
-		if err != nil {
-			conn.Close()
-			srvCh <- result{peer: peer, err: err}
-			return
-		}
-		<-done
-		conn.Close()
-		srvCh <- result{peer: peer, err: err}
-	}()
-	conn, err := tr.Dial(ctx, addr)
-	if err != nil {
-		t.Fatalf("dial: %v", err)
-	}
-	peer, err := tr.Negotiate(ctx, conn, transport.Client, clientHS)
-	conn.Close()
-	close(done)
-	srvRes := <-srvCh
-	return srvRes, result{peer: peer, err: err}
-}
 
 func TestTransportNegotiationMatrix(t *testing.T) {
 	transports := []string{"ssh", "tcp+tls", "h2", "quic"}
 	for _, name := range transports {
 		t.Run(name, func(t *testing.T) {
-			tr := newTransport(t, name)
+			tr := testutil.NewTransport(t, name)
 			base := common.Handshake{
 				DedupMode:     "fixed",
 				CDCMin:        64,
@@ -140,19 +40,19 @@ func TestTransportNegotiationMatrix(t *testing.T) {
 				clientHS := base
 				serverHS.DedupMode = m
 				clientHS.DedupMode = m
-				srv, cli := runNegotiation(t, tr, serverHS, clientHS)
-				if srv.err != nil || cli.err != nil {
-					t.Fatalf("expected success: server %v client %v", srv.err, cli.err)
+				srv, cli := testutil.RunNegotiation(t, tr, serverHS, clientHS)
+				if srv.Err != nil || cli.Err != nil {
+					t.Fatalf("expected success: server %v client %v", srv.Err, cli.Err)
 				}
-				if cli.peer.DedupMode != m || cli.peer.Compress != "zstd" || cli.peer.ODirect != true ||
-					cli.peer.CDCMin != base.CDCMin || cli.peer.CDCAvg != base.CDCAvg || cli.peer.CDCMax != base.CDCMax ||
-					cli.peer.ALPN != base.ALPN || cli.peer.TLSVersion != base.TLSVersion {
-					t.Fatalf("unexpected client peer handshake: %+v", cli.peer)
+				if cli.Peer.DedupMode != m || cli.Peer.Compress != "zstd" || cli.Peer.ODirect != true ||
+					cli.Peer.CDCMin != base.CDCMin || cli.Peer.CDCAvg != base.CDCAvg || cli.Peer.CDCMax != base.CDCMax ||
+					cli.Peer.ALPN != base.ALPN || cli.Peer.TLSVersion != base.TLSVersion {
+					t.Fatalf("unexpected client peer handshake: %+v", cli.Peer)
 				}
-				if srv.peer.DedupMode != m || srv.peer.Compress != "zstd" || srv.peer.ODirect != true ||
-					srv.peer.CDCMin != base.CDCMin || srv.peer.CDCAvg != base.CDCAvg || srv.peer.CDCMax != base.CDCMax ||
-					srv.peer.ALPN != base.ALPN || srv.peer.TLSVersion != base.TLSVersion {
-					t.Fatalf("unexpected server peer handshake: %+v", srv.peer)
+				if srv.Peer.DedupMode != m || srv.Peer.Compress != "zstd" || srv.Peer.ODirect != true ||
+					srv.Peer.CDCMin != base.CDCMin || srv.Peer.CDCAvg != base.CDCAvg || srv.Peer.CDCMax != base.CDCMax ||
+					srv.Peer.ALPN != base.ALPN || srv.Peer.TLSVersion != base.TLSVersion {
+					t.Fatalf("unexpected server peer handshake: %+v", srv.Peer)
 				}
 			}
 			// mismatch cases
@@ -160,7 +60,7 @@ func TestTransportNegotiationMatrix(t *testing.T) {
 			serverHS := base
 			clientHS := base
 			clientHS.DedupMode = "cdc"
-			if srv, cli := runNegotiation(t, tr, serverHS, clientHS); srv.err == nil || cli.err == nil {
+			if srv, cli := testutil.RunNegotiation(t, tr, serverHS, clientHS); srv.Err == nil || cli.Err == nil {
 				t.Fatalf("expected dedup mismatch error")
 			}
 			// cdc min
@@ -168,7 +68,7 @@ func TestTransportNegotiationMatrix(t *testing.T) {
 			serverHS.DedupMode = "cdc"
 			clientHS = serverHS
 			clientHS.CDCMin = 128
-			if srv, cli := runNegotiation(t, tr, serverHS, clientHS); srv.err == nil || cli.err == nil {
+			if srv, cli := testutil.RunNegotiation(t, tr, serverHS, clientHS); srv.Err == nil || cli.Err == nil {
 				t.Fatalf("expected cdc min mismatch error")
 			}
 			// cdc avg
@@ -176,7 +76,7 @@ func TestTransportNegotiationMatrix(t *testing.T) {
 			serverHS.DedupMode = "cdc"
 			clientHS = serverHS
 			clientHS.CDCAvg = 256
-			if srv, cli := runNegotiation(t, tr, serverHS, clientHS); srv.err == nil || cli.err == nil {
+			if srv, cli := testutil.RunNegotiation(t, tr, serverHS, clientHS); srv.Err == nil || cli.Err == nil {
 				t.Fatalf("expected cdc avg mismatch error")
 			}
 			// cdc max
@@ -184,7 +84,7 @@ func TestTransportNegotiationMatrix(t *testing.T) {
 			serverHS.DedupMode = "cdc"
 			clientHS = serverHS
 			clientHS.CDCMax = 512
-			if srv, cli := runNegotiation(t, tr, serverHS, clientHS); srv.err == nil || cli.err == nil {
+			if srv, cli := testutil.RunNegotiation(t, tr, serverHS, clientHS); srv.Err == nil || cli.Err == nil {
 				t.Fatalf("expected cdc max mismatch error")
 			}
 			// compression algorithm
@@ -192,49 +92,49 @@ func TestTransportNegotiationMatrix(t *testing.T) {
 			clientHS = base
 			clientHS.Compress = "lz4"
 			clientHS.CompressLevel = 0
-			if srv, cli := runNegotiation(t, tr, serverHS, clientHS); srv.err == nil || cli.err == nil {
+			if srv, cli := testutil.RunNegotiation(t, tr, serverHS, clientHS); srv.Err == nil || cli.Err == nil {
 				t.Fatalf("expected compression mismatch error")
 			}
 			// compression level
 			serverHS = base
 			clientHS = base
 			clientHS.CompressLevel = 2
-			if srv, cli := runNegotiation(t, tr, serverHS, clientHS); srv.err == nil || cli.err == nil {
+			if srv, cli := testutil.RunNegotiation(t, tr, serverHS, clientHS); srv.Err == nil || cli.Err == nil {
 				t.Fatalf("expected compression level mismatch error")
 			}
 			// O_DIRECT
 			serverHS = base
 			clientHS = base
 			clientHS.ODirect = false
-			if srv, cli := runNegotiation(t, tr, serverHS, clientHS); srv.err == nil || cli.err == nil {
+			if srv, cli := testutil.RunNegotiation(t, tr, serverHS, clientHS); srv.Err == nil || cli.Err == nil {
 				t.Fatalf("expected o_direct mismatch error")
 			}
 			// resume token
 			serverHS = base
 			clientHS = base
 			clientHS.ResumeToken = "other"
-			if srv, cli := runNegotiation(t, tr, serverHS, clientHS); srv.err == nil || cli.err == nil {
+			if srv, cli := testutil.RunNegotiation(t, tr, serverHS, clientHS); srv.Err == nil || cli.Err == nil {
 				t.Fatalf("expected resume token mismatch error")
 			}
 			// max in-flight
 			serverHS = base
 			clientHS = base
 			clientHS.MaxInFlight = 4
-			if srv, cli := runNegotiation(t, tr, serverHS, clientHS); srv.err == nil || cli.err == nil {
+			if srv, cli := testutil.RunNegotiation(t, tr, serverHS, clientHS); srv.Err == nil || cli.Err == nil {
 				t.Fatalf("expected max in-flight mismatch error")
 			}
 			// ALPN
 			serverHS = base
 			clientHS = base
 			clientHS.ALPN = "other"
-			if srv, cli := runNegotiation(t, tr, serverHS, clientHS); srv.err == nil || cli.err == nil {
+			if srv, cli := testutil.RunNegotiation(t, tr, serverHS, clientHS); srv.Err == nil || cli.Err == nil {
 				t.Fatalf("expected alpn mismatch error")
 			}
 			// TLS version
 			serverHS = base
 			clientHS = base
 			clientHS.TLSVersion = "1.2"
-			if srv, cli := runNegotiation(t, tr, serverHS, clientHS); srv.err == nil || cli.err == nil {
+			if srv, cli := testutil.RunNegotiation(t, tr, serverHS, clientHS); srv.Err == nil || cli.Err == nil {
 				t.Fatalf("expected tls version mismatch error")
 			}
 			// digest algorithm
@@ -242,7 +142,7 @@ func TestTransportNegotiationMatrix(t *testing.T) {
 			serverHS.Digest = "blake3"
 			clientHS = base
 			clientHS.Digest = "sha256"
-			if srv, cli := runNegotiation(t, tr, serverHS, clientHS); srv.err == nil || cli.err == nil {
+			if srv, cli := testutil.RunNegotiation(t, tr, serverHS, clientHS); srv.Err == nil || cli.Err == nil {
 				t.Fatalf("expected digest mismatch error")
 			}
 		})
