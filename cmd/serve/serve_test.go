@@ -11,21 +11,27 @@ import (
 	"go.uber.org/zap"
 )
 
-func TestFlagParsing(t *testing.T) {
+func TestEnvVarPrecedence(t *testing.T) {
 	v := viper.New()
 	cmd := &cobra.Command{Use: "serve"}
 	bindFlags(cmd, v)
+
+	t.Setenv("LVMSYNC_SERVE_TRANSPORT", "envtransport")
+	t.Setenv("LVMSYNC_SERVE_QUIC_LISTEN", "envaddr:1234")
+	t.Setenv("LVMSYNC_SERVE_TLS_CERT", "envcert.pem")
+	t.Setenv("LVMSYNC_SERVE_TLS_KEY", "envkey.pem")
+	t.Setenv("LVMSYNC_SERVE_CA_CERT", "envca.pem")
+	t.Setenv("LVMSYNC_SERVE_ALLOW_INSECURE", "false")
+
 	args := []string{
-		"--transport", "quic",
-		"--quic-listen", "127.0.0.1:1234",
-		"--tls-cert", "cert.pem",
-		"--tls-key", "key.pem",
-		"--ca-cert", "ca.pem",
+		"--transport", "flagtransport",
+		"--tls-cert", "flagcert.pem",
 		"--allow-insecure",
 	}
 	if err := cmd.ParseFlags(args); err != nil {
 		t.Fatalf("parse flags: %v", err)
 	}
+
 	got := Options{
 		Transport:     v.GetString("transport"),
 		QUICListen:    v.GetString("quic-listen"),
@@ -35,11 +41,11 @@ func TestFlagParsing(t *testing.T) {
 		AllowInsecure: v.GetBool("allow-insecure"),
 	}
 	want := Options{
-		Transport:     "quic",
-		QUICListen:    "127.0.0.1:1234",
-		TLSCert:       "cert.pem",
-		TLSKey:        "key.pem",
-		CACert:        "ca.pem",
+		Transport:     "flagtransport",
+		QUICListen:    "envaddr:1234",
+		TLSCert:       "flagcert.pem",
+		TLSKey:        "envkey.pem",
+		CACert:        "envca.pem",
 		AllowInsecure: true,
 	}
 	if !reflect.DeepEqual(got, want) {
