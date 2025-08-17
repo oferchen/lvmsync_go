@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -56,7 +57,10 @@ func Run(args []string, logger *zap.Logger) error {
 			}
 			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 			defer stop()
-			return startServer(ctx, opts, logger)
+			if err := startServer(ctx, opts, logger); err != nil && !errors.Is(err, context.Canceled) {
+				return err
+			}
+			return nil
 		},
 	}
 	bindFlags(cmd, v)
@@ -114,23 +118,31 @@ func startServer(ctx context.Context, opts Options, logger *zap.Logger) error {
 	}
 	defer ln.Close()
 
+	errCh := make(chan error, 1)
 	go func() {
 		for {
 			conn, err := ln.Accept()
 			if err != nil {
 				if ctx.Err() != nil {
-					return
+					errCh <- ctx.Err()
+				} else {
+					logger.Error("accept_failed", zap.Error(err))
+					errCh <- err
 				}
-				logger.Error("accept_failed", zap.Error(err))
 				return
 			}
 			go handleConn(ctx, conn, tr, opts, logger)
 		}
 	}()
 
-	<-ctx.Done()
-	ln.Close()
-	return nil
+	select {
+	case <-ctx.Done():
+		ln.Close()
+		return ctx.Err()
+	case err := <-errCh:
+		ln.Close()
+		return err
+	}
 }
 
 type singleConnListener struct {
