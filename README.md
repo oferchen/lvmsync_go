@@ -609,7 +609,7 @@ Flags override environment variables, which override `config.yaml` values.
 | `--skip_disk_check` | `LVMSYNC_SKIP_DISK_CHECK` | `skip_disk_check` | Skip disk space check before snapshot creation |
 | `--snapshot_size` | `LVMSYNC_SNAPSHOT_SIZE` | `snapshot_size` | Snapshot size (e.g., `20G` or `20%`) |
 | `--lvm-escalation` | `LVMSYNC_LVM_ESCALATION` | `lvm_escalation` | Command used to escalate privileges for LVM commands; validated at startup |
-| `--lvm_timeout` | `LVMSYNC_LVM_TIMEOUT` | `lvm_timeout` | Timeout for LVM operations |
+| `--lvm_timeout` | `LVMSYNC_LVM_TIMEOUT` | `lvm_timeout` | Timeout for LVM operations and privilege checks |
 | `--sig-cache-ttl` | `LVMSYNC_LVM_SIG_CACHE_TTL` | `sig-cache-ttl` | TTL for cached LVM signatures |
 | `--sig-cache-max` | `LVMSYNC_LVM_SIG_CACHE_MAX` | `sig-cache-max` | Maximum cached LVM signatures |
 | `--volume_group` | `LVMSYNC_VOLUME_GROUP` | `volume_group` | Source volume group; derived from the source device path when empty |
@@ -1183,9 +1183,12 @@ timeouts or cancellations are reported separately.
 | `--target_volume_group` | Volume group name of the target LVM volume | "" |
 | `--target_vgs` | Candidate target volume groups for auto-selection | [] |
 | `--lvm-escalation` | Command used to re-execute the program with elevated privileges when not running as root (e.g., "sudo -n"); validated at startup | "sudo -n" |
-| `--lvm_timeout` | Timeout for LVM operations | 10s |
+| `--lvm_timeout` | Timeout for LVM operations and privilege checks | 10s |
 | `--sig-cache-ttl` | TTL for cached LVM signatures | 24h |
 | `--sig-cache-max` | Maximum cached LVM signatures | 128 |
+
+`lvm_timeout` also bounds the startup privilege check to avoid hanging when
+escalation commands stall.
 
 #### gRPC Options
 
@@ -1544,11 +1547,13 @@ For example, the `privilege` package exposes an `Escalator` interface so tests
 can stub command execution:
 
 ```go
-esc := privilege.New()
-if err := esc.Ensure(context.Background()); err != nil {
+ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+defer cancel()
+esc := privilege.New(ctx)
+if err := esc.Ensure(ctx); err != nil {
     // handle missing capabilities or sudo
 }
-cmd := esc.Command(context.Background(), "lvs", "--version")
+cmd := esc.Command(ctx, "lvs", "--version")
 _ = cmd
 ```
 

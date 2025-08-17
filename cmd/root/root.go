@@ -142,8 +142,10 @@ func Configure() (*config.Config, []string, *zap.Logger, error) {
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("configuration error: %w", err)
 	}
-	esc := privilege.New()
-	if err = esc.Ensure(context.Background()); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.LVMTimeout)
+	defer cancel()
+	esc := privilege.New(ctx)
+	if err = esc.Ensure(ctx); err != nil {
 		return nil, nil, nil, fmt.Errorf("privilege check failed: %w", err)
 	}
 	if err = cfg.Validate(); err != nil {
