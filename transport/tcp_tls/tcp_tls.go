@@ -67,7 +67,16 @@ func New(cfg transport.Config) (transport.Interface, error) {
 }
 
 func init() {
-	transport.MustRegister("tcp+tls", New)
+	transport.MustRegister("tcp+tls", func(cfg transport.Config) (transport.Interface, error) {
+		tr, err := New(cfg)
+		if err != nil {
+			return nil, err
+		}
+		if tr == nil {
+			return nil, fmt.Errorf("tcp+tls: nil transport")
+		}
+		return tr, nil
+	})
 }
 
 func (t *Transport) Name() string { return "tcp+tls" }
