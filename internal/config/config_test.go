@@ -332,27 +332,32 @@ func TestBuilderFinalizeConfig(t *testing.T) {
 }
 
 func TestConfigValidate(t *testing.T) {
+	base := Config{
+		Mode:                 "default",
+		LVMEscalation:        "sudo -n",
+		SSHKeepAliveInterval: time.Second,
+		GRPCDialTimeout:      time.Second,
+		GRPCSetupTimeout:     time.Second,
+		HeartbeatInterval:    time.Second,
+		HeartbeatSendTimeout: time.Second,
+		TCPParallel:          1,
+		CDCMin:               64,
+		CDCAvg:               128,
+		CDCMax:               256,
+		Compress:             Auto,
+		ZstdLevel:            1,
+		LZ4Level:             "fast",
+		CompressThreshold:    0.9,
+	}
 	t.Run("success", func(t *testing.T) {
 		fb := &fakeBackend{free: 100}
 		restore := lvm.SetBackend(fb)
 		defer restore()
 		restorePriv := lvm.SetPrivilegeChecker(func() error { return nil })
 		defer restorePriv()
-		cfg := &Config{
-			Mode:                 "default",
-			VolumeGroup:          "vg0",
-			LVMEscalation:        "sudo -n",
-			SSHKeepAliveInterval: time.Second,
-			LVMTimeout:           time.Second,
-			GRPCDialTimeout:      time.Second,
-			GRPCSetupTimeout:     time.Second,
-			HeartbeatInterval:    time.Second,
-			HeartbeatSendTimeout: time.Second,
-			TCPParallel:          1,
-			CDCMin:               64,
-			CDCAvg:               128,
-			CDCMax:               256,
-		}
+		cfg := base
+		cfg.VolumeGroup = "vg0"
+		cfg.LVMTimeout = time.Second
 		if err := cfg.Validate(); err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
@@ -364,49 +369,57 @@ func TestConfigValidate(t *testing.T) {
 		defer restore()
 		restorePriv := lvm.SetPrivilegeChecker(func() error { return nil })
 		defer restorePriv()
-		cfg := &Config{Mode: "default", VolumeGroup: "vg0", LVMEscalation: "sudo -n", SSHKeepAliveInterval: time.Second, LVMTimeout: time.Second, GRPCDialTimeout: time.Second, GRPCSetupTimeout: time.Second, HeartbeatInterval: time.Second, HeartbeatSendTimeout: time.Second, TCPParallel: 1, CDCMin: 64, CDCAvg: 128, CDCMax: 256}
+		cfg := base
+		cfg.VolumeGroup = "vg0"
+		cfg.LVMTimeout = time.Second
 		if err := cfg.Validate(); err == nil {
 			t.Fatalf("expected error")
 		}
 	})
 
 	t.Run("invalidKeepalive", func(t *testing.T) {
-		cfg := &Config{Mode: "default", LVMEscalation: "sudo -n", SSHKeepAliveInterval: 0, GRPCDialTimeout: time.Second, GRPCSetupTimeout: time.Second, HeartbeatInterval: time.Second, HeartbeatSendTimeout: time.Second, TCPParallel: 1, CDCMin: 64, CDCAvg: 128, CDCMax: 256}
+		cfg := base
+		cfg.SSHKeepAliveInterval = 0
 		if err := cfg.Validate(); err == nil {
 			t.Fatalf("expected error")
 		}
 	})
 
 	t.Run("invalidHeartbeatInterval", func(t *testing.T) {
-		cfg := &Config{Mode: "default", LVMEscalation: "sudo -n", SSHKeepAliveInterval: time.Second, GRPCDialTimeout: time.Second, GRPCSetupTimeout: time.Second, HeartbeatInterval: 0, HeartbeatSendTimeout: time.Second, TCPParallel: 1, CDCMin: 64, CDCAvg: 128, CDCMax: 256}
+		cfg := base
+		cfg.HeartbeatInterval = 0
 		if err := cfg.Validate(); err == nil {
 			t.Fatalf("expected error")
 		}
 	})
 
 	t.Run("invalidHeartbeatSendTimeout", func(t *testing.T) {
-		cfg := &Config{Mode: "default", LVMEscalation: "sudo -n", SSHKeepAliveInterval: time.Second, GRPCDialTimeout: time.Second, GRPCSetupTimeout: time.Second, HeartbeatInterval: time.Second, HeartbeatSendTimeout: 0, TCPParallel: 1, CDCMin: 64, CDCAvg: 128, CDCMax: 256}
+		cfg := base
+		cfg.HeartbeatSendTimeout = 0
 		if err := cfg.Validate(); err == nil {
 			t.Fatalf("expected error")
 		}
 	})
 
 	t.Run("invalidGRPCSetupTimeout", func(t *testing.T) {
-		cfg := &Config{Mode: "default", LVMEscalation: "sudo -n", SSHKeepAliveInterval: time.Second, GRPCDialTimeout: time.Second, GRPCSetupTimeout: 0, HeartbeatInterval: time.Second, HeartbeatSendTimeout: time.Second, TCPParallel: 1, CDCMin: 64, CDCAvg: 128, CDCMax: 256}
+		cfg := base
+		cfg.GRPCSetupTimeout = 0
 		if err := cfg.Validate(); err == nil {
 			t.Fatalf("expected error")
 		}
 	})
 
 	t.Run("invalidTCPParallel", func(t *testing.T) {
-		cfg := &Config{Mode: "default", LVMEscalation: "sudo -n", SSHKeepAliveInterval: time.Second, GRPCDialTimeout: time.Second, GRPCSetupTimeout: time.Second, HeartbeatInterval: time.Second, HeartbeatSendTimeout: time.Second, TCPParallel: 5, CDCMin: 64, CDCAvg: 128, CDCMax: 256}
+		cfg := base
+		cfg.TCPParallel = 5
 		if err := cfg.Validate(); err == nil {
 			t.Fatalf("expected error")
 		}
 	})
 
 	t.Run("invalidTCPLowat", func(t *testing.T) {
-		cfg := &Config{Mode: "default", LVMEscalation: "sudo -n", SSHKeepAliveInterval: time.Second, GRPCDialTimeout: time.Second, GRPCSetupTimeout: time.Second, HeartbeatInterval: time.Second, HeartbeatSendTimeout: time.Second, TCPParallel: 1, TCPNotSentLowAt: -1, CDCMin: 64, CDCAvg: 128, CDCMax: 256}
+		cfg := base
+		cfg.TCPNotSentLowAt = -1
 		if err := cfg.Validate(); err == nil {
 			t.Fatalf("expected error")
 		}
@@ -417,7 +430,9 @@ func TestConfigValidate(t *testing.T) {
 		defer restore()
 		restorePriv := lvm.SetPrivilegeChecker(func() error { return nil })
 		defer restorePriv()
-		cfg := &Config{Mode: "default", VolumeGroup: "vg0", LVMEscalation: "sudo -n", SSHKeepAliveInterval: time.Second, LVMTimeout: time.Millisecond, GRPCDialTimeout: time.Second, GRPCSetupTimeout: time.Second, HeartbeatInterval: time.Second, HeartbeatSendTimeout: time.Second, TCPParallel: 1, CDCMin: 64, CDCAvg: 128, CDCMax: 256}
+		cfg := base
+		cfg.VolumeGroup = "vg0"
+		cfg.LVMTimeout = time.Millisecond
 		if err := cfg.Validate(); err == nil {
 			t.Fatalf("expected timeout error")
 		}
@@ -434,6 +449,10 @@ func TestConfigValidateCDC(t *testing.T) {
 		HeartbeatSendTimeout: time.Second,
 		TCPParallel:          1,
 		LVMEscalation:        "sudo -n",
+		Compress:             Auto,
+		ZstdLevel:            1,
+		LZ4Level:             "fast",
+		CompressThreshold:    0.9,
 	}
 
 	t.Run("valid", func(t *testing.T) {
@@ -464,6 +483,61 @@ func TestConfigValidateCDC(t *testing.T) {
 		cfg.CDCMax = 3
 		if err := cfg.Validate(); err == nil {
 			t.Fatalf("expected error")
+		}
+	})
+}
+
+func TestConfigValidateCompression(t *testing.T) {
+	base := Config{
+		Mode:                 "default",
+		LVMEscalation:        "sudo -n",
+		SSHKeepAliveInterval: time.Second,
+		GRPCDialTimeout:      time.Second,
+		GRPCSetupTimeout:     time.Second,
+		HeartbeatInterval:    time.Second,
+		HeartbeatSendTimeout: time.Second,
+		TCPParallel:          1,
+		CDCMin:               64,
+		CDCAvg:               128,
+		CDCMax:               256,
+		Compress:             Auto,
+		ZstdLevel:            1,
+		LZ4Level:             "fast",
+		CompressThreshold:    0.9,
+	}
+	t.Run("unknownAlgorithm", func(t *testing.T) {
+		cfg := base
+		cfg.Compress = "gzip"
+		if err := cfg.Validate(); err == nil {
+			t.Fatalf("expected error")
+		}
+	})
+	t.Run("negativeThreshold", func(t *testing.T) {
+		cfg := base
+		cfg.CompressThreshold = -0.1
+		if err := cfg.Validate(); err == nil {
+			t.Fatalf("expected error")
+		}
+	})
+	t.Run("zstdLevelOutOfRange", func(t *testing.T) {
+		cfg := base
+		cfg.Compress = Zstd
+		cfg.ZstdLevel = 6
+		if err := cfg.Validate(); err == nil {
+			t.Fatalf("expected error")
+		}
+	})
+	t.Run("lz4LevelInvalid", func(t *testing.T) {
+		cfg := base
+		cfg.Compress = "lz4"
+		cfg.LZ4Level = "slow"
+		if err := cfg.Validate(); err == nil {
+			t.Fatalf("expected error")
+		}
+	})
+	t.Run("valid", func(t *testing.T) {
+		if err := base.Validate(); err != nil {
+			t.Fatalf("expected no error, got %v", err)
 		}
 	})
 }
@@ -831,6 +905,36 @@ func TestCompressConcurrency(t *testing.T) {
 			t.Fatalf("expected 8, got %d", cfg.CompressConcurrency)
 		}
 	})
+}
+
+func TestCompressionParsingErrors(t *testing.T) {
+	t.Run("flagNegativeThreshold", func(t *testing.T) {
+		defaults, err := DefaultConfig()
+		if err != nil {
+			t.Fatalf("DefaultConfig returned error: %v", err)
+		}
+		b := NewBuilder(defaults)
+		fs, args := newFlagSet([]string{"--compress-threshold", "-0.5"})
+		if _, _, _, err := b.Build(fs, args); err == nil {
+			t.Fatalf("expected error")
+		}
+	})
+
+	t.Run("envZstdLevelInvalid", func(t *testing.T) {
+		defaults, err := DefaultConfig()
+		if err != nil {
+			t.Fatalf("DefaultConfig returned error: %v", err)
+		}
+		b := NewBuilder(defaults)
+		t.Setenv("LVMSYNC_COMPRESSION_COMPRESS", "zstd")
+		t.Setenv("LVMSYNC_COMPRESSION_ZSTD_LEVEL", "6")
+		fs, args := newFlagSet(nil)
+		if _, _, _, err := b.Build(fs, args); err == nil {
+			t.Fatalf("expected error")
+		}
+	})
+
+	// YAML parsing errors are covered by builder tests elsewhere.
 }
 
 func TestTLSFileValidation(t *testing.T) {

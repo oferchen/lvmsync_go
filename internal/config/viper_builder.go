@@ -142,7 +142,7 @@ func (b *builder) applyDefaults(conf *Config) error {
 	if conf.CompressConcurrency <= 0 {
 		conf.CompressConcurrency = runtime.GOMAXPROCS(0)
 	}
-	if conf.CompressThreshold <= 0 {
+	if conf.CompressThreshold == 0 {
 		conf.CompressThreshold = b.defaults.CompressThreshold
 	}
 	if conf.ZstdLevel == 0 {
@@ -199,28 +199,29 @@ func (b *builder) applyThroughput(conf *Config) {
 }
 
 func (b *builder) validateCompression(conf *Config) error {
+	if err := validateCompressionSettings(conf); err != nil {
+		return err
+	}
 	resolved := conf.Compress
-	if resolved == Auto {
+	if resolved == "" || resolved == Auto {
 		resolved = compressiondetect.DetectOptimalCompression()
+	}
+	if strings.Contains(resolved, ",") {
+		return nil
 	}
 	switch resolved {
 	case Zstd:
-		if conf.ZstdLevel < 1 || conf.ZstdLevel > 5 {
-			return fmt.Errorf("invalid zstd compression level: %d", conf.ZstdLevel)
-		}
 		conf.CompressLevel = conf.ZstdLevel
 	case "lz4":
-		switch strings.ToLower(conf.LZ4Level) {
-		case "fast":
+		if strings.ToLower(conf.LZ4Level) == "fast" {
 			conf.CompressLevel = int(lz4.Fast)
-		case "hc":
+		} else {
 			conf.CompressLevel = int(lz4.Level9)
-		default:
-			return fmt.Errorf("invalid lz4 compression level: %s", conf.LZ4Level)
 		}
-	}
-	if conf.CompressThreshold <= 0 || conf.CompressThreshold > 1 {
-		return fmt.Errorf("invalid compress threshold: %f", conf.CompressThreshold)
+	case "none":
+		// no compression level for none
+	default:
+		return fmt.Errorf("unsupported compression algorithm: %s", conf.Compress)
 	}
 	return nil
 }

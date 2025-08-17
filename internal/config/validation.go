@@ -110,6 +110,42 @@ func (c *Config) ValidateWith(geteuid func() int) error {
 			}
 		}
 	}
+	if err := validateCompressionSettings(c); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateCompressionSettings(c *Config) error {
+	if strings.TrimSpace(c.Compress) != "" {
+		algos := strings.Split(c.Compress, ",")
+		for _, a := range algos {
+			a = strings.TrimSpace(strings.ToLower(a))
+			if a == "" {
+				continue
+			}
+			valid := false
+			for _, supported := range SupportedCompression {
+				if a == supported {
+					valid = true
+					break
+				}
+			}
+			if !valid {
+				return fmt.Errorf("unsupported compression algorithm: %s", a)
+			}
+		}
+	}
+	if c.ZstdLevel != 0 && (c.ZstdLevel < 1 || c.ZstdLevel > 5) {
+		return fmt.Errorf("invalid zstd compression level: %d", c.ZstdLevel)
+	}
+	lz4 := strings.ToLower(c.LZ4Level)
+	if lz4 != "" && lz4 != "fast" && lz4 != "hc" {
+		return fmt.Errorf("invalid lz4 compression level: %s", c.LZ4Level)
+	}
+	if c.CompressThreshold < 0 || c.CompressThreshold > 1 {
+		return fmt.Errorf("invalid compress threshold: %f", c.CompressThreshold)
+	}
 	return nil
 }
 
