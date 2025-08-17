@@ -20,7 +20,12 @@ func TestBlockWriterSyncIntervalTriggers(t *testing.T) {
 	defer tmp.Close()
 
 	cfg := &config.Config{BlockSize: 4, SyncIntervalBytes: 8}
-	bw, err := newBlockWriter(cfg, tmp, nil, false, nil, zap.NewNop())
+	calls := 0
+	deps := &Deps{FdatasyncFile: func(f *os.File) error {
+		calls++
+		return nil
+	}}
+	bw, err := newBlockWriterWithDeps(cfg, tmp, nil, false, nil, zap.NewNop(), deps)
 	if err != nil {
 		t.Fatalf("newBlockWriter: %v", err)
 	}
@@ -40,13 +45,7 @@ func TestBlockWriterSyncIntervalTriggers(t *testing.T) {
 	buf.Write(hdr)
 	buf.Write(data2)
 
-	calls := 0
-	orig := fdatasyncFile
-	fdatasyncFile = func(f *os.File) error {
-		calls++
-		return nil
-	}
-	defer func() { fdatasyncFile = orig }()
+	// calls incremented via deps above
 
 	if _, err := bw.write(bufio.NewReader(&buf)); err != nil {
 		t.Fatalf("write: %v", err)

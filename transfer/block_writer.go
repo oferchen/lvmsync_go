@@ -26,6 +26,7 @@ type blockWriter struct {
 	logger    *zap.Logger
 	sinceSync int64
 	rt        *resumeTracker
+	deps      *Deps
 }
 
 // newBlockWriter constructs a blockWriter, detecting the destination's physical
@@ -33,6 +34,10 @@ type blockWriter struct {
 // sync interval when provided as a string. It validates that the configured
 // block size is aligned to the underlying sector size.
 func newBlockWriter(cfg *config.Config, dest *os.File, dedup DeduplicationStrategy, verify bool, checksum ChecksumStrategy, logger *zap.Logger) (*blockWriter, error) {
+	return newBlockWriterWithDeps(cfg, dest, dedup, verify, checksum, logger, DefaultDeps)
+}
+
+func newBlockWriterWithDeps(cfg *config.Config, dest *os.File, dedup DeduplicationStrategy, verify bool, checksum ChecksumStrategy, logger *zap.Logger, deps *Deps) (*blockWriter, error) {
 	if cfg.BlockSize <= 0 || cfg.ODirect {
 		sector, err := DetectSectorSize(dest)
 		if err != nil {
@@ -62,6 +67,7 @@ func newBlockWriter(cfg *config.Config, dest *os.File, dedup DeduplicationStrate
 		verify:   verify,
 		checksum: checksum,
 		logger:   logger,
+		deps:     deps,
 	}
 	if cfg.IntraDedup {
 		bw.intra = newChunkCache(intraCacheCapacity)
@@ -117,7 +123,7 @@ func (bw *blockWriter) write(reader *bufio.Reader) (int64, error) {
 			total += int64(chunkSize)
 			bw.sinceSync += int64(chunkSize)
 			if bw.cfg.SyncIntervalBytes > 0 && bw.sinceSync >= int64(bw.cfg.SyncIntervalBytes) {
-				if err := fdatasyncFile(bw.dest); err != nil {
+				if err := bw.deps.FdatasyncFile(bw.dest); err != nil {
 					return total, err
 				}
 				bw.sinceSync = 0

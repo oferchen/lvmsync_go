@@ -20,7 +20,7 @@ import (
 func TestBloomFilterDedupPersistence(t *testing.T) {
 	stateFile := filepath.Join(t.TempDir(), "state")
 
-	d1 := &BloomFilterDedup{filter: bloom.NewWithEstimates(1000, 0.01), stateFile: stateFile, entries: 1000, fpRate: 0.01, strategy: &SHA256Checksum{}}
+	d1 := &BloomFilterDedup{filter: bloom.NewWithEstimates(1000, 0.01), stateFile: stateFile, entries: 1000, fpRate: 0.01, strategy: &SHA256Checksum{}, deps: DefaultDeps}
 	data := []byte("hello")
 
 	if !d1.ShouldTransfer(0, data) {
@@ -31,7 +31,7 @@ func TestBloomFilterDedupPersistence(t *testing.T) {
 		t.Fatalf("failed to save state: %v", err)
 	}
 
-	d2 := &BloomFilterDedup{filter: bloom.NewWithEstimates(1000, 0.01), stateFile: stateFile, entries: 1000, fpRate: 0.01, strategy: &SHA256Checksum{}}
+	d2 := &BloomFilterDedup{filter: bloom.NewWithEstimates(1000, 0.01), stateFile: stateFile, entries: 1000, fpRate: 0.01, strategy: &SHA256Checksum{}, deps: DefaultDeps}
 	if err := d2.loadState(); err != nil {
 		t.Fatalf("failed to load state: %v", err)
 	}
@@ -44,7 +44,7 @@ func TestBloomFilterDedupPersistence(t *testing.T) {
 func TestRollingHashDedupPersistence(t *testing.T) {
 	stateFile := filepath.Join(t.TempDir(), "state")
 
-	d1 := &RollingHashDedup{stateFile: stateFile, hashes: make(map[int64]uint64), seed: maphash.MakeSeed()}
+	d1 := &RollingHashDedup{stateFile: stateFile, hashes: make(map[int64]uint64), seed: maphash.MakeSeed(), deps: DefaultDeps}
 	data := []byte("hello")
 
 	if !d1.ShouldTransfer(0, data) {
@@ -55,7 +55,7 @@ func TestRollingHashDedupPersistence(t *testing.T) {
 		t.Fatalf("failed to save state: %v", err)
 	}
 
-	d2 := &RollingHashDedup{stateFile: stateFile, hashes: make(map[int64]uint64), seed: maphash.MakeSeed()}
+	d2 := &RollingHashDedup{stateFile: stateFile, hashes: make(map[int64]uint64), seed: maphash.MakeSeed(), deps: DefaultDeps}
 	if err := d2.loadState(); err != nil {
 		t.Fatalf("failed to load state: %v", err)
 	}
