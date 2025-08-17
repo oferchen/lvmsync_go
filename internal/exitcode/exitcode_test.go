@@ -1,0 +1,23 @@
+package exitcode
+
+import "testing"
+
+func TestExitCodeValues(t *testing.T) {
+	cases := []struct {
+		name string
+		code int
+		want int
+	}{
+		{"OK", OK, 0},
+		{"ErrCapability", ErrCapability, 10},
+		{"ErrDevice", ErrDevice, 20},
+		{"ErrPlatform", ErrPlatform, 30},
+		{"ErrConfig", ErrConfig, 40},
+		{"ErrRuntime", ErrRuntime, 50},
+	}
+	for _, c := range cases {
+		if c.code != c.want {
+			t.Errorf("%s = %d; want %d", c.name, c.code, c.want)
+		}
+	}
+}
