@@ -123,13 +123,13 @@ func defaultMountFunc(path string) (bool, error) {
 		return false, err
 	}
 	for _, mi := range infos {
-		if mi.Source == real {
-			for _, opt := range strings.Split(mi.Options, ",") {
-				if opt == "rw" {
-					return true, nil
-				}
+		if mi.Source != real {
+			continue
+		}
+		for _, opt := range strings.Split(mi.Options, ",") {
+			if opt == "rw" {
+				return true, nil
 			}
-			return false, nil
 		}
 	}
 	return false, nil
