@@ -136,6 +136,9 @@ func dialTLS(ctx context.Context, address string, conf *tls.Config, logger *zap.
 }
 
 func performH2Handshake(ctx context.Context, conn *tls.Conn, logger *zap.Logger) (*http2.Framer, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	role := "client"
 	address := conn.RemoteAddr().String()
 	logger.Info("h2_handshake_start",
@@ -145,7 +148,22 @@ func performH2Handshake(ctx context.Context, conn *tls.Conn, logger *zap.Logger)
 	)
 	start := time.Now()
 	fr := http2.NewFramer(conn, conn)
-	if _, err := conn.Write([]byte(http2.ClientPreface)); err != nil {
+
+	do := func(op func() error) error {
+		if err := setDeadline(ctx, conn); err != nil {
+			return err
+		}
+		defer clearDeadline(conn)
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		return op()
+	}
+
+	if err := do(func() error {
+		_, err := conn.Write([]byte(http2.ClientPreface))
+		return err
+	}); err != nil {
 		fields := []zap.Field{
 			zap.String("address", address),
 			zap.String("role", role),
@@ -155,7 +173,7 @@ func performH2Handshake(ctx context.Context, conn *tls.Conn, logger *zap.Logger)
 		logger.Error("h2_handshake_end", fields...)
 		return nil, err
 	}
-	if err := fr.WriteSettings(); err != nil {
+	if err := do(func() error { return fr.WriteSettings() }); err != nil {
 		fields := []zap.Field{
 			zap.String("address", address),
 			zap.String("role", role),
@@ -165,7 +183,12 @@ func performH2Handshake(ctx context.Context, conn *tls.Conn, logger *zap.Logger)
 		logger.Error("h2_handshake_end", fields...)
 		return nil, err
 	}
-	if f, err := fr.ReadFrame(); err != nil {
+	var f http2.Frame
+	if err := do(func() error {
+		var err error
+		f, err = fr.ReadFrame()
+		return err
+	}); err != nil {
 		fields := []zap.Field{
 			zap.String("address", address),
 			zap.String("role", role),
@@ -185,7 +208,7 @@ func performH2Handshake(ctx context.Context, conn *tls.Conn, logger *zap.Logger)
 		logger.Error("h2_handshake_end", fields...)
 		return nil, err
 	}
-	if err := fr.WriteSettingsAck(); err != nil {
+	if err := do(func() error { return fr.WriteSettingsAck() }); err != nil {
 		fields := []zap.Field{
 			zap.String("address", address),
 			zap.String("role", role),
@@ -195,7 +218,11 @@ func performH2Handshake(ctx context.Context, conn *tls.Conn, logger *zap.Logger)
 		logger.Error("h2_handshake_end", fields...)
 		return nil, err
 	}
-	if f, err := fr.ReadFrame(); err != nil {
+	if err := do(func() error {
+		var err error
+		f, err = fr.ReadFrame()
+		return err
+	}); err != nil {
 		fields := []zap.Field{
 			zap.String("address", address),
 			zap.String("role", role),
