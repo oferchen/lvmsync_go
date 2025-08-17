@@ -69,6 +69,26 @@ func TestCopyPipeAsyncCanceledDuringWrite(t *testing.T) {
 	}
 }
 
+func TestCopyPipeAsyncReturnsNilAndCopiesData(t *testing.T) {
+	ctx := context.Background()
+	r, w := io.Pipe()
+	var dst bytes.Buffer
+	errCh := CopyPipeAsync(ctx, &dst, r)
+	data := []byte("hello world")
+	go func() {
+		defer w.Close()
+		if _, err := w.Write(data); err != nil {
+			t.Errorf("write: %v", err)
+		}
+	}()
+	if err := <-errCh; err != nil {
+		t.Fatalf("expected nil, got %v", err)
+	}
+	if got := dst.Bytes(); !bytes.Equal(got, data) {
+		t.Fatalf("output %q does not match input %q", got, data)
+	}
+}
+
 type countingSyncCore struct {
 	zapcore.Core
 	count int
