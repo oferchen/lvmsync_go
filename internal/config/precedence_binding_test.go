@@ -167,17 +167,17 @@ func TestFlagSetsBindToViper(t *testing.T) {
 	if got := v.GetString("compress"); got != "lz4" {
 		t.Fatalf("compress got %q want %q", got, "lz4")
 	}
-	if got := v.GetBool("skip_snapshot_creation"); !got {
-		t.Fatalf("skip_snapshot_creation got %v want true", got)
+	if got := v.GetBool("skip-snapshot-creation"); !got {
+		t.Fatalf("skip-snapshot-creation got %v want true", got)
 	}
 	if got := v.GetInt("grpc-port"); got != 9999 {
-		t.Fatalf("grpc_port got %d want 9999", got)
+		t.Fatalf("grpc-port got %d want 9999", got)
 	}
-	if got := v.GetDuration("grpc_heartbeat_interval"); got != 2*time.Second {
-		t.Fatalf("grpc_heartbeat_interval got %v want 2s", got)
+	if got := v.GetDuration("grpc-heartbeat-interval"); got != 2*time.Second {
+		t.Fatalf("grpc-heartbeat-interval got %v want 2s", got)
 	}
-	if got := v.GetDuration("grpc_heartbeat_send_timeout"); got != time.Second {
-		t.Fatalf("grpc_heartbeat_send_timeout got %v want 1s", got)
+	if got := v.GetDuration("grpc-heartbeat-send-timeout"); got != time.Second {
+		t.Fatalf("grpc-heartbeat-send-timeout got %v want 1s", got)
 	}
 }
 
