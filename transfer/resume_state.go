@@ -130,8 +130,8 @@ func readResumeState(cfg *config.Config, logger *zap.Logger) resumeCheckpoint {
 	if rc != (resumeChunk{}) {
 		logger.Info("Resuming from chunk",
 			zap.String("resume_chunk", hex.EncodeToString(rc.Chunk[:])),
-			zap.Uint64("resume_offset", rc.Offset),
-			zap.Uint32("resume_length", rc.Length))
+			zap.Uint64("resume_offset_bytes", rc.Offset),
+			zap.Uint32("resume_length_bytes", rc.Length))
 	}
 	return out
 }
