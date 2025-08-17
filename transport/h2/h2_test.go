@@ -181,6 +181,90 @@ func TestPerformH2Handshake(t *testing.T) {
 	}
 }
 
+func TestPerformH2HandshakeTimeout(t *testing.T) {
+	cert, pool := generateSelfSignedCert(t)
+	serverConf := &tls.Config{Certificates: []tls.Certificate{cert}, NextProtos: []string{"h2"}, MinVersion: tls.VersionTLS13, MaxVersion: tls.VersionTLS13}
+	ln, err := tls.Listen("tcp", "127.0.0.1:0", serverConf)
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer ln.Close()
+
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		tlsConn := conn.(*tls.Conn)
+		fr := http2.NewFramer(tlsConn, tlsConn)
+		preface := make([]byte, len(http2.ClientPreface))
+		if _, err := io.ReadFull(tlsConn, preface); err != nil {
+			return
+		}
+		if _, err := fr.ReadFrame(); err != nil {
+			return
+		}
+		select {}
+	}()
+
+	clientConf := &tls.Config{RootCAs: pool, NextProtos: []string{"h2"}, MinVersion: tls.VersionTLS13, MaxVersion: tls.VersionTLS13}
+	conn, err := dialTLS(context.Background(), ln.Addr().String(), clientConf, zap.NewNop())
+	if err != nil {
+		t.Fatalf("dialTLS: %v", err)
+	}
+	defer conn.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	if _, err := performH2Handshake(ctx, conn, zap.NewNop()); err == nil {
+		t.Fatalf("expected timeout error")
+	} else if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestPerformH2HandshakeCanceled(t *testing.T) {
+	cert, pool := generateSelfSignedCert(t)
+	serverConf := &tls.Config{Certificates: []tls.Certificate{cert}, NextProtos: []string{"h2"}, MinVersion: tls.VersionTLS13, MaxVersion: tls.VersionTLS13}
+	ln, err := tls.Listen("tcp", "127.0.0.1:0", serverConf)
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer ln.Close()
+
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		tlsConn := conn.(*tls.Conn)
+		fr := http2.NewFramer(tlsConn, tlsConn)
+		preface := make([]byte, len(http2.ClientPreface))
+		if _, err := io.ReadFull(tlsConn, preface); err != nil {
+			return
+		}
+		if _, err := fr.ReadFrame(); err != nil {
+			return
+		}
+		select {}
+	}()
+
+	clientConf := &tls.Config{RootCAs: pool, NextProtos: []string{"h2"}, MinVersion: tls.VersionTLS13, MaxVersion: tls.VersionTLS13}
+	conn, err := dialTLS(context.Background(), ln.Addr().String(), clientConf, zap.NewNop())
+	if err != nil {
+		t.Fatalf("dialTLS: %v", err)
+	}
+	defer conn.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := performH2Handshake(ctx, conn, zap.NewNop()); !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context canceled error, got %v", err)
+	}
+}
+
 func TestLogDialResult(t *testing.T) {
 	core, logs := observer.New(zap.InfoLevel)
 	logger := zap.New(core)
