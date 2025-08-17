@@ -154,40 +154,42 @@ func TestTCPTLSTransportSelectBestHandshake(t *testing.T) {
 	defer cancel()
 	defer ln.Close()
 
-	srvCompress := []string{"zstd", "lz4"}
-	cliCompress := []string{"lz4"}
-	srvDigest := []string{"sha256", "blake3"}
-	cliDigest := []string{"blake3"}
+        srvCompress := []string{"zstd", "lz4"}
+        cliCompress := []string{"lz4"}
+        srvDigest := []string{"sha256", "blake3"}
+        cliDigest := []string{"blake3"}
 	srvDedup := []string{"fixed", "cdc"}
 	cliDedup := []string{"cdc"}
 	expCompress := common.SelectBest(srvCompress, cliCompress)
 	expDigest := common.SelectBest(srvDigest, cliDigest)
 	expDedup := common.SelectBest(srvDedup, cliDedup)
 
-	srvHS := common.Handshake{
-		DedupMode:   expDedup,
-		Compressors: srvCompress,
-		Digests:     srvDigest,
-		ResumeToken: "tok",
-		ODirect:     true,
-		MaxInFlight: 8,
-		CDCMin:      64,
-		CDCAvg:      128,
-		CDCMax:      256,
-		CRC32C:      true,
-	}
-	cliHS := common.Handshake{
-		DedupMode:   expDedup,
-		Compressors: cliCompress,
-		Digests:     cliDigest,
-		ResumeToken: "tok",
-		ODirect:     true,
-		MaxInFlight: 8,
-		CDCMin:      64,
-		CDCAvg:      128,
-		CDCMax:      256,
-		CRC32C:      true,
-	}
+        srvHS := common.Handshake{
+                DedupMode:   expDedup,
+                Compressors: srvCompress,
+                Digests:     srvDigest,
+                ResumeToken: "tok",
+                ODirect:     true,
+                MaxInFlight: 8,
+                CDCMin:      64,
+                CDCAvg:      128,
+                CDCMax:      256,
+                CRC32C:      true,
+        }
+        cliHS := common.Handshake{
+                DedupMode:   expDedup,
+                Compressors: cliCompress,
+                Digests:     cliDigest,
+                Compress:    expCompress,
+                Digest:      expDigest,
+                ResumeToken: "tok",
+                ODirect:     true,
+                MaxInFlight: 8,
+                CDCMin:      64,
+                CDCAvg:      128,
+                CDCMax:      256,
+                CRC32C:      true,
+        }
 
 	srvErr := make(chan error, 1)
 	go func() {
@@ -207,28 +209,39 @@ func TestTCPTLSTransportSelectBestHandshake(t *testing.T) {
 		}
 		conn.Close()
 	}()
-	dialCtx, cancel := context.WithTimeout(baseCtx, time.Second)
-	conn, err := tr.Dial(dialCtx, ln.Addr().String())
-	cancel()
-	if err != nil {
-		t.Fatalf("dial: %v", err)
-	}
-	negCtx, cancel := context.WithTimeout(baseCtx, 5*time.Second)
-	peer, err := tr.Negotiate(negCtx, conn, transport.Client, cliHS)
-	cancel()
-	if err == nil {
-		conn.Write([]byte{1})
-	}
-	conn.Close()
-	if err != nil {
-		t.Fatalf("client negotiate: %v", err)
-	}
-	if err := <-srvErr; err != nil {
-		t.Fatalf("server negotiate: %v", err)
-	}
-	if peer.DedupMode != expDedup || peer.Compress != expCompress || peer.Digest != expDigest || peer.ResumeToken != "tok" || !peer.ODirect || peer.CDCMin != 64 || peer.CDCAvg != 128 || peer.CDCMax != 256 {
-		t.Fatalf("unexpected peer handshake: %+v", peer)
-	}
+        dialCtx, cancel := context.WithTimeout(baseCtx, time.Second)
+        conn, err := tr.Dial(dialCtx, ln.Addr().String())
+        cancel()
+        if err != nil {
+                t.Fatalf("dial: %v", err)
+        }
+        negCtx, cancel := context.WithTimeout(baseCtx, 5*time.Second)
+        peer, err := tr.Negotiate(negCtx, conn, transport.Client, cliHS)
+        cancel()
+        if err != nil {
+                conn.Close()
+                t.Fatalf("client negotiate: %v", err)
+        }
+
+        select {
+        case err := <-srvErr:
+                if err != nil {
+                        conn.Close()
+                        t.Fatalf("server negotiate: %v", err)
+                }
+        case <-time.After(time.Second):
+                conn.Close()
+                t.Fatalf("server negotiate timeout")
+        }
+
+        if _, err := conn.Write([]byte{1}); err != nil {
+                conn.Close()
+                t.Fatalf("write: %v", err)
+        }
+        conn.Close()
+        if peer.DedupMode != expDedup || peer.Compress != expCompress || peer.Digest != expDigest || peer.ResumeToken != "tok" || !peer.ODirect || peer.CDCMin != 64 || peer.CDCAvg != 128 || peer.CDCMax != 256 {
+                t.Fatalf("unexpected peer handshake: %+v", peer)
+        }
 }
 
 func TestTCPTLSTransportHandshakeError(t *testing.T) {
@@ -419,25 +432,42 @@ func TestTCPTLSUnsupportedCipher(t *testing.T) {
 		t.Fatalf("listen: %v", err)
 	}
 	defer ln.Close()
-	srvErr := make(chan error, 1)
-	go func() {
-		_, err := ln.Accept()
-		srvErr <- err
-	}()
-	badCfg := &tls.Config{
-		RootCAs:      root,
-		Certificates: []tls.Certificate{cert},
-		MinVersion:   tls.VersionTLS12,
-		MaxVersion:   tls.VersionTLS12,
-		CipherSuites: []uint16{tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256},
-		NextProtos:   []string{alpn},
-	}
-	if _, err := tls.Dial("tcp", ln.Addr().String(), badCfg); err == nil {
-		t.Fatalf("expected handshake error")
-	}
-	if err := <-srvErr; err == nil {
-		t.Fatalf("expected server error")
-	}
+        srvErr := make(chan error, 1)
+        go func() {
+                conn, err := ln.Accept()
+                if err != nil {
+                        srvErr <- err
+                        return
+                }
+                defer conn.Close()
+                tlsConn, ok := conn.(*tls.Conn)
+                if !ok {
+                        srvErr <- errors.New("expected tls.Conn")
+                        return
+                }
+                hsCtx, cancel := context.WithTimeout(context.Background(), time.Second)
+                srvErr <- tlsConn.HandshakeContext(hsCtx)
+                cancel()
+        }()
+        badCfg := &tls.Config{
+                RootCAs:      root,
+                Certificates: []tls.Certificate{cert},
+                MinVersion:   tls.VersionTLS12,
+                MaxVersion:   tls.VersionTLS12,
+                CipherSuites: []uint16{tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256},
+                NextProtos:   []string{alpn},
+        }
+        if _, err := tls.Dial("tcp", ln.Addr().String(), badCfg); err == nil {
+                t.Fatalf("expected handshake error")
+        }
+        select {
+        case err := <-srvErr:
+                if err == nil {
+                        t.Fatalf("expected server error")
+                }
+        case <-time.After(time.Second):
+                t.Fatalf("server handshake timeout")
+        }
 }
 
 func TestTCPTLSCertValidation(t *testing.T) {
