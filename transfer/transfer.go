@@ -101,6 +101,8 @@ func SaveChecksumState(filename string, state *ChecksumState, logger *zap.Logger
 
 // dumpChangesCore handles core transfer logic; logger must be non-nil.
 func (t *Transfer) dumpChangesCore(cfg *config.Config, snapshot, source string, out io.Writer, dedup DeduplicationStrategy, handshake string) (err error) {
+	defer rootcmd.SyncLogger(t.Logger)
+
 	ranges, err := prepareRanges(cfg, snapshot, source, t.Logger)
 	if err != nil {
 		return err
@@ -145,7 +147,6 @@ func (t *Transfer) dumpChangesCore(cfg *config.Config, snapshot, source string, 
 	if len(finalDigest) > 0 {
 		t.Logger.Info("final checksum", zap.String("final_digest", fmt.Sprintf("%x", finalDigest)))
 	}
-	rootcmd.SyncLogger(t.Logger)
 	return nil
 }
 
