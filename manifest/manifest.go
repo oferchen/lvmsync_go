@@ -22,7 +22,8 @@ const (
 	// Version identifies the manifest format.
 	Version uint32 = 2
 
-	headerSize = 4 + 4 + 8 + 8 + 4 + 4 + 4 + 4 + 64 + 32 // 136 bytes
+	// HeaderSize is the binary size of Header.
+	HeaderSize = 4 + 4 + 8 + 8 + 4 + 4 + 4 + 4 + 64 + 32 // 136 bytes
 	entrySize  = 8 + 4 + 4 + 8 + 32                      // 56 bytes
 
 	// FlagCDC marks chunks produced by content-defined chunking.
@@ -99,7 +100,7 @@ var (
 )
 
 func headerMAC(h *Header) [32]byte {
-	var buf [headerSize - 32]byte
+	var buf [HeaderSize - 32]byte
 	binary.LittleEndian.PutUint32(buf[0:4], h.Version)
 	binary.LittleEndian.PutUint32(buf[4:8], h.BlockSize)
 	binary.LittleEndian.PutUint64(buf[8:16], h.SizeBytes)
@@ -114,7 +115,7 @@ func headerMAC(h *Header) [32]byte {
 }
 
 func (i *Index) writeHeader() {
-	var buf [headerSize]byte
+	var buf [HeaderSize]byte
 	binary.LittleEndian.PutUint32(buf[0:4], i.hdr.Version)
 	binary.LittleEndian.PutUint32(buf[4:8], i.hdr.BlockSize)
 	binary.LittleEndian.PutUint64(buf[8:16], i.hdr.SizeBytes)
@@ -125,14 +126,14 @@ func (i *Index) writeHeader() {
 	binary.LittleEndian.PutUint32(buf[36:40], i.hdr.HybridFixedSize)
 	copy(buf[40:104], i.hdr.DeviceID[:])
 	copy(buf[104:136], i.hdr.MAC[:])
-	copy(i.data[:headerSize], buf[:])
+	copy(i.data[:HeaderSize], buf[:])
 }
 
 func (i *Index) readHeader() error {
-	if len(i.data) < headerSize {
+	if len(i.data) < HeaderSize {
 		return fmt.Errorf("manifest: file too small")
 	}
-	buf := i.data[:headerSize]
+	buf := i.data[:HeaderSize]
 	i.hdr.Version = binary.LittleEndian.Uint32(buf[0:4])
 	i.hdr.BlockSize = binary.LittleEndian.Uint32(buf[4:8])
 	i.hdr.SizeBytes = binary.LittleEndian.Uint64(buf[8:16])
@@ -189,7 +190,7 @@ func Create(path, deviceID string, size uint64, blockSize, cdcMin, cdcAvg, cdcMa
 		return nil, fmt.Errorf("manifest: block size must be greater than zero")
 	}
 	chunkCount := (size + uint64(blockSize) - 1) / uint64(blockSize)
-	total := headerSize + entrySize*chunkCount
+	total := HeaderSize + entrySize*chunkCount
 	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
 		return nil, err
@@ -284,7 +285,7 @@ func Upgrade(path string, opts ...IndexOption) (*Index, error) {
 	return idx, nil
 }
 
-func entryOffset(i uint64) uint64 { return uint64(headerSize) + i*entrySize }
+func entryOffset(i uint64) uint64 { return uint64(HeaderSize) + i*entrySize }
 
 // Set records metadata for the chunk at the given offset.
 func (i *Index) Set(offset uint64, length, flags uint32, xxh uint64, digest [32]byte) error {
