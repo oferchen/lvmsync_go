@@ -77,46 +77,71 @@ func NewSSHClient(
 	return sshClient, nil
 }
 
-//revive:disable-next-line:cognitive-complexity
-func selectAuthMethods(ctx context.Context, logger *zap.Logger, keyPath string, timeout time.Duration) ([]ssh.AuthMethod, error) {
-	var authMethods []ssh.AuthMethod
-	if keyPath != "" {
-		key, err := os.ReadFile(keyPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read SSH key file: %w", err)
+func keyFileAuth(keyPath string) (ssh.AuthMethod, error) {
+	key, err := os.ReadFile(keyPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read SSH key file: %w", err)
+	}
+	signer, err := ssh.ParsePrivateKey(key)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse SSH key: %w", err)
+	}
+	return ssh.PublicKeys(signer), nil
+}
+
+func agentAuth(ctx context.Context, logger *zap.Logger, timeout time.Duration) (ssh.AuthMethod, error) {
+	sshAgentSock := os.Getenv("SSH_AUTH_SOCK")
+	if sshAgentSock == "" {
+		return nil, nil
+	}
+	dialer := net.Dialer{Timeout: timeout}
+	conn, err := dialer.DialContext(ctx, "unix", sshAgentSock)
+	if err != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return nil, ctxErr
 		}
-		signer, err := ssh.ParsePrivateKey(key)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse SSH key: %w", err)
-		}
-		authMethods = append(authMethods, ssh.PublicKeys(signer))
-	} else {
-		sshAgentSock := os.Getenv("SSH_AUTH_SOCK")
-		if sshAgentSock != "" {
-			dialer := net.Dialer{Timeout: timeout}
-			conn, err := dialer.DialContext(ctx, "unix", sshAgentSock)
-			if err != nil {
-				if ctxErr := ctx.Err(); ctxErr != nil {
-					return nil, ctxErr
-				}
-				logger.Warn("ssh agent dial failed", zap.String("socket_path", sshAgentSock), zap.Error(err))
-			} else {
-				agentClient := agent.NewClient(conn)
-				authMethods = append(authMethods, ssh.PublicKeysCallback(func() ([]ssh.Signer, error) {
-					defer func() {
-						if cerr := conn.Close(); cerr != nil {
-							logger.Warn("ssh agent connection close error", zap.Error(cerr))
-						}
-					}()
-					return agentClient.Signers()
-				}))
+		logger.Warn("ssh agent dial failed", zap.String("socket_path", sshAgentSock), zap.Error(err))
+		return nil, nil
+	}
+	agentClient := agent.NewClient(conn)
+	return ssh.PublicKeysCallback(func() ([]ssh.Signer, error) {
+		defer func() {
+			if cerr := conn.Close(); cerr != nil {
+				logger.Warn("ssh agent connection close error", zap.Error(cerr))
 			}
+		}()
+		return agentClient.Signers()
+	}), nil
+}
+
+func aggregateAuthMethods(methods ...ssh.AuthMethod) ([]ssh.AuthMethod, error) {
+	var result []ssh.AuthMethod
+	for _, m := range methods {
+		if m != nil {
+			result = append(result, m)
 		}
 	}
-	if len(authMethods) == 0 {
+	if len(result) == 0 {
 		return nil, fmt.Errorf("no SSH authentication methods configured")
 	}
-	return authMethods, nil
+	return result, nil
+}
+
+func selectAuthMethods(ctx context.Context, logger *zap.Logger, keyPath string, timeout time.Duration) ([]ssh.AuthMethod, error) {
+	var methods []ssh.AuthMethod
+	if keyPath != "" {
+		keyMethod, err := keyFileAuth(keyPath)
+		if err != nil {
+			return nil, err
+		}
+		methods = append(methods, keyMethod)
+	}
+	agentMethod, err := agentAuth(ctx, logger, timeout)
+	if err != nil {
+		return nil, err
+	}
+	methods = append(methods, agentMethod)
+	return aggregateAuthMethods(methods...)
 }
 
 func setupHostKeyCallback(verify bool, knownHostsPath string) (ssh.HostKeyCallback, error) {
