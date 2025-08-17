@@ -15,6 +15,7 @@ import (
 	"github.com/zeebo/xxh3"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
+	"golang.org/x/sys/unix"
 
 	"lvmsync_go/device"
 )
@@ -281,6 +282,36 @@ func TestUpgradeCloseHook(t *testing.T) {
 	}
 	if called != 1 {
 		t.Fatalf("expected close hook called once, got %d", called)
+	}
+}
+
+func TestIndexCloseAggregatesErrors(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "aggregate.man")
+	idx, err := Create(path, "dev", 4096, 4096, 0, 0, 0, 0)
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	// Force msync error by unmapping data early.
+	_ = unix.Munmap(idx.data)
+	// Force file close error by closing the file before Index.Close.
+	_ = idx.f.Close()
+	hookErr := errors.New("hook fail")
+	idx.closeHook = func() error { return hookErr }
+
+	err = idx.Close()
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if !strings.Contains(err.Error(), "invalid argument") {
+		t.Fatalf("missing msync error: %v", err)
+	}
+	if !strings.Contains(err.Error(), "file already closed") {
+		t.Fatalf("missing file close error: %v", err)
+	}
+	if !strings.Contains(err.Error(), "hook fail") {
+		t.Fatalf("missing hook error: %v", err)
 	}
 }
 

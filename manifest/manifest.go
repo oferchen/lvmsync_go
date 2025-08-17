@@ -13,6 +13,7 @@ import (
 
 	"github.com/zeebo/blake3"
 	"github.com/zeebo/xxh3"
+	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
 
@@ -167,24 +168,21 @@ func (i *Index) readHeader() error {
 func (i *Index) Close() error {
 	var err error
 	if i.data != nil {
-		if err = unix.Msync(i.data, unix.MS_SYNC); err != nil {
-			_ = unix.Munmap(i.data)
-			_ = i.f.Close()
-			if i.closeHook != nil {
-				_ = i.closeHook()
-			}
-			return err
+		if syncErr := unix.Msync(i.data, unix.MS_SYNC); syncErr != nil {
+			err = multierr.Append(err, syncErr)
 		}
-		_ = unix.Munmap(i.data)
+		if unmapErr := unix.Munmap(i.data); unmapErr != nil {
+			err = multierr.Append(err, unmapErr)
+		}
 	}
 	if i.f != nil {
 		if ferr := i.f.Close(); ferr != nil {
-			err = ferr
+			err = multierr.Append(err, ferr)
 		}
 	}
 	if i.closeHook != nil {
-		if hookErr := i.closeHook(); err == nil && hookErr != nil {
-			err = hookErr
+		if hookErr := i.closeHook(); hookErr != nil {
+			err = multierr.Append(err, hookErr)
 		}
 	}
 	return err
