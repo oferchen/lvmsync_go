@@ -291,6 +291,26 @@ func TestInitTransportFlags(t *testing.T) {
 	}
 }
 
+func TestBindDedupEnv(t *testing.T) {
+	cfg, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	fs := initDedupFlags(cfg)
+	v := viper.New()
+	if err := bindDedupEnv(fs, v); err != nil {
+		t.Fatalf("bindDedupEnv: %v", err)
+	}
+	t.Setenv("LVMSYNC_DEDUP_STRATEGY", "checksum")
+	t.Setenv("LVMSYNC_DEDUP_INTRA_DEDUP", "true")
+	if got := v.GetString("dedup-strategy"); got != "checksum" {
+		t.Fatalf("dedup-strategy got %q want %q", got, "checksum")
+	}
+	if got := v.GetBool("intra-dedup"); !got {
+		t.Fatalf("intra-dedup got %v want true", got)
+	}
+}
+
 func TestBindLVMEnv(t *testing.T) {
 	cfg, err := DefaultConfig()
 	if err != nil {
