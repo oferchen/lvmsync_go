@@ -284,7 +284,7 @@ func bindGRPCEnv(fs *pflag.FlagSet, v *viper.Viper) error {
 		}
 		name := strings.ToUpper(strings.ReplaceAll(f.Name, "-", "_"))
 		name = strings.TrimPrefix(name, "GRPC_")
-		env := "LVMSYNC-GRPC"
+		env := "LVMSYNC_GRPC"
 		if name != "" {
 			env += "_" + name
 		}

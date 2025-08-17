@@ -91,13 +91,13 @@ func TestInitSSHFlags(t *testing.T) {
 		{"ssh-host", cfg.SSHHost},
 		{"ssh-user", cfg.SSHUser},
 		{"ssh-key", cfg.SSHKeyPath},
-		{"ssh_host_key_path", cfg.SSHHostKeyPath},
+		{"ssh-host-key-path", cfg.SSHHostKeyPath},
 		{"ssh-port", strconv.Itoa(cfg.SSHPort)},
 		{"ssh-timeout", cfg.SSHTimeout.String()},
 		{"ssh-keepalive", cfg.SSHKeepAliveInterval.String()},
-		{"ssh_host_key", cfg.SSHHostKey},
+		{"ssh-host-key", cfg.SSHHostKey},
 		{"known-hosts", cfg.KnownHosts},
-		{"strict_host_key_checking", strconv.FormatBool(cfg.StrictHostKeyCheck)},
+		{"strict-host-key-checking", strconv.FormatBool(cfg.StrictHostKeyCheck)},
 	}
 	for _, tt := range cases {
 		f := fs.Lookup(tt.name)
@@ -118,8 +118,8 @@ func TestInitRemoteFlags(t *testing.T) {
 	fs := initRemoteFlags(cfg)
 	cases := []struct{ name, want string }{
 		{"lvmsync-path", cfg.LVMSyncPath},
-		{"remote_pre_script", cfg.RemotePreScript},
-		{"remote_post_script", cfg.RemotePostScript},
+		{"remote-pre-script", cfg.RemotePreScript},
+		{"remote-post-script", cfg.RemotePostScript},
 	}
 	for _, tt := range cases {
 		f := fs.Lookup(tt.name)
@@ -144,10 +144,10 @@ func TestInitDedupFlags(t *testing.T) {
 		{"cdc-avg", strconv.Itoa(cfg.CDCAvg)},
 		{"cdc-max", strconv.Itoa(cfg.CDCMax)},
 		{"dedup-strategy", cfg.DedupStrategy},
-		{"dedup_state_file", cfg.DedupStateFile},
+		{"dedup-state-file", cfg.DedupStateFile},
 		{"intra-dedup", strconv.FormatBool(cfg.IntraDedup)},
 		{"bloom-entries", strconv.Itoa(cfg.BloomEntries)},
-		{"bloom_fp_rate", fmt.Sprint(cfg.BloomFpRate)},
+		{"bloom-fp-rate", fmt.Sprint(cfg.BloomFpRate)},
 		{"bloom-mbits", strconv.FormatUint(uint64(cfg.BloomMBits), 10)},
 	}
 	for _, tt := range cases {
@@ -192,15 +192,15 @@ func TestInitLVMFlags(t *testing.T) {
 	}
 	fs := initLVMFlags(cfg)
 	cases := []struct{ name, want string }{
-		{"skip_snapshot_creation", strconv.FormatBool(cfg.SkipSnapshotCreation)},
-		{"skip_disk_check", strconv.FormatBool(cfg.SkipDiskCheck)},
+		{"skip-snapshot-creation", strconv.FormatBool(cfg.SkipSnapshotCreation)},
+		{"skip-disk-check", strconv.FormatBool(cfg.SkipDiskCheck)},
 		{"snapshot-size", cfg.SnapshotSize},
 		{"lvm-escalation", cfg.LVMEscalation},
 		{"lvm-timeout", cfg.LVMTimeout.String()},
 		{"sig-cache-ttl", cfg.SigCacheTTL.String()},
 		{"sig-cache-max", strconv.Itoa(cfg.SigCacheMax)},
 		{"volume-group", cfg.VolumeGroup},
-		{"target_volume_group", cfg.TargetVolumeGroup},
+		{"target-volume-group", cfg.TargetVolumeGroup},
 		{"target-vgs", "[]"},
 	}
 	for _, tt := range cases {
@@ -224,10 +224,10 @@ func TestInitGRPCFlags(t *testing.T) {
 		{"grpc-port", strconv.Itoa(cfg.GRPCPort)},
 		{"grpc-listen", cfg.GRPCListen},
 		{"grpc-connect", cfg.GRPCConnect},
-		{"grpc_dial_timeout", cfg.GRPCDialTimeout.String()},
-		{"grpc_setup_timeout", cfg.GRPCSetupTimeout.String()},
-		{"grpc_heartbeat_interval", cfg.HeartbeatInterval.String()},
-		{"grpc_heartbeat_send_timeout", cfg.HeartbeatSendTimeout.String()},
+		{"grpc-dial-timeout", cfg.GRPCDialTimeout.String()},
+		{"grpc-setup-timeout", cfg.GRPCSetupTimeout.String()},
+		{"grpc-heartbeat-interval", cfg.HeartbeatInterval.String()},
+		{"grpc-heartbeat-send-timeout", cfg.HeartbeatSendTimeout.String()},
 		{"tls-cert", cfg.TLSCert},
 		{"tls-key", cfg.TLSKey},
 		{"ca-cert", cfg.CACert},
@@ -253,8 +253,8 @@ func TestInitManifestFlags(t *testing.T) {
 	cases := []struct{ name, want string }{
 		{"manifest-path", cfg.ManifestPath},
 		{"manifest-timeout", cfg.ManifestTimeout.String()},
-		{"manifest_progress_interval", cfg.ManifestProgressInterval.String()},
-		{"manifest_allow_mounted", strconv.FormatBool(cfg.ManifestAllowMounted)},
+		{"manifest-progress-interval", cfg.ManifestProgressInterval.String()},
+		{"manifest-allow-mounted", strconv.FormatBool(cfg.ManifestAllowMounted)},
 	}
 	for _, tt := range cases {
 		f := fs.Lookup(tt.name)
@@ -325,7 +325,7 @@ func TestBindLVMEnv(t *testing.T) {
 	t.Setenv("LVMSYNC_LVM_ESCALATION", "doas")
 	t.Setenv("LVMSYNC_LVM_SIG_CACHE_TTL", "1m")
 	if got := v.GetString("snapshot-size"); got != "10%" {
-		t.Fatalf("snapshot_size got %q want %q", got, "10%")
+		t.Fatalf("snapshot-size got %q want %q", got, "10%")
 	}
 	if got := v.GetString("lvm-escalation"); got != "doas" {
 		t.Fatalf("lvm-escalation got %q want %q", got, "doas")
@@ -348,9 +348,9 @@ func TestBindGRPCEnv(t *testing.T) {
 	t.Setenv("LVMSYNC_GRPC_PORT", "9443")
 	t.Setenv("LVMSYNC_GRPC_TLS_CERT", "cert.pem")
 	if got := v.GetInt("grpc-port"); got != 9443 {
-		t.Fatalf("grpc_port got %d want %d", got, 9443)
+		t.Fatalf("grpc-port got %d want %d", got, 9443)
 	}
 	if got := v.GetString("tls-cert"); got != "cert.pem" {
-		t.Fatalf("tls_cert got %q want %q", got, "cert.pem")
+		t.Fatalf("tls-cert got %q want %q", got, "cert.pem")
 	}
 }
