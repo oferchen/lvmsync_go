@@ -207,7 +207,7 @@ func manifestHeaderMAC(h *manifestpkg.Header) [32]byte {
 
 func readManifestHeader(ctx context.Context, path string, timeout time.Duration) (*manifestpkg.Header, error) {
 	if ctx == nil {
-		ctx = context.Background()
+		return nil, fmt.Errorf("nil context")
 	}
 	if timeout > 0 {
 		var cancel context.CancelFunc
@@ -234,7 +234,7 @@ func readManifestHeader(ctx context.Context, path string, timeout time.Duration)
 
 func (t *Transfer) verifyDestination(ctx context.Context, cfg *config.Config, destPath string) error {
 	if ctx == nil {
-		ctx = context.Background()
+		return fmt.Errorf("nil context")
 	}
 	if cfg.ManifestPath != "" {
 		hdr, err := readManifestHeader(ctx, cfg.ManifestPath, 0)
