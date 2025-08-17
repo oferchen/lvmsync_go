@@ -28,14 +28,6 @@ func Register(name string, f Factory) error {
 	return nil
 }
 
-// MustRegister registers a transport factory and panics on duplicate names.
-// Deprecated: callers should prefer Register and handle the error.
-func MustRegister(name string, f Factory) {
-	if err := Register(name, f); err != nil {
-		panic(fmt.Sprintf("register_transport %q: %v", name, err))
-	}
-}
-
 // Get returns a transport from the registry by name.
 func Get(name string, cfg Config) (Interface, error) {
 	regMu.RLock()
