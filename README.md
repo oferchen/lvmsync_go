@@ -224,7 +224,8 @@ tooling to track transfer completion.
 
 - Use `zap` for all logging and avoid `fmt.Print*` or `log.*` calls.
 - Pass loggers explicitly to commands and helpers; `cmd/lvmsync.Execute` requires a
-  `*zap.Logger` argument instead of relying on `zap.L()`.
+  `*zap.Logger` and accepts a `*lvmsync.Runner` for dependency injection instead of
+  relying on `zap.L()`.
 - All commands receive an explicit `*zap.Logger` and default to `zap.NewNop()` when no logger is supplied.
 - Device constructors return an error when the logger is `nil`; use `zap.NewNop()` to disable logging.
 - Log field keys in `snake_case` and include units where relevant (for example, `duration_ms`).

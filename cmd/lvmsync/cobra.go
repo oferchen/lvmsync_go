@@ -31,16 +31,72 @@ type RunOptions struct {
 	ChunkSeed uint64
 }
 
-var (
-	// These function variables allow tests to stub command behavior.
-	runCommand      = func(src, dst string, opts RunOptions, logger *zap.Logger) error { return nil }
-	manifestRebuild = func(device string, dryRun bool, logger *zap.Logger) error { return nil }
-	verifyRun       = func(args []string, logger *zap.Logger) error { return verifycmd.Run(args, logger) }
-	serveRun        = func(args []string, logger *zap.Logger) error { return servecmd.Run(args, logger) }
-)
+// Runner holds command behaviors to allow dependency injection in tests.
+type Runner struct {
+	run             func(src, dst string, opts RunOptions, logger *zap.Logger) error
+	manifestRebuild func(device string, dryRun bool, logger *zap.Logger) error
+	verify          func(args []string, logger *zap.Logger) error
+	serve           func(args []string, logger *zap.Logger) error
+}
+
+// Run executes the main synchronization command.
+func (r *Runner) Run(src, dst string, opts RunOptions, logger *zap.Logger) error {
+	return r.run(src, dst, opts, logger)
+}
+
+// ManifestRebuild regenerates a manifest for the specified device.
+func (r *Runner) ManifestRebuild(device string, dryRun bool, logger *zap.Logger) error {
+	return r.manifestRebuild(device, dryRun, logger)
+}
+
+// Verify compares source and destination devices against a manifest.
+func (r *Runner) Verify(args []string, logger *zap.Logger) error {
+	return r.verify(args, logger)
+}
+
+// Serve launches a transport listener.
+func (r *Runner) Serve(args []string, logger *zap.Logger) error {
+	return r.serve(args, logger)
+}
+
+// NewRunner constructs a Runner with default no-op behaviors.
+func NewRunner() *Runner {
+	return &Runner{
+		run:             func(src, dst string, opts RunOptions, logger *zap.Logger) error { return nil },
+		manifestRebuild: func(device string, dryRun bool, logger *zap.Logger) error { return nil },
+		verify:          func(args []string, logger *zap.Logger) error { return verifycmd.Run(args, logger) },
+		serve:           func(args []string, logger *zap.Logger) error { return servecmd.Run(args, logger) },
+	}
+}
+
+// NewRunnerWithDeps constructs a Runner with custom behaviors, useful for tests.
+func NewRunnerWithDeps(
+	run func(src, dst string, opts RunOptions, logger *zap.Logger) error,
+	rebuild func(device string, dryRun bool, logger *zap.Logger) error,
+	verify func(args []string, logger *zap.Logger) error,
+	serve func(args []string, logger *zap.Logger) error,
+) *Runner {
+	r := NewRunner()
+	if run != nil {
+		r.run = run
+	}
+	if rebuild != nil {
+		r.manifestRebuild = rebuild
+	}
+	if verify != nil {
+		r.verify = verify
+	}
+	if serve != nil {
+		r.serve = serve
+	}
+	return r
+}
 
 // NewRootCmd creates the root cobra command with all subcommands wired.
-func NewRootCmd(logger *zap.Logger) *cobra.Command {
+func NewRootCmd(logger *zap.Logger, r *Runner) *cobra.Command {
+	if r == nil {
+		r = NewRunner()
+	}
 	rootCmd := &cobra.Command{
 		Use:   "lvmsync",
 		Short: "LVMSync command line tool",
@@ -84,7 +140,7 @@ func NewRootCmd(logger *zap.Logger) *cobra.Command {
 				CDCMax:    cfg.CDCMax,
 				ChunkSeed: cfg.ChunkSeed,
 			}
-			return runCommand(remaining[0], remaining[1], opts, logger)
+			return r.Run(remaining[0], remaining[1], opts, logger)
 		},
 	}
 
@@ -121,7 +177,7 @@ func NewRootCmd(logger *zap.Logger) *cobra.Command {
 				fs.Usage()
 				return fmt.Errorf("usage: lvmsync manifest rebuild [flags] <device>")
 			}
-			return manifestRebuild(remaining[0], cfg.DryRun, logger)
+			return r.ManifestRebuild(remaining[0], cfg.DryRun, logger)
 		},
 	}
 	manifestCmd.AddCommand(rebuildCmd)
@@ -131,7 +187,7 @@ func NewRootCmd(logger *zap.Logger) *cobra.Command {
 		Short:              "Verify that source and destination match",
 		DisableFlagParsing: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return verifyRun(args, logger)
+			return r.Verify(args, logger)
 		},
 	}
 
@@ -140,7 +196,7 @@ func NewRootCmd(logger *zap.Logger) *cobra.Command {
 		Short:              "Run a transport listener",
 		DisableFlagParsing: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return serveRun(args, logger)
+			return r.Serve(args, logger)
 		},
 	}
 
@@ -151,11 +207,17 @@ func NewRootCmd(logger *zap.Logger) *cobra.Command {
 // Execute runs the command tree with provided arguments.
 // If args is nil, the global os.Args are used by cobra.
 func Execute(args []string, logger *zap.Logger) error {
+	return ExecuteWithRunner(args, logger, nil)
+}
+
+// ExecuteWithRunner runs the command tree using the provided Runner.
+// If args is nil, the global os.Args are used by cobra.
+func ExecuteWithRunner(args []string, logger *zap.Logger, r *Runner) error {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
 	defer rootcmd.SyncLogger(logger)
-	cmd := NewRootCmd(logger)
+	cmd := NewRootCmd(logger, r)
 	if args != nil {
 		cmd.SetArgs(args)
 	}
