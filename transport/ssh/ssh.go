@@ -31,10 +31,10 @@ type Transport struct {
 	logger     *zap.Logger
 }
 
-// New returns a new Transport using username/password authentication.
+// New returns a new Transport using username/password authentication. Logger is optional; a no-op logger is used when nil.
 func New(ctx context.Context, cfg transport.Config) (transport.Interface, error) {
 	if cfg.Logger == nil {
-		return nil, fmt.Errorf("logger is required")
+		cfg.Logger = zap.NewNop()
 	}
 	if cfg.SSHUser == "" {
 		return nil, fmt.Errorf("ssh user is required")

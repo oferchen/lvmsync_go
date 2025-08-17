@@ -319,9 +319,9 @@ func TestQUICTransportAllowInsecureWarn(t *testing.T) {
 	}
 }
 
-func TestQUICTransportRequiresLogger(t *testing.T) {
-	if _, err := New(transport.Config{}); err == nil {
-		t.Fatalf("expected error when logger is nil")
+func TestQUICTransportLoggerOptional(t *testing.T) {
+	if _, err := New(transport.Config{AllowInsecure: true}); err != nil {
+		t.Fatalf("New: %v", err)
 	}
 }
 

@@ -227,7 +227,7 @@ tooling to track transfer completion.
   `*zap.Logger` and accepts a `*lvmsync.Runner` for dependency injection instead of
   relying on `zap.L()`.
 - All commands receive an explicit `*zap.Logger` and default to `zap.NewNop()` when no logger is supplied.
-- Device constructors return an error when the logger is `nil`; use `zap.NewNop()` to disable logging.
+- Device constructors return an error when the logger is `nil`; transport constructors default to `zap.NewNop()` when no logger is supplied.
 - Log field keys in `snake_case` and include units where relevant (for example, `duration_ms`).
 - Provide raw byte values alongside human-readable sizes (for example, `block_size` and `block_size_bytes`).
 - Always defer `syncLogger(logger)` to flush buffers and log if the sync fails.
