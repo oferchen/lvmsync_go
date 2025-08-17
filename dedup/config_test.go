@@ -40,6 +40,17 @@ func TestLoadConfigPrecedence(t *testing.T) {
 			t.Fatalf("expected min_chunk_size 1024, got %d", cfg.MinChunkSize)
 		}
 	})
+
+	t.Run("flags_override_env_max", func(t *testing.T) {
+		t.Setenv("LVMSYNC_MAX_CHUNK_SIZE", "2048")
+		cfg, err := LoadConfig(cfgPath, []string{"--max-chunk-size", "4096"})
+		if err != nil {
+			t.Fatalf("LoadConfig: %v", err)
+		}
+		if cfg.MaxChunkSize != 4096 {
+			t.Fatalf("expected max_chunk_size 4096, got %d", cfg.MaxChunkSize)
+		}
+	})
 }
 
 func TestLoadConfigFailures(t *testing.T) {
