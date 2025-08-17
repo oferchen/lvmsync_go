@@ -55,7 +55,7 @@ explicitly restrict `tls.Config.CipherSuites` to
 these ciphers. TLS transports require an explicit set of trusted CA roots.
 Connections are rejected if no roots are provided unless the transport
 configuration sets `AllowInsecure` and the user explicitly acknowledges the risk
-with the `--allow_insecure` flag or `LVMSYNC_ALLOW_INSECURE` environment
+with the `--allow-insecure` flag or `LVMSYNC_ALLOW_INSECURE` environment
 variable. This disables certificate verification, logs a warning, and should be
 used only in development.
 
@@ -81,12 +81,12 @@ clients. Defaults:
 - ALPN negotiation using `lvmsync`
 - Bidirectional streams and datagram support
 - BBR congestion control
-- Flags: `--tls_cert`, `--tls_key`, `--ca_cert`, `--allow_insecure`
+- Flags: `--tls-cert`, `--tls-key`, `--ca-cert`, `--allow-insecure`
 
 Example:
 
 ```sh
-lvmsync --transport quic --tls_cert cert.pem --tls_key key.pem --ca_cert ca.pem
+lvmsync --transport quic --tls-cert cert.pem --tls-key key.pem --ca-cert ca.pem
 ```
 
 Run a listener with the `serve` subcommand:
@@ -100,22 +100,22 @@ lvmsync serve --transport quic --quic-listen :12000 --tls-cert cert.pem --tls-ke
 - Runs over TLS 1.3 with mutual authentication
 - Provides stream-level back-pressure
 - Enforces context deadlines during connection and HTTP/2 handshakes
-- Flags: `--tls_cert`, `--tls_key`, `--ca_cert`, `--allow_insecure`, `--tcp_port`
+- Flags: `--tls-cert`, `--tls-key`, `--ca-cert`, `--allow-insecure`, `--tcp-port`
 
 ## TCP+TLS
 
 - Plain TCP encapsulated in TLS 1.3
 - Requires mutual TLS authentication
 - Logs a warning if listener shutdown encounters an error
-- Flags: `--tls_cert`, `--tls_key`, `--ca_cert`, `--allow_insecure`, `--tcp_port`
+- Flags: `--tls-cert`, `--tls-key`, `--ca-cert`, `--allow-insecure`, `--tcp-port`
 
 ## SSH
 
 - Establishes sessions using `golang.org/x/crypto/ssh`
 - Supports `sudo -n` escalation hooks
 - Uses context deadlines for handshake I/O, failing fast when the caller's context times out
-- Verifies server host keys using `known_hosts` or an explicit `--ssh_host_key`; unknown hosts are rejected
-- Key authentication via `--ssh_key`/`LVMSYNC_SSH_KEY`
-- Optional agent auth with `--ssh_agent`/`LVMSYNC_SSH_AGENT` using `SSH_AUTH_SOCK`
-- Listeners require a persistent host key via `--ssh_host_key_path` unless `--allow_insecure` is enabled
-- Flags: `--ssh_user`, `--ssh_password`, `--ssh_key`, `--ssh_host_key`, `--ssh_host_key_path`, `--ssh_agent`, `--allow_insecure`
+- Verifies server host keys using `known_hosts` or an explicit `--ssh-host-key`; unknown hosts are rejected
+- Key authentication via `--ssh-key`/`LVMSYNC_SSH_KEY`
+- Optional agent auth with `--ssh-agent`/`LVMSYNC_SSH_AGENT` using `SSH_AUTH_SOCK`
+- Listeners require a persistent host key via `--ssh-host-key-path` unless `--allow-insecure` is enabled
+- Flags: `--ssh-user`, `--ssh-password`, `--ssh-key`, `--ssh-host-key`, `--ssh-host-key-path`, `--ssh-agent`, `--allow-insecure`

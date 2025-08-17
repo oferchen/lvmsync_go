@@ -121,7 +121,7 @@ func TestManifestRebuildInvalidConfig(t *testing.T) {
 		called = true
 		return nil
 	}, nil, nil)
-	if err := ExecuteWithRunner([]string{"manifest", "rebuild", "--ssh_keepalive=0s", "/dev/vg0"}, zap.NewNop(), r); err == nil {
+	if err := ExecuteWithRunner([]string{"manifest", "rebuild", "--ssh-keepalive=0s", "/dev/vg0"}, zap.NewNop(), r); err == nil {
 		t.Fatalf("expected error for invalid config")
 	}
 	if called {

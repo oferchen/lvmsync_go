@@ -184,3 +184,32 @@ func TestCommandContextCanceled(t *testing.T) {
 		t.Fatalf("expected context deadline exceeded, got err=%v ctxErr=%v", err, ctx.Err())
 	}
 }
+
+func TestEnsureDefaultTimeout(t *testing.T) {
+	HasCaps = func() bool { return false }
+	orig := escalationTimeout
+	escalationTimeout = 10 * time.Millisecond
+	defer func() { escalationTimeout = orig }()
+	r := &Runner{Cmd: cmdFunc(func(ctx context.Context, name string, args ...string) *exec.Cmd {
+		return exec.CommandContext(ctx, "sleep", "10")
+	}), LookPath: fakeLookPath(nil)}
+	esc := NewWithRunner(context.Background(), r)
+	err := esc.Ensure(context.Background())
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected deadline exceeded, got %v", err)
+	}
+}
+
+func TestCommandDefaultTimeout(t *testing.T) {
+	orig := escalationTimeout
+	escalationTimeout = 10 * time.Millisecond
+	defer func() { escalationTimeout = orig }()
+	esc := &sudoEscalator{useSudo: false, runner: &Runner{Cmd: cmdFunc(func(ctx context.Context, name string, args ...string) *exec.Cmd {
+		return exec.CommandContext(ctx, "sleep", "10")
+	})}}
+	cmd := esc.Command(context.Background(), "sleep", "10")
+	err := cmd.Run()
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected deadline exceeded, got %v", err)
+	}
+}

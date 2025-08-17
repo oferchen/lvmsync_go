@@ -1,18 +1,1 @@
-[
-  {
-    "type": "bug",
-    "component": "cli flags",
-    "evidence": "inconsistent flag naming across commands",
-    "impact": "confusing user experience",
-    "fix": "normalize flag names to kebab-case and document consistent style",
-    "priority": "medium"
-  },
-  {
-    "type": "bug",
-    "component": "privilege escalation",
-    "evidence": "escalation command lacks timeout",
-    "impact": "operations may hang indefinitely",
-    "fix": "add context-aware timeout to privilege escalation",
-    "priority": "high"
-  }
-]
+[]

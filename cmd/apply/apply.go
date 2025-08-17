@@ -90,7 +90,7 @@ func (r *Runner) Run(cfg *config.Config, applyFile string, args []string, logger
 	if cfg.DestType == "raw" && !cfg.SkipSnapshotCreation {
 		dev.Cleanup(context.Background())
 		dev.Close()
-		return fmt.Errorf("raw destinations require --skip_snapshot_creation or external freeze hooks")
+		return fmt.Errorf("raw destinations require --skip-snapshot-creation or external freeze hooks")
 	}
 	err = r.applyFunc(cfg, applyFile, dev.Path(), logger)
 	cleanupErr := dev.Cleanup(context.Background())

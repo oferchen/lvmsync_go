@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/pierrec/lz4/v4"
+	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
 
@@ -46,10 +47,10 @@ func (b *builder) applyDefaults(conf *Config) error {
 	if conf.Mode == "" {
 		conf.Mode = b.defaults.Mode
 	}
-	if !b.v.IsSet("allow_insecure") {
+	if !b.v.IsSet("allow-insecure") {
 		conf.AllowInsecure = b.defaults.AllowInsecure
 	}
-	if !b.v.IsSet("numa_pin") {
+	if !b.v.IsSet("numa-pin") {
 		conf.NumaPin = b.defaults.NumaPin
 	}
 	if conf.GRPCPort == 0 {
@@ -64,7 +65,7 @@ func (b *builder) applyDefaults(conf *Config) error {
 	if conf.ManifestProgressInterval == 0 {
 		conf.ManifestProgressInterval = b.defaults.ManifestProgressInterval
 	}
-	if !b.v.IsSet("manifest_allow_mounted") {
+	if !b.v.IsSet("manifest-allow-mounted") {
 		conf.ManifestAllowMounted = b.defaults.ManifestAllowMounted
 	}
 
@@ -129,7 +130,7 @@ func (b *builder) applyDefaults(conf *Config) error {
 		conf.SyncInterval = b.defaults.SyncInterval
 	}
 
-	cb, err := b.parseBytesOrFallback("checkpoint_bytes", b.defaults.CheckpointBytesRaw)
+	cb, err := b.parseBytesOrFallback("checkpoint-bytes", b.defaults.CheckpointBytesRaw)
 	if err != nil {
 		return err
 	}
@@ -169,17 +170,17 @@ func (b *builder) applyThroughput(conf *Config) {
 	if !b.v.IsSet("dedup") {
 		conf.DedupMode = "hybrid"
 	}
-	if !b.v.IsSet("block_size") {
+	if !b.v.IsSet("block-size") {
 		conf.BlockSize = 2 * 1024 * 1024
 		conf.BlockSizeRaw = "2097152"
 	}
-	if !b.v.IsSet("cdc_min") {
+	if !b.v.IsSet("cdc-min") {
 		conf.CDCMin = 256 * 1024
 	}
-	if !b.v.IsSet("cdc_avg") {
+	if !b.v.IsSet("cdc-avg") {
 		conf.CDCAvg = 2 * 1024 * 1024
 	}
-	if !b.v.IsSet("cdc_max") {
+	if !b.v.IsSet("cdc-max") {
 		conf.CDCMax = 8 * 1024 * 1024
 	}
 	if !b.v.IsSet("compress") {
@@ -192,7 +193,7 @@ func (b *builder) applyThroughput(conf *Config) {
 		conf.SyncInterval = "1GB"
 		conf.SyncIntervalBytes = 1000000000
 	}
-	if !b.v.IsSet("checkpoint_interval") && conf.CheckpointInterval == 0 {
+	if !b.v.IsSet("checkpoint-interval") && conf.CheckpointInterval == 0 {
 		conf.CheckpointInterval = 10 * time.Second
 	}
 }
@@ -235,17 +236,17 @@ func (b *builder) finalizeConfig(conf *Config) error {
 
 	if !conf.AllowInsecure && (conf.GRPCListen != "" || conf.GRPCConnect != "") {
 		if conf.TLSCert == "" || conf.TLSKey == "" {
-			return fmt.Errorf("tls_cert and tls_key must be specified unless allow_insecure is set")
+			return fmt.Errorf("tls-cert and tls-key must be specified unless allow-insecure is set")
 		}
 		if _, err := os.Stat(conf.TLSCert); err != nil {
-			return fmt.Errorf("tls_cert: %w", err)
+			return fmt.Errorf("tls-cert: %w", err)
 		}
 		if _, err := os.Stat(conf.TLSKey); err != nil {
-			return fmt.Errorf("tls_key: %w", err)
+			return fmt.Errorf("tls-key: %w", err)
 		}
 		if conf.CACert != "" {
 			if _, err := os.Stat(conf.CACert); err != nil {
-				return fmt.Errorf("ca_cert: %w", err)
+				return fmt.Errorf("ca-cert: %w", err)
 			}
 		}
 	}
@@ -269,7 +270,7 @@ func (b *builder) parseBytesOrFallback(key, fallback string) (int, error) {
 }
 
 func (b *builder) parseBlockSize() (int, string, error) {
-	raw := strings.ReplaceAll(strings.TrimSpace(b.v.GetString("block_size")), " ", "")
+	raw := strings.ReplaceAll(strings.TrimSpace(b.v.GetString("block-size")), " ", "")
 	if raw == "" {
 		raw = b.defaults.BlockSizeRaw
 	}
@@ -278,11 +279,11 @@ func (b *builder) parseBlockSize() (int, string, error) {
 	}
 	val, isPercent, err := sizeparse.Parse(raw)
 	if err != nil || isPercent {
-		return 0, "", fmt.Errorf("invalid block_size value %q: %w", raw, err)
+		return 0, "", fmt.Errorf("invalid block-size value %q: %w", raw, err)
 	}
 	u := uint64(val)
 	if float64(u) != val || u > uint64(math.MaxInt) {
-		return 0, "", fmt.Errorf("block_size value %q overflows int", raw)
+		return 0, "", fmt.Errorf("block-size value %q overflows int", raw)
 	}
 	return int(u), raw, nil
 }
@@ -308,19 +309,12 @@ func buildViper(flagSets *FlagSets) (*viper.Viper, []string, error) {
 		if err := v.BindPFlags(fs); err != nil {
 			return nil, nil, err
 		}
+		fs.VisitAll(func(f *pflag.Flag) {
+			if strings.Contains(f.Name, "-") {
+				v.RegisterAlias(strings.ReplaceAll(f.Name, "-", "_"), f.Name)
+			}
+		})
 	}
-	v.RegisterAlias("cdc_min", "cdc-min")
-	v.RegisterAlias("cdc_avg", "cdc-avg")
-	v.RegisterAlias("cdc_max", "cdc-max")
-	v.RegisterAlias("chunk_seed", "chunk-seed")
-	v.RegisterAlias("zstd_level", "zstd-level")
-	v.RegisterAlias("lz4_level", "lz4-level")
-	v.RegisterAlias("compress_threshold", "compress-threshold")
-	v.RegisterAlias("lvm_escalation", "lvm-escalation")
-	v.RegisterAlias("intra_dedup", "intra-dedup")
-	v.RegisterAlias("freeze_timeout", "freeze-timeout")
-	v.RegisterAlias("thaw_timeout", "thaw-timeout")
-	v.RegisterAlias("sync_interval", "sync-interval")
 	if err := bindTransportEnv(flagSets.Transport, v); err != nil {
 		return nil, nil, err
 	}
