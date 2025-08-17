@@ -16,44 +16,6 @@ import (
 	"lvmsync_go/lvm"
 )
 
-// Runner coordinates interactions with LVM helpers.
-type Runner struct {
-	volumeExists      func(context.Context, string) (bool, error)
-	autoExtendEnabled func(context.Context, string) (bool, error)
-	discardEnabled    func(context.Context, string) (bool, error)
-	isMountedRW       func(string) (bool, error)
-	lockAcquire       func(string, string) (*lock.Lock, error)
-	openLVMOverride   func(string, *lvm.FDCache, string, *zap.Logger) (*LVMDevice, error)
-}
-
-// NewRunner returns a Runner using real LVM helpers.
-func NewRunner() *Runner {
-	return &Runner{
-		volumeExists:      lvm.VolumeExists,
-		autoExtendEnabled: lvm.AutoExtendEnabled,
-		discardEnabled:    lvm.DiscardEnabled,
-		isMountedRW:       IsMountedRW,
-		lockAcquire:       lock.Acquire,
-	}
-}
-
-// NewRunnerWithDeps constructs a Runner with custom dependencies.
-func NewRunnerWithDeps(
-	volumeExists func(context.Context, string) (bool, error),
-	autoExtendEnabled func(context.Context, string) (bool, error),
-	discardEnabled func(context.Context, string) (bool, error),
-	isMountedRW func(string) (bool, error),
-	lockAcquire func(string, string) (*lock.Lock, error),
-) *Runner {
-	return &Runner{
-		volumeExists:      volumeExists,
-		autoExtendEnabled: autoExtendEnabled,
-		discardEnabled:    discardEnabled,
-		isMountedRW:       isMountedRW,
-		lockAcquire:       lockAcquire,
-	}
-}
-
 // LVMDevice represents a logical volume managed by LVM.
 type LVMDevice struct {
 	f           *os.File
@@ -152,7 +114,7 @@ var (
 	geteuid          = os.Geteuid
 )
 
-func runLVM(ctx context.Context, escalation, cmdName string, args ...string) error {
+func (r *Runner) runLVM(ctx context.Context, escalation, cmdName string, args ...string) error {
 	if err := lvm.VerifyEscalationCommand(escalation); err != nil {
 		return err
 	}
@@ -164,7 +126,7 @@ func runLVM(ctx context.Context, escalation, cmdName string, args ...string) err
 			args = append(parts[1:], append([]string{lvmCmd}, args...)...)
 		}
 	}
-	cmd := execCommand(ctx, cmdName, args...)
+	cmd := r.command.CommandContext(ctx, cmdName, args...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("%s: %w", strings.TrimSpace(string(out)), err)
@@ -180,19 +142,19 @@ func (d *LVMDevice) Snapshot(ctx context.Context, snapshotSize string) (Device, 
 		return nil, err
 	}
 	snapName := generateSnapshot()
-	if err := runLVM(ctx, d.escalation, "lvcreate", "-s", "-n", snapName, "-L", snapshotSize, d.path); err != nil {
+	if err := d.runner.runLVM(ctx, d.escalation, "lvcreate", "-s", "-n", snapName, "-L", snapshotSize, d.path); err != nil {
 		return nil, err
 	}
 	snapPath := lvm.GetSnapshotDevicePath(snapName, vg, d.logger)
-	if err := runLVM(ctx, d.escalation, "lvchange", "-ay", snapPath); err != nil {
-		_ = runLVM(ctx, d.escalation, "lvremove", "-f", snapPath)
+	if err := d.runner.runLVM(ctx, d.escalation, "lvchange", "-ay", snapPath); err != nil {
+		_ = d.runner.runLVM(ctx, d.escalation, "lvremove", "-f", snapPath)
 		return nil, err
 	}
 	cache := lvm.NewDeviceFDCache(d.logger)
 	defer cache.Close()
 	snapDev, err := d.runner.OpenLVM(snapPath, cache, d.escalation, d.logger)
 	if err != nil {
-		_ = runLVM(ctx, d.escalation, "lvremove", "-f", snapPath)
+		_ = d.runner.runLVM(ctx, d.escalation, "lvremove", "-f", snapPath)
 		return nil, err
 	}
 	snapDev.cleanupPath = snapPath
@@ -208,7 +170,7 @@ func (d *LVMDevice) Cleanup(ctx context.Context) error {
 	if d.cleanupPath == "" {
 		return nil
 	}
-	if err := runLVM(ctx, d.escalation, "lvremove", "-f", d.cleanupPath); err != nil {
+	if err := d.runner.runLVM(ctx, d.escalation, "lvremove", "-f", d.cleanupPath); err != nil {
 		return err
 	}
 	d.cleanupPath = ""

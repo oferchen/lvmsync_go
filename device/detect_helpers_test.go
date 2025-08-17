@@ -105,7 +105,7 @@ func TestDetectLVMDeviceEscalationError(t *testing.T) {
 
 func TestDetectRawDeviceSuccess(t *testing.T) {
 	orig := openRawFunc
-	openRawFunc = func(ctx context.Context, path string, offline bool, freezePath string, freezeArgs []string, thawPath string, thawArgs []string, freezeTimeout, thawTimeout time.Duration, logger *zap.Logger) (*RawDevice, error) {
+	openRawFunc = func(ctx context.Context, path string, offline bool, freezePath string, freezeArgs []string, thawPath string, thawArgs []string, freezeTimeout, thawTimeout time.Duration, logger *zap.Logger, runner *Runner) (*RawDevice, error) {
 		f, err := os.CreateTemp(t.TempDir(), "raw")
 		if err != nil {
 			return nil, err
@@ -115,7 +115,7 @@ func TestDetectRawDeviceSuccess(t *testing.T) {
 	defer func() { openRawFunc = orig }()
 	core, logs := observer.New(zap.InfoLevel)
 	logger := zap.New(core)
-	dev, err := detectRawDevice(context.Background(), "/dev/test", true, "", "", 0, 0, logger)
+	dev, err := detectRawDevice(context.Background(), "/dev/test", true, "", "", 0, 0, logger, NewRunner())
 	if err != nil {
 		t.Fatalf("detect: %v", err)
 	}
@@ -136,7 +136,7 @@ func TestDetectRawDeviceSuccess(t *testing.T) {
 }
 
 func TestDetectRawDeviceError(t *testing.T) {
-	if _, err := detectRawDevice(context.Background(), "/dev/null", true, "", "", 0, 0, zap.NewNop()); err == nil {
+	if _, err := detectRawDevice(context.Background(), "/dev/null", true, "", "", 0, 0, zap.NewNop(), NewRunner()); err == nil {
 		t.Fatalf("expected error")
 	}
 }
@@ -144,14 +144,14 @@ func TestDetectRawDeviceError(t *testing.T) {
 func TestDetectRawDeviceFreezeParseError(t *testing.T) {
 	orig := openRawFunc
 	called := false
-	openRawFunc = func(ctx context.Context, path string, offline bool, freezePath string, freezeArgs []string, thawPath string, thawArgs []string, freezeTimeout, thawTimeout time.Duration, logger *zap.Logger) (*RawDevice, error) {
+	openRawFunc = func(ctx context.Context, path string, offline bool, freezePath string, freezeArgs []string, thawPath string, thawArgs []string, freezeTimeout, thawTimeout time.Duration, logger *zap.Logger, runner *Runner) (*RawDevice, error) {
 		called = true
 		return nil, nil
 	}
 	defer func() { openRawFunc = orig }()
 	core, logs := observer.New(zap.ErrorLevel)
 	logger := zap.New(core)
-	_, err := detectRawDevice(context.Background(), "/dev/test", true, "/bin/echo \"unterminated", "", 0, 0, logger)
+	_, err := detectRawDevice(context.Background(), "/dev/test", true, "/bin/echo \"unterminated", "", 0, 0, logger, NewRunner())
 	if err == nil || !strings.Contains(err.Error(), "invalid freeze command") {
 		t.Fatalf("expected freeze parse error, got %v", err)
 	}
@@ -170,14 +170,14 @@ func TestDetectRawDeviceFreezeParseError(t *testing.T) {
 func TestDetectRawDeviceThawParseError(t *testing.T) {
 	orig := openRawFunc
 	called := false
-	openRawFunc = func(ctx context.Context, path string, offline bool, freezePath string, freezeArgs []string, thawPath string, thawArgs []string, freezeTimeout, thawTimeout time.Duration, logger *zap.Logger) (*RawDevice, error) {
+	openRawFunc = func(ctx context.Context, path string, offline bool, freezePath string, freezeArgs []string, thawPath string, thawArgs []string, freezeTimeout, thawTimeout time.Duration, logger *zap.Logger, runner *Runner) (*RawDevice, error) {
 		called = true
 		return nil, nil
 	}
 	defer func() { openRawFunc = orig }()
 	core, logs := observer.New(zap.ErrorLevel)
 	logger := zap.New(core)
-	_, err := detectRawDevice(context.Background(), "/dev/test", true, "", "/bin/echo \"unterminated", 0, 0, logger)
+	_, err := detectRawDevice(context.Background(), "/dev/test", true, "", "/bin/echo \"unterminated", 0, 0, logger, NewRunner())
 	if err == nil || !strings.Contains(err.Error(), "invalid thaw command") {
 		t.Fatalf("expected thaw parse error, got %v", err)
 	}

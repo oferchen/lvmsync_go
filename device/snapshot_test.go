@@ -55,18 +55,16 @@ func TestSnapshotLifecycle(t *testing.T) {
 
 	// LVM device snapshot creates and removes snapshots via a custom escalation command when non-root.
 	var cmds []string
-	origCmd := execCommand
-	execCommand = func(ctx context.Context, name string, args ...string) *exec.Cmd {
+	cmd := cmdFunc(func(ctx context.Context, name string, args ...string) *exec.Cmd {
 		cmds = append(cmds, name+" "+strings.Join(args, " "))
 		return exec.CommandContext(ctx, "true")
-	}
-	t.Cleanup(func() { execCommand = origCmd })
+	})
 
 	origName := generateSnapshot
 	generateSnapshot = func() string { return "snap" }
 	defer func() { generateSnapshot = origName }()
 
-	runner := NewRunner()
+	runner := NewDeviceRunner(cmd)
 	runner.openLVMOverride = func(p string, _ *lvm.FDCache, _ string, _ *zap.Logger) (*LVMDevice, error) {
 		return &LVMDevice{path: p, cleanupPath: p, escalation: "doas -n", logger: zap.NewNop(), runner: runner}, nil
 	}
@@ -103,21 +101,19 @@ func TestSnapshotLVCreateFailure(t *testing.T) {
 	}
 	ctx := context.Background()
 	var cmds []string
-	origCmd := execCommand
-	execCommand = func(ctx context.Context, name string, args ...string) *exec.Cmd {
+	cmd := cmdFunc(func(ctx context.Context, name string, args ...string) *exec.Cmd {
 		cmds = append(cmds, name+" "+strings.Join(args, " "))
 		if strings.Contains(strings.Join(args, " "), "lvcreate") {
 			return exec.CommandContext(ctx, "false")
 		}
 		return exec.CommandContext(ctx, "true")
-	}
-	defer func() { execCommand = origCmd }()
+	})
 
 	origEuid := geteuid
 	geteuid = func() int { return 1 }
 	defer func() { geteuid = origEuid }()
 
-	lvd := &LVMDevice{path: "/dev/vg0/origin", escalation: "doas -n", logger: zap.NewNop(), runner: NewRunner()}
+	lvd := &LVMDevice{path: "/dev/vg0/origin", escalation: "doas -n", logger: zap.NewNop(), runner: NewDeviceRunner(cmd)}
 	if _, err := lvd.Snapshot(ctx, "1G"); err == nil {
 		t.Fatalf("expected error from lvcreate failure")
 	}

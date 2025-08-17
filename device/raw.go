@@ -29,6 +29,7 @@ type RawDevice struct {
 	thawTimeout   time.Duration
 	thawCmdPath   string
 	thawCmdArgs   []string
+	runner        *Runner
 }
 
 // prepareFreeze validates and runs the filesystem freeze command when offline is false.
@@ -41,6 +42,7 @@ func prepareFreeze(
 	fsThawCmdArgs []string,
 	freezeTimeout time.Duration,
 	logger *zap.Logger,
+	runner *Runner,
 ) (bool, error) {
 	if offline {
 		return false, nil
@@ -61,7 +63,7 @@ func prepareFreeze(
 		freezeCtx, cancel = context.WithTimeout(ctx, freezeTimeout)
 		defer cancel()
 	}
-	out, cmdErr := execCommand(freezeCtx, fsFreezeCmdPath, fsFreezeCmdArgs...).CombinedOutput()
+	out, cmdErr := runner.command.CommandContext(freezeCtx, fsFreezeCmdPath, fsFreezeCmdArgs...).CombinedOutput()
 	if cmdErr != nil {
 		output := strings.TrimSpace(string(out))
 		logger.Error("fs freeze failed", zap.Error(cmdErr), zap.String("output", output))
@@ -114,15 +116,19 @@ func OpenRaw(
 	freezeTimeout time.Duration,
 	thawTimeout time.Duration,
 	logger *zap.Logger,
+	runner *Runner,
 ) (_ *RawDevice, err error) {
 	if logger == nil {
 		return nil, fmt.Errorf("logger is nil")
 	}
+	if runner == nil {
+		runner = NewRunner()
+	}
 	d := &RawDevice{
 		logger: logger, freezeTimeout: freezeTimeout, thawTimeout: thawTimeout,
-		thawCmdPath: fsThawCmdPath, thawCmdArgs: fsThawCmdArgs,
+		thawCmdPath: fsThawCmdPath, thawCmdArgs: fsThawCmdArgs, runner: runner,
 	}
-	freezeIssued, err := prepareFreeze(ctx, offline, fsFreezeCmdPath, fsFreezeCmdArgs, fsThawCmdPath, fsThawCmdArgs, freezeTimeout, logger)
+	freezeIssued, err := prepareFreeze(ctx, offline, fsFreezeCmdPath, fsFreezeCmdArgs, fsThawCmdPath, fsThawCmdArgs, freezeTimeout, logger, runner)
 	if err != nil {
 		return nil, err
 	}
@@ -186,7 +192,7 @@ func (d *RawDevice) Cleanup(ctx context.Context) error {
 			thawCtx, cancel = context.WithTimeout(ctx, d.thawTimeout)
 			defer cancel()
 		}
-		out, cmdErr := execCommand(thawCtx, d.thawCmdPath, d.thawCmdArgs...).CombinedOutput()
+		out, cmdErr := d.runner.command.CommandContext(thawCtx, d.thawCmdPath, d.thawCmdArgs...).CombinedOutput()
 		if cmdErr != nil {
 			output := strings.TrimSpace(string(out))
 			d.logger.Error("fs thaw failed", zap.Error(cmdErr), zap.String("output", output))

@@ -15,7 +15,7 @@ func TestPrepareFreezeSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("missing true binary: %v", err)
 	}
-	issued, err := prepareFreeze(context.Background(), false, truePath, nil, truePath, nil, time.Second, zap.NewNop())
+	issued, err := prepareFreeze(context.Background(), false, truePath, nil, truePath, nil, time.Second, zap.NewNop(), NewRunner())
 	if err != nil {
 		t.Fatalf("prepareFreeze: %v", err)
 	}
@@ -33,7 +33,7 @@ func TestPrepareFreezeFailure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("missing true binary: %v", err)
 	}
-	if _, err := prepareFreeze(context.Background(), false, falsePath, nil, truePath, nil, time.Second, zap.NewNop()); err == nil {
+	if _, err := prepareFreeze(context.Background(), false, falsePath, nil, truePath, nil, time.Second, zap.NewNop(), NewRunner()); err == nil {
 		t.Fatalf("expected freeze command failure")
 	}
 }

@@ -17,11 +17,7 @@ type Escalator interface {
 
 // sudoEscalator implements Escalator using Linux capabilities when present
 // and sudo -n as a fallback.
-type sudoEscalator struct{ useSudo bool }
-
-// New returns an Escalator. If the current process lacks the required
-// capabilities, commands will be executed via sudo -n.
-func New() Escalator { return &sudoEscalator{useSudo: !HasCaps()} }
-
-// execCommand wraps exec.Command for injection in tests.
-var execCommand = exec.Command
+type sudoEscalator struct {
+	useSudo bool
+	runner  *Runner
+}
