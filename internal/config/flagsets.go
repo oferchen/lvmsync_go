@@ -226,7 +226,7 @@ func bindDedupEnv(fs *pflag.FlagSet, v *viper.Viper) error {
 		}
 		name := strings.ToUpper(strings.ReplaceAll(f.Name, "-", "_"))
 		name = strings.TrimPrefix(name, "DEDUP_")
-		env := "LVMSYNC-DEDUP"
+		env := "LVMSYNC_DEDUP"
 		if name != "" {
 			env += "_" + name
 		}
@@ -263,7 +263,7 @@ func bindLVMEnv(fs *pflag.FlagSet, v *viper.Viper) error {
 		}
 		name := strings.ToUpper(strings.ReplaceAll(f.Name, "-", "_"))
 		name = strings.TrimPrefix(name, "LVM_")
-		env := "LVMSYNC-LVM"
+		env := "LVMSYNC_LVM"
 		if name != "" {
 			env += "_" + name
 		}
