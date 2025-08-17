@@ -235,11 +235,13 @@ func TestPerformH2HandshakeTimeout(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
-	if _, err := performH2Handshake(ctx, conn, zap.NewNop()); err == nil {
-		t.Fatalf("expected timeout error")
-	} else if !errors.Is(err, context.DeadlineExceeded) {
-		t.Fatalf("unexpected error: %v", err)
-	}
+        if _, err := performH2Handshake(ctx, conn, zap.NewNop()); err == nil {
+                t.Fatalf("expected timeout error")
+        } else if !errors.Is(err, context.DeadlineExceeded) {
+                if netErr, ok := err.(net.Error); !ok || !netErr.Timeout() {
+                        t.Fatalf("unexpected error: %v", err)
+                }
+        }
 }
 
 func TestPerformH2HandshakeCanceled(t *testing.T) {

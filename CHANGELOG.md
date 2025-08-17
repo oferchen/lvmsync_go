@@ -67,6 +67,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - transfer: sample 8 KiB per chunk and log compression decisions.
 
 ### Fixed
+- tests: accept net.Error timeouts in h2 handshake timeout
 - manifest: log configuration warnings with structured fields
 - lock: reject VG/LV names with invalid characters via regex validation
 - tests: flush H2 handshake data by buffering server errors, closing connections before sending, and applying context timeouts
