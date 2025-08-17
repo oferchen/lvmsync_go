@@ -189,6 +189,72 @@ func TestDefaultMountFuncSpecialChars(t *testing.T) {
 	}
 }
 
+func TestDefaultMountFuncMultipleRecords(t *testing.T) {
+	dev, err := os.CreateTemp("", "dev")
+	if err != nil {
+		t.Fatalf("create device: %v", err)
+	}
+	defer os.Remove(dev.Name())
+	dev.Close()
+
+	mounts, err := os.CreateTemp("", "mountinfo")
+	if err != nil {
+		t.Fatalf("create mountinfo: %v", err)
+	}
+	escaped := strings.ReplaceAll(dev.Name(), " ", "\\040")
+	line1 := fmt.Sprintf("42 24 0:0 / /mnt/ro ro,relatime - ext4 %s rw\n", escaped)
+	line2 := fmt.Sprintf("43 24 0:0 / /mnt/rw rw,relatime - ext4 %s rw\n", escaped)
+	if _, err := mounts.WriteString(line1 + line2); err != nil {
+		t.Fatalf("write mountinfo: %v", err)
+	}
+	mounts.Close()
+	defer os.Remove(mounts.Name())
+
+	prev := SetMountFunc(mountFuncFromMountInfoFile(mounts.Name()))
+	defer SetMountFunc(prev)
+
+	got, err := IsMountedRW(dev.Name())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !got {
+		t.Fatalf("expected mounted read-write")
+	}
+}
+
+func TestDefaultMountFuncBindMount(t *testing.T) {
+	dev, err := os.CreateTemp("", "dev")
+	if err != nil {
+		t.Fatalf("create device: %v", err)
+	}
+	defer os.Remove(dev.Name())
+	dev.Close()
+
+	mounts, err := os.CreateTemp("", "mountinfo")
+	if err != nil {
+		t.Fatalf("create mountinfo: %v", err)
+	}
+	escaped := strings.ReplaceAll(dev.Name(), " ", "\\040")
+	base := fmt.Sprintf("42 24 0:0 / /mnt/src ro,relatime - ext4 %s ro\n", escaped)
+	bind := fmt.Sprintf("43 42 0:0 /mnt/src /mnt/bind rw,relatime - ext4 %s rw\n", escaped)
+	if _, err := mounts.WriteString(base + bind); err != nil {
+		t.Fatalf("write mountinfo: %v", err)
+	}
+	mounts.Close()
+	defer os.Remove(mounts.Name())
+
+	prev := SetMountFunc(mountFuncFromMountInfoFile(mounts.Name()))
+	defer SetMountFunc(prev)
+
+	got, err := IsMountedRW(dev.Name())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !got {
+		t.Fatalf("expected mounted read-write")
+	}
+}
+
 func TestDefaultMountFuncError(t *testing.T) {
 	dev, err := os.CreateTemp("", "dev")
 	if err != nil {
@@ -222,13 +288,13 @@ func mountFuncFromMountInfoFile(p string) func(string) (bool, error) {
 			return false, err
 		}
 		for _, mi := range infos {
-			if mi.Source == real {
-				for _, opt := range strings.Split(mi.Options, ",") {
-					if opt == "rw" {
-						return true, nil
-					}
+			if mi.Source != real {
+				continue
+			}
+			for _, opt := range strings.Split(mi.Options, ",") {
+				if opt == "rw" {
+					return true, nil
 				}
-				return false, nil
 			}
 		}
 		return false, nil
