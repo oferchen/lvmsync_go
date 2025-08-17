@@ -1,6 +1,7 @@
 package dump
 
 import (
+	"context"
 	"io"
 	"testing"
 
@@ -20,13 +21,13 @@ func TestExecuteDumpSequential(t *testing.T) {
 
 	called := false
 	original := dumpChangesSequential
-	dumpChangesSequential = func(_ *transfer.Transfer, c *config.Config, snap, origin string, out io.Writer) error {
+	dumpChangesSequential = func(_ context.Context, _ *transfer.Transfer, c *config.Config, snap, origin string, out io.Writer) error {
 		called = true
 		return nil
 	}
 	defer func() { dumpChangesSequential = original }()
 
-	if execErr := ExecuteDump(cfg2, "snap", "orig", io.Discard, zap.NewNop()); execErr != nil {
+	if execErr := ExecuteDump(context.Background(), cfg2, "snap", "orig", io.Discard, zap.NewNop()); execErr != nil {
 		t.Fatalf("executeDump returned error: %v", execErr)
 	}
 	if !called {
@@ -43,13 +44,13 @@ func TestExecuteDumpParallel(t *testing.T) {
 
 	called := false
 	original := dumpChangesParallel
-	dumpChangesParallel = func(_ *transfer.Transfer, c *config.Config, snap, origin string, out io.Writer) error {
+	dumpChangesParallel = func(_ context.Context, _ *transfer.Transfer, c *config.Config, snap, origin string, out io.Writer) error {
 		called = true
 		return nil
 	}
 	defer func() { dumpChangesParallel = original }()
 
-	if execErr := ExecuteDump(cfg2, "snap", "orig", io.Discard, zap.NewNop()); execErr != nil {
+	if execErr := ExecuteDump(context.Background(), cfg2, "snap", "orig", io.Discard, zap.NewNop()); execErr != nil {
 		t.Fatalf("executeDump returned error: %v", execErr)
 	}
 	if !called {
@@ -66,7 +67,7 @@ func TestExecuteDumpWithDedup(t *testing.T) {
 
 	called := false
 	original := dumpChangesWithDeduplication
-	dumpChangesWithDeduplication = func(_ *transfer.Transfer, c *config.Config, snap, origin string, out io.Writer, d transfer.DeduplicationStrategy) error {
+	dumpChangesWithDeduplication = func(_ context.Context, _ *transfer.Transfer, c *config.Config, snap, origin string, out io.Writer, d transfer.DeduplicationStrategy) error {
 		if d == nil {
 			t.Fatalf("deduplication strategy was nil")
 		}
@@ -75,7 +76,7 @@ func TestExecuteDumpWithDedup(t *testing.T) {
 	}
 	defer func() { dumpChangesWithDeduplication = original }()
 
-	if execErr := ExecuteDump(cfg2, "snap", "orig", io.Discard, zap.NewNop()); execErr != nil {
+	if execErr := ExecuteDump(context.Background(), cfg2, "snap", "orig", io.Discard, zap.NewNop()); execErr != nil {
 		t.Fatalf("executeDump returned error: %v", execErr)
 	}
 	if !called {

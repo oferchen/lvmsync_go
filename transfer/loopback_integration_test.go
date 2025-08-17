@@ -135,7 +135,7 @@ func TestLoopbackLVMToRawOverSSH(t *testing.T) {
 		t.Fatalf("dial: %v", err)
 	}
 	tt := NewTransfer(zap.NewNop(), nil)
-	if err := tt.DumpChangesParallel(cfg, snapshot, srcLoop, conn); err != nil {
+	if err := tt.DumpChangesParallel(ctx, cfg, snapshot, srcLoop, conn); err != nil {
 		t.Fatalf("DumpChangesParallel: %v", err)
 	}
 	conn.Close()
@@ -263,7 +263,7 @@ func TestLoopbackFileToFileOverTCPTLS(t *testing.T) {
 	if startIdx > 0 {
 		ranges = ranges[startIdx:]
 	}
-	if _, _, _, err := iterateBlocks(cfg, ranges, srcFile, bufOut, nil, [2]int{-1, -1}, tt.Logger, tt.Tracker); err != nil {
+	if _, _, _, err := iterateBlocks(context.Background(), cfg, ranges, srcFile, bufOut, nil, [2]int{-1, -1}, tt.Logger, tt.Tracker); err != nil {
 		t.Fatalf("iterateBlocks: %v", err)
 	}
 	finalizeProgress(cfg, tt.Logger)
@@ -393,7 +393,7 @@ func TestLoopbackLVMToRawOverTCPTLS(t *testing.T) {
 				t.Fatalf("dial: %v", err)
 			}
 			tt := NewTransfer(zap.NewNop(), nil)
-			if err := tt.DumpChangesParallel(cfg, snapshot, srcLoop, conn); err != nil {
+			if err := tt.DumpChangesParallel(ctx, cfg, snapshot, srcLoop, conn); err != nil {
 				t.Fatalf("DumpChangesParallel: %v", err)
 			}
 			conn.Close()
@@ -534,7 +534,7 @@ func runRawToRawLoopback(t *testing.T, transportName string) {
 				ranges = ranges[startIdx:]
 			}
 			dedup, cleanup := tt.setupDedup(cfg)
-			if _, _, _, err := iterateBlocks(cfg, ranges, srcFile, bufOut, dedup, [2]int{-1, -1}, tt.Logger, tt.Tracker); err != nil {
+			if _, _, _, err := iterateBlocks(context.Background(), cfg, ranges, srcFile, bufOut, dedup, [2]int{-1, -1}, tt.Logger, tt.Tracker); err != nil {
 				t.Fatalf("iterateBlocks: %v", err)
 			}
 			cleanup()
@@ -708,7 +708,7 @@ func TestLoopbackSparseFileToFileOverSSH(t *testing.T) {
 				ranges = ranges[startIdx:]
 			}
 			dedup, cleanup := tt.setupDedup(cfg)
-			if _, _, _, err := iterateBlocks(cfg, ranges, srcFile, bufOut, dedup, [2]int{-1, -1}, tt.Logger, tt.Tracker); err != nil {
+			if _, _, _, err := iterateBlocks(context.Background(), cfg, ranges, srcFile, bufOut, dedup, [2]int{-1, -1}, tt.Logger, tt.Tracker); err != nil {
 				t.Fatalf("iterateBlocks: %v", err)
 			}
 			cleanup()

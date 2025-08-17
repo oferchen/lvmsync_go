@@ -2,6 +2,7 @@ package transfer
 
 import (
 	"bytes"
+	"context"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -23,7 +24,7 @@ func TestDumpChangesLogsSaveStateError(t *testing.T) {
 
 	cfg := &config.Config{BlockSize: int(blockSize), Compress: "none", DedupStrategy: "checksum", DedupStateFile: filepath.Join(t.TempDir(), "missing", "state"), MaxRetries: 1}
 	var buf bytes.Buffer
-	if dumpErr := tr.DumpChanges(cfg, snapshot, src, &buf); dumpErr != nil {
+	if dumpErr := tr.DumpChanges(context.Background(), cfg, snapshot, src, &buf); dumpErr != nil {
 		t.Fatalf("DumpChanges failed: %v", dumpErr)
 	}
 	logs := observed.FilterMessage("Failed to save dedup state").All()

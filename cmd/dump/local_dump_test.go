@@ -1,6 +1,7 @@
 package dump
 
 import (
+	"context"
 	"errors"
 	"io"
 	"os"
@@ -34,7 +35,7 @@ func TestRunLocalDumpSuccess(t *testing.T) {
 
 	originalDump := dumpChangesSequential
 	var dumpCalled bool
-	dumpChangesSequential = func(_ *transfer.Transfer, c *config.Config, snap, origin string, out io.Writer) error {
+	dumpChangesSequential = func(_ context.Context, _ *transfer.Transfer, c *config.Config, snap, origin string, out io.Writer) error {
 		dumpCalled = true
 		if snap != "snap" || origin != "orig" {
 			t.Fatalf("unexpected devices: %s %s", snap, origin)
@@ -44,7 +45,7 @@ func TestRunLocalDumpSuccess(t *testing.T) {
 	defer func() { dumpChangesSequential = originalDump }()
 
 	originalDestType := cfg.DestType
-	destType, err := RunLocalDump(cfg, "snap", "orig", "/fake/dest", zap.NewNop())
+	destType, err := RunLocalDump(context.Background(), cfg, "snap", "orig", "/fake/dest", zap.NewNop())
 	if err != nil {
 		t.Fatalf("runLocalDump returned error: %v", err)
 	}
@@ -75,14 +76,14 @@ func TestRunLocalDumpOpenError(t *testing.T) {
 	defer func() { openFile = originalOpen }()
 
 	originalDump := dumpChangesSequential
-	dumpChangesSequential = func(_ *transfer.Transfer, c *config.Config, snap, origin string, out io.Writer) error {
+	dumpChangesSequential = func(_ context.Context, _ *transfer.Transfer, c *config.Config, snap, origin string, out io.Writer) error {
 		t.Fatalf("dumpChangesSequential should not be called on open error")
 		return nil
 	}
 	defer func() { dumpChangesSequential = originalDump }()
 
 	originalDestType := cfg.DestType
-	if destType, err := RunLocalDump(cfg, "snap", "orig", "/fake/dest", zap.NewNop()); err == nil {
+	if destType, err := RunLocalDump(context.Background(), cfg, "snap", "orig", "/fake/dest", zap.NewNop()); err == nil {
 		t.Fatalf("expected error, got nil")
 	} else if destType != originalDestType {
 		t.Fatalf("expected dest type %q, got %q", originalDestType, destType)

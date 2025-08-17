@@ -2,6 +2,7 @@ package transfer
 
 import (
 	"bytes"
+	"context"
 	"sync"
 	"testing"
 
@@ -20,7 +21,7 @@ func BenchmarkDumpChangesSequential(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		buf.Reset()
-		if err := tr.DumpChangesSequential(cfg, snapshot, src, &buf); err != nil {
+		if err := tr.DumpChangesSequential(context.Background(), cfg, snapshot, src, &buf); err != nil {
 			b.Fatalf("DumpChangesSequential failed: %v", err)
 		}
 	}
@@ -36,7 +37,7 @@ func BenchmarkDumpChangesParallel(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		buf.Reset()
-		if err := tr.DumpChangesParallel(cfg, snapshot, src, &buf); err != nil {
+		if err := tr.DumpChangesParallel(context.Background(), cfg, snapshot, src, &buf); err != nil {
 			b.Fatalf("DumpChangesParallel failed: %v", err)
 		}
 	}

@@ -3,6 +3,7 @@ package transfer
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/binary"
 	"io"
 	"math"
@@ -22,7 +23,7 @@ func TestIterateBlocksOffsetOverflow(t *testing.T) {
 
 	cfg := &config.Config{BlockSize: 4096}
 	bufOut := bufio.NewWriter(io.Discard)
-	_, _, _, err := iterateBlocks(cfg, []Range{{Start: math.MaxUint64, End: math.MaxUint64}}, src, bufOut, nil, [2]int{-1, -1}, zap.NewNop(), nil)
+	_, _, _, err := iterateBlocks(context.Background(), cfg, []Range{{Start: math.MaxUint64, End: math.MaxUint64}}, src, bufOut, nil, [2]int{-1, -1}, zap.NewNop(), nil)
 	if err == nil || !strings.Contains(err.Error(), "offset") {
 		t.Fatalf("expected offset error, got %v", err)
 	}
@@ -34,7 +35,7 @@ func TestIterateBlocksOversizedBlockSize(t *testing.T) {
 
 	cfg := &config.Config{BlockSize: int(math.MaxUint32) + 1}
 	bufOut := bufio.NewWriter(io.Discard)
-	_, _, _, err := iterateBlocks(cfg, []Range{{Start: 0, End: 0}}, src, bufOut, nil, [2]int{-1, -1}, zap.NewNop(), nil)
+	_, _, _, err := iterateBlocks(context.Background(), cfg, []Range{{Start: 0, End: 0}}, src, bufOut, nil, [2]int{-1, -1}, zap.NewNop(), nil)
 	if err == nil || !strings.Contains(err.Error(), "block size") {
 		t.Fatalf("expected block size error, got %v", err)
 	}

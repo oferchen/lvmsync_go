@@ -2,6 +2,7 @@ package transfer
 
 import (
 	"bytes"
+	"context"
 	"path/filepath"
 	"reflect"
 	"sort"
@@ -46,7 +47,7 @@ func TestResumeCDCSequential(t *testing.T) {
 	writeResumeState(cfg, zap.NewNop(), resume, resumeChunks{CDC: resumeChunk{Chunk: digest, Offset: uint64(blockSize), Length: uint32(blockSize)}})
 
 	var buf bytes.Buffer
-	if err := tr.DumpChangesParallel(cfg, snapshot, src, &buf); err != nil {
+	if err := tr.DumpChangesParallel(context.Background(), cfg, snapshot, src, &buf); err != nil {
 		t.Fatalf("DumpChangesParallel failed: %v", err)
 	}
 	finalizeResumeState(cfg, tr.Tracker, zap.NewNop())
@@ -73,7 +74,7 @@ func TestResumeCDCIdempotent(t *testing.T) {
 		if i == 1 {
 			buf = &second
 		}
-		if err := tr.DumpChangesParallel(cfg, snapshot, src, buf); err != nil {
+		if err := tr.DumpChangesParallel(context.Background(), cfg, snapshot, src, buf); err != nil {
 			t.Fatalf("DumpChangesParallel failed: %v", err)
 		}
 		finalizeResumeState(cfg, tr.Tracker, zap.NewNop())

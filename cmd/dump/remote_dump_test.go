@@ -61,13 +61,13 @@ func TestRunRemoteDump(t *testing.T) {
 	origStream := streamToRemote
 	digestpkg.Select = func() string { return digestpkg.SHA256 }
 	sumFile = func(string, string) ([32]byte, error) { return [32]byte{}, nil }
-	streamToRemote = func(_ *config.Config, _ io.WriteCloser, snap, origin, alg string, _ *zap.Logger) error {
+	streamToRemote = func(_ context.Context, _ *config.Config, _ io.WriteCloser, snap, origin, alg string, _ *zap.Logger) error {
 		if snap != "snap" || origin != "origin" || alg != digestpkg.SHA256 {
 			t.Fatalf("unexpected params: %s %s %s", snap, origin, alg)
 		}
 		return nil
 	}
-	dumpChangesSequential = func(_ *transfer.Transfer, c *config.Config, snap, origin string, out io.Writer) error {
+	dumpChangesSequential = func(_ context.Context, _ *transfer.Transfer, c *config.Config, snap, origin string, out io.Writer) error {
 		if snap != "snap" || origin != "origin" {
 			t.Fatalf("unexpected devices: %s %s", snap, origin)
 		}
@@ -136,13 +136,13 @@ func TestRunRemoteDumpError(t *testing.T) {
 	origStream := streamToRemote
 	digestpkg.Select = func() string { return digestpkg.SHA256 }
 	sumFile = func(string, string) ([32]byte, error) { return [32]byte{}, nil }
-	streamToRemote = func(_ *config.Config, _ io.WriteCloser, snap, origin, alg string, _ *zap.Logger) error {
+	streamToRemote = func(_ context.Context, _ *config.Config, _ io.WriteCloser, snap, origin, alg string, _ *zap.Logger) error {
 		if snap != "snap" || origin != "origin" || alg != digestpkg.SHA256 {
 			t.Fatalf("unexpected params: %s %s %s", snap, origin, alg)
 		}
 		return nil
 	}
-	dumpChangesSequential = func(_ *transfer.Transfer, c *config.Config, snap, origin string, out io.Writer) error {
+	dumpChangesSequential = func(_ context.Context, _ *transfer.Transfer, c *config.Config, snap, origin string, out io.Writer) error {
 		return nil
 	}
 	defer func() {
@@ -205,10 +205,10 @@ func TestRunRemoteDumpTimeout(t *testing.T) {
 	origSum := sumFile
 	origStream := streamToRemote
 	sumFile = func(string, string) ([32]byte, error) { return [32]byte{}, nil }
-	streamToRemote = func(_ *config.Config, _ io.WriteCloser, snap, origin, alg string, _ *zap.Logger) error {
+	streamToRemote = func(_ context.Context, _ *config.Config, _ io.WriteCloser, snap, origin, alg string, _ *zap.Logger) error {
 		return nil
 	}
-	dumpChangesSequential = func(_ *transfer.Transfer, c *config.Config, snap, origin string, out io.Writer) error {
+	dumpChangesSequential = func(_ context.Context, _ *transfer.Transfer, c *config.Config, snap, origin string, out io.Writer) error {
 		return nil
 	}
 	defer func() {
@@ -291,10 +291,10 @@ func TestRunRemoteDumpLogsDigestSelection(t *testing.T) {
 	origSum := sumFile
 	origStream := streamToRemote
 	sumFile = func(string, string) ([32]byte, error) { return [32]byte{}, nil }
-	streamToRemote = func(_ *config.Config, _ io.WriteCloser, snap, origin, alg string, _ *zap.Logger) error {
+	streamToRemote = func(_ context.Context, _ *config.Config, _ io.WriteCloser, snap, origin, alg string, _ *zap.Logger) error {
 		return nil
 	}
-	dumpChangesSequential = func(_ *transfer.Transfer, c *config.Config, snap, origin string, out io.Writer) error {
+	dumpChangesSequential = func(_ context.Context, _ *transfer.Transfer, c *config.Config, snap, origin string, out io.Writer) error {
 		return nil
 	}
 	defer func() {
