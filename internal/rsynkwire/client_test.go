@@ -139,13 +139,22 @@ func TestStreamBadCRC(t *testing.T) {
 	var hdr [8]byte
 	binary.BigEndian.PutUint32(hdr[0:4], uint32(len(payload)))
 	binary.BigEndian.PutUint32(hdr[4:8], 0)
-	if _, err := c1.Write(hdr[:]); err != nil {
-		t.Fatalf("write hdr: %v", err)
-	}
-	if _, err := c1.Write(payload); err != nil {
-		t.Fatalf("write payload: %v", err)
-	}
+	errCh := make(chan error, 1)
+	go func() {
+		if _, err := c1.Write(hdr[:]); err != nil {
+			errCh <- fmt.Errorf("write hdr: %w", err)
+			return
+		}
+		if _, err := c1.Write(payload); err != nil {
+			errCh <- fmt.Errorf("write payload: %w", err)
+			return
+		}
+		errCh <- c1.Close()
+	}()
 	if _, err := s.Recv(); err == nil {
 		t.Fatalf("expected CRC error")
+	}
+	if err := <-errCh; err != nil {
+		t.Fatalf("write: %v", err)
 	}
 }
