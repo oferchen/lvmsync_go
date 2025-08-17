@@ -78,6 +78,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - config: remove duplicate prefixes in LVMSYNC_DEDUP_* environment bindings.
 - device: require --offline or freeze/thaw hooks for raw devices
 - device, transfer: require non-nil loggers and remove conditional logging
+- config: avoid warnings for alias keys in YAML (e.g., allow-insecure vs. allow_insecure)
 - tests: fix O_DIRECT match and transport mismatch handshake validation tests
 - quic: remove redundant deadline methods and use Role.String for dial/listen
 - device: remove logger nil guards and default to `zap.NewNop()`
