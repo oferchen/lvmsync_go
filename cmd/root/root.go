@@ -11,8 +11,8 @@ import (
 
 	"lvmsync_go/app"
 	clientpkg "lvmsync_go/internal/client"
-	"lvmsync_go/internal/logging"
 	"lvmsync_go/internal/config"
+	"lvmsync_go/internal/logging"
 	"lvmsync_go/internal/privilege"
 	"lvmsync_go/transport"
 )
@@ -66,7 +66,7 @@ func Configure() (*config.Config, []string, *zap.Logger, error) {
 		return nil, nil, nil, fmt.Errorf("configuration error: %w", err)
 	}
 	esc := privilege.New()
-	if err = esc.Ensure(); err != nil {
+	if err = esc.Ensure(context.Background()); err != nil {
 		return nil, nil, nil, fmt.Errorf("privilege check failed: %w", err)
 	}
 	if err = cfg.Validate(); err != nil {

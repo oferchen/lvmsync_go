@@ -9,8 +9,10 @@ import (
 
 type fakeEsc struct{ err error }
 
-func (f fakeEsc) Ensure() error                               { return f.err }
-func (fakeEsc) Command(name string, args ...string) *exec.Cmd { return exec.Command(name, args...) }
+func (f fakeEsc) Ensure(context.Context) error { return f.err }
+func (fakeEsc) Command(ctx context.Context, name string, args ...string) *exec.Cmd {
+	return exec.CommandContext(ctx, name, args...)
+}
 
 type mockLVM struct {
 	lockErr         error

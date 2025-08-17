@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"strconv"
 	"testing"
+	"time"
 )
 
 type cmdFunc func(context.Context, string, ...string) *exec.Cmd
@@ -26,7 +27,7 @@ func TestEnsureWithCaps(t *testing.T) {
 	if esc.useSudo {
 		t.Fatalf("expected capabilities to be used")
 	}
-	if err := esc.Ensure(); err != nil {
+	if err := esc.Ensure(context.Background()); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -40,7 +41,7 @@ func TestEnsureWithSudo(t *testing.T) {
 	if !esc.useSudo {
 		t.Fatalf("expected sudo usage")
 	}
-	if err := esc.Ensure(); err != nil {
+	if err := esc.Ensure(context.Background()); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -48,7 +49,7 @@ func TestEnsureWithSudo(t *testing.T) {
 func TestEnsureNoSudo(t *testing.T) {
 	HasCaps = func() bool { return false }
 	esc := NewWithRunner(&Runner{LookPath: fakeLookPath(errors.New("missing"))}).(*sudoEscalator)
-	if err := esc.Ensure(); err == nil {
+	if err := esc.Ensure(context.Background()); err == nil {
 		t.Fatalf("expected error")
 	}
 }
@@ -56,13 +57,13 @@ func TestEnsureNoSudo(t *testing.T) {
 func TestCommand(t *testing.T) {
 	HasCaps = func() bool { return false }
 	esc := New()
-	cmd := esc.Command("echo", "hi")
+	cmd := esc.Command(context.Background(), "echo", "hi")
 	if cmd.Args[0] != "sudo" {
 		t.Fatalf("expected sudo prefix")
 	}
 	HasCaps = func() bool { return true }
 	esc = New()
-	cmd = esc.Command("echo", "hi")
+	cmd = esc.Command(context.Background(), "echo", "hi")
 	if cmd.Args[0] == "sudo" {
 		t.Fatalf("unexpected sudo prefix")
 	}
@@ -74,7 +75,7 @@ func TestEnsureSudoFailure(t *testing.T) {
 		return fakeSudo(1)(name, args...)
 	}), LookPath: fakeLookPath(nil)}
 	esc := NewWithRunner(r).(*sudoEscalator)
-	if err := esc.Ensure(); err == nil {
+	if err := esc.Ensure(context.Background()); err == nil {
 		t.Fatalf("expected error")
 	}
 }
@@ -97,7 +98,7 @@ func TestSudoSuccess(t *testing.T) {
 	esc := NewWithRunner(&Runner{Cmd: cmdFunc(func(ctx context.Context, name string, args ...string) *exec.Cmd {
 		return fakeSudo(0)(name, args...)
 	})})
-	cmd := esc.Command("echo")
+	cmd := esc.Command(context.Background(), "echo")
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -111,7 +112,7 @@ func TestSudoPermissionDenied(t *testing.T) {
 	esc := NewWithRunner(&Runner{Cmd: cmdFunc(func(ctx context.Context, name string, args ...string) *exec.Cmd {
 		return fakeSudo(1)(name, args...)
 	})})
-	cmd := esc.Command("echo")
+	cmd := esc.Command(context.Background(), "echo")
 	err := cmd.Run()
 	if err == nil {
 		t.Fatalf("expected error")
@@ -129,7 +130,7 @@ func TestSudoCommandNotFound(t *testing.T) {
 	esc := NewWithRunner(&Runner{Cmd: cmdFunc(func(ctx context.Context, name string, args ...string) *exec.Cmd {
 		return fakeSudo(127)(name, args...)
 	})})
-	cmd := esc.Command("echo")
+	cmd := esc.Command(context.Background(), "echo")
 	err := cmd.Run()
 	if err == nil {
 		t.Fatalf("expected error")
@@ -154,5 +155,32 @@ func TestMain(m *testing.M) {
 	HasCaps = RealHasCaps
 	if code != 0 {
 		panic(code)
+	}
+}
+
+func TestEnsureContextCanceled(t *testing.T) {
+	HasCaps = func() bool { return false }
+	r := &Runner{Cmd: cmdFunc(func(ctx context.Context, name string, args ...string) *exec.Cmd {
+		return exec.CommandContext(ctx, "sleep", "10")
+	}), LookPath: fakeLookPath(nil)}
+	esc := NewWithRunner(r)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+	err := esc.Ensure(ctx)
+	if err == nil || ctx.Err() != context.DeadlineExceeded {
+		t.Fatalf("expected context deadline exceeded, got err=%v ctxErr=%v", err, ctx.Err())
+	}
+}
+
+func TestCommandContextCanceled(t *testing.T) {
+	esc := &sudoEscalator{useSudo: false, runner: &Runner{Cmd: cmdFunc(func(ctx context.Context, name string, args ...string) *exec.Cmd {
+		return exec.CommandContext(ctx, "sleep", "10")
+	})}}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+	cmd := esc.Command(ctx, "sleep", "10")
+	err := cmd.Run()
+	if err == nil || ctx.Err() != context.DeadlineExceeded {
+		t.Fatalf("expected context deadline exceeded, got err=%v ctxErr=%v", err, ctx.Err())
 	}
 }
