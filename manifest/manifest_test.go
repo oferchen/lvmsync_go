@@ -71,6 +71,75 @@ func TestIndexCRUD(t *testing.T) {
 	}
 }
 
+func TestMatchBloomNegative(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "bloom.man")
+	idx, err := Create(path, "dev", 8192, 4096, 0, 0, 0, 0)
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	data := make([]byte, 4096)
+	if _, err := rand.Read(data); err != nil {
+		t.Fatalf("rand: %v", err)
+	}
+	xx := xxh3.Hash(data)
+	b3 := blake3.Sum256(data)
+	if err := idx.Set(0, uint32(len(data)), 0, xx, b3); err != nil {
+		t.Fatalf("Set: %v", err)
+	}
+	bloom := idx.bloom[0]
+	var xx2 uint64
+	for h := uint64(0); ; h++ {
+		bit1 := h & 63
+		bit2 := (h >> 6) & 63
+		mask := (uint64(1) << bit1) | (uint64(1) << bit2)
+		if bloom&mask == 0 {
+			xx2 = h
+			break
+		}
+	}
+	called := false
+	match := idx.Match(0, uint32(len(data)), 0, xx2, func() [32]byte {
+		called = true
+		return blake3.Sum256(nil)
+	})
+	if match {
+		t.Fatalf("unexpected match")
+	}
+	if called {
+		t.Fatalf("digestFn invoked on negative lookup")
+	}
+}
+
+func TestHashCollision(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "collision.man")
+	idx, err := Create(path, "dev", 8192, 4096, 0, 0, 0, 0)
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	a := []byte("aaaa")
+	b := []byte("bbbb")
+	xx := xxh3.Hash(a)
+	b1 := blake3.Sum256(a)
+	if err := idx.Set(0, uint32(len(a)), 0, xx, b1); err != nil {
+		t.Fatalf("set a: %v", err)
+	}
+	b2 := blake3.Sum256(b)
+	if err := idx.Set(4096, uint32(len(b)), 0, xx, b2); err != nil {
+		t.Fatalf("set b: %v", err)
+	}
+	if !idx.Match(0, uint32(len(a)), 0, xx, func() [32]byte { return b1 }) {
+		t.Fatalf("match a failed")
+	}
+	if !idx.Match(4096, uint32(len(b)), 0, xx, func() [32]byte { return b2 }) {
+		t.Fatalf("match b failed")
+	}
+	if idx.Match(4096, uint32(len(b)), 0, xx, func() [32]byte { return b1 }) {
+		t.Fatalf("expected mismatch with wrong digest")
+	}
+}
+
 func TestDeviceIDLength(t *testing.T) {
 	dir := t.TempDir()
 	good := strings.Repeat("a", 64)

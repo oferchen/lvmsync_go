@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/bits"
 	"os"
 	"time"
 
@@ -28,6 +29,11 @@ const (
 
 	// FlagCDC marks chunks produced by content-defined chunking.
 	FlagCDC uint32 = 1 << 0
+
+	// bloomRange is the size in bytes of each range tracked by a Bloom filter.
+	bloomRange = 1 << 20 // 1 MiB
+
+	emptySlot = ^uint64(0)
 )
 
 // Header describes the device tracked by the manifest.
@@ -52,6 +58,10 @@ type Index struct {
 	data      []byte
 	hdr       Header
 	closeHook func() error
+
+	table []uint64
+	bloom []uint64
+	mask  uint64
 }
 
 // indexOptions collects constructor options for Index and helpers like Rebuild.
@@ -218,6 +228,7 @@ func Create(path, deviceID string, size uint64, blockSize, cdcMin, cdcAvg, cdcMa
 	copy(idx.hdr.DeviceID[:], []byte(deviceID))
 	idx.hdr.MAC = headerMAC(&idx.hdr)
 	idx.writeHeader()
+	idx.initTables()
 	return idx, nil
 }
 
@@ -244,6 +255,7 @@ func Open(path string, opts ...IndexOption) (*Index, error) {
 		idx.Close()
 		return nil, err
 	}
+	idx.buildTables()
 	return idx, nil
 }
 
@@ -282,10 +294,62 @@ func Upgrade(path string, opts ...IndexOption) (*Index, error) {
 			return nil, fmt.Errorf("manifest: unsupported version %d", idx.hdr.Version)
 		}
 	}
+	idx.buildTables()
 	return idx, nil
 }
 
 func entryOffset(i uint64) uint64 { return uint64(HeaderSize) + i*entrySize }
+
+func nextPow2(v uint64) uint64 {
+	if v == 0 {
+		return 1
+	}
+	return 1 << (64 - bits.LeadingZeros64(v-1))
+}
+
+func (i *Index) initTables() {
+	size := nextPow2(i.hdr.ChunkCount * 2)
+	i.table = make([]uint64, size)
+	for j := range i.table {
+		i.table[j] = emptySlot
+	}
+	i.mask = uint64(size - 1)
+	ranges := (i.hdr.SizeBytes + bloomRange - 1) / bloomRange
+	i.bloom = make([]uint64, ranges)
+}
+
+func (i *Index) insert(offset, xxh, idx uint64) {
+	if len(i.table) == 0 {
+		return
+	}
+	pos := xxh & i.mask
+	for {
+		if i.table[pos] == emptySlot {
+			i.table[pos] = idx
+			break
+		}
+		pos = (pos + 1) & i.mask
+	}
+	r := offset / bloomRange
+	bit1 := xxh & 63
+	bit2 := (xxh >> 6) & 63
+	i.bloom[r] |= (1<<bit1 | 1<<bit2)
+}
+
+func (i *Index) buildTables() {
+	i.initTables()
+	for idx := uint64(0); idx < i.hdr.ChunkCount; idx++ {
+		off := entryOffset(idx)
+		start := int(off)
+		length := binary.LittleEndian.Uint32(i.data[start+8 : start+12])
+		if length == 0 {
+			continue
+		}
+		offset := binary.LittleEndian.Uint64(i.data[start : start+8])
+		xxh := binary.LittleEndian.Uint64(i.data[start+16 : start+24])
+		i.insert(offset, xxh, idx)
+	}
+}
 
 // Set records metadata for the chunk at the given offset.
 func (i *Index) Set(offset uint64, length, flags uint32, xxh uint64, digest [32]byte) error {
@@ -300,34 +364,47 @@ func (i *Index) Set(offset uint64, length, flags uint32, xxh uint64, digest [32]
 	binary.LittleEndian.PutUint32(i.data[start+12:start+16], flags)
 	binary.LittleEndian.PutUint64(i.data[start+16:start+24], xxh)
 	copy(i.data[start+24:start+56], digest[:])
+	i.insert(offset, xxh, idx)
 	return nil
 }
 
 // Match reports whether the manifest already has a record for the chunk at the
 // given offset, length, and flags. The provided digestFn is invoked to compute
-// the BLAKE3 digest only if the stored XXH3 hash matches the supplied xxh.
+// the BLAKE3 digest only after Bloom and XXH3 checks succeed.
 func (i *Index) Match(offset uint64, length, flags uint32, xxh uint64, digestFn func() [32]byte) bool {
-	idx := offset / uint64(i.hdr.BlockSize)
-	if idx >= i.hdr.ChunkCount {
+	if len(i.table) == 0 {
 		return false
 	}
-	off := entryOffset(idx)
-	start := int(off)
-	storedOffset := binary.LittleEndian.Uint64(i.data[start : start+8])
-	storedLen := binary.LittleEndian.Uint32(i.data[start+8 : start+12])
-	storedFlags := binary.LittleEndian.Uint32(i.data[start+12 : start+16])
-	if storedLen == 0 {
+	r := offset / bloomRange
+	if r >= uint64(len(i.bloom)) {
 		return false
 	}
-	if storedOffset != offset || storedLen != length || storedFlags != flags {
+	bit1 := xxh & 63
+	bit2 := (xxh >> 6) & 63
+	mask := (uint64(1) << bit1) | (uint64(1) << bit2)
+	if i.bloom[r]&mask != mask {
 		return false
 	}
-	storedXXH := binary.LittleEndian.Uint64(i.data[start+16 : start+24])
-	if storedXXH != xxh {
-		return false
+	pos := xxh & i.mask
+	for {
+		idx := i.table[pos]
+		if idx == emptySlot {
+			return false
+		}
+		off := entryOffset(idx)
+		start := int(off)
+		storedXXH := binary.LittleEndian.Uint64(i.data[start+16 : start+24])
+		if storedXXH == xxh {
+			storedOffset := binary.LittleEndian.Uint64(i.data[start : start+8])
+			storedLen := binary.LittleEndian.Uint32(i.data[start+8 : start+12])
+			storedFlags := binary.LittleEndian.Uint32(i.data[start+12 : start+16])
+			if storedOffset == offset && storedLen == length && storedFlags == flags {
+				digest := digestFn()
+				return bytes.Equal(i.data[start+24:start+56], digest[:])
+			}
+		}
+		pos = (pos + 1) & i.mask
 	}
-	digest := digestFn()
-	return bytes.Equal(i.data[start+24:start+56], digest[:])
 }
 
 // Entry returns metadata for the chunk at idx.
