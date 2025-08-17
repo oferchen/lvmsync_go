@@ -131,7 +131,7 @@ func (t *Transfer) dumpChangesCore(ctx context.Context, cfg *config.Config, snap
 	defer cleanupPipe()
 
 	checkpoint := readResumeState(cfg, t.Logger)
-	startIdx := findResumeIndex(cfg, srcFile, ranges, checkpoint, t.Logger)
+	startIdx := findResumeIndex(ctx, cfg, srcFile, ranges, checkpoint, t.Logger)
 	if startIdx > 0 {
 		ranges = ranges[startIdx:]
 	}

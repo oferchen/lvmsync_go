@@ -562,6 +562,7 @@ Flags override environment variables, which override `config.yaml` values.
 | `--odirect` | `LVMSYNC_ODIRECT` | `odirect` | Use O_DIRECT for device I/O when possible |
 | `--numa-pin` | `LVMSYNC_NUMA_PIN` | `numa_pin` | Pin worker goroutines to device NUMA node |
 | `--max-retries` | `LVMSYNC_MAX_RETRIES` | `max_retries` | Maximum number of retries per block |
+| `--retry-delay` | `LVMSYNC_RETRY_DELAY` | `retry_delay` | Initial delay between retries |
 | `--resume` | `LVMSYNC_RESUME` | `resume` | Path to resume state file (records dedup mode and last chunk boundary) |
 | `--speed` | `LVMSYNC_SPEED` | `speed` | Transfer speed limit |
 | `--sync-interval` | `LVMSYNC_SYNC_INTERVAL` | `sync_interval` | Bytes between fdatasync calls (accepts size suffixes like `64KB`; invalid values error) |
@@ -1089,6 +1090,8 @@ Flags are parsed via Viper, so the same settings can be provided through
 | `--parallel`        | Number of concurrent workers                                                                            | `4`       |
 | `--zerocopy`        | Enable zero-copy transfers (only used in sequential mode)                                               | `false`   |
 | `--max-retries`     | Maximum number of retries per block                                                                     | `3`       |
+| `--retry-delay`     | Initial delay between retries
+| `100ms`   |
 | `--resume`          | Path to resume state file                                                                               | `""`      |
 | `--speed`           | Transfer speed limit (e.g., `"100MB"`)                                                                  | `"100MB"` |
 | `-v, --verbose`     | Verbosity level (e.g., `-v`, `-vv`, `-vvv`)                                                             | `0`       |

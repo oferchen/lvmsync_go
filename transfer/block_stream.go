@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"hash"
 	"math"
@@ -81,8 +82,11 @@ func iterateBlocks(
 		if err != nil {
 			return totalBytes, skippedBlocks, nil, err
 		}
-		data, err := ReadBlockWithRetries(cfg, srcFile, offset, cfg.ZeroCopy, pipeFds, logger)
+		data, err := ReadBlockWithRetries(ctx, cfg, srcFile, offset, cfg.ZeroCopy, pipeFds, logger)
 		if err != nil {
+			if errors.Is(err, context.Canceled) {
+				return totalBytes, skippedBlocks, nil, err
+			}
 			return totalBytes, skippedBlocks, nil, fmt.Errorf("error reading block at offset %d: %w", r.Start, err)
 		}
 		xx := hashutil.SumXXH3(data)
@@ -282,8 +286,15 @@ func worker(ctx context.Context, cfg *config.Config, srcFile *os.File, tasks <-c
 				results <- &BlockResult{Index: task.Index, Err: err}
 				continue
 			}
-			data, err := ReadBlockWithRetries(cfg, srcFile, offset, false, [2]int{-1, -1}, logger)
-			zero := err == nil && isAllZero(data)
+			data, err := ReadBlockWithRetries(ctx, cfg, srcFile, offset, false, [2]int{-1, -1}, logger)
+			if err != nil {
+				results <- &BlockResult{Index: task.Index, Err: err}
+				if errors.Is(err, context.Canceled) {
+					return
+				}
+				continue
+			}
+			zero := isAllZero(data)
 			var resData []byte
 			size := blockSize
 			var chunkID [32]byte
@@ -302,7 +313,6 @@ func worker(ctx context.Context, cfg *config.Config, srcFile *os.File, tasks <-c
 				Size:    size,
 				Data:    resData,
 				ChunkID: chunkID,
-				Err:     err,
 			}
 		}
 	}

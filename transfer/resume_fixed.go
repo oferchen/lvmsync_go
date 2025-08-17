@@ -1,7 +1,9 @@
 package transfer
 
 import (
+	"context"
 	"crypto/sha256"
+	"errors"
 	"os"
 
 	"github.com/zeebo/blake3"
@@ -11,7 +13,7 @@ import (
 )
 
 // findResumeIndex determines the starting range index based on the checkpoint and dedup mode.
-func findResumeIndex(cfg *config.Config, srcFile *os.File, ranges []Range, chk resumeCheckpoint, logger *zap.Logger) int {
+func findResumeIndex(ctx context.Context, cfg *config.Config, srcFile *os.File, ranges []Range, chk resumeCheckpoint, logger *zap.Logger) int {
 	if cfg.ResumeState == "" {
 		return 0
 	}
@@ -21,12 +23,12 @@ func findResumeIndex(cfg *config.Config, srcFile *os.File, ranges []Range, chk r
 	case "hybrid":
 		return findResumeIndexHybrid(cfg, ranges, chk.Hybrid, logger)
 	default:
-		return findResumeIndexFixed(cfg, srcFile, ranges, chk.Fixed, logger)
+		return findResumeIndexFixed(ctx, cfg, srcFile, ranges, chk.Fixed, logger)
 	}
 }
 
 // findResumeIndexFixed finds resume index using fixed-size blocks; logger must be non-nil.
-func findResumeIndexFixed(cfg *config.Config, srcFile *os.File, ranges []Range, chk resumeChunk, logger *zap.Logger) int {
+func findResumeIndexFixed(ctx context.Context, cfg *config.Config, srcFile *os.File, ranges []Range, chk resumeChunk, logger *zap.Logger) int {
 	if chk.Chunk == [32]byte{} {
 		return 0
 	}
@@ -35,8 +37,11 @@ func findResumeIndexFixed(cfg *config.Config, srcFile *os.File, ranges []Range, 
 		if err != nil {
 			return 0
 		}
-		data, err := ReadBlockWithRetries(cfg, srcFile, offset, cfg.ZeroCopy, [2]int{-1, -1}, logger)
+		data, err := ReadBlockWithRetries(ctx, cfg, srcFile, offset, cfg.ZeroCopy, [2]int{-1, -1}, logger)
 		if err != nil {
+			if errors.Is(err, context.Canceled) {
+				return 0
+			}
 			continue
 		}
 		var sum [32]byte

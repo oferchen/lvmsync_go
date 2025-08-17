@@ -2,6 +2,8 @@ package transfer
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"sync/atomic"
 	"syscall"
 	"testing"
@@ -30,7 +32,7 @@ func TestReadBlockWithRetriesTransientFailure(t *testing.T) {
 	}()
 
 	start := time.Now()
-	buf, err := ReadBlockWithRetries(cfg, tmp, 0, false, [2]int{-1, -1}, logger)
+	buf, err := ReadBlockWithRetries(context.Background(), cfg, tmp, 0, false, [2]int{-1, -1}, logger)
 	if err != nil {
 		t.Fatalf("ReadBlockWithRetries returned error: %v", err)
 	}
@@ -57,7 +59,7 @@ func TestReadBlockWithRetriesPipeHandling(t *testing.T) {
 	}
 
 	atomic.StoreInt64(&PipeCreationCount, 0)
-	buf, err := ReadBlockWithRetries(cfg, tmp, 0, true, [2]int{-1, -1}, logger)
+	buf, err := ReadBlockWithRetries(context.Background(), cfg, tmp, 0, true, [2]int{-1, -1}, logger)
 	if err != nil {
 		t.Fatalf("ReadBlockWithRetries error: %v", err)
 	}
@@ -85,7 +87,7 @@ func TestReadBlockWithRetriesPipeHandling(t *testing.T) {
 	}()
 
 	atomic.StoreInt64(&PipeCreationCount, 0)
-	buf, err = ReadBlockWithRetries(cfg, tmp, 0, true, fds, logger)
+	buf, err = ReadBlockWithRetries(context.Background(), cfg, tmp, 0, true, fds, logger)
 	if err != nil {
 		t.Fatalf("ReadBlockWithRetries error: %v", err)
 	}
@@ -96,4 +98,27 @@ func TestReadBlockWithRetriesPipeHandling(t *testing.T) {
 		t.Fatalf("expected PipeCreationCount 0, got %d", c)
 	}
 	putBlockBuffer(buf)
+}
+
+func TestReadBlockWithRetriesContextCancel(t *testing.T) {
+	logger := zap.NewNop()
+	cfg := &config.Config{BlockSize: 4, MaxRetries: 3}
+
+	tmp := newTempFile(t, "block")
+	defer tmp.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		time.Sleep(10 * time.Millisecond)
+		cancel()
+	}()
+
+	start := time.Now()
+	_, err := ReadBlockWithRetries(ctx, cfg, tmp, 0, false, [2]int{-1, -1}, logger)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context canceled, got %v", err)
+	}
+	if time.Since(start) >= 100*time.Millisecond {
+		t.Fatalf("expected cancellation before backoff elapsed")
+	}
 }
