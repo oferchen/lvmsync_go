@@ -23,14 +23,14 @@ type DeviceInfoProvider interface {
 	GetLVMUUID(ctx context.Context, path string) (string, error)
 	GetDeviceID(ctx context.Context, path string) (string, error)
 	IDsMatch(ctx context.Context, src, dest string) (bool, error)
-	IsMountedRW(path string) (bool, error)
+	IsMountedRW(ctx context.Context, path string) (bool, error)
 }
 
 // Info implements DeviceInfoProvider using configurable helpers.
 type Info struct {
 	uuidFunc    func(context.Context, string) (string, error)
 	lvmUUIDFunc func(context.Context, string) (string, error)
-	mountFunc   func(string) (bool, error)
+	mountFunc   func(context.Context, string) (bool, error)
 }
 
 // NewInfo returns an Info using production dependencies.
@@ -47,7 +47,7 @@ func NewInfo() *Info {
 func NewInfoWithDeps(
 	uuid func(context.Context, string) (string, error),
 	lvmUUID func(context.Context, string) (string, error),
-	mount func(string) (bool, error),
+	mount func(context.Context, string) (bool, error),
 ) *Info {
 	if uuid == nil {
 		uuid = defaultUUIDFunc
@@ -62,10 +62,7 @@ func NewInfoWithDeps(
 }
 
 var (
-	uuidFunc    = defaultUUIDFunc
-	lvmUUIDFunc = defaultLVMUUIDFunc
-	mountFunc   = defaultMountFunc
-	detectFunc  = Detect
+	detectFunc = Detect
 )
 
 var defaultInfo = NewInfo()
@@ -84,14 +81,6 @@ func SetUUIDFunc(f func(context.Context, string) (string, error)) func(context.C
 func SetLVMUUIDFunc(f func(context.Context, string) (string, error)) func(context.Context, string) (string, error) {
 	prev := defaultInfo.lvmUUIDFunc
 	defaultInfo.lvmUUIDFunc = f
-	return prev
-}
-
-// SetMountFunc allows tests to override the mount status checker. It returns
-// the previous function for restoration.
-func SetMountFunc(f func(string) (bool, error)) func(string) (bool, error) {
-	prev := defaultInfo.mountFunc
-	defaultInfo.mountFunc = f
 	return prev
 }
 
@@ -146,7 +135,17 @@ func (i *Info) IDsMatch(ctx context.Context, src, dest string) (bool, error) {
 	return sid == did, nil
 }
 
-func (i *Info) IsMountedRW(path string) (bool, error) { return i.mountFunc(path) }
+func (i *Info) IsMountedRW(ctx context.Context, path string) (bool, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if _, ok := ctx.Deadline(); !ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, mountTimeout)
+		defer cancel()
+	}
+	return i.mountFunc(ctx, path)
+}
 
 func defaultUUIDFunc(ctx context.Context, path string) (string, error) {
 	out, err := exec.CommandContext(ctx, "blkid", "-o", "value", "-s", "UUID", path).Output()
@@ -168,41 +167,12 @@ func defaultLVMUUIDFunc(ctx context.Context, path string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
-// IDsMatch reports whether the devices at src and dest share the same
-// identifier. For LVM volumes the logical volume UUID is compared; otherwise
-// blkid or GPT serial numbers are used.
-func IDsMatch(ctx context.Context, src, dest string) (bool, error) {
-	sid, err := GetDeviceID(ctx, src)
-	if err != nil {
-		return false, err
-	}
-	did, err := GetDeviceID(ctx, dest)
-	if err != nil {
-		return false, err
-	}
-	return sid == did, nil
-}
-
 // SetMountFunc allows tests to override the mount status checker. It returns
 // the previous function for restoration.
 func SetMountFunc(f func(context.Context, string) (bool, error)) func(context.Context, string) (bool, error) {
-	prev := mountFunc
-	mountFunc = f
+	prev := defaultInfo.mountFunc
+	defaultInfo.mountFunc = f
 	return prev
-}
-
-// IsMountedRW reports whether the device at path is mounted read-write.
-// If ctx has no deadline, a default timeout is applied.
-func IsMountedRW(ctx context.Context, path string) (bool, error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	if _, ok := ctx.Deadline(); !ok {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, mountTimeout)
-		defer cancel()
-	}
-	return mountFunc(ctx, path)
 }
 
 func defaultMountFunc(ctx context.Context, path string) (bool, error) {
@@ -255,7 +225,9 @@ func IDsMatch(ctx context.Context, src, dest string) (bool, error) {
 	return defaultInfo.IDsMatch(ctx, src, dest)
 }
 
-func IsMountedRW(path string) (bool, error) { return defaultInfo.IsMountedRW(path) }
+func IsMountedRW(ctx context.Context, path string) (bool, error) {
+	return defaultInfo.IsMountedRW(ctx, path)
+}
 
 // SizeBytes returns the total size of the device at path in bytes.
 // If ctx has no deadline, a default timeout is applied.

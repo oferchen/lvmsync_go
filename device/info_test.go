@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -94,19 +95,29 @@ func TestIDsMatch(t *testing.T) {
 }
 
 func TestSetMountFunc(t *testing.T) {
-	orig := mountFunc
+	orig := defaultInfo.mountFunc
 	stub := func(context.Context, string) (bool, error) { return true, nil }
 	prev := SetMountFunc(stub)
 	if reflect.ValueOf(prev).Pointer() != reflect.ValueOf(orig).Pointer() {
 		t.Fatalf("expected previous function to be original")
 	}
-	if reflect.ValueOf(mountFunc).Pointer() != reflect.ValueOf(stub).Pointer() {
+	if reflect.ValueOf(defaultInfo.mountFunc).Pointer() != reflect.ValueOf(stub).Pointer() {
 		t.Fatalf("mountFunc not replaced")
 	}
 	SetMountFunc(prev)
 }
 
+func TestIsMountedRW(t *testing.T) {
+	tests := []struct {
+		name string
+		val  bool
+	}{
+		{name: "mounted", val: true},
+		{name: "not mounted", val: false},
+	}
+
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			prev := SetMountFunc(func(context.Context, string) (bool, error) { return tt.val, nil })
 			defer SetMountFunc(prev)
@@ -119,8 +130,6 @@ func TestSetMountFunc(t *testing.T) {
 				t.Fatalf("expected %v, got %v", tt.val, got)
 			}
 		})
-	if !got {
-		t.Fatalf("expected mounted read-write")
 	}
 }
 
@@ -297,10 +306,6 @@ func TestDefaultMountFuncError(t *testing.T) {
 		t.Fatalf("expected error when reading mountinfo file")
 	}
 }
-
-func mountFuncFromMountInfoFile(p string) func(context.Context, string) (bool, error) {
-	return func(_ context.Context, path string) (bool, error) {
-
 func TestSizeBytes(t *testing.T) {
 	dev := &stubDevice{size: 123}
 	prev := detectFunc
@@ -346,8 +351,8 @@ func (s *stubDevice) Snapshot(context.Context, string) (Device, error) { return 
 func (s *stubDevice) Cleanup(context.Context) error                    { return nil }
 func (s *stubDevice) Close() error                                     { return s.closeErr }
 
-func mountFuncFromMountInfoFile(p string) func(string) (bool, error) {
-	return func(path string) (bool, error) {
+func mountFuncFromMountInfoFile(p string) func(context.Context, string) (bool, error) {
+	return func(_ context.Context, path string) (bool, error) {
 		real, err := filepath.EvalSymlinks(path)
 		if err != nil {
 			return false, err
