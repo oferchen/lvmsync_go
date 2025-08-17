@@ -31,7 +31,7 @@ func punchHole(f *os.File, offset uint64, length int) error {
 	return err
 }
 
-var fdatasyncFile = func(f *os.File) error { return f.Sync() }
+func fdatasync(f *os.File) error { return f.Sync() }
 
 func openFileODirect(path string, flag int) (*os.File, bool, error) {
 	f, err := os.OpenFile(path, flag, 0)

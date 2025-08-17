@@ -26,11 +26,9 @@ func (fw *failingWriter) Close() error { return nil }
 
 func TestChecksumDedupSaveStateBinaryWriteFailure(t *testing.T) {
 	hash := sha256.Sum256([]byte("data"))
-	c := &ChecksumDedup{stateFile: "ignored", hashes: map[int64][]byte{1: hash[:]}, strategy: &SHA256Checksum{}}
 	fw := &failingWriter{failAfter: 0}
-	orig := createStateFile
-	createStateFile = func(string) (io.WriteCloser, error) { return fw, nil }
-	defer func() { createStateFile = orig }()
+	deps := &Deps{CreateStateFile: func(string) (io.WriteCloser, error) { return fw, nil }}
+	c := &ChecksumDedup{stateFile: "ignored", hashes: map[int64][]byte{1: hash[:]}, strategy: &SHA256Checksum{}, deps: deps}
 	if err := c.SaveState(); err == nil {
 		t.Fatalf("expected error")
 	}
@@ -38,45 +36,37 @@ func TestChecksumDedupSaveStateBinaryWriteFailure(t *testing.T) {
 
 func TestChecksumDedupSaveStateFileWriteFailure(t *testing.T) {
 	hash := sha256.Sum256([]byte("data"))
-	c := &ChecksumDedup{stateFile: "ignored", hashes: map[int64][]byte{1: hash[:]}, strategy: &SHA256Checksum{}}
 	fw := &failingWriter{failAfter: 1}
-	orig := createStateFile
-	createStateFile = func(string) (io.WriteCloser, error) { return fw, nil }
-	defer func() { createStateFile = orig }()
+	deps := &Deps{CreateStateFile: func(string) (io.WriteCloser, error) { return fw, nil }}
+	c := &ChecksumDedup{stateFile: "ignored", hashes: map[int64][]byte{1: hash[:]}, strategy: &SHA256Checksum{}, deps: deps}
 	if err := c.SaveState(); err == nil {
 		t.Fatalf("expected error")
 	}
 }
 
 func TestRollingHashDedupSaveStateBinaryWriteFailure(t *testing.T) {
-	r := &RollingHashDedup{stateFile: "ignored", hashes: map[int64]uint64{1: 1}}
 	fw := &failingWriter{failAfter: 0}
-	orig := createStateFile
-	createStateFile = func(string) (io.WriteCloser, error) { return fw, nil }
-	defer func() { createStateFile = orig }()
+	deps := &Deps{CreateStateFile: func(string) (io.WriteCloser, error) { return fw, nil }}
+	r := &RollingHashDedup{stateFile: "ignored", hashes: map[int64]uint64{1: 1}, deps: deps}
 	if err := r.SaveState(); err == nil {
 		t.Fatalf("expected error")
 	}
 }
 
 func TestRollingHashDedupSaveStateFileWriteFailure(t *testing.T) {
-	r := &RollingHashDedup{stateFile: "ignored", hashes: map[int64]uint64{1: 1}}
 	fw := &failingWriter{failAfter: 1}
-	orig := createStateFile
-	createStateFile = func(string) (io.WriteCloser, error) { return fw, nil }
-	defer func() { createStateFile = orig }()
+	deps := &Deps{CreateStateFile: func(string) (io.WriteCloser, error) { return fw, nil }}
+	r := &RollingHashDedup{stateFile: "ignored", hashes: map[int64]uint64{1: 1}, deps: deps}
 	if err := r.SaveState(); err == nil {
 		t.Fatalf("expected error")
 	}
 }
 
 func TestBloomFilterDedupSaveStateWriteFailure(t *testing.T) {
-	b := &BloomFilterDedup{filter: bloom.NewWithEstimates(1000, 0.01), stateFile: "ignored", strategy: &SHA256Checksum{}}
-	b.RecordTransfer(0, []byte("data"))
 	fw := &failingWriter{failAfter: 0}
-	orig := createStateFile
-	createStateFile = func(string) (io.WriteCloser, error) { return fw, nil }
-	defer func() { createStateFile = orig }()
+	deps := &Deps{CreateStateFile: func(string) (io.WriteCloser, error) { return fw, nil }}
+	b := &BloomFilterDedup{filter: bloom.NewWithEstimates(1000, 0.01), stateFile: "ignored", strategy: &SHA256Checksum{}, deps: deps}
+	b.RecordTransfer(0, []byte("data"))
 	if err := b.SaveState(); err == nil {
 		t.Fatalf("expected error")
 	}

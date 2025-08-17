@@ -100,14 +100,12 @@ func TestCDCDedupSaveStateWriteFailure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
-	d, err := NewCDCDedup(cfg)
+	fw := &cdcFailingWriter{failAfter: 0}
+	deps := &Deps{CreateStateFile: func(string) (io.WriteCloser, error) { return fw, nil }}
+	d, err := NewCDCDedupWithDeps(cfg, deps)
 	if err != nil {
 		t.Fatalf("NewCDCDedup: %v", err)
 	}
-	fw := &cdcFailingWriter{failAfter: 0}
-	orig := createStateFile
-	createStateFile = func(string) (io.WriteCloser, error) { return fw, nil }
-	defer func() { createStateFile = orig }()
 	if err := d.SaveState(); err == nil {
 		t.Fatalf("expected error")
 	}

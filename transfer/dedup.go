@@ -19,27 +19,17 @@ import (
 	cpufeatures "lvmsync_go/internal/cpufeatures"
 )
 
-var createStateFile = func(name string) (io.WriteCloser, error) {
-	f, err := os.Create(name)
-	if err != nil {
-		return nil, fmt.Errorf("create state file: %w", err)
-	}
-	if err := f.Chmod(0o600); err != nil {
-		f.Close()
-		return nil, fmt.Errorf("chmod state file: %w", err)
-	}
-	return f, nil
-}
-
-// saveStateFile writes dedup state to the provided path; logger must be non-nil.
-func saveStateFile(logger *zap.Logger, path string, write func(io.Writer) error) error {
-	file, err := createStateFile(path)
+// saveStateFile writes dedup state to the provided path; logger may be nil.
+func saveStateFile(deps *Deps, logger *zap.Logger, path string, write func(io.Writer) error) error {
+	file, err := deps.CreateStateFile(path)
 	if err != nil {
 		return err
 	}
 	defer func() {
 		if closeErr := file.Close(); closeErr != nil {
-			logger.Warn("failed to close state file", zap.Error(closeErr))
+			if logger != nil {
+				logger.Warn("failed to close state file", zap.Error(closeErr))
+			}
 		}
 	}()
 	return write(file)
@@ -61,6 +51,7 @@ type ChecksumDedup struct {
 	mu        sync.RWMutex
 	strategy  ChecksumStrategy
 	logger    *zap.Logger
+	deps      *Deps
 }
 
 // BloomFilterDedup uses a Bloom filter to track transferred blocks.
@@ -73,6 +64,7 @@ type BloomFilterDedup struct {
 	fpRate    float64
 	strategy  ChecksumStrategy
 	logger    *zap.Logger
+	deps      *Deps
 }
 
 // RollingHashDedup computes a rolling hash for block comparison.
@@ -83,21 +75,11 @@ type RollingHashDedup struct {
 	mu        sync.RWMutex
 	seed      maphash.Seed
 	logger    *zap.Logger
+	deps      *Deps
 }
 
 var rollingHashPool = sync.Pool{
 	New: func() any { return new(maphash.Hash) },
-}
-
-// detectBestStrategy selects the fastest deduplication strategy for the
-// current CPU. Checksum-based deduplication is preferred when SIMD
-// instructions such as AVX or SSE4.2 are available; otherwise a rolling hash
-// is used.
-var detectBestStrategy = func() string {
-	if supportsChecksumAcceleration() {
-		return StrategyChecksum
-	}
-	return StrategyRollingHash
 }
 
 func supportsChecksumAcceleration() bool {
@@ -108,9 +90,13 @@ func supportsChecksumAcceleration() bool {
 // When cfg.DedupStrategy is auto, it selects the best available algorithm
 // and updates cfg accordingly.
 func NewDeduplicationStrategy(cfg *config.Config, logger *zap.Logger) DeduplicationStrategy {
+	return NewDeduplicationStrategyWithDeps(cfg, logger, DefaultDeps)
+}
+
+func NewDeduplicationStrategyWithDeps(cfg *config.Config, logger *zap.Logger, deps *Deps) DeduplicationStrategy {
 	strategy := cfg.DedupStrategy
 	if strategy == StrategyAuto {
-		strategy = detectBestStrategy()
+		strategy = deps.DetectBestStrategy()
 		cfg.DedupStrategy = strategy
 	}
 	switch strategy {
@@ -122,6 +108,7 @@ func NewDeduplicationStrategy(cfg *config.Config, logger *zap.Logger) Deduplicat
 			hashes:    make(map[int64]uint64),
 			seed:      maphash.MakeSeed(),
 			logger:    logger,
+			deps:      deps,
 		}
 		if err := d.loadState(); err != nil {
 			logger.Warn("failed to load dedup state", zap.Error(err))
@@ -140,6 +127,7 @@ func NewDeduplicationStrategy(cfg *config.Config, logger *zap.Logger) Deduplicat
 			fpRate:    cfg.BloomFpRate,
 			strategy:  GetChecksumStrategy(cfg.ChecksumAlgorithm),
 			logger:    logger,
+			deps:      deps,
 		}
 		if err := d.loadState(); err != nil {
 			logger.Warn("failed to load dedup state", zap.Error(err))
@@ -151,6 +139,7 @@ func NewDeduplicationStrategy(cfg *config.Config, logger *zap.Logger) Deduplicat
 			hashes:    make(map[int64][]byte),
 			strategy:  GetChecksumStrategy(cfg.ChecksumAlgorithm),
 			logger:    logger,
+			deps:      deps,
 		}
 		if err := d.loadState(); err != nil {
 			logger.Warn("failed to load dedup state", zap.Error(err))
@@ -179,7 +168,7 @@ func (c *ChecksumDedup) RecordTransfer(offset int64, data []byte) {
 func (c *ChecksumDedup) SaveState() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return saveStateFile(c.logger, c.stateFile, func(file io.Writer) error {
+	return saveStateFile(c.deps, c.logger, c.stateFile, func(file io.Writer) error {
 		size := c.strategy.Size()
 		for offset, hash := range c.hashes {
 			if err := binary.Write(file, binary.LittleEndian, offset); err != nil {
@@ -272,7 +261,7 @@ func (r *RollingHashDedup) RecordTransfer(offset int64, data []byte) {
 func (r *RollingHashDedup) SaveState() error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	return saveStateFile(r.logger, r.stateFile, func(file io.Writer) error {
+	return saveStateFile(r.deps, r.logger, r.stateFile, func(file io.Writer) error {
 		seedArr := *(*[2]uint64)(unsafe.Pointer(&r.seed))
 		if err := binary.Write(file, binary.LittleEndian, seedArr); err != nil {
 			return err
@@ -356,7 +345,7 @@ func (b *BloomFilterDedup) RecordTransfer(_ int64, data []byte) {
 func (b *BloomFilterDedup) SaveState() error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	return saveStateFile(b.logger, b.stateFile, func(file io.Writer) error {
+	return saveStateFile(b.deps, b.logger, b.stateFile, func(file io.Writer) error {
 		_, err := b.filter.WriteTo(file)
 		return err
 	})

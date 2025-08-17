@@ -30,12 +30,17 @@ type CDCDedup struct {
 	indexMask uint64
 	stateFile string
 
-	mu  sync.Mutex
-	sha hash.Hash
+	mu   sync.Mutex
+	sha  hash.Hash
+	deps *Deps
 }
 
 // NewCDCDedup constructs a CDCDedup using the tunables provided in cfg.
 func NewCDCDedup(cfg *config.Config) (*CDCDedup, error) {
+	return NewCDCDedupWithDeps(cfg, DefaultDeps)
+}
+
+func NewCDCDedupWithDeps(cfg *config.Config, deps *Deps) (*CDCDedup, error) {
 	bf := bloom.NewWithEstimates(uint(cfg.BloomEntries), cfg.BloomFpRate)
 	ch, err := dedup.NewChunker(cfg.CDCMin, cfg.CDCAvg, cfg.CDCMax, cfg.ChunkSeed)
 	if err != nil {
@@ -46,6 +51,7 @@ func NewCDCDedup(cfg *config.Config) (*CDCDedup, error) {
 		bloom:     bf,
 		stateFile: cfg.DedupStateFile,
 		sha:       sha256.New(),
+		deps:      deps,
 	}
 	if cfg.BloomMBits > 0 {
 		size := 1 << (cfg.BloomMBits - 3)
@@ -118,7 +124,7 @@ func (c *CDCDedup) ChunkAndHash(p []byte) ([]dedup.Chunk, [32]byte, error) {
 func (c *CDCDedup) SaveState() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if err := saveStateFile(nil, c.stateFile, func(w io.Writer) error {
+	if err := saveStateFile(c.deps, nil, c.stateFile, func(w io.Writer) error {
 		_, err := c.bloom.WriteTo(w)
 		return err
 	}); err != nil {

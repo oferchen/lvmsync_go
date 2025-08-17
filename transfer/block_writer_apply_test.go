@@ -43,19 +43,16 @@ func TestBlockWriterSyncInterval(t *testing.T) {
 	}
 	defer f.Close()
 
-	bw, err := newBlockWriter(cfg, f, nil, false, checksum, zap.NewNop())
+	calls := 0
+	deps := &Deps{FdatasyncFile: func(*os.File) error {
+		calls++
+		return nil
+	}}
+	bw, err := newBlockWriterWithDeps(cfg, f, nil, false, checksum, zap.NewNop(), deps)
 	if err != nil {
 		t.Fatalf("newBlockWriter: %v", err)
 	}
 	blocks := [][]byte{{1, 1, 1, 1}, {2, 2, 2, 2}, {3, 3, 3, 3}, {4, 4, 4, 4}}
-
-	calls := 0
-	orig := fdatasyncFile
-	fdatasyncFile = func(*os.File) error {
-		calls++
-		return nil
-	}
-	defer func() { fdatasyncFile = orig }()
 
 	reader := buildBlockStream(t, false, checksum, blocks)
 	total, err := bw.write(reader)
