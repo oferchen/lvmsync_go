@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"math/big"
 	"net"
 	"os"
@@ -75,7 +76,7 @@ func TestStartServer(t *testing.T) {
 	go func() { errCh <- startServer(ctx, opts, logger) }()
 	time.Sleep(50 * time.Millisecond)
 	cancel()
-	if err := <-errCh; err != nil {
+	if err := <-errCh; !errors.Is(err, context.Canceled) {
 		t.Fatalf("startServer: %v", err)
 	}
 }
@@ -148,6 +149,21 @@ func TestStartServerUnknownTransport(t *testing.T) {
 	}
 }
 
+func TestRunAcceptFailure(t *testing.T) {
+	const name = "acceptfail"
+	acceptErr := errors.New("accept failed")
+	if err := transport.Register(name, func(cfg transport.Config) (transport.Interface, error) {
+		return &failTransport{err: acceptErr}, nil
+	}); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+	logger := zap.NewNop()
+	err := Run([]string{"--transport", name, "--allow-insecure"}, logger)
+	if !errors.Is(err, acceptErr) {
+		t.Fatalf("got %v want %v", err, acceptErr)
+	}
+}
+
 func TestStartServerHandshakeSuccess(t *testing.T) {
 	logger := zap.NewNop()
 	addr := freeUDPAddr(t)
@@ -176,7 +192,7 @@ func TestStartServerHandshakeSuccess(t *testing.T) {
 	}
 
 	cancel()
-	if err := <-errCh; err != nil {
+	if err := <-errCh; !errors.Is(err, context.Canceled) {
 		t.Fatalf("startServer: %v", err)
 	}
 	buf := make([]byte, 1)
@@ -218,10 +234,32 @@ func TestStartServerHandshakeFailure(t *testing.T) {
 	}
 	conn.Close()
 	cancel()
-	if err := <-errCh; err != nil {
+	if err := <-errCh; !errors.Is(err, context.Canceled) {
 		t.Fatalf("startServer: %v", err)
 	}
 }
+
+type failTransport struct{ err error }
+
+func (t *failTransport) Name() string { return "acceptfail" }
+
+func (t *failTransport) Dial(ctx context.Context, addr string) (net.Conn, error) { return nil, nil }
+
+func (t *failTransport) Listen(ctx context.Context, addr string) (net.Listener, error) {
+	return &failListener{err: t.err}, nil
+}
+
+func (t *failTransport) Negotiate(ctx context.Context, conn net.Conn, role transport.Role, hs common.Handshake) (common.Handshake, error) {
+	return hs, nil
+}
+
+type failListener struct{ err error }
+
+func (l *failListener) Accept() (net.Conn, error) { return nil, l.err }
+
+func (l *failListener) Close() error { return nil }
+
+func (l *failListener) Addr() net.Addr { return &net.TCPAddr{} }
 
 func freeUDPAddr(t *testing.T) string {
 	t.Helper()
