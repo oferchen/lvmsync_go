@@ -53,7 +53,7 @@ func TestDumpChangesLogsSyncErrorOnEarlyFailure(t *testing.T) {
 
 	cfg := &config.Config{BlockSize: 0, Compress: "none", MaxRetries: 1}
 	var buf bytes.Buffer
-	if err := tr.DumpChangesSequential(cfg, "snapshot", "/nonexistent", &buf); err == nil {
+	if err := tr.DumpChangesSequential(context.Background(), cfg, "snapshot", "/nonexistent", &buf); err == nil {
 		t.Fatalf("expected DumpChangesSequential error")
 	}
 	logs := observed.FilterMessage("Logger sync error").All()

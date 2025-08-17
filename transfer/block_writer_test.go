@@ -55,3 +55,19 @@ func TestBlockWriterSyncIntervalTriggers(t *testing.T) {
 		t.Fatalf("expected 1 sync, got %d", calls)
 	}
 }
+
+func TestBlockWriterInvalidSyncInterval(t *testing.T) {
+	tmp, err := os.CreateTemp(t.TempDir(), "dest-*.img")
+	if err != nil {
+		t.Fatalf("temp file: %v", err)
+	}
+	defer tmp.Close()
+
+	cases := []string{"bogus", "10%"}
+	for _, interval := range cases {
+		cfg := &config.Config{BlockSize: 4, SyncInterval: interval}
+		if _, err := newBlockWriter(cfg, tmp, nil, false, nil, zap.NewNop()); err == nil {
+			t.Fatalf("newBlockWriter(%q) expected error", interval)
+		}
+	}
+}
