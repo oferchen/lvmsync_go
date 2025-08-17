@@ -398,6 +398,40 @@ func TestTCPTLSNegotiateInvalidRole(t *testing.T) {
 	}
 }
 
+func TestTCPTLSUnsupportedCipher(t *testing.T) {
+	cert, root := generateSelfSignedCert(t)
+	trIface, err := New(transport.Config{Logger: zap.NewNop(), Roots: root, ClientCert: cert})
+	if err != nil {
+		t.Fatalf("new transport: %v", err)
+	}
+	tr := trIface.(*Transport)
+	ctx := context.Background()
+	ln, err := tr.Listen(ctx, "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer ln.Close()
+	srvErr := make(chan error, 1)
+	go func() {
+		_, err := ln.Accept()
+		srvErr <- err
+	}()
+	badCfg := &tls.Config{
+		RootCAs:      root,
+		Certificates: []tls.Certificate{cert},
+		MinVersion:   tls.VersionTLS12,
+		MaxVersion:   tls.VersionTLS12,
+		CipherSuites: []uint16{tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256},
+		NextProtos:   []string{alpn},
+	}
+	if _, err := tls.Dial("tcp", ln.Addr().String(), badCfg); err == nil {
+		t.Fatalf("expected handshake error")
+	}
+	if err := <-srvErr; err == nil {
+		t.Fatalf("expected server error")
+	}
+}
+
 func TestTCPTLSCertValidation(t *testing.T) {
 	root := x509.NewCertPool()
 	cert, _ := generateSelfSignedCert(t)

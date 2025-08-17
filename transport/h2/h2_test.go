@@ -543,6 +543,40 @@ func TestH2TransportTLSHandshakeError(t *testing.T) {
 	checkLogFields(t, logs, "listen_end", 1, false, zapcore.InfoLevel)
 }
 
+func TestH2TransportUnsupportedCipher(t *testing.T) {
+	cert, pool := generateSelfSignedCert(t)
+	trIface, err := New(transport.Config{Logger: zap.NewNop(), Roots: pool, ClientCert: cert, ServerCert: cert})
+	if err != nil {
+		t.Fatalf("new transport: %v", err)
+	}
+	tr := trIface.(*Transport)
+	ctx := context.Background()
+	ln, err := tr.Listen(ctx, "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer ln.Close()
+	srvErr := make(chan error, 1)
+	go func() {
+		_, err := ln.Accept()
+		srvErr <- err
+	}()
+	badCfg := &tls.Config{
+		RootCAs:      pool,
+		Certificates: []tls.Certificate{cert},
+		MinVersion:   tls.VersionTLS12,
+		MaxVersion:   tls.VersionTLS12,
+		CipherSuites: []uint16{tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256},
+		NextProtos:   []string{"h2"},
+	}
+	if _, err := tls.Dial("tcp", ln.Addr().String(), badCfg); err == nil {
+		t.Fatalf("expected handshake error")
+	}
+	if err := <-srvErr; err == nil {
+		t.Fatalf("expected server error")
+	}
+}
+
 func TestH2TransportTLSCDCMismatch(t *testing.T) {
 	cert, pool := generateSelfSignedCert(t)
 	core, logs := observer.New(zap.InfoLevel)

@@ -47,12 +47,14 @@ func initTransports() {
 Handshake validation rejects mismatched ALPN protocols or TLS versions to ensure
 both peers agree on the connection parameters.
 
-TLS-based transports enable mutual TLS by default and restrict cipher suites to
+TLS-based transports enable mutual TLS by default. Both client and server
+explicitly restrict `tls.Config.CipherSuites` to
 `TLS_AES_128_GCM_SHA256`, `TLS_AES_256_GCM_SHA384`, and
-`TLS_CHACHA20_POLY1305_SHA256`. TLS transports require an explicit set of
-trusted CA roots. Connections are rejected if no roots are provided unless the
-transport configuration sets `AllowInsecure` to skip verification. Enabling this
-option logs a warning.
+`TLS_CHACHA20_POLY1305_SHA256`; handshakes fail if peers do not support one of
+these ciphers. TLS transports require an explicit set of trusted CA roots.
+Connections are rejected if no roots are provided unless the transport
+configuration sets `AllowInsecure` to skip verification. Enabling this option
+logs a warning.
 
 ## Examples
 
