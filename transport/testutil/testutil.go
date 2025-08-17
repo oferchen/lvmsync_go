@@ -61,6 +61,9 @@ func NewTransport(t *testing.T, name string) transport.Interface {
 	if err != nil {
 		t.Fatalf("get transport %s: %v", name, err)
 	}
+	if tr == nil {
+		t.Fatalf("get transport %s: nil", name)
+	}
 	return tr
 }
 

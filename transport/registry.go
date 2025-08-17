@@ -46,7 +46,14 @@ func Get(name string, cfg Config) (Interface, error) {
 	regMu.RLock()
 	defer regMu.RUnlock()
 	if f, ok := registry[name]; ok {
-		return f(cfg)
+		tr, err := f(cfg)
+		if err != nil {
+			return nil, err
+		}
+		if tr == nil {
+			return nil, fmt.Errorf("transport %q is nil", name)
+		}
+		return tr, nil
 	}
 	return nil, fmt.Errorf("transport %q not registered", name)
 }

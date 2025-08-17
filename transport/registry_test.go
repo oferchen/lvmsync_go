@@ -28,6 +28,16 @@ func (s *orderStub) Negotiate(context.Context, net.Conn, Role, common.Handshake)
 }
 
 func TestConcurrentRegister(t *testing.T) {
+	regMu.Lock()
+	original := registry
+	registry = map[string]Factory{}
+	regMu.Unlock()
+	defer func() {
+		regMu.Lock()
+		registry = original
+		regMu.Unlock()
+	}()
+
 	const goroutines = 50
 	var wg sync.WaitGroup
 	for i := 0; i < goroutines; i++ {
@@ -44,20 +54,49 @@ func TestConcurrentRegister(t *testing.T) {
 	logger := zap.NewNop()
 	for i := 0; i < goroutines; i++ {
 		name := fmt.Sprintf("test-%d", i)
-		if _, err := Get(name, Config{Logger: logger}); err != nil {
-			t.Errorf("get %s: %v", name, err)
+		if _, err := Get(name, Config{Logger: logger}); err == nil {
+			t.Errorf("expected error for %s", name)
 		}
 	}
 	logger.Sync()
 }
 
 func TestDuplicateRegister(t *testing.T) {
+	regMu.Lock()
+	original := registry
+	registry = map[string]Factory{}
+	regMu.Unlock()
+	defer func() {
+		regMu.Lock()
+		registry = original
+		regMu.Unlock()
+	}()
+
 	name := "dupe-test"
 	if err := Register(name, func(Config) (Interface, error) { return nil, nil }); err != nil {
 		t.Fatalf("first register: %v", err)
 	}
 	if err := Register(name, func(Config) (Interface, error) { return nil, nil }); err == nil {
 		t.Fatalf("expected duplicate registration error")
+	}
+}
+
+func TestGetNilTransport(t *testing.T) {
+	regMu.Lock()
+	original := registry
+	registry = map[string]Factory{}
+	regMu.Unlock()
+	defer func() {
+		regMu.Lock()
+		registry = original
+		regMu.Unlock()
+	}()
+
+	if err := Register("nil", func(Config) (Interface, error) { return nil, nil }); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+	if _, err := Get("nil", Config{Logger: zap.NewNop()}); err == nil {
+		t.Fatalf("expected error for nil transport")
 	}
 }
 
