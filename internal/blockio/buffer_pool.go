@@ -2,11 +2,15 @@ package blockio
 
 import (
 	"sync"
+	"unsafe"
 
 	"golang.org/x/sys/unix"
 )
 
-var bufferPools sync.Map
+var (
+	bufferPools    sync.Map
+	mmappedBuffers sync.Map // key uintptr -> []byte
+)
 
 func getAlignedBlockBuffer(size int) []byte {
 	if p, ok := bufferPools.Load(size); ok {
@@ -23,6 +27,10 @@ func getAlignedBlockBuffer(size int) []byte {
 		if err != nil {
 			buf := make([]byte, size)
 			return &buf
+		}
+		if len(b) > 0 {
+			ptr := uintptr(unsafe.Pointer(&b[0]))
+			mmappedBuffers.Store(ptr, b)
 		}
 		return &b
 	}}
@@ -42,6 +50,27 @@ func putAlignedBlockBuffer(buf []byte) {
 	if p, ok := bufferPools.Load(len(buf)); ok {
 		if pool, ok := p.(*sync.Pool); ok {
 			pool.Put(&buf)
+			return
 		}
 	}
+	if len(buf) > 0 {
+		ptr := uintptr(unsafe.Pointer(&buf[0]))
+		if bAny, ok := mmappedBuffers.LoadAndDelete(ptr); ok {
+			unix.Munmap(bAny.([]byte))
+		}
+	}
+}
+
+func purgeAlignedBlockBufferPools() {
+	bufferPools.Range(func(k, v any) bool {
+		bufferPools.Delete(k)
+		return true
+	})
+	mmappedBuffers.Range(func(k, v any) bool {
+		if b, ok := v.([]byte); ok {
+			unix.Munmap(b)
+		}
+		mmappedBuffers.Delete(k)
+		return true
+	})
 }
