@@ -234,17 +234,23 @@ func ReadHandshake(r *bufio.Reader) (Handshake, error) {
 // remote. If no common element exists, the first element of local is returned or
 // an empty string if local is empty.
 func SelectBest(local, remote []string) string {
-	for _, l := range local {
-		for _, r := range remote {
-			if l == r {
-				return l
-			}
-		}
+	if len(local) == 0 {
+		return ""
 	}
-	if len(local) > 0 {
+	if len(remote) == 0 {
 		return local[0]
 	}
-	return ""
+
+	remoteSet := make(map[string]struct{}, len(remote))
+	for _, r := range remote {
+		remoteSet[r] = struct{}{}
+	}
+	for _, l := range local {
+		if _, ok := remoteSet[l]; ok {
+			return l
+		}
+	}
+	return local[0]
 }
 
 func splitNonEmpty(v string) []string {
