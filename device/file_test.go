@@ -133,3 +133,20 @@ func TestFileSnapshotClosedDevice(t *testing.T) {
 		t.Fatalf("expected error for closed device")
 	}
 }
+
+func TestFileDevicePath(t *testing.T) {
+	f, err := os.CreateTemp(t.TempDir(), "filedev")
+	if err != nil {
+		t.Fatalf("temp file: %v", err)
+	}
+	path := f.Name()
+	f.Close()
+	d, err := OpenFile(path, zap.NewNop())
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer d.Close()
+	if d.Path() != path {
+		t.Fatalf("Path() = %q, want %q", d.Path(), path)
+	}
+}
