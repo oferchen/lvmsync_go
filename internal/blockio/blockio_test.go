@@ -206,6 +206,9 @@ func TestOpenNonexistentPath(t *testing.T) {
 }
 
 func TestOpenBlockDevice(t *testing.T) {
+	if os.Geteuid() != 0 {
+		t.Skip("requires root")
+	}
 	entries, err := os.ReadDir("/dev")
 	if err != nil {
 		t.Fatalf("readdir /dev: %v", err)
