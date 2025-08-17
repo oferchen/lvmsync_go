@@ -11,7 +11,7 @@ LVMSync is a high-performance incremental data replication tool for LVM snapshot
 - **Parallel Execution**: Configurable concurrency for optimal performance.
 - **Adaptive Transport Concurrency**: Maintains ~1–2×BDP of in-flight data and can be overridden with `--concurrency`.
 - **Rate-Limiting**: Control bandwidth usage during transfers.
-- **Compression**: Samples 8 KiB per chunk and skips compression when the ratio exceeds `--compress-threshold`. Auto mode selects LZ4 for chunks <256 KiB and Zstd for larger chunks on CPUs with AVX2 or NEON support. Compression levels are tuned via `--lz4-level` and `--zstd-level`.
+- **Compression**: Samples 8 KiB per chunk and skips compression when the ratio exceeds `--compress-threshold`. Auto mode selects LZ4 for chunks <256 KiB and Zstd for larger chunks on CPUs with AVX2 or NEON support. Compression levels are tuned via `--lz4-level` and `--zstd-level`. See [compression documentation](docs/compression.md) for pipeline details.
 - **Checksum Verification**: Ensures data integrity using SHA-256 or BLAKE3, automatically selecting BLAKE3 on CPUs with AES-NI, AVX2/AVX-512, or NEON.
 - **Native LVM2 Integration**: Uses Go bindings to `liblvm2cmd` instead of shelling out.
 - **Generic Block Device Support**: Access raw `/dev/*` paths and regular files (including loopback images) through a unified device abstraction.
