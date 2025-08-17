@@ -415,19 +415,20 @@ func TestDialClearDeadlineError(t *testing.T) {
 }
 
 func TestH2TransportSelectBestHandshake(t *testing.T) {
-	t.Skip("TODO: h2 select-best handshake flaky: investigate EOF")
 	cert, pool := generateSelfSignedCert(t)
 	trIface, err := New(transport.Config{Logger: zap.NewNop(), Roots: pool, ClientCert: cert, ServerCert: cert})
 	if err != nil {
 		t.Fatalf("new transport: %v", err)
 	}
 	tr := trIface.(*Transport)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-	ln, err := tr.Listen(ctx, "127.0.0.1:0")
+	baseCtx := context.Background()
+	listenCtx, cancel := context.WithTimeout(baseCtx, time.Second)
+	ln, err := tr.Listen(listenCtx, "127.0.0.1:0")
 	if err != nil {
+		cancel()
 		t.Fatalf("listen: %v", err)
 	}
+	defer cancel()
 	defer ln.Close()
 
 	srvCompress := []string{"zstd", "lz4"}
@@ -474,16 +475,29 @@ func TestH2TransportSelectBestHandshake(t *testing.T) {
 			srvErr <- err
 			return
 		}
-		_, err = tr.Negotiate(ctx, conn, transport.Server, srvHS)
+		srvCtx, cancel := context.WithTimeout(baseCtx, time.Second)
+		_, err = tr.Negotiate(srvCtx, conn, transport.Server, srvHS)
+		cancel()
+		if err == nil {
+			var buf [1]byte
+			conn.Read(buf[:])
+		}
 		conn.Close()
 		srvErr <- err
 	}()
 
-	conn, err := tr.Dial(ctx, ln.Addr().String())
+	dialCtx, cancel := context.WithTimeout(baseCtx, time.Second)
+	conn, err := tr.Dial(dialCtx, ln.Addr().String())
+	cancel()
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
-	peer, err := tr.Negotiate(ctx, conn, transport.Client, cliHS)
+	negCtx, cancel := context.WithTimeout(baseCtx, time.Second)
+	peer, err := tr.Negotiate(negCtx, conn, transport.Client, cliHS)
+	cancel()
+	if err == nil {
+		conn.Write([]byte{1})
+	}
 	conn.Close()
 	if err != nil {
 		t.Fatalf("client negotiate: %v", err)
