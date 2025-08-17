@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/kballard/go-shellquote"
+
 	digest "lvmsync_go/internal/digest"
 	"lvmsync_go/lvm"
 )
@@ -27,6 +29,24 @@ func (c *Config) ValidateWith(geteuid func() int) error {
 	}
 	if c.DestType != "" && c.DestType != "auto" && c.DestType != "file" && c.DestType != "raw" && c.DestType != "lvm" {
 		return fmt.Errorf("invalid dest type %q", c.DestType)
+	}
+	if c.FSFreezeCommand != "" {
+		parts, err := shellquote.Split(c.FSFreezeCommand)
+		if err != nil {
+			return fmt.Errorf("invalid fs-freeze-command: %w", err)
+		}
+		if len(parts) == 0 || !filepath.IsAbs(parts[0]) {
+			return fmt.Errorf("fs-freeze-command path %q must be absolute", c.FSFreezeCommand)
+		}
+	}
+	if c.FSThawCommand != "" {
+		parts, err := shellquote.Split(c.FSThawCommand)
+		if err != nil {
+			return fmt.Errorf("invalid fs-thaw-command: %w", err)
+		}
+		if len(parts) == 0 || !filepath.IsAbs(parts[0]) {
+			return fmt.Errorf("fs-thaw-command path %q must be absolute", c.FSThawCommand)
+		}
 	}
 	if c.SSHKeepAliveInterval <= 0 {
 		return fmt.Errorf("ssh keepalive interval must be > 0")
