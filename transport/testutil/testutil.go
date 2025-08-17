@@ -71,7 +71,8 @@ type Result struct {
 
 func RunNegotiation(t *testing.T, tr transport.Interface, serverHS, clientHS common.Handshake) (Result, Result) {
 	t.Helper()
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	ln, err := tr.Listen(ctx, "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("listen: %v", err)
