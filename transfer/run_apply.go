@@ -9,7 +9,6 @@ import (
 	"go.uber.org/zap"
 
 	"lvmsync_go/common"
-	"lvmsync_go/device"
 	"lvmsync_go/internal/config"
 )
 
@@ -26,7 +25,7 @@ func openApplyReader(applyFile string) (io.ReadCloser, error) {
 
 func (t *Transfer) applyData(cfg *config.Config, in io.Reader, destDevice string) error {
 	if cfg.DeviceUUID != "" {
-		uuid, err := device.GetDeviceID(context.Background(), destDevice)
+		uuid, err := t.Info.GetDeviceID(context.Background(), destDevice)
 		if err != nil {
 			return fmt.Errorf("read destination uuid: %w", err)
 		}
@@ -34,7 +33,7 @@ func (t *Transfer) applyData(cfg *config.Config, in io.Reader, destDevice string
 			return fmt.Errorf("destination device uuid %s does not match expected %s", uuid, cfg.DeviceUUID)
 		}
 	}
-	mounted, err := device.IsMountedRW(destDevice)
+	mounted, err := t.Info.IsMountedRW(destDevice)
 	if err != nil {
 		return fmt.Errorf("check mount status: %w", err)
 	}

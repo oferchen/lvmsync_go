@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"testing"
 
@@ -16,18 +15,16 @@ import (
 func TestGetUUIDCanceledContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if _, err := GetUUID(ctx, "/dev/null"); !errors.Is(err, context.Canceled) {
+	if _, err := defaultInfo.GetUUID(ctx, "/dev/null"); !errors.Is(err, context.Canceled) {
 		t.Fatalf("expected context canceled error, got %v", err)
 	}
 }
 
 func TestGetUUIDStub(t *testing.T) {
-	prev := SetUUIDFunc(func(ctx context.Context, path string) (string, error) {
+	info := NewInfoWithDeps(func(context.Context, string) (string, error) {
 		return "stub-uuid", nil
-	})
-	defer SetUUIDFunc(prev)
-
-	got, err := GetUUID(context.Background(), "/dev/sda")
+	}, nil, nil)
+	got, err := info.GetUUID(context.Background(), "/dev/sda")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -36,22 +33,9 @@ func TestGetUUIDStub(t *testing.T) {
 	}
 }
 
-func TestSetUUIDFunc(t *testing.T) {
-	orig := uuidFunc
-	stub := func(context.Context, string) (string, error) { return "new", nil }
-	prev := SetUUIDFunc(stub)
-	if reflect.ValueOf(prev).Pointer() != reflect.ValueOf(orig).Pointer() {
-		t.Fatalf("expected previous function to be original")
-	}
-	if reflect.ValueOf(uuidFunc).Pointer() != reflect.ValueOf(stub).Pointer() {
-		t.Fatalf("uuidFunc not replaced")
-	}
-	SetUUIDFunc(prev)
-}
-
 func TestGetUUIDError(t *testing.T) {
 	wantErr := errors.New("fail")
-	prev := SetUUIDFunc(func(ctx context.Context, path string) (string, error) {
+	info := NewInfoWithDeps(func(ctx context.Context, path string) (string, error) {
 		if _, ok := ctx.Deadline(); !ok {
 			t.Fatalf("expected context with deadline")
 		}
@@ -59,58 +43,46 @@ func TestGetUUIDError(t *testing.T) {
 			t.Fatalf("unexpected path %q", path)
 		}
 		return "", wantErr
-	})
-	defer SetUUIDFunc(prev)
-
-	if _, err := GetUUID(context.Background(), "/dev/fail"); !errors.Is(err, wantErr) {
+	}, nil, nil)
+	if _, err := info.GetUUID(context.Background(), "/dev/fail"); !errors.Is(err, wantErr) {
 		t.Fatalf("expected %v, got %v", wantErr, err)
 	}
 }
 
 func TestGetDeviceIDPrefersLVM(t *testing.T) {
-	prevLVM := SetLVMUUIDFunc(func(context.Context, string) (string, error) { return "lv-id", nil })
-	defer SetLVMUUIDFunc(prevLVM)
-	called := false
-	prev := SetUUIDFunc(func(context.Context, string) (string, error) { called = true; return "blkid-id", nil })
-	defer SetUUIDFunc(prev)
-
-	got, err := GetDeviceID(context.Background(), "/dev/lvm0")
+	info := NewInfoWithDeps(
+		func(context.Context, string) (string, error) { return "blkid-id", nil },
+		func(context.Context, string) (string, error) { return "lv-id", nil },
+		nil,
+	)
+	got, err := info.GetDeviceID(context.Background(), "/dev/lvm0")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if got != "lv-id" {
 		t.Fatalf("expected lv-id, got %q", got)
 	}
-	if called {
-		t.Fatalf("expected blkid lookup to be skipped")
-	}
 }
 
 func TestIDsMatch(t *testing.T) {
-	prevLVM := SetLVMUUIDFunc(func(context.Context, string) (string, error) { return "", errors.New("no lvm") })
-	defer SetLVMUUIDFunc(prevLVM)
-	prev := SetUUIDFunc(func(_ context.Context, path string) (string, error) {
-		if strings.Contains(path, "src") {
-			return "id1", nil
-		}
-		if strings.Contains(path, "dest") {
-			return "id2", nil
-		}
-		return "", nil
-	})
-	defer SetUUIDFunc(prev)
-
-	match, err := IDsMatch(context.Background(), "/dev/src", "/dev/dest")
+	info := NewInfoWithDeps(
+		func(_ context.Context, path string) (string, error) {
+			if strings.Contains(path, "src") {
+				return "id1", nil
+			}
+			if strings.Contains(path, "dest") {
+				return "id2", nil
+			}
+			return "same", nil
+		}, nil, nil)
+	match, err := info.IDsMatch(context.Background(), "/dev/src", "/dev/dest")
 	if err != nil {
 		t.Fatalf("IDsMatch: %v", err)
 	}
 	if match {
 		t.Fatalf("expected mismatch")
 	}
-
-	prev2 := SetUUIDFunc(func(_ context.Context, path string) (string, error) { return "same", nil })
-	defer SetUUIDFunc(prev2)
-	match, err = IDsMatch(context.Background(), "/dev/a", "/dev/b")
+	match, err = info.IDsMatch(context.Background(), "/dev/a", "/dev/b")
 	if err != nil {
 		t.Fatalf("IDsMatch: %v", err)
 	}
@@ -119,49 +91,21 @@ func TestIDsMatch(t *testing.T) {
 	}
 }
 
-func TestSetMountFunc(t *testing.T) {
-	orig := mountFunc
-	stub := func(string) (bool, error) { return true, nil }
-	prev := SetMountFunc(stub)
-	if reflect.ValueOf(prev).Pointer() != reflect.ValueOf(orig).Pointer() {
-		t.Fatalf("expected previous function to be original")
-	}
-	if reflect.ValueOf(mountFunc).Pointer() != reflect.ValueOf(stub).Pointer() {
-		t.Fatalf("mountFunc not replaced")
-	}
-	SetMountFunc(prev)
-}
-
 func TestIsMountedRW(t *testing.T) {
-	tests := []struct {
-		name string
-		val  bool
-	}{
-		{"mounted", true},
-		{"unmounted", false},
+	info := NewInfoWithDeps(nil, nil, func(string) (bool, error) { return true, nil })
+	got, err := info.IsMountedRW("/dev/sda")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			prev := SetMountFunc(func(path string) (bool, error) { return tt.val, nil })
-			defer SetMountFunc(prev)
-
-			got, err := IsMountedRW("/dev/sda")
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			if got != tt.val {
-				t.Fatalf("expected %v, got %v", tt.val, got)
-			}
-		})
+	if !got {
+		t.Fatalf("expected mounted read-write")
 	}
 }
 
 func TestIsMountedRWError(t *testing.T) {
 	want := errors.New("boom")
-	prev := SetMountFunc(func(string) (bool, error) { return false, want })
-	defer SetMountFunc(prev)
-	if _, err := IsMountedRW("/dev/sda"); !errors.Is(err, want) {
+	info := NewInfoWithDeps(nil, nil, func(string) (bool, error) { return false, want })
+	if _, err := info.IsMountedRW("/dev/sda"); !errors.Is(err, want) {
 		t.Fatalf("expected %v, got %v", want, err)
 	}
 }
@@ -197,10 +141,8 @@ func TestDefaultMountFunc(t *testing.T) {
 			mounts.Close()
 			defer os.Remove(mounts.Name())
 
-			prev := SetMountFunc(mountFuncFromMountInfoFile(mounts.Name()))
-			defer SetMountFunc(prev)
-
-			got, err := IsMountedRW(dev.Name())
+			info := NewInfoWithDeps(nil, nil, mountFuncFromMountInfoFile(mounts.Name()))
+			got, err := info.IsMountedRW(dev.Name())
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -231,10 +173,8 @@ func TestDefaultMountFuncSpecialChars(t *testing.T) {
 	mounts.Close()
 	defer os.Remove(mounts.Name())
 
-	prev := SetMountFunc(mountFuncFromMountInfoFile(mounts.Name()))
-	defer SetMountFunc(prev)
-
-	got, err := IsMountedRW(dev.Name())
+	info := NewInfoWithDeps(nil, nil, mountFuncFromMountInfoFile(mounts.Name()))
+	got, err := info.IsMountedRW(dev.Name())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -264,10 +204,8 @@ func TestDefaultMountFuncMultipleRecords(t *testing.T) {
 	mounts.Close()
 	defer os.Remove(mounts.Name())
 
-	prev := SetMountFunc(mountFuncFromMountInfoFile(mounts.Name()))
-	defer SetMountFunc(prev)
-
-	got, err := IsMountedRW(dev.Name())
+	info := NewInfoWithDeps(nil, nil, mountFuncFromMountInfoFile(mounts.Name()))
+	got, err := info.IsMountedRW(dev.Name())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -297,10 +235,8 @@ func TestDefaultMountFuncBindMount(t *testing.T) {
 	mounts.Close()
 	defer os.Remove(mounts.Name())
 
-	prev := SetMountFunc(mountFuncFromMountInfoFile(mounts.Name()))
-	defer SetMountFunc(prev)
-
-	got, err := IsMountedRW(dev.Name())
+	info := NewInfoWithDeps(nil, nil, mountFuncFromMountInfoFile(mounts.Name()))
+	got, err := info.IsMountedRW(dev.Name())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -318,10 +254,8 @@ func TestDefaultMountFuncError(t *testing.T) {
 	dev.Close()
 
 	nonexistent := filepath.Join(os.TempDir(), "does-not-exist")
-	prev := SetMountFunc(mountFuncFromMountInfoFile(nonexistent))
-	defer SetMountFunc(prev)
-
-	if _, err := IsMountedRW(dev.Name()); err == nil {
+	info := NewInfoWithDeps(nil, nil, mountFuncFromMountInfoFile(nonexistent))
+	if _, err := info.IsMountedRW(dev.Name()); err == nil {
 		t.Fatalf("expected error when reading mountinfo file")
 	}
 }

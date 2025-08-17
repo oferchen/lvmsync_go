@@ -17,7 +17,7 @@ import (
 
 func TestDumpChangesSequentialLogFields(t *testing.T) {
 	core, logs := observer.New(zap.InfoLevel)
-	tr := NewTransfer(zap.New(core), &sync.WaitGroup{})
+	tr := NewTransfer(zap.New(core), &sync.WaitGroup{}, nil)
 
 	blockSize := int64(1024)
 	changed := []int{0, 2}

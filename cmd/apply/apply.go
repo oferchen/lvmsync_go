@@ -29,7 +29,7 @@ type Runner struct {
 func NewRunner() *Runner {
 	return &Runner{
 		applyFunc: func(cfg *config.Config, applyFile, destDevice string, logger *zap.Logger) error {
-			t := transfer.NewTransfer(logger, &sync.WaitGroup{})
+			t := transfer.NewTransfer(logger, &sync.WaitGroup{}, nil)
 			return t.RunApply(cfg, applyFile, destDevice)
 		},
 		detectDevice: device.Detect,

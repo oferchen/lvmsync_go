@@ -43,7 +43,7 @@ func NewDeviceRunner(cmd Commander) *Runner {
 		volumeExists:      lvm.VolumeExists,
 		autoExtendEnabled: lvm.AutoExtendEnabled,
 		discardEnabled:    lvm.DiscardEnabled,
-		isMountedRW:       IsMountedRW,
+		isMountedRW:       defaultInfo.IsMountedRW,
 		lockAcquire:       lock.Acquire,
 	}
 }

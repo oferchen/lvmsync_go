@@ -51,7 +51,7 @@ func parseOffsetsNoHandshake(t *testing.T, r io.Reader) []int64 {
 }
 
 func TestDumpChangesSequential(t *testing.T) {
-	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{})
+	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, nil)
 	blockSize := int64(1024)
 	changed := []int{0, 2}
 	src, snapshot := createDumpTestFiles(t, blockSize, changed)
@@ -84,7 +84,7 @@ func (d *dummyDedup) RecordTransfer(int64, []byte)      {}
 func (d *dummyDedup) SaveState() error                  { return nil }
 
 func TestDumpChangesWithDeduplication(t *testing.T) {
-	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{})
+	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, nil)
 	blockSize := int64(1024)
 	changed := []int{1}
 	src, snapshot := createDumpTestFiles(t, blockSize, changed)
@@ -114,7 +114,7 @@ func TestDumpChangesWithDeduplication(t *testing.T) {
 
 func TestDumpChangesParallelProgress(t *testing.T) {
 	core, logs := observer.New(zap.InfoLevel)
-	tr := NewTransfer(zap.New(core), &sync.WaitGroup{})
+	tr := NewTransfer(zap.New(core), &sync.WaitGroup{}, nil)
 	blockSize := int64(1024)
 	changed := []int{0}
 	src, snapshot := createDumpTestFiles(t, blockSize, changed)
@@ -130,7 +130,7 @@ func TestDumpChangesParallelProgress(t *testing.T) {
 }
 
 func TestProcessDumpDataAutoDecompression(t *testing.T) {
-	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{})
+	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, nil)
 	blockSize := int64(1024)
 	changed := []int{0}
 	src, snapshot := createDumpTestFiles(t, blockSize, changed)
@@ -186,7 +186,7 @@ func TestProcessDumpDataAutoDecompression(t *testing.T) {
 }
 
 func TestDumpChangesSequentialCanceled(t *testing.T) {
-	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{})
+	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, nil)
 	blockSize := int64(1024)
 	changed := []int{0, 1}
 	src, snapshot := createDumpTestFiles(t, blockSize, changed)
@@ -199,7 +199,7 @@ func TestDumpChangesSequentialCanceled(t *testing.T) {
 }
 
 func TestDumpChangesParallelCanceled(t *testing.T) {
-	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{})
+	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, nil)
 	blockSize := int64(1024)
 	changed := []int{0, 1}
 	src, snapshot := createDumpTestFiles(t, blockSize, changed)

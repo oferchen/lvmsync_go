@@ -74,7 +74,7 @@ func TestNewDeduplicationStrategyInvalidBloomEntries(t *testing.T) {
 }
 
 func TestNewTransferNilLogger(t *testing.T) {
-	tr := NewTransfer(nil, nil)
+	tr := NewTransfer(nil, nil, nil)
 	if tr.Logger == nil {
 		t.Fatal("expected non-nil logger")
 	}

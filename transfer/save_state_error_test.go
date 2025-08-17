@@ -16,7 +16,7 @@ import (
 func TestDumpChangesLogsSaveStateError(t *testing.T) {
 	core, observed := observer.New(zap.ErrorLevel)
 	logger := zap.New(core)
-	tr := NewTransfer(logger, &sync.WaitGroup{})
+	tr := NewTransfer(logger, &sync.WaitGroup{}, nil)
 
 	blockSize := int64(1024)
 	changed := []int{0}

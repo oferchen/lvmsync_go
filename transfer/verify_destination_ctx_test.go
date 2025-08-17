@@ -17,7 +17,7 @@ import (
 )
 
 func TestVerifyDestinationNilContext(t *testing.T) {
-	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{})
+	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, nil)
 	cfg := &config.Config{}
 	dest := filepath.Join(t.TempDir(), "dest")
 	if err := os.WriteFile(dest, []byte("data"), 0600); err != nil {
@@ -37,7 +37,7 @@ func TestVerifyDestinationCanceledContext(t *testing.T) {
 	prevMount := device.SetMountFunc(func(string) (bool, error) { return false, nil })
 	defer device.SetMountFunc(prevMount)
 
-	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{})
+	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, nil)
 	cfg := &config.Config{DeviceUUID: "id"}
 	dest := filepath.Join(t.TempDir(), "dest")
 	if err := os.WriteFile(dest, nil, 0600); err != nil {
