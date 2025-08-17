@@ -14,8 +14,8 @@ type Config struct {
 	Roots         *x509.CertPool
 	ClientCert    tls.Certificate
 	ServerCert    tls.Certificate
-	Logger        *zap.Logger
-	AllowInsecure bool // Skip certificate verification (development only)
+	Logger        *zap.Logger // optional; defaults to zap.NewNop()
+	AllowInsecure bool        // Skip certificate verification (development only)
 	SSHUser       string
 	SSHPassword   string
 	SSHKnownHosts string

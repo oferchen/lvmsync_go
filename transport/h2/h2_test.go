@@ -618,9 +618,9 @@ func TestH2DialUnreachable(t *testing.T) {
 	}
 }
 
-func TestH2TransportRequiresLogger(t *testing.T) {
-	if _, err := New(transport.Config{}); err == nil {
-		t.Fatalf("expected error when logger is nil")
+func TestH2TransportLoggerOptional(t *testing.T) {
+	if _, err := New(transport.Config{AllowInsecure: true}); err != nil {
+		t.Fatalf("New: %v", err)
 	}
 }
 

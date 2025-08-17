@@ -740,9 +740,9 @@ func TestSSHTransportNegotiateTimeoutServer(t *testing.T) {
 	conn.Close()
 }
 
-func TestSSHTransportRequiresLogger(t *testing.T) {
-	if _, err := New(context.Background(), transport.Config{SSHUser: "u", SSHPassword: "p"}); err == nil {
-		t.Fatalf("expected error when logger is nil")
+func TestSSHTransportLoggerOptional(t *testing.T) {
+	if _, err := New(context.Background(), transport.Config{SSHUser: "u", SSHPassword: "p"}); err != nil {
+		t.Fatalf("New: %v", err)
 	}
 }
 

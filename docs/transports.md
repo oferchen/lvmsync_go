@@ -6,6 +6,9 @@ LVMSync supports multiple transports selectable with the `--transport` flag.
 Transports are tried in order until a connection is established. The default
 order is `quic,h2,tcp+tls,ssh`.
 
+Each transport constructor accepts a configuration with an optional `zap.Logger`.
+When no logger is supplied, a no-op logger is used.
+
 Every session begins with a textual handshake starting with `lvmsync PROTO[3]`.
 Tokens advertise supported transports, compression algorithms, digests,
 endianness (`endian:<little|big>`), block sizes (`block:<n>`), deduplication

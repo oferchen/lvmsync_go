@@ -51,10 +51,10 @@ type listener struct {
 	ctx context.Context
 }
 
-// New returns a new Transport.
+// New returns a new Transport. Logger is optional; a no-op logger is used when nil.
 func New(cfg transport.Config) (transport.Interface, error) {
 	if cfg.Logger == nil {
-		return nil, fmt.Errorf("logger is required")
+		cfg.Logger = zap.NewNop()
 	}
 	if cfg.Roots == nil && !cfg.AllowInsecure {
 		return nil, fmt.Errorf("tls roots are required unless AllowInsecure is set")
