@@ -30,6 +30,9 @@ func (s *sudoEscalator) Ensure(ctx context.Context) error {
 			return fmt.Errorf("sudo not found: %w", err)
 		}
 		if err := s.runner.Cmd.CommandContext(ctx, "sudo", "-n", "true").Run(); err != nil {
+			if ctxErr := ctx.Err(); ctxErr != nil {
+				return fmt.Errorf("sudo escalation failed: %w", ctxErr)
+			}
 			return fmt.Errorf("sudo escalation failed: %w", err)
 		}
 		return nil

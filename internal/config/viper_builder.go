@@ -25,6 +25,7 @@ type builder struct {
 }
 
 func (b *builder) Build() (*Config, error) {
+	registerKeyAliases(b.v)
 	var conf Config
 	if err := b.v.Unmarshal(&conf); err != nil {
 		return nil, fmt.Errorf("error unmarshaling config: %w", err)
@@ -50,10 +51,10 @@ func (b *builder) applyDefaults(conf *Config) error {
 	if conf.Mode == "" {
 		conf.Mode = b.defaults.Mode
 	}
-	if !b.v.IsSet("allow-insecure") {
+	if !isSet(b.v, "allow-insecure") {
 		conf.AllowInsecure = b.defaults.AllowInsecure
 	}
-	if !b.v.IsSet("numa-pin") {
+	if !isSet(b.v, "numa-pin") {
 		conf.NumaPin = b.defaults.NumaPin
 	}
 	if conf.GRPCPort == 0 {
@@ -68,7 +69,7 @@ func (b *builder) applyDefaults(conf *Config) error {
 	if conf.ManifestProgressInterval == 0 {
 		conf.ManifestProgressInterval = b.defaults.ManifestProgressInterval
 	}
-	if !b.v.IsSet("manifest-allow-mounted") {
+	if !isSet(b.v, "manifest-allow-mounted") {
 		conf.ManifestAllowMounted = b.defaults.ManifestAllowMounted
 	}
 
@@ -161,42 +162,42 @@ func (b *builder) applyDefaults(conf *Config) error {
 }
 
 func (b *builder) applyThroughput(conf *Config) {
-	if !b.v.IsSet("transport") {
+	if !isSet(b.v, "transport") {
 		conf.Transport = "tcp+tls"
 	}
-	if !b.v.IsSet("parallel") {
+	if !isSet(b.v, "parallel") {
 		conf.Parallel = 8
 	}
-	if !b.v.IsSet("concurrency") {
+	if !isSet(b.v, "concurrency") {
 		conf.Concurrency = 8
 	}
-	if !b.v.IsSet("dedup") {
+	if !isSet(b.v, "dedup") {
 		conf.DedupMode = "hybrid"
 	}
-	if !b.v.IsSet("block-size") {
+	if !isSet(b.v, "block-size") {
 		conf.BlockSize = 2 * 1024 * 1024
 		conf.BlockSizeRaw = "2097152"
 	}
-	if !b.v.IsSet("cdc-min") {
+	if !isSet(b.v, "cdc-min") {
 		conf.CDCMin = 256 * 1024
 	}
-	if !b.v.IsSet("cdc-avg") {
+	if !isSet(b.v, "cdc-avg") {
 		conf.CDCAvg = 2 * 1024 * 1024
 	}
-	if !b.v.IsSet("cdc-max") {
+	if !isSet(b.v, "cdc-max") {
 		conf.CDCMax = 8 * 1024 * 1024
 	}
-	if !b.v.IsSet("compress") {
+	if !isSet(b.v, "compress") {
 		conf.Compress = Auto
 	}
-	if !b.v.IsSet("odirect") {
+	if !isSet(b.v, "odirect") {
 		conf.ODirect = true
 	}
-	if !b.v.IsSet("sync_interval") {
+	if !isSet(b.v, "sync_interval") {
 		conf.SyncInterval = "1GB"
 		conf.SyncIntervalBytes = 1000000000
 	}
-	if !b.v.IsSet("checkpoint-interval") && conf.CheckpointInterval == 0 {
+	if !isSet(b.v, "checkpoint-interval") && conf.CheckpointInterval == 0 {
 		conf.CheckpointInterval = 10 * time.Second
 	}
 }
@@ -300,24 +301,26 @@ func buildViper(flagSets *FlagSets) (*viper.Viper, []string, error) {
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
 	v.SetEnvPrefix("LVMSYNC")
 	v.AutomaticEnv()
-	keys := []string{
-		"source-type",
-		"dest-type",
-	}
-	for _, k := range keys {
-		if err := v.BindEnv(k); err != nil {
-			return nil, nil, err
-		}
-	}
+	var envErr error
 	for _, fs := range flagSets.All() {
 		if err := v.BindPFlags(fs); err != nil {
 			return nil, nil, err
 		}
 		fs.VisitAll(func(f *pflag.Flag) {
+			if envErr == nil {
+				envErr = v.BindEnv(f.Name)
+			}
 			if strings.Contains(f.Name, "-") {
-				v.RegisterAlias(strings.ReplaceAll(f.Name, "-", "_"), f.Name)
+				if f.Name == "allow-insecure" {
+					v.RegisterAlias(f.Name, "allow_insecure")
+				} else {
+					v.RegisterAlias(strings.ReplaceAll(f.Name, "-", "_"), f.Name)
+				}
 			}
 		})
+	}
+	if envErr != nil {
+		return nil, nil, envErr
 	}
 	if err := bindTransportEnv(flagSets.Transport, v); err != nil {
 		return nil, nil, err
@@ -367,4 +370,28 @@ func knownConfigKeys() map[string]struct{} {
 		}
 	}
 	return keys
+}
+
+func registerKeyAliases(v *viper.Viper) {
+	for k := range knownConfigKeys() {
+		switch {
+		case strings.Contains(k, "-"):
+			v.RegisterAlias(strings.ReplaceAll(k, "-", "_"), k)
+		case strings.Contains(k, "_"):
+			v.RegisterAlias(strings.ReplaceAll(k, "_", "-"), k)
+		}
+	}
+}
+
+func isSet(v *viper.Viper, key string) bool {
+	if v.IsSet(key) {
+		return true
+	}
+	if strings.Contains(key, "-") {
+		return v.IsSet(strings.ReplaceAll(key, "-", "_"))
+	}
+	if strings.Contains(key, "_") {
+		return v.IsSet(strings.ReplaceAll(key, "_", "-"))
+	}
+	return false
 }
