@@ -8,6 +8,7 @@ import (
 	"net"
 	"time"
 
+	"go.uber.org/multierr"
 	"go.uber.org/zap"
 
 	quic "github.com/quic-go/quic-go"
@@ -35,13 +36,15 @@ type Conn struct {
 	qconn        quic.Connection
 	stream       quic.Stream
 	readDeadline time.Time
+	logger       *zap.Logger
 }
 
 // listener adapts a quic.Listener to net.Listener by accepting a stream for
 // each connection.
 type listener struct {
-	ql  *quic.Listener
-	ctx context.Context
+	ql     *quic.Listener
+	ctx    context.Context
+	logger *zap.Logger
 }
 
 // New constructs a Transport using the provided TLS roots and client cert.
@@ -130,7 +133,7 @@ func (t *Transport) Dial(ctx context.Context, address string) (net.Conn, error) 
 		return nil, err
 	}
 	t.logger.Info("dial_end", fields...)
-	return &Conn{qconn: qconn, stream: stream}, nil
+	return &Conn{qconn: qconn, stream: stream, logger: t.logger}, nil
 }
 
 // Listen starts a QUIC listener.
@@ -154,7 +157,7 @@ func (t *Transport) Listen(ctx context.Context, address string) (net.Listener, e
 		return nil, err
 	}
 	t.logger.Info("listen_end", fields...)
-	return &listener{ql: ql, ctx: ctx}, nil
+	return &listener{ql: ql, ctx: ctx, logger: t.logger}, nil
 }
 
 // Accept waits for the next connection and returns its first stream.
@@ -171,7 +174,7 @@ func (l *listener) Accept() (net.Conn, error) {
 		qconn.CloseWithError(0, err.Error())
 		return nil, err
 	}
-	return &Conn{qconn: qconn, stream: stream}, nil
+	return &Conn{qconn: qconn, stream: stream, logger: l.logger}, nil
 }
 
 func (l *listener) Close() error { return l.ql.Close() }
@@ -309,8 +312,17 @@ func (c *Conn) ReceiveDatagram(ctx context.Context) ([]byte, error) {
 func (c *Conn) Read(p []byte) (int, error)  { return c.stream.Read(p) }
 func (c *Conn) Write(p []byte) (int, error) { return c.stream.Write(p) }
 func (c *Conn) Close() error {
-	_ = c.qconn.CloseWithError(0, "")
-	return c.stream.Close()
+	err1 := c.qconn.CloseWithError(0, "")
+	err2 := c.stream.Close()
+	err := multierr.Append(err1, err2)
+	if err != nil {
+		c.logger.Error("close_failed",
+			zap.String("remote_addr", c.qconn.RemoteAddr().String()),
+			zap.String("local_addr", c.qconn.LocalAddr().String()),
+			zap.Error(err),
+		)
+	}
+	return err
 }
 func (c *Conn) LocalAddr() net.Addr  { return c.qconn.LocalAddr() }
 func (c *Conn) RemoteAddr() net.Addr { return c.qconn.RemoteAddr() }
