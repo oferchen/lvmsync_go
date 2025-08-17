@@ -90,13 +90,18 @@ func fakeSudo(code int) func(string, ...string) *exec.Cmd {
 	}
 }
 
-func TestSudoSuccess(t *testing.T) {
+func requireSudo(t *testing.T) {
+	t.Helper()
 	if os.Geteuid() != 0 {
 		t.Skip("root required")
 	}
 	if _, err := exec.LookPath("sudo"); err != nil {
 		t.Skip("sudo not available")
 	}
+}
+
+func TestSudoSuccess(t *testing.T) {
+	requireSudo(t)
 	HasCaps = func() bool { return false }
 	esc := NewWithRunner(context.Background(), &Runner{Cmd: cmdFunc(func(ctx context.Context, name string, args ...string) *exec.Cmd {
 		return fakeSudo(0)(name, args...)
@@ -108,12 +113,7 @@ func TestSudoSuccess(t *testing.T) {
 }
 
 func TestSudoPermissionDenied(t *testing.T) {
-	if os.Geteuid() != 0 {
-		t.Skip("root required")
-	}
-	if _, err := exec.LookPath("sudo"); err != nil {
-		t.Skip("sudo not available")
-	}
+	requireSudo(t)
 	HasCaps = func() bool { return false }
 	esc := NewWithRunner(context.Background(), &Runner{Cmd: cmdFunc(func(ctx context.Context, name string, args ...string) *exec.Cmd {
 		return fakeSudo(1)(name, args...)
@@ -129,12 +129,7 @@ func TestSudoPermissionDenied(t *testing.T) {
 }
 
 func TestSudoCommandNotFound(t *testing.T) {
-	if os.Geteuid() != 0 {
-		t.Skip("root required")
-	}
-	if _, err := exec.LookPath("sudo"); err != nil {
-		t.Skip("sudo not available")
-	}
+	requireSudo(t)
 	HasCaps = func() bool { return false }
 	esc := NewWithRunner(context.Background(), &Runner{Cmd: cmdFunc(func(ctx context.Context, name string, args ...string) *exec.Cmd {
 		return fakeSudo(127)(name, args...)
