@@ -319,12 +319,8 @@ func buildViper(flagSets *FlagSets) (*viper.Viper, []string, error) {
 			if envErr == nil {
 				envErr = v.BindEnv(f.Name)
 			}
-			if strings.Contains(f.Name, "-") {
-				if f.Name == "allow-insecure" {
-					v.RegisterAlias(f.Name, "allow_insecure")
-				} else {
-					v.RegisterAlias(strings.ReplaceAll(f.Name, "-", "_"), f.Name)
-				}
+			if strings.Contains(f.Name, "-") && f.Name != "allow-insecure" {
+				v.RegisterAlias(strings.ReplaceAll(f.Name, "-", "_"), f.Name)
 			}
 		})
 	}

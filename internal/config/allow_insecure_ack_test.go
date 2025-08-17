@@ -34,5 +34,20 @@ func TestAllowInsecureRequiresFlagOrEnv(t *testing.T) {
 	fs = pflag.NewFlagSet("test", pflag.ContinueOnError)
 	if _, _, _, err := builder.Build(fs, []string{"--config", cfgPath, "--allow-insecure"}); err != nil {
 		t.Fatalf("unexpected error with flag ack: %v", err)
+			t.Setenv("LVMSYNC_ALLOW_INSECURE", "1")
+			fs = pflag.NewFlagSet("test", pflag.ContinueOnError)
+			if cfg, _, _, err := builder.Build(fs, []string{"--config", cfgPath}); err != nil {
+				t.Fatalf("unexpected error with env ack: %v", err)
+			} else if !cfg.AllowInsecure {
+				t.Fatalf("AllowInsecure not set with env ack")
+			}
+
+			fs = pflag.NewFlagSet("test", pflag.ContinueOnError)
+			if cfg, _, _, err := builder.Build(fs, []string{"--config", cfgPath, "--allow-insecure"}); err != nil {
+				t.Fatalf("unexpected error with flag ack: %v", err)
+			} else if !cfg.AllowInsecure {
+				t.Fatalf("AllowInsecure not set with flag ack")
+			}
+		})
 	}
 }
