@@ -50,7 +50,7 @@ func NewSSHClient(
 		logger = zap.NewNop()
 	}
 
-	authMethods, err := selectAuthMethods(logger, keyPath)
+	authMethods, err := selectAuthMethods(ctx, logger, keyPath, timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +78,7 @@ func NewSSHClient(
 }
 
 //revive:disable-next-line:cognitive-complexity
-func selectAuthMethods(logger *zap.Logger, keyPath string) ([]ssh.AuthMethod, error) {
+func selectAuthMethods(ctx context.Context, logger *zap.Logger, keyPath string, timeout time.Duration) ([]ssh.AuthMethod, error) {
 	var authMethods []ssh.AuthMethod
 	if keyPath != "" {
 		key, err := os.ReadFile(keyPath)
@@ -93,8 +93,12 @@ func selectAuthMethods(logger *zap.Logger, keyPath string) ([]ssh.AuthMethod, er
 	} else {
 		sshAgentSock := os.Getenv("SSH_AUTH_SOCK")
 		if sshAgentSock != "" {
-			conn, err := net.DialTimeout("unix", sshAgentSock, 5*time.Second)
+			dialer := net.Dialer{Timeout: timeout}
+			conn, err := dialer.DialContext(ctx, "unix", sshAgentSock)
 			if err != nil {
+				if ctxErr := ctx.Err(); ctxErr != nil {
+					return nil, ctxErr
+				}
 				logger.Warn("ssh agent dial failed", zap.String("sock", sshAgentSock), zap.Error(err))
 			} else {
 				agentClient := agent.NewClient(conn)
