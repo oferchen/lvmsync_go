@@ -11,3 +11,6 @@
 
 ## Next Steps
 - Implement transport backends and reintroduce comprehensive compression tests.
+
+## Readiness
+- Current readiness level: R2 (missing transport implementations)
