@@ -29,7 +29,6 @@ type Config struct {
 	SourceType               string        `mapstructure:"source-type"`
 	DestType                 string        `mapstructure:"dest-type"`
 	ConfigFile               string        `mapstructure:"config"`
-	ApplyMode                string        `mapstructure:"apply"`
 	StdoutMode               bool          `mapstructure:"stdout"`
 	DryRun                   bool          `mapstructure:"dry_run"`
 	Force                    bool          `mapstructure:"force"`
@@ -170,7 +169,6 @@ func DefaultConfig() (*Config, error) {
 	}
 	return &Config{
 		Mode:                     "default",
-		ApplyMode:                "",
 		StdoutMode:               false,
 		DryRun:                   false,
 		Force:                    false,

@@ -17,7 +17,6 @@ func TestInitGeneralFlags(t *testing.T) {
 	fs := initGeneralFlags(cfg)
 	cases := []struct{ name, want string }{
 		{"config", ""},
-		{"apply", cfg.ApplyMode},
 		{"stdout", strconv.FormatBool(cfg.StdoutMode)},
 		{"dry-run", strconv.FormatBool(cfg.DryRun)},
 		{"force", strconv.FormatBool(cfg.Force)},

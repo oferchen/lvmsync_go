@@ -179,8 +179,7 @@ transfer. See [docs/manifest.md](docs/manifest.md) for manifest and verification
 - Run `manifest rebuild` and `verify` against quiescent devices.
 - Use `--offline` or freeze/thaw hooks when scanning live filesystems to keep manifests consistent.
 - Network transports default to TLS 1.3; `--allow-insecure` should only be used for testing.
-- Apply refuses to write when the destination's identity or size differs from the manifest or when the device is mounted read-write; use `--force` to override the mount check.
-- Back up destination data before running apply; writes are destructive.
+- Back up destination data before running transfers; writes are destructive.
 ## Supported Platforms
 
 LVMSync targets Linux systems only. Builds are tested on the `amd64` and `arm64` architectures.
@@ -211,7 +210,6 @@ LVMSync is organized into modular packages to keep concerns separated:
 - `internal/client` – coordinates snapshot preparation and client transfer execution.
 - `cmd/dump` – handles snapshot dumping and transport selection.
 - `cmd/root` – configures the application and routes to subcommands.
-- `cmd/apply` – applies streamed data to destination devices.
 - `cmd/lvmsync` – CLI orchestrator with a `signals` subpackage for signal handling and cleanup.
 - `cmd/lvmsyncd` – module loading daemon accepting multiple listen URIs.
 - `cmd/grpcd` – standalone gRPC daemon exposing LVMSync operations remotely.
@@ -222,7 +220,7 @@ This structure allows individual packages to be developed and tested in isolatio
 
 - Snapshot preparation helpers (`ensureVolumeGroups`, `checkDiskSpaceForSnapshot`, `createSnapshotIfNeeded`, `PrepareSnapshot`) and client execution logic are consolidated under `internal/client`.
 - These helpers no longer rely on global variables; configuration and loggers are passed explicitly.
-- `main.go` now delegates to `cmd/root`, which wires together `cmd/dump` and `cmd/apply`.
+- `main.go` now delegates to `cmd/root`, which wires together `cmd/dump`.
 
 ## Logging
 
@@ -546,7 +544,6 @@ Flags override environment variables, which override `config.yaml` values.
 | Flag | Environment variable | Config key | Description |
 |------|----------------------|------------|-------------|
 | `--config` | `LVMSYNC_CONFIG` | `config` | Path to config YAML file |
-| `--apply` | `LVMSYNC_APPLY` | `apply` | Apply mode: read change dump from file ('-' for STDIN) and apply to destination device |
 | `--stdout` | `LVMSYNC_STDOUT` | `stdout` | Write change dump to STDOUT |
 | `--source-type` | `LVMSYNC_SOURCE_TYPE` | `source-type` | Source device type: `auto`, `file`, `raw`, or `lvm` |
 | `--dest-type` | `LVMSYNC_DEST_TYPE` | `dest-type` | Destination device type: `auto`, `file`, `raw`, or `lvm` |
@@ -1023,7 +1020,7 @@ make test    # run tests
 lvmsync run [--dry-run] [--transport quic,h2,tcp+tls,ssh] <snapshot|lvm device> <destination>
 ```
 
-The tool supports both local and remote transfers, as well as an "apply mode" for applying change dumps. Use `--dry-run` to print planned actions without executing and `--transport` to provide an ordered list of transports to try.
+The tool supports both local and remote transfers. Use `--dry-run` to print planned actions without executing and `--transport` to provide an ordered list of transports to try.
 
 ## Resume, Manifest, and Verify
 
@@ -1085,8 +1082,6 @@ Flags are parsed via Viper, so the same settings can be provided through
 | Option              | Description                                                                                             | Default   |
 | ------------------- | ------------------------------------------------------------------------------------------------------- | --------- |
 | `--config`          | Path to a YAML configuration file                                                                       | `""`      |
-| `--apply`           | Apply mode: read change dump from file (`-` for STDIN) and apply to destination device                  | `""`      |
-| `--stdout`          | Write change dump to STDOUT                                                                             | `false`   |
 | `--parallel`        | Number of concurrent workers                                                                            | `4`       |
 | `--zerocopy`        | Enable zero-copy transfers (only used in sequential mode)                                               | `false`   |
 | `--max-retries`     | Maximum number of retries per block                                                                     | `3`       |
@@ -1230,14 +1225,6 @@ Replicate data to a remote host. The destination must be specified in `host:devi
 
 ```sh
 lvmsync run /dev/vg0/snap0 user@remote:/dev/vg0/data
-```
-
-#### Applying Changes
-
-Apply a change dump to a destination device (read from a file or STDIN):
-
-```sh
-lvmsync run --apply dumpfile.lvm /dev/vg0/data
 ```
 
 #### Using Compression

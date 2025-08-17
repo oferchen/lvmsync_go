@@ -340,8 +340,7 @@ golangci-lint run
 - [ ] Document each new CLI flag, environment variable, and configuration option in `README.md`.
 - [x] Refactor `main.go` into smaller modules.
 - `cmd/dump` handles snapshot dumping and transport selection, receiving configuration and loggers explicitly.
-- `cmd/root` configures the application and wires `cmd/dump` and `cmd/apply`.
-- `cmd/apply` streams incoming data to destination devices and also accepts explicit configuration and loggers.
+- `cmd/root` configures the application and wires `cmd/dump`.
 - [ ] Verify configuration precedence.
 - [ ] Maintain tests for dedup configuration precedence and error paths (invalid YAML, parse errors).
 - [ ] Keep README dedup configuration options in sync with code.
