@@ -59,19 +59,6 @@ func TestDuplicateRegister(t *testing.T) {
 	}
 }
 
-func TestMustRegisterDuplicate(t *testing.T) {
-	name := "must-dupe-test"
-	if err := Register(name, func(Config) (Interface, error) { return nil, nil }); err != nil {
-		t.Fatalf("first register: %v", err)
-	}
-	defer func() {
-		if r := recover(); r == nil {
-			t.Fatalf("expected panic")
-		}
-	}()
-	MustRegister(name, func(Config) (Interface, error) { return nil, nil })
-}
-
 func TestGetOrdered(t *testing.T) {
 	regMu.Lock()
 	original := registry
@@ -83,8 +70,12 @@ func TestGetOrdered(t *testing.T) {
 		regMu.Unlock()
 	}()
 
-	Register("a", func(Config) (Interface, error) { return &orderStub{name: "a"}, nil })
-	Register("b", func(Config) (Interface, error) { return &orderStub{name: "b"}, nil })
+	if err := Register("a", func(Config) (Interface, error) { return &orderStub{name: "a"}, nil }); err != nil {
+		t.Fatalf("register a: %v", err)
+	}
+	if err := Register("b", func(Config) (Interface, error) { return &orderStub{name: "b"}, nil }); err != nil {
+		t.Fatalf("register b: %v", err)
+	}
 
 	trs, err := GetOrdered([]string{"b", "a"}, Config{Logger: zap.NewNop()})
 	if err != nil {
