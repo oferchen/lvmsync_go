@@ -103,3 +103,14 @@ func TestValidateRemoteCommandInvalidChars(t *testing.T) {
 		t.Fatalf("expected invalid characters error, got %v", err)
 	}
 }
+
+func TestValidateRemoteCommandNewlines(t *testing.T) {
+	client := &SSHClient{Logger: zap.NewNop()}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	for _, cmd := range []string{"echo\nfoo", "echo\rfoo"} {
+		if err := client.ValidateRemoteCommand(ctx, cmd); err == nil || !strings.Contains(err.Error(), "shell metacharacters") {
+			t.Fatalf("expected shell metacharacters error for %q, got %v", cmd, err)
+		}
+	}
+}
