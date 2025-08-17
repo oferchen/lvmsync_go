@@ -297,24 +297,22 @@ func buildViper(flagSets *FlagSets) (*viper.Viper, []string, error) {
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
 	v.SetEnvPrefix("LVMSYNC")
 	v.AutomaticEnv()
-	keys := []string{
-		"source-type",
-		"dest-type",
-	}
-	for _, k := range keys {
-		if err := v.BindEnv(k); err != nil {
-			return nil, nil, err
-		}
-	}
+	var envErr error
 	for _, fs := range flagSets.All() {
 		if err := v.BindPFlags(fs); err != nil {
 			return nil, nil, err
 		}
 		fs.VisitAll(func(f *pflag.Flag) {
+			if envErr == nil {
+				envErr = v.BindEnv(f.Name)
+			}
 			if strings.Contains(f.Name, "-") {
 				v.RegisterAlias(strings.ReplaceAll(f.Name, "-", "_"), f.Name)
 			}
 		})
+	}
+	if envErr != nil {
+		return nil, nil, envErr
 	}
 	if err := bindTransportEnv(flagSets.Transport, v); err != nil {
 		return nil, nil, err

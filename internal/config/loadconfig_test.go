@@ -68,7 +68,7 @@ func TestBuildViperPrecedence(t *testing.T) {
 
 	t.Run("env_overrides_config", func(t *testing.T) {
 		rootFS, args := newFlagSet([]string{"--config", cfgPath})
-		t.Setenv("LVMSYNC-PARALLEL", "2")
+		t.Setenv("LVMSYNC_PARALLEL", "2")
 		cfg, err := DefaultConfig()
 		if err != nil {
 			t.Fatalf("DefaultConfig: %v", err)
@@ -89,7 +89,7 @@ func TestBuildViperPrecedence(t *testing.T) {
 
 	t.Run("flags_override_env", func(t *testing.T) {
 		rootFS, args := newFlagSet([]string{"--config", cfgPath, "--parallel", "3"})
-		t.Setenv("LVMSYNC-PARALLEL", "2")
+		t.Setenv("LVMSYNC_PARALLEL", "2")
 		cfg, err := DefaultConfig()
 		if err != nil {
 			t.Fatalf("DefaultConfig: %v", err)
@@ -105,6 +105,49 @@ func TestBuildViperPrecedence(t *testing.T) {
 		}
 		if got := v.GetInt("parallel"); got != 3 {
 			t.Fatalf("expected parallel 3, got %d", got)
+		}
+	})
+
+	t.Run("env_overrides_default", func(t *testing.T) {
+		rootFS, args := newFlagSet(nil)
+		t.Setenv("LVMSYNC_PARALLEL", "5")
+		cfg, err := DefaultConfig()
+		if err != nil {
+			t.Fatalf("DefaultConfig: %v", err)
+		}
+		fs := NewFlagSets(cfg)
+		registerFlags(fs, rootFS)
+		if err := rootFS.Parse(args); err != nil {
+			t.Fatalf("parse: %v", err)
+		}
+		v, _, err := buildViper(fs)
+		if err != nil {
+			t.Fatalf("buildViper: %v", err)
+		}
+		if got := v.GetInt("parallel"); got != 5 {
+			t.Fatalf("expected parallel 5, got %d", got)
+		}
+	})
+
+	t.Run("env_overrides_config_compress_concurrency", func(t *testing.T) {
+		cfgPath := writeTempConfig(t, "compress-concurrency: 1\n")
+		rootFS, args := newFlagSet([]string{"--config", cfgPath})
+		t.Setenv("LVMSYNC_COMPRESS_CONCURRENCY", "4")
+		cfg, err := DefaultConfig()
+		if err != nil {
+			t.Fatalf("DefaultConfig: %v", err)
+		}
+		fs := NewFlagSets(cfg)
+		registerFlags(fs, rootFS)
+		if err := rootFS.Parse(args); err != nil {
+			t.Fatalf("parse: %v", err)
+		}
+		v, _, err := buildViper(fs)
+		if err != nil {
+			t.Fatalf("buildViper: %v", err)
+		}
+		if got := v.GetInt("compress-concurrency"); got != 4 {
+			t.Fatalf("expected compress-concurrency 4, got %d", got)
 		}
 	})
 }
