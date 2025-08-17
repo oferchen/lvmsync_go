@@ -197,7 +197,7 @@ func TestTCPTLSTransportSelectBestHandshake(t *testing.T) {
 			return
 		}
 		srvCtx, cancel := context.WithTimeout(baseCtx, 5*time.Second)
-		err = tr.Negotiate(srvCtx, conn, transport.Server, srvHS)
+		_, err = tr.Negotiate(srvCtx, conn, transport.Server, srvHS)
 		cancel()
 		srvErr <- err
 		if err == nil {
