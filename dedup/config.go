@@ -21,7 +21,9 @@ type Config struct {
 // LoadConfig loads configuration from the provided YAML file, environment
 // variables and CLI arguments. CLI arguments have highest precedence.
 // Environment variables are expected to be prefixed with LVMSYNC_ and use
-// uppercase names matching the struct fields.
+// uppercase names matching the struct fields. CLI flags use hyphenated names
+// and map to underscored configuration keys for consistency with environment
+// variables.
 func LoadConfig(path string, args []string) (Config, error) {
 	v := viper.New()
 	v.SetConfigFile(path)
@@ -34,17 +36,32 @@ func LoadConfig(path string, args []string) (Config, error) {
 	v.SetDefault("ram_bytes", uint64(1<<30))
 
 	flags := pflag.NewFlagSet("dedup", pflag.ContinueOnError)
-	flags.Int("min_chunk_size", 4*1024, "minimum chunk size in bytes")
-	flags.Int("max_chunk_size", 1024*1024, "maximum chunk size in bytes")
-	flags.Float64("false_positive_rate", 0.001, "Bloom filter false positive rate")
-	flags.Uint64("ram_bytes", uint64(1<<30), "RAM budget for Bloom filter")
-	flags.Uint64("volume_size", 0, "size of the volume being processed")
-	flags.String("hash_key", "", "optional hex encoded key for BLAKE3")
+	flags.Int("min-chunk-size", 4*1024, "minimum chunk size in bytes")
+	flags.Int("max-chunk-size", 1024*1024, "maximum chunk size in bytes")
+	flags.Float64("false-positive-rate", 0.001, "Bloom filter false positive rate")
+	flags.Uint64("ram-bytes", uint64(1<<30), "RAM budget for Bloom filter")
+	flags.Uint64("volume-size", 0, "size of the volume being processed")
+	flags.String("hash-key", "", "optional hex encoded key for BLAKE3")
 	if err := flags.Parse(args); err != nil {
 		return Config{}, err
 	}
 
-	if err := v.BindPFlags(flags); err != nil {
+	if err := v.BindPFlag("min_chunk_size", flags.Lookup("min-chunk-size")); err != nil {
+		return Config{}, err
+	}
+	if err := v.BindPFlag("max_chunk_size", flags.Lookup("max-chunk-size")); err != nil {
+		return Config{}, err
+	}
+	if err := v.BindPFlag("false_positive_rate", flags.Lookup("false-positive-rate")); err != nil {
+		return Config{}, err
+	}
+	if err := v.BindPFlag("ram_bytes", flags.Lookup("ram-bytes")); err != nil {
+		return Config{}, err
+	}
+	if err := v.BindPFlag("volume_size", flags.Lookup("volume-size")); err != nil {
+		return Config{}, err
+	}
+	if err := v.BindPFlag("hash_key", flags.Lookup("hash-key")); err != nil {
 		return Config{}, err
 	}
 	v.SetEnvPrefix("LVMSYNC")
