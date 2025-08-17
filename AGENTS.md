@@ -297,7 +297,7 @@ Run these commands locally before opening a pull request:
 golangci-lint run
 ```
 
-- [ ] Add precedence tests for `ssh_host_key_path` flag, environment variable, and YAML configuration.
+- [x] Add precedence tests for `ssh_host_key_path` flag, environment variable, and YAML configuration (see `internal/config/ssh_host_key_path_test.go`).
 
 - [x] Ensure SSH agent connections use context timeouts and cover SSHManager reuse in tests.
 - [x] common: add endianness mismatch handshake validation test.
