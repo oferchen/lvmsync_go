@@ -90,7 +90,7 @@ func TestProcessDumpDataRejectsManifestMismatch(t *testing.T) {
 		t.Fatalf("rebuild: %v", err)
 	}
 
-	tr := NewTransfer(zap.NewNop(), nil)
+	tr := NewTransfer(zap.NewNop(), nil, nil)
 	cfg := &config.Config{BlockSize: 4096, ManifestPath: manPath, MaxRetries: 1, Compress: "none", ChecksumAlgorithm: "sha256"}
 
 	t.Run("id mismatch", func(t *testing.T) {

@@ -26,7 +26,7 @@ func TestDumpChangesLogsSyncError(t *testing.T) {
 	syncErr := errors.New("sync fail")
 	core, observed := observer.New(zap.InfoLevel)
 	logger := zap.New(&failingSyncCore{Core: core, err: syncErr})
-	tr := NewTransfer(logger, &sync.WaitGroup{})
+	tr := NewTransfer(logger, &sync.WaitGroup{}, nil)
 
 	blockSize := int64(1024)
 	changed := []int{0}
@@ -49,7 +49,7 @@ func TestDumpChangesLogsSyncErrorOnEarlyFailure(t *testing.T) {
 	syncErr := errors.New("sync fail")
 	core, observed := observer.New(zap.InfoLevel)
 	logger := zap.New(&failingSyncCore{Core: core, err: syncErr})
-	tr := NewTransfer(logger, &sync.WaitGroup{})
+	tr := NewTransfer(logger, &sync.WaitGroup{}, nil)
 
 	cfg := &config.Config{BlockSize: 0, Compress: "none", MaxRetries: 1}
 	var buf bytes.Buffer

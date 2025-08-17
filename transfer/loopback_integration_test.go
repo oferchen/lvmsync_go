@@ -126,7 +126,7 @@ func TestLoopbackLVMToRawOverSSH(t *testing.T) {
 			ChecksumAlgorithm: "blake3",
 			SyncIntervalBytes: 512,
 		}
-		tt := NewTransfer(zap.NewNop(), nil)
+		tt := NewTransfer(zap.NewNop(), nil, nil)
 		done <- tt.ProcessDumpData(context.Background(), applyCfg, conn, destLoop)
 	}()
 
@@ -134,7 +134,7 @@ func TestLoopbackLVMToRawOverSSH(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
-	tt := NewTransfer(zap.NewNop(), nil)
+	tt := NewTransfer(zap.NewNop(), nil, nil)
 	if err := tt.DumpChangesParallel(ctx, cfg, snapshot, srcLoop, conn); err != nil {
 		t.Fatalf("DumpChangesParallel: %v", err)
 	}
@@ -239,7 +239,7 @@ func TestLoopbackFileToFileOverTCPTLS(t *testing.T) {
 			ChecksumAlgorithm: "blake3",
 			SyncIntervalBytes: 512,
 		}
-		tt := NewTransfer(zap.NewNop(), nil)
+		tt := NewTransfer(zap.NewNop(), nil, nil)
 		done <- tt.ProcessDumpData(context.Background(), applyCfg, conn, dstLoop)
 	}()
 
@@ -247,7 +247,7 @@ func TestLoopbackFileToFileOverTCPTLS(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
-	tt := NewTransfer(zap.NewNop(), nil)
+	tt := NewTransfer(zap.NewNop(), nil, nil)
 
 	ranges := []Range{{Start: 0, End: uint64(blockSize)}, {Start: uint64(blockSize), End: uint64(2 * blockSize)}}
 	compWriter, bufOut, err := setupOutput(cfg, conn, "", zap.NewNop())
@@ -384,7 +384,7 @@ func TestLoopbackLVMToRawOverTCPTLS(t *testing.T) {
 					ODirect:           true,
 					SyncIntervalBytes: 512,
 				}
-				tt := NewTransfer(zap.NewNop(), nil)
+				tt := NewTransfer(zap.NewNop(), nil, nil)
 				done <- tt.ProcessDumpData(context.Background(), applyCfg, conn, destLoop)
 			}()
 
@@ -392,7 +392,7 @@ func TestLoopbackLVMToRawOverTCPTLS(t *testing.T) {
 			if err != nil {
 				t.Fatalf("dial: %v", err)
 			}
-			tt := NewTransfer(zap.NewNop(), nil)
+			tt := NewTransfer(zap.NewNop(), nil, nil)
 			if err := tt.DumpChangesParallel(ctx, cfg, snapshot, srcLoop, conn); err != nil {
 				t.Fatalf("DumpChangesParallel: %v", err)
 			}
@@ -509,7 +509,7 @@ func runRawToRawLoopback(t *testing.T, transportName string) {
 					ODirect:           true,
 					SyncIntervalBytes: 512,
 				}
-				tt := NewTransfer(zap.NewNop(), nil)
+				tt := NewTransfer(zap.NewNop(), nil, nil)
 				done <- tt.ProcessDumpData(context.Background(), applyCfg, conn, dstLoop)
 			}()
 
@@ -517,7 +517,7 @@ func runRawToRawLoopback(t *testing.T, transportName string) {
 			if err != nil {
 				t.Fatalf("dial: %v", err)
 			}
-			tt := NewTransfer(zap.NewNop(), nil)
+			tt := NewTransfer(zap.NewNop(), nil, nil)
 
 			ranges := []Range{{Start: 0, End: uint64(blockSize)}, {Start: uint64(blockSize), End: uint64(2 * blockSize)}}
 			compWriter, bufOut, err := setupOutput(cfg, conn, "", zap.NewNop())
@@ -683,7 +683,7 @@ func TestLoopbackSparseFileToFileOverSSH(t *testing.T) {
 					ODirect:           true,
 					SyncIntervalBytes: 512,
 				}
-				tt := NewTransfer(zap.NewNop(), nil)
+				tt := NewTransfer(zap.NewNop(), nil, nil)
 				done <- tt.ProcessDumpData(context.Background(), applyCfg, conn, dstLoop)
 			}()
 
@@ -691,7 +691,7 @@ func TestLoopbackSparseFileToFileOverSSH(t *testing.T) {
 			if err != nil {
 				t.Fatalf("dial: %v", err)
 			}
-			tt := NewTransfer(zap.NewNop(), nil)
+			tt := NewTransfer(zap.NewNop(), nil, nil)
 
 			ranges := []Range{{Start: 0, End: uint64(blockSize)}, {Start: uint64(blockSize), End: uint64(2 * blockSize)}}
 			compWriter, bufOut, err := setupOutput(cfg, conn, "", zap.NewNop())

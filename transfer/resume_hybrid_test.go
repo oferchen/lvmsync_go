@@ -36,7 +36,7 @@ func TestResumeHybridOffset(t *testing.T) {
 }
 
 func TestResumeHybridSequential(t *testing.T) {
-	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{})
+	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, nil)
 	tr.Tracker = &resumeTracker{}
 	blockSize := int64(1024)
 	src, snapshot, resume := createTestFiles(t, blockSize, 4, "blake3")
@@ -61,7 +61,7 @@ func TestResumeHybridSequential(t *testing.T) {
 }
 
 func TestResumeHybridIdempotent(t *testing.T) {
-	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{})
+	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, nil)
 	blockSize := int64(1024)
 	src, snapshot, resume := createTestFiles(t, blockSize, 4, "blake3")
 	cfg := &config.Config{BlockSize: int(blockSize), Compress: "none", Parallel: 1, ResumeState: resume, MaxRetries: 1, ChecksumAlgorithm: "blake3", Transport: "ssh", DedupMode: "hybrid"}

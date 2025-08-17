@@ -20,7 +20,7 @@ import (
 
 func runInterrupted(t *testing.T, mode string) {
 	t.Helper()
-	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{})
+	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, nil)
 	tr.Tracker = &resumeTracker{}
 	blockSize := int64(1024)
 	snapshot := "vg-lv"

@@ -12,7 +12,7 @@ import (
 )
 
 func BenchmarkDumpChangesSequential(b *testing.B) {
-	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{})
+	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, nil)
 	blockSize := int64(4096)
 	changed := []int{0, 1, 2, 3}
 	src, snapshot := createDumpTestFiles(b, blockSize, changed)
@@ -28,7 +28,7 @@ func BenchmarkDumpChangesSequential(b *testing.B) {
 }
 
 func BenchmarkDumpChangesParallel(b *testing.B) {
-	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{})
+	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, nil)
 	blockSize := int64(4096)
 	changed := []int{0, 1, 2, 3}
 	src, snapshot := createDumpTestFiles(b, blockSize, changed)
