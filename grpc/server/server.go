@@ -54,7 +54,7 @@ func New(conf Config, a lvmagent.Agent, logger *zap.Logger) (*grpc.Server, func(
 		logger = zap.NewNop()
 	}
 	if conf.AllowInsecure {
-		logger.Warn("allow_insecure_enabled", zap.String("component", "grpc_server"))
+		logger.Warn("allow_insecure_enabled", zap.String("component", "grpc_server"), zap.String("security", "tls_verification_disabled"), zap.String("usage", "development_only"))
 	} else {
 		if conf.TLSCert == "" || conf.TLSKey == "" || conf.CACert == "" {
 			return nil, nil, fmt.Errorf("TLSCert, TLSKey, and CACert must be provided when AllowInsecure is false")

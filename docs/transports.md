@@ -54,8 +54,10 @@ explicitly restrict `tls.Config.CipherSuites` to
 `TLS_CHACHA20_POLY1305_SHA256`; handshakes fail if peers do not support one of
 these ciphers. TLS transports require an explicit set of trusted CA roots.
 Connections are rejected if no roots are provided unless the transport
-configuration sets `AllowInsecure` to skip verification. Enabling this option
-logs a warning.
+configuration sets `AllowInsecure` and the user explicitly acknowledges the risk
+with the `--allow_insecure` flag or `LVMSYNC_ALLOW_INSECURE` environment
+variable. This disables certificate verification, logs a warning, and should be
+used only in development.
 
 ## Examples
 

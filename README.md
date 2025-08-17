@@ -790,10 +790,11 @@ Transport selection is controlled by the `--transport` flag, which accepts a com
 transports to attempt (for example `quic,h2,tcp+tls,ssh`). The `quic` transport runs over TLS 1.3 with mutual
 authentication, negotiates the `lvmsync` ALPN, and exposes both bidirectional streams and datagrams. The `h2`
 transport also requires TLS 1.3 with client certificates and negotiates the `h2` ALPN. Provide certificates via
-`--tls_cert`, `--tls_key`, and `--ca_cert`. TLS transports require a trusted CA certificate and will refuse
-connections when no roots are provided unless `--allow_insecure` (or the `AllowInsecure` configuration flag) is
-set. Enabling this option logs a warning. Client certificates must be supplied explicitly; transports no longer generate self-signed certificates
-automatically. The [transport documentation](docs/transports.md) covers each option in depth. The flags below
+`--tls_cert`, `--tls_key`, and `--ca_cert`. TLS transports require a trusted CA certificate and refuse
+connections when no roots are provided unless insecure mode is explicitly acknowledged with the `--allow_insecure`
+flag or the `LVMSYNC_ALLOW_INSECURE` environment variable. This bypasses certificate verification and is intended
+for development only; configuration files alone cannot enable it. Client certificates must be supplied explicitly;
+transports no longer generate self-signed certificates automatically. The [transport documentation](docs/transports.md) covers each option in depth. The flags below
 configure transport behavior.
 
 ### Flags and environment variables

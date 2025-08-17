@@ -97,7 +97,9 @@ func bindFlags(cmd *cobra.Command, v flagBinder) error {
 
 func startServer(ctx context.Context, opts Options, logger *zap.Logger) error {
 	cfg := transport.Config{Logger: logger, AllowInsecure: opts.AllowInsecure}
-	if !opts.AllowInsecure {
+	if opts.AllowInsecure {
+		logger.Warn("allow_insecure_enabled", zap.String("component", "serve"), zap.String("security", "tls_verification_disabled"), zap.String("usage", "development_only"))
+	} else {
 		if opts.TLSCert == "" || opts.TLSKey == "" || opts.CACert == "" {
 			return fmt.Errorf("tls-cert, tls-key, and ca-cert are required unless --allow-insecure is set")
 		}

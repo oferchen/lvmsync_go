@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"io"
 	"os"
 
@@ -56,6 +57,16 @@ func (b *ConfigBuilder) Build(fs *pflag.FlagSet, args []string) (*Config, []stri
 	cfg, err := vb.Build()
 	if err != nil {
 		return nil, nil, warns, err
+	}
+	if cfg.AllowInsecure {
+		_, envSet := os.LookupEnv("LVMSYNC_ALLOW_INSECURE")
+		flagSet := false
+		if f := fs.Lookup("allow_insecure"); f != nil && f.Changed {
+			flagSet = true
+		}
+		if !envSet && !flagSet {
+			return nil, nil, warns, fmt.Errorf("allow_insecure requires --allow_insecure flag or LVMSYNC_ALLOW_INSECURE environment variable")
+		}
 	}
 	if err := cfg.Validate(); err != nil {
 		return nil, nil, warns, err

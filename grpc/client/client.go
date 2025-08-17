@@ -34,7 +34,7 @@ func Dial(ctx context.Context, addr string, conf Config, logger *zap.Logger, opt
 		logger = zap.NewNop()
 	}
 	if conf.AllowInsecure {
-		logger.Warn("allow_insecure_enabled", zap.String("component", "grpc_client"))
+		logger.Warn("allow_insecure_enabled", zap.String("component", "grpc_client"), zap.String("security", "tls_verification_disabled"), zap.String("usage", "development_only"))
 		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	} else {
 		cert, err := tls.LoadX509KeyPair(conf.TLSCert, conf.TLSKey)
