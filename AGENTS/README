@@ -1,0 +1,4 @@
+# Agent Notes
+
+Some unit tests exercise privilege escalation paths and require `sudo`.
+If `sudo` is not installed these tests will automatically skip.
