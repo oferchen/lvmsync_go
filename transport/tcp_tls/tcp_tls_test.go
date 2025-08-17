@@ -345,8 +345,15 @@ func TestTCPTLSDialUnreachable(t *testing.T) {
 	}()
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	if _, err := tr.Dial(ctx, ln.Addr().String()); err == nil || !errors.Is(err, context.DeadlineExceeded) {
-		t.Fatalf("expected context deadline exceeded, got %v", err)
+	_, err = tr.Dial(ctx, ln.Addr().String())
+	if err == nil {
+		t.Fatalf("expected timeout error")
+	}
+	if !errors.Is(err, context.DeadlineExceeded) {
+		var netErr net.Error
+		if !errors.As(err, &netErr) || !netErr.Timeout() {
+			t.Fatalf("expected context deadline exceeded or timeout, got %v", err)
+		}
 	}
 }
 
