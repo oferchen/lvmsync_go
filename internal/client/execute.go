@@ -2,11 +2,12 @@ package client
 
 import (
 	"context"
-	"fmt"
+
+	"go.uber.org/zap"
 )
 
 // ExecuteClient runs the client transfer logic and handles signal and monitor errors.
-func ExecuteClient(ctx context.Context, runClient func(context.Context, string, string) error, snapshotPath, destPath string, sigErrCh, monitorErrCh chan error) error {
+func ExecuteClient(ctx context.Context, runClient func(context.Context, string, string) error, snapshotPath, destPath string, sigErrCh, monitorErrCh chan error, logger *zap.Logger) error {
 	clientErrCh := make(chan error, 1)
 	go func() {
 		clientErrCh <- runClient(ctx, snapshotPath, destPath)
@@ -15,11 +16,16 @@ func ExecuteClient(ctx context.Context, runClient func(context.Context, string, 
 	select {
 	case err := <-clientErrCh:
 		if err != nil {
-			return fmt.Errorf("copy operation failed: %w", err)
+			logger.Error("copy operation failed", zap.Error(err))
+			return err
 		}
 	case err := <-sigErrCh:
+		if err != nil {
+			logger.Error("signal error", zap.Error(err))
+		}
 		return err
 	case <-ctx.Done():
+		logger.Error("context canceled", zap.Error(ctx.Err()))
 		return ctx.Err()
 	}
 
@@ -31,9 +37,11 @@ func ExecuteClient(ctx context.Context, runClient func(context.Context, string, 
 					return nil
 				}
 				if err != nil {
-					return fmt.Errorf("snapshot monitor error: %w", err)
+					logger.Error("snapshot monitor error", zap.Error(err))
+					return err
 				}
 			case <-ctx.Done():
+				logger.Error("context canceled", zap.Error(ctx.Err()))
 				return ctx.Err()
 			}
 		}
