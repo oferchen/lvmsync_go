@@ -272,7 +272,7 @@ func (t *Transfer) verifyDestination(ctx context.Context, cfg *config.Config, de
 		}
 		t.Logger.Info("destination_validated", zap.String("resource_id", id))
 	}
-	mounted, err := device.IsMountedRW(ctx, destPath)
+	mounted, err := t.Info.IsMountedRW(ctx, destPath)
 	if err != nil {
 		return fmt.Errorf("check mount status: %w", err)
 	}

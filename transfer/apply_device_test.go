@@ -27,14 +27,13 @@ func minimalStream(t *testing.T) []byte {
 }
 
 func TestProcessDumpDataUUIDMismatch(t *testing.T) {
-	prevLVM := device.SetLVMUUIDFunc(func(context.Context, string) (string, error) { return "", errors.New("no lvm") })
-	defer device.SetLVMUUIDFunc(prevLVM)
-	prevUUID := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "actual", nil })
-	defer device.SetUUIDFunc(prevUUID)
-	prevMount := device.SetMountFunc(func(context.Context, string) (bool, error) { return false, nil })
-	defer device.SetMountFunc(prevMount)
-
-	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, nil)
+	info := device.NewInfoWithDeps(
+		func(context.Context, string) (string, error) { return "actual", nil },
+		func(context.Context, string) (string, error) { return "", errors.New("no lvm") },
+		func(context.Context, string) (bool, error) { return false, nil },
+		nil,
+	)
+	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, info)
 	cfg := &config.Config{BlockSize: 1024, Compress: "none", MaxRetries: 1, DeviceUUID: "expected", DedupStrategy: "none", VerifyChecksum: true, ChecksumAlgorithm: "sha256"}
 
 	dest := filepath.Join(t.TempDir(), "dest")
@@ -79,14 +78,13 @@ func TestProcessDumpDataUUIDMismatch(t *testing.T) {
 }
 
 func TestProcessDumpDataMountedDevice(t *testing.T) {
-	prevLVM := device.SetLVMUUIDFunc(func(context.Context, string) (string, error) { return "", errors.New("no lvm") })
-	defer device.SetLVMUUIDFunc(prevLVM)
-	prevUUID := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "id", nil })
-	defer device.SetUUIDFunc(prevUUID)
-	prevMount := device.SetMountFunc(func(context.Context, string) (bool, error) { return true, nil })
-	defer device.SetMountFunc(prevMount)
-
-	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, nil)
+	info := device.NewInfoWithDeps(
+		func(context.Context, string) (string, error) { return "id", nil },
+		func(context.Context, string) (string, error) { return "", errors.New("no lvm") },
+		func(context.Context, string) (bool, error) { return true, nil },
+		nil,
+	)
+	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, info)
 	cfg := &config.Config{BlockSize: 1024, Compress: "none", MaxRetries: 1, DeviceUUID: "id", DedupStrategy: "none", VerifyChecksum: true, ChecksumAlgorithm: "sha256"}
 
 	dest := filepath.Join(t.TempDir(), "dest")
@@ -144,14 +142,13 @@ func TestProcessDumpDataMountedDevice(t *testing.T) {
 }
 
 func TestApplyDataUUIDMismatch(t *testing.T) {
-	prevLVM := device.SetLVMUUIDFunc(func(context.Context, string) (string, error) { return "", errors.New("no lvm") })
-	defer device.SetLVMUUIDFunc(prevLVM)
-	prevUUID := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "actual", nil })
-	defer device.SetUUIDFunc(prevUUID)
-	prevMount := device.SetMountFunc(func(context.Context, string) (bool, error) { return false, nil })
-	defer device.SetMountFunc(prevMount)
-
-	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, nil)
+	info := device.NewInfoWithDeps(
+		func(context.Context, string) (string, error) { return "actual", nil },
+		func(context.Context, string) (string, error) { return "", errors.New("no lvm") },
+		func(context.Context, string) (bool, error) { return false, nil },
+		nil,
+	)
+	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, info)
 	cfg := &config.Config{BlockSize: 1024, Compress: "none", MaxRetries: 1, DeviceUUID: "expected"}
 
 	dest := filepath.Join(t.TempDir(), "dest")
@@ -196,14 +193,13 @@ func TestApplyDataUUIDMismatch(t *testing.T) {
 }
 
 func TestApplyDataMountedDevice(t *testing.T) {
-	prevLVM := device.SetLVMUUIDFunc(func(context.Context, string) (string, error) { return "", errors.New("no lvm") })
-	defer device.SetLVMUUIDFunc(prevLVM)
-	prevUUID := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "id", nil })
-	defer device.SetUUIDFunc(prevUUID)
-	prevMount := device.SetMountFunc(func(context.Context, string) (bool, error) { return true, nil })
-	defer device.SetMountFunc(prevMount)
-
-	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, nil)
+	info := device.NewInfoWithDeps(
+		func(context.Context, string) (string, error) { return "id", nil },
+		func(context.Context, string) (string, error) { return "", errors.New("no lvm") },
+		func(context.Context, string) (bool, error) { return true, nil },
+		nil,
+	)
+	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, info)
 	cfg := &config.Config{BlockSize: 1024, Compress: "none", MaxRetries: 1, DeviceUUID: "id"}
 
 	dest := filepath.Join(t.TempDir(), "dest")
@@ -247,17 +243,16 @@ func TestApplyDataMountedDevice(t *testing.T) {
 	}
 }
 func TestProcessDumpDataCanceledContext(t *testing.T) {
-	prevLVM := device.SetLVMUUIDFunc(func(context.Context, string) (string, error) { return "", errors.New("no lvm") })
-	defer device.SetLVMUUIDFunc(prevLVM)
-	prevUUID := device.SetUUIDFunc(func(ctx context.Context, _ string) (string, error) {
-		<-ctx.Done()
-		return "", ctx.Err()
-	})
-	defer device.SetUUIDFunc(prevUUID)
-	prevMount := device.SetMountFunc(func(context.Context, string) (bool, error) { return false, nil })
-	defer device.SetMountFunc(prevMount)
-
-	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, nil)
+	info := device.NewInfoWithDeps(
+		func(ctx context.Context, _ string) (string, error) {
+			<-ctx.Done()
+			return "", ctx.Err()
+		},
+		func(context.Context, string) (string, error) { return "", errors.New("no lvm") },
+		func(context.Context, string) (bool, error) { return false, nil },
+		nil,
+	)
+	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, info)
 	cfg := &config.Config{BlockSize: 1024, Compress: "none", MaxRetries: 1, DeviceUUID: "id", DedupStrategy: "none", VerifyChecksum: true, ChecksumAlgorithm: "sha256"}
 
 	dest := filepath.Join(t.TempDir(), "dest")
