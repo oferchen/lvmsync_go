@@ -31,7 +31,7 @@ type Config struct {
 	ConfigFile               string        `mapstructure:"config"`
 	ApplyMode                string        `mapstructure:"apply"`
 	StdoutMode               bool          `mapstructure:"stdout"`
-	DryRun                   bool          `mapstructure:"dry-run"`
+	DryRun                   bool          `mapstructure:"dry_run"`
 	Force                    bool          `mapstructure:"force"`
 	Discard                  bool          `mapstructure:"discard"`
 	Offline                  bool          `mapstructure:"offline"`
@@ -118,7 +118,7 @@ type Config struct {
 	TCPPort                  int           `mapstructure:"tcp_port"`
 	TCPParallel              int           `mapstructure:"tcp_parallel"`
 	TCPNotSentLowAt          int           `mapstructure:"tcp_lowat"`
-	SyncInterval             string        `mapstructure:"sync-interval"`
+	SyncInterval             string        `mapstructure:"sync_interval"`
 	CheckpointInterval       time.Duration `mapstructure:"checkpoint_interval"`
 	CheckpointBytesRaw       string        `mapstructure:"checkpoint_bytes"`
 	SyncIntervalBytes        int           `mapstructure:"-"`

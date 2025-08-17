@@ -121,7 +121,7 @@ func (b *builder) applyDefaults(conf *Config) error {
 	}
 	conf.SpeedLimit = sl
 
-	si, err := b.parseBytesOrFallback("sync-interval", b.defaults.SyncInterval)
+	si, err := b.parseBytesOrFallback("sync_interval", b.defaults.SyncInterval)
 	if err != nil {
 		return err
 	}
@@ -189,7 +189,7 @@ func (b *builder) applyThroughput(conf *Config) {
 	if !b.v.IsSet("odirect") {
 		conf.ODirect = true
 	}
-	if !b.v.IsSet("sync-interval") {
+	if !b.v.IsSet("sync_interval") {
 		conf.SyncInterval = "1GB"
 		conf.SyncIntervalBytes = 1000000000
 	}
