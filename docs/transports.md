@@ -112,4 +112,5 @@ lvmsync serve --transport quic --quic-listen :12000 --tls-cert cert.pem --tls-ke
 - Verifies server host keys using `known_hosts` or an explicit `--ssh_host_key`; unknown hosts are rejected
 - Key authentication via `--ssh_key`/`LVMSYNC_SSH_KEY`
 - Optional agent auth with `--ssh_agent`/`LVMSYNC_SSH_AGENT` using `SSH_AUTH_SOCK`
+- Listeners require a persistent host key via `--ssh_host_key_path` unless `--allow_insecure` is enabled
 - Flags: `--ssh_user`, `--ssh_password`, `--ssh_key`, `--ssh_host_key`, `--ssh_host_key_path`, `--ssh_agent`, `--allow_insecure`

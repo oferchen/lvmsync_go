@@ -187,7 +187,8 @@ func TestNewWithHostKeyPath(t *testing.T) {
 	if err := os.WriteFile(keyPath, pemBytes, 0600); err != nil {
 		t.Fatalf("WriteFile: %v", err)
 	}
-	cfg := transport.Config{Logger: zap.New(core), SSHUser: "u", SSHPassword: "p", HostKeyPath: keyPath, AllowInsecure: true}
+	kh := emptyKnownHosts(t)
+	cfg := transport.Config{Logger: zap.New(core), SSHUser: "u", SSHPassword: "p", HostKeyPath: keyPath, SSHKnownHosts: kh}
 	trIface, err := New(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("New: %v", err)
@@ -199,6 +200,14 @@ func TestNewWithHostKeyPath(t *testing.T) {
 	}
 	if !bytes.Equal(tr.hostSigner.PublicKey().Marshal(), signer.PublicKey().Marshal()) {
 		t.Fatalf("loaded host key does not match file")
+	}
+}
+
+func TestNewHostKeyRequired(t *testing.T) {
+	core, _ := observer.New(zap.InfoLevel)
+	cfg := transport.Config{Logger: zap.New(core), SSHUser: "u", SSHPassword: "p"}
+	if _, err := New(context.Background(), cfg); err == nil || !strings.Contains(err.Error(), "host key path required") {
+		t.Fatalf("expected host key requirement error, got %v", err)
 	}
 }
 
