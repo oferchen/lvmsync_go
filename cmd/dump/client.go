@@ -47,6 +47,19 @@ type Runner struct {
 }
 
 var (
+	openFile       = os.OpenFile
+	sumFile        = digestpkg.SumFile
+	newSSHClient   = remote.NewSSHClient
+	detectDevice   = device.Detect
+	streamToRemote = func(ctx context.Context, cfg *config.Config, remoteStdin io.WriteCloser, snapshotDevice, originDevice, alg string, logger *zap.Logger) error {
+		r := &Runner{
+			dumpSeq:   dumpChangesSequential,
+			dumpPar:   dumpChangesParallel,
+			dumpDedup: dumpChangesWithDeduplication,
+			sumFile:   sumFile,
+		}
+		return r.StreamToRemote(ctx, cfg, remoteStdin, snapshotDevice, originDevice, alg, logger)
+	}
 	dumpChangesSequential = func(ctx context.Context, t *transfer.Transfer, cfg *config.Config, snap, origin string, out io.Writer) error {
 		return t.DumpChangesSequential(ctx, cfg, snap, origin, out)
 	}
@@ -60,17 +73,16 @@ var (
 
 // NewRunner constructs a Runner with production dependencies.
 func NewRunner() *Runner {
-	r := &Runner{
-		dumpSeq:      dumpChangesSequential,
-		dumpPar:      dumpChangesParallel,
-		dumpDedup:    dumpChangesWithDeduplication,
-		newSSHClient: remote.NewSSHClient,
-		openFile:     os.OpenFile,
-		detectDevice: device.Detect,
-		sumFile:      digestpkg.SumFile,
+	return &Runner{
+		dumpSeq:        dumpChangesSequential,
+		dumpPar:        dumpChangesParallel,
+		dumpDedup:      dumpChangesWithDeduplication,
+		newSSHClient:   newSSHClient,
+		openFile:       openFile,
+		detectDevice:   detectDevice,
+		sumFile:        sumFile,
+		streamToRemote: streamToRemote,
 	}
-	r.streamToRemote = r.StreamToRemote
-	return r
 }
 
 // ExecuteDump is a convenience wrapper using a default Runner.
@@ -109,6 +121,31 @@ func NewRunnerWithDeps(deps *Runner) *Runner {
 		r.streamToRemote = deps.streamToRemote
 	}
 	return r
+}
+
+// Run executes client mode transferring data to dest using a default Runner.
+func Run(ctx context.Context, cfg *config.Config, source, dest string, logger *zap.Logger) (string, error) {
+	return NewRunner().Run(ctx, cfg, source, dest, logger)
+}
+
+// RunLocalDump dumps changes to a local destination using a default Runner.
+func RunLocalDump(ctx context.Context, cfg *config.Config, snapshotDevice, originDevice, dest string, logger *zap.Logger) (string, error) {
+	return NewRunner().RunLocalDump(ctx, cfg, snapshotDevice, originDevice, dest, logger)
+}
+
+// RunRemoteDump streams snapshot data to a remote host using a default Runner.
+func RunRemoteDump(ctx context.Context, cfg *config.Config, snapshotDevice, originDevice, dest string, logger *zap.Logger) error {
+	return NewRunner().RunRemoteDump(ctx, cfg, snapshotDevice, originDevice, dest, logger)
+}
+
+// SetupSSHClient creates an SSH client using a default Runner.
+func SetupSSHClient(ctx context.Context, cfg *config.Config, destHost string, logger *zap.Logger) (*remote.SSHClient, context.CancelFunc, error) {
+	return NewRunner().SetupSSHClient(ctx, cfg, destHost, logger)
+}
+
+// StreamToRemote dumps snapshot data to a remote stdin using a default Runner.
+func StreamToRemote(ctx context.Context, cfg *config.Config, remoteStdin io.WriteCloser, snapshotDevice, originDevice, alg string, logger *zap.Logger) error {
+	return NewRunner().StreamToRemote(ctx, cfg, remoteStdin, snapshotDevice, originDevice, alg, logger)
 }
 
 func init() {
