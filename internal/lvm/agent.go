@@ -73,7 +73,7 @@ func NewSudoAgent(sudoPath string, l lvmlib.API, ensureRoot func() error) Agent 
 }
 
 func (a *agent) Lock(ctx context.Context, volume, requester string) error {
-	if err := a.esc.Ensure(); err != nil {
+	if err := a.esc.Ensure(ctx); err != nil {
 		return err
 	}
 	if a.lvm == nil {
@@ -83,7 +83,7 @@ func (a *agent) Lock(ctx context.Context, volume, requester string) error {
 }
 
 func (a *agent) Unlock(ctx context.Context, volume, requester string) error {
-	if err := a.esc.Ensure(); err != nil {
+	if err := a.esc.Ensure(ctx); err != nil {
 		return err
 	}
 	if a.lvm == nil {
@@ -93,7 +93,7 @@ func (a *agent) Unlock(ctx context.Context, volume, requester string) error {
 }
 
 func (a *agent) GetMetadata(ctx context.Context, volume string) (VolumeMetadata, error) {
-	if err := a.esc.Ensure(); err != nil {
+	if err := a.esc.Ensure(ctx); err != nil {
 		return VolumeMetadata{}, err
 	}
 	if a.lvm == nil {
@@ -103,7 +103,7 @@ func (a *agent) GetMetadata(ctx context.Context, volume string) (VolumeMetadata,
 }
 
 func (a *agent) SendMetadata(ctx context.Context, md VolumeMetadata) error {
-	if err := a.esc.Ensure(); err != nil {
+	if err := a.esc.Ensure(ctx); err != nil {
 		return err
 	}
 	if a.lvm == nil {
@@ -113,7 +113,7 @@ func (a *agent) SendMetadata(ctx context.Context, md VolumeMetadata) error {
 }
 
 func (a *agent) StartTransferSession(ctx context.Context, volume, requester string) error {
-	if err := a.esc.Ensure(); err != nil {
+	if err := a.esc.Ensure(ctx); err != nil {
 		return err
 	}
 	if a.lvm == nil {
@@ -123,7 +123,7 @@ func (a *agent) StartTransferSession(ctx context.Context, volume, requester stri
 }
 
 func (a *agent) FinalizeSync(ctx context.Context, volume, requester string) error {
-	if err := a.esc.Ensure(); err != nil {
+	if err := a.esc.Ensure(ctx); err != nil {
 		return err
 	}
 	if a.lvm == nil {
@@ -133,7 +133,7 @@ func (a *agent) FinalizeSync(ctx context.Context, volume, requester string) erro
 }
 
 func (a *agent) GetStatus(ctx context.Context, volume, requester string) (string, error) {
-	if err := a.esc.Ensure(); err != nil {
+	if err := a.esc.Ensure(ctx); err != nil {
 		return "", err
 	}
 	if a.lvm == nil {
@@ -143,7 +143,7 @@ func (a *agent) GetStatus(ctx context.Context, volume, requester string) (string
 }
 
 func (a *agent) VolumeExists(ctx context.Context, volume string) (bool, error) {
-	if err := a.esc.Ensure(); err != nil {
+	if err := a.esc.Ensure(ctx); err != nil {
 		return false, err
 	}
 	if a.lvm == nil {
@@ -153,7 +153,7 @@ func (a *agent) VolumeExists(ctx context.Context, volume string) (bool, error) {
 }
 
 func (a *agent) AutoExtendEnabled(ctx context.Context, volume string) (bool, error) {
-	if err := a.esc.Ensure(); err != nil {
+	if err := a.esc.Ensure(ctx); err != nil {
 		return false, err
 	}
 	if a.lvm == nil {
@@ -163,7 +163,7 @@ func (a *agent) AutoExtendEnabled(ctx context.Context, volume string) (bool, err
 }
 
 func (a *agent) DiscardEnabled(ctx context.Context, volume string) (bool, error) {
-	if err := a.esc.Ensure(); err != nil {
+	if err := a.esc.Ensure(ctx); err != nil {
 		return false, err
 	}
 	if a.lvm == nil {
@@ -173,7 +173,7 @@ func (a *agent) DiscardEnabled(ctx context.Context, volume string) (bool, error)
 }
 
 func (a *agent) IsMounted(ctx context.Context, volume string) (bool, error) {
-	if err := a.esc.Ensure(); err != nil {
+	if err := a.esc.Ensure(ctx); err != nil {
 		return false, err
 	}
 	if a.lvm == nil {

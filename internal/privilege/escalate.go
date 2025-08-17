@@ -3,16 +3,19 @@
 // falls back to sudo when capabilities are missing.
 package privilege
 
-import "os/exec"
+import (
+	"context"
+	"os/exec"
+)
 
 // Escalator validates privilege requirements and executes commands with
 // escalation when needed.
 type Escalator interface {
 	// Ensure verifies that the required capabilities or sudo are available.
-	Ensure() error
+	Ensure(context.Context) error
 	// Command constructs an *exec.Cmd, adding sudo when capabilities are
 	// insufficient.
-	Command(name string, args ...string) *exec.Cmd
+	Command(context.Context, string, ...string) *exec.Cmd
 }
 
 // sudoEscalator implements Escalator using Linux capabilities when present
