@@ -42,7 +42,7 @@ func New(cfg transport.Config) (transport.Interface, error) {
 	}
 	clientAuth := tls.RequireAndVerifyClientCert
 	if cfg.AllowInsecure {
-		cfg.Logger.Warn("allow_insecure_enabled", zap.String("transport", "tcp+tls"))
+		cfg.Logger.Warn("allow_insecure_enabled", zap.String("transport", "tcp+tls"), zap.String("security", "tls_verification_disabled"), zap.String("usage", "development_only"))
 		clientAuth = tls.RequireAnyClientCert
 	}
 	serverConf := &tls.Config{
