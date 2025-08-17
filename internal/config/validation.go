@@ -143,7 +143,7 @@ func validateCompressionSettings(c *Config) error {
 	if lz4 != "" && lz4 != "fast" && lz4 != "hc" {
 		return fmt.Errorf("invalid lz4 compression level: %s", c.LZ4Level)
 	}
-	if c.CompressThreshold < 0 || c.CompressThreshold > 1 {
+	if c.CompressThreshold <= 0 || c.CompressThreshold > 1 {
 		return fmt.Errorf("invalid compress threshold: %f", c.CompressThreshold)
 	}
 	return nil
