@@ -27,19 +27,23 @@ type Transfer struct {
 	Logger   *zap.Logger
 	workerWG *sync.WaitGroup
 	Tracker  *resumeTracker
+	Info     device.DeviceInfoProvider
 }
 
 // NewTransfer creates a Transfer with the provided logger and wait group.
 // When wg is nil, a new instance is allocated. A nil logger is replaced with
 // zap.NewNop().
-func NewTransfer(logger *zap.Logger, wg *sync.WaitGroup) *Transfer {
+func NewTransfer(logger *zap.Logger, wg *sync.WaitGroup, info device.DeviceInfoProvider) *Transfer {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
 	if wg == nil {
 		wg = &sync.WaitGroup{}
 	}
-	return &Transfer{Logger: logger, workerWG: wg, Tracker: &resumeTracker{}}
+	if info == nil {
+		info = device.NewInfo()
+	}
+	return &Transfer{Logger: logger, workerWG: wg, Tracker: &resumeTracker{}, Info: info}
 }
 
 // ChecksumState stores block checksums and the algorithm used for deduplication.
@@ -239,7 +243,7 @@ func (t *Transfer) verifyDestination(ctx context.Context, cfg *config.Config, de
 		if err != nil {
 			return err
 		}
-		id, err := device.GetDeviceID(ctx, destPath)
+		id, err := t.Info.GetDeviceID(ctx, destPath)
 		if err != nil {
 			return fmt.Errorf("read destination id: %w", err)
 		}
@@ -258,7 +262,7 @@ func (t *Transfer) verifyDestination(ctx context.Context, cfg *config.Config, de
 		}
 		t.Logger.Info("destination_validated", zap.String("resource_id", id), zap.Uint64("size_bytes", size))
 	} else if cfg.DeviceUUID != "" {
-		id, err := device.GetDeviceID(ctx, destPath)
+		id, err := t.Info.GetDeviceID(ctx, destPath)
 		if err != nil {
 			return fmt.Errorf("read destination uuid: %w", err)
 		}

@@ -13,7 +13,7 @@ import (
 )
 
 func TestResumeFixedIdempotent(t *testing.T) {
-	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{})
+	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, nil)
 	blockSize := int64(1024)
 	src, snapshot, resume := createTestFiles(t, blockSize, 4, "blake3")
 

@@ -11,7 +11,7 @@ parallel: 4  # Number of concurrent workers
 zerocopy: false
 max_retries: 3  # Maximum number of retries per block
 resume: ""  # Path to resume state file
-sync_interval: "1GB"  # Bytes between fdatasync calls (supports size suffixes like "64KB"; invalid values error)
+sync-interval: "1GB"  # Bytes between fdatasync calls (supports size suffixes like "64KB"; invalid values error)
 
 # Manifest Options
 manifest_timeout: 1m  # Timeout for manifest rebuild (0 disables)
@@ -88,7 +88,7 @@ target_vgs: [ ]  # Candidate target VGs for auto-selection
 # Command used to re-execute the program with elevated privileges
 # when required
 lvm_escalation: "sudo -n"
-lvm_timeout: 10s  # Timeout for LVM operations
+lvm_timeout: 10s  # Timeout for LVM operations and privilege checks
 progress: true  # Enable progress display during transfer
 # Block size for LVM operations ('auto' or 0 for automatic detection)
 block_size: "auto"

@@ -74,7 +74,7 @@ func parseOffsets(t *testing.T, data []byte, blockSize int64) []int64 {
 }
 
 func TestResumeSequential(t *testing.T) {
-	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{})
+	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, nil)
 	tr.Tracker = &resumeTracker{}
 	blockSize := int64(1024)
 	src, snapshot, resume := createTestFiles(t, blockSize, 4, "blake3")
@@ -99,7 +99,7 @@ func TestResumeSequential(t *testing.T) {
 }
 
 func TestResumeParallel(t *testing.T) {
-	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{})
+	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, nil)
 	tr.Tracker = &resumeTracker{}
 	blockSize := int64(1024)
 	src, snapshot, resume := createTestFiles(t, blockSize, 4, "blake3")
@@ -134,7 +134,7 @@ func TestResumeModeTransitions(t *testing.T) {
 	}
 	for _, trc := range transitions {
 		t.Run(trc.from+"_to_"+trc.to, func(t *testing.T) {
-			tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{})
+			tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, nil)
 			tr.Tracker = &resumeTracker{}
 			blockSize := int64(1024)
 			src, snapshot, resume := createTestFiles(t, blockSize, 4, "blake3")

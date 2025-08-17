@@ -1,3 +1,4 @@
 | Type | Component | Evidence | Impact | Fix | Priority |
 |------|-----------|----------|--------|-----|----------|
-| N/A | N/A | `go vet`, `go test`, and `golangci-lint` report no outstanding gaps | N/A | N/A | N/A |
+| Bug | CLI flags | inconsistent flag naming across commands | confusing user experience | normalize flag names to kebab-case and document consistent style | medium |
+| Bug | Privilege escalation | escalation command lacks timeout | operations may hang indefinitely | add context-aware timeout to privilege escalation | high |

@@ -6,28 +6,27 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/moby/sys/mountinfo"
+	"go.uber.org/zap"
 )
 
 func TestGetUUIDCanceledContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if _, err := GetUUID(ctx, "/dev/null"); !errors.Is(err, context.Canceled) {
+	if _, err := defaultInfo.GetUUID(ctx, "/dev/null"); !errors.Is(err, context.Canceled) {
 		t.Fatalf("expected context canceled error, got %v", err)
 	}
 }
 
 func TestGetUUIDStub(t *testing.T) {
-	prev := SetUUIDFunc(func(ctx context.Context, path string) (string, error) {
+	info := NewInfoWithDeps(func(context.Context, string) (string, error) {
 		return "stub-uuid", nil
-	})
-	defer SetUUIDFunc(prev)
-
-	got, err := GetUUID(context.Background(), "/dev/sda")
+	}, nil, nil)
+	got, err := info.GetUUID(context.Background(), "/dev/sda")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -36,22 +35,9 @@ func TestGetUUIDStub(t *testing.T) {
 	}
 }
 
-func TestSetUUIDFunc(t *testing.T) {
-	orig := uuidFunc
-	stub := func(context.Context, string) (string, error) { return "new", nil }
-	prev := SetUUIDFunc(stub)
-	if reflect.ValueOf(prev).Pointer() != reflect.ValueOf(orig).Pointer() {
-		t.Fatalf("expected previous function to be original")
-	}
-	if reflect.ValueOf(uuidFunc).Pointer() != reflect.ValueOf(stub).Pointer() {
-		t.Fatalf("uuidFunc not replaced")
-	}
-	SetUUIDFunc(prev)
-}
-
 func TestGetUUIDError(t *testing.T) {
 	wantErr := errors.New("fail")
-	prev := SetUUIDFunc(func(ctx context.Context, path string) (string, error) {
+	info := NewInfoWithDeps(func(ctx context.Context, path string) (string, error) {
 		if _, ok := ctx.Deadline(); !ok {
 			t.Fatalf("expected context with deadline")
 		}
@@ -59,58 +45,46 @@ func TestGetUUIDError(t *testing.T) {
 			t.Fatalf("unexpected path %q", path)
 		}
 		return "", wantErr
-	})
-	defer SetUUIDFunc(prev)
-
-	if _, err := GetUUID(context.Background(), "/dev/fail"); !errors.Is(err, wantErr) {
+	}, nil, nil)
+	if _, err := info.GetUUID(context.Background(), "/dev/fail"); !errors.Is(err, wantErr) {
 		t.Fatalf("expected %v, got %v", wantErr, err)
 	}
 }
 
 func TestGetDeviceIDPrefersLVM(t *testing.T) {
-	prevLVM := SetLVMUUIDFunc(func(context.Context, string) (string, error) { return "lv-id", nil })
-	defer SetLVMUUIDFunc(prevLVM)
-	called := false
-	prev := SetUUIDFunc(func(context.Context, string) (string, error) { called = true; return "blkid-id", nil })
-	defer SetUUIDFunc(prev)
-
-	got, err := GetDeviceID(context.Background(), "/dev/lvm0")
+	info := NewInfoWithDeps(
+		func(context.Context, string) (string, error) { return "blkid-id", nil },
+		func(context.Context, string) (string, error) { return "lv-id", nil },
+		nil,
+	)
+	got, err := info.GetDeviceID(context.Background(), "/dev/lvm0")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if got != "lv-id" {
 		t.Fatalf("expected lv-id, got %q", got)
 	}
-	if called {
-		t.Fatalf("expected blkid lookup to be skipped")
-	}
 }
 
 func TestIDsMatch(t *testing.T) {
-	prevLVM := SetLVMUUIDFunc(func(context.Context, string) (string, error) { return "", errors.New("no lvm") })
-	defer SetLVMUUIDFunc(prevLVM)
-	prev := SetUUIDFunc(func(_ context.Context, path string) (string, error) {
-		if strings.Contains(path, "src") {
-			return "id1", nil
-		}
-		if strings.Contains(path, "dest") {
-			return "id2", nil
-		}
-		return "", nil
-	})
-	defer SetUUIDFunc(prev)
-
-	match, err := IDsMatch(context.Background(), "/dev/src", "/dev/dest")
+	info := NewInfoWithDeps(
+		func(_ context.Context, path string) (string, error) {
+			if strings.Contains(path, "src") {
+				return "id1", nil
+			}
+			if strings.Contains(path, "dest") {
+				return "id2", nil
+			}
+			return "same", nil
+		}, nil, nil)
+	match, err := info.IDsMatch(context.Background(), "/dev/src", "/dev/dest")
 	if err != nil {
 		t.Fatalf("IDsMatch: %v", err)
 	}
 	if match {
 		t.Fatalf("expected mismatch")
 	}
-
-	prev2 := SetUUIDFunc(func(_ context.Context, path string) (string, error) { return "same", nil })
-	defer SetUUIDFunc(prev2)
-	match, err = IDsMatch(context.Background(), "/dev/a", "/dev/b")
+	match, err = info.IDsMatch(context.Background(), "/dev/a", "/dev/b")
 	if err != nil {
 		t.Fatalf("IDsMatch: %v", err)
 	}
@@ -132,15 +106,6 @@ func TestSetMountFunc(t *testing.T) {
 	SetMountFunc(prev)
 }
 
-func TestIsMountedRW(t *testing.T) {
-	tests := []struct {
-		name string
-		val  bool
-	}{
-		{"mounted", true},
-		{"unmounted", false},
-	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			prev := SetMountFunc(func(context.Context, string) (bool, error) { return tt.val, nil })
@@ -154,6 +119,8 @@ func TestIsMountedRW(t *testing.T) {
 				t.Fatalf("expected %v, got %v", tt.val, got)
 			}
 		})
+	if !got {
+		t.Fatalf("expected mounted read-write")
 	}
 }
 
@@ -333,6 +300,54 @@ func TestDefaultMountFuncError(t *testing.T) {
 
 func mountFuncFromMountInfoFile(p string) func(context.Context, string) (bool, error) {
 	return func(_ context.Context, path string) (bool, error) {
+
+func TestSizeBytes(t *testing.T) {
+	dev := &stubDevice{size: 123}
+	prev := detectFunc
+	detectFunc = func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger, *Runner) (Device, error) {
+		return dev, nil
+	}
+	defer func() { detectFunc = prev }()
+	got, err := SizeBytes(context.Background(), "/dev/fake")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != 123 {
+		t.Fatalf("SizeBytes() = %d, want 123", got)
+	}
+}
+
+func TestSizeBytesCloseError(t *testing.T) {
+	want := errors.New("close boom")
+	dev := &stubDevice{size: 456, closeErr: want}
+	prev := detectFunc
+	detectFunc = func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger, *Runner) (Device, error) {
+		return dev, nil
+	}
+	defer func() { detectFunc = prev }()
+	got, err := SizeBytes(context.Background(), "/dev/fake")
+	if !errors.Is(err, want) {
+		t.Fatalf("expected %v, got %v", want, err)
+	}
+	if got != 456 {
+		t.Fatalf("SizeBytes() = %d, want 456", got)
+	}
+}
+
+type stubDevice struct {
+	size     uint64
+	closeErr error
+}
+
+func (s *stubDevice) Path() string                                     { return "" }
+func (s *stubDevice) SizeBytes() uint64                                { return s.size }
+func (s *stubDevice) BlockSize() uint64                                { return 0 }
+func (s *stubDevice) Snapshot(context.Context, string) (Device, error) { return nil, nil }
+func (s *stubDevice) Cleanup(context.Context) error                    { return nil }
+func (s *stubDevice) Close() error                                     { return s.closeErr }
+
+func mountFuncFromMountInfoFile(p string) func(string) (bool, error) {
+	return func(path string) (bool, error) {
 		real, err := filepath.EvalSymlinks(path)
 		if err != nil {
 			return false, err

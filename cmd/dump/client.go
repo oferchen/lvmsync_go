@@ -46,18 +46,24 @@ type Runner struct {
 	streamToRemote func(context.Context, *config.Config, io.WriteCloser, string, string, string, *zap.Logger) error
 }
 
+var (
+	dumpChangesSequential = func(ctx context.Context, t *transfer.Transfer, cfg *config.Config, snap, origin string, out io.Writer) error {
+		return t.DumpChangesSequential(ctx, cfg, snap, origin, out)
+	}
+	dumpChangesParallel = func(ctx context.Context, t *transfer.Transfer, cfg *config.Config, snap, origin string, out io.Writer) error {
+		return t.DumpChangesParallel(ctx, cfg, snap, origin, out)
+	}
+	dumpChangesWithDeduplication = func(ctx context.Context, t *transfer.Transfer, cfg *config.Config, snap, origin string, out io.Writer, d transfer.DeduplicationStrategy) error {
+		return t.DumpChangesWithDeduplication(ctx, cfg, snap, origin, out, d)
+	}
+)
+
 // NewRunner constructs a Runner with production dependencies.
 func NewRunner() *Runner {
 	r := &Runner{
-		dumpSeq: func(ctx context.Context, t *transfer.Transfer, cfg *config.Config, snap, origin string, out io.Writer) error {
-			return t.DumpChangesSequential(ctx, cfg, snap, origin, out)
-		},
-		dumpPar: func(ctx context.Context, t *transfer.Transfer, cfg *config.Config, snap, origin string, out io.Writer) error {
-			return t.DumpChangesParallel(ctx, cfg, snap, origin, out)
-		},
-		dumpDedup: func(ctx context.Context, t *transfer.Transfer, cfg *config.Config, snap, origin string, out io.Writer, d transfer.DeduplicationStrategy) error {
-			return t.DumpChangesWithDeduplication(ctx, cfg, snap, origin, out, d)
-		},
+		dumpSeq:      dumpChangesSequential,
+		dumpPar:      dumpChangesParallel,
+		dumpDedup:    dumpChangesWithDeduplication,
 		newSSHClient: remote.NewSSHClient,
 		openFile:     os.OpenFile,
 		detectDevice: device.Detect,
@@ -65,6 +71,11 @@ func NewRunner() *Runner {
 	}
 	r.streamToRemote = r.StreamToRemote
 	return r
+}
+
+// ExecuteDump is a convenience wrapper using a default Runner.
+func ExecuteDump(ctx context.Context, cfg *config.Config, snapshotDevice, originDevice string, out io.Writer, logger *zap.Logger) error {
+	return NewRunner().ExecuteDump(ctx, cfg, snapshotDevice, originDevice, out, logger)
 }
 
 // NewRunnerWithDeps constructs a Runner overriding defaults.
@@ -176,7 +187,7 @@ func CopyPipeAsync(ctx context.Context, dst io.Writer, src io.Reader) <-chan err
 
 // ExecuteDump selects the appropriate dump implementation based on configuration.
 func (r *Runner) ExecuteDump(ctx context.Context, cfg *config.Config, snapshotDevice, originDevice string, out io.Writer, logger *zap.Logger) error {
-	t := transfer.NewTransfer(logger, &sync.WaitGroup{})
+	t := transfer.NewTransfer(logger, &sync.WaitGroup{}, nil)
 	dedup := transfer.NewDeduplicationStrategy(cfg, logger)
 	if dedup != nil {
 		defer func() {

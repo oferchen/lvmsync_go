@@ -23,11 +23,12 @@ type Runner struct {
 }
 
 // New returns an Escalator with production dependencies.
-func New() Escalator { return NewWithRunner(nil) }
+// ctx is currently unused but reserved for future use.
+func New(ctx context.Context) Escalator { return NewWithRunner(ctx, nil) }
 
 // NewWithRunner constructs an Escalator with the provided Runner.
 // Nil fields default to exec.CommandContext and exec.LookPath.
-func NewWithRunner(r *Runner) Escalator {
+func NewWithRunner(_ context.Context, r *Runner) Escalator {
 	cmd := Commander(commanderFunc(exec.CommandContext))
 	lp := exec.LookPath
 	if r != nil {
