@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"math"
 	"os"
 
 	"github.com/zeebo/blake3"
@@ -44,9 +45,15 @@ func newBlockWriter(cfg *config.Config, dest *os.File, dedup DeduplicationStrate
 		}
 	}
 	if cfg.SyncIntervalBytes == 0 && cfg.SyncInterval != "" {
-		if val, _, err := sizeparse.Parse(cfg.SyncInterval); err == nil {
-			cfg.SyncIntervalBytes = int(val)
+		val, isPercent, err := sizeparse.Parse(cfg.SyncInterval)
+		if err != nil || isPercent {
+			return nil, fmt.Errorf("invalid sync interval %q: %w", cfg.SyncInterval, err)
 		}
+		u := uint64(val)
+		if float64(u) != val || u > uint64(math.MaxInt) {
+			return nil, fmt.Errorf("sync interval %q overflows int", cfg.SyncInterval)
+		}
+		cfg.SyncIntervalBytes = int(u)
 	}
 	bw := &blockWriter{
 		cfg:      cfg,

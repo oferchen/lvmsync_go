@@ -409,7 +409,7 @@ Recent refactors added several configuration options:
 - `--tcp_port` and `--ssh_port` expose TCP+TLS and SSH endpoints.
 - `--tcp_parallel` controls the number of parallel TCP connections (2–4).
 - `--tcp_lowat` sets TCP_NOTSENT_LOWAT to limit unsent bytes.
-- `--sync-interval` controls how many bytes are written between `fdatasync` calls (flag uses underscores in the CLI: `--sync_interval`).
+- `--sync-interval` controls how many bytes are written between `fdatasync` calls (flag uses underscores in the CLI: `--sync_interval`). Accepts size suffixes like `64KB` or `1GB`; invalid values return an error.
 - `--checkpoint_interval` sets how often resume state is persisted.
 - `--checkpoint_bytes` sets how many bytes are written between resume checkpoints.
 - `--block_size` sets the transfer block size (use `auto` for detection).
@@ -417,7 +417,7 @@ Recent refactors added several configuration options:
 ### I/O tuning
 
 - `--block_size` selects the transfer block size. Use `auto` to match the destination's physical sector size.
-- `--sync-interval` sets how many bytes are written between `fdatasync` calls (flag uses underscores in the CLI: `--sync_interval`).
+- `--sync-interval` sets how many bytes are written between `fdatasync` calls (flag uses underscores in the CLI: `--sync_interval`). Accepts size suffixes like `64KB` or `1GB`; invalid values cause startup errors.
 - `--odirect` uses O_DIRECT with block-size aligned buffers.
 - `--numa_pin` pins worker goroutines to CPUs local to the source device's NUMA node.
 
@@ -549,7 +549,7 @@ LVMSYNC_LVM_SNAPSHOT_SIZE=25% lvmsync run /dev/vg0/snap0 /mnt/backup
 | `--max_retries` | `LVMSYNC_MAX_RETRIES` | `max_retries` | Maximum number of retries per block |
 | `--resume` | `LVMSYNC_RESUME` | `resume` | Path to resume state file (records dedup mode and last chunk boundary) |
 | `--speed` | `LVMSYNC_SPEED` | `speed` | Transfer speed limit |
-| `--sync-interval` | `LVMSYNC_SYNC_INTERVAL` | `sync_interval` | Bytes between fdatasync calls (CLI flag: `--sync_interval`) |
+| `--sync-interval` | `LVMSYNC_SYNC_INTERVAL` | `sync_interval` | Bytes between fdatasync calls (CLI flag: `--sync_interval`; accepts size suffixes like `64KB`; invalid values error) |
 | `--checkpoint_bytes` | `LVMSYNC_CHECKPOINT_BYTES` | `checkpoint_bytes` | Bytes between resume checkpoints |
 | `--checkpoint_interval` | `LVMSYNC_CHECKPOINT_INTERVAL` | `checkpoint_interval` | Duration between checkpoints |
 | `--block_size` | `LVMSYNC_BLOCK_SIZE` | `block_size` | Block size for data transfer; specify 'auto' or 0 for automatic detection |
