@@ -253,12 +253,20 @@ func TestBuilderValidateCompression(t *testing.T) {
 		}
 	})
 
-        t.Run("invalidThresholdNonPositive", func(t *testing.T) {
-                conf := &Config{Compress: Zstd, ZstdLevel: 3, CompressThreshold: -0.1}
-                if err := b.validateCompression(conf); err == nil {
-                        t.Fatalf("expected error")
-                }
-        })
+  t.Run("invalidThresholdNonPositive", func(t *testing.T) {
+          conf := &Config{Compress: Zstd, ZstdLevel: 3, CompressThreshold: -0.1}
+          if err := b.validateCompression(conf); err == nil {
+                  t.Fatalf("expected error")
+          }
+  })
+
+	t.Run("thresholdNonPositive", func(t *testing.T) {
+		conf := &Config{Compress: Zstd, ZstdLevel: 3, CompressThreshold: 0}
+		if err := b.validateCompression(conf); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
 
 	t.Run(Auto, func(t *testing.T) {
 		conf := &Config{Compress: Auto, CompressThreshold: 0.9}
@@ -549,6 +557,13 @@ func TestConfigValidateCompression(t *testing.T) {
 			t.Fatalf("expected error")
 		}
 	})
+	t.Run("zeroThreshold", func(t *testing.T) {
+		cfg := base
+		cfg.CompressThreshold = 0
+		if err := cfg.Validate(); err == nil {
+			t.Fatalf("expected error")
+		}
+	})
 	t.Run("zstdLevelOutOfRange", func(t *testing.T) {
 		cfg := base
 		cfg.Compress = Zstd
@@ -631,7 +646,7 @@ func TestValidateEscalationCommand(t *testing.T) {
 	}
 	os.Setenv("PATH", dir)
 
-	base := &Config{Mode: "default", SSHKeepAliveInterval: time.Second, GRPCDialTimeout: time.Second, GRPCSetupTimeout: time.Second, HeartbeatInterval: time.Second, HeartbeatSendTimeout: time.Second, TCPParallel: 1, CDCMin: 64, CDCAvg: 128, CDCMax: 256}
+	base := &Config{Mode: "default", SSHKeepAliveInterval: time.Second, GRPCDialTimeout: time.Second, GRPCSetupTimeout: time.Second, HeartbeatInterval: time.Second, HeartbeatSendTimeout: time.Second, TCPParallel: 1, CDCMin: 64, CDCAvg: 128, CDCMax: 256, CompressThreshold: 0.9}
 
 	cfg := *base
 	cfg.LVMEscalation = "sudo -n"
@@ -666,6 +681,7 @@ func TestValidateMode(t *testing.T) {
 		CDCAvg:               128,
 		CDCMax:               256,
 		LVMEscalation:        "sudo -n",
+		CompressThreshold:    0.9,
 	}
 
 	cases := []struct {
@@ -704,6 +720,7 @@ func TestValidateChecksumAuto(t *testing.T) {
 		CDCAvg:               128,
 		CDCMax:               256,
 		ChecksumAlgorithm:    Auto,
+		CompressThreshold:    0.9,
 	}
 
 	t.Run("simd", func(t *testing.T) {
@@ -744,6 +761,7 @@ func TestValidateCDCOrdering(t *testing.T) {
 		HeartbeatSendTimeout: time.Second,
 		TCPParallel:          1,
 		LVMEscalation:        "sudo -n",
+		CompressThreshold:    0.9,
 	}
 
 	cases := []struct {
