@@ -27,9 +27,10 @@ const (
 
 // Transport implements HTTP/2 over TLS1.3 with mutual authentication.
 type Transport struct {
-	clientConf *tls.Config
-	serverConf *tls.Config
-	logger     *zap.Logger
+	clientConf    *tls.Config
+	serverConf    *tls.Config
+	logger        *zap.Logger
+	clearDeadline func(net.Conn) error
 }
 
 // Conn wraps a single HTTP/2 stream to satisfy net.Conn.
@@ -89,7 +90,12 @@ func New(cfg transport.Config) (transport.Interface, error) {
 	if len(cfg.ServerCert.Certificate) != 0 {
 		serverConf.Certificates = []tls.Certificate{cfg.ServerCert}
 	}
-	return &Transport{clientConf: clientConf, serverConf: serverConf, logger: cfg.Logger}, nil
+	return &Transport{
+		clientConf:    clientConf,
+		serverConf:    serverConf,
+		logger:        cfg.Logger,
+		clearDeadline: func(conn net.Conn) error { return conn.SetDeadline(time.Time{}) },
+	}, nil
 }
 
 func init() {
@@ -286,7 +292,8 @@ func (t *Transport) Dial(ctx context.Context, address string) (net.Conn, error) 
 		return nil, err
 	}
 	logDialResult(ctx, t.logger, address, role, start, nil)
-	if err := conn.SetDeadline(time.Time{}); err != nil {
+	if err := t.clearDeadline(conn); err != nil {
+		t.logger.Error("clear_deadline_failed", zap.Error(err))
 		conn.Close()
 		return nil, err
 	}

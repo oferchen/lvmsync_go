@@ -374,6 +374,46 @@ func TestH2TransportTLSHandshake(t *testing.T) {
 	checkHandshakeFields(t, logs, "negotiate_end", 2)
 }
 
+func TestDialClearDeadlineError(t *testing.T) {
+	cert, pool := generateSelfSignedCert(t)
+	core, logs := observer.New(zapcore.InfoLevel)
+	trIface, err := New(transport.Config{Logger: zap.New(core), Roots: pool, ClientCert: cert, ServerCert: cert})
+	if err != nil {
+		t.Fatalf("new transport: %v", err)
+	}
+	tr := trIface.(*Transport)
+	tr.clearDeadline = func(net.Conn) error { return errors.New("boom") }
+
+	ln, err := tr.Listen(context.Background(), "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer ln.Close()
+
+	done := make(chan struct{})
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		<-done
+	}()
+
+	if _, err := tr.Dial(context.Background(), ln.Addr().String()); err == nil {
+		t.Fatalf("expected dial error")
+	}
+	close(done)
+
+	entries := logs.FilterMessage("clear_deadline_failed").All()
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 clear_deadline_failed log, got %d", len(entries))
+	}
+	if entries[0].Level != zapcore.ErrorLevel {
+		t.Fatalf("expected error level, got %v", entries[0].Level)
+	}
+}
+
 func TestH2TransportSelectBestHandshake(t *testing.T) {
 	t.Skip("TODO: h2 select-best handshake flaky: investigate EOF")
 	cert, pool := generateSelfSignedCert(t)
