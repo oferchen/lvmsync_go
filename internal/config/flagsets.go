@@ -70,16 +70,16 @@ func initGeneralFlags(cfg *Config) *pflag.FlagSet {
 	fs.Int("parallel", cfg.Parallel, "Number of concurrent workers")
 	fs.Bool("zerocopy", cfg.ZeroCopy, "Enable zero-copy transfers")
 	fs.Bool("odirect", cfg.ODirect, "Use O_DIRECT for device I/O when possible")
-	fs.Bool("numa_pin", cfg.NumaPin, "Pin worker goroutines to device NUMA node")
-	fs.Int("max_retries", cfg.MaxRetries, "Maximum number of retries per block")
+	fs.Bool("numa-pin", cfg.NumaPin, "Pin worker goroutines to device NUMA node")
+	fs.Int("max-retries", cfg.MaxRetries, "Maximum number of retries per block")
 	fs.String("resume", cfg.ResumeState, "Path to resume state file")
 	fs.String("speed", cfg.Speed, "Transfer speed limit")
 	fs.String("sync-interval", cfg.SyncInterval, "Bytes between fdatasync calls")
-	fs.String("checkpoint_bytes", cfg.CheckpointBytesRaw, "Bytes between resume checkpoints")
-	fs.Duration("checkpoint_interval", cfg.CheckpointInterval, "Duration between checkpoints")
-	fs.String("block_size", cfg.BlockSizeRaw, "Block size for data transfer; specify 'auto' or 0 for automatic detection")
+	fs.String("checkpoint-bytes", cfg.CheckpointBytesRaw, "Bytes between resume checkpoints")
+	fs.Duration("checkpoint-interval", cfg.CheckpointInterval, "Duration between checkpoints")
+	fs.String("block-size", cfg.BlockSizeRaw, "Block size for data transfer; specify 'auto' or 0 for automatic detection")
 	fs.CountP("verbose", "v", "Verbosity level")
-	fs.Bool("verify_checksum", cfg.VerifyChecksum, "Enable checksum verification")
+	fs.Bool("verify-checksum", cfg.VerifyChecksum, "Enable checksum verification")
 	fs.String("verify", cfg.VerifyLevel, "Verification level: full, sampled, or none")
 	fs.String("digest", cfg.ChecksumAlgorithm, fmt.Sprintf("Digest algorithm: %v", SupportedChecksumAlgorithms))
 	fs.Bool("progress", cfg.Progress, "Show progress during transfer")
@@ -88,33 +88,33 @@ func initGeneralFlags(cfg *Config) *pflag.FlagSet {
 
 func initManifestFlags(cfg *Config) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("Manifest Options", pflag.ExitOnError)
-	fs.String("manifest_path", cfg.ManifestPath, "Path to manifest file")
-	fs.Duration("manifest_timeout", cfg.ManifestTimeout, "Timeout for manifest rebuild (0 to disable)")
-	fs.Duration("manifest_progress_interval", cfg.ManifestProgressInterval, "Interval between progress logs during manifest rebuild")
-	fs.Bool("manifest_allow_mounted", cfg.ManifestAllowMounted, "Allow rebuilding when device is mounted read-write")
+	fs.String("manifest-path", cfg.ManifestPath, "Path to manifest file")
+	fs.Duration("manifest-timeout", cfg.ManifestTimeout, "Timeout for manifest rebuild (0 to disable)")
+	fs.Duration("manifest-progress-interval", cfg.ManifestProgressInterval, "Interval between progress logs during manifest rebuild")
+	fs.Bool("manifest-allow-mounted", cfg.ManifestAllowMounted, "Allow rebuilding when device is mounted read-write")
 	return fs
 }
 
 func initSSHFlags(cfg *Config) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("SSH Options", pflag.ExitOnError)
-	fs.String("ssh_host", cfg.SSHHost, "SSH host")
-	fs.String("ssh_user", cfg.SSHUser, "SSH username")
-	fs.String("ssh_key", cfg.SSHKeyPath, "Path to SSH private key or use agent")
-	fs.String("ssh_host_key_path", cfg.SSHHostKeyPath, "Path to SSH host private key")
-	fs.Int("ssh_port", cfg.SSHPort, "SSH port")
-	fs.Duration("ssh_timeout", cfg.SSHTimeout, "SSH connection timeout")
-	fs.Duration("ssh_keepalive", cfg.SSHKeepAliveInterval, "SSH keepalive interval")
-	fs.String("ssh_host_key", cfg.SSHHostKey, "Expected SSH host public key")
-	fs.String("known_hosts", cfg.KnownHosts, "Path to known_hosts file")
-	fs.Bool("strict_host_key_checking", cfg.StrictHostKeyCheck, "Require host keys to be present in known_hosts")
+	fs.String("ssh-host", cfg.SSHHost, "SSH host")
+	fs.String("ssh-user", cfg.SSHUser, "SSH username")
+	fs.String("ssh-key", cfg.SSHKeyPath, "Path to SSH private key or use agent")
+	fs.String("ssh-host-key-path", cfg.SSHHostKeyPath, "Path to SSH host private key")
+	fs.Int("ssh-port", cfg.SSHPort, "SSH port")
+	fs.Duration("ssh-timeout", cfg.SSHTimeout, "SSH connection timeout")
+	fs.Duration("ssh-keepalive", cfg.SSHKeepAliveInterval, "SSH keepalive interval")
+	fs.String("ssh-host-key", cfg.SSHHostKey, "Expected SSH host public key")
+	fs.String("known-hosts", cfg.KnownHosts, "Path to known_hosts file")
+	fs.Bool("strict-host-key-checking", cfg.StrictHostKeyCheck, "Require host keys to be present in known_hosts")
 	return fs
 }
 
 func initRemoteFlags(cfg *Config) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("Remote Options", pflag.ExitOnError)
-	fs.String("lvmsync_path", cfg.LVMSyncPath, "Remote command to run")
-	fs.String("remote_pre_script", cfg.RemotePreScript, "Remote script to run before transfer")
-	fs.String("remote_post_script", cfg.RemotePostScript, "Remote script to run after transfer")
+	fs.String("lvmsync-path", cfg.LVMSyncPath, "Remote command to run")
+	fs.String("remote-pre-script", cfg.RemotePreScript, "Remote script to run before transfer")
+	fs.String("remote-post-script", cfg.RemotePostScript, "Remote script to run after transfer")
 	return fs
 }
 
@@ -125,12 +125,12 @@ func initDedupFlags(cfg *Config) *pflag.FlagSet {
 	fs.Int("cdc-avg", cfg.CDCAvg, "Average chunk size for CDC")
 	fs.Int("cdc-max", cfg.CDCMax, "Maximum chunk size for CDC")
 	fs.Uint64("chunk-seed", cfg.ChunkSeed, "Seed for chunking")
-	fs.String("dedup_strategy", cfg.DedupStrategy, fmt.Sprintf("Deduplication strategy: %v", SupportedDedupStrategies))
-	fs.String("dedup_state_file", cfg.DedupStateFile, "Path to deduplication state file")
+	fs.String("dedup-strategy", cfg.DedupStrategy, fmt.Sprintf("Deduplication strategy: %v", SupportedDedupStrategies))
+	fs.String("dedup-state-file", cfg.DedupStateFile, "Path to deduplication state file")
 	fs.Bool("intra-dedup", cfg.IntraDedup, "Enable intra-run deduplication")
-	fs.Int("bloom_entries", cfg.BloomEntries, "Bloom filter entries")
-	fs.Float64("bloom_fp_rate", cfg.BloomFpRate, "Bloom filter false positive rate")
-	fs.Uint("bloom_mbits", cfg.BloomMBits, "Bloom filter M bits per entry")
+	fs.Int("bloom-entries", cfg.BloomEntries, "Bloom filter entries")
+	fs.Float64("bloom-fp-rate", cfg.BloomFpRate, "Bloom filter false positive rate")
+	fs.Uint("bloom-mbits", cfg.BloomMBits, "Bloom filter M bits per entry")
 	return fs
 }
 
@@ -139,39 +139,39 @@ func initCompressionFlags(cfg *Config) *pflag.FlagSet {
 	fs.String("compress", cfg.Compress, fmt.Sprintf("Compression algorithm: %v", SupportedCompression))
 	fs.Int("zstd-level", cfg.ZstdLevel, "Zstd compression level (1-5)")
 	fs.String("lz4-level", cfg.LZ4Level, "LZ4 compression level: fast or hc")
-	fs.Int("compress_concurrency", cfg.CompressConcurrency, "Compression concurrency")
+	fs.Int("compress-concurrency", cfg.CompressConcurrency, "Compression concurrency")
 	fs.Float64("compress-threshold", cfg.CompressThreshold, "Skip compression when estimated ratio exceeds this value")
 	return fs
 }
 
 func initLVMFlags(cfg *Config) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("LVM Options", pflag.ExitOnError)
-	fs.Bool("skip_snapshot_creation", cfg.SkipSnapshotCreation, "Skip snapshot creation")
-	fs.Bool("skip_disk_check", cfg.SkipDiskCheck, "Skip disk space check")
-	fs.String("snapshot_size", cfg.SnapshotSize, "Snapshot size (bytes or percentage)")
+	fs.Bool("skip-snapshot-creation", cfg.SkipSnapshotCreation, "Skip snapshot creation")
+	fs.Bool("skip-disk-check", cfg.SkipDiskCheck, "Skip disk space check")
+	fs.String("snapshot-size", cfg.SnapshotSize, "Snapshot size (bytes or percentage)")
 	fs.String("lvm-escalation", cfg.LVMEscalation, "Command to use for privilege escalation")
-	fs.Duration("lvm_timeout", cfg.LVMTimeout, "Timeout for LVM commands and privilege checks")
+	fs.Duration("lvm-timeout", cfg.LVMTimeout, "Timeout for LVM commands and privilege checks")
 	fs.Duration("sig-cache-ttl", cfg.SigCacheTTL, "TTL for LVM signature cache entries")
 	fs.Int("sig-cache-max", cfg.SigCacheMax, "Maximum LVM signature cache entries")
-	fs.String("volume_group", cfg.VolumeGroup, "LVM volume group")
-	fs.String("target_volume_group", cfg.TargetVolumeGroup, "Target LVM volume group")
-	fs.StringSlice("target_vgs", cfg.TargetVGCandidates, "Candidate target VGs for volume selection")
+	fs.String("volume-group", cfg.VolumeGroup, "LVM volume group")
+	fs.String("target-volume-group", cfg.TargetVolumeGroup, "Target LVM volume group")
+	fs.StringSlice("target-vgs", cfg.TargetVGCandidates, "Candidate target VGs for volume selection")
 	return fs
 }
 
 func initGRPCFlags(cfg *Config) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("gRPC Options", pflag.ExitOnError)
-	fs.Int("grpc_port", cfg.GRPCPort, "gRPC server port")
-	fs.String("grpc_listen", cfg.GRPCListen, "gRPC listen address")
-	fs.String("grpc_connect", cfg.GRPCConnect, "gRPC connect address")
-	fs.Duration("grpc_dial_timeout", cfg.GRPCDialTimeout, "gRPC dial timeout")
-	fs.Duration("grpc_setup_timeout", cfg.GRPCSetupTimeout, "gRPC setup timeout")
-	fs.Duration("grpc_heartbeat_interval", cfg.HeartbeatInterval, "gRPC heartbeat interval")
-	fs.Duration("grpc_heartbeat_send_timeout", cfg.HeartbeatSendTimeout, "gRPC heartbeat send timeout")
-	fs.String("tls_cert", cfg.TLSCert, "Path to TLS certificate")
-	fs.String("tls_key", cfg.TLSKey, "Path to TLS private key")
-	fs.String("ca_cert", cfg.CACert, "Path to CA certificate")
-	fs.Bool("allow_insecure", cfg.AllowInsecure, "Allow insecure connections")
+	fs.Int("grpc-port", cfg.GRPCPort, "gRPC server port")
+	fs.String("grpc-listen", cfg.GRPCListen, "gRPC listen address")
+	fs.String("grpc-connect", cfg.GRPCConnect, "gRPC connect address")
+	fs.Duration("grpc-dial-timeout", cfg.GRPCDialTimeout, "gRPC dial timeout")
+	fs.Duration("grpc-setup-timeout", cfg.GRPCSetupTimeout, "gRPC setup timeout")
+	fs.Duration("grpc-heartbeat-interval", cfg.HeartbeatInterval, "gRPC heartbeat interval")
+	fs.Duration("grpc-heartbeat-send-timeout", cfg.HeartbeatSendTimeout, "gRPC heartbeat send timeout")
+	fs.String("tls-cert", cfg.TLSCert, "Path to TLS certificate")
+	fs.String("tls-key", cfg.TLSKey, "Path to TLS private key")
+	fs.String("ca-cert", cfg.CACert, "Path to CA certificate")
+	fs.Bool("allow-insecure", cfg.AllowInsecure, "Allow insecure connections")
 	return fs
 }
 
@@ -179,9 +179,9 @@ func initTransportFlags(cfg *Config) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("Transport Options", pflag.ExitOnError)
 	fs.String("transport", cfg.Transport, "Transport modes (comma-separated)")
 	fs.Int("concurrency", cfg.Concurrency, "Number of concurrent connections")
-	fs.Int("tcp_port", cfg.TCPPort, "TCP port")
-	fs.Int("tcp_parallel", cfg.TCPParallel, "Number of parallel TCP connections per worker")
-	fs.Int("tcp_lowat", cfg.TCPNotSentLowAt, "TCP_NOTSENT_LOWAT threshold in bytes")
+	fs.Int("tcp-port", cfg.TCPPort, "TCP port")
+	fs.Int("tcp-parallel", cfg.TCPParallel, "Number of parallel TCP connections per worker")
+	fs.Int("tcp-lowat", cfg.TCPNotSentLowAt, "TCP_NOTSENT_LOWAT threshold in bytes")
 	return fs
 }
 
@@ -226,7 +226,7 @@ func bindDedupEnv(fs *pflag.FlagSet, v *viper.Viper) error {
 		}
 		name := strings.ToUpper(strings.ReplaceAll(f.Name, "-", "_"))
 		name = strings.TrimPrefix(name, "DEDUP_")
-		env := "LVMSYNC_DEDUP"
+		env := "LVMSYNC-DEDUP"
 		if name != "" {
 			env += "_" + name
 		}
@@ -263,7 +263,7 @@ func bindLVMEnv(fs *pflag.FlagSet, v *viper.Viper) error {
 		}
 		name := strings.ToUpper(strings.ReplaceAll(f.Name, "-", "_"))
 		name = strings.TrimPrefix(name, "LVM_")
-		env := "LVMSYNC_LVM"
+		env := "LVMSYNC-LVM"
 		if name != "" {
 			env += "_" + name
 		}
@@ -284,7 +284,7 @@ func bindGRPCEnv(fs *pflag.FlagSet, v *viper.Viper) error {
 		}
 		name := strings.ToUpper(strings.ReplaceAll(f.Name, "-", "_"))
 		name = strings.TrimPrefix(name, "GRPC_")
-		env := "LVMSYNC_GRPC"
+		env := "LVMSYNC-GRPC"
 		if name != "" {
 			env += "_" + name
 		}

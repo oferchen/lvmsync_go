@@ -24,7 +24,7 @@ LVMSync is a high-performance incremental data replication tool for LVM snapshot
 - **Aligned I/O Buffers and NUMA Pinning**: `--odirect` allocates block-size aligned slabs from a `sync.Pool` and can pin worker goroutines to the device's NUMA node.
 - **LVM Snapshot Management**:
   - Automatic snapshot creation and removal.
-  - Configurable snapshot size (absolute or percentage-based) via `--snapshot_size`,
+  - Configurable snapshot size (absolute or percentage-based) via `--snapshot-size`,
     `LVMSYNC_SNAPSHOT_SIZE`, or the `snapshot_size` config key.
   - Configurable volume group for constructing the snapshot device path.
   - Auto-selection of target volume groups with sufficient free space.
@@ -95,7 +95,7 @@ Force SSH only:
 lvmsync run --transport ssh user@backup:/dev/vg1/target /dev/vg0/source
 ```
 
-The CLI groups transport flags using [`pflag`](https://github.com/spf13/pflag) and binds them to [`viper`](https://github.com/spf13/viper) while emitting structured logs via [`zap`](https://github.com/uber-go/zap):
+The CLI groups transport flags using [`pflag`](https://github.com/spf13/pflag) and binds them to [`viper`](https://github.com/spf13/viper) while emitting structured logs via [`zap`](https://github.com/uber-go/zap). All flags use **kebab-case** (e.g., `--tls-cert`, `--allow-insecure`) for consistency across commands:
 
 ```go
 import (
@@ -306,7 +306,7 @@ for `run` and `verify` are provided as positional arguments after any flags:
 lvmsync run [flags] <source> <dest>
 ```
 
-When run with `--dry-run`, LVMSync loads any manifest at `--manifest_path` and samples up to 100 blocks to estimate the bytes that would be transmitted. The estimate and ETA in seconds (`eta_seconds`) are logged without sending data. For example:
+When run with `--dry-run`, LVMSync loads any manifest at `--manifest-path` and samples up to 100 blocks to estimate the bytes that would be transmitted. The estimate and ETA in seconds (`eta_seconds`) are logged without sending data. For example:
 
 ```json
 {"level":"info","msg":"dry run","size_bytes":4096,"estimated_tx_bytes":4096,"eta_seconds":2}
@@ -396,13 +396,13 @@ $ lvmsync manifest rebuild --help
 General Options:
       --dry-run   skip execution
 Manifest Options:
-      --manifest_path string   manifest file path
+      --manifest-path string   manifest file path
 
 $ lvmsync verify --help
 General Options:
-      --block_size string   block size for comparisons
+      --block-size string   block size for comparisons
 Manifest Options:
-      --manifest_path string   manifest to verify against
+      --manifest-path string   manifest to verify against
 
 This groups related flags once and lets Viper merge values from flags, `LVMSYNC_*` variables, and the
 `config.yaml` file.
@@ -419,20 +419,20 @@ The overall loading flow now passes an explicit `FlagSet` and argument slice:
 
 Recent refactors added several configuration options:
 
-- `--tcp_port` and `--ssh_port` expose TCP+TLS and SSH endpoints.
-- `--tcp_parallel` controls the number of parallel TCP connections (2–4).
-- `--tcp_lowat` sets TCP_NOTSENT_LOWAT to limit unsent bytes.
+- `--tcp-port` and `--ssh-port` expose TCP+TLS and SSH endpoints.
+- `--tcp-parallel` controls the number of parallel TCP connections (2–4).
+- `--tcp-lowat` sets TCP_NOTSENT_LOWAT to limit unsent bytes.
 - `--sync-interval` controls how many bytes are written between `fdatasync` calls. Accepts size suffixes like `64KB` or `1GB`; invalid values return an error.
-- `--checkpoint_interval` sets how often resume state is persisted.
-- `--checkpoint_bytes` sets how many bytes are written between resume checkpoints.
-- `--block_size` sets the transfer block size (use `auto` for detection).
+- `--checkpoint-interval` sets how often resume state is persisted.
+- `--checkpoint-bytes` sets how many bytes are written between resume checkpoints.
+- `--block-size` sets the transfer block size (use `auto` for detection).
 
 ### I/O tuning
 
-- `--block_size` selects the transfer block size. Use `auto` to match the destination's physical sector size.
+- `--block-size` selects the transfer block size. Use `auto` to match the destination's physical sector size.
 - `--sync-interval` sets how many bytes are written between `fdatasync` calls. Accepts size suffixes like `64KB` or `1GB`; invalid values cause startup errors.
 - `--odirect` uses O_DIRECT with block-size aligned buffers.
-- `--numa_pin` pins worker goroutines to CPUs local to the source device's NUMA node.
+- `--numa-pin` pins worker goroutines to CPUs local to the source device's NUMA node.
 
 ### Device types
 
@@ -442,7 +442,7 @@ examines the path to select the correct handling:
 | Type | Detection | Notes |
 |------|-----------|-------|
 | `lvm` | `/dev/<vg>/<lv>` or `/dev/mapper/<vg>-<lv>` | A snapshot is created and removed automatically |
-| `raw` | Other block devices | Require `--skip_snapshot_creation` and either `--offline` or `--fs-freeze-command`/`--fs-thaw-command` |
+| `raw` | Other block devices | Require `--skip-snapshot-creation` and either `--offline` or `--fs-freeze-command`/`--fs-thaw-command` |
 | `file` | Regular files | Used as-is with no snapshot |
 
 Override detection with `--source-type` and `--dest-type` when necessary.
@@ -560,84 +560,84 @@ Flags override environment variables, which override `config.yaml` values.
 | `--concurrency` | `LVMSYNC_TRANSPORT_CONCURRENCY` | `concurrency` | Stream concurrency (0 to autotune based on BDP) |
 | `--zerocopy` | `LVMSYNC_ZEROCOPY` | `zerocopy` | Enable zero-copy transfers |
 | `--odirect` | `LVMSYNC_ODIRECT` | `odirect` | Use O_DIRECT for device I/O when possible |
-| `--numa_pin` | `LVMSYNC_NUMA_PIN` | `numa_pin` | Pin worker goroutines to device NUMA node |
-| `--max_retries` | `LVMSYNC_MAX_RETRIES` | `max_retries` | Maximum number of retries per block |
+| `--numa-pin` | `LVMSYNC_NUMA_PIN` | `numa_pin` | Pin worker goroutines to device NUMA node |
+| `--max-retries` | `LVMSYNC_MAX_RETRIES` | `max_retries` | Maximum number of retries per block |
 | `--resume` | `LVMSYNC_RESUME` | `resume` | Path to resume state file (records dedup mode and last chunk boundary) |
 | `--speed` | `LVMSYNC_SPEED` | `speed` | Transfer speed limit |
 | `--sync-interval` | `LVMSYNC_SYNC_INTERVAL` | `sync-interval` | Bytes between fdatasync calls (accepts size suffixes like `64KB`; invalid values error) |
-| `--checkpoint_bytes` | `LVMSYNC_CHECKPOINT_BYTES` | `checkpoint_bytes` | Bytes between resume checkpoints |
-| `--checkpoint_interval` | `LVMSYNC_CHECKPOINT_INTERVAL` | `checkpoint_interval` | Duration between checkpoints |
-| `--block_size` | `LVMSYNC_BLOCK_SIZE` | `block_size` | Block size for data transfer; specify 'auto' or 0 for automatic detection |
+| `--checkpoint-bytes` | `LVMSYNC_CHECKPOINT_BYTES` | `checkpoint_bytes` | Bytes between resume checkpoints |
+| `--checkpoint-interval` | `LVMSYNC_CHECKPOINT_INTERVAL` | `checkpoint_interval` | Duration between checkpoints |
+| `--block-size` | `LVMSYNC_BLOCK_SIZE` | `block_size` | Block size for data transfer; specify 'auto' or 0 for automatic detection |
 | `--verbose` | `LVMSYNC_VERBOSE` | `verbose` | Verbosity level |
-| `--verify_checksum` | `LVMSYNC_VERIFY_CHECKSUM` | `verify_checksum` | Enable checksum verification |
+| `--verify-checksum` | `LVMSYNC_VERIFY_CHECKSUM` | `verify_checksum` | Enable checksum verification |
 | `--verify` | `LVMSYNC_VERIFY` | `verify` | Verification level: `full`, `sampled`, or `none` |
 | `--digest` | `LVMSYNC_DIGEST` | `digest` | Digest algorithm: `auto`, `blake3`, or `sha256` (`auto` selects `blake3` when AVX2, AVX-512, or NEON is available, otherwise `sha256`) |
 | `--progress` | `LVMSYNC_PROGRESS` | `progress` | Show progress during transfer |
-| `--manifest_path` | `LVMSYNC_MANIFEST_PATH` | `manifest_path` | Path to manifest file |
+| `--manifest-path` | `LVMSYNC_MANIFEST_PATH` | `manifest_path` | Path to manifest file |
 | `--manifest-progress-interval` | `LVMSYNC_MANIFEST_PROGRESS_INTERVAL` | `manifest_progress_interval` | Interval between progress logs during manifest rebuild |
-| `--manifest_timeout` | `LVMSYNC_MANIFEST_TIMEOUT` | `manifest_timeout` | Timeout for manifest rebuild (0 disables) |
-| `--manifest_allow_mounted` | `LVMSYNC_MANIFEST_ALLOW_MOUNTED` | `manifest_allow_mounted` | Allow rebuilding when device is mounted read-write |
-| `--ssh_host` | `LVMSYNC_SSH_HOST` | `ssh_host` | SSH host |
-| `--ssh_user` | `LVMSYNC_SSH_USER` | `ssh_user` | SSH username |
-| `--ssh_key` | `LVMSYNC_SSH_KEY` | `ssh_key` | Path to SSH private key |
-| `--ssh_host_key_path` | `LVMSYNC_SSH_HOST_KEY_PATH` | `ssh_host_key_path` | Path to SSH host private key |
-| `--ssh_agent` | `LVMSYNC_SSH_AGENT` | `ssh_agent` | Use SSH agent for authentication |
-| `--ssh_port` | `LVMSYNC_SSH_PORT` | `ssh_port` | SSH port |
-| `--ssh_timeout` | `LVMSYNC_SSH_TIMEOUT` | `ssh_timeout` | SSH connection timeout |
-| `--ssh_keepalive` | `LVMSYNC_SSH_KEEPALIVE` | `ssh_keepalive` | SSH keepalive interval |
-| `--ssh_host_key` | `LVMSYNC_SSH_HOST_KEY` | `ssh_host_key` | Expected SSH host public key |
-| `--known_hosts` | `LVMSYNC_KNOWN_HOSTS` | `known_hosts` | Path to known_hosts file |
-| `--strict_host_key_checking` | `LVMSYNC_STRICT_HOST_KEY_CHECKING` | `strict_host_key_checking` | Require host keys to be present in `known_hosts`; when `false`, host key verification is disabled |
-| `--lvmsync_path` | `LVMSYNC_LVMSYNC_PATH` | `lvmsync_path` | Remote command to run (basename sanitized; only `[a-zA-Z0-9._-]+` allowed) |
-| `--remote_pre_script` | `LVMSYNC_REMOTE_PRE_SCRIPT` | `remote_pre_script` | Remote script to run before transfer (times out after `ssh_timeout`) |
-| `--remote_post_script` | `LVMSYNC_REMOTE_POST_SCRIPT` | `remote_post_script` | Remote script to run after transfer (separate `ssh_timeout`) |
-| `--dedup_strategy` | `LVMSYNC_DEDUP_STRATEGY` | `dedup_strategy` | Deduplication strategy: `none`, `auto`, `checksum`, `rolling_hash`, or `bloom` |
-| `--dedup_state_file` | `LVMSYNC_DEDUP_STATE_FILE` | `dedup_state_file` | Path to deduplication state file |
+| `--manifest-timeout` | `LVMSYNC_MANIFEST_TIMEOUT` | `manifest_timeout` | Timeout for manifest rebuild (0 disables) |
+| `--manifest-allow-mounted` | `LVMSYNC_MANIFEST_ALLOW_MOUNTED` | `manifest_allow_mounted` | Allow rebuilding when device is mounted read-write |
+| `--ssh-host` | `LVMSYNC_SSH_HOST` | `ssh_host` | SSH host |
+| `--ssh-user` | `LVMSYNC_SSH_USER` | `ssh_user` | SSH username |
+| `--ssh-key` | `LVMSYNC_SSH_KEY` | `ssh_key` | Path to SSH private key |
+| `--ssh-host-key-path` | `LVMSYNC_SSH_HOST_KEY_PATH` | `ssh_host_key_path` | Path to SSH host private key |
+| `--ssh-agent` | `LVMSYNC_SSH_AGENT` | `ssh_agent` | Use SSH agent for authentication |
+| `--ssh-port` | `LVMSYNC_SSH_PORT` | `ssh_port` | SSH port |
+| `--ssh-timeout` | `LVMSYNC_SSH_TIMEOUT` | `ssh_timeout` | SSH connection timeout |
+| `--ssh-keepalive` | `LVMSYNC_SSH_KEEPALIVE` | `ssh_keepalive` | SSH keepalive interval |
+| `--ssh-host-key` | `LVMSYNC_SSH_HOST_KEY` | `ssh_host_key` | Expected SSH host public key |
+| `--known-hosts` | `LVMSYNC_KNOWN_HOSTS` | `known_hosts` | Path to known_hosts file |
+| `--strict-host-key-checking` | `LVMSYNC_STRICT_HOST_KEY_CHECKING` | `strict_host_key_checking` | Require host keys to be present in `known_hosts`; when `false`, host key verification is disabled |
+| `--lvmsync-path` | `LVMSYNC_LVMSYNC_PATH` | `lvmsync_path` | Remote command to run (basename sanitized; only `[a-zA-Z0-9._-]+` allowed) |
+| `--remote-pre-script` | `LVMSYNC_REMOTE_PRE_SCRIPT` | `remote_pre_script` | Remote script to run before transfer (times out after `ssh_timeout`) |
+| `--remote-post-script` | `LVMSYNC_REMOTE_POST_SCRIPT` | `remote_post_script` | Remote script to run after transfer (separate `ssh_timeout`) |
+| `--dedup-strategy` | `LVMSYNC_DEDUP_STRATEGY` | `dedup_strategy` | Deduplication strategy: `none`, `auto`, `checksum`, `rolling_hash`, or `bloom` |
+| `--dedup-state-file` | `LVMSYNC_DEDUP_STATE_FILE` | `dedup_state_file` | Path to deduplication state file |
 | `--intra-dedup` | `LVMSYNC_DEDUP_INTRA_DEDUP` | `intra_dedup` | Enable intra-run deduplication |
 | `--cdc-min` | `LVMSYNC_DEDUP_CDC_MIN` | `cdc_min` | Minimum chunk size for CDC (must be at least 64 bytes) |
 | `--cdc-avg` | `LVMSYNC_DEDUP_CDC_AVG` | `cdc_avg` | Target average chunk size for CDC |
 | `--cdc-max` | `LVMSYNC_DEDUP_CDC_MAX` | `cdc_max` | Maximum chunk size for CDC |
-| `--bloom_entries` | `LVMSYNC_DEDUP_BLOOM_ENTRIES` | `bloom_entries` | Estimated number of entries for bloom filter |
-| `--bloom_fp_rate` | `LVMSYNC_DEDUP_BLOOM_FP_RATE` | `bloom_fp_rate` | False positive rate for bloom filter |
-| `--bloom_mbits` | `LVMSYNC_DEDUP_BLOOM_MBITS` | `bloom_mbits` | Bloom filter m bits power |
+| `--bloom-entries` | `LVMSYNC_DEDUP_BLOOM_ENTRIES` | `bloom_entries` | Estimated number of entries for bloom filter |
+| `--bloom-fp-rate` | `LVMSYNC_DEDUP_BLOOM_FP_RATE` | `bloom_fp_rate` | False positive rate for bloom filter |
+| `--bloom-mbits` | `LVMSYNC_DEDUP_BLOOM_MBITS` | `bloom_mbits` | Bloom filter m bits power |
 | `--compress` | `LVMSYNC_COMPRESSION_COMPRESS` | `compress` | Compression type: `none`, `lz4`, `zstd`, or `auto` |
 | `--zstd-level` | `LVMSYNC_COMPRESSION_ZSTD_LEVEL` | `zstd_level` | Zstd compression level (`1-5`) |
 | `--lz4-level` | `LVMSYNC_COMPRESSION_LZ4_LEVEL` | `lz4_level` | LZ4 compression level: `fast` or `hc` |
-| `--compress_concurrency` | `LVMSYNC_COMPRESSION_COMPRESS_CONCURRENCY` | `compress_concurrency` | Compression concurrency (0 to use `GOMAXPROCS`) |
+| `--compress-concurrency` | `LVMSYNC_COMPRESSION_COMPRESS_CONCURRENCY` | `compress_concurrency` | Compression concurrency (0 to use `GOMAXPROCS`) |
 | `--compress-threshold` | `LVMSYNC_COMPRESSION_COMPRESS_THRESHOLD` | `compress_threshold` | Skip compression when estimated ratio exceeds this value |
-| `--skip_snapshot_creation` | `LVMSYNC_SKIP_SNAPSHOT_CREATION` | `skip_snapshot_creation` | Skip automatic snapshot creation |
-| `--skip_disk_check` | `LVMSYNC_SKIP_DISK_CHECK` | `skip_disk_check` | Skip disk space check before snapshot creation |
-| `--snapshot_size` | `LVMSYNC_SNAPSHOT_SIZE` | `snapshot_size` | Snapshot size (e.g., `20G` or `20%`) |
+| `--skip-snapshot-creation` | `LVMSYNC_SKIP_SNAPSHOT_CREATION` | `skip_snapshot_creation` | Skip automatic snapshot creation |
+| `--skip-disk-check` | `LVMSYNC_SKIP_DISK_CHECK` | `skip_disk_check` | Skip disk space check before snapshot creation |
+| `--snapshot-size` | `LVMSYNC_SNAPSHOT_SIZE` | `snapshot_size` | Snapshot size (e.g., `20G` or `20%`) |
 | `--lvm-escalation` | `LVMSYNC_LVM_ESCALATION` | `lvm_escalation` | Command used to escalate privileges for LVM commands; validated at startup |
-| `--lvm_timeout` | `LVMSYNC_LVM_TIMEOUT` | `lvm_timeout` | Timeout for LVM operations and privilege checks |
+| `--lvm-timeout` | `LVMSYNC_LVM_TIMEOUT` | `lvm_timeout` | Timeout for LVM operations and privilege checks |
 | `--sig-cache-ttl` | `LVMSYNC_LVM_SIG_CACHE_TTL` | `sig-cache-ttl` | TTL for cached LVM signatures |
 | `--sig-cache-max` | `LVMSYNC_LVM_SIG_CACHE_MAX` | `sig-cache-max` | Maximum cached LVM signatures |
-| `--volume_group` | `LVMSYNC_VOLUME_GROUP` | `volume_group` | Source volume group; derived from the source device path when empty |
-| `--target_volume_group` | `LVMSYNC_TARGET_VOLUME_GROUP` | `target_volume_group` | Volume group name of the target LVM volume |
-| `--target_vgs` | `LVMSYNC_TARGET_VGS` | `target_vgs` | Candidate target volume groups for auto-selection |
+| `--volume-group` | `LVMSYNC_VOLUME_GROUP` | `volume_group` | Source volume group; derived from the source device path when empty |
+| `--target-volume-group` | `LVMSYNC_TARGET_VOLUME_GROUP` | `target_volume_group` | Volume group name of the target LVM volume |
+| `--target-vgs` | `LVMSYNC_TARGET_VGS` | `target_vgs` | Candidate target volume groups for auto-selection |
 | `--force` | `LVMSYNC_FORCE` | `force` | Override safety checks and proceed on mounted destination |
 | `--discard` | `LVMSYNC_DISCARD` | `discard` | Issue BLKDISCARD before writing blocks |
 | `--dry-run` | `LVMSYNC_DRY_RUN` | `dry_run` | Log estimated transfer bytes without sending data; uses manifest sampling when available |
 | `--transport` | `LVMSYNC_TRANSPORT_TRANSPORT` | `transport` | Ordered transports to try (e.g., `quic,h2,tcp+tls,ssh`) |
-| `--tcp_port` | `LVMSYNC_TRANSPORT_TCP_PORT` | `tcp_port` | TCP+TLS port |
-| `--tcp_parallel` | `LVMSYNC_TRANSPORT_TCP_PARALLEL` | `tcp_parallel` | Number of parallel TCP connections |
-| `--tcp_lowat` | `LVMSYNC_TRANSPORT_TCP_LOWAT` | `tcp_lowat` | TCP_NOTSENT_LOWAT in bytes |
-| `--grpc_listen` | `LVMSYNC_GRPC_LISTEN` | `grpc_listen` | gRPC listen address |
-| `--grpc_connect` | `LVMSYNC_GRPC_CONNECT` | `grpc_connect` | gRPC server address to connect to |
-| `--grpc_port` | `LVMSYNC_GRPC_PORT` | `grpc_port` | gRPC port to listen on |
-| `--grpc_dial_timeout` | `LVMSYNC_GRPC_DIAL_TIMEOUT` | `grpc_dial_timeout` | gRPC dial timeout |
-| `--grpc_setup_timeout` | `LVMSYNC_GRPC_SETUP_TIMEOUT` | `grpc_setup_timeout` | gRPC setup timeout |
-| `--grpc_heartbeat_interval` | `LVMSYNC_GRPC_HEARTBEAT_INTERVAL` | `grpc_heartbeat_interval` | gRPC heartbeat interval |
-| `--grpc_heartbeat_send_timeout` | `LVMSYNC_GRPC_HEARTBEAT_SEND_TIMEOUT` | `grpc_heartbeat_send_timeout` | gRPC heartbeat send timeout |
-| `--keepalive_time` | `LVMSYNC_GRPC_KEEPALIVE_TIME` | `keepalive_time` | Interval between server pings |
-| `--keepalive_timeout` | `LVMSYNC_GRPC_KEEPALIVE_TIMEOUT` | `keepalive_timeout` | Wait for ping ack before closing |
-| `--request_timeout` | `LVMSYNC_GRPC_REQUEST_TIMEOUT` | `request_timeout` | Deadline for unary RPC handlers |
-| `--tls_cert` | `LVMSYNC_TLS_CERT` | `tls_cert` | TLS certificate file |
-| `--tls_key` | `LVMSYNC_TLS_KEY` | `tls_key` | TLS key file |
-| `--ca_cert` | `LVMSYNC_CA_CERT` | `ca_cert` | CA certificate file |
-| `--allow_insecure` | `LVMSYNC_ALLOW_INSECURE` | `allow_insecure` | Allow insecure (no TLS) |
+| `--tcp-port` | `LVMSYNC_TRANSPORT_TCP_PORT` | `tcp_port` | TCP+TLS port |
+| `--tcp-parallel` | `LVMSYNC_TRANSPORT_TCP_PARALLEL` | `tcp_parallel` | Number of parallel TCP connections |
+| `--tcp-lowat` | `LVMSYNC_TRANSPORT_TCP_LOWAT` | `tcp_lowat` | TCP_NOTSENT_LOWAT in bytes |
+| `--grpc-listen` | `LVMSYNC_GRPC_LISTEN` | `grpc_listen` | gRPC listen address |
+| `--grpc-connect` | `LVMSYNC_GRPC_CONNECT` | `grpc_connect` | gRPC server address to connect to |
+| `--grpc-port` | `LVMSYNC_GRPC_PORT` | `grpc_port` | gRPC port to listen on |
+| `--grpc-dial-timeout` | `LVMSYNC_GRPC_DIAL_TIMEOUT` | `grpc_dial_timeout` | gRPC dial timeout |
+| `--grpc-setup-timeout` | `LVMSYNC_GRPC_SETUP_TIMEOUT` | `grpc_setup_timeout` | gRPC setup timeout |
+| `--grpc-heartbeat-interval` | `LVMSYNC_GRPC_HEARTBEAT_INTERVAL` | `grpc_heartbeat_interval` | gRPC heartbeat interval |
+| `--grpc-heartbeat-send-timeout` | `LVMSYNC_GRPC_HEARTBEAT_SEND_TIMEOUT` | `grpc_heartbeat_send_timeout` | gRPC heartbeat send timeout |
+| `--keepalive-time` | `LVMSYNC_GRPC_KEEPALIVE_TIME` | `keepalive_time` | Interval between server pings |
+| `--keepalive-timeout` | `LVMSYNC_GRPC_KEEPALIVE_TIMEOUT` | `keepalive_timeout` | Wait for ping ack before closing |
+| `--request-timeout` | `LVMSYNC_GRPC_REQUEST_TIMEOUT` | `request_timeout` | Deadline for unary RPC handlers |
+| `--tls-cert` | `LVMSYNC_TLS_CERT` | `tls_cert` | TLS certificate file |
+| `--tls-key` | `LVMSYNC_TLS_KEY` | `tls_key` | TLS key file |
+| `--ca-cert` | `LVMSYNC_CA_CERT` | `ca_cert` | CA certificate file |
+| `--allow-insecure` | `LVMSYNC_ALLOW_INSECURE` | `allow_insecure` | Allow insecure (no TLS) |
 
-If `--ssh_key` is empty, lvmsync contacts the SSH agent referenced by `SSH_AUTH_SOCK`. The agent connection uses `--ssh_timeout` as its deadline.
+If `--ssh-key` is empty, lvmsync contacts the SSH agent referenced by `SSH_AUTH_SOCK`. The agent connection uses `--ssh-timeout` as its deadline.
 SSH transport negotiation also derives read and write deadlines from the caller's context; when the context expires, the handshake fails quickly and deadlines are cleared afterward.
 
 ### Common deployment scenarios
@@ -651,13 +651,13 @@ SSH transport negotiation also derives read and write deadlines from the caller'
 - **Remote over SSH**:
 
   ```sh
-  lvmsync run /dev/vg0/source user@backup:/dev/vg1/target --ssh_key ~/.ssh/id_ed25519
+  lvmsync run /dev/vg0/source user@backup:/dev/vg1/target --ssh-key ~/.ssh/id_ed25519
   ```
 
 - **Using the gRPC control plane**:
 
   ```sh
-  lvmsync run --grpc_connect backup:9443 /dev/vg0/source /dev/vg1/target
+  lvmsync run --grpc-connect backup:9443 /dev/vg0/source /dev/vg1/target
   ```
 
 - **Throughput-optimized transfer**:
@@ -747,10 +747,10 @@ tls-key: key.pem
 ca-cert: ca.pem
 ```
 
-Clients connect using `--grpc_connect`:
+Clients connect using `--grpc-connect`:
 
 ```sh
-lvmsync run --grpc_connect localhost:9443 /dev/vg0/snap0 /dev/vg0/data
+lvmsync run --grpc-connect localhost:9443 /dev/vg0/snap0 /dev/vg0/data
 ```
 
 ```sh
@@ -782,7 +782,7 @@ With flags:
 ```sh
 lvmsync run --parallel 8 \
   --compress auto --zstd-level 3 --lz4-level hc --compress-threshold 0.9 \
-  --snapshot_size 10% /dev/vg0/snap0 /mnt/backup
+  --snapshot-size 10% /dev/vg0/snap0 /mnt/backup
 ```
 
 With environment variables:
@@ -803,8 +803,8 @@ Transport selection is controlled by the `--transport` flag, which accepts a com
 transports to attempt (for example `quic,h2,tcp+tls,ssh`). The `quic` transport runs over TLS 1.3 with mutual
 authentication, negotiates the `lvmsync` ALPN, and exposes both bidirectional streams and datagrams. The `h2`
 transport also requires TLS 1.3 with client certificates and negotiates the `h2` ALPN. Provide certificates via
-`--tls_cert`, `--tls_key`, and `--ca_cert`. TLS transports require a trusted CA certificate and refuse
-connections when no roots are provided unless insecure mode is explicitly acknowledged with the `--allow_insecure`
+`--tls-cert`, `--tls-key`, and `--ca-cert`. TLS transports require a trusted CA certificate and refuse
+connections when no roots are provided unless insecure mode is explicitly acknowledged with the `--allow-insecure`
 flag or the `LVMSYNC_ALLOW_INSECURE` environment variable. This bypasses certificate verification and is intended
 for development only; configuration files alone cannot enable it. Client certificates must be supplied explicitly;
 transports no longer generate self-signed certificates automatically. The [transport documentation](docs/transports.md) covers each option in depth. The flags below
@@ -816,30 +816,30 @@ configure transport behavior.
 |------|----------------------|-------------|------||
 | `--transport` | `LVMSYNC_TRANSPORT_TRANSPORT` | Ordered transports to try (e.g., `quic,h2,tcp+tls,ssh`) |
 | `--concurrency` | `LVMSYNC_TRANSPORT_CONCURRENCY` | Stream concurrency (0 to autotune based on BDP) |
-| `--tcp_port` | `LVMSYNC_TRANSPORT_TCP_PORT` | TCP+TLS port |
+| `--tcp-port` | `LVMSYNC_TRANSPORT_TCP_PORT` | TCP+TLS port |
 | `--h2-port` | `LVMSYNC_H2_PORT` | HTTP/2 port |
-| `--tcp_parallel` | `LVMSYNC_TRANSPORT_TCP_PARALLEL` | Number of parallel TCP connections |
-| `--tcp_lowat` | `LVMSYNC_TRANSPORT_TCP_LOWAT` | TCP_NOTSENT_LOWAT in bytes |
-| `--ssh_port` | `LVMSYNC_SSH_PORT` | SSH port |
-| `--ssh_port` | `LVMSYNC_SSH_PORT` | SSH port | ❌ |
-| `--tls_cert` | `LVMSYNC_TLS_CERT` | TLS certificate file | ✅ |
-| `--tls_key` | `LVMSYNC_TLS_KEY` | TLS key file | ✅ |
-| `--ca_cert` | `LVMSYNC_CA_CERT` | CA certificate file | ✅ |
-| `--tcp_parallel` | `LVMSYNC_TCP_PARALLEL` | Number of parallel TCP connections | n/a |
-| `--tcp_lowat` | `LVMSYNC_TCP_LOWAT` | TCP_NOTSENT_LOWAT in bytes | n/a |
+| `--tcp-parallel` | `LVMSYNC_TRANSPORT_TCP_PARALLEL` | Number of parallel TCP connections |
+| `--tcp-lowat` | `LVMSYNC_TRANSPORT_TCP_LOWAT` | TCP_NOTSENT_LOWAT in bytes |
+| `--ssh-port` | `LVMSYNC_SSH_PORT` | SSH port |
+| `--ssh-port` | `LVMSYNC_SSH_PORT` | SSH port | ❌ |
+| `--tls-cert` | `LVMSYNC_TLS_CERT` | TLS certificate file | ✅ |
+| `--tls-key` | `LVMSYNC_TLS_KEY` | TLS key file | ✅ |
+| `--ca-cert` | `LVMSYNC_CA_CERT` | CA certificate file | ✅ |
+| `--tcp-parallel` | `LVMSYNC_TCP_PARALLEL` | Number of parallel TCP connections | n/a |
+| `--tcp-lowat` | `LVMSYNC_TCP_LOWAT` | TCP_NOTSENT_LOWAT in bytes | n/a |
 
 ### Usage examples
 
 **Multiple transports**
 
 ```sh
-lvmsync run --transport quic,h2,tcp+tls,ssh --tcp_port 9443 /dev/vg0/snap0 /mnt/backup
+lvmsync run --transport quic,h2,tcp+tls,ssh --tcp-port 9443 /dev/vg0/snap0 /mnt/backup
 ```
 
 **QUIC**
 
 ```sh
-lvmsync run --transport quic --tls_cert cert.pem --tls_key key.pem --ca_cert ca.pem
+lvmsync run --transport quic --tls-cert cert.pem --tls-key key.pem --ca-cert ca.pem
 # or
 LVMSYNC_TRANSPORT_TRANSPORT=quic LVMSYNC_TLS_CERT=cert.pem LVMSYNC_TLS_KEY=key.pem LVMSYNC_CA_CERT=ca.pem lvmsync run
 ```
@@ -847,7 +847,7 @@ LVMSYNC_TRANSPORT_TRANSPORT=quic LVMSYNC_TLS_CERT=cert.pem LVMSYNC_TLS_KEY=key.p
 **TCP+TLS**
 
 ```sh
-lvmsync run --transport tcp+tls --tcp_port 9443
+lvmsync run --transport tcp+tls --tcp-port 9443
 # or
 LVMSYNC_TRANSPORT_TRANSPORT=tcp+tls LVMSYNC_TRANSPORT_TCP_PORT=9443 lvmsync run
 ```
@@ -855,13 +855,13 @@ LVMSYNC_TRANSPORT_TRANSPORT=tcp+tls LVMSYNC_TRANSPORT_TCP_PORT=9443 lvmsync run
 **HTTP/2**
 
 ```sh
-lvmsync run --transport h2 --h2-port 9443 --tls_cert cert.pem --tls_key key.pem --ca_cert ca.pem
+lvmsync run --transport h2 --h2-port 9443 --tls-cert cert.pem --tls-key key.pem --ca-cert ca.pem
 ```
 
 **SSH**
 
 ```sh
-lvmsync run --transport ssh backup@host:/dev/vg1/target --ssh_port 2222
+lvmsync run --transport ssh backup@host:/dev/vg1/target --ssh-port 2222
 # or
 LVMSYNC_TRANSPORT_TRANSPORT=ssh LVMSYNC_SSH_PORT=2222 lvmsync run backup@host:/dev/vg1/target
 ```
@@ -879,7 +879,7 @@ Hybrid dedup combines fixed-size and content-defined chunking. Enable it with `-
 The three values must be positive, with `--cdc-min` at least 64 bytes, and satisfy `--cdc-min ≤ --cdc-avg ≤ --cdc-max`.
 LVMSync aborts when the sizes are non-positive, below the minimum, or unordered.
 
-The Bloom filter de-duplicates previously seen chunks. Size it with `--bloom_entries` and desired false positive rate via `--bloom_fp_rate`. For an mmap-backed index, `--bloom_mbits` controls the bitmap size in megabits.
+The Bloom filter de-duplicates previously seen chunks. Size it with `--bloom-entries` and desired false positive rate via `--bloom-fp-rate`. For an mmap-backed index, `--bloom-mbits` controls the bitmap size in megabits.
 
 Compression samples 8 KiB from each chunk and skips when the estimated ratio exceeds `--compress-threshold`. `--compress auto` selects LZ4 for chunks under 256 KiB and Zstd for larger chunks when AVX2 or NEON is available, falling back to LZ4 otherwise.
 
@@ -921,12 +921,12 @@ are resolved with the following precedence (highest first):
 
 | Flag | Environment variable | Config key | Description | Default |
 |------|----------------------|------------|-------------|---------|
-| `--min_chunk_size` | `LVMSYNC_MIN_CHUNK_SIZE` | `min_chunk_size` | Minimum chunk size in bytes | `4096` |
-| `--max_chunk_size` | `LVMSYNC_MAX_CHUNK_SIZE` | `max_chunk_size` | Maximum chunk size in bytes | `1048576` |
-| `--false_positive_rate` | `LVMSYNC_FALSE_POSITIVE_RATE` | `false_positive_rate` | Bloom filter false positive rate | `0.001` |
-| `--ram_bytes` | `LVMSYNC_RAM_BYTES` | `ram_bytes` | RAM budget for the Bloom filter | `1073741824` |
-| `--volume_size` | `LVMSYNC_VOLUME_SIZE` | `volume_size` | Size of the volume being processed | `0` |
-| `--hash_key` | `LVMSYNC_HASH_KEY` | `hash_key` | Optional hex-encoded key for BLAKE3 hashing | `""` |
+| `--min-chunk-size` | `LVMSYNC_MIN_CHUNK_SIZE` | `min_chunk_size` | Minimum chunk size in bytes | `4096` |
+| `--max-chunk-size` | `LVMSYNC_MAX_CHUNK_SIZE` | `max_chunk_size` | Maximum chunk size in bytes | `1048576` |
+| `--false-positive-rate` | `LVMSYNC_FALSE_POSITIVE_RATE` | `false_positive_rate` | Bloom filter false positive rate | `0.001` |
+| `--ram-bytes` | `LVMSYNC_RAM_BYTES` | `ram_bytes` | RAM budget for the Bloom filter | `1073741824` |
+| `--volume-size` | `LVMSYNC_VOLUME_SIZE` | `volume_size` | Size of the volume being processed | `0` |
+| `--hash-key` | `LVMSYNC_HASH_KEY` | `hash_key` | Optional hex-encoded key for BLAKE3 hashing | `""` |
 
 Two presets are available via `--mode`: `default` and `throughput`. Any other value causes configuration validation to fail.
 
@@ -1030,7 +1030,7 @@ Run an initial transfer and write a manifest for later verification or
 incremental runs:
 
 ```sh
-lvmsync run --manifest_path snapshot.manifest /dev/vg0/source /dev/vg1/target
+lvmsync run --manifest-path snapshot.manifest /dev/vg0/source /dev/vg1/target
 ```
 
 See the [manifest documentation](docs/manifest.md) for details on the binary
@@ -1048,7 +1048,7 @@ Rebuild a manifest index for an existing device:
 lvmsync manifest rebuild /dev/vg0/lv0
 ```
 Progress logs are emitted every 10s by default; adjust with `--manifest-progress-interval`.
-The command times out after 1m unless overridden with `--manifest_timeout` (0 disables).
+The command times out after 1m unless overridden with `--manifest-timeout` (0 disables).
 Rebuild refuses to run if the device is mounted read-write; pass `--manifest-allow-mounted` to override.
 Mount detection parses `/proc/self/mountinfo` using `github.com/moby/sys/mountinfo` to correctly handle devices with spaces or special characters.
 Rebuild fails if the device reports a block size of 0.
@@ -1071,7 +1071,7 @@ lvmsync verify --dry-run /dev/vg0/source /dev/vg1/target
 To verify using 4 KiB blocks and a manifest generated earlier:
 
 ```sh
-lvmsync verify --block_size 4K /dev/vg0/source /dev/vg1/target
+lvmsync verify --block-size 4K /dev/vg0/source /dev/vg1/target
 ```
 
 Flags are parsed via Viper, so the same settings can be provided through
@@ -1088,13 +1088,13 @@ Flags are parsed via Viper, so the same settings can be provided through
 | `--stdout`          | Write change dump to STDOUT                                                                             | `false`   |
 | `--parallel`        | Number of concurrent workers                                                                            | `4`       |
 | `--zerocopy`        | Enable zero-copy transfers (only used in sequential mode)                                               | `false`   |
-| `--max_retries`     | Maximum number of retries per block                                                                     | `3`       |
+| `--max-retries`     | Maximum number of retries per block                                                                     | `3`       |
 | `--resume`          | Path to resume state file                                                                               | `""`      |
 | `--speed`           | Transfer speed limit (e.g., `"100MB"`)                                                                  | `"100MB"` |
 | `-v, --verbose`     | Verbosity level (e.g., `-v`, `-vv`, `-vvv`)                                                             | `0`       |
-| `--verify_checksum` | Enable checksum verification for data integrity                                                         | `false`   |
+| `--verify-checksum` | Enable checksum verification for data integrity                                                         | `false`   |
 | `--progress`        | Show progress percentage during the transfer                                                            | `true`    |
-| `--block_size`      | Block size for data transfer (e.g., `"4K"`, `"64K"`, `"512K"`, `"1M"`), use `0` for automatic detection | `"4K"`    |
+| `--block-size`      | Block size for data transfer (e.g., `"4K"`, `"64K"`, `"512K"`, `"1M"`), use `0` for automatic detection | `"4K"`    |
 | `--dry-run`         | Print actions without executing | `false`   |
 | `--discard`         | Issue BLKDISCARD before writing blocks | `false`   |
 | `--offline`         | Assume source raw device is offline | `false`   |
@@ -1108,17 +1108,17 @@ Flags are parsed via Viper, so the same settings can be provided through
 
 | Option                    | Description                                                     | Default                  |
 | ------------------------- | --------------------------------------------------------------- | ------------------------ |
-| `--ssh_host`              | SSH host                                                        | `"localhost"`            |
-| `--ssh_user`              | SSH username                                                    | `"root"`                 |
-| `--ssh_key`               | Path to SSH private key                                          | `""`                     |
-| `--ssh_host_key_path`     | Path to SSH host private key (generates one if empty)            | `""`                     |
-| `--ssh_agent`             | Use the SSH agent for authentication                            | `false`                  |
-| `--ssh_port`              | SSH port number                                                 | `22`                     |
-| `--known_hosts`           | Path to known_hosts file (defaults to `$HOME/.ssh/known_hosts`) | `$HOME/.ssh/known_hosts` |
-| `--strict_host_key_checking` | Require host keys to be present in `known_hosts`; when `false`, host key verification is disabled | `true`                   |
-| `--ssh_host_key`          | Expected SSH host public key (authorized_keys format)          | `""`                    |
+| `--ssh-host`              | SSH host                                                        | `"localhost"`            |
+| `--ssh-user`              | SSH username                                                    | `"root"`                 |
+| `--ssh-key`               | Path to SSH private key                                          | `""`                     |
+| `--ssh-host-key-path`     | Path to SSH host private key (generates one if empty)            | `""`                     |
+| `--ssh-agent`             | Use the SSH agent for authentication                            | `false`                  |
+| `--ssh-port`              | SSH port number                                                 | `22`                     |
+| `--known-hosts`           | Path to known_hosts file (defaults to `$HOME/.ssh/known_hosts`) | `$HOME/.ssh/known_hosts` |
+| `--strict-host-key-checking` | Require host keys to be present in `known_hosts`; when `false`, host key verification is disabled | `true`                   |
+| `--ssh-host-key`          | Expected SSH host public key (authorized_keys format)          | `""`                    |
 
-Unknown hosts are rejected unless their keys are present in `known_hosts` or match `--ssh_host_key`.
+Unknown hosts are rejected unless their keys are present in `known_hosts` or match `--ssh-host-key`.
 The host key can also be supplied via `LVMSYNC_SSH_HOST_KEY_PATH` or the `ssh_host_key_path` YAML option; precedence follows flags over environment variables over YAML.
 
 Programmatic use of the SSH transport requires a configuration populated with
@@ -1136,14 +1136,14 @@ tr, err := ssh.New(ctx, cfg)
 
 #### Remote Options
 
-The `--lvmsync_path` value is sanitized to its basename and must match
+The `--lvmsync-path` value is sanitized to its basename and must match
 `[a-zA-Z0-9._-]+` to prevent shell injection.
 
 | Option                 | Description                                       | Default     |
 | ---------------------- | ------------------------------------------------- | ----------- |
-| `--lvmsync_path`       | Remote command to run (sanitized basename)         | `"lvmsync"` |
-| `--remote_pre_script`  | Remote script to run before starting the transfer (`ssh_timeout` applies) | `""`        |
-| `--remote_post_script` | Remote script to run after finishing the transfer (uses a fresh `ssh_timeout`) | `""`        |
+| `--lvmsync-path`       | Remote command to run (sanitized basename)         | `"lvmsync"` |
+| `--remote-pre-script`  | Remote script to run before starting the transfer (`ssh_timeout` applies) | `""`        |
+| `--remote-post-script` | Remote script to run after finishing the transfer (uses a fresh `ssh_timeout`) | `""`        |
 
 Both scripts are run with the configured `ssh_timeout`. The post script uses its
 own timeout and still attempts to execute even when the main transfer fails;
@@ -1157,11 +1157,11 @@ timeouts or cancellations are reported separately.
 | `--cdc-min`          | Minimum chunk size for CDC                                                                              | 4096             |
 | `--cdc-avg`          | Average chunk size for CDC                                                                              | 65536            |
 | `--cdc-max`          | Maximum chunk size for CDC                                                                              | 1048576          |
-| `--dedup_strategy`   | Deduplication strategy ("none", "auto", "checksum", "rolling_hash", or "bloom"); use `none` to disable | "none"           |
-| `--dedup_state_file` | Path to deduplication state file                                                                        | ~/.lvmsync_dedup |
-| `--bloom_entries`    | Estimated number of entries for bloom filter                                                            | 1000000          |
-| `--bloom_fp_rate`    | False positive rate for bloom filter                                                                    | 0.01             |
-| `--bloom_mbits`      | Size of Bloom filter bitmap in megabits (mmap index)                                                   | 0                |
+| `--dedup-strategy`   | Deduplication strategy ("none", "auto", "checksum", "rolling_hash", or "bloom"); use `none` to disable | "none"           |
+| `--dedup-state-file` | Path to deduplication state file                                                                        | ~/.lvmsync_dedup |
+| `--bloom-entries`    | Estimated number of entries for bloom filter                                                            | 1000000          |
+| `--bloom-fp-rate`    | False positive rate for bloom filter                                                                    | 0.01             |
+| `--bloom-mbits`      | Size of Bloom filter bitmap in megabits (mmap index)                                                   | 0                |
 
 #### Compression Options
 
@@ -1170,21 +1170,21 @@ timeouts or cancellations are reported separately.
 | `--compress`             | Compression type (options: `"none"`, `"lz4"`, `"zstd"`, `"auto"`) | `"auto"` |
 | `--zstd-level`           | Zstd compression level (`1-5`)                                   | `1`      |
 | `--lz4-level`            | LZ4 compression level: `fast` or `hc`                            | `fast`   |
-| `--compress_concurrency` | Number of goroutines used for compression (`0` to use all cores)  | `0`      |
+| `--compress-concurrency` | Number of goroutines used for compression (`0` to use all cores)  | `0`      |
 | `--compress-threshold`   | Skip compression when estimated ratio exceeds this value         | `0.9`    |
 
 #### LVM Options
 
 | Option | Description | Default |
 | ------ | ----------- | ------- |
-| `--skip_snapshot_creation` | Skip automatic snapshot creation | `false` |
-| `--skip_disk_check` | Skip disk space check before snapshot creation | `false` |
-| `--snapshot_size` | Snapshot size as an absolute value (e.g., "20G") or as a percentage (e.g., "20%") | "20%" |
-| `--volume_group` | Source volume group. Derived from the source device path when empty | "" |
-| `--target_volume_group` | Volume group name of the target LVM volume | "" |
-| `--target_vgs` | Candidate target volume groups for auto-selection | [] |
+| `--skip-snapshot-creation` | Skip automatic snapshot creation | `false` |
+| `--skip-disk-check` | Skip disk space check before snapshot creation | `false` |
+| `--snapshot-size` | Snapshot size as an absolute value (e.g., "20G") or as a percentage (e.g., "20%") | "20%" |
+| `--volume-group` | Source volume group. Derived from the source device path when empty | "" |
+| `--target-volume-group` | Volume group name of the target LVM volume | "" |
+| `--target-vgs` | Candidate target volume groups for auto-selection | [] |
 | `--lvm-escalation` | Command used to re-execute the program with elevated privileges when not running as root (e.g., "sudo -n"); validated at startup | "sudo -n" |
-| `--lvm_timeout` | Timeout for LVM operations and privilege checks | 10s |
+| `--lvm-timeout` | Timeout for LVM operations and privilege checks | 10s |
 | `--sig-cache-ttl` | TTL for cached LVM signatures | 24h |
 | `--sig-cache-max` | Maximum cached LVM signatures | 128 |
 
@@ -1194,22 +1194,22 @@ escalation commands stall.
 #### gRPC Options
 
 The client aborts dialing if a connection cannot be established within
-`--grpc_dial_timeout`, which defaults to `5s`.
+`--grpc-dial-timeout`, which defaults to `5s`.
 
 | Option             | Description                  | Default         |
 | ------------------ | ---------------------------- | --------------- |
-| `--grpc_port`      | gRPC port to listen on       | `8443`          |
-| `--grpc_dial_timeout` | gRPC dial timeout          | `5s`            |
-| `--grpc_setup_timeout` | gRPC setup timeout        | `10s`           |
-| `--grpc_heartbeat_interval` | gRPC heartbeat interval | `30s`          |
-| `--grpc_heartbeat_send_timeout` | gRPC heartbeat send timeout | `5s` |
-| `--keepalive_time` | Interval between server pings | `2m` |
-| `--keepalive_timeout` | Timeout waiting for keepalive ack | `20s` |
-| `--request_timeout` | Deadline for unary RPCs | `15s` |
-| `--tls_cert`       | TLS certificate file         | `""`            |
-| `--tls_key`        | TLS key file                 | `""`            |
-| `--ca_cert`        | CA certificate file          | `""`            |
-| `--allow_insecure` | Allow insecure (disable TLS) | `false`         |
+| `--grpc-port`      | gRPC port to listen on       | `8443`          |
+| `--grpc-dial-timeout` | gRPC dial timeout          | `5s`            |
+| `--grpc-setup-timeout` | gRPC setup timeout        | `10s`           |
+| `--grpc-heartbeat-interval` | gRPC heartbeat interval | `30s`          |
+| `--grpc-heartbeat-send-timeout` | gRPC heartbeat send timeout | `5s` |
+| `--keepalive-time` | Interval between server pings | `2m` |
+| `--keepalive-timeout` | Timeout waiting for keepalive ack | `20s` |
+| `--request-timeout` | Deadline for unary RPCs | `15s` |
+| `--tls-cert`       | TLS certificate file         | `""`            |
+| `--tls-key`        | TLS key file                 | `""`            |
+| `--ca-cert`        | CA certificate file          | `""`            |
+| `--allow-insecure` | Allow insecure (disable TLS) | `false`         |
 
 ### Examples
 
@@ -1266,7 +1266,7 @@ lvmsync run --resume statefile /dev/vg0/snap0 /dev/vg0/data
 #### Full LVM Operation Example
 
 ```sh
-lvmsync run --skip_disk_check=false --snapshot_size "25%" --volume_group "vg_data" --lvm-escalation "sudo -n" /dev/vg_data/original /dev/vg_data/destination
+lvmsync run --skip-disk-check=false --snapshot-size "25%" --volume-group "vg_data" --lvm-escalation "sudo -n" /dev/vg_data/original /dev/vg_data/destination
 ```
 
 In this example, LVMSync will:
@@ -1287,7 +1287,7 @@ Rebuild a manifest for an existing device when the index is missing or stale:
 lvmsync manifest rebuild /dev/vg0/lv0
 ```
 Progress logs are emitted every 10s by default; adjust with `--manifest-progress-interval`.
-The command times out after 1m unless overridden with `--manifest_timeout` (0 disables).
+The command times out after 1m unless overridden with `--manifest-timeout` (0 disables).
 
 Compare source and destination devices against a manifest:
 
@@ -1339,7 +1339,7 @@ resume: statefile
 CLI:
 
 ```sh
-lvmsync run --ssh_user backup --ssh_port 2222 /dev/vg0/snap0 backup:/dev/vg0/data
+lvmsync run --ssh-user backup --ssh-port 2222 /dev/vg0/snap0 backup:/dev/vg0/data
 ```
 
 Environment:
@@ -1361,7 +1361,7 @@ ssh_port: 2222
 CLI:
 
 ```sh
-lvmsync run --lvmsync_path /usr/bin/lvmsync --remote_pre_script /tmp/pre.sh /dev/vg0/snap0 user@host:/dev/vg0/data
+lvmsync run --lvmsync-path /usr/bin/lvmsync --remote-pre-script /tmp/pre.sh /dev/vg0/snap0 user@host:/dev/vg0/data
 ```
 
 Environment:
@@ -1382,7 +1382,7 @@ remote_pre_script: /tmp/pre.sh
 CLI:
 
 ```sh
-lvmsync run --dedup_strategy bloom --dedup_state_file ~/.lvmsync_state /dev/vg0/snap0 /dev/vg0/data
+lvmsync run --dedup-strategy bloom --dedup-state-file ~/.lvmsync_state /dev/vg0/snap0 /dev/vg0/data
 ```
 
 Environment:
@@ -1434,7 +1434,7 @@ compress_threshold: 0.85
 CLI:
 
 ```sh
-lvmsync run --snapshot_size 25% --volume_group vg_data /dev/vg_data/original /dev/vg_data/destination
+lvmsync run --snapshot-size 25% --volume-group vg_data /dev/vg_data/original /dev/vg_data/destination
 ```
 
 Environment:

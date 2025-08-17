@@ -130,9 +130,9 @@ func TestBlockSizeBytes(t *testing.T) {
 func TestParseBytesOrFallback(t *testing.T) {
 	t.Run("valid", func(t *testing.T) {
 		v := viper.New()
-		v.Set("block_size", "1KB")
+		v.Set("block-size", "1KB")
 		b := &builder{v: v}
-		got, err := b.parseBytesOrFallback("block_size", "4KB")
+		got, err := b.parseBytesOrFallback("block-size", "4KB")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -144,7 +144,7 @@ func TestParseBytesOrFallback(t *testing.T) {
 	t.Run("fallback", func(t *testing.T) {
 		v := viper.New()
 		b := &builder{v: v}
-		got, err := b.parseBytesOrFallback("block_size", "2KB")
+		got, err := b.parseBytesOrFallback("block-size", "2KB")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -155,18 +155,18 @@ func TestParseBytesOrFallback(t *testing.T) {
 
 	t.Run("invalid", func(t *testing.T) {
 		v := viper.New()
-		v.Set("block_size", "notbytes")
+		v.Set("block-size", "notbytes")
 		b := &builder{v: v}
-		if _, err := b.parseBytesOrFallback("block_size", "4KB"); err == nil {
+		if _, err := b.parseBytesOrFallback("block-size", "4KB"); err == nil {
 			t.Fatalf("expected error")
 		}
 	})
 
 	t.Run("nearMaxInt", func(t *testing.T) {
 		v := viper.New()
-		v.Set("block_size", fmt.Sprintf("%d", uint64(math.MaxInt-1023)))
+		v.Set("block-size", fmt.Sprintf("%d", uint64(math.MaxInt-1023)))
 		b := &builder{v: v}
-		got, err := b.parseBytesOrFallback("block_size", "4KB")
+		got, err := b.parseBytesOrFallback("block-size", "4KB")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -177,9 +177,9 @@ func TestParseBytesOrFallback(t *testing.T) {
 
 	t.Run("overflow", func(t *testing.T) {
 		v := viper.New()
-		v.Set("block_size", fmt.Sprintf("%d", uint64(math.MaxInt)+1))
+		v.Set("block-size", fmt.Sprintf("%d", uint64(math.MaxInt)+1))
 		b := &builder{v: v}
-		if _, err := b.parseBytesOrFallback("block_size", "4KB"); err == nil {
+		if _, err := b.parseBytesOrFallback("block-size", "4KB"); err == nil {
 			t.Fatalf("expected error")
 		}
 	})
@@ -217,7 +217,7 @@ func TestBuilderApplyDefaults(t *testing.T) {
 
 	t.Run("invalidBlockSize", func(t *testing.T) {
 		v := viper.New()
-		v.Set("block_size", "bad")
+		v.Set("block-size", "bad")
 		b := &builder{v: v, defaults: defaults}
 		if err := b.applyDefaults(&conf); err == nil {
 			t.Fatalf("expected error")
@@ -670,7 +670,7 @@ func TestValidateCDCOrdering(t *testing.T) {
 func TestBuildBlockSize(t *testing.T) {
 	t.Run(Auto, func(t *testing.T) {
 		v := viper.New()
-		v.Set("block_size", Auto)
+		v.Set("block-size", Auto)
 		defaults, err := DefaultConfig()
 		if err != nil {
 			t.Fatalf("DefaultConfig returned error: %v", err)
@@ -687,7 +687,7 @@ func TestBuildBlockSize(t *testing.T) {
 
 	t.Run("numeric", func(t *testing.T) {
 		v := viper.New()
-		v.Set("block_size", "8KB")
+		v.Set("block-size", "8KB")
 		defaults, err := DefaultConfig()
 		if err != nil {
 			t.Fatalf("DefaultConfig returned error: %v", err)
@@ -708,7 +708,7 @@ func TestCompressionLevelValidation(t *testing.T) {
 	t.Run(Zstd+"Valid", func(t *testing.T) {
 		v := viper.New()
 		v.Set("compress", Zstd)
-		v.Set("zstd_level", 3)
+		v.Set("zstd-level", 3)
 		defaults, err := DefaultConfig()
 		if err != nil {
 			t.Fatalf("DefaultConfig returned error: %v", err)
@@ -722,7 +722,7 @@ func TestCompressionLevelValidation(t *testing.T) {
 	t.Run(Zstd+"Invalid", func(t *testing.T) {
 		v := viper.New()
 		v.Set("compress", Zstd)
-		v.Set("zstd_level", 6)
+		v.Set("zstd-level", 6)
 		defaults, err := DefaultConfig()
 		if err != nil {
 			t.Fatalf("DefaultConfig returned error: %v", err)
@@ -737,9 +737,9 @@ func TestCompressionLevelValidation(t *testing.T) {
 		v := viper.New()
 		v.Set("compress", Auto)
 		if compressiondetect.DetectOptimalCompression() == Zstd {
-			v.Set("zstd_level", 2)
+			v.Set("zstd-level", 2)
 		} else {
-			v.Set("lz4_level", "fast")
+			v.Set("lz4-level", "fast")
 		}
 		defaults, err := DefaultConfig()
 		if err != nil {
@@ -755,9 +755,9 @@ func TestCompressionLevelValidation(t *testing.T) {
 		v := viper.New()
 		v.Set("compress", Auto)
 		if compressiondetect.DetectOptimalCompression() == Zstd {
-			v.Set("zstd_level", 6)
+			v.Set("zstd-level", 6)
 		} else {
-			v.Set("lz4_level", "bad")
+			v.Set("lz4-level", "bad")
 		}
 		defaults, err := DefaultConfig()
 		if err != nil {
@@ -772,7 +772,7 @@ func TestCompressionLevelValidation(t *testing.T) {
 	t.Run("lz4Valid", func(t *testing.T) {
 		v := viper.New()
 		v.Set("compress", "lz4")
-		v.Set("lz4_level", "hc")
+		v.Set("lz4-level", "hc")
 		defaults, err := DefaultConfig()
 		if err != nil {
 			t.Fatalf("DefaultConfig returned error: %v", err)
@@ -786,7 +786,7 @@ func TestCompressionLevelValidation(t *testing.T) {
 	t.Run("lz4Invalid", func(t *testing.T) {
 		v := viper.New()
 		v.Set("compress", "lz4")
-		v.Set("lz4_level", "slow")
+		v.Set("lz4-level", "slow")
 		defaults, err := DefaultConfig()
 		if err != nil {
 			t.Fatalf("DefaultConfig returned error: %v", err)
@@ -817,7 +817,7 @@ func TestCompressConcurrency(t *testing.T) {
 
 	t.Run("override", func(t *testing.T) {
 		v := viper.New()
-		v.Set("compress_concurrency", 8)
+		v.Set("compress-concurrency", 8)
 		defaults, err := DefaultConfig()
 		if err != nil {
 			t.Fatalf("DefaultConfig returned error: %v", err)
@@ -841,7 +841,7 @@ func TestTLSFileValidation(t *testing.T) {
 
 	t.Run("insecure", func(t *testing.T) {
 		v := viper.New()
-		v.Set("allow_insecure", true)
+		v.Set("allow-insecure", true)
 		b := &builder{v: v, defaults: defaults}
 		if _, err := b.Build(); err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -850,8 +850,8 @@ func TestTLSFileValidation(t *testing.T) {
 
 	t.Run("missingFiles", func(t *testing.T) {
 		v := viper.New()
-		v.Set("allow_insecure", false)
-		v.Set("grpc_listen", ":1")
+		v.Set("allow-insecure", false)
+		v.Set("grpc-listen", ":1")
 		b := &builder{v: v, defaults: defaults}
 		if _, err := b.Build(); err == nil {
 			t.Fatalf("expected error")
@@ -869,11 +869,11 @@ func TestTLSFileValidation(t *testing.T) {
 			}
 		}
 		v := viper.New()
-		v.Set("allow_insecure", false)
-		v.Set("grpc_listen", ":1")
-		v.Set("tls_cert", cert)
-		v.Set("tls_key", key)
-		v.Set("ca_cert", ca)
+		v.Set("allow-insecure", false)
+		v.Set("grpc-listen", ":1")
+		v.Set("tls-cert", cert)
+		v.Set("tls-key", key)
+		v.Set("ca-cert", ca)
 		b := &builder{v: v, defaults: defaults}
 		if _, err := b.Build(); err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -897,7 +897,7 @@ func TestDefaultCDCTunables(t *testing.T) {
 func TestLoadConfigPrecedence(t *testing.T) {
 	cfgPath := writeTempConfig(t, "parallel: 1\n")
 	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--parallel", "3"})
-	t.Setenv("LVMSYNC_PARALLEL", "2")
+	t.Setenv("LVMSYNC-PARALLEL", "2")
 	defaults, err := DefaultConfig()
 	if err != nil {
 		t.Fatalf("DefaultConfig: %v", err)

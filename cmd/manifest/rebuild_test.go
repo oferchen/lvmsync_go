@@ -86,7 +86,7 @@ func TestRunManifestPathFlag(t *testing.T) {
 	}
 
 	outputPath := filepath.Join(dir, "custom.manifest")
-	args := []string{"rebuild", "--manifest_path", outputPath, devicePath}
+	args := []string{"rebuild", "--manifest-path", outputPath, devicePath}
 	core, logs := observer.New(zap.InfoLevel)
 	logger := zap.New(core)
 	if err := Run(cfg, args, logger); err != nil {
