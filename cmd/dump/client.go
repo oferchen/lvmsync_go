@@ -144,7 +144,7 @@ func ExecuteDump(cfg *config.Config, snapshotDevice, originDevice string, out io
 // Run executes client mode transferring data to dest and returns the destination type.
 func Run(ctx context.Context, cfg *config.Config, source, dest string, logger *zap.Logger) (string, error) {
 	defer rootcmd.SyncLogger(logger)
-	dev, err := detectDevice(ctx, source, cfg.Offline, cfg.SourceType, cfg.FSFreezeCommand, cfg.FSThawCommand, cfg.LVMEscalation, cfg.FreezeTimeout, cfg.ThawTimeout, logger)
+	dev, err := detectDevice(ctx, source, cfg.Offline, cfg.SourceType, cfg.FSFreezeCommand, cfg.FSThawCommand, cfg.LVMEscalation, cfg.FreezeTimeout, cfg.ThawTimeout, logger, device.NewRunner())
 	if err != nil {
 		return cfg.DestType, err
 	}
@@ -191,7 +191,7 @@ func Run(ctx context.Context, cfg *config.Config, source, dest string, logger *z
 func RunLocalDump(cfg *config.Config, snapshotDevice, originDevice, dest string, logger *zap.Logger) (string, error) {
 	destType := cfg.DestType
 	if destType == "auto" {
-		if dev, err := device.Detect(context.Background(), dest, true, destType, "", "", cfg.LVMEscalation, cfg.FreezeTimeout, cfg.ThawTimeout, logger); err == nil {
+		if dev, err := device.Detect(context.Background(), dest, true, destType, "", "", cfg.LVMEscalation, cfg.FreezeTimeout, cfg.ThawTimeout, logger, device.NewRunner()); err == nil {
 			switch dev.(type) {
 			case *device.RawDevice:
 				if !cfg.SkipSnapshotCreation {

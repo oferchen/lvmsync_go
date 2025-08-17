@@ -37,7 +37,7 @@ func TestRun(t *testing.T) {
 		}
 		return nil
 	}
-	detectDevice = func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger) (device.Device, error) {
+	detectDevice = func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger, *device.Runner) (device.Device, error) {
 		return &fakeDevice{path: dest}, nil
 	}
 	defer func() { applyFunc = origApply; detectDevice = origDetect }()
@@ -72,7 +72,7 @@ func TestRunSyncsLogger(t *testing.T) {
 	origApply := applyFunc
 	origDetect := detectDevice
 	applyFunc = func(*config.Config, string, string, *zap.Logger) error { return nil }
-	detectDevice = func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger) (device.Device, error) {
+	detectDevice = func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger, *device.Runner) (device.Device, error) {
 		return &fakeDevice{path: dest}, nil
 	}
 	defer func() { applyFunc = origApply; detectDevice = origDetect }()
@@ -144,7 +144,7 @@ func TestRunVerifyModes(t *testing.T) {
 			origApply := applyFunc
 			origDetect := detectDevice
 			applyFunc = func(*config.Config, string, string, *zap.Logger) error { return nil }
-			detectDevice = func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger) (device.Device, error) {
+			detectDevice = func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger, *device.Runner) (device.Device, error) {
 				return &fakeDevice{path: destFile}, nil
 			}
 			defer func() { applyFunc = origApply; detectDevice = origDetect }()

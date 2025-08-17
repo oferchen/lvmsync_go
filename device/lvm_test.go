@@ -25,7 +25,8 @@ func TestOpenLVM(t *testing.T) {
 	defer cleanup()
 	cache := lvm.NewDeviceFDCache(zap.NewNop())
 	defer cache.Close()
-	dev, err := OpenLVM(loop, cache, "", zap.NewNop())
+	runner := NewRunner()
+	dev, err := runner.OpenLVM(loop, cache, "", zap.NewNop())
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
@@ -46,18 +47,17 @@ func TestOpenLVMNonBlockDevice(t *testing.T) {
 	f.Close()
 	cache := lvm.NewDeviceFDCache(zap.NewNop())
 	defer cache.Close()
-	if _, err := OpenLVM(f.Name(), cache, "", zap.NewNop()); err == nil {
+	runner := NewRunner()
+	if _, err := runner.OpenLVM(f.Name(), cache, "", zap.NewNop()); err == nil {
 		t.Fatalf("expected error for non-block device")
 	}
 }
 
 func TestOpenLVMChecks(t *testing.T) {
-	orig := volumeExistsFunc
-	volumeExistsFunc = func(ctx context.Context, path string) (bool, error) { return false, nil }
-	t.Cleanup(func() { volumeExistsFunc = orig })
 	cache := lvm.NewDeviceFDCache(zap.NewNop())
 	defer cache.Close()
-	if _, err := OpenLVM("/dev/missing", cache, "", zap.NewNop()); err == nil {
+	runner := NewRunnerWithDeps(func(context.Context, string) (bool, error) { return false, nil }, lvm.AutoExtendEnabled, lvm.DiscardEnabled, IsMountedRW, lock.Acquire)
+	if _, err := runner.OpenLVM("/dev/missing", cache, "", zap.NewNop()); err == nil {
 		t.Fatalf("expected error when volume missing")
 	}
 }

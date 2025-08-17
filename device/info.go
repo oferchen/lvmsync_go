@@ -141,7 +141,7 @@ func SizeBytes(ctx context.Context, path string) (uint64, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	dev, err := Detect(ctx, path, true, "", "", "", "", 0, 0, zap.NewNop())
+	dev, err := Detect(ctx, path, true, "", "", "", "", 0, 0, zap.NewNop(), NewRunner())
 	if err != nil {
 		return 0, err
 	}

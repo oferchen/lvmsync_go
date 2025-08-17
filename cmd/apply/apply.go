@@ -39,7 +39,19 @@ func Run(cfg *config.Config, applyFile string, args []string, logger *zap.Logger
 		return fmt.Errorf("no destination device specified for apply mode")
 	}
 	destPath := args[0]
-	dev, err := detectDevice(context.Background(), destPath, cfg.Offline, cfg.DestType, cfg.FSFreezeCommand, cfg.FSThawCommand, cfg.LVMEscalation, cfg.FreezeTimeout, cfg.ThawTimeout, logger)
+	dev, err := detectDevice(
+		context.Background(),
+		destPath,
+		cfg.Offline,
+		cfg.DestType,
+		cfg.FSFreezeCommand,
+		cfg.FSThawCommand,
+		cfg.LVMEscalation,
+		cfg.FreezeTimeout,
+		cfg.ThawTimeout,
+		logger,
+		device.NewRunner(),
+	)
 	if err != nil {
 		return err
 	}

@@ -50,14 +50,13 @@ func TestDetectFileDeviceError(t *testing.T) {
 }
 
 func TestDetectLVMDeviceSuccess(t *testing.T) {
-	orig := openLVMFunc
-	openLVMFunc = func(p string, _ *lvm.FDCache, _ string, _ *zap.Logger) (*LVMDevice, error) {
-		return &LVMDevice{path: p, logger: zap.NewNop()}, nil
-	}
-	defer func() { openLVMFunc = orig }()
 	core, logs := observer.New(zap.InfoLevel)
 	logger := zap.New(core)
-	dev, err := detectLVMDevice("/dev/test", "", logger)
+	runner := NewRunner()
+	runner.openLVMOverride = func(p string, _ *lvm.FDCache, _ string, _ *zap.Logger) (*LVMDevice, error) {
+		return &LVMDevice{path: p, logger: zap.NewNop(), runner: runner}, nil
+	}
+	dev, err := detectLVMDevice("/dev/test", "", runner, logger)
 	if err != nil {
 		t.Fatalf("detect: %v", err)
 	}
@@ -78,12 +77,11 @@ func TestDetectLVMDeviceSuccess(t *testing.T) {
 }
 
 func TestDetectLVMDeviceError(t *testing.T) {
-	orig := openLVMFunc
-	openLVMFunc = func(string, *lvm.FDCache, string, *zap.Logger) (*LVMDevice, error) {
+	runner := NewRunner()
+	runner.openLVMOverride = func(string, *lvm.FDCache, string, *zap.Logger) (*LVMDevice, error) {
 		return nil, errors.New("fail")
 	}
-	defer func() { openLVMFunc = orig }()
-	if _, err := detectLVMDevice("/dev/test", "", zap.NewNop()); err == nil {
+	if _, err := detectLVMDevice("/dev/test", "", runner, zap.NewNop()); err == nil {
 		t.Fatalf("expected error")
 	}
 }
@@ -91,18 +89,17 @@ func TestDetectLVMDeviceError(t *testing.T) {
 func TestDetectLVMDeviceEscalationError(t *testing.T) {
 	restore := lvm.SetEscalationChecker(func(string) error { return errors.New("escalate fail") })
 	defer restore()
-	orig := openLVMFunc
+	runner := NewRunner()
 	called := false
-	openLVMFunc = func(string, *lvm.FDCache, string, *zap.Logger) (*LVMDevice, error) {
+	runner.openLVMOverride = func(string, *lvm.FDCache, string, *zap.Logger) (*LVMDevice, error) {
 		called = true
-		return &LVMDevice{path: "/dev/test", logger: zap.NewNop()}, nil
+		return &LVMDevice{path: "/dev/test", logger: zap.NewNop(), runner: runner}, nil
 	}
-	defer func() { openLVMFunc = orig }()
-	if _, err := detectLVMDevice("/dev/test", "sudo -n", zap.NewNop()); err == nil {
+	if _, err := detectLVMDevice("/dev/test", "sudo -n", runner, zap.NewNop()); err == nil {
 		t.Fatalf("expected error")
 	}
 	if called {
-		t.Fatalf("openLVMFunc should not be called on escalation failure")
+		t.Fatalf("openLVM should not be called on escalation failure")
 	}
 }
 
