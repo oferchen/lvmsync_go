@@ -136,6 +136,19 @@ func (t *Transport) Dial(ctx context.Context, address string) (net.Conn, error) 
 		t.logger.Error("dial_end", fields...)
 		return nil, err
 	}
+	state := conn.ConnectionState()
+	if state.NegotiatedProtocol != alpn {
+		err := fmt.Errorf("alpn mismatch: expected %q, got %q", alpn, state.NegotiatedProtocol)
+		conn.Close()
+		fields := []zap.Field{
+			zap.String("address", address),
+			zap.String("role", role),
+			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+			zap.Error(err),
+		}
+		t.logger.Error("dial_end", fields...)
+		return nil, err
+	}
 	if err := conn.SetDeadline(dl); err != nil {
 		conn.Close()
 		fields := []zap.Field{

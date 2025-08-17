@@ -311,21 +311,6 @@ func buildViper(flagSets *FlagSets) (*viper.Viper, []string, error) {
 	v.SetEnvPrefix("LVMSYNC")
 	v.AutomaticEnv()
 	var envErr error
-
-  for _, fs := range flagSets.All() {
-          if err := v.BindPFlags(fs); err != nil {
-                  return nil, nil, err
-          }
-          fs.VisitAll(func(f *pflag.Flag) {
-                  if envErr == nil {
-                          envErr = v.BindEnv(f.Name)
-                  }
-          })
-  }
-  if envErr != nil {
-          return nil, nil, envErr
-  }
-
 	for _, fs := range flagSets.All() {
 		if err := v.BindPFlags(fs); err != nil {
 			return nil, nil, err
@@ -335,7 +320,8 @@ func buildViper(flagSets *FlagSets) (*viper.Viper, []string, error) {
 				envErr = v.BindEnv(f.Name)
 			}
 			if strings.Contains(f.Name, "-") && f.Name != "allow-insecure" {
-				v.RegisterAlias(strings.ReplaceAll(f.Name, "-", "_"), f.Name)
+				alias := strings.ReplaceAll(f.Name, "-", "_")
+				v.RegisterAlias(alias, f.Name)
 			}
 		})
 	}
@@ -359,7 +345,7 @@ func buildViper(flagSets *FlagSets) (*viper.Viper, []string, error) {
 		return nil, nil, err
 	}
 	var warnings []string
-        if cfgFile := v.GetString("config"); cfgFile != "" {
+	if cfgFile := v.GetString("config"); cfgFile != "" {
 		data, err := os.ReadFile(cfgFile)
 		if err != nil {
 			return nil, nil, fmt.Errorf("error reading config file %q: %w", cfgFile, err)
@@ -388,19 +374,8 @@ func buildViper(flagSets *FlagSets) (*viper.Viper, []string, error) {
 				warnings = append(warnings, fmt.Sprintf("unknown configuration key %q", k))
 			}
 		}
-        }
-        for _, fs := range flagSets.All() {
-                fs.VisitAll(func(f *pflag.Flag) {
-                        if strings.Contains(f.Name, "-") {
-                                if f.Name == "allow-insecure" {
-                                        v.RegisterAlias(f.Name, "allow_insecure")
-                                } else {
-                                        v.RegisterAlias(strings.ReplaceAll(f.Name, "-", "_"), f.Name)
-                                }
-                        }
-                })
-        }
-        return v, warnings, nil
+	}
+	return v, warnings, nil
 }
 
 func knownConfigKeys() map[string]struct{} {
