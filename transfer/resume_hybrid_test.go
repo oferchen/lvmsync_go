@@ -26,7 +26,7 @@ func TestResumeHybridOffset(t *testing.T) {
 
 	chk := readResumeState(cfg, logger)
 	ranges := []Range{{Start: 0, End: 99}, {Start: 100, End: 199}}
-	idx := findResumeIndex(cfg, nil, ranges, chk, logger)
+	idx := findResumeIndex(context.Background(), cfg, nil, ranges, chk, logger)
 	if idx != 1 {
 		t.Fatalf("expected index 1, got %d", idx)
 	}

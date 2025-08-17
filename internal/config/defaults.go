@@ -46,6 +46,7 @@ type Config struct {
 	ODirect                  bool          `mapstructure:"odirect"`
 	NumaPin                  bool          `mapstructure:"numa_pin"`
 	MaxRetries               int           `mapstructure:"max_retries"`
+	RetryDelay               time.Duration `mapstructure:"retry_delay"`
 	ResumeState              string        `mapstructure:"resume"`
 	ResumeToken              string        `mapstructure:"resume_token"`
 	DeviceUUID               string        `mapstructure:"device_uuid"`
@@ -184,6 +185,7 @@ func DefaultConfig() (*Config, error) {
 		ODirect:                  false,
 		NumaPin:                  false,
 		MaxRetries:               3,
+		RetryDelay:               100 * time.Millisecond,
 		ResumeState:              "",
 		ResumeToken:              "",
 		DeviceUUID:               "",

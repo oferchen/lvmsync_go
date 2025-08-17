@@ -72,6 +72,7 @@ func initGeneralFlags(cfg *Config) *pflag.FlagSet {
 	fs.Bool("odirect", cfg.ODirect, "Use O_DIRECT for device I/O when possible")
 	fs.Bool("numa-pin", cfg.NumaPin, "Pin worker goroutines to device NUMA node")
 	fs.Int("max-retries", cfg.MaxRetries, "Maximum number of retries per block")
+	fs.Duration("retry-delay", cfg.RetryDelay, "Initial delay between retries")
 	fs.String("resume", cfg.ResumeState, "Path to resume state file")
 	fs.String("speed", cfg.Speed, "Transfer speed limit")
 	fs.String("sync-interval", cfg.SyncInterval, "Bytes between fdatasync calls")

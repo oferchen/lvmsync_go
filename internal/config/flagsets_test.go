@@ -33,6 +33,7 @@ func TestInitGeneralFlags(t *testing.T) {
 		{"odirect", strconv.FormatBool(cfg.ODirect)},
 		{"numa-pin", strconv.FormatBool(cfg.NumaPin)},
 		{"max-retries", strconv.Itoa(cfg.MaxRetries)},
+		{"retry-delay", cfg.RetryDelay.String()},
 		{"resume", cfg.ResumeState},
 		{"speed", cfg.Speed},
 		{"sync-interval", cfg.SyncInterval},

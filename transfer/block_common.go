@@ -1,6 +1,7 @@
 package transfer
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -44,19 +45,23 @@ func ReadBlock(src *os.File, offset int64, size int) ([]byte, error) {
 // ReadBlockWithRetries reads a block with retries; logger must be non-nil.
 //
 //nolint:revive // high complexity is acceptable for this low-level function
-func ReadBlockWithRetries(cfg *config.Config, src *os.File, offset int64, useZeroCopy bool, pipeFds [2]int, logger *zap.Logger) ([]byte, error) {
+func ReadBlockWithRetries(ctx context.Context, cfg *config.Config, src *os.File, offset int64, useZeroCopy bool, pipeFds [2]int, logger *zap.Logger) ([]byte, error) {
 	if useZeroCopy {
-		return readWithZeroCopy(cfg, src, offset, pipeFds, logger)
+		return readWithZeroCopy(ctx, cfg, src, offset, pipeFds, logger)
 	}
-	return retryRead(cfg, src, offset, logger)
+	return retryRead(ctx, cfg, src, offset, logger)
 }
 
 // readWithZeroCopy uses zero-copy transfers; logger must be non-nil.
 //
 //revive:disable-next-line:cognitive-complexity
-func readWithZeroCopy(cfg *config.Config, src *os.File, offset int64, pipeFds [2]int, logger *zap.Logger) ([]byte, error) {
+func readWithZeroCopy(ctx context.Context, cfg *config.Config, src *os.File, offset int64, pipeFds [2]int, logger *zap.Logger) ([]byte, error) {
 	blockSize := cfg.BlockSize
 	maxRetries := cfg.MaxRetries
+	baseDelay := cfg.RetryDelay
+	if baseDelay <= 0 {
+		baseDelay = 100 * time.Millisecond
+	}
 
 	if pipeFds[0] == -1 && pipeFds[1] == -1 {
 		if err := syscall.Pipe(pipeFds[:]); err != nil {
@@ -97,7 +102,15 @@ func readWithZeroCopy(cfg *config.Config, src *os.File, offset int64, pipeFds [2
 			zap.Int("attempt", attempt+1),
 			zap.Error(err))
 
-		time.Sleep(100 * time.Millisecond)
+		delay := baseDelay * time.Duration(1<<attempt)
+		select {
+		case <-time.After(delay):
+		case <-ctx.Done():
+			if errClose := w.Close(); errClose != nil {
+				logger.Warn("pipe write close", zap.Error(errClose))
+			}
+			return nil, ctx.Err()
+		}
 	}
 	if errClose := w.Close(); errClose != nil {
 		return nil, errClose
@@ -124,9 +137,13 @@ func readWithZeroCopy(cfg *config.Config, src *os.File, offset int64, pipeFds [2
 	return data, nil
 }
 
-func retryRead(cfg *config.Config, src *os.File, offset int64, logger *zap.Logger) ([]byte, error) {
+func retryRead(ctx context.Context, cfg *config.Config, src *os.File, offset int64, logger *zap.Logger) ([]byte, error) {
 	blockSize := cfg.BlockSize
 	maxRetries := cfg.MaxRetries
+	baseDelay := cfg.RetryDelay
+	if baseDelay <= 0 {
+		baseDelay = 100 * time.Millisecond
+	}
 
 	var buf []byte
 	if cfg.ODirect {
@@ -146,7 +163,17 @@ func retryRead(cfg *config.Config, src *os.File, offset int64, logger *zap.Logge
 			zap.Int("attempt", attempt+1),
 			zap.Error(err))
 
-		time.Sleep(100 * time.Millisecond)
+		delay := baseDelay * time.Duration(1<<attempt)
+		select {
+		case <-time.After(delay):
+		case <-ctx.Done():
+			if cfg.ODirect {
+				putAlignedBlockBuffer(buf)
+			} else {
+				putBlockBuffer(buf)
+			}
+			return nil, ctx.Err()
+		}
 	}
 
 	if cfg.ODirect {

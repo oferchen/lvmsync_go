@@ -1,6 +1,7 @@
 package transfer
 
 import (
+	"context"
 	"os"
 	"sync/atomic"
 	"testing"
@@ -47,7 +48,7 @@ func BenchmarkReadBlockWithRetriesEphemeral(b *testing.B) {
 
 	atomic.StoreInt64(&PipeCreationCount, 0)
 	for i := 0; i < b.N; i++ {
-		if _, err := ReadBlockWithRetries(cfg, f, int64(i*cfg.BlockSize), true, [2]int{-1, -1}, zap.NewNop()); err != nil {
+		if _, err := ReadBlockWithRetries(context.Background(), cfg, f, int64(i*cfg.BlockSize), true, [2]int{-1, -1}, zap.NewNop()); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -84,7 +85,7 @@ func BenchmarkReadBlockWithRetriesPersistent(b *testing.B) {
 
 	atomic.StoreInt64(&PipeCreationCount, 0)
 	for i := 0; i < b.N; i++ {
-		if _, err := ReadBlockWithRetries(cfg, f, int64(i*cfg.BlockSize), true, pipeFds, zap.NewNop()); err != nil {
+		if _, err := ReadBlockWithRetries(context.Background(), cfg, f, int64(i*cfg.BlockSize), true, pipeFds, zap.NewNop()); err != nil {
 			b.Fatal(err)
 		}
 	}
