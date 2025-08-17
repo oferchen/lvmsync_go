@@ -214,7 +214,7 @@ func validateCmd(path string, args []string) error {
 	if strings.ContainsRune(path, '\x00') {
 		return fmt.Errorf("command path contains NUL byte")
 	}
-	if !remote.RemoteCmdRe.MatchString(filepath.Base(path)) {
+	if !remote.ValidRemoteCommand(filepath.Base(path)) {
 		return fmt.Errorf("command path %s contains invalid characters", path)
 	}
 	for _, a := range args {

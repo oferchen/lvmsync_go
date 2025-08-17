@@ -11,6 +11,21 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 )
 
+func TestValidRemoteCommand(t *testing.T) {
+	valid := []string{"cmd", "a-b_c.1", "A1"}
+	for _, cmd := range valid {
+		if !ValidRemoteCommand(cmd) {
+			t.Errorf("expected %q to be valid", cmd)
+		}
+	}
+	invalid := []string{"bad+cmd", "cmd with space", "cmd!"}
+	for _, cmd := range invalid {
+		if ValidRemoteCommand(cmd) {
+			t.Errorf("expected %q to be invalid", cmd)
+		}
+	}
+}
+
 func TestValidateRemoteCommand(t *testing.T) {
 	_, rawClient := newSSHServerClient(t, func(cmd string) int {
 		switch cmd {

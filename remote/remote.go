@@ -19,8 +19,14 @@ import (
 	"golang.org/x/crypto/ssh/knownhosts"
 )
 
-// RemoteCmdRe matches allowable command names for remote execution.
-var RemoteCmdRe = regexp.MustCompile("^[a-zA-Z0-9._-]+$")
+// remoteCmdRe matches allowable command names for remote execution.
+var remoteCmdRe = regexp.MustCompile("^[a-zA-Z0-9._-]+$")
+
+// ValidRemoteCommand reports whether cmd is a valid remote command name.
+// It returns true if cmd matches remoteCmdRe.
+func ValidRemoteCommand(cmd string) bool {
+	return remoteCmdRe.MatchString(cmd)
+}
 
 // SSHClient wraps an ssh.Client and provides structured logging.
 //
@@ -199,7 +205,7 @@ func (c *SSHClient) ValidateRemoteCommand(ctx context.Context, remoteCmd string)
 		return fmt.Errorf("remote command is empty")
 	}
 	cmd := filepath.Base(tokens[0])
-	if !RemoteCmdRe.MatchString(cmd) {
+	if !ValidRemoteCommand(cmd) {
 		return fmt.Errorf("remote command %s contains invalid characters", cmd)
 	}
 	session, err := c.NewSession()
