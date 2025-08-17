@@ -39,13 +39,25 @@ func TestHasher(t *testing.T) {
 }
 
 func TestBloom(t *testing.T) {
-	b := NewBloom(1000, 0.01)
+	b, err := NewBloom(1000, 0.01)
+	if err != nil {
+		t.Fatalf("new bloom: %v", err)
+	}
 	data := []byte("chunk")
 	if b.TestAndAdd(data) {
 		t.Fatalf("unexpected hit")
 	}
 	if !b.TestAndAdd(data) {
 		t.Fatalf("expected hit on second insert")
+	}
+}
+
+func TestBloomInvalidFpRate(t *testing.T) {
+	cases := []float64{0, 1, -0.5, 1.5}
+	for _, fp := range cases {
+		if _, err := NewBloom(1000, fp); err == nil {
+			t.Fatalf("expected error for fpRate %v", fp)
+		}
 	}
 }
 
@@ -87,13 +99,25 @@ func TestFastCDC(t *testing.T) {
 }
 
 func TestBloomSizing(t *testing.T) {
-	max := MaxChunks(1<<30, 0.01)
+	max, err := MaxChunks(1<<30, 0.01)
+	if err != nil {
+		t.Fatalf("MaxChunks: %v", err)
+	}
 	if max == 0 {
 		t.Fatalf("expected non-zero max chunks")
 	}
-	avg, chunks := AdaptiveAvgChunk(1<<40, 1<<30, 0.01, 64, 1<<20)
+	avg, chunks, err := AdaptiveAvgChunk(1<<40, 1<<30, 0.01, 64, 1<<20)
+	if err != nil {
+		t.Fatalf("AdaptiveAvgChunk: %v", err)
+	}
 	if avg < 64 || chunks == 0 {
 		t.Fatalf("unexpected sizing avg=%d chunks=%d", avg, chunks)
+	}
+	if _, err := MaxChunks(1<<30, 0); err == nil {
+		t.Fatalf("expected error for invalid fpRate in MaxChunks")
+	}
+	if _, _, err := AdaptiveAvgChunk(1<<40, 1<<30, 0, 64, 1<<20); err == nil {
+		t.Fatalf("expected error for invalid fpRate in AdaptiveAvgChunk")
 	}
 }
 
