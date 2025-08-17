@@ -11,7 +11,10 @@ import (
 	"go.uber.org/zap"
 )
 
-const uuidTimeout = 5 * time.Second
+const (
+	uuidTimeout  = 5 * time.Second
+	mountTimeout = 5 * time.Second
+)
 
 var (
 	uuidFunc    = defaultUUIDFunc
@@ -104,23 +107,49 @@ func IDsMatch(ctx context.Context, src, dest string) (bool, error) {
 
 // SetMountFunc allows tests to override the mount status checker. It returns
 // the previous function for restoration.
-func SetMountFunc(f func(string) (bool, error)) func(string) (bool, error) {
+func SetMountFunc(f func(context.Context, string) (bool, error)) func(context.Context, string) (bool, error) {
 	prev := mountFunc
 	mountFunc = f
 	return prev
 }
 
 // IsMountedRW reports whether the device at path is mounted read-write.
-func IsMountedRW(path string) (bool, error) { return mountFunc(path) }
+// If ctx has no deadline, a default timeout is applied.
+func IsMountedRW(ctx context.Context, path string) (bool, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if _, ok := ctx.Deadline(); !ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, mountTimeout)
+		defer cancel()
+	}
+	return mountFunc(ctx, path)
+}
 
-func defaultMountFunc(path string) (bool, error) {
+func defaultMountFunc(ctx context.Context, path string) (bool, error) {
 	real, err := filepath.EvalSymlinks(path)
 	if err != nil {
 		return false, err
 	}
-	infos, err := mountinfo.GetMounts(nil)
-	if err != nil {
-		return false, err
+	type result struct {
+		infos []*mountinfo.Info
+		err   error
+	}
+	ch := make(chan result, 1)
+	go func() {
+		infos, err := mountinfo.GetMounts(nil)
+		ch <- result{infos: infos, err: err}
+	}()
+	var infos []*mountinfo.Info
+	select {
+	case <-ctx.Done():
+		return false, ctx.Err()
+	case r := <-ch:
+		if r.err != nil {
+			return false, r.err
+		}
+		infos = r.infos
 	}
 	for _, mi := range infos {
 		if mi.Source != real {

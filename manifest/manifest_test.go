@@ -728,7 +728,7 @@ func TestRebuildMounted(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			prevMount := device.SetMountFunc(func(string) (bool, error) { return tt.mounted, nil })
+			prevMount := device.SetMountFunc(func(context.Context, string) (bool, error) { return tt.mounted, nil })
 			t.Cleanup(func() { device.SetMountFunc(prevMount) })
 			manPath := filepath.Join(dir, tt.name+".man")
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
