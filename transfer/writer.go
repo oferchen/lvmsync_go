@@ -112,7 +112,7 @@ func writeData(destFile *os.File, offset uint64, data []byte, logger *zap.Logger
 		return fmt.Errorf("offset %d overflows int64", offset)
 	}
 	if _, err := destFile.Seek(int64(offset), io.SeekStart); err != nil {
-		logger.Warn("Seek error", zap.Uint64("offset", offset), zap.Error(err))
+		logger.Warn("Seek error", zap.Uint64("offset_bytes", offset), zap.Error(err))
 		return fmt.Errorf("failed to seek to offset %d: %w", offset, err)
 	}
 	if _, err := destFile.Write(data); err != nil {

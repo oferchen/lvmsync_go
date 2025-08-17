@@ -15,7 +15,7 @@ func findResumeIndexCDC(cfg *config.Config, ranges []Range, chk resumeChunk, log
 		}
 		if next <= ranges[i].End {
 			ranges[i].Start = next
-			logger.Info("Resuming after offset", zap.Uint64("resume_offset", next))
+			logger.Info("Resuming after offset", zap.Uint64("resume_offset_bytes", next))
 			return i
 		}
 	}

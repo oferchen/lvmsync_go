@@ -54,7 +54,8 @@ func TestReadResumeDigestLogField(t *testing.T) {
 	stateFile := filepath.Join(tmp, "resume")
 	digest := blake3.Sum256([]byte("data"))
 	cfg := &config.Config{ResumeState: stateFile, Compress: "none", ChecksumAlgorithm: "blake3", DedupMode: "fixed"}
-	writeResumeState(cfg, logger, stateFile, resumeChunks{Fixed: resumeChunk{Chunk: digest}})
+	chk := resumeChunk{Chunk: digest, Offset: 1024, Length: 2048}
+	writeResumeState(cfg, logger, stateFile, resumeChunks{Fixed: chk})
 
 	val := readResumeState(cfg, logger).Fixed
 	if val.Chunk != digest {
@@ -67,5 +68,11 @@ func TestReadResumeDigestLogField(t *testing.T) {
 	}
 	if v, ok := entries[0].ContextMap()["resume_chunk"].(string); !ok || v != hex.EncodeToString(digest[:]) {
 		t.Fatalf("unexpected resume_chunk %v", entries[0].ContextMap()["resume_chunk"])
+	}
+	if v, ok := entries[0].ContextMap()["resume_offset_bytes"].(uint64); !ok || v != chk.Offset {
+		t.Fatalf("unexpected resume_offset_bytes %v", entries[0].ContextMap()["resume_offset_bytes"])
+	}
+	if v, ok := entries[0].ContextMap()["resume_length_bytes"].(uint32); !ok || v != chk.Length {
+		t.Fatalf("unexpected resume_length_bytes %v", entries[0].ContextMap()["resume_length_bytes"])
 	}
 }
