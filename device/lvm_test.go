@@ -64,6 +64,8 @@ func TestOpenLVMChecks(t *testing.T) {
 
 func TestRunLVMPrivilegeEscalation(t *testing.T) {
 	ctx := context.Background()
+	restore := lvm.SetEscalationChecker(func(string) error { return nil })
+	defer restore()
 	var gotName string
 	var gotArgs []string
 	cmd := cmdFunc(func(ctx context.Context, name string, args ...string) *exec.Cmd {
