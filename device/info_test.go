@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -32,6 +33,37 @@ func TestGetUUIDStub(t *testing.T) {
 	}
 	if got != "stub-uuid" {
 		t.Fatalf("expected stub-uuid, got %q", got)
+	}
+}
+
+func TestSetUUIDFunc(t *testing.T) {
+	orig := uuidFunc
+	stub := func(context.Context, string) (string, error) { return "new", nil }
+	prev := SetUUIDFunc(stub)
+	if reflect.ValueOf(prev).Pointer() != reflect.ValueOf(orig).Pointer() {
+		t.Fatalf("expected previous function to be original")
+	}
+	if reflect.ValueOf(uuidFunc).Pointer() != reflect.ValueOf(stub).Pointer() {
+		t.Fatalf("uuidFunc not replaced")
+	}
+	SetUUIDFunc(prev)
+}
+
+func TestGetUUIDError(t *testing.T) {
+	wantErr := errors.New("fail")
+	prev := SetUUIDFunc(func(ctx context.Context, path string) (string, error) {
+		if _, ok := ctx.Deadline(); !ok {
+			t.Fatalf("expected context with deadline")
+		}
+		if path != "/dev/fail" {
+			t.Fatalf("unexpected path %q", path)
+		}
+		return "", wantErr
+	})
+	defer SetUUIDFunc(prev)
+
+	if _, err := GetUUID(context.Background(), "/dev/fail"); !errors.Is(err, wantErr) {
+		t.Fatalf("expected %v, got %v", wantErr, err)
 	}
 }
 
@@ -87,6 +119,19 @@ func TestIDsMatch(t *testing.T) {
 	}
 }
 
+func TestSetMountFunc(t *testing.T) {
+	orig := mountFunc
+	stub := func(string) (bool, error) { return true, nil }
+	prev := SetMountFunc(stub)
+	if reflect.ValueOf(prev).Pointer() != reflect.ValueOf(orig).Pointer() {
+		t.Fatalf("expected previous function to be original")
+	}
+	if reflect.ValueOf(mountFunc).Pointer() != reflect.ValueOf(stub).Pointer() {
+		t.Fatalf("mountFunc not replaced")
+	}
+	SetMountFunc(prev)
+}
+
 func TestIsMountedRW(t *testing.T) {
 	tests := []struct {
 		name string
@@ -109,6 +154,15 @@ func TestIsMountedRW(t *testing.T) {
 				t.Fatalf("expected %v, got %v", tt.val, got)
 			}
 		})
+	}
+}
+
+func TestIsMountedRWError(t *testing.T) {
+	want := errors.New("boom")
+	prev := SetMountFunc(func(string) (bool, error) { return false, want })
+	defer SetMountFunc(prev)
+	if _, err := IsMountedRW("/dev/sda"); !errors.Is(err, want) {
+		t.Fatalf("expected %v, got %v", want, err)
 	}
 }
 
