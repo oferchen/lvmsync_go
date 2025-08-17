@@ -67,9 +67,7 @@ func New(cfg transport.Config) (transport.Interface, error) {
 }
 
 func init() {
-	if err := transport.Register("tcp+tls", New); err != nil {
-		panic(err)
-	}
+	transport.MustRegister("tcp+tls", New)
 }
 
 func (t *Transport) Name() string { return "tcp+tls" }

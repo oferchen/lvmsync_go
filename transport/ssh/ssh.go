@@ -156,11 +156,9 @@ func agentSigners(ctx context.Context, sock string) ([]ssh.Signer, error) {
 }
 
 func init() {
-	if err := transport.Register("ssh", func(cfg transport.Config) (transport.Interface, error) {
+	transport.MustRegister("ssh", func(cfg transport.Config) (transport.Interface, error) {
 		return New(context.Background(), cfg)
-	}); err != nil {
-		panic(err)
-	}
+	})
 }
 
 func (t *Transport) Name() string { return "ssh" }

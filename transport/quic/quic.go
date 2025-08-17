@@ -82,9 +82,7 @@ func New(cfg transport.Config) (transport.Interface, error) {
 }
 
 func init() {
-	if err := transport.Register("quic", New); err != nil {
-		panic(err)
-	}
+	transport.MustRegister("quic", New)
 }
 
 func (t *Transport) Name() string { return "quic" }
