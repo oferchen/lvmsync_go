@@ -80,7 +80,7 @@ func defaultUUIDFunc(ctx context.Context, path string) (string, error) {
 }
 
 func defaultLVMUUIDFunc(ctx context.Context, path string) (string, error) {
-	out, err := execCommand(ctx, "lvs", "--noheadings", "-o", "lv_uuid", path).Output()
+	out, err := exec.CommandContext(ctx, "lvs", "--noheadings", "-o", "lv_uuid", path).Output()
 	if err != nil {
 		return "", err
 	}

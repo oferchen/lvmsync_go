@@ -177,15 +177,13 @@ func TestDetectLVM(t *testing.T) {
 	}
 	loop, cleanup := setupLoop(t, 1<<20)
 	defer cleanup()
-	origExec := execCommand
-	execCommand = func(ctx context.Context, name string, args ...string) *exec.Cmd {
+	cmd := cmdFunc(func(ctx context.Context, name string, args ...string) *exec.Cmd {
 		if name == "blkid" {
 			return exec.CommandContext(ctx, "sh", "-c", "echo LVM2_member")
 		}
 		return exec.CommandContext(ctx, name, args...)
-	}
-	defer func() { execCommand = origExec }()
-	runner := NewRunner()
+	})
+	runner := NewDeviceRunner(cmd)
 	runner.openLVMOverride = func(p string, _ *lvm.FDCache, _ string, _ *zap.Logger) (*LVMDevice, error) {
 		return &LVMDevice{path: p, logger: zap.NewNop(), runner: runner}, nil
 	}
@@ -209,18 +207,16 @@ func TestDetectRawCommandQuoting(t *testing.T) {
 		name string
 		args []string
 	}
-	origExec := execCommand
-	execCommand = func(ctx context.Context, name string, args ...string) *exec.Cmd {
+	cmd := cmdFunc(func(ctx context.Context, name string, args ...string) *exec.Cmd {
 		calls = append(calls, struct {
 			name string
 			args []string
 		}{name: name, args: append([]string(nil), args...)})
 		return exec.CommandContext(ctx, "/bin/true")
-	}
-	defer func() { execCommand = origExec }()
+	})
 	freeze := "/bin/echo 'freeze path with spaces'"
 	thaw := "/bin/echo 'thaw path with spaces'"
-	dev, err := Detect(context.Background(), loop, false, "raw", freeze, thaw, "", 0, 0, zap.NewNop(), NewRunner())
+	dev, err := Detect(context.Background(), loop, false, "raw", freeze, thaw, "", 0, 0, zap.NewNop(), NewDeviceRunner(cmd))
 	if err != nil {
 		t.Fatalf("detect: %v", err)
 	}

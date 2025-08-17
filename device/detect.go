@@ -46,7 +46,7 @@ func detectLVMDevice(path, lvmEscalation string, runner *Runner, logger *zap.Log
 }
 
 // detectRawDevice opens a raw block device.
-func detectRawDevice(ctx context.Context, path string, offline bool, fsFreezeCmd, fsThawCmd string, freezeTimeout, thawTimeout time.Duration, logger *zap.Logger) (Device, error) {
+func detectRawDevice(ctx context.Context, path string, offline bool, fsFreezeCmd, fsThawCmd string, freezeTimeout, thawTimeout time.Duration, logger *zap.Logger, runner *Runner) (Device, error) {
 	var freezePath, thawPath string
 	var freezeArgs, thawArgs []string
 	if fsFreezeCmd != "" {
@@ -73,7 +73,7 @@ func detectRawDevice(ctx context.Context, path string, offline bool, fsFreezeCmd
 			thawArgs = parts[1:]
 		}
 	}
-	dev, err := openRawFunc(ctx, path, offline, freezePath, freezeArgs, thawPath, thawArgs, freezeTimeout, thawTimeout, logger)
+	dev, err := openRawFunc(ctx, path, offline, freezePath, freezeArgs, thawPath, thawArgs, freezeTimeout, thawTimeout, logger, runner)
 	if err != nil {
 		logger.Error("detect device failed", zap.String("path", path), zap.String("device_type", TypeRaw), zap.Error(err))
 		return nil, err
@@ -129,7 +129,7 @@ func Detect(
 			if info.Mode()&os.ModeDevice == 0 || info.Mode()&os.ModeCharDevice != 0 {
 				return nil, fmt.Errorf("expected block device for type raw: %s", resolved)
 			}
-			return detectRawDevice(ctx, resolved, offline, fsFreezeCmd, fsThawCmd, freezeTimeout, thawTimeout, logger)
+			return detectRawDevice(ctx, resolved, offline, fsFreezeCmd, fsThawCmd, freezeTimeout, thawTimeout, logger, runner)
 		default:
 			return nil, fmt.Errorf("unknown device type %q", explicitType)
 		}
@@ -138,12 +138,12 @@ func Detect(
 		return detectFileDevice(resolved, logger)
 	}
 	if info.Mode()&os.ModeDevice != 0 && info.Mode()&os.ModeCharDevice == 0 {
-		out, err := execCommand(ctx, "blkid", "-o", "value", "-s", "TYPE", resolved).Output()
+		out, err := runner.command.CommandContext(ctx, "blkid", "-o", "value", "-s", "TYPE", resolved).Output()
 		fsType := strings.TrimSpace(string(out))
 		if err == nil && fsType == "LVM2_member" {
 			return detectLVMDevice(resolved, lvmEscalation, runner, logger)
 		}
-		return detectRawDevice(ctx, resolved, offline, fsFreezeCmd, fsThawCmd, freezeTimeout, thawTimeout, logger)
+		return detectRawDevice(ctx, resolved, offline, fsFreezeCmd, fsThawCmd, freezeTimeout, thawTimeout, logger, runner)
 	}
 	err = fmt.Errorf("unsupported path type: %s", resolved)
 	logger.Error("device detect failed", zap.String("path", resolved), zap.String("device_type", "unknown"), zap.Error(err))

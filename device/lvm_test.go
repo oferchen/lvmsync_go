@@ -56,7 +56,7 @@ func TestOpenLVMNonBlockDevice(t *testing.T) {
 func TestOpenLVMChecks(t *testing.T) {
 	cache := lvm.NewDeviceFDCache(zap.NewNop())
 	defer cache.Close()
-	runner := NewRunnerWithDeps(func(context.Context, string) (bool, error) { return false, nil }, lvm.AutoExtendEnabled, lvm.DiscardEnabled, IsMountedRW, lock.Acquire)
+	runner := NewRunnerWithDeps(func(context.Context, string) (bool, error) { return false, nil }, lvm.AutoExtendEnabled, lvm.DiscardEnabled, IsMountedRW, lock.Acquire, nil)
 	if _, err := runner.OpenLVM("/dev/missing", cache, "", zap.NewNop()); err == nil {
 		t.Fatalf("expected error when volume missing")
 	}
@@ -66,17 +66,16 @@ func TestRunLVMPrivilegeEscalation(t *testing.T) {
 	ctx := context.Background()
 	var gotName string
 	var gotArgs []string
-	origExec := execCommand
-	execCommand = func(ctx context.Context, name string, args ...string) *exec.Cmd {
+	cmd := cmdFunc(func(ctx context.Context, name string, args ...string) *exec.Cmd {
 		gotName = name
 		gotArgs = append([]string(nil), args...)
 		return exec.CommandContext(ctx, "true")
-	}
-	t.Cleanup(func() { execCommand = origExec })
+	})
+	runner := NewDeviceRunner(cmd)
 	origEuid := geteuid
 	geteuid = func() int { return 1 }
 	t.Cleanup(func() { geteuid = origEuid })
-	if err := runLVM(ctx, "doas -n", "lvremove", "-f", "/dev/vg0/snap"); err != nil {
+	if err := runner.runLVM(ctx, "doas -n", "lvremove", "-f", "/dev/vg0/snap"); err != nil {
 		t.Fatalf("runLVM: %v", err)
 	}
 	if gotName != "doas" || !reflect.DeepEqual(gotArgs, []string{"-n", "lvremove", "-f", "/dev/vg0/snap"}) {
@@ -86,12 +85,11 @@ func TestRunLVMPrivilegeEscalation(t *testing.T) {
 
 func TestRunLVMFailure(t *testing.T) {
 	ctx := context.Background()
-	origExec := execCommand
-	execCommand = func(ctx context.Context, name string, args ...string) *exec.Cmd {
+	cmd := cmdFunc(func(ctx context.Context, name string, args ...string) *exec.Cmd {
 		return exec.CommandContext(ctx, "false")
-	}
-	t.Cleanup(func() { execCommand = origExec })
-	if err := runLVM(ctx, "", "lvremove", "-f", "/dev/vg0/snap"); err == nil {
+	})
+	runner := NewDeviceRunner(cmd)
+	if err := runner.runLVM(ctx, "", "lvremove", "-f", "/dev/vg0/snap"); err == nil {
 		t.Fatalf("expected error from runLVM")
 	}
 }

@@ -1,12 +1,19 @@
 package privilege
 
 import (
+	"context"
 	"errors"
 	"os"
 	"os/exec"
 	"strconv"
 	"testing"
 )
+
+type cmdFunc func(context.Context, string, ...string) *exec.Cmd
+
+func (f cmdFunc) CommandContext(ctx context.Context, name string, args ...string) *exec.Cmd {
+	return f(ctx, name, args...)
+}
 
 // fakeLookPath stubs exec.LookPath.
 func fakeLookPath(err error) func(string) (string, error) {
@@ -26,11 +33,10 @@ func TestEnsureWithCaps(t *testing.T) {
 
 func TestEnsureWithSudo(t *testing.T) {
 	HasCaps = func() bool { return false }
-	lookPath = fakeLookPath(nil)
-	orig := execCommand
-	execCommand = fakeSudo(0)
-	defer func() { execCommand = orig }()
-	esc := New().(*sudoEscalator)
+	r := &Runner{Cmd: cmdFunc(func(ctx context.Context, name string, args ...string) *exec.Cmd {
+		return fakeSudo(0)(name, args...)
+	}), LookPath: fakeLookPath(nil)}
+	esc := NewWithRunner(r).(*sudoEscalator)
 	if !esc.useSudo {
 		t.Fatalf("expected sudo usage")
 	}
@@ -41,8 +47,7 @@ func TestEnsureWithSudo(t *testing.T) {
 
 func TestEnsureNoSudo(t *testing.T) {
 	HasCaps = func() bool { return false }
-	lookPath = fakeLookPath(errors.New("missing"))
-	esc := New().(*sudoEscalator)
+	esc := NewWithRunner(&Runner{LookPath: fakeLookPath(errors.New("missing"))}).(*sudoEscalator)
 	if err := esc.Ensure(); err == nil {
 		t.Fatalf("expected error")
 	}
@@ -65,11 +70,10 @@ func TestCommand(t *testing.T) {
 
 func TestEnsureSudoFailure(t *testing.T) {
 	HasCaps = func() bool { return false }
-	lookPath = fakeLookPath(nil)
-	orig := execCommand
-	execCommand = fakeSudo(1)
-	defer func() { execCommand = orig }()
-	esc := New().(*sudoEscalator)
+	r := &Runner{Cmd: cmdFunc(func(ctx context.Context, name string, args ...string) *exec.Cmd {
+		return fakeSudo(1)(name, args...)
+	}), LookPath: fakeLookPath(nil)}
+	esc := NewWithRunner(r).(*sudoEscalator)
 	if err := esc.Ensure(); err == nil {
 		t.Fatalf("expected error")
 	}
@@ -90,8 +94,10 @@ func TestSudoSuccess(t *testing.T) {
 		t.Skip("root required")
 	}
 	HasCaps = func() bool { return false }
-	execCommand = fakeSudo(0)
-	cmd := New().Command("echo")
+	esc := NewWithRunner(&Runner{Cmd: cmdFunc(func(ctx context.Context, name string, args ...string) *exec.Cmd {
+		return fakeSudo(0)(name, args...)
+	})})
+	cmd := esc.Command("echo")
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -102,8 +108,10 @@ func TestSudoPermissionDenied(t *testing.T) {
 		t.Skip("root required")
 	}
 	HasCaps = func() bool { return false }
-	execCommand = fakeSudo(1)
-	cmd := New().Command("echo")
+	esc := NewWithRunner(&Runner{Cmd: cmdFunc(func(ctx context.Context, name string, args ...string) *exec.Cmd {
+		return fakeSudo(1)(name, args...)
+	})})
+	cmd := esc.Command("echo")
 	err := cmd.Run()
 	if err == nil {
 		t.Fatalf("expected error")
@@ -118,8 +126,10 @@ func TestSudoCommandNotFound(t *testing.T) {
 		t.Skip("root required")
 	}
 	HasCaps = func() bool { return false }
-	execCommand = fakeSudo(127)
-	cmd := New().Command("echo")
+	esc := NewWithRunner(&Runner{Cmd: cmdFunc(func(ctx context.Context, name string, args ...string) *exec.Cmd {
+		return fakeSudo(127)(name, args...)
+	})})
+	cmd := esc.Command("echo")
 	err := cmd.Run()
 	if err == nil {
 		t.Fatalf("expected error")
@@ -142,8 +152,6 @@ func TestHelperProcess(t *testing.T) {
 func TestMain(m *testing.M) {
 	code := m.Run()
 	HasCaps = RealHasCaps
-	lookPath = exec.LookPath
-	execCommand = exec.Command
 	if code != 0 {
 		panic(code)
 	}
