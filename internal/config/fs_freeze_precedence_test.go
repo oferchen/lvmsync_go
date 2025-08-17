@@ -82,11 +82,7 @@ func TestFSFreezeCommandRejectsRelativePath(t *testing.T) {
 		t.Fatalf("buildViper: %v", err)
 	}
 	builder := &builder{v: v, defaults: defaults}
-	conf, err := builder.Build()
-	if err != nil {
-		t.Fatalf("Build: %v", err)
-	}
-	if err := conf.Validate(); err == nil {
+	if _, err := builder.Build(); err == nil {
 		t.Fatalf("expected error for relative path")
 	}
 }
@@ -107,11 +103,7 @@ func TestFSThawCommandRejectsRelativePath(t *testing.T) {
 		t.Fatalf("buildViper: %v", err)
 	}
 	builder := &builder{v: v, defaults: defaults}
-	conf, err := builder.Build()
-	if err != nil {
-		t.Fatalf("Build: %v", err)
-	}
-	if err := conf.Validate(); err == nil {
+	if _, err := builder.Build(); err == nil {
 		t.Fatalf("expected error for relative path")
 	}
 }
