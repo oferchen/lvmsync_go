@@ -87,6 +87,17 @@ Each subsequent entry describes one chunk and also uses little‑endian encoding
 The header `version` field allows future format changes without breaking
 backwards compatibility.
 
+## Two-Level Index
+
+When a manifest is opened, LVMSync builds an in-memory two-level index to
+accelerate lookups. A primary open-addressed hash table maps each chunk's XXH3
+value to its entry index. To avoid unnecessary BLAKE3 computations, every
+1&nbsp;MiB region also maintains a 64‑bit Bloom filter of XXH3 hashes present in
+that range. During `Match`, the Bloom filter for the chunk's range is checked
+first; only if it may contain the hash does the hash table probe proceed and, if
+needed, the strong digest is computed. `Rebuild` streams the device and
+populates both the hash table and Bloom filters on the fly.
+
 Device identifiers are stored in a fixed 64-byte field; creation fails if the
 ID exceeds this limit.
 
