@@ -71,7 +71,13 @@ func TestPrepareClientSuccess(t *testing.T) {
 		return func() { clientClean = true }, nil, nil
 	}
 	r.setupSignalHandleFn = func(context.Context, *config.Config, *string, *zap.Logger) (chan os.Signal, chan error) {
-		return make(chan os.Signal), make(chan error)
+		sigCh := make(chan os.Signal)
+		errCh := make(chan error)
+		go func() {
+			time.Sleep(time.Millisecond)
+			close(errCh)
+		}()
+		return sigCh, errCh
 	}
 	ctx, cleanup, snap, dest, sigErrCh, err := r.prepareClient(cfg, []string{"vol"}, logger)
 	if err != nil || ctx == nil || cleanup == nil || snap != "vol" || dest != "" || sigErrCh == nil || !selectCalled {
@@ -365,6 +371,7 @@ func TestRunHeartbeatError(t *testing.T) {
 		return "snap", nil, func() {}, nil
 	}
 	r.executeClientFn = func(context.Context, func(context.Context, string, string) error, string, string, chan error, chan error, *zap.Logger) error {
+		defer close(sigErrCh)
 		return <-sigErrCh
 	}
 
@@ -409,7 +416,12 @@ func TestRunGRPCConnectGoroutineLeak(t *testing.T) {
 			}
 
 			r.setupSignalHandleFn = func(context.Context, *config.Config, *string, *zap.Logger) (chan os.Signal, chan error) {
-				return nil, make(chan error, 1)
+				errCh := make(chan error)
+				go func() {
+					time.Sleep(time.Millisecond)
+					close(errCh)
+				}()
+				return nil, errCh
 			}
 
 			r.selectTransportFn = func(*config.Config, *zap.Logger) (transport.Interface, error) { return nil, nil }
@@ -425,8 +437,6 @@ func TestRunGRPCConnectGoroutineLeak(t *testing.T) {
 			if err := r.Run(cfg, []string{"vol"}, logger); err != nil {
 				t.Fatalf("Run returned error: %v", err)
 			}
-
-			time.Sleep(10 * time.Millisecond)
 		})
 	}
 }

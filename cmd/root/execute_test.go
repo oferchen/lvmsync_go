@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"testing"
+	"time"
 
 	"lvmsync_go/internal/config"
 	privilege "lvmsync_go/internal/privilege"
@@ -26,13 +27,21 @@ func TestExecuteSuccess(t *testing.T) {
 	defaultRunner = &Runner{
 		selectTransportFn: func(*config.Config, *zap.Logger) (transport.Interface, error) { return nil, nil },
 		startGRPCServerFn: func(context.Context, *config.Config, *zap.Logger) (func(), <-chan error, error) {
-			return func() {}, nil, nil
+			ch := make(chan error)
+			close(ch)
+			return func() {}, ch, nil
 		},
 		clientHandshakeFn: func(context.Context, *config.Config, *zap.Logger) (func(), chan error, error) {
 			return func() {}, nil, nil
 		},
 		setupSignalHandleFn: func(context.Context, *config.Config, *string, *zap.Logger) (chan os.Signal, chan error) {
-			return make(chan os.Signal), make(chan error)
+			sigCh := make(chan os.Signal)
+			errCh := make(chan error)
+			go func() {
+				time.Sleep(time.Millisecond)
+				close(errCh)
+			}()
+			return sigCh, errCh
 		},
 		executeClientFn: func(context.Context, func(context.Context, string, string) error, string, string, chan error, chan error, *zap.Logger) error {
 			return nil
@@ -58,13 +67,21 @@ func TestExecuteRunError(t *testing.T) {
 	defaultRunner = &Runner{
 		selectTransportFn: func(*config.Config, *zap.Logger) (transport.Interface, error) { return nil, nil },
 		startGRPCServerFn: func(context.Context, *config.Config, *zap.Logger) (func(), <-chan error, error) {
-			return func() {}, nil, nil
+			ch := make(chan error)
+			close(ch)
+			return func() {}, ch, nil
 		},
 		clientHandshakeFn: func(context.Context, *config.Config, *zap.Logger) (func(), chan error, error) {
 			return func() {}, nil, nil
 		},
 		setupSignalHandleFn: func(context.Context, *config.Config, *string, *zap.Logger) (chan os.Signal, chan error) {
-			return make(chan os.Signal), make(chan error)
+			sigCh := make(chan os.Signal)
+			errCh := make(chan error)
+			go func() {
+				time.Sleep(time.Millisecond)
+				close(errCh)
+			}()
+			return sigCh, errCh
 		},
 		executeClientFn: func(context.Context, func(context.Context, string, string) error, string, string, chan error, chan error, *zap.Logger) error {
 			return errors.New("boom")
