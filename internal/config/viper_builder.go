@@ -356,9 +356,20 @@ func buildViper(flagSets *FlagSets) (*viper.Viper, []string, error) {
 		if err := yaml.Unmarshal(data, &raw); err == nil {
 			valid := knownConfigKeys()
 			for k := range raw {
-				if _, ok := valid[k]; !ok {
-					warnings = append(warnings, fmt.Sprintf("unknown configuration key %q", k))
+				if _, ok := valid[k]; ok {
+					continue
 				}
+				switch {
+				case strings.Contains(k, "-"):
+					if _, ok := valid[strings.ReplaceAll(k, "-", "_")]; ok {
+						continue
+					}
+				case strings.Contains(k, "_"):
+					if _, ok := valid[strings.ReplaceAll(k, "_", "-")]; ok {
+						continue
+					}
+				}
+				warnings = append(warnings, fmt.Sprintf("unknown configuration key %q", k))
 			}
 		}
 	}
