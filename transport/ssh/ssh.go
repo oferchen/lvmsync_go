@@ -17,6 +17,7 @@ import (
 	"golang.org/x/crypto/ssh/agent"
 	"golang.org/x/crypto/ssh/knownhosts"
 
+	rootcmd "lvmsync_go/cmd/root"
 	"lvmsync_go/common"
 	"lvmsync_go/transport"
 )
@@ -165,7 +166,7 @@ func init() {
 			return nil, fmt.Errorf("ssh: nil transport")
 		}
 		return tr, nil
-	})
+	}, zap.NewNop(), rootcmd.SyncLogger)
 }
 
 func (t *Transport) Name() string { return "ssh" }
