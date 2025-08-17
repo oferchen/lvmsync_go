@@ -43,3 +43,23 @@ func TestDumpChangesLogsSyncError(t *testing.T) {
 		t.Fatalf("expected error %q in log, got %v", syncErr.Error(), logs[0].ContextMap()["error"])
 	}
 }
+
+func TestDumpChangesLogsSyncErrorOnEarlyFailure(t *testing.T) {
+	syncErr := errors.New("sync fail")
+	core, observed := observer.New(zap.InfoLevel)
+	logger := zap.New(&failingSyncCore{Core: core, err: syncErr})
+	tr := NewTransfer(logger, &sync.WaitGroup{})
+
+	cfg := &config.Config{BlockSize: 0, Compress: "none", MaxRetries: 1}
+	var buf bytes.Buffer
+	if err := tr.DumpChangesSequential(cfg, "snapshot", "/nonexistent", &buf); err == nil {
+		t.Fatalf("expected DumpChangesSequential error")
+	}
+	logs := observed.FilterMessage("Logger sync error").All()
+	if len(logs) != 1 {
+		t.Fatalf("expected sync error log, got %d", len(logs))
+	}
+	if errStr, ok := logs[0].ContextMap()["error"].(string); !ok || errStr != syncErr.Error() {
+		t.Fatalf("expected error %q in log, got %v", syncErr.Error(), logs[0].ContextMap()["error"])
+	}
+}
