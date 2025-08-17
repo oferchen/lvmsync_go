@@ -653,6 +653,11 @@ Run a standalone QUIC listener:
 lvmsync serve --transport quic --quic-listen :12000 --tls-cert cert.pem --tls-key key.pem --ca-cert ca.pem
 ```
 
+TLS is required by default. The server rejects plaintext clients unless
+`--allow-insecure` or `LVMSYNC_SERVE_ALLOW_INSECURE` is set, which disables
+encryption and authentication and should only be used in trusted development
+environments.
+
 | Flag | Environment | Description |
 |------|-------------|-------------|
 | `--transport` | `LVMSYNC_SERVE_TRANSPORT` | Transport to serve |
@@ -660,7 +665,7 @@ lvmsync serve --transport quic --quic-listen :12000 --tls-cert cert.pem --tls-ke
 | `--tls-cert` | `LVMSYNC_SERVE_TLS_CERT` | TLS certificate file |
 | `--tls-key` | `LVMSYNC_SERVE_TLS_KEY` | TLS key file |
 | `--ca-cert` | `LVMSYNC_SERVE_CA_CERT` | CA certificate file |
-| `--allow-insecure` | `LVMSYNC_SERVE_ALLOW_INSECURE` | Permit insecure (no TLS) connections |
+| `--allow-insecure` | `LVMSYNC_SERVE_ALLOW_INSECURE` | Permit insecure (no TLS) connections (disabled by default) |
 
 ## gRPC Control Plane
 
