@@ -235,6 +235,15 @@ func (b *builder) finalizeConfig(conf *Config) error {
 		return fmt.Errorf("unsupported checksum algorithm: %s", conf.ChecksumAlgorithm)
 	}
 
+	if b.v != nil {
+		if conf.GRPCListen == "" {
+			conf.GRPCListen = b.v.GetString("grpc-listen")
+		}
+		if conf.GRPCConnect == "" {
+			conf.GRPCConnect = b.v.GetString("grpc-connect")
+		}
+	}
+
 	if !conf.AllowInsecure && (conf.GRPCListen != "" || conf.GRPCConnect != "") {
 		if conf.TLSCert == "" || conf.TLSKey == "" {
 			return fmt.Errorf("tls-cert and tls-key must be specified unless allow-insecure is set")

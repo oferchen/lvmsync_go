@@ -329,6 +329,36 @@ func TestBuilderFinalizeConfig(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})
+
+	t.Run("missingTLSHyphenated", func(t *testing.T) {
+		b := &builder{defaults: defaults, v: viper.New()}
+		b.v.Set("grpc-listen", ":1")
+		conf := &Config{AllowInsecure: false, ChecksumAlgorithm: "sha256"}
+		if err := b.finalizeConfig(conf); err == nil {
+			t.Fatalf("expected error")
+		}
+	})
+
+	t.Run("validTLSHyphenated", func(t *testing.T) {
+		dir := t.TempDir()
+		cert := filepath.Join(dir, "cert.pem")
+		key := filepath.Join(dir, "key.pem")
+		if err := os.WriteFile(cert, []byte("cert"), 0o644); err != nil {
+			t.Fatalf("write cert: %v", err)
+		}
+		if err := os.WriteFile(key, []byte("key"), 0o644); err != nil {
+			t.Fatalf("write key: %v", err)
+		}
+		b := &builder{defaults: defaults, v: viper.New()}
+		b.v.Set("grpc-connect", ":1")
+		conf := &Config{AllowInsecure: false, TLSCert: cert, TLSKey: key, ChecksumAlgorithm: "sha256"}
+		if err := b.finalizeConfig(conf); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if conf.GRPCConnect != ":1" {
+			t.Fatalf("expected GRPCConnect populated from hyphenated key")
+		}
+	})
 }
 
 func TestConfigValidate(t *testing.T) {
