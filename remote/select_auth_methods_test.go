@@ -10,7 +10,10 @@ import (
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
+	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
+
+	remotetest "lvmsync_go/remote/testutil"
 )
 
 // helper to start a stub ssh agent listening on a unix socket
@@ -31,6 +34,64 @@ func startAgent(t *testing.T) (string, func()) {
 	}()
 	cleanup := func() { ln.Close() }
 	return sock, cleanup
+}
+
+func TestKeyFileAuthSuccess(t *testing.T) {
+	keyPath := remotetest.CreateTempKey(t)
+	method, err := keyFileAuth(keyPath)
+	if err != nil {
+		t.Fatalf("keyFileAuth: %v", err)
+	}
+	if method == nil {
+		t.Fatal("expected auth method")
+	}
+}
+
+func TestKeyFileAuthMissing(t *testing.T) {
+	if _, err := keyFileAuth(filepath.Join(t.TempDir(), "missing")); err == nil {
+		t.Fatal("expected error for missing key file")
+	}
+}
+
+func TestAgentAuthSuccess(t *testing.T) {
+	sock, cleanup := startAgent(t)
+	defer cleanup()
+	t.Setenv("SSH_AUTH_SOCK", sock)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	method, err := agentAuth(ctx, zap.NewNop(), time.Second)
+	if err != nil {
+		t.Fatalf("agentAuth: %v", err)
+	}
+	if method == nil {
+		t.Fatal("expected auth method")
+	}
+}
+
+func TestAgentAuthContextError(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Millisecond)
+	time.Sleep(10 * time.Millisecond)
+	defer cancel()
+	t.Setenv("SSH_AUTH_SOCK", filepath.Join(t.TempDir(), "missing.sock"))
+	if _, err := agentAuth(ctx, zap.NewNop(), time.Second); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected context deadline exceeded, got %v", err)
+	}
+}
+
+func TestAggregateAuthMethodsSuccess(t *testing.T) {
+	methods, err := aggregateAuthMethods(ssh.Password("foo"), nil)
+	if err != nil {
+		t.Fatalf("aggregateAuthMethods: %v", err)
+	}
+	if len(methods) != 1 {
+		t.Fatalf("expected 1 method, got %d", len(methods))
+	}
+}
+
+func TestAggregateAuthMethodsError(t *testing.T) {
+	if _, err := aggregateAuthMethods(nil, nil); err == nil {
+		t.Fatal("expected error for no methods")
+	}
 }
 
 func TestSelectAuthMethodsSuccess(t *testing.T) {

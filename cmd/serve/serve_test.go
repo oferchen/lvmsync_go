@@ -24,8 +24,6 @@ import (
 
 	"lvmsync_go/common"
 	"lvmsync_go/transport"
-
-	"errors"
 )
 
 func TestEnvVarPrecedence(t *testing.T) {
