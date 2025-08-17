@@ -20,6 +20,14 @@ copies can be verified.
   for the source. Override the manifest path with `--manifest_path` if needed.
 
 Manifest commands group flags with pflag and bind them to Viper while logging progress with zap.
+Flags override environment variables, which override `config.yaml` values.
+
+| Flag | Environment variable | Config key | Description |
+|------|----------------------|------------|-------------|
+| `--manifest_path` | `LVMSYNC_MANIFEST_PATH` | `manifest_path` | Path to manifest file |
+| `--manifest_timeout` | `LVMSYNC_MANIFEST_TIMEOUT` | `manifest_timeout` | Timeout for manifest rebuild (0 disables) |
+| `--manifest_progress_interval` | `LVMSYNC_MANIFEST_PROGRESS_INTERVAL` | `manifest_progress_interval` | Interval between progress logs during manifest rebuild |
+| `--manifest_allow_mounted` | `LVMSYNC_MANIFEST_ALLOW_MOUNTED` | `manifest_allow_mounted` | Allow rebuilding when device is mounted read-write |
 
 ## Flag Group Example
 

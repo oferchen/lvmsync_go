@@ -38,7 +38,8 @@ func NewRunnerWithDeps(
 }
 
 func init() {
-	rootcmd.RegisterVerify(NewRunner().Run)
+	r := NewRunner()
+	rootcmd.RegisterVerify(r.Run)
 }
 
 // Run executes the verify command with the provided arguments and logger.

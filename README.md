@@ -528,6 +528,8 @@ LVMSYNC_LVM_SNAPSHOT_SIZE=25% lvmsync run /dev/vg0/snap0 /mnt/backup
 
 ### Option reference
 
+Flags override environment variables, which override `config.yaml` values.
+
 | Flag | Environment variable | Config key | Description |
 |------|----------------------|------------|-------------|
 | `--config` | `LVMSYNC_CONFIG` | `config` | Path to config YAML file |
@@ -561,6 +563,7 @@ LVMSYNC_LVM_SNAPSHOT_SIZE=25% lvmsync run /dev/vg0/snap0 /mnt/backup
 | `--manifest_path` | `LVMSYNC_MANIFEST_PATH` | `manifest_path` | Path to manifest file |
 | `--manifest-progress-interval` | `LVMSYNC_MANIFEST_PROGRESS_INTERVAL` | `manifest_progress_interval` | Interval between progress logs during manifest rebuild |
 | `--manifest_timeout` | `LVMSYNC_MANIFEST_TIMEOUT` | `manifest_timeout` | Timeout for manifest rebuild (0 disables) |
+| `--manifest_allow_mounted` | `LVMSYNC_MANIFEST_ALLOW_MOUNTED` | `manifest_allow_mounted` | Allow rebuilding when device is mounted read-write |
 | `--ssh_host` | `LVMSYNC_SSH_HOST` | `ssh_host` | SSH host |
 | `--ssh_user` | `LVMSYNC_SSH_USER` | `ssh_user` | SSH username |
 | `--ssh_key` | `LVMSYNC_SSH_KEY` | `ssh_key` | Path to SSH private key |
@@ -569,6 +572,7 @@ LVMSYNC_LVM_SNAPSHOT_SIZE=25% lvmsync run /dev/vg0/snap0 /mnt/backup
 | `--ssh_port` | `LVMSYNC_SSH_PORT` | `ssh_port` | SSH port |
 | `--ssh_timeout` | `LVMSYNC_SSH_TIMEOUT` | `ssh_timeout` | SSH connection timeout |
 | `--ssh_keepalive` | `LVMSYNC_SSH_KEEPALIVE` | `ssh_keepalive` | SSH keepalive interval |
+| `--ssh_host_key` | `LVMSYNC_SSH_HOST_KEY` | `ssh_host_key` | Expected SSH host public key |
 | `--known_hosts` | `LVMSYNC_KNOWN_HOSTS` | `known_hosts` | Path to known_hosts file |
 | `--strict_host_key_checking` | `LVMSYNC_STRICT_HOST_KEY_CHECKING` | `strict_host_key_checking` | Require host keys to be present in `known_hosts`; when `false`, host key verification is disabled |
 | `--lvmsync_path` | `LVMSYNC_LVMSYNC_PATH` | `lvmsync_path` | Remote command to run (basename sanitized; only `[a-zA-Z0-9._-]+` allowed) |
@@ -593,9 +597,13 @@ LVMSYNC_LVM_SNAPSHOT_SIZE=25% lvmsync run /dev/vg0/snap0 /mnt/backup
 | `--snapshot_size` | `LVMSYNC_SNAPSHOT_SIZE` | `snapshot_size` | Snapshot size (e.g., `20G` or `20%`) |
 | `--lvm-escalation` | `LVMSYNC_LVM_ESCALATION` | `lvm_escalation` | Command used to escalate privileges for LVM commands; validated at startup |
 | `--lvm_timeout` | `LVMSYNC_LVM_TIMEOUT` | `lvm_timeout` | Timeout for LVM operations |
+| `--sig-cache-ttl` | `LVMSYNC_LVM_SIG_CACHE_TTL` | `sig-cache-ttl` | TTL for cached LVM signatures |
+| `--sig-cache-max` | `LVMSYNC_LVM_SIG_CACHE_MAX` | `sig-cache-max` | Maximum cached LVM signatures |
 | `--volume_group` | `LVMSYNC_VOLUME_GROUP` | `volume_group` | Source volume group; derived from the source device path when empty |
 | `--target_volume_group` | `LVMSYNC_TARGET_VOLUME_GROUP` | `target_volume_group` | Volume group name of the target LVM volume |
 | `--target_vgs` | `LVMSYNC_TARGET_VGS` | `target_vgs` | Candidate target volume groups for auto-selection |
+| `--force` | `LVMSYNC_FORCE` | `force` | Override safety checks and proceed on mounted destination |
+| `--discard` | `LVMSYNC_DISCARD` | `discard` | Issue BLKDISCARD before writing blocks |
 | `--dry-run` | `LVMSYNC_DRY_RUN` | `dry_run` | Log estimated transfer bytes without sending data; uses manifest sampling when available |
 | `--transport` | `LVMSYNC_TRANSPORT_TRANSPORT` | `transport` | Ordered transports to try (e.g., `quic,h2,tcp+tls,ssh`) |
 | `--tcp_port` | `LVMSYNC_TRANSPORT_TCP_PORT` | `tcp_port` | TCP+TLS port |
@@ -1522,12 +1530,12 @@ Decouple modules by injecting dependencies through interfaces or constructor par
 For example, the `privilege` package exposes an `Escalator` interface so tests
 can stub command execution:
 
-```
+```go
 esc := privilege.New()
-if err := esc.Ensure(); err != nil {
+if err := esc.Ensure(context.Background()); err != nil {
     // handle missing capabilities or sudo
 }
-cmd := esc.Command("lvs", "--version")
+cmd := esc.Command(context.Background(), "lvs", "--version")
 _ = cmd
 ```
 
