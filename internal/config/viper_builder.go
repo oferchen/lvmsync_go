@@ -40,6 +40,9 @@ func (b *builder) Build() (*Config, error) {
 	if err := b.finalizeConfig(&conf); err != nil {
 		return nil, err
 	}
+	if err := conf.Validate(); err != nil {
+		return nil, err
+	}
 
 	return &conf, nil
 }
