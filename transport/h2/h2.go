@@ -130,6 +130,7 @@ func dialTLS(ctx context.Context, address string, conf *tls.Config, logger *zap.
 		logger.Error("tls_handshake_end", fields...)
 		return nil, err
 	}
+	fields = append(fields, zap.String("tls_version", logging.TLSVersionString(conn.ConnectionState().Version)))
 	logger.Info("tls_handshake_end", fields...)
 	return conn, nil
 }

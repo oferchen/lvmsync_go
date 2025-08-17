@@ -47,6 +47,23 @@ func checkLogFields(t *testing.T, logs *observer.ObservedLogs, msg string, expec
 	}
 }
 
+func checkTLSVersionField(t *testing.T, logs *observer.ObservedLogs, msg string, expected int, version string) {
+	entries := logs.FilterMessage(msg).All()
+	if len(entries) != expected {
+		t.Fatalf("expected %d %s logs, got %d", expected, msg, len(entries))
+	}
+	for _, e := range entries {
+		ctx := e.ContextMap()
+		v, ok := ctx["tls_version"]
+		if !ok {
+			t.Fatalf("expected field %q in %s log", "tls_version", msg)
+		}
+		if v != version {
+			t.Fatalf("expected tls_version %q in %s log, got %v", version, msg, v)
+		}
+	}
+}
+
 func checkHandshakeFields(t *testing.T, logs *observer.ObservedLogs, msg string, expected int) {
 	entries := logs.FilterMessage(msg).All()
 	if len(entries) != expected {
@@ -114,6 +131,7 @@ func TestDialTLS(t *testing.T) {
 	}
 	checkLogFields(t, logs, "tls_handshake_start", 1, false, zapcore.InfoLevel)
 	checkLogFields(t, logs, "tls_handshake_end", 1, false, zapcore.InfoLevel)
+	checkTLSVersionField(t, logs, "tls_handshake_end", 1, "1.3")
 
 	badConf := &tls.Config{RootCAs: x509.NewCertPool(), MinVersion: tls.VersionTLS13, MaxVersion: tls.VersionTLS13}
 	core2, logs2 := observer.New(zapcore.InfoLevel)
@@ -261,6 +279,9 @@ func TestH2TransportTLSHandshake(t *testing.T) {
 	<-done
 
 	checkLogFields(t, logs, "dial_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "tls_handshake_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "tls_handshake_end", 1, false, zapcore.InfoLevel)
+	checkTLSVersionField(t, logs, "tls_handshake_end", 1, "1.3")
 	checkLogFields(t, logs, "dial_end", 1, false, zapcore.InfoLevel)
 	checkLogFields(t, logs, "listen_start", 1, false, zapcore.InfoLevel)
 	checkLogFields(t, logs, "listen_end", 1, false, zapcore.InfoLevel)
