@@ -1,0 +1,4 @@
+{
+  "readiness": "R2",
+  "notes": "Transport backends unimplemented; not production ready"
+}
