@@ -30,7 +30,7 @@ func TestConfigYAMLContainsGroups(t *testing.T) {
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
-	keys := []string{"dedup-strategy", "compress", "transport", "lvm-escalation", "grpc-port"}
+	keys := []string{"dedup_strategy", "compress", "transport", "lvm_escalation", "grpc_port"}
 	for _, k := range keys {
 		if _, ok := cfg[k]; !ok {
 			t.Fatalf("missing %s key", k)
