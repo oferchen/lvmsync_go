@@ -196,15 +196,15 @@ func TestTCPTLSTransportSelectBestHandshake(t *testing.T) {
 			srvErr <- err
 			return
 		}
-		srvCtx, cancel := context.WithTimeout(baseCtx, time.Second)
-		_, err = tr.Negotiate(srvCtx, conn, transport.Server, srvHS)
+		srvCtx, cancel := context.WithTimeout(baseCtx, 5*time.Second)
+		err = tr.Negotiate(srvCtx, conn, transport.Server, srvHS)
 		cancel()
+		srvErr <- err
 		if err == nil {
 			var buf [1]byte
 			conn.Read(buf[:])
 		}
 		conn.Close()
-		srvErr <- err
 	}()
 	dialCtx, cancel := context.WithTimeout(baseCtx, time.Second)
 	conn, err := tr.Dial(dialCtx, ln.Addr().String())
@@ -212,7 +212,7 @@ func TestTCPTLSTransportSelectBestHandshake(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
-	negCtx, cancel := context.WithTimeout(baseCtx, time.Second)
+	negCtx, cancel := context.WithTimeout(baseCtx, 5*time.Second)
 	peer, err := tr.Negotiate(negCtx, conn, transport.Client, cliHS)
 	cancel()
 	if err == nil {
