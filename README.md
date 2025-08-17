@@ -37,6 +37,19 @@ LVMSync is a high-performance incremental data replication tool for LVM snapshot
 - **Flexible Configuration**: Flags, environment variables, or `config.yaml`. See [Configuration](#configuration).
 - **Configuration Validation**: Checks key parameters (e.g., volume group existence, escalation command) before starting operations.
 
+## Supported Platforms
+
+LVMSync supports Linux only. A runtime check in [`main.go`](main.go) aborts
+execution on other operating systems with exit code `30`. The project is
+regularly tested on `amd64` and `arm64` architectures.
+
+To cross-compile for another Linux architecture, set `GOOS=linux` and the
+desired `GOARCH`:
+
+```sh
+GOOS=linux GOARCH=arm64 go build ./...
+```
+
 ## Device Support Matrix
 
 | Device type      | Source | Destination | Notes |
@@ -409,7 +422,7 @@ Recent refactors added several configuration options:
 - `--tcp_port` and `--ssh_port` expose TCP+TLS and SSH endpoints.
 - `--tcp_parallel` controls the number of parallel TCP connections (2–4).
 - `--tcp_lowat` sets TCP_NOTSENT_LOWAT to limit unsent bytes.
-- `--sync-interval` controls how many bytes are written between `fdatasync` calls (flag uses underscores in the CLI: `--sync_interval`). Accepts size suffixes like `64KB` or `1GB`; invalid values return an error.
+- `--sync-interval` controls how many bytes are written between `fdatasync` calls. Accepts size suffixes like `64KB` or `1GB`; invalid values return an error.
 - `--checkpoint_interval` sets how often resume state is persisted.
 - `--checkpoint_bytes` sets how many bytes are written between resume checkpoints.
 - `--block_size` sets the transfer block size (use `auto` for detection).
@@ -417,7 +430,7 @@ Recent refactors added several configuration options:
 ### I/O tuning
 
 - `--block_size` selects the transfer block size. Use `auto` to match the destination's physical sector size.
-- `--sync-interval` sets how many bytes are written between `fdatasync` calls (flag uses underscores in the CLI: `--sync_interval`). Accepts size suffixes like `64KB` or `1GB`; invalid values cause startup errors.
+- `--sync-interval` sets how many bytes are written between `fdatasync` calls. Accepts size suffixes like `64KB` or `1GB`; invalid values cause startup errors.
 - `--odirect` uses O_DIRECT with block-size aligned buffers.
 - `--numa_pin` pins worker goroutines to CPUs local to the source device's NUMA node.
 
@@ -540,8 +553,8 @@ Flags override environment variables, which override `config.yaml` values.
 | `--offline` | `LVMSYNC_OFFLINE` | `offline` | Assume source raw device is offline |
 | `--fs-freeze-command` | `LVMSYNC_FS_FREEZE_COMMAND` | `fs-freeze-command` | Command to freeze filesystem before reading raw source; path must be absolute, arguments are split with shell-style quoting and executable name must match `^[a-zA-Z0-9._-]+$` |
 | `--fs-thaw-command` | `LVMSYNC_FS_THAW_COMMAND` | `fs-thaw-command` | Command to thaw filesystem after reading raw source; path must be absolute, arguments are split with shell-style quoting and executable name must match `^[a-zA-Z0-9._-]+$` |
-| `--freeze-timeout` | `LVMSYNC_FREEZE_TIMEOUT` | `freeze_timeout` | Timeout for filesystem freeze command |
-| `--thaw-timeout` | `LVMSYNC_THAW_TIMEOUT` | `thaw_timeout` | Timeout for filesystem thaw command |
+| `--freeze-timeout` | `LVMSYNC_FREEZE_TIMEOUT` | `freeze-timeout` | Timeout for filesystem freeze command |
+| `--thaw-timeout` | `LVMSYNC_THAW_TIMEOUT` | `thaw-timeout` | Timeout for filesystem thaw command |
 | `--mode` | `LVMSYNC_MODE` | `mode` | Configuration preset: `default` or `throughput`; unknown modes fail validation |
 | `--parallel` | `LVMSYNC_PARALLEL` | `parallel` | Number of concurrent workers |
 | `--concurrency` | `LVMSYNC_TRANSPORT_CONCURRENCY` | `concurrency` | Stream concurrency (0 to autotune based on BDP) |
@@ -551,7 +564,7 @@ Flags override environment variables, which override `config.yaml` values.
 | `--max_retries` | `LVMSYNC_MAX_RETRIES` | `max_retries` | Maximum number of retries per block |
 | `--resume` | `LVMSYNC_RESUME` | `resume` | Path to resume state file (records dedup mode and last chunk boundary) |
 | `--speed` | `LVMSYNC_SPEED` | `speed` | Transfer speed limit |
-| `--sync-interval` | `LVMSYNC_SYNC_INTERVAL` | `sync_interval` | Bytes between fdatasync calls (CLI flag: `--sync_interval`; accepts size suffixes like `64KB`; invalid values error) |
+| `--sync-interval` | `LVMSYNC_SYNC_INTERVAL` | `sync-interval` | Bytes between fdatasync calls (accepts size suffixes like `64KB`; invalid values error) |
 | `--checkpoint_bytes` | `LVMSYNC_CHECKPOINT_BYTES` | `checkpoint_bytes` | Bytes between resume checkpoints |
 | `--checkpoint_interval` | `LVMSYNC_CHECKPOINT_INTERVAL` | `checkpoint_interval` | Duration between checkpoints |
 | `--block_size` | `LVMSYNC_BLOCK_SIZE` | `block_size` | Block size for data transfer; specify 'auto' or 0 for automatic detection |
@@ -596,7 +609,7 @@ Flags override environment variables, which override `config.yaml` values.
 | `--skip_disk_check` | `LVMSYNC_SKIP_DISK_CHECK` | `skip_disk_check` | Skip disk space check before snapshot creation |
 | `--snapshot_size` | `LVMSYNC_SNAPSHOT_SIZE` | `snapshot_size` | Snapshot size (e.g., `20G` or `20%`) |
 | `--lvm-escalation` | `LVMSYNC_LVM_ESCALATION` | `lvm_escalation` | Command used to escalate privileges for LVM commands; validated at startup |
-| `--lvm_timeout` | `LVMSYNC_LVM_TIMEOUT` | `lvm_timeout` | Timeout for LVM operations |
+| `--lvm_timeout` | `LVMSYNC_LVM_TIMEOUT` | `lvm_timeout` | Timeout for LVM operations and privilege checks |
 | `--sig-cache-ttl` | `LVMSYNC_LVM_SIG_CACHE_TTL` | `sig-cache-ttl` | TTL for cached LVM signatures |
 | `--sig-cache-max` | `LVMSYNC_LVM_SIG_CACHE_MAX` | `sig-cache-max` | Maximum cached LVM signatures |
 | `--volume_group` | `LVMSYNC_VOLUME_GROUP` | `volume_group` | Source volume group; derived from the source device path when empty |
@@ -1170,9 +1183,12 @@ timeouts or cancellations are reported separately.
 | `--target_volume_group` | Volume group name of the target LVM volume | "" |
 | `--target_vgs` | Candidate target volume groups for auto-selection | [] |
 | `--lvm-escalation` | Command used to re-execute the program with elevated privileges when not running as root (e.g., "sudo -n"); validated at startup | "sudo -n" |
-| `--lvm_timeout` | Timeout for LVM operations | 10s |
+| `--lvm_timeout` | Timeout for LVM operations and privilege checks | 10s |
 | `--sig-cache-ttl` | TTL for cached LVM signatures | 24h |
 | `--sig-cache-max` | Maximum cached LVM signatures | 128 |
+
+`lvm_timeout` also bounds the startup privilege check to avoid hanging when
+escalation commands stall.
 
 #### gRPC Options
 
@@ -1531,11 +1547,13 @@ For example, the `privilege` package exposes an `Escalator` interface so tests
 can stub command execution:
 
 ```go
-esc := privilege.New()
-if err := esc.Ensure(context.Background()); err != nil {
+ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+defer cancel()
+esc := privilege.New(ctx)
+if err := esc.Ensure(ctx); err != nil {
     // handle missing capabilities or sudo
 }
-cmd := esc.Command(context.Background(), "lvs", "--version")
+cmd := esc.Command(ctx, "lvs", "--version")
 _ = cmd
 ```
 

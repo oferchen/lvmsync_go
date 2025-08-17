@@ -54,10 +54,10 @@ type agent struct {
 
 // NewAgent constructs an Agent that delegates LVM operations to the provided
 // lvmAPI and ensures privileges using the given Escalator. When esc is nil,
-// privilege.New() supplies a default implementation.
+// privilege.New(context.Background()) supplies a default implementation.
 func NewAgent(lvm lvmAPI, esc privilege.Escalator) Agent {
 	if esc == nil {
-		esc = privilege.New()
+		esc = privilege.New(context.Background())
 	}
 	return &agent{esc: esc, lvm: lvm}
 }
