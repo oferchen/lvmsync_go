@@ -312,7 +312,11 @@ func buildViper(flagSets *FlagSets) (*viper.Viper, []string, error) {
 		}
 		fs.VisitAll(func(f *pflag.Flag) {
 			if strings.Contains(f.Name, "-") {
-				v.RegisterAlias(strings.ReplaceAll(f.Name, "-", "_"), f.Name)
+				if f.Name == "allow-insecure" {
+					v.RegisterAlias(f.Name, "allow_insecure")
+				} else {
+					v.RegisterAlias(strings.ReplaceAll(f.Name, "-", "_"), f.Name)
+				}
 			}
 		})
 	}
