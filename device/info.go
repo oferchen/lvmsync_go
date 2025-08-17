@@ -31,6 +31,7 @@ type Info struct {
 	uuidFunc    func(context.Context, string) (string, error)
 	lvmUUIDFunc func(context.Context, string) (string, error)
 	mountFunc   func(context.Context, string) (bool, error)
+	detectFunc  func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger, *Runner) (Device, error)
 }
 
 // NewInfo returns an Info using production dependencies.
@@ -39,6 +40,7 @@ func NewInfo() *Info {
 		uuidFunc:    defaultUUIDFunc,
 		lvmUUIDFunc: defaultLVMUUIDFunc,
 		mountFunc:   defaultMountFunc,
+		detectFunc:  Detect,
 	}
 }
 
@@ -48,6 +50,7 @@ func NewInfoWithDeps(
 	uuid func(context.Context, string) (string, error),
 	lvmUUID func(context.Context, string) (string, error),
 	mount func(context.Context, string) (bool, error),
+	detect func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger, *Runner) (Device, error),
 ) *Info {
 	if uuid == nil {
 		uuid = defaultUUIDFunc
@@ -58,14 +61,23 @@ func NewInfoWithDeps(
 	if mount == nil {
 		mount = defaultMountFunc
 	}
-	return &Info{uuidFunc: uuid, lvmUUIDFunc: lvmUUID, mountFunc: mount}
+	if detect == nil {
+		detect = Detect
+	}
+	return &Info{uuidFunc: uuid, lvmUUIDFunc: lvmUUID, mountFunc: mount, detectFunc: detect}
 }
 
 var (
+ defaultInfo = &Info{
+	uuidFunc:    defaultUUIDFunc,
+	lvmUUIDFunc: defaultLVMUUIDFunc,
+	mountFunc:   defaultMountFunc,
+}
 	detectFunc = Detect
 )
 
-var defaultInfo = NewInfo()
+
+func init() { defaultInfo.detectFunc = Detect }
 
 // SetUUIDFunc allows tests to override the implementation used by the package
 // level helpers to lookup a device's UUID or serial. It returns the previous
@@ -82,6 +94,35 @@ func SetLVMUUIDFunc(f func(context.Context, string) (string, error)) func(contex
 	prev := defaultInfo.lvmUUIDFunc
 	defaultInfo.lvmUUIDFunc = f
 	return prev
+}
+
+// SetMountFunc allows tests to override the mount status checker. It returns
+// the previous function for restoration.
+func (i *Info) SetMountFunc(f func(context.Context, string) (bool, error)) func(context.Context, string) (bool, error) {
+	prev := i.mountFunc
+	i.mountFunc = f
+	return prev
+}
+
+// SetMountFunc allows tests to override the mount status checker on the default provider.
+func SetMountFunc(f func(context.Context, string) (bool, error)) func(context.Context, string) (bool, error) {
+	return defaultInfo.SetMountFunc(f)
+}
+
+// SetDetectFunc allows tests to override the device detector. It returns the previous function for restoration.
+func (i *Info) SetDetectFunc(
+	f func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger, *Runner) (Device, error),
+) func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger, *Runner) (Device, error) {
+	prev := i.detectFunc
+	i.detectFunc = f
+	return prev
+}
+
+// SetDetectFunc overrides the detector used by the default provider.
+func SetDetectFunc(
+	f func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger, *Runner) (Device, error),
+) func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger, *Runner) (Device, error) {
+	return defaultInfo.SetDetectFunc(f)
 }
 
 func (i *Info) GetUUID(ctx context.Context, path string) (string, error) {
@@ -167,6 +208,38 @@ func defaultLVMUUIDFunc(ctx context.Context, path string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
+// IsMountedRW reports whether the device at path is mounted read-write.
+// If ctx has no deadline, a default timeout is applied.
+func (i *Info) IsMountedRW(ctx context.Context, path string) (bool, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if _, ok := ctx.Deadline(); !ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, mountTimeout)
+		defer cancel()
+	}
+	return i.mountFunc(ctx, path)
+}
+
+// SizeBytes returns the total size of the device at path in bytes.
+// If ctx has no deadline, a default timeout is applied.
+func (i *Info) SizeBytes(ctx context.Context, path string) (size uint64, err error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	dev, err := i.detectFunc(ctx, path, true, "", "", "", "", 0, 0, zap.NewNop(), NewRunner())
+	if err != nil {
+		return 0, err
+	}
+	defer func() {
+		if closeErr := dev.Close(); closeErr != nil {
+			err = fmt.Errorf("close block device: %w", closeErr)
+		}
+	}()
+	size = dev.SizeBytes()
+	return size, err
+
 // SetMountFunc allows tests to override the mount status checker. It returns
 // the previous function for restoration.
 func SetMountFunc(f func(context.Context, string) (bool, error)) func(context.Context, string) (bool, error) {
@@ -231,19 +304,6 @@ func IsMountedRW(ctx context.Context, path string) (bool, error) {
 
 // SizeBytes returns the total size of the device at path in bytes.
 // If ctx has no deadline, a default timeout is applied.
-func SizeBytes(ctx context.Context, path string) (size uint64, err error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	dev, err := detectFunc(ctx, path, true, "", "", "", "", 0, 0, zap.NewNop(), NewRunner())
-	if err != nil {
-		return 0, err
-	}
-	defer func() {
-		if closeErr := dev.Close(); closeErr != nil {
-			err = fmt.Errorf("close block device: %w", closeErr)
-		}
-	}()
-	size = dev.SizeBytes()
-	return size, err
+func SizeBytes(ctx context.Context, path string) (uint64, error) {
+	return defaultInfo.SizeBytes(ctx, path)
 }

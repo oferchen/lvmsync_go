@@ -26,7 +26,7 @@ func TestGetUUIDCanceledContext(t *testing.T) {
 func TestGetUUIDStub(t *testing.T) {
 	info := NewInfoWithDeps(func(context.Context, string) (string, error) {
 		return "stub-uuid", nil
-	}, nil, nil)
+	}, nil, nil, nil)
 	got, err := info.GetUUID(context.Background(), "/dev/sda")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -46,7 +46,7 @@ func TestGetUUIDError(t *testing.T) {
 			t.Fatalf("unexpected path %q", path)
 		}
 		return "", wantErr
-	}, nil, nil)
+	}, nil, nil, nil)
 	if _, err := info.GetUUID(context.Background(), "/dev/fail"); !errors.Is(err, wantErr) {
 		t.Fatalf("expected %v, got %v", wantErr, err)
 	}
@@ -56,6 +56,7 @@ func TestGetDeviceIDPrefersLVM(t *testing.T) {
 	info := NewInfoWithDeps(
 		func(context.Context, string) (string, error) { return "blkid-id", nil },
 		func(context.Context, string) (string, error) { return "lv-id", nil },
+		nil,
 		nil,
 	)
 	got, err := info.GetDeviceID(context.Background(), "/dev/lvm0")
@@ -77,7 +78,7 @@ func TestIDsMatch(t *testing.T) {
 				return "id2", nil
 			}
 			return "same", nil
-		}, nil, nil)
+		}, nil, nil, nil)
 	match, err := info.IDsMatch(context.Background(), "/dev/src", "/dev/dest")
 	if err != nil {
 		t.Fatalf("IDsMatch: %v", err)
@@ -95,16 +96,17 @@ func TestIDsMatch(t *testing.T) {
 }
 
 func TestSetMountFunc(t *testing.T) {
-	orig := defaultInfo.mountFunc
+	info := NewInfo()
+	orig := reflect.ValueOf(info.mountFunc).Pointer()
 	stub := func(context.Context, string) (bool, error) { return true, nil }
-	prev := SetMountFunc(stub)
-	if reflect.ValueOf(prev).Pointer() != reflect.ValueOf(orig).Pointer() {
+	prev := info.SetMountFunc(stub)
+	if reflect.ValueOf(prev).Pointer() != orig {
 		t.Fatalf("expected previous function to be original")
 	}
-	if reflect.ValueOf(defaultInfo.mountFunc).Pointer() != reflect.ValueOf(stub).Pointer() {
+	if reflect.ValueOf(info.mountFunc).Pointer() != reflect.ValueOf(stub).Pointer() {
 		t.Fatalf("mountFunc not replaced")
 	}
-	SetMountFunc(prev)
+	info.SetMountFunc(prev)
 }
 
 func TestIsMountedRW(t *testing.T) {
@@ -113,7 +115,7 @@ func TestIsMountedRW(t *testing.T) {
 		val  bool
 	}{
 		{name: "mounted", val: true},
-		{name: "not mounted", val: false},
+		{name: "unmounted", val: false},
 	}
 
 	for _, tt := range tests {
@@ -306,13 +308,42 @@ func TestDefaultMountFuncError(t *testing.T) {
 		t.Fatalf("expected error when reading mountinfo file")
 	}
 }
+
+func mountFuncFromMountInfoFile(p string) func(context.Context, string) (bool, error) {
+	return func(_ context.Context, path string) (bool, error) {
+		real, err := filepath.EvalSymlinks(path)
+		if err != nil {
+			return false, err
+		}
+		f, err := os.Open(p)
+		if err != nil {
+			return false, err
+		}
+		defer f.Close()
+		infos, err := mountinfo.GetMountsFromReader(f, nil)
+		if err != nil {
+			return false, err
+		}
+		for _, mi := range infos {
+			if mi.Source != real {
+				continue
+			}
+			for _, opt := range strings.Split(mi.Options, ",") {
+				if opt == "rw" {
+					return true, nil
+				}
+			}
+		}
+		return false, nil
+	}
+}
+
 func TestSizeBytes(t *testing.T) {
 	dev := &stubDevice{size: 123}
-	prev := detectFunc
-	detectFunc = func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger, *Runner) (Device, error) {
+	prev := defaultInfo.SetDetectFunc(func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger, *Runner) (Device, error) {
 		return dev, nil
-	}
-	defer func() { detectFunc = prev }()
+	})
+	defer defaultInfo.SetDetectFunc(prev)
 	got, err := SizeBytes(context.Background(), "/dev/fake")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -325,11 +356,10 @@ func TestSizeBytes(t *testing.T) {
 func TestSizeBytesCloseError(t *testing.T) {
 	want := errors.New("close boom")
 	dev := &stubDevice{size: 456, closeErr: want}
-	prev := detectFunc
-	detectFunc = func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger, *Runner) (Device, error) {
+	prev := defaultInfo.SetDetectFunc(func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger, *Runner) (Device, error) {
 		return dev, nil
-	}
-	defer func() { detectFunc = prev }()
+	})
+	defer defaultInfo.SetDetectFunc(prev)
 	got, err := SizeBytes(context.Background(), "/dev/fake")
 	if !errors.Is(err, want) {
 		t.Fatalf("expected %v, got %v", want, err)
@@ -379,3 +409,4 @@ func mountFuncFromMountInfoFile(p string) func(context.Context, string) (bool, e
 		return false, nil
 	}
 }
+
