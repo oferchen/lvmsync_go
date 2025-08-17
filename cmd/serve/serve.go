@@ -5,9 +5,11 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"net"
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -15,6 +17,8 @@ import (
 	"go.uber.org/zap"
 
 	rootcmd "lvmsync_go/cmd/root"
+	"lvmsync_go/common"
+	grpcserver "lvmsync_go/grpc/server"
 	"lvmsync_go/transport"
 	_ "lvmsync_go/transport/quic"
 )
@@ -109,15 +113,90 @@ func startServer(ctx context.Context, opts Options, logger *zap.Logger) error {
 		return fmt.Errorf("listen: %w", err)
 	}
 	defer ln.Close()
+
 	go func() {
 		for {
 			conn, err := ln.Accept()
 			if err != nil {
+				if ctx.Err() != nil {
+					return
+				}
+				logger.Error("accept_failed", zap.Error(err))
 				return
 			}
-			conn.Close()
+			go handleConn(ctx, conn, tr, opts, logger)
 		}
 	}()
+
 	<-ctx.Done()
+	ln.Close()
 	return nil
+}
+
+type singleConnListener struct {
+	conn net.Conn
+	ch   chan net.Conn
+	once sync.Once
+}
+
+func newSingleConnListener(c net.Conn) *singleConnListener {
+	ch := make(chan net.Conn, 1)
+	ch <- c
+	return &singleConnListener{conn: c, ch: ch}
+}
+
+func (l *singleConnListener) Accept() (net.Conn, error) {
+	c, ok := <-l.ch
+	if !ok {
+		return nil, net.ErrClosed
+	}
+	return c, nil
+}
+
+func (l *singleConnListener) Close() error {
+	var err error
+	l.once.Do(func() {
+		close(l.ch)
+		err = l.conn.Close()
+	})
+	return err
+}
+
+func (l *singleConnListener) Addr() net.Addr { return l.conn.LocalAddr() }
+
+func handleConn(ctx context.Context, conn net.Conn, tr transport.Interface, opts Options, logger *zap.Logger) {
+	remote := conn.RemoteAddr().String()
+	logger.Info("conn_accepted", zap.String("remote_addr", remote))
+	defer func() {
+		_ = conn.Close()
+		logger.Info("conn_closed", zap.String("remote_addr", remote))
+	}()
+
+	if _, err := tr.Negotiate(ctx, conn, transport.Server, common.Handshake{}); err != nil {
+		logger.Error("handshake_failed", zap.String("remote_addr", remote), zap.Error(err))
+		return
+	}
+	logger.Info("handshake_succeeded", zap.String("remote_addr", remote))
+
+	srvCfg := grpcserver.Config{
+		TLSCert:       opts.TLSCert,
+		TLSKey:        opts.TLSKey,
+		CACert:        opts.CACert,
+		AllowInsecure: opts.AllowInsecure,
+	}
+	srv, cleanup, err := grpcserver.New(srvCfg, nil, logger)
+	if err != nil {
+		logger.Error("grpc_init_failed", zap.Error(err))
+		return
+	}
+	l := newSingleConnListener(conn)
+	go func() {
+		<-ctx.Done()
+		l.Close()
+		srv.GracefulStop()
+	}()
+	if err := srv.Serve(l); err != nil && err != net.ErrClosed {
+		logger.Error("grpc_serve_error", zap.Error(err))
+	}
+	cleanup()
 }

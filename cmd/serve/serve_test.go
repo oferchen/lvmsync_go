@@ -4,9 +4,11 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
 	"math/big"
+	"net"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -17,6 +19,9 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
+
+	"lvmsync_go/common"
+	"lvmsync_go/transport"
 )
 
 func TestEnvVarPrecedence(t *testing.T) {
@@ -143,6 +148,92 @@ func TestStartServerUnknownTransport(t *testing.T) {
 	}
 }
 
+func TestStartServerHandshakeSuccess(t *testing.T) {
+	logger := zap.NewNop()
+	addr := freeUDPAddr(t)
+	cert, key := writeKeyPair(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	opts := Options{Transport: "quic", QUICListen: addr, TLSCert: cert, TLSKey: key, CACert: cert}
+	errCh := make(chan error, 1)
+	go func() { errCh <- startServer(ctx, opts, logger) }()
+	time.Sleep(50 * time.Millisecond)
+
+	pem, _ := os.ReadFile(cert)
+	roots := x509.NewCertPool()
+	roots.AppendCertsFromPEM(pem)
+	tlsCert, _ := tls.LoadX509KeyPair(cert, key)
+	cfg := transport.Config{Logger: logger, Roots: roots, ClientCert: tlsCert}
+	tr, err := transport.Get("quic", cfg)
+	if err != nil {
+		t.Fatalf("get transport: %v", err)
+	}
+	conn, err := tr.Dial(context.Background(), addr)
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	if _, err := tr.Negotiate(context.Background(), conn, transport.Client, common.Handshake{}); err != nil {
+		t.Fatalf("negotiate: %v", err)
+	}
+
+	cancel()
+	if err := <-errCh; err != nil {
+		t.Fatalf("startServer: %v", err)
+	}
+	buf := make([]byte, 1)
+	if _, err := conn.Read(buf); err == nil {
+		t.Fatalf("expected connection closed")
+	}
+	conn.Close()
+}
+
+func TestStartServerHandshakeFailure(t *testing.T) {
+	logger := zap.NewNop()
+	addr := freeUDPAddr(t)
+	cert, key := writeKeyPair(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	opts := Options{Transport: "quic", QUICListen: addr, TLSCert: cert, TLSKey: key, CACert: cert}
+	errCh := make(chan error, 1)
+	go func() { errCh <- startServer(ctx, opts, logger) }()
+	time.Sleep(50 * time.Millisecond)
+
+	pem, _ := os.ReadFile(cert)
+	roots := x509.NewCertPool()
+	roots.AppendCertsFromPEM(pem)
+	tlsCert, _ := tls.LoadX509KeyPair(cert, key)
+	cfg := transport.Config{Logger: logger, Roots: roots, ClientCert: tlsCert}
+	tr, err := transport.Get("quic", cfg)
+	if err != nil {
+		t.Fatalf("get transport: %v", err)
+	}
+	conn, err := tr.Dial(context.Background(), addr)
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	if _, err := tr.Negotiate(context.Background(), conn, transport.Client, common.Handshake{CRC32C: true}); err == nil {
+		t.Fatalf("expected handshake failure")
+	}
+	buf := make([]byte, 1)
+	if _, err := conn.Read(buf); err == nil {
+		t.Fatalf("expected connection closed")
+	}
+	conn.Close()
+	cancel()
+	if err := <-errCh; err != nil {
+		t.Fatalf("startServer: %v", err)
+	}
+}
+
+func freeUDPAddr(t *testing.T) string {
+	t.Helper()
+	l, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0})
+	if err != nil {
+		t.Fatalf("listen udp: %v", err)
+	}
+	addr := l.LocalAddr().String()
+	l.Close()
+	return addr
+}
+
 func writeKeyPair(t *testing.T) (string, string) {
 	t.Helper()
 	dir := t.TempDir()
@@ -150,7 +241,7 @@ func writeKeyPair(t *testing.T) (string, string) {
 	if err != nil {
 		t.Fatalf("generate key: %v", err)
 	}
-	tmpl := x509.Certificate{SerialNumber: big.NewInt(1), NotBefore: time.Now(), NotAfter: time.Now().Add(time.Hour)}
+	tmpl := x509.Certificate{SerialNumber: big.NewInt(1), NotBefore: time.Now(), NotAfter: time.Now().Add(time.Hour), IPAddresses: []net.IP{net.ParseIP("127.0.0.1")}}
 	der, err := x509.CreateCertificate(rand.Reader, &tmpl, &tmpl, &key.PublicKey, key)
 	if err != nil {
 		t.Fatalf("create cert: %v", err)
