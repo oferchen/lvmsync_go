@@ -2,11 +2,14 @@ package main
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
 
@@ -61,6 +64,20 @@ func TestGRPCPortPrecedence(t *testing.T) {
 	}
 	if got.GRPCPort != 2222 {
 		t.Fatalf("expected 2222, got %d", got.GRPCPort)
+	}
+}
+
+type bindErrViper struct {
+	*viper.Viper
+}
+
+func (b *bindErrViper) BindPFlags(_ *pflag.FlagSet) error { return errors.New("bind fail") }
+func (b *bindErrViper) Underlying() *viper.Viper          { return b.Viper }
+
+func TestNewCmdBindError(t *testing.T) {
+	r := NewRunner()
+	if _, err := r.NewCmd(zap.NewNop(), &bindErrViper{Viper: viper.New()}); err == nil || err.Error() != "bind fail" {
+		t.Fatalf("expected bind fail, got %v", err)
 	}
 }
 

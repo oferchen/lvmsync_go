@@ -73,7 +73,14 @@ func NewRunnerWithDeps(start func(ctx context.Context, opts Options, logger *zap
 	return &Runner{Start: start}
 }
 
-func bindFlagSets(cmd *cobra.Command, v *viper.Viper) {
+type flagBinder interface {
+	BindPFlags(*pflag.FlagSet) error
+	SetEnvPrefix(string)
+	SetEnvKeyReplacer(*strings.Replacer)
+	AutomaticEnv()
+}
+
+func bindFlagSets(cmd *cobra.Command, v flagBinder) error {
 	general := pflag.NewFlagSet("General Options", pflag.ExitOnError)
 	general.String("config", "", "config file")
 
@@ -91,10 +98,13 @@ func bindFlagSets(cmd *cobra.Command, v *viper.Viper) {
 	fs.AddFlagSet(general)
 	fs.AddFlagSet(grpc)
 
-	v.BindPFlags(fs)
+	if err := v.BindPFlags(fs); err != nil {
+		return err
+	}
 	v.SetEnvPrefix("LVMSYNC_GRPC")
 	v.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	v.AutomaticEnv()
+	return nil
 }
 
 func loadConfig(v *viper.Viper) (Options, error) {
@@ -123,13 +133,24 @@ func loadConfig(v *viper.Viper) (Options, error) {
 }
 
 // NewCmd creates the root cobra command.
-func (r *Runner) NewCmd(logger *zap.Logger) *cobra.Command {
-	v := viper.New()
+func (r *Runner) NewCmd(logger *zap.Logger, v flagBinder) (*cobra.Command, error) {
+	if v == nil {
+		v = viper.New()
+	}
+	vv, ok := v.(*viper.Viper)
+	if !ok {
+		type viperGetter interface{ Underlying() *viper.Viper }
+		getter, ok := v.(viperGetter)
+		if !ok {
+			return nil, fmt.Errorf("invalid viper binder")
+		}
+		vv = getter.Underlying()
+	}
 	cmd := &cobra.Command{
 		Use:   "lvmsync-grpcd",
 		Short: "LVMSync gRPC daemon",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			opts, err := loadConfig(v)
+			opts, err := loadConfig(vv)
 			if err != nil {
 				return err
 			}
@@ -140,8 +161,10 @@ func (r *Runner) NewCmd(logger *zap.Logger) *cobra.Command {
 			return r.Start(ctx, opts, logger)
 		},
 	}
-	bindFlagSets(cmd, v)
-	return cmd
+	if err := bindFlagSets(cmd, v); err != nil {
+		return nil, err
+	}
+	return cmd, nil
 }
 
 // Execute runs the command with provided args.
@@ -150,7 +173,10 @@ func (r *Runner) Execute(args []string, logger *zap.Logger) error {
 		logger = zap.NewNop()
 	}
 	defer rootcmd.SyncLogger(logger)
-	cmd := r.NewCmd(logger)
+	cmd, err := r.NewCmd(logger, nil)
+	if err != nil {
+		return err
+	}
 	if args != nil {
 		cmd.SetArgs(args)
 	}

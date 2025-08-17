@@ -17,17 +17,22 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 
 	"lvmsync_go/common"
 	"lvmsync_go/transport"
+
+	"errors"
 )
 
 func TestEnvVarPrecedence(t *testing.T) {
 	v := viper.New()
 	cmd := &cobra.Command{Use: "serve"}
-	bindFlags(cmd, v)
+	if err := bindFlags(cmd, v); err != nil {
+		t.Fatalf("bindFlags: %v", err)
+	}
 
 	t.Setenv("LVMSYNC_SERVE_TRANSPORT", "envtransport")
 	t.Setenv("LVMSYNC_SERVE_QUIC_LISTEN", "envaddr:1234")
@@ -63,6 +68,20 @@ func TestEnvVarPrecedence(t *testing.T) {
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %+v want %+v", got, want)
+	}
+}
+
+type bindErrViper struct {
+	*viper.Viper
+}
+
+func (b *bindErrViper) BindPFlags(_ *pflag.FlagSet) error { return errors.New("bind fail") }
+
+func TestBindFlagsError(t *testing.T) {
+	v := &bindErrViper{Viper: viper.New()}
+	cmd := &cobra.Command{Use: "serve"}
+	if err := bindFlags(cmd, v); err == nil || err.Error() != "bind fail" {
+		t.Fatalf("expected bind fail, got %v", err)
 	}
 }
 
