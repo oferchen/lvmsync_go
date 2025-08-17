@@ -31,7 +31,7 @@ func TestProcessDumpDataUUIDMismatch(t *testing.T) {
 	defer device.SetLVMUUIDFunc(prevLVM)
 	prevUUID := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "actual", nil })
 	defer device.SetUUIDFunc(prevUUID)
-	prevMount := device.SetMountFunc(func(string) (bool, error) { return false, nil })
+	prevMount := device.SetMountFunc(func(context.Context, string) (bool, error) { return false, nil })
 	defer device.SetMountFunc(prevMount)
 
 	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, nil)
@@ -83,7 +83,7 @@ func TestProcessDumpDataMountedDevice(t *testing.T) {
 	defer device.SetLVMUUIDFunc(prevLVM)
 	prevUUID := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "id", nil })
 	defer device.SetUUIDFunc(prevUUID)
-	prevMount := device.SetMountFunc(func(string) (bool, error) { return true, nil })
+	prevMount := device.SetMountFunc(func(context.Context, string) (bool, error) { return true, nil })
 	defer device.SetMountFunc(prevMount)
 
 	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, nil)
@@ -148,7 +148,7 @@ func TestApplyDataUUIDMismatch(t *testing.T) {
 	defer device.SetLVMUUIDFunc(prevLVM)
 	prevUUID := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "actual", nil })
 	defer device.SetUUIDFunc(prevUUID)
-	prevMount := device.SetMountFunc(func(string) (bool, error) { return false, nil })
+	prevMount := device.SetMountFunc(func(context.Context, string) (bool, error) { return false, nil })
 	defer device.SetMountFunc(prevMount)
 
 	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, nil)
@@ -200,7 +200,7 @@ func TestApplyDataMountedDevice(t *testing.T) {
 	defer device.SetLVMUUIDFunc(prevLVM)
 	prevUUID := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "id", nil })
 	defer device.SetUUIDFunc(prevUUID)
-	prevMount := device.SetMountFunc(func(string) (bool, error) { return true, nil })
+	prevMount := device.SetMountFunc(func(context.Context, string) (bool, error) { return true, nil })
 	defer device.SetMountFunc(prevMount)
 
 	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, nil)
@@ -254,7 +254,7 @@ func TestProcessDumpDataCanceledContext(t *testing.T) {
 		return "", ctx.Err()
 	})
 	defer device.SetUUIDFunc(prevUUID)
-	prevMount := device.SetMountFunc(func(string) (bool, error) { return false, nil })
+	prevMount := device.SetMountFunc(func(context.Context, string) (bool, error) { return false, nil })
 	defer device.SetMountFunc(prevMount)
 
 	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, nil)

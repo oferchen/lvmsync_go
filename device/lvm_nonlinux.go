@@ -19,7 +19,7 @@ type Runner struct{}
 func NewRunner() *Runner { return &Runner{} }
 
 // NewRunnerWithDeps returns a stub runner with custom deps.
-func NewRunnerWithDeps(func(context.Context, string) (bool, error), func(context.Context, string) (bool, error), func(context.Context, string) (bool, error), func(string) (bool, error), func(string, string) (*lock.Lock, error)) *Runner {
+func NewRunnerWithDeps(func(context.Context, string) (bool, error), func(context.Context, string) (bool, error), func(context.Context, string) (bool, error), func(context.Context, string) (bool, error), func(string, string) (*lock.Lock, error)) *Runner {
 	return &Runner{}
 }
 

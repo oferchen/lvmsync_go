@@ -12,7 +12,10 @@ import (
 	"go.uber.org/zap"
 )
 
-const uuidTimeout = 5 * time.Second
+const (
+	uuidTimeout  = 5 * time.Second
+	mountTimeout = 5 * time.Second
+)
 
 // DeviceInfoProvider exposes device identification helpers.
 type DeviceInfoProvider interface {
@@ -165,14 +168,66 @@ func defaultLVMUUIDFunc(ctx context.Context, path string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
-func defaultMountFunc(path string) (bool, error) {
+// IDsMatch reports whether the devices at src and dest share the same
+// identifier. For LVM volumes the logical volume UUID is compared; otherwise
+// blkid or GPT serial numbers are used.
+func IDsMatch(ctx context.Context, src, dest string) (bool, error) {
+	sid, err := GetDeviceID(ctx, src)
+	if err != nil {
+		return false, err
+	}
+	did, err := GetDeviceID(ctx, dest)
+	if err != nil {
+		return false, err
+	}
+	return sid == did, nil
+}
+
+// SetMountFunc allows tests to override the mount status checker. It returns
+// the previous function for restoration.
+func SetMountFunc(f func(context.Context, string) (bool, error)) func(context.Context, string) (bool, error) {
+	prev := mountFunc
+	mountFunc = f
+	return prev
+}
+
+// IsMountedRW reports whether the device at path is mounted read-write.
+// If ctx has no deadline, a default timeout is applied.
+func IsMountedRW(ctx context.Context, path string) (bool, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if _, ok := ctx.Deadline(); !ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, mountTimeout)
+		defer cancel()
+	}
+	return mountFunc(ctx, path)
+}
+
+func defaultMountFunc(ctx context.Context, path string) (bool, error) {
 	real, err := filepath.EvalSymlinks(path)
 	if err != nil {
 		return false, err
 	}
-	infos, err := mountinfo.GetMounts(nil)
-	if err != nil {
-		return false, err
+	type result struct {
+		infos []*mountinfo.Info
+		err   error
+	}
+	ch := make(chan result, 1)
+	go func() {
+		infos, err := mountinfo.GetMounts(nil)
+		ch <- result{infos: infos, err: err}
+	}()
+	var infos []*mountinfo.Info
+	select {
+	case <-ctx.Done():
+		return false, ctx.Err()
+	case r := <-ch:
+		if r.err != nil {
+			return false, r.err
+		}
+		infos = r.infos
 	}
 	for _, mi := range infos {
 		if mi.Source != real {

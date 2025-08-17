@@ -93,12 +93,32 @@ func TestIDsMatch(t *testing.T) {
 	}
 }
 
-func TestIsMountedRW(t *testing.T) {
-	info := NewInfoWithDeps(nil, nil, func(string) (bool, error) { return true, nil })
-	got, err := info.IsMountedRW("/dev/sda")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+func TestSetMountFunc(t *testing.T) {
+	orig := mountFunc
+	stub := func(context.Context, string) (bool, error) { return true, nil }
+	prev := SetMountFunc(stub)
+	if reflect.ValueOf(prev).Pointer() != reflect.ValueOf(orig).Pointer() {
+		t.Fatalf("expected previous function to be original")
 	}
+	if reflect.ValueOf(mountFunc).Pointer() != reflect.ValueOf(stub).Pointer() {
+		t.Fatalf("mountFunc not replaced")
+	}
+	SetMountFunc(prev)
+}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			prev := SetMountFunc(func(context.Context, string) (bool, error) { return tt.val, nil })
+			defer SetMountFunc(prev)
+
+			got, err := IsMountedRW(context.Background(), "/dev/sda")
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tt.val {
+				t.Fatalf("expected %v, got %v", tt.val, got)
+			}
+		})
 	if !got {
 		t.Fatalf("expected mounted read-write")
 	}
@@ -106,8 +126,14 @@ func TestIsMountedRW(t *testing.T) {
 
 func TestIsMountedRWError(t *testing.T) {
 	want := errors.New("boom")
-	info := NewInfoWithDeps(nil, nil, func(string) (bool, error) { return false, want })
-	if _, err := info.IsMountedRW("/dev/sda"); !errors.Is(err, want) {
+	prev := SetMountFunc(func(ctx context.Context, _ string) (bool, error) {
+		if _, ok := ctx.Deadline(); !ok {
+			t.Fatalf("expected context with deadline")
+		}
+		return false, want
+	})
+	defer SetMountFunc(prev)
+	if _, err := IsMountedRW(context.Background(), "/dev/sda"); !errors.Is(err, want) {
 		t.Fatalf("expected %v, got %v", want, err)
 	}
 }
@@ -143,8 +169,10 @@ func TestDefaultMountFunc(t *testing.T) {
 			mounts.Close()
 			defer os.Remove(mounts.Name())
 
-			info := NewInfoWithDeps(nil, nil, mountFuncFromMountInfoFile(mounts.Name()))
-			got, err := info.IsMountedRW(dev.Name())
+			prev := SetMountFunc(mountFuncFromMountInfoFile(mounts.Name()))
+			defer SetMountFunc(prev)
+
+			got, err := IsMountedRW(context.Background(), dev.Name())
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -175,8 +203,10 @@ func TestDefaultMountFuncSpecialChars(t *testing.T) {
 	mounts.Close()
 	defer os.Remove(mounts.Name())
 
-	info := NewInfoWithDeps(nil, nil, mountFuncFromMountInfoFile(mounts.Name()))
-	got, err := info.IsMountedRW(dev.Name())
+	prev := SetMountFunc(mountFuncFromMountInfoFile(mounts.Name()))
+	defer SetMountFunc(prev)
+
+	got, err := IsMountedRW(context.Background(), dev.Name())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -206,8 +236,10 @@ func TestDefaultMountFuncMultipleRecords(t *testing.T) {
 	mounts.Close()
 	defer os.Remove(mounts.Name())
 
-	info := NewInfoWithDeps(nil, nil, mountFuncFromMountInfoFile(mounts.Name()))
-	got, err := info.IsMountedRW(dev.Name())
+	prev := SetMountFunc(mountFuncFromMountInfoFile(mounts.Name()))
+	defer SetMountFunc(prev)
+
+	got, err := IsMountedRW(context.Background(), dev.Name())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -237,8 +269,10 @@ func TestDefaultMountFuncBindMount(t *testing.T) {
 	mounts.Close()
 	defer os.Remove(mounts.Name())
 
-	info := NewInfoWithDeps(nil, nil, mountFuncFromMountInfoFile(mounts.Name()))
-	got, err := info.IsMountedRW(dev.Name())
+	prev := SetMountFunc(mountFuncFromMountInfoFile(mounts.Name()))
+	defer SetMountFunc(prev)
+
+	got, err := IsMountedRW(context.Background(), dev.Name())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -256,11 +290,16 @@ func TestDefaultMountFuncError(t *testing.T) {
 	dev.Close()
 
 	nonexistent := filepath.Join(os.TempDir(), "does-not-exist")
-	info := NewInfoWithDeps(nil, nil, mountFuncFromMountInfoFile(nonexistent))
-	if _, err := info.IsMountedRW(dev.Name()); err == nil {
+	prev := SetMountFunc(mountFuncFromMountInfoFile(nonexistent))
+	defer SetMountFunc(prev)
+
+	if _, err := IsMountedRW(context.Background(), dev.Name()); err == nil {
 		t.Fatalf("expected error when reading mountinfo file")
 	}
 }
+
+func mountFuncFromMountInfoFile(p string) func(context.Context, string) (bool, error) {
+	return func(_ context.Context, path string) (bool, error) {
 
 func TestSizeBytes(t *testing.T) {
 	dev := &stubDevice{size: 123}

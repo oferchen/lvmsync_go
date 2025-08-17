@@ -33,7 +33,7 @@ func (t *Transfer) applyData(cfg *config.Config, in io.Reader, destDevice string
 			return fmt.Errorf("destination device uuid %s does not match expected %s", uuid, cfg.DeviceUUID)
 		}
 	}
-	mounted, err := t.Info.IsMountedRW(destDevice)
+	mounted, err := device.IsMountedRW(context.Background(), destDevice)
 	if err != nil {
 		return fmt.Errorf("check mount status: %w", err)
 	}

@@ -27,7 +27,7 @@ type Runner struct {
 	volumeExists      func(context.Context, string) (bool, error)
 	autoExtendEnabled func(context.Context, string) (bool, error)
 	discardEnabled    func(context.Context, string) (bool, error)
-	isMountedRW       func(string) (bool, error)
+	isMountedRW       func(context.Context, string) (bool, error)
 	lockAcquire       func(string, string) (*lock.Lock, error)
 	openLVMOverride   func(string, *lvm.FDCache, string, *zap.Logger) (*LVMDevice, error)
 }
@@ -57,7 +57,7 @@ func NewRunnerWithDeps(
 	volumeExists func(context.Context, string) (bool, error),
 	autoExtendEnabled func(context.Context, string) (bool, error),
 	discardEnabled func(context.Context, string) (bool, error),
-	isMountedRW func(string) (bool, error),
+	isMountedRW func(context.Context, string) (bool, error),
 	lockAcquire func(string, string) (*lock.Lock, error),
 	cmd Commander,
 ) *Runner {

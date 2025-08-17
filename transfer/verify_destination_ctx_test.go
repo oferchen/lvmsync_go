@@ -34,7 +34,7 @@ func TestVerifyDestinationCanceledContext(t *testing.T) {
 		return "", ctx.Err()
 	})
 	defer device.SetUUIDFunc(prevUUID)
-	prevMount := device.SetMountFunc(func(string) (bool, error) { return false, nil })
+	prevMount := device.SetMountFunc(func(context.Context, string) (bool, error) { return false, nil })
 	defer device.SetMountFunc(prevMount)
 
 	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, nil)

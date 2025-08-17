@@ -446,7 +446,7 @@ func Rebuild(
 	if err = ctx.Err(); err != nil {
 		return err
 	}
-	mounted, err := device.IsMountedRW(devicePath)
+	mounted, err := device.IsMountedRW(ctx, devicePath)
 	if err != nil {
 		return fmt.Errorf("manifest: check mount status: %w", err)
 	}

@@ -57,7 +57,7 @@ func (r *Runner) OpenLVM(path string, cache *lvm.FDCache, escalation string, log
 	if !discard {
 		return nil, fmt.Errorf("discard disabled for %s", path)
 	}
-	mounted, err := r.isMountedRW(path)
+	mounted, err := r.isMountedRW(ctx, path)
 	if err != nil {
 		return nil, err
 	}
