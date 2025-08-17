@@ -12,6 +12,7 @@ import (
 	"os"
 	"time"
 
+	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
@@ -376,7 +377,7 @@ func (s *sshConn) Close() error {
 	)
 	start := time.Now()
 	err := s.client.Close()
-	s.channel.Close()
+	err = multierr.Append(err, s.channel.Close())
 	fields := []zap.Field{
 		zap.String("address", address),
 		zap.String("role", role),
@@ -446,7 +447,7 @@ func (s *serverConn) Close() error {
 	)
 	start := time.Now()
 	err := s.sshConn.Close()
-	s.channel.Close()
+	err = multierr.Append(err, s.channel.Close())
 	fields := []zap.Field{
 		zap.String("address", address),
 		zap.String("role", role),

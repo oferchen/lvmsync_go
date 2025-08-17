@@ -135,6 +135,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - tcp+tls: log listener close errors during shutdown
 - tests: bound QUIC SelectBestHandshake dial and negotiate with timeouts and close server connection before reporting errors
 - tests: use timeouts and close connections before returning errors in SSH handshake selection test
+- ssh: aggregate channel close errors from client and server connections
 
 ## [v0.1.0] - 2025-02-27
 ### Added
