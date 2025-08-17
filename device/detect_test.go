@@ -44,7 +44,7 @@ func TestDetectFile(t *testing.T) {
 	f.Close()
 	core, logs := observer.New(zap.InfoLevel)
 	logger := zap.New(core)
-	dev, err := Detect(context.Background(), f.Name(), true, "", "", "", "", 0, 0, logger)
+	dev, err := Detect(context.Background(), f.Name(), true, "", "", "", "", 0, 0, logger, NewRunner())
 	if err != nil {
 		t.Fatalf("detect: %v", err)
 	}
@@ -66,7 +66,7 @@ func TestDetectFile(t *testing.T) {
 }
 
 func TestDetectNilLogger(t *testing.T) {
-	if _, err := Detect(context.Background(), "", true, "", "", "", "", 0, 0, nil); err == nil {
+	if _, err := Detect(context.Background(), "", true, "", "", "", "", 0, 0, nil, NewRunner()); err == nil {
 		t.Fatalf("expected error when logger is nil")
 	}
 }
@@ -81,7 +81,7 @@ func TestDetectFileSymlink(t *testing.T) {
 	if err := os.Symlink(f.Name(), link); err != nil {
 		t.Fatalf("symlink: %v", err)
 	}
-	dev, err := Detect(context.Background(), link, true, "", "", "", "", 0, 0, zap.NewNop())
+	dev, err := Detect(context.Background(), link, true, "", "", "", "", 0, 0, zap.NewNop(), NewRunner())
 	if err != nil {
 		t.Fatalf("detect: %v", err)
 	}
@@ -99,7 +99,7 @@ func TestDetectRaw(t *testing.T) {
 	defer cleanup()
 	core, logs := observer.New(zap.DebugLevel)
 	logger := zap.New(core)
-	dev, err := Detect(context.Background(), loop, true, "", "", "", "", 0, 0, logger)
+	dev, err := Detect(context.Background(), loop, true, "", "", "", "", 0, 0, logger, NewRunner())
 	if err != nil {
 		t.Fatalf("detect: %v", err)
 	}
@@ -138,7 +138,7 @@ func TestDetectRawSymlink(t *testing.T) {
 	if err := os.Symlink(loop, link); err != nil {
 		t.Fatalf("symlink: %v", err)
 	}
-	dev, err := Detect(context.Background(), link, true, "", "", "", "", 0, 0, zap.NewNop())
+	dev, err := Detect(context.Background(), link, true, "", "", "", "", 0, 0, zap.NewNop(), NewRunner())
 	if err != nil {
 		t.Fatalf("detect: %v", err)
 	}
@@ -161,7 +161,7 @@ func TestDetectLVMSymlink(t *testing.T) {
 	defer os.Remove(lvPath)
 	defer os.Remove(vgDir)
 
-	dev, err := Detect(context.Background(), lvPath, true, "", "", "", "", 0, 0, zap.NewNop())
+	dev, err := Detect(context.Background(), lvPath, true, "", "", "", "", 0, 0, zap.NewNop(), NewRunner())
 	if err != nil {
 		t.Fatalf("detect: %v", err)
 	}
@@ -185,12 +185,11 @@ func TestDetectLVM(t *testing.T) {
 		return exec.CommandContext(ctx, name, args...)
 	}
 	defer func() { execCommand = origExec }()
-	origOpen := openLVMFunc
-	openLVMFunc = func(p string, _ *lvm.FDCache, _ string, _ *zap.Logger) (*LVMDevice, error) {
-		return &LVMDevice{path: p, logger: zap.NewNop()}, nil
+	runner := NewRunner()
+	runner.openLVMOverride = func(p string, _ *lvm.FDCache, _ string, _ *zap.Logger) (*LVMDevice, error) {
+		return &LVMDevice{path: p, logger: zap.NewNop(), runner: runner}, nil
 	}
-	defer func() { openLVMFunc = origOpen }()
-	dev, err := Detect(context.Background(), loop, true, "", "", "", "", 0, 0, zap.NewNop())
+	dev, err := Detect(context.Background(), loop, true, "", "", "", "", 0, 0, zap.NewNop(), runner)
 	if err != nil {
 		t.Fatalf("detect: %v", err)
 	}
@@ -221,7 +220,7 @@ func TestDetectRawCommandQuoting(t *testing.T) {
 	defer func() { execCommand = origExec }()
 	freeze := "/bin/echo 'freeze path with spaces'"
 	thaw := "/bin/echo 'thaw path with spaces'"
-	dev, err := Detect(context.Background(), loop, false, "raw", freeze, thaw, "", 0, 0, zap.NewNop())
+	dev, err := Detect(context.Background(), loop, false, "raw", freeze, thaw, "", 0, 0, zap.NewNop(), NewRunner())
 	if err != nil {
 		t.Fatalf("detect: %v", err)
 	}

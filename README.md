@@ -436,7 +436,7 @@ Override detection with `--source-type` and `--dest-type` when necessary.
 Internally, `device.Detect` delegates to dedicated helpers:
 
 ```go
-dev, err := device.Detect(ctx, "/dev/sdb", true, "auto", "", "", "", 0, 0, logger)
+dev, err := device.Detect(ctx, "/dev/sdb", true, "auto", "", "", "", 0, 0, logger, device.NewRunner())
 // detectFileDevice, detectLVMDevice, or detectRawDevice is selected based on the path.
 ```
 

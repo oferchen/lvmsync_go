@@ -66,17 +66,16 @@ func TestSnapshotLifecycle(t *testing.T) {
 	generateSnapshot = func() string { return "snap" }
 	defer func() { generateSnapshot = origName }()
 
-	origOpen := openLVMFunc
-	openLVMFunc = func(p string, _ *lvm.FDCache, _ string, _ *zap.Logger) (*LVMDevice, error) {
-		return &LVMDevice{path: p, cleanupPath: p, escalation: "doas -n", logger: zap.NewNop()}, nil
+	runner := NewRunner()
+	runner.openLVMOverride = func(p string, _ *lvm.FDCache, _ string, _ *zap.Logger) (*LVMDevice, error) {
+		return &LVMDevice{path: p, cleanupPath: p, escalation: "doas -n", logger: zap.NewNop(), runner: runner}, nil
 	}
-	defer func() { openLVMFunc = origOpen }()
 
 	origEuid := geteuid
 	geteuid = func() int { return 1 }
 	defer func() { geteuid = origEuid }()
 
-	lvd := &LVMDevice{path: "/dev/vg0/origin", escalation: "doas -n", logger: zap.NewNop()}
+	lvd := &LVMDevice{path: "/dev/vg0/origin", escalation: "doas -n", logger: zap.NewNop(), runner: runner}
 	snap, err := lvd.Snapshot(ctx, "2G")
 	if err != nil {
 		t.Fatalf("lvm snapshot: %v", err)
@@ -118,7 +117,7 @@ func TestSnapshotLVCreateFailure(t *testing.T) {
 	geteuid = func() int { return 1 }
 	defer func() { geteuid = origEuid }()
 
-	lvd := &LVMDevice{path: "/dev/vg0/origin", escalation: "doas -n", logger: zap.NewNop()}
+	lvd := &LVMDevice{path: "/dev/vg0/origin", escalation: "doas -n", logger: zap.NewNop(), runner: NewRunner()}
 	if _, err := lvd.Snapshot(ctx, "1G"); err == nil {
 		t.Fatalf("expected error from lvcreate failure")
 	}
