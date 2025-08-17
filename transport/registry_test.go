@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 
 	"lvmsync_go/common"
 )
@@ -84,4 +86,35 @@ func TestGetOrdered(t *testing.T) {
 	if len(trs) != 2 || trs[0].Name() != "b" || trs[1].Name() != "a" {
 		t.Fatalf("unexpected order: %v %v", trs[0].Name(), trs[1].Name())
 	}
+}
+
+func TestMustRegisterPanics(t *testing.T) {
+	regMu.Lock()
+	original := registry
+	registry = map[string]Factory{}
+	regMu.Unlock()
+	defer func() {
+		regMu.Lock()
+		registry = original
+		regMu.Unlock()
+	}()
+
+	MustRegister("dup", func(Config) (Interface, error) { return nil, nil })
+
+	core, obs := observer.New(zapcore.ErrorLevel)
+	logger := zap.New(core)
+	orig := zap.L()
+	zap.ReplaceGlobals(logger)
+	defer zap.ReplaceGlobals(orig)
+
+	defer func() {
+		if r := recover(); r == nil {
+			t.Fatalf("expected panic")
+		}
+		if obs.FilterMessage("register_failed").Len() != 1 {
+			t.Fatalf("expected register_failed log")
+		}
+	}()
+
+	MustRegister("dup", func(Config) (Interface, error) { return nil, nil })
 }

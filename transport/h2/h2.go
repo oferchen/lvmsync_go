@@ -99,9 +99,7 @@ func New(cfg transport.Config) (transport.Interface, error) {
 }
 
 func init() {
-	if err := transport.Register("h2", New); err != nil {
-		panic(err)
-	}
+	transport.MustRegister("h2", New)
 }
 
 func (t *Transport) Name() string { return "h2" }
