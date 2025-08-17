@@ -58,7 +58,7 @@ func TestConcurrentRegister(t *testing.T) {
 			t.Errorf("expected error for %s", name)
 		}
 	}
-	logger.Sync()
+	_ = logger.Sync()
 }
 
 func TestDuplicateRegister(t *testing.T) {
@@ -138,13 +138,11 @@ func TestMustRegisterPanics(t *testing.T) {
 		regMu.Unlock()
 	}()
 
-	MustRegister("dup", func(Config) (Interface, error) { return nil, nil })
+	syncLogger := func(l *zap.Logger) { _ = l.Sync() }
+	MustRegister("dup", func(Config) (Interface, error) { return nil, nil }, zap.NewNop(), syncLogger)
 
 	core, obs := observer.New(zapcore.ErrorLevel)
 	logger := zap.New(core)
-	orig := zap.L()
-	zap.ReplaceGlobals(logger)
-	defer zap.ReplaceGlobals(orig)
 
 	defer func() {
 		if r := recover(); r == nil {
@@ -155,5 +153,5 @@ func TestMustRegisterPanics(t *testing.T) {
 		}
 	}()
 
-	MustRegister("dup", func(Config) (Interface, error) { return nil, nil })
+	MustRegister("dup", func(Config) (Interface, error) { return nil, nil }, logger, syncLogger)
 }

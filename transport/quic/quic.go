@@ -12,6 +12,7 @@ import (
 
 	quic "github.com/quic-go/quic-go"
 
+	rootcmd "lvmsync_go/cmd/root"
 	"lvmsync_go/common"
 	"lvmsync_go/internal/logging"
 	"lvmsync_go/transport"
@@ -91,7 +92,7 @@ func init() {
 			return nil, fmt.Errorf("quic: nil transport")
 		}
 		return tr, nil
-	})
+	}, zap.NewNop(), rootcmd.SyncLogger)
 }
 
 func (t *Transport) Name() string { return "quic" }
