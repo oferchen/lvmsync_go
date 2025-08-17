@@ -10,7 +10,7 @@ import (
 // when no explicit settings are provided.
 func TestBuilderBuildSuccess(t *testing.T) {
 	v := viper.New()
-	v.Set("allow_insecure", true)
+	v.Set("allow-insecure", true)
 	defaults, err := DefaultConfig()
 	if err != nil {
 		t.Fatalf("DefaultConfig: %v", err)
@@ -29,8 +29,8 @@ func TestBuilderBuildSuccess(t *testing.T) {
 // unsupported compression algorithm is specified.
 func TestBuilderBuildUnsupportedCompression(t *testing.T) {
 	v := viper.New()
-	v.Set("allow_insecure", true)
-	v.Set("compress_threshold", 2.0)
+	v.Set("allow-insecure", true)
+	v.Set("compress-threshold", 2.0)
 	defaults, err := DefaultConfig()
 	if err != nil {
 		t.Fatalf("DefaultConfig: %v", err)

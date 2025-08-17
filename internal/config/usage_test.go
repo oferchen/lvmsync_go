@@ -18,12 +18,12 @@ func TestFlagSetUsage(t *testing.T) {
 		want string
 	}{
 		{initGeneralFlags(cfg), "--config"},
-		{initSSHFlags(cfg), "--ssh_host"},
-		{initRemoteFlags(cfg), "--lvmsync_path"},
-		{initDedupFlags(cfg), "--dedup_strategy"},
+		{initSSHFlags(cfg), "--ssh-host"},
+		{initRemoteFlags(cfg), "--lvmsync-path"},
+		{initDedupFlags(cfg), "--dedup-strategy"},
 		{initCompressionFlags(cfg), "--compress"},
-		{initLVMFlags(cfg), "--skip_snapshot_creation"},
-		{initGRPCFlags(cfg), "--grpc_port"},
+		{initLVMFlags(cfg), "--skip-snapshot-creation"},
+		{initGRPCFlags(cfg), "--grpc-port"},
 	}
 	for _, tt := range sets {
 		buf := &bytes.Buffer{}

@@ -32,7 +32,7 @@ func TestLoadConfigPrecedence(t *testing.T) {
 
 	t.Run("flags_override_env", func(t *testing.T) {
 		t.Setenv("LVMSYNC_MIN_CHUNK_SIZE", "2048")
-		cfg, err := LoadConfig(cfgPath, []string{"--min_chunk_size", "1024"})
+		cfg, err := LoadConfig(cfgPath, []string{"--min-chunk-size", "1024"})
 		if err != nil {
 			t.Fatalf("LoadConfig: %v", err)
 		}
@@ -43,15 +43,15 @@ func TestLoadConfigPrecedence(t *testing.T) {
 }
 
 func TestLoadConfigFailures(t *testing.T) {
-	t.Run("invalid_yaml", func(t *testing.T) {
+	t.Run("invalid-yaml", func(t *testing.T) {
 		cfgPath := writeTempConfig(t, ":\n")
 		if _, err := LoadConfig(cfgPath, nil); err == nil {
 			t.Fatalf("expected error for invalid YAML")
 		}
 	})
 
-	t.Run("parse_error", func(t *testing.T) {
-		if _, err := LoadConfig("", []string{"--min_chunk_size", "abc"}); err == nil {
+	t.Run("parse-error", func(t *testing.T) {
+		if _, err := LoadConfig("", []string{"--min-chunk-size", "abc"}); err == nil {
 			t.Fatalf("expected parse error")
 		}
 	})

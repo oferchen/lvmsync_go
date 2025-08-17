@@ -221,7 +221,7 @@ func (r *Runner) Run(ctx context.Context, cfg *config.Config, source, dest strin
 	if cfg.SourceType == "raw" && !cfg.SkipSnapshotCreation {
 		dev.Close()
 		dev.Cleanup(ctx)
-		return cfg.DestType, fmt.Errorf("raw sources require --skip_snapshot_creation and either --offline or --fs-freeze-command/--fs-thaw-command")
+		return cfg.DestType, fmt.Errorf("raw sources require --skip-snapshot-creation and either --offline or --fs-freeze-command/--fs-thaw-command")
 	}
 	snapDev, err := dev.Snapshot(ctx, cfg.SnapshotSize)
 	if err != nil {
@@ -258,7 +258,7 @@ func (r *Runner) RunLocalDump(ctx context.Context, cfg *config.Config, snapshotD
 			case *device.RawDevice:
 				if !cfg.SkipSnapshotCreation {
 					dev.Close()
-					return destType, fmt.Errorf("raw destinations require --skip_snapshot_creation or external freeze hooks")
+					return destType, fmt.Errorf("raw destinations require --skip-snapshot-creation or external freeze hooks")
 				}
 				destType = "raw"
 			case *device.LVMDevice:

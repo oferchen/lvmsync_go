@@ -35,7 +35,7 @@ func TestRegisterFlags(t *testing.T) {
 	}
 	fs := NewFlagSets(cfg)
 	registerFlags(fs, rootFS)
-	names := []string{"parallel", "ssh_user", "grpc_port"}
+	names := []string{"parallel", "ssh-user", "grpc-port"}
 	for _, name := range names {
 		if f := rootFS.Lookup(name); f == nil {
 			t.Fatalf("missing %s flag", name)
@@ -68,7 +68,7 @@ func TestBuildViperPrecedence(t *testing.T) {
 
 	t.Run("env_overrides_config", func(t *testing.T) {
 		rootFS, args := newFlagSet([]string{"--config", cfgPath})
-		t.Setenv("LVMSYNC_PARALLEL", "2")
+		t.Setenv("LVMSYNC-PARALLEL", "2")
 		cfg, err := DefaultConfig()
 		if err != nil {
 			t.Fatalf("DefaultConfig: %v", err)
@@ -89,7 +89,7 @@ func TestBuildViperPrecedence(t *testing.T) {
 
 	t.Run("flags_override_env", func(t *testing.T) {
 		rootFS, args := newFlagSet([]string{"--config", cfgPath, "--parallel", "3"})
-		t.Setenv("LVMSYNC_PARALLEL", "2")
+		t.Setenv("LVMSYNC-PARALLEL", "2")
 		cfg, err := DefaultConfig()
 		if err != nil {
 			t.Fatalf("DefaultConfig: %v", err)
@@ -123,12 +123,12 @@ func TestUsageOutput(t *testing.T) {
 	out := buf.String()
 	wants := []string{
 		"General Options:", "--config",
-		"SSH Options:", "--ssh_user",
-		"Remote Options:", "--lvmsync_path",
-		"Deduplication Options:", "--dedup_strategy",
+		"SSH Options:", "--ssh-user",
+		"Remote Options:", "--lvmsync-path",
+		"Deduplication Options:", "--dedup-strategy",
 		"Compression Options:", "--compress",
-		"LVM Options:", "--skip_snapshot_creation",
-		"gRPC Options:", "--grpc_port",
+		"LVM Options:", "--skip-snapshot-creation",
+		"gRPC Options:", "--grpc-port",
 	}
 	for _, w := range wants {
 		if !strings.Contains(out, w) {

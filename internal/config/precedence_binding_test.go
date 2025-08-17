@@ -10,7 +10,7 @@ import (
 func TestCLIFlagsOverrideEnvAndConfig(t *testing.T) {
 	cfgPath := writeTempConfig(t, "parallel: 1\n")
 	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--parallel", "3"})
-	t.Setenv("LVMSYNC_PARALLEL", "2")
+	t.Setenv("LVMSYNC-PARALLEL", "2")
 
 	defaults, err := DefaultConfig()
 	if err != nil {
@@ -39,7 +39,7 @@ func TestCLIFlagsOverrideEnvAndConfig(t *testing.T) {
 func TestEnvOverridesConfig(t *testing.T) {
 	cfgPath := writeTempConfig(t, "parallel: 1\n")
 	rootFS, args := newFlagSet([]string{"--config", cfgPath})
-	t.Setenv("LVMSYNC_PARALLEL", "2")
+	t.Setenv("LVMSYNC-PARALLEL", "2")
 
 	defaults, err := DefaultConfig()
 	if err != nil {
@@ -126,14 +126,14 @@ func TestCDCMinEnvOverridesConfig(t *testing.T) {
 func TestFlagSetsBindToViper(t *testing.T) {
 	args := []string{
 		"--parallel", "5",
-		"--ssh_user", "alice",
-		"--lvmsync_path", "/usr/bin/lvmsync",
-		"--dedup_strategy", "checksum",
+		"--ssh-user", "alice",
+		"--lvmsync-path", "/usr/bin/lvmsync",
+		"--dedup-strategy", "checksum",
 		"--compress", "lz4",
-		"--skip_snapshot_creation=true",
-		"--grpc_port", "9999",
-		"--grpc_heartbeat_interval", "2s",
-		"--grpc_heartbeat_send_timeout", "1s",
+		"--skip-snapshot-creation=true",
+		"--grpc-port", "9999",
+		"--grpc-heartbeat-interval", "2s",
+		"--grpc-heartbeat-send-timeout", "1s",
 	}
 	rootFS, parseArgs := newFlagSet(args)
 
@@ -155,13 +155,13 @@ func TestFlagSetsBindToViper(t *testing.T) {
 	if got := v.GetInt("parallel"); got != 5 {
 		t.Fatalf("parallel got %d want 5", got)
 	}
-	if got := v.GetString("ssh_user"); got != "alice" {
+	if got := v.GetString("ssh-user"); got != "alice" {
 		t.Fatalf("ssh_user got %q want %q", got, "alice")
 	}
-	if got := v.GetString("lvmsync_path"); got != "/usr/bin/lvmsync" {
+	if got := v.GetString("lvmsync-path"); got != "/usr/bin/lvmsync" {
 		t.Fatalf("lvmsync_path got %q want %q", got, "/usr/bin/lvmsync")
 	}
-	if got := v.GetString("dedup_strategy"); got != "checksum" {
+	if got := v.GetString("dedup-strategy"); got != "checksum" {
 		t.Fatalf("dedup_strategy got %q want %q", got, "checksum")
 	}
 	if got := v.GetString("compress"); got != "lz4" {
@@ -170,7 +170,7 @@ func TestFlagSetsBindToViper(t *testing.T) {
 	if got := v.GetBool("skip_snapshot_creation"); !got {
 		t.Fatalf("skip_snapshot_creation got %v want true", got)
 	}
-	if got := v.GetInt("grpc_port"); got != 9999 {
+	if got := v.GetInt("grpc-port"); got != 9999 {
 		t.Fatalf("grpc_port got %d want 9999", got)
 	}
 	if got := v.GetDuration("grpc_heartbeat_interval"); got != 2*time.Second {
@@ -183,7 +183,7 @@ func TestFlagSetsBindToViper(t *testing.T) {
 
 func TestSSHUserCLIOverridesEnvAndConfig(t *testing.T) {
 	cfgPath := writeTempConfig(t, "ssh_user: config\n")
-	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--ssh_user", "cli"})
+	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--ssh-user", "cli"})
 	t.Setenv("LVMSYNC_SSH_USER", "env")
 
 	defaults, err := DefaultConfig()
@@ -241,7 +241,7 @@ func TestSSHUserEnvOverridesConfig(t *testing.T) {
 
 func TestSSHHostCLIOverridesEnvAndConfig(t *testing.T) {
 	cfgPath := writeTempConfig(t, "ssh_host: config\n")
-	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--ssh_host", "cli"})
+	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--ssh-host", "cli"})
 	t.Setenv("LVMSYNC_SSH_HOST", "env")
 
 	defaults, err := DefaultConfig()
@@ -415,7 +415,7 @@ func TestConcurrencyEnvOverridesConfig(t *testing.T) {
 
 func TestTCPPortCLIOverridesEnvAndConfig(t *testing.T) {
 	cfgPath := writeTempConfig(t, "tcp_port: 1111\n")
-	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--tcp_port", "3333"})
+	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--tcp-port", "3333"})
 	t.Setenv("LVMSYNC_TRANSPORT_TCP_PORT", "2222")
 
 	defaults, err := DefaultConfig()
@@ -473,8 +473,8 @@ func TestTCPPortEnvOverridesConfig(t *testing.T) {
 
 func TestDedupStrategyCLIOverridesEnvAndConfig(t *testing.T) {
 	cfgPath := writeTempConfig(t, "dedup_strategy: checksum\n")
-	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--dedup_strategy", "bloom"})
-	t.Setenv("LVMSYNC_DEDUP_STRATEGY", "rolling_hash")
+	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--dedup-strategy", "bloom"})
+	t.Setenv("LVMSYNC_DEDUP_STRATEGY", "rolling-hash")
 
 	defaults, err := DefaultConfig()
 	if err != nil {
@@ -647,7 +647,7 @@ func TestCompressEnvOverridesConfig(t *testing.T) {
 
 func TestGRPCPortCLIOverridesEnvAndConfig(t *testing.T) {
 	cfgPath := writeTempConfig(t, "grpc_port: 1111\n")
-	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--grpc_port", "3333"})
+	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--grpc-port", "3333"})
 	t.Setenv("LVMSYNC_GRPC_PORT", "2222")
 
 	defaults, err := DefaultConfig()
@@ -705,7 +705,7 @@ func TestGRPCPortEnvOverridesConfig(t *testing.T) {
 
 func TestTLSCertCLIOverridesEnvAndConfig(t *testing.T) {
 	cfgPath := writeTempConfig(t, "tls_cert: cfg.pem\n")
-	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--tls_cert", "cli.pem"})
+	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--tls-cert", "cli.pem"})
 	t.Setenv("LVMSYNC_TLS_CERT", "env.pem")
 
 	defaults, err := DefaultConfig()
@@ -764,7 +764,7 @@ func TestTLSCertEnvOverridesConfig(t *testing.T) {
 // CLI flag should win over LVMSYNC_MANIFEST_PATH and manifest_path in YAML.
 func TestManifestPathCLIOverridesEnvAndConfig(t *testing.T) {
 	cfgPath := writeTempConfig(t, "manifest_path: cfg.manifest\n")
-	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--manifest_path", "cli.manifest"})
+	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--manifest-path", "cli.manifest"})
 	t.Setenv("LVMSYNC_MANIFEST_PATH", "env.manifest")
 
 	defaults, err := DefaultConfig()
@@ -823,7 +823,7 @@ func TestManifestPathEnvOverridesConfig(t *testing.T) {
 
 func TestManifestProgressIntervalCLIOverridesEnvAndConfig(t *testing.T) {
 	cfgPath := writeTempConfig(t, "manifest_progress_interval: 1s\n")
-	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--manifest_progress_interval", "3s"})
+	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--manifest-progress-interval", "3s"})
 	t.Setenv("LVMSYNC_MANIFEST_PROGRESS_INTERVAL", "2s")
 
 	defaults, err := DefaultConfig()
@@ -882,7 +882,7 @@ func TestManifestProgressIntervalEnvOverridesConfig(t *testing.T) {
 // CLI flag takes precedence over LVMSYNC_MANIFEST_TIMEOUT and YAML.
 func TestManifestTimeoutCLIOverridesEnvAndConfig(t *testing.T) {
 	cfgPath := writeTempConfig(t, "manifest_timeout: 1s\n")
-	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--manifest_timeout", "3s"})
+	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--manifest-timeout", "3s"})
 	t.Setenv("LVMSYNC_MANIFEST_TIMEOUT", "2s")
 
 	defaults, err := DefaultConfig()
@@ -942,7 +942,7 @@ func TestManifestTimeoutEnvOverridesConfig(t *testing.T) {
 // CLI flag should override environment variable and YAML for manifest_allow_mounted.
 func TestManifestAllowMountedCLIOverridesEnvAndConfig(t *testing.T) {
 	cfgPath := writeTempConfig(t, "manifest_allow_mounted: true\n")
-	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--manifest_allow_mounted=false"})
+	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--manifest-allow-mounted=false"})
 	t.Setenv("LVMSYNC_MANIFEST_ALLOW_MOUNTED", "true")
 
 	defaults, err := DefaultConfig()
@@ -1002,7 +1002,7 @@ func TestManifestAllowMountedEnvOverridesConfig(t *testing.T) {
 // Subsetting FlagSets should still bind remaining flags and omit removed ones.
 func TestSubsetFlagSetsBinding(t *testing.T) {
 	cfgPath := writeTempConfig(t, "manifest_path: cfg.manifest\n")
-	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--manifest_path", "cli.manifest"})
+	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--manifest-path", "cli.manifest"})
 
 	defaults, err := DefaultConfig()
 	if err != nil {
@@ -1025,10 +1025,10 @@ func TestSubsetFlagSetsBinding(t *testing.T) {
 	if err != nil {
 		t.Fatalf("buildViper: %v", err)
 	}
-	if got := v.GetString("manifest_path"); got != "cli.manifest" {
+	if got := v.GetString("manifest-path"); got != "cli.manifest" {
 		t.Fatalf("manifest_path got %q want %q", got, "cli.manifest")
 	}
-	if rootFS.Lookup("ssh_user") != nil {
+	if rootFS.Lookup("ssh-user") != nil {
 		t.Fatalf("unexpected ssh_user flag present")
 	}
 }

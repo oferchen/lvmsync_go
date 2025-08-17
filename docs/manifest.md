@@ -17,17 +17,17 @@ copies can be verified.
 - `lvmsync manifest rebuild <device>` regenerates a manifest when one is
   missing or out of date.
 - `lvmsync verify <source> <dest>` compares a destination against the manifest
-  for the source. Override the manifest path with `--manifest_path` if needed.
+  for the source. Override the manifest path with `--manifest-path` if needed.
 
 Manifest commands group flags with pflag and bind them to Viper while logging progress with zap.
 Flags override environment variables, which override `config.yaml` values.
 
 | Flag | Environment variable | Config key | Description |
 |------|----------------------|------------|-------------|
-| `--manifest_path` | `LVMSYNC_MANIFEST_PATH` | `manifest_path` | Path to manifest file |
-| `--manifest_timeout` | `LVMSYNC_MANIFEST_TIMEOUT` | `manifest_timeout` | Timeout for manifest rebuild (0 disables) |
-| `--manifest_progress_interval` | `LVMSYNC_MANIFEST_PROGRESS_INTERVAL` | `manifest_progress_interval` | Interval between progress logs during manifest rebuild |
-| `--manifest_allow_mounted` | `LVMSYNC_MANIFEST_ALLOW_MOUNTED` | `manifest_allow_mounted` | Allow rebuilding when device is mounted read-write |
+| `--manifest-path` | `LVMSYNC_MANIFEST_PATH` | `manifest_path` | Path to manifest file |
+| `--manifest-timeout` | `LVMSYNC_MANIFEST_TIMEOUT` | `manifest_timeout` | Timeout for manifest rebuild (0 disables) |
+| `--manifest-progress-interval` | `LVMSYNC_MANIFEST_PROGRESS_INTERVAL` | `manifest_progress_interval` | Interval between progress logs during manifest rebuild |
+| `--manifest-allow-mounted` | `LVMSYNC_MANIFEST_ALLOW_MOUNTED` | `manifest_allow_mounted` | Allow rebuilding when device is mounted read-write |
 
 ## Flag Group Example
 
@@ -128,7 +128,7 @@ lvmsync manifest rebuild /dev/vg0/lv0
 
 Progress logs are emitted every 10s by default; adjust with
 `--manifest-progress-interval`. The rebuild operation times out after 1m unless
-`--manifest_timeout` is set (0 disables).
+`--manifest-timeout` is set (0 disables).
 
 ### Verify
 
@@ -143,7 +143,7 @@ lvmsync verify /dev/vg0/snap0 /dev/null
 | Flag | Environment variable | Config key | Description |
 |------|----------------------|------------|-------------|
 | `--resume` | `LVMSYNC_RESUME` | `resume` | Path to resume state file |
-| `--verify_checksum` | `LVMSYNC_VERIFY_CHECKSUM` | `verify_checksum` | Enable checksum verification |
+| `--verify-checksum` | `LVMSYNC_VERIFY_CHECKSUM` | `verify_checksum` | Enable checksum verification |
 | `--digest` | `LVMSYNC_DIGEST` | `digest` | Digest algorithm: `auto`, `blake3`, or `sha256` |
 
 ### Freeze and Thaw Live Filesystems

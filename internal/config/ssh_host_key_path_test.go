@@ -6,7 +6,7 @@ import (
 
 func TestSSHHostKeyPathCLIOverridesEnvAndConfig(t *testing.T) {
 	cfgPath := writeTempConfig(t, "ssh_host_key_path: config.key\n")
-	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--ssh_host_key_path", "cli.key"})
+	rootFS, args := newFlagSet([]string{"--config", cfgPath, "--ssh-host-key-path", "cli.key"})
 	t.Setenv("LVMSYNC_SSH_HOST_KEY_PATH", "env.key")
 
 	defaults, err := DefaultConfig()

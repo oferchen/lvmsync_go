@@ -157,7 +157,7 @@ func TestSetupGRPCSuccess(t *testing.T) {
 
 func TestConfigureLogsBlockSizeBytes(t *testing.T) {
 	origArgs := os.Args
-	os.Args = []string{origArgs[0], "--block_size", "4KB"}
+	os.Args = []string{origArgs[0], "--block-size", "4KB"}
 	defer func() { os.Args = origArgs }()
 
 	origCaps := privilege.HasCaps

@@ -67,11 +67,15 @@ func NewInfoWithDeps(
 	return &Info{uuidFunc: uuid, lvmUUIDFunc: lvmUUID, mountFunc: mount, detectFunc: detect}
 }
 
-var defaultInfo = &Info{
+var (
+ defaultInfo = &Info{
 	uuidFunc:    defaultUUIDFunc,
 	lvmUUIDFunc: defaultLVMUUIDFunc,
 	mountFunc:   defaultMountFunc,
 }
+	detectFunc = Detect
+)
+
 
 func init() { defaultInfo.detectFunc = Detect }
 
@@ -172,6 +176,18 @@ func (i *Info) IDsMatch(ctx context.Context, src, dest string) (bool, error) {
 	return sid == did, nil
 }
 
+func (i *Info) IsMountedRW(ctx context.Context, path string) (bool, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if _, ok := ctx.Deadline(); !ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, mountTimeout)
+		defer cancel()
+	}
+	return i.mountFunc(ctx, path)
+}
+
 func defaultUUIDFunc(ctx context.Context, path string) (string, error) {
 	out, err := exec.CommandContext(ctx, "blkid", "-o", "value", "-s", "UUID", path).Output()
 	if err == nil && len(out) > 0 {
@@ -223,6 +239,13 @@ func (i *Info) SizeBytes(ctx context.Context, path string) (size uint64, err err
 	}()
 	size = dev.SizeBytes()
 	return size, err
+
+// SetMountFunc allows tests to override the mount status checker. It returns
+// the previous function for restoration.
+func SetMountFunc(f func(context.Context, string) (bool, error)) func(context.Context, string) (bool, error) {
+	prev := defaultInfo.mountFunc
+	defaultInfo.mountFunc = f
+	return prev
 }
 
 func defaultMountFunc(ctx context.Context, path string) (bool, error) {
