@@ -1102,7 +1102,9 @@ The constructor also requires a `*zap.Logger`:
 ```
 logger, _ := zap.NewProduction()
 defer logger.Sync()
-sender, receiver, err := ssh.New(cfg, logger)
+ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+defer cancel()
+tr, err := ssh.New(ctx, cfg)
 ```
 
 #### Remote Options

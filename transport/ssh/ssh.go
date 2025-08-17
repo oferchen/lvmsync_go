@@ -32,7 +32,7 @@ type Transport struct {
 }
 
 // New returns a new Transport using username/password authentication.
-func New(cfg transport.Config) (transport.Interface, error) {
+func New(ctx context.Context, cfg transport.Config) (transport.Interface, error) {
 	if cfg.Logger == nil {
 		return nil, fmt.Errorf("logger is required")
 	}
@@ -119,7 +119,9 @@ func New(cfg transport.Config) (transport.Interface, error) {
 	}
 	if cfg.SSHUseAgent {
 		if sock := os.Getenv("SSH_AUTH_SOCK"); sock != "" {
-			if signers, err := agentSigners(context.Background(), sock); err == nil && len(signers) > 0 {
+			agentCtx, cancel := context.WithTimeout(ctx, defaultDialTimeout)
+			defer cancel()
+			if signers, err := agentSigners(agentCtx, sock); err == nil && len(signers) > 0 {
 				auths = append(auths, ssh.PublicKeys(signers...))
 			}
 		}
@@ -141,8 +143,6 @@ func New(cfg transport.Config) (transport.Interface, error) {
 }
 
 func agentSigners(ctx context.Context, sock string) ([]ssh.Signer, error) {
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
 	d := net.Dialer{}
 	conn, err := d.DialContext(ctx, "unix", sock)
 	if err != nil {
@@ -154,7 +154,9 @@ func agentSigners(ctx context.Context, sock string) ([]ssh.Signer, error) {
 }
 
 func init() {
-	if err := transport.Register("ssh", New); err != nil {
+	if err := transport.Register("ssh", func(cfg transport.Config) (transport.Interface, error) {
+		return New(context.Background(), cfg)
+	}); err != nil {
 		panic(err)
 	}
 }
