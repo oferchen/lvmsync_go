@@ -30,7 +30,7 @@ func TestDetectFileDeviceSuccess(t *testing.T) {
 		t.Fatalf("expected FileDevice, got %T", dev)
 	}
 	dev.Close()
-	entries := logs.FilterMessage("detect device success").All()
+	entries := logs.FilterMessage("detect_device_success").All()
 	found := false
 	for _, e := range entries {
 		if e.ContextMap()["device_type"] == "file" && e.ContextMap()["path"] == f.Name() {
@@ -64,7 +64,7 @@ func TestDetectLVMDeviceSuccess(t *testing.T) {
 		t.Fatalf("expected LVMDevice, got %T", dev)
 	}
 	dev.Close()
-	entries := logs.FilterMessage("detect device success").All()
+	entries := logs.FilterMessage("detect_device_success").All()
 	found := false
 	for _, e := range entries {
 		if e.ContextMap()["device_type"] == "lvm" && e.ContextMap()["path"] == "/dev/test" {
@@ -123,7 +123,7 @@ func TestDetectRawDeviceSuccess(t *testing.T) {
 		t.Fatalf("expected RawDevice, got %T", dev)
 	}
 	dev.Close()
-	entries := logs.FilterMessage("detect device success").All()
+	entries := logs.FilterMessage("detect_device_success").All()
 	found := false
 	for _, e := range entries {
 		if e.ContextMap()["device_type"] == "raw" && e.ContextMap()["path"] == "/dev/test" {
@@ -158,7 +158,7 @@ func TestDetectRawDeviceFreezeParseError(t *testing.T) {
 	if called {
 		t.Fatalf("openRawFunc should not be called on parse error")
 	}
-	entries := logs.FilterMessage("detect device failed").All()
+	entries := logs.FilterMessage("detect_device_failed").All()
 	if len(entries) != 1 {
 		t.Fatalf("expected error log, got %v", logs.All())
 	}
@@ -184,7 +184,7 @@ func TestDetectRawDeviceThawParseError(t *testing.T) {
 	if called {
 		t.Fatalf("openRawFunc should not be called on parse error")
 	}
-	entries := logs.FilterMessage("detect device failed").All()
+	entries := logs.FilterMessage("detect_device_failed").All()
 	if len(entries) != 1 {
 		t.Fatalf("expected error log, got %v", logs.All())
 	}

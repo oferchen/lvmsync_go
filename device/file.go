@@ -25,29 +25,29 @@ func OpenFile(path string, logger *zap.Logger) (*FileDevice, error) {
 	}
 	info, err := os.Stat(path)
 	if err != nil {
-		logger.Error("file device open failed", zap.String("path", path), zap.Error(err))
+		logger.Error("file_device_open_failed", zap.String("path", path), zap.Error(err))
 		return nil, err
 	}
 	if !info.Mode().IsRegular() {
 		err := fmt.Errorf("%s is not a regular file", path)
-		logger.Error("file device open failed", zap.String("path", path), zap.Error(err))
+		logger.Error("file_device_open_failed", zap.String("path", path), zap.Error(err))
 		return nil, err
 	}
 	f, err := os.OpenFile(path, os.O_RDWR, 0)
 	if err != nil {
-		logger.Error("file device open failed", zap.String("path", path), zap.Error(err))
+		logger.Error("file_device_open_failed", zap.String("path", path), zap.Error(err))
 		return nil, err
 	}
-	logger.Info("file device opened", zap.String("path", path))
+	logger.Info("file_device_opened", zap.String("path", path))
 	var st unix.Stat_t
 	if err := unix.Fstat(int(f.Fd()), &st); err != nil {
 		f.Close()
-		logger.Error("file device stat failed", zap.String("path", path), zap.Error(err))
+		logger.Error("file_device_stat_failed", zap.String("path", path), zap.Error(err))
 		return nil, err
 	}
 	size := uint64(info.Size())
 	block := uint64(st.Blksize)
-	logger.Info("file device info", zap.String("path", path), zap.Uint64("size_bytes", size), zap.Uint64("block_size_bytes", block))
+	logger.Info("file_device_info", zap.String("path", path), zap.Uint64("size_bytes", size), zap.Uint64("block_size_bytes", block))
 	return &FileDevice{
 		f:         f,
 		size:      size,
@@ -69,9 +69,9 @@ func (d *FileDevice) BlockSize() uint64 { return d.blockSize }
 func (d *FileDevice) Close() error {
 	err := d.f.Close()
 	if err != nil {
-		d.logger.Error("file device close failed", zap.String("path", d.Path()), zap.Error(err))
+		d.logger.Error("file_device_close_failed", zap.String("path", d.Path()), zap.Error(err))
 	} else {
-		d.logger.Info("file device closed", zap.String("path", d.Path()))
+		d.logger.Info("file_device_closed", zap.String("path", d.Path()))
 	}
 	return err
 }
@@ -88,6 +88,6 @@ func (d *FileDevice) Snapshot(context.Context, string) (Device, error) {
 
 // Cleanup is a no-op for regular files.
 func (d *FileDevice) Cleanup(context.Context) error {
-	d.logger.Info("file device cleanup", zap.String("path", d.Path()))
+	d.logger.Info("file_device_cleanup", zap.String("path", d.Path()))
 	return nil
 }

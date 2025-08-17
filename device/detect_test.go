@@ -53,7 +53,7 @@ func TestDetectFile(t *testing.T) {
 	}
 	dev.Close()
 
-	entries := logs.FilterMessage("detect device success").All()
+	entries := logs.FilterMessage("detect_device_success").All()
 	found := false
 	for _, e := range entries {
 		if e.ContextMap()["device_type"] == "file" && e.ContextMap()["path"] == f.Name() {
@@ -113,11 +113,11 @@ func TestDetectRaw(t *testing.T) {
 	rawSuccess := false
 	for _, e := range logs.All() {
 		switch e.Message {
-		case "detect device failed":
+		case "detect_device_failed":
 			if e.ContextMap()["device_type"] == "lvm" {
 				lvmFail = true
 			}
-		case "detect device success":
+		case "detect_device_success":
 			if e.ContextMap()["device_type"] == "raw" {
 				rawSuccess = true
 			}

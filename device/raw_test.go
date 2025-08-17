@@ -38,7 +38,7 @@ func TestOpenRawLogsInfoAndClose(t *testing.T) {
 	if err := d.Close(); err != nil {
 		t.Fatalf("close: %v", err)
 	}
-	entries := logs.FilterMessage("raw device info").All()
+	entries := logs.FilterMessage("raw_device_info").All()
 	found := false
 	for _, e := range entries {
 		if e.ContextMap()["path"] == loop &&
@@ -48,10 +48,10 @@ func TestOpenRawLogsInfoAndClose(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Fatalf("expected raw device info log with fields, got %v", logs.All())
+		t.Fatalf("expected raw_device_info log with fields, got %v", logs.All())
 	}
-	if logs.FilterMessage("raw device closed").Len() == 0 {
-		t.Fatalf("expected raw device closed log")
+	if logs.FilterMessage("raw_device_closed").Len() == 0 {
+		t.Fatalf("expected raw_device_closed log")
 	}
 }
 
@@ -79,8 +79,8 @@ func TestRawDeviceCloseErrorLogging(t *testing.T) {
 	if err := d.Close(); err == nil {
 		t.Fatalf("expected close error")
 	}
-	if logs.FilterMessage("raw device close failed").Len() == 0 {
-		t.Fatalf("expected raw device close failed log")
+	if logs.FilterMessage("raw_device_close_failed").Len() == 0 {
+		t.Fatalf("expected raw_device_close_failed log")
 	}
 }
 
@@ -237,11 +237,11 @@ func TestOpenRawFreezeThawLogs(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected error for char device")
 	}
-	if logs.FilterMessage("fs freeze start").Len() != 1 || logs.FilterMessage("fs freeze complete").Len() != 1 {
-		t.Fatalf("expected freeze start and complete logs, got %v", logs.All())
+	if logs.FilterMessage("fs_freeze_start").Len() != 1 || logs.FilterMessage("fs_freeze_complete").Len() != 1 {
+		t.Fatalf("expected fs_freeze_start and fs_freeze_complete logs, got %v", logs.All())
 	}
-	if logs.FilterMessage("fs thaw start").Len() != 1 || logs.FilterMessage("fs thaw complete").Len() != 1 {
-		t.Fatalf("expected thaw start and complete logs, got %v", logs.All())
+	if logs.FilterMessage("fs_thaw_start").Len() != 1 || logs.FilterMessage("fs_thaw_complete").Len() != 1 {
+		t.Fatalf("expected fs_thaw_start and fs_thaw_complete logs, got %v", logs.All())
 	}
 }
 
@@ -254,14 +254,14 @@ func TestOpenRawFreezeTimeoutLogs(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "signal: killed") {
 		t.Fatalf("expected freeze timeout, got %v", err)
 	}
-	if logs.FilterMessage("fs freeze start").Len() != 1 {
-		t.Fatalf("expected freeze start log")
+	if logs.FilterMessage("fs_freeze_start").Len() != 1 {
+		t.Fatalf("expected fs_freeze_start log")
 	}
-	if logs.FilterMessage("fs freeze complete").Len() != 0 {
-		t.Fatalf("unexpected freeze complete log")
+	if logs.FilterMessage("fs_freeze_complete").Len() != 0 {
+		t.Fatalf("unexpected fs_freeze_complete log")
 	}
-	if logs.FilterMessage("fs thaw start").Len() != 0 || logs.FilterMessage("fs thaw complete").Len() != 0 {
-		t.Fatalf("unexpected thaw logs, got %v", logs.All())
+	if logs.FilterMessage("fs_thaw_start").Len() != 0 || logs.FilterMessage("fs_thaw_complete").Len() != 0 {
+		t.Fatalf("unexpected fs_thaw_* logs, got %v", logs.All())
 	}
 }
 
@@ -274,17 +274,17 @@ func TestOpenRawThawFailure(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected error for char device")
 	}
-	if logs.FilterMessage("fs freeze start").Len() != 1 || logs.FilterMessage("fs freeze complete").Len() != 1 {
-		t.Fatalf("expected freeze start and complete logs, got %v", logs.All())
+	if logs.FilterMessage("fs_freeze_start").Len() != 1 || logs.FilterMessage("fs_freeze_complete").Len() != 1 {
+		t.Fatalf("expected fs_freeze_start and fs_freeze_complete logs, got %v", logs.All())
 	}
-	if logs.FilterMessage("fs thaw start").Len() != 1 {
-		t.Fatalf("expected thaw start log")
+	if logs.FilterMessage("fs_thaw_start").Len() != 1 {
+		t.Fatalf("expected fs_thaw_start log")
 	}
-	if logs.FilterMessage("fs thaw complete").Len() != 0 {
-		t.Fatalf("unexpected thaw complete log")
+	if logs.FilterMessage("fs_thaw_complete").Len() != 0 {
+		t.Fatalf("unexpected fs_thaw_complete log")
 	}
-	if logs.FilterMessage("fs thaw failed").Len() != 1 {
-		t.Fatalf("expected thaw failed log")
+	if logs.FilterMessage("fs_thaw_failed").Len() != 1 {
+		t.Fatalf("expected fs_thaw_failed log")
 	}
 }
 
@@ -300,9 +300,9 @@ func TestOpenRawFreezeCommandFailureIncludesOutput(t *testing.T) {
 	if _, err := OpenRaw(context.Background(), "/dev/null", false, helper, []string{"freeze-fail-output"}, truePath, nil, time.Second, time.Second, logger, runner); err == nil || !strings.Contains(err.Error(), "freeze output") {
 		t.Fatalf("expected freeze output in error, got %v", err)
 	}
-	entries := logs.FilterMessage("fs freeze failed").All()
+	entries := logs.FilterMessage("fs_freeze_failed").All()
 	if len(entries) != 1 {
-		t.Fatalf("expected one freeze failed log, got %v", logs.All())
+		t.Fatalf("expected one fs_freeze_failed log, got %v", logs.All())
 	}
 	if v, ok := entries[0].ContextMap()["output"]; !ok || v != "freeze output" {
 		t.Fatalf("expected freeze output log, got %v", entries[0].ContextMap())
@@ -324,9 +324,9 @@ func TestRawDeviceCleanupFailureIncludesOutput(t *testing.T) {
 	if err := d.Cleanup(context.Background()); err == nil || !strings.Contains(err.Error(), "thaw output") {
 		t.Fatalf("expected thaw output in error, got %v", err)
 	}
-	entries := logs.FilterMessage("fs thaw failed").All()
+	entries := logs.FilterMessage("fs_thaw_failed").All()
 	if len(entries) != 1 {
-		t.Fatalf("expected one thaw failed log, got %v", logs.All())
+		t.Fatalf("expected one fs_thaw_failed log, got %v", logs.All())
 	}
 	if v, ok := entries[0].ContextMap()["output"]; !ok || v != "thaw output" {
 		t.Fatalf("expected thaw output log, got %v", entries[0].ContextMap())
@@ -348,8 +348,8 @@ func TestRawDeviceCleanupThawErrorLogs(t *testing.T) {
 	if err := d.Cleanup(context.Background()); err == nil {
 		t.Fatalf("expected thaw command failure")
 	}
-	if logs.FilterMessage("fs thaw failed").Len() != 1 {
-		t.Fatalf("expected thaw failed log")
+	if logs.FilterMessage("fs_thaw_failed").Len() != 1 {
+		t.Fatalf("expected fs_thaw_failed log")
 	}
 }
 
@@ -368,8 +368,8 @@ func TestRawDeviceCleanupThawTimeoutLogs(t *testing.T) {
 	if err := d.Cleanup(context.Background()); err == nil || !strings.Contains(err.Error(), "killed") {
 		t.Fatalf("expected thaw command to be killed, got %v", err)
 	}
-	if logs.FilterMessage("fs thaw failed").Len() != 1 {
-		t.Fatalf("expected thaw failed log")
+	if logs.FilterMessage("fs_thaw_failed").Len() != 1 {
+		t.Fatalf("expected fs_thaw_failed log")
 	}
 }
 

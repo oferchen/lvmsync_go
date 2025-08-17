@@ -56,7 +56,7 @@ func prepareFreeze(
 	if err := validateCmd(fsThawCmdPath, fsThawCmdArgs); err != nil {
 		return false, fmt.Errorf("invalid thaw command: %w", err)
 	}
-	logger.Info("fs freeze start", zap.String("command", fsFreezeCmdPath), zap.Strings("args", fsFreezeCmdArgs))
+	logger.Info("fs_freeze_start", zap.String("command", fsFreezeCmdPath), zap.Strings("args", fsFreezeCmdArgs))
 	freezeCtx := ctx
 	if _, ok := ctx.Deadline(); !ok && freezeTimeout > 0 {
 		var cancel context.CancelFunc
@@ -66,10 +66,10 @@ func prepareFreeze(
 	out, cmdErr := runner.command.CommandContext(freezeCtx, fsFreezeCmdPath, fsFreezeCmdArgs...).CombinedOutput()
 	if cmdErr != nil {
 		output := strings.TrimSpace(string(out))
-		logger.Error("fs freeze failed", zap.Error(cmdErr), zap.String("output", output))
+		logger.Error("fs_freeze_failed", zap.Error(cmdErr), zap.String("output", output))
 		return false, fmt.Errorf("freeze command failed: %w: %s", cmdErr, output)
 	}
-	logger.Info("fs freeze complete")
+	logger.Info("fs_freeze_complete")
 	return true, nil
 }
 
@@ -95,7 +95,7 @@ func queryDeviceInfo(f *os.File, path string, logger *zap.Logger) (uint64, uint6
 	if err != nil {
 		return 0, 0, err
 	}
-	logger.Info("raw device info",
+	logger.Info("raw_device_info",
 		zap.String("path", path),
 		zap.Uint64("size_bytes", size),
 		zap.Uint64("block_size_bytes", uint64(bs)))
@@ -168,9 +168,9 @@ func (d *RawDevice) BlockSize() uint64 { return d.blockSize }
 func (d *RawDevice) Close() error {
 	err := d.f.Close()
 	if err != nil {
-		d.logger.Error("raw device close failed", zap.String("path", d.Path()), zap.Error(err))
+		d.logger.Error("raw_device_close_failed", zap.String("path", d.Path()), zap.Error(err))
 	} else {
-		d.logger.Info("raw device closed", zap.String("path", d.Path()))
+		d.logger.Info("raw_device_closed", zap.String("path", d.Path()))
 	}
 	return err
 }
@@ -182,10 +182,10 @@ func (d *RawDevice) Snapshot(context.Context, string) (Device, error) { return d
 func (d *RawDevice) Cleanup(ctx context.Context) error {
 	if d.freezeIssued {
 		if err := validateCmd(d.thawCmdPath, d.thawCmdArgs); err != nil {
-			d.logger.Error("fs thaw failed", zap.Error(err))
+			d.logger.Error("fs_thaw_failed", zap.Error(err))
 			return fmt.Errorf("invalid thaw command: %w", err)
 		}
-		d.logger.Info("fs thaw start", zap.String("command", d.thawCmdPath), zap.Strings("args", d.thawCmdArgs))
+		d.logger.Info("fs_thaw_start", zap.String("command", d.thawCmdPath), zap.Strings("args", d.thawCmdArgs))
 		thawCtx := ctx
 		if _, ok := ctx.Deadline(); !ok && d.thawTimeout > 0 {
 			var cancel context.CancelFunc
@@ -195,10 +195,10 @@ func (d *RawDevice) Cleanup(ctx context.Context) error {
 		out, cmdErr := d.runner.command.CommandContext(thawCtx, d.thawCmdPath, d.thawCmdArgs...).CombinedOutput()
 		if cmdErr != nil {
 			output := strings.TrimSpace(string(out))
-			d.logger.Error("fs thaw failed", zap.Error(cmdErr), zap.String("output", output))
+			d.logger.Error("fs_thaw_failed", zap.Error(cmdErr), zap.String("output", output))
 			return fmt.Errorf("thaw command failed: %w: %s", cmdErr, output)
 		}
-		d.logger.Info("fs thaw complete")
+		d.logger.Info("fs_thaw_complete")
 	}
 	return nil
 }
