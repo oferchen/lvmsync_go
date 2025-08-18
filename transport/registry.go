@@ -28,24 +28,11 @@ func Register(name string, f Factory) error {
 	return nil
 }
 
-// MustRegister adds a transport factory to the registry and panics on error.
+// MustRegister adds a transport factory to the registry.
 //
-// A log entry is emitted before panicking to aid debugging when duplicate
-// registrations occur. The provided logger is used for logging and flushed
-// using syncLogger if registration fails.
-func MustRegister(name string, f Factory, logger *zap.Logger, syncLogger func(*zap.Logger)) {
-	if err := Register(name, f); err != nil {
-		if logger == nil {
-			logger = zap.NewNop()
-		}
-		logger.Error("register_failed", zap.String("transport", name), zap.Error(err))
-		if syncLogger != nil {
-			syncLogger(logger)
-		} else {
-			_ = logger.Sync()
-		}
-		panic(fmt.Sprintf("register transport %q: %v", name, err))
-	}
+// It returns an error if the transport is already registered.
+func MustRegister(name string, f Factory) error {
+	return Register(name, f)
 }
 
 // Get returns a transport from the registry by name.
