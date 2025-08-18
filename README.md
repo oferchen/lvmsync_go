@@ -85,7 +85,7 @@ no additional coordination.
 
 LVMSync negotiates transports in the order provided by `--transport` (default
 `quic,h2,tcp+tls,ssh`). All transports require TLS 1.3 with mutual
-authentication unless `--allow-insecure` is set or the SSH transport is used.
+authentication or SSH host key verification unless `--allow-insecure` is set.
 See [docs/transports.md](docs/transports.md) for details.
 
 | Transport | Security defaults | Notes |
@@ -141,9 +141,9 @@ Transfers rely on a manifest that tracks chunk offsets and digests:
 
 
 authentication. Provide certificate files with `--server-cert`, `--server-key`,
-`--client-cert`, `--client-key`, and `--ca-cert`. Insecure mode can be enabled
-with `--allow-insecure`, but it is disabled by default and should only be used
-for testing.
+`--client-cert`, `--client-key`, and `--ca-cert`. Insecure mode disables
+certificate and host key verification and can be enabled with
+`--allow-insecure`, but it logs a warning and should only be used for testing.
 
 Configuration can be supplied via flags, environment variables prefixed with
 variables, which override configuration files.
@@ -190,7 +190,7 @@ transfer. See [docs/manifest.md](docs/manifest.md) for manifest and verification
 
 - Run `manifest rebuild` and `verify` against quiescent devices.
 - Use `--offline` or freeze/thaw hooks when scanning live filesystems to keep manifests consistent.
-- Network transports default to TLS 1.3; `--allow-insecure` should only be used for testing.
+- Network transports enforce mutual TLS or host key verification; `--allow-insecure` disables these checks, logs a warning, and should only be used for testing.
 - Back up destination data before running transfers; writes are destructive.
 ## Supported Platforms
 
