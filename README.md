@@ -1424,6 +1424,8 @@ Invalid configurations will cause the tool to abort with a clear error message.
 | [`exitcode.ErrPlatform`](internal/exitcode/exitcode.go) | `30` | Unsupported platform |
 | [`exitcode.ErrConfig`](internal/exitcode/exitcode.go) | `40` | Configuration error |
 | [`exitcode.ErrRuntime`](internal/exitcode/exitcode.go) | `50` | Runtime failure |
+| [`exitcode.ErrVerify`](internal/exitcode/exitcode.go) | `60` | Verification mismatch |
+| [`exitcode.ErrPartial`](internal/exitcode/exitcode.go) | `70` | Partial transfer |
 
 Exit code definitions live in [internal/exitcode](internal/exitcode/exitcode.go), and handling resides in [main.go](main.go).
 

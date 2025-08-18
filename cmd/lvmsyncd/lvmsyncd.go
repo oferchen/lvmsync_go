@@ -283,6 +283,12 @@ func mapExitCode(err error) int {
 	if strings.Contains(msg, "device") {
 		return exitcode.ErrDevice
 	}
+	if strings.Contains(msg, "mismatch") || strings.Contains(msg, "blocks differ") {
+		return exitcode.ErrVerify
+	}
+	if strings.Contains(msg, "signal") || strings.Contains(msg, "canceled") {
+		return exitcode.ErrPartial
+	}
 	return exitcode.ErrRuntime
 }
 
