@@ -23,6 +23,14 @@ lvmsync ALL=(root) NOPASSWD: /usr/sbin/blkdiscard
 
 Adjust paths to match your distribution.
 
+## Environment sanitization
+
+The helper normally inherits the caller's environment, including `PATH` and
+other variables. Pass the `--sanitize-env` flag or enable the `SanitizeEnv`
+option to run the helper with a minimal, whitelisted environment that drops
+`LD_PRELOAD` and similar variables and enforces a safe `PATH`. Sanitization is
+disabled by default to avoid surprising behavior in mixed environments.
+
 ## Risks of raw-device writes
 
 Granting raw-device access lets the helper overwrite any block on the target. A misconfigured path or bug could destroy unrelated data. LVMSync mitigates this risk by:

@@ -14,8 +14,7 @@ func TestEnsureRootOrReexec_SudoMissing(t *testing.T) {
 	}
 	t.Setenv("PATH", "/nonexistent")
 	_, err := EnsureRootOrReexec(Options{
-		Geteuid:     func() int { return 1000 },
-		SanitizeEnv: false,
+		Geteuid: func() int { return 1000 },
 	})
 	if err == nil || !strings.Contains(err.Error(), "sudo not found") {
 		t.Fatalf("expected sudo not found error, got %v", err)

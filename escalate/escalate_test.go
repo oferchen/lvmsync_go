@@ -249,7 +249,7 @@ func TestEnsureRootOrReexec_DropsDisallowedFlags(t *testing.T) {
 	}
 }
 
-func TestEnsureRootOrReexec_DefaultSanitizedEnv(t *testing.T) {
+func TestEnsureRootOrReexec_SanitizedEnv(t *testing.T) {
 	var got execCall
 	t.Setenv("LD_PRELOAD", "/tmp/x.so")
 	t.Setenv("LANG", "C")
@@ -278,14 +278,13 @@ func TestEnsureRootOrReexec_DefaultSanitizedEnv(t *testing.T) {
 	}
 }
 
-func TestEnsureRootOrReexec_UnsanitizedEnv(t *testing.T) {
+func TestEnsureRootOrReexec_DefaultUnsanitizedEnv(t *testing.T) {
 	var got execCall
 	t.Setenv("LD_PRELOAD", "/tmp/x.so")
 	reexeced, err := EnsureRootOrReexec(Options{
-		Geteuid:     func() int { return 1000 },
-		LookPath:    func(string) (string, error) { return "/usr/bin/sudo", nil },
-		SanitizeEnv: false,
-		ExecRunner:  fakeRunner(&got, nil),
+		Geteuid:    func() int { return 1000 },
+		LookPath:   func(string) (string, error) { return "/usr/bin/sudo", nil },
+		ExecRunner: fakeRunner(&got, nil),
 	})
 	if err != nil || !reexeced {
 		t.Fatalf("unexpected result: %v %v", reexeced, err)

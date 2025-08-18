@@ -44,7 +44,7 @@ type Options struct {
 	AllowedPassthrough map[string]bool
 	// ExtraArgs, if set, are appended after the self path (e.g., a subcommand).
 	ExtraArgs []string
-	// SanitizeEnv (default true) uses a hardened child environment.
+	// SanitizeEnv (default false) uses a hardened child environment.
 	SanitizeEnv bool
 
 	// Dependency seams (optional; default to real OS functions):
@@ -102,7 +102,6 @@ func EnsureRootOrReexec(opts Options) (bool, error) {
 	var env []string
 	switch {
 	case opts.SanitizeEnv:
-		// Default is true unless explicitly false.
 		if opts.Environ != nil {
 			env = sanitizedChildEnv(opts.Environ())
 		} else {
@@ -110,9 +109,6 @@ func EnsureRootOrReexec(opts Options) (bool, error) {
 		}
 	case opts.Environ != nil:
 		env = opts.Environ()
-	default:
-		// SanitizeEnv explicitly false and no custom Environ: inherit the
-		// current environment by leaving env nil.
 	}
 
 	stdin := opts.Stdin // nil by default (no TTY password prompts)
