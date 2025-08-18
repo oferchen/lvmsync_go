@@ -1,7 +1,7 @@
-// Package rsynkwire implements a length-prefixed framing protocol with CRC32C
+// Package rsyncwire implements a length-prefixed framing protocol with CRC32C
 // for streaming rsync data. Frames larger than the configured maximum cause
 // Send and Recv to return an error.
-package rsynkwire
+package rsyncwire
 
 import (
 	"bytes"

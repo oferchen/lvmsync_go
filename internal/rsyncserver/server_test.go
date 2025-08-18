@@ -1,4 +1,4 @@
-package rsynkserver
+package rsyncserver
 
 import (
 	"bytes"
@@ -15,7 +15,7 @@ import (
 	"go.uber.org/zap"
 
 	"lvmsync_go/internal/digest"
-	"lvmsync_go/internal/rsynkwire"
+	"lvmsync_go/internal/rsyncwire"
 	"lvmsync_go/internal/signaturecache"
 )
 
@@ -79,9 +79,9 @@ func TestHandleApplyDelta(t *testing.T) {
 	srv := newServer(t, dev, data)
 	ctx := context.Background()
 	errCh := make(chan error, 1)
-	go func() { errCh <- srv.Handle(ctx, rsynkwire.NewStream(c2, maxFrame)) }()
+	go func() { errCh <- srv.Handle(ctx, rsyncwire.NewStream(c2, maxFrame)) }()
 
-	cl := rsynkwire.NewClient(rsynkwire.NewStream(c1, maxFrame))
+	cl := rsyncwire.NewClient(rsyncwire.NewStream(c1, maxFrame))
 	if err := cl.SendDelta(0, data); err != nil {
 		t.Fatalf("SendDelta: %v", err)
 	}
@@ -106,9 +106,9 @@ func TestHandleShortWrite(t *testing.T) {
 	srv := newServer(t, dev, []byte("hi"))
 	ctx := context.Background()
 	errCh := make(chan error, 1)
-	go func() { errCh <- srv.Handle(ctx, rsynkwire.NewStream(c2, maxFrame)) }()
+	go func() { errCh <- srv.Handle(ctx, rsyncwire.NewStream(c2, maxFrame)) }()
 
-	cl := rsynkwire.NewClient(rsynkwire.NewStream(c1, maxFrame))
+	cl := rsyncwire.NewClient(rsyncwire.NewStream(c1, maxFrame))
 	if err := cl.SendDelta(0, []byte("hi")); err != nil {
 		t.Fatalf("SendDelta: %v", err)
 	}
@@ -128,7 +128,7 @@ func TestHandleRejectsOversizedSignatures(t *testing.T) {
 	srv := New(dev, zap.NewNop(), nil, "", "")
 	ctx := context.Background()
 	errCh := make(chan error, 1)
-	go func() { errCh <- srv.Handle(ctx, rsynkwire.NewStream(c2, maxFrame)) }()
+	go func() { errCh <- srv.Handle(ctx, rsyncwire.NewStream(c2, maxFrame)) }()
 
 	var buf bytes.Buffer
 	buf.WriteByte('S')
@@ -140,7 +140,7 @@ func TestHandleRejectsOversizedSignatures(t *testing.T) {
 	buf.WriteByte(0)
 	binary.Write(&buf, binary.LittleEndian, int32(0))
 	buf.WriteByte(0)
-	if err := rsynkwire.NewStream(c1, maxFrame).Send(buf.Bytes()); err != nil {
+	if err := rsyncwire.NewStream(c1, maxFrame).Send(buf.Bytes()); err != nil {
 		t.Fatalf("Send: %v", err)
 	}
 	c1.Close()
@@ -168,14 +168,14 @@ func TestHandleCacheHit(t *testing.T) {
 	defer c2.Close()
 	ctx := context.Background()
 	errCh := make(chan error, 1)
-	go func() { errCh <- srv.Handle(ctx, rsynkwire.NewStream(c2, maxFrame)) }()
+	go func() { errCh <- srv.Handle(ctx, rsyncwire.NewStream(c2, maxFrame)) }()
 
 	var buf bytes.Buffer
 	buf.WriteByte('G')
 	buf.WriteByte(byte(len(digest.SHA256)))
 	buf.WriteString(digest.SHA256)
 	buf.Write(dgst[:])
-	if err := rsynkwire.NewStream(c1, maxFrame).Send(buf.Bytes()); err != nil {
+	if err := rsyncwire.NewStream(c1, maxFrame).Send(buf.Bytes()); err != nil {
 		t.Fatalf("Send: %v", err)
 	}
 	c1.Close()
@@ -202,8 +202,8 @@ func TestHandleCacheMissUpdates(t *testing.T) {
 	defer c2.Close()
 	ctx := context.Background()
 	errCh := make(chan error, 1)
-	go func() { errCh <- srv.Handle(ctx, rsynkwire.NewStream(c2, maxFrame)) }()
-	stream := rsynkwire.NewStream(c1, maxFrame)
+	go func() { errCh <- srv.Handle(ctx, rsyncwire.NewStream(c2, maxFrame)) }()
+	stream := rsyncwire.NewStream(c1, maxFrame)
 
 	var gbuf bytes.Buffer
 	gbuf.WriteByte('G')
@@ -213,7 +213,7 @@ func TestHandleCacheMissUpdates(t *testing.T) {
 	if err := stream.Send(gbuf.Bytes()); err != nil {
 		t.Fatalf("Send digest: %v", err)
 	}
-	if err := rsynkwire.NewClient(stream).SendDelta(0, data); err != nil {
+	if err := rsyncwire.NewClient(stream).SendDelta(0, data); err != nil {
 		t.Fatalf("SendDelta: %v", err)
 	}
 	c1.Close()
@@ -250,13 +250,13 @@ func TestHandleCacheTTLExpiry(t *testing.T) {
 	defer c2.Close()
 	ctx := context.Background()
 	errCh := make(chan error, 1)
-	go func() { errCh <- srv.Handle(ctx, rsynkwire.NewStream(c2, maxFrame)) }()
+	go func() { errCh <- srv.Handle(ctx, rsyncwire.NewStream(c2, maxFrame)) }()
 	var buf bytes.Buffer
 	buf.WriteByte('G')
 	buf.WriteByte(byte(len(digest.SHA256)))
 	buf.WriteString(digest.SHA256)
 	buf.Write(dgst[:])
-	if err := rsynkwire.NewStream(c1, maxFrame).Send(buf.Bytes()); err != nil {
+	if err := rsyncwire.NewStream(c1, maxFrame).Send(buf.Bytes()); err != nil {
 		t.Fatalf("Send: %v", err)
 	}
 	c1.Close()
@@ -282,13 +282,13 @@ func TestHandleCacheLRUEviction(t *testing.T) {
 		c1, c2 := net.Pipe()
 		ctx := context.Background()
 		errCh := make(chan error, 1)
-		go func() { errCh <- srv.Handle(ctx, rsynkwire.NewStream(c2, maxFrame)) }()
+		go func() { errCh <- srv.Handle(ctx, rsyncwire.NewStream(c2, maxFrame)) }()
 		var buf bytes.Buffer
 		buf.WriteByte('G')
 		buf.WriteByte(byte(len(digest.SHA256)))
 		buf.WriteString(digest.SHA256)
 		buf.Write(dgst[:])
-		if err := rsynkwire.NewStream(c1, maxFrame).Send(buf.Bytes()); err != nil {
+		if err := rsyncwire.NewStream(c1, maxFrame).Send(buf.Bytes()); err != nil {
 			t.Fatalf("Send: %v", err)
 		}
 		c1.Close()
