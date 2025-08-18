@@ -518,6 +518,14 @@ parallel: 4
 running `LVMSYNC_PARALLEL=8 lvmsync run --parallel 16` results in `parallel=16`
 because flags override environment variables, which override the config file.
 
+A similar hierarchy applies to duration values:
+
+```yaml
+retry_delay: 1s
+```
+
+Running `LVMSYNC_RETRY_DELAY=2s lvmsync run --retry-delay 3s` uses a retry delay of `3s`.
+
 Environment variables for the gRPC daemon use the `LVMSYNC_GRPC_` prefix with dashes converted to underscores, for example:
 
 ```sh
