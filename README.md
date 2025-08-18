@@ -20,7 +20,7 @@ For details on running with minimal privileges and sudoers examples, see [SECURI
 - **Deduplication Strategies**: Detect unchanged blocks using checksum, rolling hash, or a Bloom filter with optional FastCDC content-defined chunking and mmap-backed index.
 - **Hashing**: Hardware-accelerated XXH3 provides fast deduplication hints while BLAKE3 digests are stored in manifests for integrity.
 - **Remote Execution via SSH**: Replicates data over SSH with support for pre/post-scripts.
-- **Resume Support**: Ability to resume interrupted transfers and verify results with `--resume=verify`.
+- **Resume Support**: Ability to resume interrupted transfers with verification enabled by default (use `--verify=none` to skip).
 - **Probe and Verification Modes**: `--probe-only` validates devices and privileges without writing, while `--verify-only` scans both sides and reports mismatches.
 - **Dry-run Estimates**: `--dry-run` samples the manifest to project bytes and ETA without transferring data.
 - **Device Identity Tuple**: Each run records `(device_id, size_bytes, major:minor)` to prevent writing to the wrong destination.
@@ -48,6 +48,8 @@ For details on running with minimal privileges and sudoers examples, see [SECURI
 
 Transfers store the device identity tuple and compare it against the destination before writing. Mismatches abort the run to avoid accidental overwrites. Use `--force` to bypass this check when intentionally overwriting.
 
+- `--resume=statefile` continues an interrupted run (verification runs unless `--verify=none`).
+- `--verify-only` reads both devices and reports mismatches without writing data.
 **Resume after failure**
 ```sh
 lvmsync run --resume=statefile /dev/vg0/snap0 /dev/vg0/target
@@ -599,7 +601,8 @@ Flags override environment variables, which override `config.yaml` values.
 | `--numa-pin` | `LVMSYNC_NUMA_PIN` | `numa_pin` | Pin worker goroutines to device NUMA node |
 | `--max-retries` | `LVMSYNC_MAX_RETRIES` | `max_retries` | Maximum number of retries per block |
 | `--retry-delay` | `LVMSYNC_RETRY_DELAY` | `retry_delay` | Initial delay between retries |
-| `--resume` | `LVMSYNC_RESUME` | `resume` | Path to resume state file or `verify` to resume and verify (records dedup mode and last chunk boundary) |
+| `--resume` | `LVMSYNC_RESUME` | `resume` | Path to resume state file (verification runs unless `--verify=none`) |
+| `--verify-only` | `LVMSYNC_VERIFY_ONLY` | `verify_only` | Verify destination against source without writing data |
 | `--speed` | `LVMSYNC_SPEED` | `speed` | Transfer speed limit |
 | `--sync-interval` | `LVMSYNC_SYNC_INTERVAL` | `sync_interval` | Bytes between fdatasync calls (accepts size suffixes like `64KB`; invalid values error) |
 | `--checkpoint-bytes` | `LVMSYNC_CHECKPOINT_BYTES` | `checkpoint_bytes` | Bytes between resume checkpoints |
@@ -1048,7 +1051,10 @@ Flags are parsed via Viper, so the same settings can be provided through
 | `--max-retries`     | Maximum number of retries per block                                                                     | `3`       |
 | `--retry-delay`     | Initial delay between retries
 | `100ms`   |
-| `--resume`          | Path to resume state file or `verify` to resume and verify                                                                               | `""`      |
+| `--resume`          | Path to resume state file (verification runs unless `--verify=none`)
+                                 | `""`      |
+| `--verify-only`     | Verify destination against source without writing data
+                                 | `false`   |
 | `--speed`           | Transfer speed limit (e.g., `"100MB"`)                                                                  | `"100MB"` |
 | `-v, --verbose`     | Verbosity level (e.g., `-v`, `-vv`, `-vvv`)                                                             | `0`       |
 | `--verify-checksum` | Enable checksum verification for data integrity                                                         | `false`   |

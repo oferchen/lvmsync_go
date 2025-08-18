@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"os"
+	"strings"
 	"path/filepath"
 	"time"
 
@@ -150,6 +151,10 @@ func readResumeState(cfg *config.Config, logger *zap.Logger, size uint64, device
 	if cp, ok := loadResumeState(cfg.ResumeState, cfg, size, deviceID, epoch, digest, logger); ok {
 		return cp
 	}
+	if strings.ToLower(cfg.VerifyLevel) != "none" {
+		cfg.ResumeVerify = true
+	}
+	data, err := os.ReadFile(cfg.ResumeState)
 	return resumeCheckpoint{}
 }
 
