@@ -145,3 +145,12 @@ func TestMapExitCode(t *testing.T) {
 		})
 	}
 }
+
+func TestRunNilLoggerPanics(t *testing.T) {
+	defer func() {
+		if recover() == nil {
+			t.Fatalf("expected panic")
+		}
+	}()
+	run([]string{}, nil)
+}

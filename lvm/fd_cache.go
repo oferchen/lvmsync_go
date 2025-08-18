@@ -32,7 +32,7 @@ func NewFDCache(size int, logger *zap.Logger) *FDCache {
 		size = fdCacheSize
 	}
 	if logger == nil {
-		logger = zap.NewNop()
+		panic("nil logger")
 	}
 	return &FDCache{
 		fds:    make(map[string]*list.Element, size),
@@ -50,7 +50,7 @@ func NewDeviceFDCache(logger *zap.Logger) *FDCache {
 // SetLogger updates the logger used by the cache.
 func (c *FDCache) SetLogger(logger *zap.Logger) {
 	if logger == nil {
-		logger = zap.NewNop()
+		panic("nil logger")
 	}
 	c.logger = logger
 }

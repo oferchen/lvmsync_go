@@ -128,6 +128,15 @@ func TestVerifyWithManifestAllocations(t *testing.T) {
 	}
 }
 
+func TestRunNilLoggerPanics(t *testing.T) {
+	defer func() {
+		if recover() == nil {
+			t.Fatalf("expected panic")
+		}
+	}()
+	Run([]string{"--dry-run", "src", "dst"}, nil)
+}
+
 func TestVerifyDevicesRebuildsManifest(t *testing.T) {
 	dir := t.TempDir()
 	src := filepath.Join(dir, "src")

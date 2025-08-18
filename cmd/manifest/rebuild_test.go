@@ -178,12 +178,26 @@ func TestRunMissingArgs(t *testing.T) {
 					t.Fatalf("expected failure for args %v", tc.args)
 				}
 			}()
-			runErr = Run(cfg, tc.args, nil)
+			runErr = Run(cfg, tc.args, zap.NewNop())
 			if runErr == nil {
 				t.Fatalf("expected failure for args %v", tc.args)
 			}
 		})
 	}
+}
+
+func TestRunNilLoggerPanics(t *testing.T) {
+	cfg, err := config.DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	r := NewRunner()
+	defer func() {
+		if recover() == nil {
+			t.Fatalf("expected panic")
+		}
+	}()
+	r.Run(cfg, []string{"rebuild", "/dev/test"}, nil)
 }
 
 func TestRunAppliesManifestTimeout(t *testing.T) {
@@ -197,7 +211,7 @@ func TestRunAppliesManifestTimeout(t *testing.T) {
 		captured = ctx
 		return nil
 	})
-	if err := r.Run(cfg, []string{"rebuild", "/dev/test"}, nil); err != nil {
+	if err := r.Run(cfg, []string{"rebuild", "/dev/test"}, zap.NewNop()); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 	if _, ok := captured.Deadline(); !ok {
@@ -216,7 +230,7 @@ func TestRunZeroManifestTimeoutUsesBackground(t *testing.T) {
 		captured = ctx
 		return nil
 	})
-	if err := r.Run(cfg, []string{"rebuild", "/dev/test"}, nil); err != nil {
+	if err := r.Run(cfg, []string{"rebuild", "/dev/test"}, zap.NewNop()); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 	if _, ok := captured.Deadline(); ok {
