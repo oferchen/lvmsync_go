@@ -46,7 +46,7 @@ For details on running with minimal privileges and sudoers examples, see [SECURI
 
 Transfers store the device identity tuple and compare it against the destination before writing. Mismatches abort the run to avoid accidental overwrites. Use `--force` to bypass this check when intentionally overwriting.
 
-- `--resume statefile` continues an interrupted run.
+- `--resume=statefile` continues an interrupted run.
 - `--resume=verify` resumes the copy and then performs a verification pass.
 
 For snapshot workflow, resume modes, verification-only runs, and recovery guidance, see [operations guide](OPERATIONS.md).
@@ -173,7 +173,7 @@ listener options.
 Resume interrupted transfers with a state file:
 
 ```sh
-lvmsync run --resume statefile /dev/vg0/snap0 /dev/vg0/data
+lvmsync run --resume=statefile /dev/vg0/snap0 /dev/vg0/data
 ```
 
 Generate a manifest and verify a destination:
@@ -578,7 +578,7 @@ Flags override environment variables, which override `config.yaml` values.
 | `--numa-pin` | `LVMSYNC_NUMA_PIN` | `numa_pin` | Pin worker goroutines to device NUMA node |
 | `--max-retries` | `LVMSYNC_MAX_RETRIES` | `max_retries` | Maximum number of retries per block |
 | `--retry-delay` | `LVMSYNC_RETRY_DELAY` | `retry_delay` | Initial delay between retries |
-| `--resume` | `LVMSYNC_RESUME` | `resume` | Path to resume state file (records dedup mode and last chunk boundary) |
+| `--resume` | `LVMSYNC_RESUME` | `resume` | Path to resume state file or `verify` to resume and verify (records dedup mode and last chunk boundary) |
 | `--speed` | `LVMSYNC_SPEED` | `speed` | Transfer speed limit |
 | `--sync-interval` | `LVMSYNC_SYNC_INTERVAL` | `sync_interval` | Bytes between fdatasync calls (accepts size suffixes like `64KB`; invalid values error) |
 | `--checkpoint-bytes` | `LVMSYNC_CHECKPOINT_BYTES` | `checkpoint_bytes` | Bytes between resume checkpoints |
@@ -974,7 +974,7 @@ format and rebuild options.
 Resume an interrupted transfer using a checkpointed state file:
 
 ```sh
-lvmsync run --resume statefile /dev/vg0/snap0 /dev/vg0/data
+lvmsync run --resume=statefile /dev/vg0/snap0 /dev/vg0/data
 ```
 
 Rebuild a manifest index for an existing device. The command verifies the
@@ -1025,7 +1025,7 @@ Flags are parsed via Viper, so the same settings can be provided through
 | `--max-retries`     | Maximum number of retries per block                                                                     | `3`       |
 | `--retry-delay`     | Initial delay between retries
 | `100ms`   |
-| `--resume`          | Path to resume state file                                                                               | `""`      |
+| `--resume`          | Path to resume state file or `verify` to resume and verify                                                                               | `""`      |
 | `--speed`           | Transfer speed limit (e.g., `"100MB"`)                                                                  | `"100MB"` |
 | `-v, --verbose`     | Verbosity level (e.g., `-v`, `-vv`, `-vvv`)                                                             | `0`       |
 | `--verify-checksum` | Enable checksum verification for data integrity                                                         | `false`   |
@@ -1190,7 +1190,7 @@ lvmsync run --speed 50MB /dev/vg0/snap0 /dev/vg0/data
 Resume an interrupted transfer using a resume state file. The file records the last chunk boundaries and digests for fixed, CDC, and hybrid modes. Progress is checkpointed every `--checkpoint-bytes` or `--checkpoint-interval`, and the resume file is removed on successful completion. Changing the transport, compression, checksum algorithm, or dedup mode invalidates the checkpoint:
 
 ```sh
-lvmsync run --resume statefile /dev/vg0/snap0 /dev/vg0/data
+lvmsync run --resume=statefile /dev/vg0/snap0 /dev/vg0/data
 ```
 
 #### Full LVM Operation Example
@@ -1254,7 +1254,7 @@ Unused or unknown keys in the YAML file produce runtime warnings to surface typo
 CLI:
 
 ```sh
-lvmsync run --parallel 8 --resume statefile /dev/vg0/snap0 /dev/vg0/data
+lvmsync run --parallel 8 --resume=statefile /dev/vg0/snap0 /dev/vg0/data
 ```
 
 Environment:

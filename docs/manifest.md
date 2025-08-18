@@ -145,7 +145,7 @@ lvmsync verify /dev/vg0/snap0 /dev/null
 
 | Flag | Environment variable | Config key | Description |
 |------|----------------------|------------|-------------|
-| `--resume` | `LVMSYNC_RESUME` | `resume` | Path to resume state file |
+| `--resume` | `LVMSYNC_RESUME` | `resume` | Path to resume state file or `verify` to resume and verify |
 | `--verify-checksum` | `LVMSYNC_VERIFY_CHECKSUM` | `verify_checksum` | Enable checksum verification |
 | `--digest` | `LVMSYNC_DIGEST` | `digest` | Digest algorithm: `auto`, `blake3`, or `sha256` |
 

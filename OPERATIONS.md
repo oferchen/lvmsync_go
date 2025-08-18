@@ -7,7 +7,7 @@ This guide outlines exit codes, resume workflows, and common troubleshooting ste
 ### `--resume`
 
 ```sh
-lvmsync run --resume statefile /dev/vg0/snap0 /dev/vg0/target
+lvmsync run --resume=statefile /dev/vg0/snap0 /dev/vg0/target
 ```
 
 1. Load the resume state and validate settings.

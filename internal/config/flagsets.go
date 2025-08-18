@@ -8,6 +8,8 @@ import (
 	"github.com/spf13/viper"
 )
 
+const defaultResumeState = "resume.json"
+
 // FlagSets groups the flag sets for different configuration areas.
 type FlagSets struct {
 	General     *pflag.FlagSet
@@ -70,7 +72,7 @@ func initGeneralFlags(cfg *Config) *pflag.FlagSet {
 	fs.Bool("numa-pin", cfg.NumaPin, "Pin worker goroutines to device NUMA node")
 	fs.Int("max-retries", cfg.MaxRetries, "Maximum number of retries per block")
 	fs.Duration("retry-delay", cfg.RetryDelay, "Initial delay between retries")
-	fs.String("resume", cfg.ResumeState, "Path to resume state file")
+	fs.String("resume", cfg.ResumeState, "Path to resume state file or 'verify' to resume and verify")
 	fs.String("speed", cfg.Speed, "Transfer speed limit")
 	fs.String("sync-interval", cfg.SyncInterval, "Bytes between fdatasync calls")
 	fs.String("checkpoint-bytes", cfg.CheckpointBytesRaw, "Bytes between resume checkpoints")
