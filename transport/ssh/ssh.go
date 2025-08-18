@@ -40,7 +40,6 @@ var (
 type Transport struct {
 	serverConf *ssh.ServerConfig
 	clientConf *ssh.ClientConfig
-	hostSigner ssh.Signer
 	logger     *zap.Logger
 }
 
@@ -90,8 +89,6 @@ func New(ctx context.Context, cfg transport.Config) (transport.Interface, error)
 		if err != nil {
 			return nil, err
 		}
-	} else {
-		return nil, fmt.Errorf("host key path required when allow_insecure is false")
 	}
 
 	serverConf := &ssh.ServerConfig{
@@ -102,7 +99,9 @@ func New(ctx context.Context, cfg transport.Config) (transport.Interface, error)
 			return nil, fmt.Errorf("authentication failed")
 		},
 	}
-	serverConf.AddHostKey(hostSigner)
+	if hostSigner != nil {
+		serverConf.AddHostKey(hostSigner)
+	}
 	if keySigner != nil {
 		serverConf.PublicKeyCallback = func(c ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
 			if c.User() == cfg.SSHUser && bytes.Equal(key.Marshal(), keySigner.PublicKey().Marshal()) {
@@ -140,7 +139,10 @@ func New(ctx context.Context, cfg transport.Config) (transport.Interface, error)
 		if sock := os.Getenv("SSH_AUTH_SOCK"); sock != "" {
 			agentCtx, cancel := context.WithTimeout(ctx, defaultDialTimeout)
 			defer cancel()
-			if signers, err := agentSigners(agentCtx, sock); err == nil && len(signers) > 0 {
+			signers, err := agentSigners(agentCtx, sock)
+			if err != nil {
+				cfg.Logger.Warn("ssh_agent_unreachable", zap.String("transport", "ssh"), zap.Error(err))
+			} else if len(signers) > 0 {
 				auths = append(auths, ssh.PublicKeys(signers...))
 			}
 		}
@@ -158,7 +160,7 @@ func New(ctx context.Context, cfg transport.Config) (transport.Interface, error)
 		HostKeyCallback: hkc,
 	}
 
-	return &Transport{serverConf: serverConf, clientConf: clientConf, hostSigner: hostSigner, logger: cfg.Logger}, nil
+	return &Transport{serverConf: serverConf, clientConf: clientConf, logger: cfg.Logger}, nil
 }
 
 func agentSigners(ctx context.Context, sock string) ([]ssh.Signer, error) {
@@ -274,6 +276,17 @@ func (t *Transport) Listen(ctx context.Context, address string) (net.Listener, e
 		zap.Int64("duration_ms", 0),
 	)
 	start := time.Now()
+	if t.hostSigner == nil {
+		err := fmt.Errorf("host key not configured")
+		fields := []zap.Field{
+			zap.String("address", address),
+			zap.String("role", role),
+			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+			zap.Error(err),
+		}
+		t.logger.Error("listen_end", fields...)
+		return nil, err
+	}
 	lc := net.ListenConfig{}
 	tcpLn, err := lc.Listen(ctx, "tcp", address)
 	fields := []zap.Field{

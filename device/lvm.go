@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
 
@@ -31,11 +32,10 @@ type LVMDevice struct {
 
 // OpenLVM opens an LVM logical volume and queries its size and block size.
 // Size information is obtained through the lvm package helpers.
-func (r *Runner) OpenLVM(path string, cache *lvm.FDCache, escalation string, logger *zap.Logger) (*LVMDevice, error) {
+func (r *Runner) OpenLVM(ctx context.Context, path string, cache *lvm.FDCache, escalation string, logger *zap.Logger) (*LVMDevice, error) {
 	if r.openLVMOverride != nil {
-		return r.openLVMOverride(path, cache, escalation, logger)
+		return r.openLVMOverride(ctx, path, cache, escalation, logger)
 	}
-	ctx := context.Background()
 	exists, err := r.volumeExists(ctx, path)
 	if err != nil {
 		return nil, err
@@ -101,12 +101,26 @@ func (d *LVMDevice) SizeBytes() uint64 { return d.size }
 // BlockSize returns the logical block size in bytes.
 func (d *LVMDevice) BlockSize() uint64 { return d.blockSize }
 
-// Close closes the device.
+// Close closes the device and releases the lock if present.
 func (d *LVMDevice) Close() error {
+	var err error
 	if d.f != nil {
-		return d.f.Close()
+		if cerr := d.f.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+			d.logger.Error("lvm_device_close_failed", zap.String("path", d.path), zap.Error(cerr))
+		} else {
+			d.logger.Info("lvm_device_closed", zap.String("path", d.path))
+		}
+		d.f = nil
 	}
-	return nil
+	if d.lock != nil {
+		if rerr := d.lock.Release(); rerr != nil {
+			err = multierr.Append(err, rerr)
+			d.logger.Error("lvm_device_lock_release_failed", zap.String("path", d.path), zap.Error(rerr))
+		}
+		d.lock = nil
+	}
+	return err
 }
 
 var (
@@ -119,7 +133,10 @@ func (r *Runner) runLVM(ctx context.Context, escalation, cmdName string, args ..
 		return err
 	}
 	if geteuid() != 0 {
-		parts := strings.Fields(escalation)
+		parts, err := lvm.ParseEscalation(escalation)
+		if err != nil {
+			return err
+		}
 		if len(parts) > 0 {
 			lvmCmd := cmdName
 			cmdName = parts[0]
@@ -152,7 +169,7 @@ func (d *LVMDevice) Snapshot(ctx context.Context, snapshotSize string) (Device, 
 	}
 	cache := lvm.NewDeviceFDCache(d.logger)
 	defer cache.Close()
-	snapDev, err := d.runner.OpenLVM(snapPath, cache, d.escalation, d.logger)
+	snapDev, err := d.runner.OpenLVM(ctx, snapPath, cache, d.escalation, d.logger)
 	if err != nil {
 		_ = d.runner.runLVM(ctx, d.escalation, "lvremove", "-f", snapPath)
 		return nil, err

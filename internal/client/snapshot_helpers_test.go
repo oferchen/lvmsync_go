@@ -15,13 +15,11 @@ import (
 func TestCalculateSnapshotSize(t *testing.T) {
 	t.Run("valid", func(t *testing.T) {
 		cfg := &config.Config{SnapshotSize: "1024"}
-		origParse := parseSnapshotSize
-		parseSnapshotSize = func(string, string, *lvm.FDCache, *zap.Logger) (uint64, error) { return 1024, nil }
-		defer func() { parseSnapshotSize = origParse }()
+		r := NewRunnerWithDeps(func(string, string, *lvm.FDCache, *zap.Logger) (uint64, error) { return 1024, nil }, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 
 		cache := lvm.NewDeviceFDCache(zap.NewNop())
 		defer cache.Close()
-		size, err := calculateSnapshotSize(cfg, "/dev/vg/lv", cache, zap.NewNop())
+		size, err := r.calculateSnapshotSize(cfg, "/dev/vg/lv", cache, zap.NewNop())
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -32,13 +30,11 @@ func TestCalculateSnapshotSize(t *testing.T) {
 
 	t.Run("invalid", func(t *testing.T) {
 		cfg := &config.Config{SnapshotSize: "bad"}
-		origParse := parseSnapshotSize
-		parseSnapshotSize = func(string, string, *lvm.FDCache, *zap.Logger) (uint64, error) { return 0, errors.New("bad") }
-		defer func() { parseSnapshotSize = origParse }()
+		r := NewRunnerWithDeps(func(string, string, *lvm.FDCache, *zap.Logger) (uint64, error) { return 0, errors.New("bad") }, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 
 		cache := lvm.NewDeviceFDCache(zap.NewNop())
 		defer cache.Close()
-		if _, err := calculateSnapshotSize(cfg, "/dev/vg/lv", cache, zap.NewNop()); err == nil {
+		if _, err := r.calculateSnapshotSize(cfg, "/dev/vg/lv", cache, zap.NewNop()); err == nil {
 			t.Fatalf("expected error for invalid size")
 		}
 	})
@@ -51,7 +47,8 @@ func TestEnsureVolumeGroups(t *testing.T) {
 
 	t.Run("sets missing volume group", func(t *testing.T) {
 		cfg := &config.Config{}
-		if err := ensureVolumeGroups(context.Background(), cfg, "/dev/sourcevg/lv1", cache, logger); err != nil {
+		r := NewRunner()
+		if err := r.ensureVolumeGroups(context.Background(), cfg, "/dev/sourcevg/lv1", cache, logger); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		if cfg.VolumeGroup != "sourcevg" {
@@ -61,7 +58,8 @@ func TestEnsureVolumeGroups(t *testing.T) {
 
 	t.Run("preserves existing volume group", func(t *testing.T) {
 		cfg := &config.Config{VolumeGroup: "existing"}
-		if err := ensureVolumeGroups(context.Background(), cfg, "/dev/othervg/lv", cache, logger); err != nil {
+		r := NewRunner()
+		if err := r.ensureVolumeGroups(context.Background(), cfg, "/dev/othervg/lv", cache, logger); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		if cfg.VolumeGroup != "existing" {
@@ -75,14 +73,16 @@ func TestCheckDiskSpaceForSnapshot(t *testing.T) {
 
 	t.Run("sufficient", func(t *testing.T) {
 		cfg := &config.Config{SkipDiskCheck: false}
-		if err := checkDiskSpaceForSnapshot(cfg, 1, logger); err != nil {
+		r := NewRunner()
+		if err := r.checkDiskSpaceForSnapshot(cfg, 1, logger); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})
 
 	t.Run("insufficient", func(t *testing.T) {
 		cfg := &config.Config{SkipDiskCheck: false}
-		if err := checkDiskSpaceForSnapshot(cfg, math.MaxUint64, logger); err == nil {
+		r := NewRunner()
+		if err := r.checkDiskSpaceForSnapshot(cfg, math.MaxUint64, logger); err == nil {
 			t.Fatalf("expected error for insufficient space")
 		}
 	})

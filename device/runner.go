@@ -29,7 +29,7 @@ type Runner struct {
 	discardEnabled    func(context.Context, string) (bool, error)
 	isMountedRW       func(context.Context, string) (bool, error)
 	lockAcquire       func(string, string) (*lock.Lock, error)
-	openLVMOverride   func(string, *lvm.FDCache, string, *zap.Logger) (*LVMDevice, error)
+	openLVMOverride   func(context.Context, string, *lvm.FDCache, string, *zap.Logger) (*LVMDevice, error)
 }
 
 // NewDeviceRunner returns a Runner using production dependencies and the provided Commander.
@@ -43,7 +43,7 @@ func NewDeviceRunner(cmd Commander) *Runner {
 		volumeExists:      lvm.VolumeExists,
 		autoExtendEnabled: lvm.AutoExtendEnabled,
 		discardEnabled:    lvm.DiscardEnabled,
-		isMountedRW:       IsMountedRW,
+		isMountedRW:       defaultIsMountedRW,
 		lockAcquire:       lock.Acquire,
 	}
 }
@@ -72,4 +72,16 @@ func NewRunnerWithDeps(
 		isMountedRW:       isMountedRW,
 		lockAcquire:       lockAcquire,
 	}
+}
+
+func defaultIsMountedRW(ctx context.Context, path string) (bool, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if _, ok := ctx.Deadline(); !ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, mountTimeout)
+		defer cancel()
+	}
+	return defaultMountFunc(ctx, path)
 }

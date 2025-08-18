@@ -40,17 +40,16 @@ func (f *fakeServer) GracefulStop()            { f.stopped.Store(true) }
 func TestStartGRPCServerSuccess(t *testing.T) {
 	cfg := &config.Config{GRPCListen: "127.0.0.1:0"}
 	logger := zap.NewNop()
-	origListen := listen
-	origNewServer := newServer
-	defer func() { listen = origListen; newServer = origNewServer }()
-	listen = func(network, addr string) (net.Listener, error) { return &fakeListener{}, nil }
 	srv := &fakeServer{}
-	newServer = func(conf grpcserver.Config, agent lvmlib.Agent, _ *zap.Logger) (grpcServer, func(), error) {
-		return srv, func() {}, nil
-	}
+	r := NewRunnerWithDeps(&Runner{
+		listen: func(network, addr string) (net.Listener, error) { return &fakeListener{}, nil },
+		newServer: func(conf grpcserver.Config, agent lvmlib.Agent, _ *zap.Logger) (grpcServer, func(), error) {
+			return srv, func() {}, nil
+		},
+	})
 
 	ctx, cancel := context.WithCancel(context.Background())
-	cleanup, errCh, err := StartGRPCServer(ctx, cfg, logger)
+	cleanup, errCh, err := r.StartGRPCServer(ctx, cfg, logger)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -71,11 +70,11 @@ func TestStartGRPCServerSuccess(t *testing.T) {
 func TestStartGRPCServerListenError(t *testing.T) {
 	cfg := &config.Config{GRPCListen: "bad"}
 	logger := zap.NewNop()
-	origListen := listen
-	defer func() { listen = origListen }()
-	listen = func(network, addr string) (net.Listener, error) { return nil, errors.New("boom") }
+	r := NewRunnerWithDeps(&Runner{
+		listen: func(network, addr string) (net.Listener, error) { return nil, errors.New("boom") },
+	})
 
-	if _, _, err := StartGRPCServer(context.Background(), cfg, logger); err == nil {
+	if _, _, err := r.StartGRPCServer(context.Background(), cfg, logger); err == nil {
 		t.Fatalf("expected error")
 	}
 }
@@ -83,15 +82,14 @@ func TestStartGRPCServerListenError(t *testing.T) {
 func TestStartGRPCServerServeError(t *testing.T) {
 	cfg := &config.Config{GRPCListen: "127.0.0.1:0"}
 	logger := zap.NewNop()
-	origListen := listen
-	origNewServer := newServer
-	defer func() { listen = origListen; newServer = origNewServer }()
-	listen = func(network, addr string) (net.Listener, error) { return &fakeListener{}, nil }
 	srvErr := errors.New("serve boom")
-	newServer = func(conf grpcserver.Config, agent lvmlib.Agent, _ *zap.Logger) (grpcServer, func(), error) {
-		return &failingServer{err: srvErr}, func() {}, nil
-	}
-	cleanup, errCh, err := StartGRPCServer(context.Background(), cfg, logger)
+	r := NewRunnerWithDeps(&Runner{
+		listen: func(network, addr string) (net.Listener, error) { return &fakeListener{}, nil },
+		newServer: func(conf grpcserver.Config, agent lvmlib.Agent, _ *zap.Logger) (grpcServer, func(), error) {
+			return &failingServer{err: srvErr}, func() {}, nil
+		},
+	})
+	cleanup, errCh, err := r.StartGRPCServer(context.Background(), cfg, logger)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -132,26 +130,18 @@ func TestClientHandshakeSuccess(t *testing.T) {
 
 	fc := &fakeConn{}
 	fs := &fakeStream{}
-	origDial := dial
-	origHandshake := handshake
-	origCreateSession := createSession
-	origAckStream := ackStream
-	defer func() {
-		dial = origDial
-		handshake = origHandshake
-		createSession = origCreateSession
-		ackStream = origAckStream
-	}()
-	dial = func(context.Context, string, grpcclient.Config, *zap.Logger) (closeableConn, error) { return fc, nil }
-	handshake = func(context.Context, proto.ReplicationClient, *proto.HandshakeRequest) (*proto.HandshakeResponse, error) {
-		return &proto.HandshakeResponse{}, nil
-	}
-	createSession = func(context.Context, proto.ReplicationClient, string, string) (*proto.SessionResponse, error) {
-		return &proto.SessionResponse{SessionId: "id"}, nil
-	}
-	ackStream = func(context.Context, proto.ReplicationClient, string) (ackStreamClient, error) { return fs, nil }
+	r := NewRunnerWithDeps(&Runner{
+		dial: func(context.Context, string, grpcclient.Config, *zap.Logger) (closeableConn, error) { return fc, nil },
+		handshake: func(context.Context, proto.ReplicationClient, *proto.HandshakeRequest) (*proto.HandshakeResponse, error) {
+			return &proto.HandshakeResponse{}, nil
+		},
+		createSession: func(context.Context, proto.ReplicationClient, string, string) (*proto.SessionResponse, error) {
+			return &proto.SessionResponse{SessionId: "id"}, nil
+		},
+		ackStream: func(context.Context, proto.ReplicationClient, string) (ackStreamClient, error) { return fs, nil },
+	})
 
-	cleanup, hbErrCh, err := ClientHandshake(context.Background(), cfg, logger)
+	cleanup, hbErrCh, err := r.ClientHandshake(context.Background(), cfg, logger)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -167,13 +157,13 @@ func TestClientHandshakeSuccess(t *testing.T) {
 func TestClientHandshakeDialError(t *testing.T) {
 	cfg := &config.Config{GRPCConnect: "addr", GRPCDialTimeout: time.Second, HeartbeatInterval: time.Second, HeartbeatSendTimeout: time.Second}
 	logger := zap.NewNop()
-	origDial := dial
-	defer func() { dial = origDial }()
-	dial = func(context.Context, string, grpcclient.Config, *zap.Logger) (closeableConn, error) {
-		return nil, errors.New("dial fail")
-	}
+	r := NewRunnerWithDeps(&Runner{
+		dial: func(context.Context, string, grpcclient.Config, *zap.Logger) (closeableConn, error) {
+			return nil, errors.New("dial fail")
+		},
+	})
 
-	if _, _, err := ClientHandshake(context.Background(), cfg, logger); err == nil {
+	if _, _, err := r.ClientHandshake(context.Background(), cfg, logger); err == nil {
 		t.Fatalf("expected error")
 	}
 }
@@ -184,28 +174,20 @@ func TestClientHandshakeHeartbeatFailure(t *testing.T) {
 
 	fc := &fakeConn{}
 	fs := &failingStream{}
-	origDial := dial
-	origHandshake := handshake
-	origCreateSession := createSession
-	origAckStream := ackStream
-	defer func() {
-		dial = origDial
-		handshake = origHandshake
-		createSession = origCreateSession
-		ackStream = origAckStream
-	}()
-	dial = func(ctx context.Context, addr string, conf grpcclient.Config, logger *zap.Logger) (closeableConn, error) {
-		return fc, nil
-	}
-	handshake = func(context.Context, proto.ReplicationClient, *proto.HandshakeRequest) (*proto.HandshakeResponse, error) {
-		return &proto.HandshakeResponse{}, nil
-	}
-	createSession = func(context.Context, proto.ReplicationClient, string, string) (*proto.SessionResponse, error) {
-		return &proto.SessionResponse{SessionId: "id"}, nil
-	}
-	ackStream = func(context.Context, proto.ReplicationClient, string) (ackStreamClient, error) { return fs, nil }
+	r := NewRunnerWithDeps(&Runner{
+		dial: func(ctx context.Context, addr string, conf grpcclient.Config, logger *zap.Logger) (closeableConn, error) {
+			return fc, nil
+		},
+		handshake: func(context.Context, proto.ReplicationClient, *proto.HandshakeRequest) (*proto.HandshakeResponse, error) {
+			return &proto.HandshakeResponse{}, nil
+		},
+		createSession: func(context.Context, proto.ReplicationClient, string, string) (*proto.SessionResponse, error) {
+			return &proto.SessionResponse{SessionId: "id"}, nil
+		},
+		ackStream: func(context.Context, proto.ReplicationClient, string) (ackStreamClient, error) { return fs, nil },
+	})
 
-	cleanup, hbErrCh, err := ClientHandshake(context.Background(), cfg, logger)
+	cleanup, hbErrCh, err := r.ClientHandshake(context.Background(), cfg, logger)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -227,28 +209,20 @@ func TestClientHandshakeHeartbeatTimeout(t *testing.T) {
 	fc := &fakeConn{}
 	block := make(chan struct{})
 	fs := &blockingStream{block: block}
-	origDial := dial
-	origHandshake := handshake
-	origCreateSession := createSession
-	origAckStream := ackStream
-	defer func() {
-		dial = origDial
-		handshake = origHandshake
-		createSession = origCreateSession
-		ackStream = origAckStream
-	}()
-	dial = func(ctx context.Context, addr string, conf grpcclient.Config, logger *zap.Logger) (closeableConn, error) {
-		return fc, nil
-	}
-	handshake = func(context.Context, proto.ReplicationClient, *proto.HandshakeRequest) (*proto.HandshakeResponse, error) {
-		return &proto.HandshakeResponse{}, nil
-	}
-	createSession = func(context.Context, proto.ReplicationClient, string, string) (*proto.SessionResponse, error) {
-		return &proto.SessionResponse{SessionId: "id"}, nil
-	}
-	ackStream = func(context.Context, proto.ReplicationClient, string) (ackStreamClient, error) { return fs, nil }
+	r := NewRunnerWithDeps(&Runner{
+		dial: func(ctx context.Context, addr string, conf grpcclient.Config, logger *zap.Logger) (closeableConn, error) {
+			return fc, nil
+		},
+		handshake: func(context.Context, proto.ReplicationClient, *proto.HandshakeRequest) (*proto.HandshakeResponse, error) {
+			return &proto.HandshakeResponse{}, nil
+		},
+		createSession: func(context.Context, proto.ReplicationClient, string, string) (*proto.SessionResponse, error) {
+			return &proto.SessionResponse{SessionId: "id"}, nil
+		},
+		ackStream: func(context.Context, proto.ReplicationClient, string) (ackStreamClient, error) { return fs, nil },
+	})
 
-	cleanup, hbErrCh, err := ClientHandshake(context.Background(), cfg, logger)
+	cleanup, hbErrCh, err := r.ClientHandshake(context.Background(), cfg, logger)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -283,15 +257,13 @@ func TestSetupSignalHandling(t *testing.T) {
 	cfg := &config.Config{}
 	var path string
 	called := make(chan struct{})
-	origHandle := signalsHandler
-	defer func() { signalsHandler = origHandle }()
-	signalsHandler = signalspkg.HandlerFunc(func(ctx context.Context, cfg *config.Config, _ *zap.Logger, sigs <-chan os.Signal, p *string, errCh chan<- error) {
+	r := NewRunnerWithDeps(&Runner{signalsHandler: signalspkg.HandlerFunc(func(ctx context.Context, cfg *config.Config, _ *zap.Logger, sigs <-chan os.Signal, p *string, errCh chan<- error) {
 		<-sigs
 		*p = "set"
 		close(called)
-	})
+	})})
 	logger := zap.NewNop()
-	signals, sigErrCh := SetupSignalHandling(context.Background(), cfg, &path, logger)
+	signals, sigErrCh := r.SetupSignalHandling(context.Background(), cfg, &path, logger)
 	signals <- os.Interrupt
 	select {
 	case <-called:
@@ -314,13 +286,11 @@ func TestSetupSignalHandling(t *testing.T) {
 func TestSetupSignalHandlingError(t *testing.T) {
 	cfg := &config.Config{}
 	var path string
-	origHandle := signalsHandler
-	defer func() { signalsHandler = origHandle }()
-	signalsHandler = signalspkg.HandlerFunc(func(ctx context.Context, cfg *config.Config, _ *zap.Logger, sigs <-chan os.Signal, p *string, errCh chan<- error) {
+	r := NewRunnerWithDeps(&Runner{signalsHandler: signalspkg.HandlerFunc(func(ctx context.Context, cfg *config.Config, _ *zap.Logger, sigs <-chan os.Signal, p *string, errCh chan<- error) {
 		errCh <- errors.New("boom")
-	})
+	})})
 	logger := zap.NewNop()
-	_, sigErrCh := SetupSignalHandling(context.Background(), cfg, &path, logger)
+	_, sigErrCh := r.SetupSignalHandling(context.Background(), cfg, &path, logger)
 	if err := <-sigErrCh; err == nil {
 		t.Fatalf("expected error")
 	}
@@ -331,12 +301,10 @@ func TestSetupSignalHandlingError(t *testing.T) {
 func TestPrepareSnapshot(t *testing.T) {
 	cfg := &config.Config{}
 	logger := zap.NewNop()
-	orig := prepareSnapshot
-	defer func() { prepareSnapshot = orig }()
-	prepareSnapshot = func(ctx context.Context, c *config.Config, v string, l *zap.Logger) (string, chan error, func(), error) {
+	r := NewRunnerWithDeps(&Runner{prepareSnapshot: func(ctx context.Context, c *config.Config, v string, l *zap.Logger) (string, chan error, func(), error) {
 		return "snap", nil, func() {}, nil
-	}
-	snap, ch, cleanup, err := PrepareSnapshot(context.Background(), cfg, "vol", logger)
+	}})
+	snap, ch, cleanup, err := r.PrepareSnapshot(context.Background(), cfg, "vol", logger)
 	if err != nil || snap != "snap" || ch != nil || cleanup == nil {
 		t.Fatalf("unexpected result")
 	}
@@ -345,12 +313,10 @@ func TestPrepareSnapshot(t *testing.T) {
 func TestPrepareSnapshotError(t *testing.T) {
 	cfg := &config.Config{}
 	logger := zap.NewNop()
-	orig := prepareSnapshot
-	defer func() { prepareSnapshot = orig }()
-	prepareSnapshot = func(ctx context.Context, c *config.Config, v string, l *zap.Logger) (string, chan error, func(), error) {
+	r := NewRunnerWithDeps(&Runner{prepareSnapshot: func(ctx context.Context, c *config.Config, v string, l *zap.Logger) (string, chan error, func(), error) {
 		return "", nil, nil, errors.New("fail")
-	}
-	if _, _, _, err := PrepareSnapshot(context.Background(), cfg, "vol", logger); err == nil {
+	}})
+	if _, _, _, err := r.PrepareSnapshot(context.Background(), cfg, "vol", logger); err == nil {
 		t.Fatalf("expected error")
 	}
 }

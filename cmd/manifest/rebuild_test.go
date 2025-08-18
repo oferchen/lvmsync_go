@@ -37,8 +37,7 @@ func TestRunDefaultOutputPath(t *testing.T) {
 		t.Fatalf("write device: %v", err)
 	}
 
-	restore := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "uuid", nil })
-	defer device.SetUUIDFunc(restore)
+	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return "uuid", nil }, nil, nil, nil)
 
 	cfg, err := config.DefaultConfig()
 	if err != nil {
@@ -47,7 +46,11 @@ func TestRunDefaultOutputPath(t *testing.T) {
 
 	core, logs := observer.New(zap.InfoLevel)
 	logger := zap.New(core)
-	if err := Run(cfg, []string{"rebuild", devicePath}, logger); err != nil {
+	r := NewRunnerWithDeps(func(ctx context.Context, dev, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error {
+		opts = append(opts, manifestpkg.WithDeviceInfo(info))
+		return manifestpkg.Rebuild(ctx, dev, output, logger, interval, allow, cdcMin, cdcAvg, cdcMax, hybrid, opts...)
+	})
+	if err := r.Run(cfg, []string{"rebuild", devicePath}, logger); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 
@@ -77,8 +80,7 @@ func TestRunManifestPathFlag(t *testing.T) {
 		t.Fatalf("write device: %v", err)
 	}
 
-	restore := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "uuid", nil })
-	defer device.SetUUIDFunc(restore)
+	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return "uuid", nil }, nil, nil, nil)
 
 	cfg, err := config.DefaultConfig()
 	if err != nil {
@@ -89,7 +91,11 @@ func TestRunManifestPathFlag(t *testing.T) {
 	args := []string{"rebuild", "--manifest-path", outputPath, devicePath}
 	core, logs := observer.New(zap.InfoLevel)
 	logger := zap.New(core)
-	if err := Run(cfg, args, logger); err != nil {
+	r := NewRunnerWithDeps(func(ctx context.Context, dev, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error {
+		opts = append(opts, manifestpkg.WithDeviceInfo(info))
+		return manifestpkg.Rebuild(ctx, dev, output, logger, interval, allow, cdcMin, cdcAvg, cdcMax, hybrid, opts...)
+	})
+	if err := r.Run(cfg, args, logger); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 
@@ -278,13 +284,16 @@ func TestRunWritesVersion(t *testing.T) {
 	if err := os.WriteFile(devicePath, []byte("data"), 0o600); err != nil {
 		t.Fatalf("write device: %v", err)
 	}
-	restore := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "uuid", nil })
-	defer device.SetUUIDFunc(restore)
+	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return "uuid", nil }, nil, nil, nil)
 	cfg, err := config.DefaultConfig()
 	if err != nil {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
-	if err := Run(cfg, []string{"rebuild", devicePath}, zap.NewNop()); err != nil {
+	r := NewRunnerWithDeps(func(ctx context.Context, dev, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error {
+		opts = append(opts, manifestpkg.WithDeviceInfo(info))
+		return manifestpkg.Rebuild(ctx, dev, output, logger, interval, allow, cdcMin, cdcAvg, cdcMax, hybrid, opts...)
+	})
+	if err := r.Run(cfg, []string{"rebuild", devicePath}, zap.NewNop()); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 	data, err := os.ReadFile(devicePath + ".manifest")

@@ -81,11 +81,10 @@ func TestManifestIndexLifecycle(t *testing.T) {
 	file.Close()
 
 	manPath := filepath.Join(dir, "dev.man")
-	prev := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "id", nil })
-	defer device.SetUUIDFunc(prev)
+	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return "id", nil }, nil, nil, nil)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	if err := manifestpkg.Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false, 0, 0, 0, 0); err != nil {
+	if err := manifestpkg.Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false, 0, 0, 0, 0, manifestpkg.WithDeviceInfo(info)); err != nil {
 		t.Fatalf("rebuild: %v", err)
 	}
 

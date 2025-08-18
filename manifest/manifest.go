@@ -69,6 +69,7 @@ type Index struct {
 type indexOptions struct {
 	detectDevice func(ctx context.Context, path string, logger *zap.Logger) (device.Device, error)
 	closeHook    func() error
+	info         device.DeviceInfoProvider
 }
 
 // IndexOption configures construction of an Index.
@@ -81,6 +82,7 @@ func defaultIndexOptions() indexOptions {
 			return device.Detect(ctx, path, true, "", "", "", "", 0, 0, logger, device.NewRunner())
 		},
 		closeHook: func() error { return nil },
+		info:      device.NewInfo(),
 	}
 }
 
@@ -101,6 +103,11 @@ func WithCloseHook(h func() error) IndexOption {
 // WithDetectDevice overrides device detection for Rebuild.
 func WithDetectDevice(f func(context.Context, string, *zap.Logger) (device.Device, error)) IndexOption {
 	return func(o *indexOptions) { o.detectDevice = f }
+}
+
+// WithDeviceInfo overrides device information helpers used by Rebuild.
+func WithDeviceInfo(info device.DeviceInfoProvider) IndexOption {
+	return func(o *indexOptions) { o.info = info }
 }
 
 // ErrVersionMismatch is returned when a manifest file uses an unsupported version.
@@ -424,7 +431,7 @@ func (i *Index) Entry(idx uint64) (offset uint64, length, flags uint32, xxh uint
 func (i *Index) ChunkCount() uint64 { return i.hdr.ChunkCount }
 
 // Rebuild creates a manifest index for device at output path.
-// DeviceID is determined via device.GetUUID. The device is read sequentially using blockSize-sized chunks.
+// DeviceID is determined via the configured DeviceInfoProvider. The device is read sequentially using blockSize-sized chunks.
 // Progress is logged at the provided interval; set interval to 0 to log every chunk.
 // The operation respects cancellation via ctx.
 // When allowMounted is false, Rebuild aborts if the device is mounted read-write.
@@ -444,7 +451,7 @@ func Rebuild(
 	if err = ctx.Err(); err != nil {
 		return err
 	}
-	mounted, err := device.IsMountedRW(ctx, devicePath)
+	mounted, err := cfg.info.IsMountedRW(ctx, devicePath)
 	if err != nil {
 		return fmt.Errorf("manifest: check mount status: %w", err)
 	}
@@ -462,7 +469,7 @@ func Rebuild(
 	if err = ctx.Err(); err != nil {
 		return err
 	}
-	id, err := device.GetUUID(ctx, dev.Path())
+	id, err := cfg.info.GetUUID(ctx, dev.Path())
 	if err != nil {
 		return err
 	}

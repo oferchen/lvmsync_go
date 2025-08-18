@@ -3,7 +3,6 @@
 package ssh
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
@@ -189,17 +188,47 @@ func TestNewWithHostKeyPath(t *testing.T) {
 	}
 	kh := emptyKnownHosts(t)
 	cfg := transport.Config{Logger: zap.New(core), SSHUser: "u", SSHPassword: "p", HostKeyPath: keyPath, SSHKnownHosts: kh}
+	if _, err := New(context.Background(), cfg); err != nil {
+		t.Fatalf("New: %v", err)
+	}
+}
+
+func TestNewClientOnly(t *testing.T) {
+	core, _ := observer.New(zap.InfoLevel)
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("GenerateKey: %v", err)
+	}
+	signer, err := ssh.NewSignerFromKey(key)
+	if err != nil {
+		t.Fatalf("NewSignerFromKey: %v", err)
+	}
+	hostKey := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(signer.PublicKey())))
+	cfg := transport.Config{Logger: zap.New(core), SSHUser: "u", SSHPassword: "p", SSHHostKey: hostKey}
 	trIface, err := New(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
 	tr := trIface.(*Transport)
-	signer, err := ssh.NewSignerFromKey(priv)
+	if tr.hostSigner != nil {
+		t.Fatalf("expected nil host signer")
+	}
+}
+
+func TestListenRequiresHostKey(t *testing.T) {
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("GenerateKey: %v", err)
+	}
+	signer, err := ssh.NewSignerFromKey(key)
 	if err != nil {
 		t.Fatalf("NewSignerFromKey: %v", err)
 	}
-	if !bytes.Equal(tr.hostSigner.PublicKey().Marshal(), signer.PublicKey().Marshal()) {
-		t.Fatalf("loaded host key does not match file")
+	hostKey := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(signer.PublicKey())))
+	cfg := transport.Config{Logger: zap.NewNop(), SSHUser: "u", SSHPassword: "p", SSHHostKey: hostKey}
+	trIface, err := New(context.Background(), cfg)
+	if err != nil {
+		t.Fatalf("New: %v", err)
 	}
 }
 
@@ -264,14 +293,16 @@ func TestNewHostKeyRequired(t *testing.T) {
 func TestNewGeneratesHostKey(t *testing.T) {
 	core, _ := observer.New(zap.InfoLevel)
 	cfg := transport.Config{Logger: zap.New(core), SSHUser: "u", SSHPassword: "p", AllowInsecure: true}
-	trIface, err := New(context.Background(), cfg)
+	tr, err := New(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	tr := trIface.(*Transport)
-	if tr.hostSigner == nil {
-		t.Fatalf("expected generated host key")
+	ctx := context.Background()
+	ln, err := tr.Listen(ctx, "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
 	}
+	ln.Close()
 }
 
 func TestNewAllowInsecure(t *testing.T) {
@@ -291,12 +322,26 @@ func TestNewAllowInsecure(t *testing.T) {
 
 func TestSSHTransportAuthSuccess(t *testing.T) {
 	core, logs := observer.New(zap.InfoLevel)
-	srvCfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "pass", AllowInsecure: true}
-	serverIface, err := New(context.Background(), srvCfg)
+	dir := t.TempDir()
+	keyPath := filepath.Join(dir, "id_rsa")
+	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("generate key: %v", err)
+	}
+	privBytes := x509.MarshalPKCS1PrivateKey(priv)
+	pemBytes := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: privBytes})
+	if err := os.WriteFile(keyPath, pemBytes, 0600); err != nil {
+		t.Fatalf("write key: %v", err)
+	}
+	signer, err := ssh.NewSignerFromKey(priv)
+	if err != nil {
+		t.Fatalf("new signer: %v", err)
+	}
+	srvCfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "pass", HostKeyPath: keyPath, AllowInsecure: true}
+	server, err := New(context.Background(), srvCfg)
 	if err != nil {
 		t.Fatalf("new server transport: %v", err)
 	}
-	server := serverIface.(*Transport)
 	baseCtx := context.Background()
 	listenCtx, cancel := context.WithTimeout(baseCtx, time.Second)
 	ln, err := server.Listen(listenCtx, "127.0.0.1:0")
@@ -311,7 +356,6 @@ func TestSSHTransportAuthSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new client transport: %v", err)
 	}
-	client := clientIface.(*Transport)
 
 	hs := common.Handshake{ResumeToken: "tok", DedupMode: "cdc", BlockSize: 4096, Compress: "zstd", Digest: "sha256", MaxInFlight: 8, CDCMin: 64, CDCAvg: 128, CDCMax: 256, CRC32C: true}
 	done := make(chan struct{})
@@ -388,17 +432,15 @@ func TestSSHTransportKeyAuth(t *testing.T) {
 		t.Fatalf("write key: %v", err)
 	}
 	srvCfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHKeyPath: keyPath, AllowInsecure: true}
-	serverIface, err := New(context.Background(), srvCfg)
+	server, err := New(context.Background(), srvCfg)
 	if err != nil {
 		t.Fatalf("new server transport: %v", err)
 	}
 	clientCfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHKeyPath: keyPath, AllowInsecure: true}
-	clientIface, err := New(context.Background(), clientCfg)
+	client, err := New(context.Background(), clientCfg)
 	if err != nil {
 		t.Fatalf("new client transport: %v", err)
 	}
-	server := serverIface.(*Transport)
-	client := clientIface.(*Transport)
 	baseCtx := context.Background()
 	listenCtx, cancel := context.WithTimeout(baseCtx, time.Second)
 	ln, err := server.Listen(listenCtx, "127.0.0.1:0")
@@ -409,7 +451,7 @@ func TestSSHTransportKeyAuth(t *testing.T) {
 	defer cancel()
 	defer ln.Close()
 
-	hs := common.Handshake{ResumeToken: "tok", MaxInFlight: 8, CDCMin: 64, CDCAvg: 128, CDCMax: 256, CRC32C: true}
+	hs := common.Handshake{ResumeToken: "tok", DedupMode: "cdc", BlockSize: 4096, Compress: "zstd", Digest: "sha256", MaxInFlight: 8, CDCMin: 64, CDCAvg: 128, CDCMax: 256, CRC32C: true}
 	done := make(chan struct{})
 	go func() {
 		conn, err := ln.Accept()
@@ -424,7 +466,7 @@ func TestSSHTransportKeyAuth(t *testing.T) {
 			t.Errorf("server negotiate: %v", err)
 			return
 		}
-		if peerHS.ResumeToken != hs.ResumeToken || peerHS.MaxInFlight != hs.MaxInFlight || peerHS.CDCMin != hs.CDCMin || peerHS.CDCAvg != hs.CDCAvg || peerHS.CDCMax != hs.CDCMax {
+		if peerHS.ResumeToken != hs.ResumeToken || peerHS.DedupMode != hs.DedupMode || peerHS.BlockSize != hs.BlockSize || peerHS.Compress != hs.Compress || peerHS.Digest != hs.Digest || peerHS.MaxInFlight != hs.MaxInFlight || peerHS.CDCMin != hs.CDCMin || peerHS.CDCAvg != hs.CDCAvg || peerHS.CDCMax != hs.CDCMax {
 			t.Errorf("unexpected peer handshake: %+v", peerHS)
 		}
 		buf := make([]byte, 4)
@@ -445,7 +487,7 @@ func TestSSHTransportKeyAuth(t *testing.T) {
 	if err != nil {
 		t.Fatalf("client negotiate: %v", err)
 	}
-	if peerHS.ResumeToken != hs.ResumeToken || peerHS.MaxInFlight != hs.MaxInFlight || peerHS.CDCMin != hs.CDCMin || peerHS.CDCAvg != hs.CDCAvg || peerHS.CDCMax != hs.CDCMax {
+	if peerHS.ResumeToken != hs.ResumeToken || peerHS.DedupMode != hs.DedupMode || peerHS.BlockSize != hs.BlockSize || peerHS.Compress != hs.Compress || peerHS.Digest != hs.Digest || peerHS.MaxInFlight != hs.MaxInFlight || peerHS.CDCMin != hs.CDCMin || peerHS.CDCAvg != hs.CDCAvg || peerHS.CDCMax != hs.CDCMax {
 		t.Fatalf("unexpected peer handshake: %+v", peerHS)
 	}
 	if _, err := conn.Write([]byte("ping")); err != nil {
@@ -458,6 +500,13 @@ func TestSSHTransportKeyAuth(t *testing.T) {
 	}
 	conn.Close()
 	<-done
+
+	checkLogFields(t, logs, "dial_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "dial_end", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "listen_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "listen_end", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "negotiate_start", 2, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "negotiate_end", 2, false, zapcore.InfoLevel)
 }
 
 func TestSSHTransportSelectBestHandshake(t *testing.T) {
@@ -635,12 +684,26 @@ func TestSSHTransportAgentFallback(t *testing.T) {
 
 func TestSSHTransportAuthFailure(t *testing.T) {
 	core, logs := observer.New(zap.InfoLevel)
-	srvCfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "pass", AllowInsecure: true}
-	serverIface, err := New(context.Background(), srvCfg)
+	dir := t.TempDir()
+	keyPath := filepath.Join(dir, "id_rsa")
+	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("generate key: %v", err)
+	}
+	privBytes := x509.MarshalPKCS1PrivateKey(priv)
+	pemBytes := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: privBytes})
+	if err := os.WriteFile(keyPath, pemBytes, 0600); err != nil {
+		t.Fatalf("write key: %v", err)
+	}
+	signer, err := ssh.NewSignerFromKey(priv)
+	if err != nil {
+		t.Fatalf("new signer: %v", err)
+	}
+	srvCfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "pass", HostKeyPath: keyPath, AllowInsecure: true}
+	server, err := New(context.Background(), srvCfg)
 	if err != nil {
 		t.Fatalf("new server transport: %v", err)
 	}
-	server := serverIface.(*Transport)
 	ctx := context.Background()
 	ln, err := server.Listen(ctx, "127.0.0.1:0")
 	if err != nil {
@@ -652,7 +715,6 @@ func TestSSHTransportAuthFailure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new client transport: %v", err)
 	}
-	client := clientIface.(*Transport)
 
 	done := make(chan struct{})
 	go func() {
@@ -677,12 +739,26 @@ func TestSSHTransportAuthFailure(t *testing.T) {
 
 func TestSSHTransportCDCMismatch(t *testing.T) {
 	core, logs := observer.New(zap.InfoLevel)
-	srvCfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "pass", AllowInsecure: true}
-	serverIface, err := New(context.Background(), srvCfg)
+	dir := t.TempDir()
+	keyPath := filepath.Join(dir, "id_rsa")
+	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("generate key: %v", err)
+	}
+	privBytes := x509.MarshalPKCS1PrivateKey(priv)
+	pemBytes := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: privBytes})
+	if err := os.WriteFile(keyPath, pemBytes, 0600); err != nil {
+		t.Fatalf("write key: %v", err)
+	}
+	signer, err := ssh.NewSignerFromKey(priv)
+	if err != nil {
+		t.Fatalf("new signer: %v", err)
+	}
+	srvCfg := transport.Config{Logger: zap.New(core), SSHUser: "test", SSHPassword: "pass", HostKeyPath: keyPath, AllowInsecure: true}
+	server, err := New(context.Background(), srvCfg)
 	if err != nil {
 		t.Fatalf("new server transport: %v", err)
 	}
-	server := serverIface.(*Transport)
 	ctx := context.Background()
 	ln, err := server.Listen(ctx, "127.0.0.1:0")
 	if err != nil {
@@ -694,7 +770,6 @@ func TestSSHTransportCDCMismatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new client transport: %v", err)
 	}
-	client := clientIface.(*Transport)
 
 	done := make(chan struct{})
 	go func() {
