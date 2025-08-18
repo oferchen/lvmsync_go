@@ -6,12 +6,14 @@ import (
 	"testing"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 
 	config "lvmsync_go/internal/config"
 )
 
 func TestNewLoggerSamplingDefaults(t *testing.T) {
-	logger, err := NewLogger(&config.Config{})
+	logger, err := NewLogger(&config.Config{}, "test")
 	if err != nil {
 		t.Fatalf("NewLogger: %v", err)
 	}
@@ -29,11 +31,44 @@ func TestNewLoggerSamplingDefaults(t *testing.T) {
 }
 
 func TestNewLoggerVerboseLevel(t *testing.T) {
-	logger, err := NewLogger(&config.Config{Verbose: 1})
+	logger, err := NewLogger(&config.Config{Verbose: 1}, "test")
 	if err != nil {
 		t.Fatalf("NewLogger: %v", err)
 	}
 	if !logger.Core().Enabled(zap.DebugLevel) {
 		t.Fatalf("logger level %v, want debug", zap.DebugLevel)
+	}
+}
+
+func TestNewLoggerRedactionAndComponent(t *testing.T) {
+	redactor := func(f zapcore.Field) zapcore.Field {
+		if f.Key == "secret" && f.Type == zapcore.StringType {
+			f.String = "[REDACTED]"
+		}
+		return f
+	}
+	core, logs := observer.New(zap.InfoLevel)
+	logger, err := NewLogger(
+		&config.Config{},
+		"comp",
+		WithSampling(0, 0),
+		WithRedactHook(redactor),
+		WithZapOptions(zap.WrapCore(func(c zapcore.Core) zapcore.Core {
+			return zapcore.NewTee(c, redactingCore{Core: core, redactor: redactor})
+		})),
+	)
+	if err != nil {
+		t.Fatalf("NewLogger: %v", err)
+	}
+	logger.Info("msg", zap.String("secret", "token"))
+	if logs.Len() != 1 {
+		t.Fatalf("log entries %d, want 1", logs.Len())
+	}
+	fields := logs.All()[0].ContextMap()
+	if v := fields["secret"]; v != "[REDACTED]" {
+		t.Fatalf("secret field %v, want [REDACTED]", v)
+	}
+	if v := fields["component"]; v != "comp" {
+		t.Fatalf("component field %v, want comp", v)
 	}
 }

@@ -136,7 +136,7 @@ func ConfigureWithEscalator(esc privilege.Escalator) (*config.Config, []string, 
 	if err = cfg.Validate(); err != nil {
 		return nil, nil, nil, fmt.Errorf("configuration validation error: %w", err)
 	}
-	logger, err := logging.NewLogger(cfg)
+	logger, err := logging.NewLogger(cfg, "root")
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("logger initialization error: %w", err)
 	}
