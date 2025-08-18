@@ -63,13 +63,10 @@ func (b *ConfigBuilder) Build(fs *pflag.FlagSet, args []string) (*Config, []stri
 	if err != nil {
 		return nil, nil, warns, err
 	}
-	vb := &builder{v: v, defaults: b.defaults}
+	vb := &builder{v: v, defaults: b.defaults, resumeVerify: resumeVerify}
 	cfg, err := vb.Build()
 	if err != nil {
 		return nil, nil, warns, err
-	}
-	if resumeVerify {
-		cfg.ResumeVerify = true
 	}
 	if cfg.AllowInsecure {
 		_, envSet := os.LookupEnv("LVMSYNC_ALLOW_INSECURE")
