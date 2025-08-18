@@ -277,10 +277,9 @@ Run these commands locally before opening a pull request:
 
 - [ ] Audit logging: ensure `zap` is used with `snake_case` fields, include units, and call `rootcmd.SyncLogger(logger)` before exit (block size logs now use `size_bytes`).
 - [ ] Remove package-wide loggers; transport constructors such as `ssh.New(cfg, logger)` now require an explicit `*zap.Logger` parameter.
-- [ ] Remove stray `fmt.Print*` calls in favor of structured logs.
-- [ ] Monitor elimination of `fmt.Print*` calls to keep progress logging fully structured.
+- [ ] Replace any remaining `fmt.Print*` calls with structured `zap` logs to keep progress output fully structured.
 - [ ] device: expand mountinfo parsing to handle bind mounts and multiple entries.
-- [ ] Review QUIC constructor refactor and expand tests for sender/receiver coverage.
+- [ ] Review the QUIC transport constructor and expand tests for both sender and receiver paths.
 - [ ] LVM device support: plumb snapshot creation through the device abstraction, allow raw device fallbacks, and unit test LVM vs. file paths.
  - [x] Transport logging: emit connection handshake and teardown events with `snake_case` fields and ensure callers `defer rootcmd.SyncLogger(logger)`.
 - [ ] Manifest rebuild: add a subcommand to regenerate chunk digests when manifests are missing or out of date, exercising rebuild logic in tests.
@@ -303,18 +302,7 @@ golangci-lint run
 - [x] Ensure SSH agent connections use context timeouts and cover SSHManager reuse in tests.
 - [x] common: add endianness mismatch handshake validation test.
 
-- [ ] Implement QUIC `serve` command with minimal flags and `zap`-only logging.
-- [ ] Audit `serve` and related CLI flags for simplification and consistency.
-- [ ] Update `README` and configuration docs for `serve` mode and flag changes.
-- [ ] Add unit tests for the `serve` command and flag parsing.
-
-  ```sh
-  go build ./...
-  go test -cover ./...
-  golangci-lint run
-  ```
-- [ ] Implement real transports for QUIC, HTTP/2, TCP+TLS, and SSH; replace placeholders with functional backends and tests.
- - [ ] Add privilege escalation tests covering success and error paths (tests require root; skipped otherwise).
+- [ ] Add privilege escalation tests covering success and error paths (tests require root; skipped otherwise).
 - [ ] Expand coverage for configuration precedence across flags, environment variables, and config files.
 - [ ] Keep README configuration examples and precedence tests in sync.
 - [ ] Keep modules single-purpose; maintain the `transfer` package decomposition (`progress.go`, `handshake.go`, `block_writer.go`, `resume.go`, `worker.go`, `writer.go`, `apply.go`, `transfer.go`). Future contributions should keep files small and focused.
@@ -323,7 +311,7 @@ golangci-lint run
 - [ ] Track decomposition of large files like `transfer/transfer.go`.
 - [ ] Ensure progress logging uses `zap` exclusively.
 - [ ] Ensure every new function has a dedicated unit test.
-- [ ] Run `go build ./...` and `go test ./...` before merging changes.
+- [ ] Run `go build ./...`, `go test -cover ./...`, and `golangci-lint run` before merging changes.
 - [ ] Maintain tests for compression detection, ensuring benchmark and cache logic remain correct.
 - [ ] Add end-to-end tests for resume and verify workflows.
 - [ ] Document flag grouping patterns and expand coverage for pflag/viper bindings.
