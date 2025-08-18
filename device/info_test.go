@@ -341,6 +341,28 @@ func mountFuncFromMountInfoFile(p string) func(context.Context, string) (bool, e
 	}
 }
 
+func TestDefaultLVMUUIDFunc(t *testing.T) {
+	dir := t.TempDir()
+	lvs := filepath.Join(dir, "lvs")
+	const want = "0000-1111"
+	script := fmt.Sprintf("#!/bin/sh\necho %s\n", want)
+	if err := os.WriteFile(lvs, []byte(script), 0o755); err != nil {
+		t.Fatalf("write script: %v", err)
+	}
+	oldPath := os.Getenv("PATH")
+	os.Setenv("PATH", dir+":"+oldPath)
+	defer os.Setenv("PATH", oldPath)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	got, err := defaultLVMUUIDFunc(ctx, "/dev/test")
+	if err != nil {
+		t.Fatalf("defaultLVMUUIDFunc: %v", err)
+	}
+	if got != want {
+		t.Fatalf("expected %q, got %q", want, got)
+	}
+}
+
 func TestSizeBytes(t *testing.T) {
 	dev := &stubDevice{size: 123}
 	info := NewInfo()
@@ -348,7 +370,9 @@ func TestSizeBytes(t *testing.T) {
 		return dev, nil
 	})
 	defer info.SetDetectFunc(prev)
-	got, err := info.SizeBytes(context.Background(), "/dev/fake")
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	got, err := info.SizeBytes(ctx, "/dev/fake")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -365,7 +389,9 @@ func TestSizeBytesCloseError(t *testing.T) {
 		return dev, nil
 	})
 	defer info.SetDetectFunc(prev)
-	got, err := info.SizeBytes(context.Background(), "/dev/fake")
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	got, err := info.SizeBytes(ctx, "/dev/fake")
 	if !errors.Is(err, want) {
 		t.Fatalf("expected %v, got %v", want, err)
 	}
