@@ -81,6 +81,7 @@ clients. Defaults:
 - ALPN negotiation using `lvmsync`
 - Bidirectional streams and datagram support
 - BBR congestion control
+- Rejects 0-RTT packets
 - Flags: `--tls-cert`, `--tls-key`, `--ca-cert`, `--allow-insecure`
 
 Example:
