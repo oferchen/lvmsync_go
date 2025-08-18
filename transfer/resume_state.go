@@ -118,10 +118,20 @@ func readResumeState(cfg *config.Config, logger *zap.Logger, size uint64, device
 		rs.ChecksumAlgorithm != cfg.ChecksumAlgorithm {
 		return out
 	}
-	if (rs.DeviceID != "" && deviceID != "" && rs.DeviceID != deviceID) ||
-		(rs.SizeBytes != 0 && size != 0 && rs.SizeBytes != size) ||
-		(rs.Epoch != 0 && epoch != 0 && rs.Epoch != epoch) {
-		return out
+	if deviceID != "" {
+		if rs.DeviceID == "" || rs.DeviceID != deviceID {
+			return out
+		}
+	}
+	if size != 0 {
+		if rs.SizeBytes == 0 || rs.SizeBytes != size {
+			return out
+		}
+	}
+	if epoch != 0 {
+		if rs.Epoch == 0 || rs.Epoch != epoch {
+			return out
+		}
 	}
 	if rs.FirstBlockDigest != "" && digest != ([32]byte{}) {
 		b, err := hex.DecodeString(rs.FirstBlockDigest)
