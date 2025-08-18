@@ -159,13 +159,12 @@ func TestSSHAgentAuthSuccess(t *testing.T) {
 func TestLoadPrivateKeyZeroesSlice(t *testing.T) {
 	keyPath := testutil.CreateTempKey(t)
 	var captured []byte
-	parsePrivateKey = func(data []byte) (ssh.Signer, error) {
+	parser := func(data []byte) (ssh.Signer, error) {
 		captured = data
 		return ssh.ParsePrivateKey(data)
 	}
-	t.Cleanup(func() { parsePrivateKey = ssh.ParsePrivateKey })
 
-	signer, err := loadPrivateKey(keyPath)
+	signer, err := loadPrivateKey(parser, keyPath)
 	if err != nil {
 		t.Fatalf("loadPrivateKey: %v", err)
 	}
@@ -199,7 +198,7 @@ func TestLoadPrivateKeyPermissions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := loadPrivateKey(tt.path)
+			_, err := loadPrivateKey(ssh.ParsePrivateKey, tt.path)
 			if tt.wantErr {
 				if err == nil {
 					t.Fatalf("expected error for %s", tt.name)
