@@ -680,6 +680,84 @@ func TestTCPTLSTransportRequiresServerCert(t *testing.T) {
 	}
 }
 
+func TestTCPTLSHandshakeCAValidation(t *testing.T) {
+	cert, root := generateSelfSignedCert(t)
+	srvIface, err := New(transport.Config{Logger: zap.NewNop(), Roots: root, ClientCert: cert, ServerCert: cert})
+	if err != nil {
+		t.Fatalf("new server transport: %v", err)
+	}
+	srv := srvIface.(*Transport)
+	baseCtx := context.Background()
+	listenCtx, cancel := context.WithTimeout(baseCtx, time.Second)
+	ln, err := srv.Listen(listenCtx, "127.0.0.1:0")
+	if err != nil {
+		cancel()
+		t.Fatalf("listen: %v", err)
+	}
+	defer cancel()
+	defer ln.Close()
+
+	t.Run("trusted_ca", func(t *testing.T) {
+		done := make(chan error, 1)
+		go func() {
+			conn, err := ln.Accept()
+			if err != nil {
+				done <- err
+				return
+			}
+			defer conn.Close()
+			srvCtx, cancel := context.WithTimeout(baseCtx, time.Second)
+			_, err = srv.Negotiate(srvCtx, conn, transport.Server, common.Handshake{CDCMin: 64, CDCAvg: 128, CDCMax: 256, CRC32C: true})
+			cancel()
+			done <- err
+		}()
+		cliIface, err := New(transport.Config{Logger: zap.NewNop(), Roots: root, ClientCert: cert, ServerCert: cert})
+		if err != nil {
+			t.Fatalf("new client transport: %v", err)
+		}
+		cli := cliIface.(*Transport)
+		dialCtx, cancel := context.WithTimeout(baseCtx, time.Second)
+		conn, err := cli.Dial(dialCtx, ln.Addr().String())
+		cancel()
+		if err != nil {
+			t.Fatalf("dial: %v", err)
+		}
+		defer conn.Close()
+		negCtx, cancel := context.WithTimeout(baseCtx, time.Second)
+		if _, err := cli.Negotiate(negCtx, conn, transport.Client, common.Handshake{CDCMin: 64, CDCAvg: 128, CDCMax: 256, CRC32C: true}); err != nil {
+			cancel()
+			t.Fatalf("client negotiate: %v", err)
+		}
+		cancel()
+		if err := <-done; err != nil {
+			t.Fatalf("server negotiate: %v", err)
+		}
+	})
+
+	t.Run("wrong_ca", func(t *testing.T) {
+		done := make(chan struct{})
+		go func() {
+			if conn, err := ln.Accept(); err == nil {
+				conn.Close()
+			}
+			close(done)
+		}()
+		_, wrongRoot := generateSelfSignedCert(t)
+		cliIface, err := New(transport.Config{Logger: zap.NewNop(), Roots: wrongRoot, ClientCert: cert, ServerCert: cert})
+		if err != nil {
+			t.Fatalf("new client transport: %v", err)
+		}
+		cli := cliIface.(*Transport)
+		dialCtx, cancel := context.WithTimeout(baseCtx, time.Second)
+		_, err = cli.Dial(dialCtx, ln.Addr().String())
+		cancel()
+		if err == nil {
+			t.Fatalf("expected dial failure with wrong CA")
+		}
+		<-done
+	})
+}
+
 func TestTCPTLSClientAuthDefaults(t *testing.T) {
 	cert, root := generateSelfSignedCert(t)
 	trIface, err := New(transport.Config{Logger: zap.NewNop(), Roots: root, ClientCert: cert, ServerCert: cert})
