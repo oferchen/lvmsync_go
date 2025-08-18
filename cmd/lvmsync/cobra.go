@@ -13,7 +13,6 @@ import (
 	"go.uber.org/zap"
 
 	rootcmd "lvmsync_go/cmd/root"
-	servecmd "lvmsync_go/cmd/serve"
 	verifycmd "lvmsync_go/cmd/verify"
 	"lvmsync_go/internal/config"
 	"lvmsync_go/manifest"
@@ -36,7 +35,6 @@ type Runner struct {
 	run             func(src, dst string, opts RunOptions, logger *zap.Logger) error
 	manifestRebuild func(device string, dryRun bool, logger *zap.Logger) error
 	verify          func(args []string, logger *zap.Logger) error
-	serve           func(args []string, logger *zap.Logger) error
 }
 
 // Run executes the main synchronization command.
@@ -54,18 +52,12 @@ func (r *Runner) Verify(args []string, logger *zap.Logger) error {
 	return r.verify(args, logger)
 }
 
-// Serve launches a transport listener.
-func (r *Runner) Serve(args []string, logger *zap.Logger) error {
-	return r.serve(args, logger)
-}
-
 // NewRunner constructs a Runner with default no-op behaviors.
 func NewRunner() *Runner {
 	return &Runner{
 		run:             func(src, dst string, opts RunOptions, logger *zap.Logger) error { return nil },
 		manifestRebuild: func(device string, dryRun bool, logger *zap.Logger) error { return nil },
 		verify:          func(args []string, logger *zap.Logger) error { return verifycmd.Run(args, logger) },
-		serve:           func(args []string, logger *zap.Logger) error { return servecmd.Run(args, logger) },
 	}
 }
 
@@ -74,7 +66,6 @@ func NewRunnerWithDeps(
 	run func(src, dst string, opts RunOptions, logger *zap.Logger) error,
 	rebuild func(device string, dryRun bool, logger *zap.Logger) error,
 	verify func(args []string, logger *zap.Logger) error,
-	serve func(args []string, logger *zap.Logger) error,
 ) *Runner {
 	r := NewRunner()
 	if run != nil {
@@ -85,9 +76,6 @@ func NewRunnerWithDeps(
 	}
 	if verify != nil {
 		r.verify = verify
-	}
-	if serve != nil {
-		r.serve = serve
 	}
 	return r
 }
@@ -190,16 +178,7 @@ func NewRootCmd(logger *zap.Logger, r *Runner) *cobra.Command {
 		},
 	}
 
-	serveCmd := &cobra.Command{
-		Use:                "serve [flags]",
-		Short:              "Run a transport listener",
-		DisableFlagParsing: true,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return r.Serve(args, logger)
-		},
-	}
-
-	rootCmd.AddCommand(runCmd, manifestCmd, verifyCmd, serveCmd)
+	rootCmd.AddCommand(runCmd, manifestCmd, verifyCmd)
 	return rootCmd
 }
 

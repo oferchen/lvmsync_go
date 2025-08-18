@@ -14,9 +14,9 @@ LVMSync runs on Linux only and is validated on the `amd64` and `arm64` architect
 - Resume and deduplicate transfers to minimize bandwidth usage.
 - Easy to operate locally or over SSH with configurable options.
 
-## Serve Command and Logging
+## lvmsyncd Daemon and Logging
 
-The planned `serve` subcommand will expose a QUIC listener for incoming replication requests. It follows an argument simplification philosophy, surfacing only essential flags while relying on configuration binding for advanced tuning. All logging for this command must use the structured `zap` logger.
+The `lvmsyncd` daemon exposes an rsyncd-style interface with module-to-device mappings. It listens on `:8730` via TLS/TCP by default and can optionally enable QUIC or HTTP/2 front-ends. Activation via `--stdio` or `--inetd` is supported for single-connection or socket-activated deployments. All logging for this daemon must use the structured `zap` logger.
 
 
 
@@ -57,19 +57,19 @@ The planned `serve` subcommand will expose a QUIC listener for incoming replicat
    - Document package architecture and developer guidelines.
    - Explain how to run tests and CI locally.
 
-6. **Implement QUIC Serve Command**
-   - Build the `serve` subcommand with a minimal flag surface.
+6. **Implement lvmsyncd Daemon**
+   - Build the `lvmsyncd` daemon with a minimal flag surface.
    - Enforce `zap` for structured logging.
 
 7. **Audit Flag Surface**
    - Review existing CLI flags for redundancy and simplification.
    - Keep documentation and configuration options consistent.
 
-8. **Update Serve Documentation**
-   - Document `serve` usage in `README` and configuration examples.
+8. **Update lvmsyncd Documentation**
+   - Document `lvmsyncd` usage in `README` and configuration examples.
 
-9. **Add Serve Tests**
-   - Provide unit tests covering command behavior and flag parsing.
+9. **Add lvmsyncd Tests**
+   - Provide unit tests covering daemon behavior and flag parsing.
 
 Contributors tackling these tasks must run:
 
