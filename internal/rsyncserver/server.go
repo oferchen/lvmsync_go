@@ -1,4 +1,4 @@
-package rsynkserver
+package rsyncserver
 
 import (
 	"bytes"
@@ -12,7 +12,7 @@ import (
 	"go.uber.org/zap"
 
 	"lvmsync_go/internal/digest"
-	"lvmsync_go/internal/rsynkwire"
+	"lvmsync_go/internal/rsyncwire"
 	"lvmsync_go/internal/signaturecache"
 )
 
@@ -29,13 +29,13 @@ type Device interface {
 
 // Server applies incoming deltas to the Device.
 //
-// Frames are expected to be sent using rsynkwire.Stream and consist of a leading
+// Frames are expected to be sent using rsyncwire.Stream and consist of a leading
 // byte indicating the frame type:
 //
 //	'S' - signature frame used to reconstruct source signatures
 //	'D' - delta frame containing an 8 byte big endian offset followed by data
 //
-// CRC32C integrity of each frame is verified by rsynkwire.Stream.
+// CRC32C integrity of each frame is verified by rsyncwire.Stream.
 type Server struct {
 	dev     Device
 	alg     string
@@ -59,7 +59,7 @@ func New(dev Device, logger *zap.Logger, cache *signaturecache.Cache, vg, lv str
 
 // Handle consumes frames from the Stream until EOF, applying any delta frames to
 // the Device. On graceful EOF the Device is fsynced.
-func (s *Server) Handle(ctx context.Context, stream *rsynkwire.Stream) error {
+func (s *Server) Handle(ctx context.Context, stream *rsyncwire.Stream) error {
 	for {
 		if err := ctx.Err(); err != nil {
 			return err

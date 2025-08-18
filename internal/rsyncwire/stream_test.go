@@ -1,4 +1,4 @@
-package rsynkwire
+package rsyncwire
 
 import (
 	"bytes"

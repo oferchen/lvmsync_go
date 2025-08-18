@@ -19,7 +19,7 @@ import (
 	"lvmsync_go/internal/config"
 	cpufeatures "lvmsync_go/internal/cpufeatures"
 	digestpkg "lvmsync_go/internal/digest"
-	"lvmsync_go/internal/rsynkwire"
+	"lvmsync_go/internal/rsyncwire"
 	"lvmsync_go/remote"
 	"lvmsync_go/transfer"
 	"lvmsync_go/transport"
@@ -381,7 +381,7 @@ func (r *Runner) StreamToRemote(ctx context.Context, cfg *config.Config, remoteS
 	}
 
 	rw := writeOnlyReadWriter{remoteStdin}
-	cl := rsynkwire.NewClient(rsynkwire.NewStream(rw, maxFrame))
+	cl := rsyncwire.NewClient(rsyncwire.NewStream(rw, maxFrame))
 	if err := cl.SendDigest(alg, sum); err != nil {
 		remoteStdin.Close()
 		return fmt.Errorf("send digest: %w", err)
