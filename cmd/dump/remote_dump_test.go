@@ -57,9 +57,12 @@ func TestRunRemoteDump(t *testing.T) {
 
 	origDump := dumpChangesSequential
 	origSum := sumFile
-	origSelect := digestpkg.Select
+	origAVX2, origAVX512, origNEON, origAESNI := digestpkg.HasAVX2, digestpkg.HasAVX512, digestpkg.HasNEON, digestpkg.HasAESNI
 	origStream := streamToRemote
-	digestpkg.Select = func() string { return digestpkg.SHA256 }
+	digestpkg.HasAVX2 = func() bool { return false }
+	digestpkg.HasAVX512 = func() bool { return false }
+	digestpkg.HasNEON = func() bool { return false }
+	digestpkg.HasAESNI = func() bool { return false }
 	sumFile = func(string, string) ([32]byte, error) { return [32]byte{}, nil }
 	streamToRemote = func(_ context.Context, _ *config.Config, _ io.WriteCloser, snap, origin, alg string, _ *zap.Logger) error {
 		if snap != "snap" || origin != "origin" || alg != digestpkg.SHA256 {
@@ -76,7 +79,7 @@ func TestRunRemoteDump(t *testing.T) {
 	defer func() {
 		dumpChangesSequential = origDump
 		sumFile = origSum
-		digestpkg.Select = origSelect
+		digestpkg.HasAVX2, digestpkg.HasAVX512, digestpkg.HasNEON, digestpkg.HasAESNI = origAVX2, origAVX512, origNEON, origAESNI
 		streamToRemote = origStream
 	}()
 
@@ -132,9 +135,12 @@ func TestRunRemoteDumpError(t *testing.T) {
 
 	origDump := dumpChangesSequential
 	origSum := sumFile
-	origSelect := digestpkg.Select
+	origAVX2, origAVX512, origNEON, origAESNI := digestpkg.HasAVX2, digestpkg.HasAVX512, digestpkg.HasNEON, digestpkg.HasAESNI
 	origStream := streamToRemote
-	digestpkg.Select = func() string { return digestpkg.SHA256 }
+	digestpkg.HasAVX2 = func() bool { return false }
+	digestpkg.HasAVX512 = func() bool { return false }
+	digestpkg.HasNEON = func() bool { return false }
+	digestpkg.HasAESNI = func() bool { return false }
 	sumFile = func(string, string) ([32]byte, error) { return [32]byte{}, nil }
 	streamToRemote = func(_ context.Context, _ *config.Config, _ io.WriteCloser, snap, origin, alg string, _ *zap.Logger) error {
 		if snap != "snap" || origin != "origin" || alg != digestpkg.SHA256 {
@@ -148,7 +154,7 @@ func TestRunRemoteDumpError(t *testing.T) {
 	defer func() {
 		dumpChangesSequential = origDump
 		sumFile = origSum
-		digestpkg.Select = origSelect
+		digestpkg.HasAVX2, digestpkg.HasAVX512, digestpkg.HasNEON, digestpkg.HasAESNI = origAVX2, origAVX512, origNEON, origAESNI
 		streamToRemote = origStream
 	}()
 

@@ -724,28 +724,34 @@ func TestValidateChecksumAuto(t *testing.T) {
 
 	t.Run("simd", func(t *testing.T) {
 		cfg := base
-		orig := digest.Select
-		digest.Select = func() string { return digest.BLAKE3 }
-		defer func() { digest.Select = orig }()
+		origAVX2, origAVX512, origNEON, origAESNI := digest.HasAVX2, digest.HasAVX512, digest.HasNEON, digest.HasAESNI
+		digest.HasAVX2 = func() bool { return true }
+		digest.HasAVX512 = func() bool { return false }
+		digest.HasNEON = func() bool { return false }
+		digest.HasAESNI = func() bool { return false }
 		if err := cfg.ValidateWith(geteuid); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		if cfg.ChecksumAlgorithm != digest.BLAKE3 {
 			t.Fatalf("expected %s, got %s", digest.BLAKE3, cfg.ChecksumAlgorithm)
 		}
+		digest.HasAVX2, digest.HasAVX512, digest.HasNEON, digest.HasAESNI = origAVX2, origAVX512, origNEON, origAESNI
 	})
 
 	t.Run("fallback", func(t *testing.T) {
 		cfg := base
-		orig := digest.Select
-		digest.Select = func() string { return digest.SHA256 }
-		defer func() { digest.Select = orig }()
+		origAVX2, origAVX512, origNEON, origAESNI := digest.HasAVX2, digest.HasAVX512, digest.HasNEON, digest.HasAESNI
+		digest.HasAVX2 = func() bool { return false }
+		digest.HasAVX512 = func() bool { return false }
+		digest.HasNEON = func() bool { return false }
+		digest.HasAESNI = func() bool { return false }
 		if err := cfg.ValidateWith(geteuid); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		if cfg.ChecksumAlgorithm != digest.SHA256 {
 			t.Fatalf("expected %s, got %s", digest.SHA256, cfg.ChecksumAlgorithm)
 		}
+		digest.HasAVX2, digest.HasAVX512, digest.HasNEON, digest.HasAESNI = origAVX2, origAVX512, origNEON, origAESNI
 	})
 }
 
