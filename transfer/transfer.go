@@ -108,6 +108,10 @@ func SaveChecksumState(filename string, state *ChecksumState, logger *zap.Logger
 func (t *Transfer) dumpChangesCore(ctx context.Context, cfg *config.Config, snapshot, source string, out io.Writer, dedup DeduplicationStrategy, handshake string) (err error) {
 	defer rootcmd.SyncLogger(t.Logger)
 
+	if cfg.Delta == "rsync" {
+		return t.streamRsyncDelta(ctx, cfg, snapshot, source, out)
+	}
+
 	ranges, err := prepareRanges(ctx, cfg, snapshot, source, t.Logger)
 	if err != nil {
 		return err

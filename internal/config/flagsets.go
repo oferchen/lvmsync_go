@@ -78,7 +78,7 @@ func initGeneralFlags(cfg *Config) *pflag.FlagSet {
 	fs.String("checkpoint-bytes", cfg.CheckpointBytesRaw, "Bytes between resume checkpoints")
 	fs.Duration("checkpoint-interval", cfg.CheckpointInterval, "Duration between checkpoints")
 	fs.String("block-size", cfg.BlockSizeRaw, "Block size for data transfer; specify 'auto' or 0 for automatic detection")
-	fs.String("delta", cfg.Delta, "Delta algorithm (none, rsync)")
+	fs.String("delta", cfg.Delta, "Delta algorithm (none, rsync) to precompute byte-level changes")
 	fs.CountP("verbose", "v", "Verbosity level")
 	fs.Bool("verify-checksum", cfg.VerifyChecksum, "Enable checksum verification")
 	fs.String("verify", cfg.VerifyLevel, "Verification level: full, sampled, or none")
