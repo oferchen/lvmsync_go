@@ -46,6 +46,25 @@ func TestCheckerPreOpen(t *testing.T) {
 	}
 }
 
+func TestCheckerPreOpenInvalidNames(t *testing.T) {
+	ctx := context.Background()
+	mock := &preMock{exists: true, auto: true, discard: true}
+	c := Checker{Agent: mock, Requester: "req"}
+	cases := []struct{ vg, lv string }{
+		{"vg/foo", "lv"},
+		{"vg", "lv/bar"},
+		{"..", "lv"},
+		{"vg", ".."},
+		{"", "lv"},
+		{"vg", ""},
+	}
+	for _, tc := range cases {
+		if _, err := c.PreOpen(ctx, tc.vg, tc.lv); err == nil {
+			t.Fatalf("expected error for vg %q lv %q", tc.vg, tc.lv)
+		}
+	}
+}
+
 func TestCheckerPostCommit(t *testing.T) {
 	ctx := context.Background()
 	f := &fakeFile{}
