@@ -21,11 +21,13 @@ func TestRunnerExitCodes(t *testing.T) {
 	}{
 		{"platform", "darwin", nil, nil, exitcode.ErrPlatform},
 		{"capability", "linux", errors.New("privilege check failed: missing"), nil, exitcode.ErrCapability},
-		{"config", "linux", errors.New("cfg"), nil, exitcode.ErrConfig},
+		{"config", "linux", errors.New("config invalid"), nil, exitcode.ErrConfig},
 		{"device", "linux", nil, errors.New("device gone"), exitcode.ErrDevice},
 		{"runtime", "linux", nil, errors.New("boom"), exitcode.ErrRuntime},
 		{"verify", "linux", nil, errors.New("digest mismatch"), exitcode.ErrVerify},
 		{"partial", "linux", nil, errors.New("received signal: interrupt"), exitcode.ErrPartial},
+		{"precondition", "linux", nil, errors.New("precondition not met"), exitcode.ErrPrecondition},
+		{"resumable", "linux", nil, errors.New("resumable: retry"), exitcode.ErrResumable},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {

@@ -680,6 +680,29 @@ func TestTCPTLSTransportRequiresServerCert(t *testing.T) {
 	}
 }
 
+func TestTCPTLSClientAuthDefaults(t *testing.T) {
+	cert, root := generateSelfSignedCert(t)
+	trIface, err := New(transport.Config{Logger: zap.NewNop(), Roots: root, ClientCert: cert, ServerCert: cert})
+	if err != nil {
+		t.Fatalf("new transport: %v", err)
+	}
+	tr := trIface.(*Transport)
+	if tr.serverConf.ClientAuth != tls.RequireAndVerifyClientCert {
+		t.Fatalf("expected RequireAndVerifyClientCert, got %v", tr.serverConf.ClientAuth)
+	}
+}
+
+func TestTCPTLSClientAuthInsecure(t *testing.T) {
+	trIface, err := New(transport.Config{Logger: zap.NewNop(), AllowInsecure: true})
+	if err != nil {
+		t.Fatalf("new transport: %v", err)
+	}
+	tr := trIface.(*Transport)
+	if tr.serverConf.ClientAuth != tls.NoClientCert {
+		t.Fatalf("expected NoClientCert, got %v", tr.serverConf.ClientAuth)
+	}
+}
+
 func TestTCPTLSListenCloseErrorWarn(t *testing.T) {
 	cert, root := generateSelfSignedCert(t)
 	core, obs := observer.New(zap.WarnLevel)

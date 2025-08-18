@@ -1,11 +1,8 @@
 package main
 
 import (
-	"context"
-	"errors"
 	"os"
 	"runtime"
-	"strings"
 
 	"go.uber.org/zap"
 
@@ -78,27 +75,13 @@ func (r *Runner) Run() {
 		tmpLogger := r.ExampleLogger()
 		tmpLogger.Error("configuration failed", zap.Error(err))
 		rootcmd.SyncLogger(tmpLogger)
-		if strings.Contains(err.Error(), "privilege check failed") {
-			r.Exit(exitcode.ErrCapability)
-		} else {
-			r.Exit(exitcode.ErrConfig)
-		}
+		r.Exit(rootcmd.ExitCode(err))
 		return
 	}
 	if err := r.RunFunc(cfg, args, logger); err != nil {
 		logger.Error("run failed", zap.Error(err))
 		r.SyncLogger(logger)
-		msg := err.Error()
-		switch {
-		case strings.Contains(msg, "device"):
-			r.Exit(exitcode.ErrDevice)
-		case strings.Contains(msg, "mismatch") || strings.Contains(msg, "blocks differ"):
-			r.Exit(exitcode.ErrVerify)
-		case strings.Contains(msg, "signal") || errors.Is(err, context.Canceled):
-			r.Exit(exitcode.ErrPartial)
-		default:
-			r.Exit(exitcode.ErrRuntime)
-		}
+		r.Exit(rootcmd.ExitCode(err))
 		return
 	}
 	r.SyncLogger(logger)
