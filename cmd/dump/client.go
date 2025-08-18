@@ -382,6 +382,10 @@ func SetupSessionStreams(ctx context.Context, session pipeSession) (io.WriteClos
 // StreamToRemote dumps snapshot data to the remote stdin, then computes and
 // transmits the digest before closing the stream.
 func (r *Runner) StreamToRemote(ctx context.Context, cfg *config.Config, remoteStdin io.WriteCloser, snapshotDevice, originDevice, alg string, logger *zap.Logger) error {
+	if cfg.Delta == "rsync" {
+		return r.streamRsyncDelta(ctx, cfg, remoteStdin, snapshotDevice, originDevice, alg, logger)
+	}
+
 	streamErr := r.ExecuteDump(ctx, cfg, snapshotDevice, originDevice, remoteStdin, logger)
 	if streamErr != nil {
 		if err := remoteStdin.Close(); err != nil && !errors.Is(err, io.EOF) {
@@ -403,6 +407,87 @@ func (r *Runner) StreamToRemote(ctx context.Context, cfg *config.Config, remoteS
 		return fmt.Errorf("send digest: %w", err)
 	}
 
+	if err := remoteStdin.Close(); err != nil && !errors.Is(err, io.EOF) {
+		return fmt.Errorf("failed to close remote stdin: %w", err)
+	}
+	return nil
+}
+
+func (r *Runner) streamRsyncDelta(ctx context.Context, cfg *config.Config, remoteStdin io.WriteCloser, snapshotDevice, originDevice, alg string, logger *zap.Logger) (err error) {
+	snap, err := r.openFile(snapshotDevice, os.O_RDONLY, 0)
+	if err != nil {
+		return fmt.Errorf("open snapshot: %w", err)
+	}
+	defer common.CloseWithErr(snap, &err, "close snapshot")
+
+	orig, err := r.openFile(originDevice, os.O_RDONLY, 0)
+	if err != nil {
+		return fmt.Errorf("open origin: %w", err)
+	}
+	defer common.CloseWithErr(orig, &err, "close origin")
+
+	rw := writeOnlyReadWriter{remoteStdin}
+	cl := rsyncwire.NewClient(rsyncwire.NewStream(rw, maxFrame))
+	if _, err := cl.SendSignatures(orig); err != nil {
+		remoteStdin.Close()
+		return fmt.Errorf("send signatures: %w", err)
+	}
+	if _, err := orig.Seek(0, io.SeekStart); err != nil {
+		remoteStdin.Close()
+		return fmt.Errorf("seek origin: %w", err)
+	}
+
+	const chunk = 32 * 1024
+	bufSnap := make([]byte, chunk)
+	bufOrig := make([]byte, chunk)
+	var off int64
+	for {
+		nSnap, errSnap := snap.Read(bufSnap)
+		nOrig, errOrig := orig.Read(bufOrig)
+		n := nSnap
+		if nOrig < n {
+			n = nOrig
+		}
+		if n > 0 {
+			i := 0
+			for i < n {
+				if bufSnap[i] != bufOrig[i] {
+					start := i
+					for i < n && bufSnap[i] != bufOrig[i] {
+						i++
+					}
+					if err := cl.SendDelta(off+int64(start), bufSnap[start:i]); err != nil {
+						remoteStdin.Close()
+						return fmt.Errorf("send delta: %w", err)
+					}
+				} else {
+					i++
+				}
+			}
+			off += int64(n)
+		}
+		if errSnap == io.EOF || errOrig == io.EOF {
+			break
+		}
+		if errSnap != nil {
+			remoteStdin.Close()
+			return fmt.Errorf("read snapshot: %w", errSnap)
+		}
+		if errOrig != nil {
+			remoteStdin.Close()
+			return fmt.Errorf("read origin: %w", errOrig)
+		}
+	}
+
+	sum, err := r.sumFile(snapshotDevice, alg)
+	if err != nil {
+		remoteStdin.Close()
+		return fmt.Errorf("compute digest: %w", err)
+	}
+	if err := cl.SendDigest(alg, sum); err != nil {
+		remoteStdin.Close()
+		return fmt.Errorf("send digest: %w", err)
+	}
 	if err := remoteStdin.Close(); err != nil && !errors.Is(err, io.EOF) {
 		return fmt.Errorf("failed to close remote stdin: %w", err)
 	}

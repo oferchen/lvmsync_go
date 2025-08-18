@@ -589,6 +589,7 @@ Flags override environment variables, which override `config.yaml` values.
 | `--verify` | `LVMSYNC_VERIFY` | `verify` | Verification level: `full`, `sampled`, or `none` |
 | `--digest` | `LVMSYNC_DIGEST` | `digest` | Digest algorithm: `auto`, `blake3`, or `sha256` (`auto` selects `blake3` when AVX2, AVX-512, or NEON is available, otherwise `sha256`) |
 | `--progress` | `LVMSYNC_PROGRESS` | `progress` | Show progress during transfer |
+| `--delta` | `LVMSYNC_DELTA` | `delta` | Delta algorithm: `none` or `rsync` |
 | `--manifest-path` | `LVMSYNC_MANIFEST_PATH` | `manifest_path` | Path to manifest file |
 | `--manifest-progress-interval` | `LVMSYNC_MANIFEST_PROGRESS_INTERVAL` | `manifest_progress_interval` | Interval between progress logs during manifest rebuild |
 | `--manifest-timeout` | `LVMSYNC_MANIFEST_TIMEOUT` | `manifest_timeout` | Timeout for manifest rebuild (0 disables) |
@@ -1030,6 +1031,7 @@ Flags are parsed via Viper, so the same settings can be provided through
 | `--verify-checksum` | Enable checksum verification for data integrity                                                         | `false`   |
 | `--progress`        | Show progress percentage during the transfer                                                            | `true`    |
 | `--block-size`      | Block size for data transfer (e.g., `"4K"`, `"64K"`, `"512K"`, `"1M"`), use `0` for automatic detection | `"4K"`    |
+| `--delta`          | Delta algorithm (`none` or `rsync`) | `"none"` |
 | `--dry-run`         | Print actions without executing | `false`   |
 | `--discard`         | Issue BLKDISCARD before writing blocks | `false`   |
 | `--offline`         | Assume source raw device is offline | `false`   |

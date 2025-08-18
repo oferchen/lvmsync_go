@@ -44,6 +44,9 @@ func TestRunCommandExecutes(t *testing.T) {
 	if gotOpts.Transport != "ssh" {
 		t.Fatalf("unexpected transport %q", gotOpts.Transport)
 	}
+	if gotOpts.Delta != "none" {
+		t.Fatalf("unexpected delta %q", gotOpts.Delta)
+	}
 }
 
 func TestRunCommandDryRun(t *testing.T) {
@@ -80,6 +83,20 @@ func TestRunCommandDryRunEnv(t *testing.T) {
 	}
 	if called {
 		t.Fatalf("runCommand should not be called when dry-run env set")
+	}
+}
+
+func TestRunCommandDeltaFlag(t *testing.T) {
+	var gotOpts RunOptions
+	r := NewRunnerWithDeps(func(src, dst string, opts RunOptions, logger *zap.Logger) error {
+		gotOpts = opts
+		return nil
+	}, nil, nil)
+	if err := ExecuteWithRunner([]string{"run", "--delta", "rsync", "src", "dst"}, zap.NewNop(), r); err != nil {
+		t.Fatalf("execute run: %v", err)
+	}
+	if gotOpts.Delta != "rsync" {
+		t.Fatalf("expected delta rsync, got %q", gotOpts.Delta)
 	}
 }
 
