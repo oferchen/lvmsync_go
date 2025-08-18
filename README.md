@@ -20,7 +20,8 @@ For details on running with minimal privileges and sudoers examples, see [SECURI
 - **Deduplication Strategies**: Detect unchanged blocks using checksum, rolling hash, or a Bloom filter with optional FastCDC content-defined chunking and mmap-backed index.
 - **Hashing**: Hardware-accelerated XXH3 provides fast deduplication hints while BLAKE3 digests are stored in manifests for integrity.
 - **Remote Execution via SSH**: Replicates data over SSH with support for pre/post-scripts.
-- **Resume Support**: Ability to resume interrupted transfers.
+- **Resume Support**: Ability to resume interrupted transfers and verify results with `--resume=verify`.
+- **Device Identity Tuple**: Each run records `(device_id, size_bytes, major:minor)` to prevent writing to the wrong destination.
 - **Handshake Timeouts**: Transport connections apply context deadlines during handshakes and clear them once negotiation succeeds.
 - **Sparse Destination Optimization**: Detects runs of zero bytes and punches holes when the filesystem supports it.
 - **Aligned I/O Buffers and NUMA Pinning**: `--odirect` allocates block-size aligned slabs from a `sync.Pool` and can pin worker goroutines to the device's NUMA node.
@@ -38,9 +39,17 @@ For details on running with minimal privileges and sudoers examples, see [SECURI
   - See [LVM snapshot documentation](docs/lvm.md) for snapshot lifecycle and mount checks.
 - **Graceful Shutdown**: Signal handling ensures snapshots are cleaned up on interruption.
 - **Flexible Configuration**: Flags, environment variables, or `config.yaml`. See [Configuration](#configuration).
+  Configuration values follow flag > environment variable > config file precedence.
 - **Configuration Validation**: Checks key parameters (e.g., volume group existence, escalation command) before starting operations.
 
-For snapshot workflow, resume modes, verification-only runs, and recovery guidance, see [operations guide](docs/OPERATIONS.md).
+### Resume and overwrite flows
+
+Transfers store the device identity tuple and compare it against the destination before writing. Mismatches abort the run to avoid accidental overwrites. Use `--force` to bypass this check when intentionally overwriting.
+
+- `--resume statefile` continues an interrupted run.
+- `--resume=verify` resumes the copy and then performs a verification pass.
+
+For snapshot workflow, resume modes, verification-only runs, and recovery guidance, see [operations guide](OPERATIONS.md).
 
 ## Supported Platforms
 
