@@ -193,11 +193,46 @@ func TestNewWithHostKeyPath(t *testing.T) {
 	}
 }
 
-func TestNewHostKeyRequired(t *testing.T) {
+func TestNewClientOnly(t *testing.T) {
 	core, _ := observer.New(zap.InfoLevel)
-	cfg := transport.Config{Logger: zap.New(core), SSHUser: "u", SSHPassword: "p"}
-	if _, err := New(context.Background(), cfg); err == nil || !strings.Contains(err.Error(), "host key path required") {
-		t.Fatalf("expected host key requirement error, got %v", err)
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("GenerateKey: %v", err)
+	}
+	signer, err := ssh.NewSignerFromKey(key)
+	if err != nil {
+		t.Fatalf("NewSignerFromKey: %v", err)
+	}
+	hostKey := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(signer.PublicKey())))
+	cfg := transport.Config{Logger: zap.New(core), SSHUser: "u", SSHPassword: "p", SSHHostKey: hostKey}
+	trIface, err := New(context.Background(), cfg)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	tr := trIface.(*Transport)
+	if tr.hostSigner != nil {
+		t.Fatalf("expected nil host signer")
+	}
+}
+
+func TestListenRequiresHostKey(t *testing.T) {
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("GenerateKey: %v", err)
+	}
+	signer, err := ssh.NewSignerFromKey(key)
+	if err != nil {
+		t.Fatalf("NewSignerFromKey: %v", err)
+	}
+	hostKey := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(signer.PublicKey())))
+	cfg := transport.Config{Logger: zap.NewNop(), SSHUser: "u", SSHPassword: "p", SSHHostKey: hostKey}
+	trIface, err := New(context.Background(), cfg)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	tr := trIface.(*Transport)
+	if _, err := tr.Listen(context.Background(), "127.0.0.1:0"); err == nil || !strings.Contains(err.Error(), "host key") {
+		t.Fatalf("expected host key error, got %v", err)
 	}
 }
 
@@ -361,7 +396,7 @@ func TestSSHTransportKeyAuth(t *testing.T) {
 	defer cancel()
 	defer ln.Close()
 
-	hs := common.Handshake{ResumeToken: "tok", MaxInFlight: 8, CDCMin: 64, CDCAvg: 128, CDCMax: 256, CRC32C: true}
+	hs := common.Handshake{ResumeToken: "tok", DedupMode: "cdc", BlockSize: 4096, Compress: "zstd", Digest: "sha256", MaxInFlight: 8, CDCMin: 64, CDCAvg: 128, CDCMax: 256, CRC32C: true}
 	done := make(chan struct{})
 	go func() {
 		conn, err := ln.Accept()
@@ -369,11 +404,15 @@ func TestSSHTransportKeyAuth(t *testing.T) {
 			t.Errorf("accept: %v", err)
 			return
 		}
-		if _, err := server.Negotiate(baseCtx, conn, transport.Server, hs); err != nil {
+		srvCtx, cancel := context.WithTimeout(baseCtx, time.Second)
+		peerHS, err := server.Negotiate(srvCtx, conn, transport.Server, hs)
+		cancel()
+		if err != nil {
 			t.Errorf("server negotiate: %v", err)
-			conn.Close()
-			close(done)
 			return
+		}
+		if peerHS.ResumeToken != hs.ResumeToken || peerHS.DedupMode != hs.DedupMode || peerHS.BlockSize != hs.BlockSize || peerHS.Compress != hs.Compress || peerHS.Digest != hs.Digest || peerHS.MaxInFlight != hs.MaxInFlight || peerHS.CDCMin != hs.CDCMin || peerHS.CDCAvg != hs.CDCAvg || peerHS.CDCMax != hs.CDCMax {
+			t.Errorf("unexpected peer handshake: %+v", peerHS)
 		}
 		buf := make([]byte, 4)
 		io.ReadFull(conn, buf)
@@ -381,15 +420,19 @@ func TestSSHTransportKeyAuth(t *testing.T) {
 		conn.Close()
 		close(done)
 	}()
-	conn, err := client.Dial(baseCtx, ln.Addr().String())
+	dialCtx, cancel := context.WithTimeout(baseCtx, time.Second)
+	conn, err := client.Dial(dialCtx, ln.Addr().String())
+	cancel()
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
-	peerHS, err := client.Negotiate(baseCtx, conn, transport.Client, hs)
+	negCtx, cancel := context.WithTimeout(baseCtx, time.Second)
+	peerHS, err := client.Negotiate(negCtx, conn, transport.Client, hs)
+	cancel()
 	if err != nil {
 		t.Fatalf("client negotiate: %v", err)
 	}
-	if peerHS.ResumeToken != hs.ResumeToken || peerHS.MaxInFlight != hs.MaxInFlight || peerHS.CDCMin != hs.CDCMin || peerHS.CDCAvg != hs.CDCAvg || peerHS.CDCMax != hs.CDCMax {
+	if peerHS.ResumeToken != hs.ResumeToken || peerHS.DedupMode != hs.DedupMode || peerHS.BlockSize != hs.BlockSize || peerHS.Compress != hs.Compress || peerHS.Digest != hs.Digest || peerHS.MaxInFlight != hs.MaxInFlight || peerHS.CDCMin != hs.CDCMin || peerHS.CDCAvg != hs.CDCAvg || peerHS.CDCMax != hs.CDCMax {
 		t.Fatalf("unexpected peer handshake: %+v", peerHS)
 	}
 	if _, err := conn.Write([]byte("ping")); err != nil {
