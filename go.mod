@@ -3,6 +3,7 @@ module lvmsync_go
 go 1.24.3
 
 require (
+	bou.ke/monkey v1.0.2
 	github.com/bits-and-blooms/bloom/v3 v3.7.0
 	github.com/gokrazy/rsync v0.2.10
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51

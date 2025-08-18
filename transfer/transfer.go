@@ -78,10 +78,13 @@ func LoadChecksumState(filename string) (state *ChecksumState, err error) {
 	return state, nil
 }
 
-// SaveChecksumState persists block checksums; logger must be non-nil.
+// SaveChecksumState persists block checksums. It defaults to a no-op logger when nil.
 //
 //revive:disable-next-line:cognitive-complexity
 func SaveChecksumState(filename string, state *ChecksumState, logger *zap.Logger) (err error) {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
 	var file *os.File
 	file, err = os.Create(filename)
 	if err != nil {
