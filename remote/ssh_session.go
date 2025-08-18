@@ -119,15 +119,7 @@ func RunSSHCommand(ctx context.Context, logger *zap.Logger, host, user, keyPath,
 }
 
 func readPrivateKey(keyPath string) (ssh.Signer, error) {
-	key, err := os.ReadFile(keyPath)
-	if err != nil {
-		return nil, fmt.Errorf("read SSH private key: %w", err)
-	}
-	signer, err := ssh.ParsePrivateKey(key)
-	if err != nil {
-		return nil, fmt.Errorf("parse SSH private key: %w", err)
-	}
-	return signer, nil
+	return loadPrivateKey(ssh.ParsePrivateKey, keyPath)
 }
 
 // readHostPublicKey loads the allowed host public key from the given path and parses it.
