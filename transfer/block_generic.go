@@ -37,3 +37,7 @@ func openFileODirect(path string, flag int) (*os.File, bool, error) {
 	f, err := os.OpenFile(path, flag, 0)
 	return f, false, err
 }
+
+func seekHoleSupported(_ *os.File) bool { return false }
+
+func nextDataOffset(_ *os.File, _ int64) (int64, error) { return -1, nil }

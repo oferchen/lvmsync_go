@@ -74,6 +74,7 @@ func iterateBlocks(
 	if cfg.IntraDedup {
 		intra = newChunkCache(intraCacheCapacity)
 	}
+	holeSupported := seekHoleSupported(srcFile)
 	for _, r := range ranges {
 		if err := ctx.Err(); err != nil {
 			return totalBytes, skippedBlocks, nil, err
@@ -81,6 +82,30 @@ func iterateBlocks(
 		offset, blockSize, err := validateOffsetAndSize(r.Start, cfg.BlockSize)
 		if err != nil {
 			return totalBytes, skippedBlocks, nil, err
+		}
+		if holeSupported {
+			next, err := nextDataOffset(srcFile, offset)
+			if err != nil {
+				holeSupported = false
+			} else if next == -1 || next >= offset+int64(blockSize) {
+				binary.BigEndian.PutUint64(header[0:8], r.Start)
+				binary.BigEndian.PutUint32(header[8:12], 0)
+				binary.BigEndian.PutUint32(header[12:16], 0)
+				if _, err := bufOut.Write(header[:16]); err != nil {
+					return totalBytes, skippedBlocks, nil, fmt.Errorf("failed to write header: %w", err)
+				}
+				zh := zeroHash(int(blockSize))
+				saveResumeState(cfg, rt, r.Start, zh, int64(blockSize), logger)
+				if idx != nil {
+					zero := zeroBuf(int(blockSize))
+					xx := hashutil.SumXXH3(zero)
+					if err := idx.Set(r.Start, blockSize, 0, xx, zh); err != nil {
+						return totalBytes, skippedBlocks, nil, fmt.Errorf("manifest set: %w", err)
+					}
+				}
+				totalBytes += int64(blockSize)
+				continue
+			}
 		}
 		data, err := ReadBlockWithRetries(ctx, cfg, srcFile, offset, cfg.ZeroCopy, pipeFds, logger)
 		if err != nil {
