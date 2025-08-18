@@ -29,14 +29,14 @@ func detectFileDevice(path string, logger *zap.Logger) (Device, error) {
 }
 
 // detectLVMDevice opens an LVM logical volume.
-func detectLVMDevice(path, lvmEscalation string, runner *Runner, logger *zap.Logger) (Device, error) {
+func detectLVMDevice(ctx context.Context, path, lvmEscalation string, runner *Runner, logger *zap.Logger) (Device, error) {
 	if err := lvm.VerifyEscalationCommand(lvmEscalation); err != nil {
 		logger.Error("detect_device_failed", zap.String("path", path), zap.String("device_type", TypeLVM), zap.Error(err))
 		return nil, err
 	}
 	cache := lvm.NewDeviceFDCache(logger)
 	defer cache.Close()
-	dev, err := runner.OpenLVM(path, cache, lvmEscalation, logger)
+	dev, err := runner.OpenLVM(ctx, path, cache, lvmEscalation, logger)
 	if err != nil {
 		logger.Error("detect_device_failed", zap.String("path", path), zap.String("device_type", TypeLVM), zap.Error(err))
 		return nil, err
@@ -124,7 +124,7 @@ func Detect(
 			if info.Mode()&os.ModeDevice == 0 || info.Mode()&os.ModeCharDevice != 0 {
 				return nil, fmt.Errorf("expected block device for type lvm: %s", resolved)
 			}
-			return detectLVMDevice(resolved, lvmEscalation, runner, logger)
+			return detectLVMDevice(ctx, resolved, lvmEscalation, runner, logger)
 		case TypeRaw:
 			if info.Mode()&os.ModeDevice == 0 || info.Mode()&os.ModeCharDevice != 0 {
 				return nil, fmt.Errorf("expected block device for type raw: %s", resolved)
@@ -141,7 +141,7 @@ func Detect(
 		out, err := runner.command.CommandContext(ctx, "blkid", "-o", "value", "-s", "TYPE", resolved).Output()
 		fsType := strings.TrimSpace(string(out))
 		if err == nil && fsType == "LVM2_member" {
-			return detectLVMDevice(resolved, lvmEscalation, runner, logger)
+			return detectLVMDevice(ctx, resolved, lvmEscalation, runner, logger)
 		}
 		return detectRawDevice(ctx, resolved, offline, fsFreezeCmd, fsThawCmd, freezeTimeout, thawTimeout, logger, runner)
 	}
