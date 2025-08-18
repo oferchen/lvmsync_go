@@ -19,8 +19,6 @@ import (
 
 // Runner manages external interactions for the root command.
 type Runner struct {
-	startGRPCServerFn   func(context.Context, *config.Config, *zap.Logger) (func(), <-chan error, error)
-	clientHandshakeFn   func(context.Context, *config.Config, *zap.Logger) (func(), chan error, error)
 	setupSignalHandleFn func(context.Context, *config.Config, *string, *zap.Logger) (chan os.Signal, chan error)
 	prepareSnapshotFn   func(context.Context, *config.Config, string, *zap.Logger) (string, chan error, func(), error)
 	executeClientFn     func(context.Context, func(context.Context, string, string) error, string, string, chan error, chan error, *zap.Logger) error
@@ -33,8 +31,6 @@ type Runner struct {
 // NewRunner constructs a Runner with production dependencies.
 func NewRunner() *Runner {
 	return &Runner{
-		startGRPCServerFn:   app.StartGRPCServer,
-		clientHandshakeFn:   app.ClientHandshake,
 		setupSignalHandleFn: app.SetupSignalHandling,
 		prepareSnapshotFn:   app.PrepareSnapshot,
 		executeClientFn:     clientpkg.ExecuteClient,
@@ -58,12 +54,6 @@ func NewRunnerWithDeps(deps *Runner) *Runner {
 	r := NewRunner()
 	if deps == nil {
 		return r
-	}
-	if deps.startGRPCServerFn != nil {
-		r.startGRPCServerFn = deps.startGRPCServerFn
-	}
-	if deps.clientHandshakeFn != nil {
-		r.clientHandshakeFn = deps.clientHandshakeFn
 	}
 	if deps.setupSignalHandleFn != nil {
 		r.setupSignalHandleFn = deps.setupSignalHandleFn
@@ -162,37 +152,8 @@ func Configure() (*config.Config, []string, *zap.Logger, error) {
 		zap.String("target_volume_group", cfg.TargetVolumeGroup),
 		zap.Bool("stdout_mode", cfg.StdoutMode),
 		zap.String("lvmsync_path", cfg.LVMSyncPath),
-		zap.String("grpc_listen", cfg.GRPCListen),
-		zap.String("grpc_connect", cfg.GRPCConnect),
 	)
 	return cfg, args, logger, nil
-}
-
-// SetupGRPC starts the server and performs client handshake returning cleanup functions and heartbeat error channel.
-func (r *Runner) SetupGRPC(ctx context.Context, cfg *config.Config, logger *zap.Logger) (func(), func(), chan error, error) {
-	cleanupSrv, srvErrCh, err := r.startGRPCServerFn(ctx, cfg, logger)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	select {
-	case err, ok := <-srvErrCh:
-		if ok && err != nil {
-			cleanupSrv()
-			return nil, nil, nil, fmt.Errorf("gRPC serve: %w", err)
-		}
-	default:
-	}
-	cleanupClient, hbErrCh, err := r.clientHandshakeFn(ctx, cfg, logger)
-	if err != nil {
-		cleanupSrv()
-		<-srvErrCh
-		return nil, nil, nil, err
-	}
-	wrappedSrvCleanup := func() {
-		cleanupSrv()
-		<-srvErrCh
-	}
-	return wrappedSrvCleanup, cleanupClient, hbErrCh, nil
 }
 
 // PrepareSnapshot wraps snapshot preparation.
@@ -206,11 +167,6 @@ func (r *Runner) ExecuteClient(ctx context.Context, cfg *config.Config, snapshot
 		_, err := r.runDumpFn(ctx, cfg, snapshot, dest, logger)
 		return err
 	}, snapshotPath, destPath, sigErrCh, monitorErrCh, logger)
-}
-
-// SetupGRPC wraps the default runner's SetupGRPC.
-func SetupGRPC(ctx context.Context, cfg *config.Config, logger *zap.Logger) (func(), func(), chan error, error) {
-	return defaultRunner.SetupGRPC(ctx, cfg, logger)
 }
 
 // PrepareSnapshot wraps the default runner's PrepareSnapshot.
@@ -241,30 +197,14 @@ func (r *Runner) prepareClient(cfg *config.Config, args []string, logger *zap.Lo
 		return nil, nil, "", "", nil, fmt.Errorf("select transport: %w", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), cfg.GRPCSetupTimeout)
-	cleanupSrv, cleanupClient, hbErrCh, err := r.SetupGRPC(ctx, cfg, logger)
-	if err != nil {
-		cancel()
-		return nil, nil, "", "", nil, err
-	}
+	ctx, cancel := context.WithCancel(context.Background())
 
 	var snapshotPath string
 	signals, sigErrCh := r.setupSignalHandleFn(ctx, cfg, &snapshotPath, logger)
 
-	if hbErrCh != nil {
-		go func() {
-			if err := <-hbErrCh; err != nil {
-				logger.Error("heartbeat error", zap.Error(err))
-				sigErrCh <- err
-			}
-		}()
-	}
-
 	if (cfg.StdoutMode && len(args) < 1) || (!cfg.StdoutMode && len(args) < 2) {
 		pflag.Usage()
 		cancel()
-		cleanupSrv()
-		cleanupClient()
 		signal.Stop(signals)
 		return nil, nil, "", "", nil, fmt.Errorf("invalid arguments")
 	}
@@ -278,8 +218,6 @@ func (r *Runner) prepareClient(cfg *config.Config, args []string, logger *zap.Lo
 	cleanup := func() {
 		signal.Stop(signals)
 		cancel()
-		cleanupSrv()
-		cleanupClient()
 	}
 	return ctx, cleanup, snapshotPath, destPath, sigErrCh, nil
 }

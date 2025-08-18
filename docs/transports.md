@@ -65,9 +65,7 @@ used only in development.
 lvmsync --transport quic,h2,tcp+tls,ssh --tcp-port 9443
 ```
 
-## gRPC keepalive and timeouts
 
-The gRPC control plane uses keepalive pings and deadlines to detect stalled
 clients. Defaults:
 
 - `--keepalive-time` (2m): interval between server pings.

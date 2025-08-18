@@ -2,5 +2,4 @@
 - README.md: document `--transport` as reserved; examples note "transport not implemented" error.
 - README.md: clarified `--strict-host-key-checking` flag; disabling it now skips SSH host key verification.
 - README.md: documented SSH agent usage when `--ssh-key` is unset and that the connection respects `--ssh-timeout`.
-- README.md: describe gRPC dial timeout behavior and default.
 - README.md: document validation for raw freeze/thaw commands.

@@ -103,13 +103,6 @@ type Config struct {
 	ManifestTimeout          time.Duration `mapstructure:"manifest_timeout"`
 	ManifestProgressInterval time.Duration `mapstructure:"manifest_progress_interval"`
 	ManifestAllowMounted     bool          `mapstructure:"manifest_allow_mounted"`
-	GRPCPort                 int           `mapstructure:"grpc_port"`
-	GRPCListen               string        `mapstructure:"grpc_listen"`
-	GRPCConnect              string        `mapstructure:"grpc_connect"`
-	GRPCDialTimeout          time.Duration `mapstructure:"grpc_dial_timeout"`
-	GRPCSetupTimeout         time.Duration `mapstructure:"grpc_setup_timeout"`
-	HeartbeatInterval        time.Duration `mapstructure:"grpc_heartbeat_interval"`
-	HeartbeatSendTimeout     time.Duration `mapstructure:"grpc_heartbeat_send_timeout"`
 	TLSCert                  string        `mapstructure:"tls_cert"`
 	TLSKey                   string        `mapstructure:"tls_key"`
 	CACert                   string        `mapstructure:"ca_cert"`
@@ -241,13 +234,6 @@ func DefaultConfig() (*Config, error) {
 		ManifestTimeout:          time.Minute,
 		ManifestProgressInterval: 10 * time.Second,
 		ManifestAllowMounted:     false,
-		GRPCPort:                 8443,
-		GRPCListen:               "",
-		GRPCConnect:              "",
-		GRPCDialTimeout:          5 * time.Second,
-		GRPCSetupTimeout:         10 * time.Second,
-		HeartbeatInterval:        30 * time.Second,
-		HeartbeatSendTimeout:     5 * time.Second,
 		TLSCert:                  "",
 		TLSKey:                   "",
 		CACert:                   "",

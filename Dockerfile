@@ -5,8 +5,6 @@
 FROM golang:1.24-alpine AS build
 ARG BIN
 ARG BUILD_PATH=.
-# To build the gRPC daemon instead of the CLI, set:
-#   --build-arg BIN=lvmsync_grpcd --build-arg BUILD_PATH=./cmd/grpcd
 ARG GIT_SHA=unknown
 
 RUN apk add --no-cache \

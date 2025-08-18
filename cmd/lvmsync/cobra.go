@@ -163,7 +163,6 @@ func NewRootCmd(logger *zap.Logger, r *Runner) *cobra.Command {
 			builder.FlagSets.Remote = pflag.NewFlagSet("Remote Options", pflag.ExitOnError)
 			builder.FlagSets.Compression = pflag.NewFlagSet("Compression Options", pflag.ExitOnError)
 			builder.FlagSets.LVM = pflag.NewFlagSet("LVM Options", pflag.ExitOnError)
-			builder.FlagSets.GRPC = pflag.NewFlagSet("gRPC Options", pflag.ExitOnError)
 			builder.FlagSets.Transport = pflag.NewFlagSet("Transport Options", pflag.ExitOnError)
 			fs := pflag.NewFlagSet("rebuild", pflag.ContinueOnError)
 			cfg, remaining, warns, err := builder.Build(fs, args)

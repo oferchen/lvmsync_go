@@ -126,16 +126,12 @@ Transfers rely on a manifest that tracks chunk offsets and digests:
 2. `lvmsync run <source> <destination>` streams blocks, skipping chunks already recorded in the manifest.
 3. `lvmsync verify <source> <destination>` compares the destination with the manifest and logs any mismatches.
 
-## gRPC Control Plane
 
-LVMSync ships a gRPC daemon for remote control. The daemon listens on the port
-specified by `--grpc-port` (default `9443`) and requires TLS 1.3 with mutual
 authentication. Provide certificate files with `--tls-cert`, `--tls-key`, and
 `--ca-cert`. Insecure mode can be enabled with `--allow-insecure`, but it is
 disabled by default and should only be used for testing.
 
 Configuration can be supplied via flags, environment variables prefixed with
-`LVMSYNC_GRPC_`, or a `grpcd.yaml` file; flag values override environment
 variables, which override configuration files.
 
 ## lvmsync daemon
@@ -187,7 +183,6 @@ LVMSync targets Linux systems only. Builds are tested on the `amd64` and `arm64`
 
 ## Roadmap
 
-- gRPC control plane with mTLS and configurable ports
 - Pluggable data plane: QUIC, HTTP/2, TLS/TCP, SSH
 - Hybrid fixed + CDC deduplication with Bloom filter index
 - Adaptive compression using LZ4 or Zstd with per-chunk sampling
@@ -206,14 +201,12 @@ LVMSync is organized into modular packages to keep concerns separated:
 - `remote` – wraps SSH functionality for running commands on remote hosts and coordinating transfers. Callers must provide a `context.Context` with a timeout when starting the privileged helper to allow cancellation if the remote command fails to launch.
 - `internal/config` – parses and validates configuration files and CLI options.
 - `dedup` – houses Bloom filter helpers, chunking logic, and other deduplication utilities.
-- `grpc` – provides the gRPC server and authentication helpers used by the remote daemon.
 - `common` and `internal` – shared helpers and internal utilities such as multi-error handling.
 - `internal/client` – coordinates snapshot preparation and client transfer execution.
 - `cmd/dump` – handles snapshot dumping and transport selection.
 - `cmd/root` – configures the application and routes to subcommands.
 - `cmd/lvmsync` – CLI orchestrator with a `signals` subpackage for signal handling and cleanup.
 - `cmd/lvmsyncd` – module loading daemon accepting multiple listen URIs.
-- `cmd/grpcd` – standalone gRPC daemon exposing LVMSync operations remotely.
 
 This structure allows individual packages to be developed and tested in isolation.
 
@@ -343,7 +336,6 @@ Flags are grouped in the CLI help:
 - **Deduplication Options** – dedup strategy and state storage.
 - **Compression Options** – algorithm and level tuning.
 - **LVM Options** – snapshot management and privilege escalation.
-- **gRPC Options** – parameters for the optional gRPC daemon.
 - **Transport Options** – configure data transports (QUIC, HTTP/2, TCP+TLS, SSH).
 - **Manifest Options** – manifest path overrides and related settings.
 
@@ -526,10 +518,8 @@ retry_delay: 1s
 
 Running `LVMSYNC_RETRY_DELAY=2s lvmsync run --retry-delay 3s` uses a retry delay of `3s`.
 
-Environment variables for the gRPC daemon use the `LVMSYNC_GRPC_` prefix with dashes converted to underscores, for example:
 
 ```sh
-LVMSYNC_GRPC_GRPC_PORT=9443 LVMSYNC_GRPC_TLS_CERT=cert.pem lvmsync-grpcd
 ```
 
 Environment variables for the lvmsync daemon use the `LVMSYNC_DAEMON_` prefix. Multi-value settings are comma-separated:
@@ -539,7 +529,6 @@ LVMSYNC_DAEMON_LISTEN=unix:///run/lvmsyncd.sock,tcp://:9000 lvmsyncd
 ```
 
 Grouped options use dedicated prefixes: `LVMSYNC_DEDUP_`,
-`LVMSYNC_COMPRESSION_`, `LVMSYNC_TRANSPORT_`, `LVMSYNC_LVM_`, `LVMSYNC_GRPC_`, and
 `LVMSYNC_DAEMON_`. For example:
 
 ```sh
@@ -629,16 +618,6 @@ Flags override environment variables, which override `config.yaml` values.
 | `--tcp-port` | `LVMSYNC_TRANSPORT_TCP_PORT` | `tcp_port` | TCP+TLS port |
 | `--tcp-parallel` | `LVMSYNC_TRANSPORT_TCP_PARALLEL` | `tcp_parallel` | Number of parallel TCP connections |
 | `--tcp-lowat` | `LVMSYNC_TRANSPORT_TCP_LOWAT` | `tcp_lowat` | TCP_NOTSENT_LOWAT in bytes |
-| `--grpc-listen` | `LVMSYNC_GRPC_LISTEN` | `grpc_listen` | gRPC listen address |
-| `--grpc-connect` | `LVMSYNC_GRPC_CONNECT` | `grpc_connect` | gRPC server address to connect to |
-| `--grpc-port` | `LVMSYNC_GRPC_PORT` | `grpc_port` | gRPC port to listen on |
-| `--grpc-dial-timeout` | `LVMSYNC_GRPC_DIAL_TIMEOUT` | `grpc_dial_timeout` | gRPC dial timeout |
-| `--grpc-setup-timeout` | `LVMSYNC_GRPC_SETUP_TIMEOUT` | `grpc_setup_timeout` | gRPC setup timeout |
-| `--grpc-heartbeat-interval` | `LVMSYNC_GRPC_HEARTBEAT_INTERVAL` | `grpc_heartbeat_interval` | gRPC heartbeat interval |
-| `--grpc-heartbeat-send-timeout` | `LVMSYNC_GRPC_HEARTBEAT_SEND_TIMEOUT` | `grpc_heartbeat_send_timeout` | gRPC heartbeat send timeout |
-| `--keepalive-time` | `LVMSYNC_GRPC_KEEPALIVE_TIME` | `keepalive_time` | Interval between server pings |
-| `--keepalive-timeout` | `LVMSYNC_GRPC_KEEPALIVE_TIMEOUT` | `keepalive_timeout` | Wait for ping ack before closing |
-| `--request-timeout` | `LVMSYNC_GRPC_REQUEST_TIMEOUT` | `request_timeout` | Deadline for unary RPC handlers |
 | `--tls-cert` | `LVMSYNC_TLS_CERT` | `tls_cert` | TLS certificate file |
 | `--tls-key` | `LVMSYNC_TLS_KEY` | `tls_key` | TLS key file |
 | `--ca-cert` | `LVMSYNC_CA_CERT` | `ca_cert` | CA certificate file |
@@ -661,10 +640,8 @@ SSH transport negotiation also derives read and write deadlines from the caller'
   lvmsync run /dev/vg0/source user@backup:/dev/vg1/target --ssh-key ~/.ssh/id_ed25519
   ```
 
-- **Using the gRPC control plane**:
 
   ```sh
-  lvmsync run --grpc-connect backup:9443 /dev/vg0/source /dev/vg1/target
   ```
 
 - **Throughput-optimized transfer**:
@@ -695,9 +672,7 @@ environments.
 | `--ca-cert` | `LVMSYNC_SERVE_CA_CERT` | CA certificate file |
 | `--allow-insecure` | `LVMSYNC_SERVE_ALLOW_INSECURE` | Permit insecure (no TLS) connections (disabled by default) |
 
-## gRPC Control Plane
 
-The optional gRPC daemon exposes snapshot management and replication over a mutually authenticated channel. Plaintext connections are rejected unless `--allow-insecure` is explicitly set.
 
 TLS mode requires explicit certificates. Provide `--tls-cert`, `--tls-key`, and `--ca-cert`; the daemon fails to start if any are missing and does not generate self-signed certificates.
 
@@ -706,7 +681,6 @@ To detect stalled clients, the daemon sends periodic keepalive pings governed by
 `--keepalive-timeout` (default `20s`), the connection is closed. Unary RPCs are
 wrapped with a deadline controlled by `--request-timeout` (default `15s`).
 
-`StartGRPCServer` accepts a `context.Context` and runs the server in a goroutine, returning a buffered error channel. Cancel the context or invoke the cleanup function to stop the server and wait on the channel during shutdown to surface any serve errors.
 
 1. **Handshake** – clients advertise `sector_size`, `alignment`, `max_concurrency`, and whether deduplication and compression are supported.
 2. **Session Creation** – the client sends an ephemeral certificate and receives a session ID, server certificate, and pre-shared key.
@@ -714,54 +688,39 @@ wrapped with a deadline controlled by `--request-timeout` (default `15s`).
 4. **Ack/Ping Stream** – a bidirectional stream of `Ack` messages per session provides keep-alives and progress confirmation.
 5. **Finalization** – the client requests completion using the session ID when replication is done.
 
-Configuration comes from flags, `LVMSYNC_GRPC_*` environment variables, or a YAML file with flags taking precedence.
 
 Run the daemon with TLS:
 
 ```sh
-lvmsync-grpcd --grpc-port 9443 --tls-cert cert.pem --tls-key key.pem --ca-cert ca.pem
 ```
 
 Disabling TLS with `--allow-insecure` is supported for development but is unsafe for production deployments.
 
-On failure, `lvmsync-grpcd` logs the error and exits with status `1` so calling scripts can inspect `$?`.
 
 Environment variables provide the same settings:
 
 ```sh
-LVMSYNC_GRPC_GRPC_PORT=9443 \
-LVMSYNC_GRPC_TLS_CERT=cert.pem \
-LVMSYNC_GRPC_TLS_KEY=key.pem \
-LVMSYNC_GRPC_CA_CERT=ca.pem \
-lvmsync-grpcd
 ```
 
 Misconfiguration logs an error and exits with code `1`:
 
 ```sh
-lvmsync-grpcd --tls-cert missing --tls-key missing
-{"level":"error","msg":"init gRPC server","error":"load TLS key pair: open missing: no such file or directory"}
 echo $?
 1
 ```
 
-YAML (`grpcd.yaml`):
 
 ```yaml
-grpc-port: 9443
 tls-cert: cert.pem
 tls-key: key.pem
 ca-cert: ca.pem
 ```
 
-Clients connect using `--grpc-connect`:
 
 ```sh
-lvmsync run --grpc-connect localhost:9443 /dev/vg0/snap0 /dev/vg0/data
 ```
 
 ```sh
-LVMSYNC_GRPC_CONNECT=localhost:9443 lvmsync run /dev/vg0/snap0 /dev/vg0/data
 ```
 
 ### `config.yaml` example
@@ -777,7 +736,6 @@ zstd_level: 3             # Compression Options
 lz4_level: hc             # Compression Options
 compress_threshold: 0.9   # Compression Options
 snapshot_size: 20%        # LVM Options
-grpc_listen: ":8443"      # gRPC Options
 ```
 
 Use `--config` to point to a different file.
@@ -1018,7 +976,6 @@ CGO_ENABLED=0 go build -o lvmsync .
 ### Makefile
 
 ```sh
-make proto   # generate gRPC code
 make build   # build binaries
 make test    # run tests
 ```
@@ -1208,18 +1165,11 @@ values containing spaces, for example:
 `lvm_timeout` also bounds the startup privilege check to avoid hanging when
 escalation commands stall.
 
-#### gRPC Options
 
 The client aborts dialing if a connection cannot be established within
-`--grpc-dial-timeout`, which defaults to `5s`.
 
 | Option             | Description                  | Default         |
 | ------------------ | ---------------------------- | --------------- |
-| `--grpc-port`      | gRPC port to listen on       | `8443`          |
-| `--grpc-dial-timeout` | gRPC dial timeout          | `5s`            |
-| `--grpc-setup-timeout` | gRPC setup timeout        | `10s`           |
-| `--grpc-heartbeat-interval` | gRPC heartbeat interval | `30s`          |
-| `--grpc-heartbeat-send-timeout` | gRPC heartbeat send timeout | `5s` |
 | `--keepalive-time` | Interval between server pings | `2m` |
 | `--keepalive-timeout` | Timeout waiting for keepalive ack | `20s` |
 | `--request-timeout` | Deadline for unary RPCs | `15s` |
@@ -1459,46 +1409,30 @@ snapshot_size: "25%"
 volume_group: vg_data
 ```
 
-#### gRPC
 
-`lvmsync-grpcd` accepts configuration via flags, environment variables prefixed with `LVMSYNC_GRPC_`, or a YAML file. Values are resolved in the following order: flags override environment variables, which override the config file.
 
 | Flag | Environment variable | Config key | Description |
 |------|----------------------|------------|-------------|
-| `--grpc-port` | `LVMSYNC_GRPC_GRPC_PORT` | `grpc-port` | gRPC port to listen on |
-| `--tls-cert` | `LVMSYNC_GRPC_TLS_CERT` | `tls-cert` | TLS certificate file |
-| `--tls-key` | `LVMSYNC_GRPC_TLS_KEY` | `tls-key` | TLS key file |
-| `--ca-cert` | `LVMSYNC_GRPC_CA_CERT` | `ca-cert` | CA certificate file |
-| `--allow-insecure` | `LVMSYNC_GRPC_ALLOW_INSECURE` | `allow-insecure` | Allow insecure (no TLS) |
-| `--config` | `LVMSYNC_GRPC_CONFIG` | `config` | Path to config YAML file |
 
 Precedence example:
 
 ```sh
-cat >grpcd.yaml <<'EOF'
-grpc-port: 1111
 EOF
-export LVMSYNC_GRPC_GRPC_PORT=2222
-lvmsync-grpcd --config grpcd.yaml --grpc-port 3333
 # effective port: 3333
 ```
 
 CLI:
 
 ```sh
-lvmsync-grpcd --grpc-port 9443 --tls-cert cert.pem
 ```
 
 Environment:
 
 ```sh
-LVMSYNC_GRPC_GRPC_PORT=9443 LVMSYNC_GRPC_TLS_CERT=cert.pem lvmsync-grpcd
 ```
 
-YAML (`grpcd.yaml`):
 
 ```yaml
-grpc-port: 9443
 tls-cert: cert.pem
 ```
 
@@ -1515,7 +1449,6 @@ Invalid configurations will cause the tool to abort with a clear error message.
 
 ## Exit Codes
 
-LVMSync commands such as `lvmsync` and `lvmsync-grpcd` return specific exit codes:
 
 | Code | Meaning |
 |------|---------|

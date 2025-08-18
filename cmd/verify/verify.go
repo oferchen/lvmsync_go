@@ -63,7 +63,6 @@ func (r *Runner) Run(args []string, logger *zap.Logger) error {
 			builder.FlagSets.Remote = pflag.NewFlagSet("Remote Options", pflag.ExitOnError)
 			builder.FlagSets.Compression = pflag.NewFlagSet("Compression Options", pflag.ExitOnError)
 			builder.FlagSets.LVM = pflag.NewFlagSet("LVM Options", pflag.ExitOnError)
-			builder.FlagSets.GRPC = pflag.NewFlagSet("gRPC Options", pflag.ExitOnError)
 			builder.FlagSets.Transport = pflag.NewFlagSet("Transport Options", pflag.ExitOnError)
 			fs := pflag.NewFlagSet("verify", pflag.ContinueOnError)
 			cfg, remaining, warns, err := builder.Build(fs, argv)

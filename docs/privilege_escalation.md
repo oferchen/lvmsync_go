@@ -24,9 +24,7 @@ Verify escalation availability:
 lvmsync --check-escalation
 ```
 
-## gRPC Role Mapping
 
-The gRPC control plane derives authorization roles from client TLS certificates.
 Roles are read from the certificate's `OrganizationalUnit` field and must
 include `replicator` to invoke replication RPCs such as `StartSync`, `Cancel`,
 `ProgressStream`, `BuildManifest`, and `Verify`. Any user-supplied metadata is

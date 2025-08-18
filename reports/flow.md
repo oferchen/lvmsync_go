@@ -2,13 +2,11 @@
 
 ## Before
 ```
-main -> Configure -> selectTransport -> SetupGRPC -> ExecuteClient -> SyncLogger
 NewSSHClient -> setupHostKeyCallback (verify ignored) -> knownhosts.New -> dialWithRetry
 ```
 
 ## After
 ```
-main -> Configure -> selectTransport -> SetupGRPC -> ExecuteClient -> SyncLogger
 NewSSHClient -> [key provided: loadPrivateKey | none: sshAgentAuth (context timeout)] -> setupHostKeyCallback (honors verify) -> [verify true: knownhosts.New, verify false: ssh.InsecureIgnoreHostKey] -> dialWithRetry
 ```
 

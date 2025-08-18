@@ -57,10 +57,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - manifest: use functional IndexOption for device detection and close hooks.
 - hash: add Blake3Hasher tests covering keyed and unkeyed modes with state reset verification.
 - transfer: tests ensure mismatched device UUIDs and mounted devices return errors without writes.
-- grpc: tests cover ProgressStream, BuildManifest, and Verify logging and forwarding.
 - cmd/verify: support SHA-256 verification with configurable digest helper.
 - transport: centralize handshake logging via `HandshakeFields` helper.
-- Warn when `AllowInsecure` is enabled for gRPC server, client, and transports.
 - manifest: allow custom close hook via index options, removing global hook.
 - Document manifest usage, transport security defaults, and resume/verify workflows.
 - compressiondetect: choose zstd when AVX2 or NEON is available.
@@ -104,7 +102,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - manifest: record CDC chunk size parameters and hybrid flags in header and index entries
 - cmd/manifest: add `manifest rebuild` subcommand for regenerating manifests
 - config: expose `--cdc-min`, `--cdc-avg`, and `--cdc-max` flags bound to Viper
-- config: apply defaults for escalation, gRPC, heartbeat, TCP, and CDC settings when unset
 - docs: document manifest lifecycle and CDC options
 - Remove obsolete gap and pruning entries after rerunning static analysis.
 - Wrap README logging example in `package main` to compile with `go build`.
@@ -143,7 +140,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial release of LVMSync with a pluggable transport registry supporting QUIC, HTTP/2, TCP+TLS, and SSH.
 - Hybrid deduplication combining fixed-size and content-defined chunking.
 - Adaptive compression with CPU feature detection and per-chunk sampling.
-- gRPC control plane with mutual TLS and keepalive support.
 - Throughput-optimized transfer mode.
 
 ### Fixed

@@ -118,15 +118,10 @@ lvmsync --transport quic,h2,tcp+tls,ssh --tcp-port 9443
 BDP-based autotuning keeps roughly one to two times the bandwidth–delay product
 in flight. Override the autotuned value with `--concurrency`.
 
-## gRPC Daemon
 
-- `cmd/grpcd` exposes replication operations over gRPC.
 - TLS 1.3 with mutual authentication is required by default; `AllowInsecure`
   is for development only.
-- Flags: `--grpc-port`, `--tls-cert`, `--tls-key`, `--ca-cert`, and
   `--allow-insecure` (defaults to false).
-- Configuration sources: flags, `LVMSYNC_GRPC_*` environment variables, and a
-  `grpcd.yaml` file. Precedence is flag > env > config file.
 
 ## Throughput Mode
 
@@ -291,7 +286,6 @@ Run these commands locally before opening a pull request:
 - [ ] Manifest rebuild: add a subcommand to regenerate chunk digests when manifests are missing or out of date, exercising rebuild logic in tests.
 - [ ] Verify command: compare source and destination devices against manifest entries and surface mismatched digests with structured logs.
 - [x] Manifest: return error when block size is 0 during creation.
-- [x] Refactor `cmd/grpcd` to defer `syncLogger` for structured log flushing.
 - [x] Expand unit test coverage for remote execution and client signal handling, and run coverage reports (transports coverage ≥50%).
 
   ```sh
@@ -309,7 +303,6 @@ golangci-lint run
 - [x] Ensure SSH agent connections use context timeouts and cover SSHManager reuse in tests.
 - [x] common: add endianness mismatch handshake validation test.
 
-- [ ] Review CLI argument parsing: prefer `pflag`, bind flags to `viper`, and group related options into reusable `FlagSet`s. Further flag-binding audits remain for commands beyond `config` and `cmd/grpcd`.
 - [ ] Implement QUIC `serve` command with minimal flags and `zap`-only logging.
 - [ ] Audit `serve` and related CLI flags for simplification and consistency.
 - [ ] Update `README` and configuration docs for `serve` mode and flag changes.
@@ -325,7 +318,6 @@ golangci-lint run
 - [ ] Expand coverage for configuration precedence across flags, environment variables, and config files.
 - [ ] Keep README configuration examples and precedence tests in sync.
 - [ ] Keep modules single-purpose; maintain the `transfer` package decomposition (`progress.go`, `handshake.go`, `block_writer.go`, `resume.go`, `worker.go`, `writer.go`, `apply.go`, `transfer.go`). Future contributions should keep files small and focused.
-- [ ] Document gRPC daemon configuration sources (flags, env vars, config file) and precedence.
 - [ ] Keep `README` configuration documentation current with code changes.
 - [ ] Keep transport documentation and configuration references (flags and env vars) up to date.
 - [ ] Track decomposition of large files like `transfer/transfer.go`.
@@ -354,7 +346,6 @@ golangci-lint run
 - [ ] Ensure all commands default to a non-nil `zap.Logger` (use `zap.NewNop()`), eliminating nil checks.
 ## Roadmap
 
-- [ ] Implement gRPC control plane with mTLS and port configurability.
 - [x] Introduce pluggable data plane with transport registry supporting QUIC, HTTP/2, TLS/TCP, and SSH.
 - [x] Add hybrid deduplication combining fixed-size and content-defined chunking (FastCDC).
 - [x] Implement adaptive compression with CPU feature detection and per-chunk sampling.
