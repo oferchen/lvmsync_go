@@ -14,8 +14,8 @@ import (
 type Option func(*options)
 
 type options struct {
-	samplingFirst      uint32
-	samplingThereafter uint32
+	samplingFirst      int
+	samplingThereafter int
 	redactor           func(zapcore.Field) zapcore.Field
 	zapOpts            []zap.Option
 }
@@ -36,7 +36,7 @@ func applyOptions(opts []Option) options {
 }
 
 // WithSampling sets the sampling rates. A zero value disables sampling.
-func WithSampling(first, thereafter uint32) Option {
+func WithSampling(first, thereafter int) Option {
 	return func(o *options) {
 		o.samplingFirst = first
 		o.samplingThereafter = thereafter
