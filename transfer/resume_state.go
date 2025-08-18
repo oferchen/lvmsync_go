@@ -34,7 +34,7 @@ type resumeState struct {
 }
 
 // writeResumeState persists resume state; logger must be non-nil.
-func writeResumeState(cfg *config.Config, logger *zap.Logger, path string, chunks resumeChunks) {
+func writeResumeState(cfg *config.Config, logger *zap.Logger, path string, chunks resumeChunks, size uint64, deviceID string, epoch uint64) {
 	toState := func(ch resumeChunk) resumeChunkState {
 		return resumeChunkState{
 			Offset: ch.Offset,
@@ -50,9 +50,9 @@ func writeResumeState(cfg *config.Config, logger *zap.Logger, path string, chunk
 		Fixed:             toState(chunks.Fixed),
 		CDC:               toState(chunks.CDC),
 		Hybrid:            toState(chunks.Hybrid),
-		SizeBytes:         0,
-		DeviceID:          cfg.DeviceUUID,
-		Epoch:             0,
+		SizeBytes:         size,
+		DeviceID:          deviceID,
+		Epoch:             epoch,
 		FirstBlockDigest:  cfg.FirstBlockDigest,
 	}
 	data, err := json.Marshal(rs)
@@ -77,7 +77,7 @@ func saveResumeState(cfg *config.Config, rt *resumeTracker, offset uint64, chunk
 	*rc = resumeChunk{Chunk: chunk, Offset: offset, Length: uint32(size)}
 	if (cfg.CheckpointBytes > 0 && rt.bytes >= int64(cfg.CheckpointBytes)) ||
 		(cfg.CheckpointInterval > 0 && time.Since(rt.last) >= cfg.CheckpointInterval) {
-		writeResumeState(cfg, logger, cfg.ResumeState, resumeChunks{Fixed: rt.Fixed, CDC: rt.CDC, Hybrid: rt.Hybrid})
+		writeResumeState(cfg, logger, cfg.ResumeState, resumeChunks{Fixed: rt.Fixed, CDC: rt.CDC, Hybrid: rt.Hybrid}, rt.sizeBytes, rt.deviceID, rt.epoch)
 		rt.bytes = 0
 		rt.last = time.Now()
 	}
@@ -96,6 +96,9 @@ func finalizeResumeState(cfg *config.Config, rt *resumeTracker, logger *zap.Logg
 	rt.bytes = 0
 	rt.last = time.Time{}
 	rt.resumeChunks = resumeChunks{}
+	rt.sizeBytes = 0
+	rt.deviceID = ""
+	rt.epoch = 0
 }
 
 func readResumeState(cfg *config.Config, logger *zap.Logger, size uint64, deviceID string, epoch uint64, digest [32]byte) resumeCheckpoint {

@@ -55,7 +55,7 @@ func TestReadResumeDigestLogField(t *testing.T) {
 	digest := blake3.Sum256([]byte("data"))
 	cfg := &config.Config{ResumeState: stateFile, Compress: "none", ChecksumAlgorithm: "blake3", DedupMode: "fixed"}
 	chk := resumeChunk{Chunk: digest, Offset: 1024, Length: 2048}
-	writeResumeState(cfg, logger, stateFile, resumeChunks{Fixed: chk})
+	writeResumeState(cfg, logger, stateFile, resumeChunks{Fixed: chk}, 0, "", 0)
 
 	val := readResumeState(cfg, logger, 0, cfg.DeviceUUID, 0, [32]byte{}).Fixed
 	if val.Chunk != digest {
