@@ -650,78 +650,26 @@ SSH transport negotiation also derives read and write deadlines from the caller'
   lvmsync run --mode throughput /dev/vg0/source /dev/vg1/target
   ```
 
-## Serve Subcommand
+## lvmsyncd Examples
 
-Run a standalone QUIC listener:
+`lvmsyncd` exposes replication endpoints with the `--listen` flag. Each URI
+scheme selects a transport and optional parameters configure authentication.
 
-```sh
-lvmsync serve --transport quic --quic-listen :12000 --tls-cert cert.pem --tls-key key.pem --ca-cert ca.pem
-```
-
-TLS is required by default. The server rejects plaintext clients unless
-`--allow-insecure` or `LVMSYNC_SERVE_ALLOW_INSECURE` is set, which disables
-encryption and authentication and should only be used in trusted development
-environments.
-
-| Flag | Environment | Description |
-|------|-------------|-------------|
-| `--transport` | `LVMSYNC_SERVE_TRANSPORT` | Transport to serve |
-| `--quic-listen` | `LVMSYNC_SERVE_QUIC_LISTEN` | QUIC listen address |
-| `--tls-cert` | `LVMSYNC_SERVE_TLS_CERT` | TLS certificate file |
-| `--tls-key` | `LVMSYNC_SERVE_TLS_KEY` | TLS key file |
-| `--ca-cert` | `LVMSYNC_SERVE_CA_CERT` | CA certificate file |
-| `--allow-insecure` | `LVMSYNC_SERVE_ALLOW_INSECURE` | Permit insecure (no TLS) connections (disabled by default) |
-
-
-
-TLS mode requires explicit certificates. Provide `--tls-cert`, `--tls-key`, and `--ca-cert`; the daemon fails to start if any are missing and does not generate self-signed certificates.
-
-To detect stalled clients, the daemon sends periodic keepalive pings governed by
-`--keepalive-time` (default `2m`). If an acknowledgement is not received within
-`--keepalive-timeout` (default `20s`), the connection is closed. Unary RPCs are
-wrapped with a deadline controlled by `--request-timeout` (default `15s`).
-
-
-1. **Handshake** – clients advertise `sector_size`, `alignment`, `max_concurrency`, and whether deduplication and compression are supported.
-2. **Session Creation** – the client sends an ephemeral certificate and receives a session ID, server certificate, and pre-shared key.
-3. **Resume Bitmap** – dirty block bitmaps are streamed with the session ID to resume interrupted transfers, and final manifests carrying SHA-256 digests validate completion.
-4. **Ack/Ping Stream** – a bidirectional stream of `Ack` messages per session provides keep-alives and progress confirmation.
-5. **Finalization** – the client requests completion using the session ID when replication is done.
-
-
-Run the daemon with TLS:
+Start a TLS/TCP listener:
 
 ```sh
+lvmsyncd --listen tcp+tls://:9443 --tls-cert cert.pem --tls-key key.pem --ca-cert ca.pem
 ```
 
-Disabling TLS with `--allow-insecure` is supported for development but is unsafe for production deployments.
-
-
-Environment variables provide the same settings:
+Activate an SSH listener:
 
 ```sh
+lvmsyncd --listen ssh://:2222 --ssh-host-key-path host_key
 ```
 
-Misconfiguration logs an error and exits with code `1`:
-
-```sh
-echo $?
-1
-```
-
-
-```yaml
-tls-cert: cert.pem
-tls-key: key.pem
-ca-cert: ca.pem
-```
-
-
-```sh
-```
-
-```sh
-```
+Both transports require explicit keys; the daemon exits if any are missing and
+never generates self-signed certificates. Use `--allow-insecure` only for
+development.
 
 ### `config.yaml` example
 
