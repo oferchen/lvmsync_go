@@ -3,9 +3,9 @@ package main
 import (
 	"context"
 	"errors"
+	"net"
 	"os"
 	"path/filepath"
-	"net"
 	"reflect"
 	"sync"
 	"testing"
@@ -87,6 +87,7 @@ func writeTempConfig(t *testing.T, content string) string {
 		t.Fatalf("write config: %v", err)
 	}
 	return path
+}
 
 type trackingListener struct {
 	net.Listener
