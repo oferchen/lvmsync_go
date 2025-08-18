@@ -21,6 +21,7 @@ copies can be verified.
 
 Manifest commands group flags with pflag and bind them to Viper while logging progress with zap.
 Flags override environment variables, which override `config.yaml` values.
+Unused or unknown keys in the YAML file trigger runtime warnings.
 
 | Flag | Environment variable | Config key | Description |
 |------|----------------------|------------|-------------|
