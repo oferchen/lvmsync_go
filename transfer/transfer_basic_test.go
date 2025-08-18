@@ -68,8 +68,8 @@ func TestNewDeduplicationStrategyInvalidBloomEntries(t *testing.T) {
 	}
 }
 
-func TestNewTransferNilLogger(t *testing.T) {
-	tr := NewTransfer(nil, nil, nil)
+func TestNewTransfer(t *testing.T) {
+	tr := NewTransfer(zap.NewNop(), nil, nil)
 	if tr.Logger == nil {
 		t.Fatal("expected non-nil logger")
 	}

@@ -55,12 +55,6 @@ func TestOpenRawLogsInfoAndClose(t *testing.T) {
 	}
 }
 
-func TestOpenRawNilLogger(t *testing.T) {
-	if _, err := OpenRaw(context.Background(), "", true, "", nil, "", nil, 0, 0, nil, NewRunner()); err == nil {
-		t.Fatalf("expected error when logger is nil")
-	}
-}
-
 func TestRawDeviceCloseErrorLogging(t *testing.T) {
 	if os.Geteuid() != 0 {
 		t.Skip("requires root")

@@ -13,7 +13,8 @@ import (
 )
 
 // Regenerate verifies an existing manifest for the device and rebuilds it when missing or stale.
-// The rebuild respects the same options as Rebuild.
+// The rebuild respects the same options as Rebuild. logger must be non-nil;
+// pass zap.NewNop() to disable logging.
 func Regenerate(
 	ctx context.Context,
 	devicePath, manifestPath string,
@@ -23,9 +24,6 @@ func Regenerate(
 	cdcMin, cdcAvg, cdcMax, hybridFixed uint32,
 	opts ...IndexOption,
 ) error {
-	if logger == nil {
-		logger = zap.NewNop()
-	}
 	idx, err := Open(manifestPath)
 	if err == nil {
 		defer idx.Close()

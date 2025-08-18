@@ -70,10 +70,9 @@ func (s *SSHSession) Close() {
 	}
 }
 
+// RunSSHCommand executes a command on a remote host over SSH and logs using logger.
+// logger must be non-nil; pass zap.NewNop() to disable logging.
 func RunSSHCommand(ctx context.Context, logger *zap.Logger, host, user, keyPath, hostKeyPath string, port int, command string, timeout time.Duration) error {
-	if logger == nil {
-		logger = zap.NewNop()
-	}
 	publicKey, err := readHostPublicKey(hostKeyPath)
 	if err != nil {
 		return fmt.Errorf("failed to load host public key: %w", err)

@@ -97,9 +97,6 @@ func Detect(
 	logger *zap.Logger,
 	runner *Runner,
 ) (Device, error) {
-	if logger == nil {
-		return nil, fmt.Errorf("logger is nil")
-	}
 	if runner == nil {
 		runner = NewRunner()
 	}

@@ -433,8 +433,9 @@ func (i *Index) ChunkCount() uint64 { return i.hdr.ChunkCount }
 // Rebuild creates a manifest index for device at output path.
 // DeviceID is determined via the configured DeviceInfoProvider. The device is read sequentially using blockSize-sized chunks.
 // Progress is logged at the provided interval; set interval to 0 to log every chunk.
-// The operation respects cancellation via ctx.
-// When allowMounted is false, Rebuild aborts if the device is mounted read-write.
+// The operation respects cancellation via ctx. When allowMounted is false,
+// Rebuild aborts if the device is mounted read-write. logger must be non-nil;
+// pass zap.NewNop() to disable logging.
 func Rebuild(
 	ctx context.Context,
 	devicePath, output string,
@@ -445,9 +446,6 @@ func Rebuild(
 	opts ...IndexOption,
 ) (err error) {
 	cfg := applyOptions(opts)
-	if logger == nil {
-		logger = zap.NewNop()
-	}
 	if err = ctx.Err(); err != nil {
 		return err
 	}
