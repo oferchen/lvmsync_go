@@ -4,6 +4,14 @@ This guide outlines exit codes, resume workflows, and common troubleshooting ste
 
 ## Resume and Verification Sequences
 
+### `--probe-only`
+
+```sh
+lvmsync run --probe-only /dev/vg0/snap0 /dev/vg0/target
+```
+
+Validates device identities and privileges and logs dry-run estimates without writing data.
+
 ### `--resume`
 
 ```sh
@@ -11,20 +19,10 @@ lvmsync run --resume=statefile /dev/vg0/snap0 /dev/vg0/target
 ```
 
 1. Load the resume state and validate settings.
-2. Copy remaining blocks, persisting checkpoints.
-3. Delete the state file when the transfer finishes.
-4. If the command fails, rerun with the same `--resume` file after fixing the issue.
-
-### `--resume=verify`
-
-```sh
-lvmsync run --resume=verify /dev/vg0/snap0 /dev/vg0/target
-```
-
-1. Resume the transfer using the existing state.
-2. Validate previously written blocks against the manifest before applying new data.
-3. After the copy completes, `lvmsync verify` checks the destination against the source or manifest.
-4. Any verification mismatch aborts the run and leaves the resume file for another attempt.
+2. Validate previously written blocks against the manifest before applying new data unless `--verify=none`.
+3. Copy remaining blocks, persisting checkpoints.
+4. Delete the state file when the transfer finishes.
+5. If the command fails, rerun with the same `--resume` file after fixing the issue.
 
 ### `--verify-only`
 
@@ -33,6 +31,28 @@ lvmsync run --verify-only /dev/vg0/snap0 /dev/vg0/target
 ```
 
 Reads both devices and reports mismatches without writing data.
+
+## Safe Overwrite Procedure
+
+1. Probe devices and ensure privileges are correct:
+
+   ```sh
+   lvmsync run --probe-only /dev/vg0/snap0 /dev/vg0/target
+   ```
+
+2. Verify existing blocks:
+
+   ```sh
+   lvmsync run --verify-only /dev/vg0/snap0 /dev/vg0/target
+   ```
+
+3. Perform the copy, optionally resuming with verification:
+
+   ```sh
+   lvmsync run --resume=verify /dev/vg0/snap0 /dev/vg0/target
+   ```
+
+Exit code `60` indicates a verification mismatch and leaves the destination untouched.
 
 ## Exit Codes and Recovery
 
