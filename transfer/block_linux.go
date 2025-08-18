@@ -100,3 +100,31 @@ func openFileODirect(path string, flag int) (*os.File, bool, error) {
 	}
 	return os.NewFile(uintptr(fd), path), true, nil
 }
+
+func seekHoleSupported(f *os.File) bool {
+	cur, err := unix.Seek(int(f.Fd()), 0, unix.SEEK_CUR)
+	if err != nil {
+		return false
+	}
+	defer unix.Seek(int(f.Fd()), cur, unix.SEEK_SET)
+	if _, err := unix.Seek(int(f.Fd()), 0, unix.SEEK_HOLE); err != nil {
+		return false
+	}
+	return true
+}
+
+func nextDataOffset(f *os.File, offset int64) (int64, error) {
+	cur, err := unix.Seek(int(f.Fd()), 0, unix.SEEK_CUR)
+	if err != nil {
+		return 0, err
+	}
+	defer unix.Seek(int(f.Fd()), cur, unix.SEEK_SET)
+	off, err := unix.Seek(int(f.Fd()), offset, unix.SEEK_DATA)
+	if err != nil {
+		if err == unix.ENXIO {
+			return -1, nil
+		}
+		return 0, err
+	}
+	return off, nil
+}
