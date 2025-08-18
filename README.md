@@ -635,6 +635,7 @@ Flags override environment variables, which override `config.yaml` values.
 | `--force` | `LVMSYNC_FORCE` | `force` | Override safety checks and proceed on mounted destination |
 | `--discard` | `LVMSYNC_DISCARD` | `discard` | Issue BLKDISCARD before writing blocks |
 | `--dry-run` | `LVMSYNC_DRY_RUN` | `dry_run` | Log estimated transfer bytes without sending data; uses manifest sampling when available |
+| `--probe-only` | `LVMSYNC_PROBE_ONLY` | `probe_only` | Output size_bytes, device_uuid, and manifest_epoch without writing |
 | `--transport` | `LVMSYNC_TRANSPORT_TRANSPORT` | `transport` | Ordered transports to try (e.g., `quic,h2,tcp+tls,ssh`) |
 | `--tcp-port` | `LVMSYNC_TRANSPORT_TCP_PORT` | `tcp_port` | TCP+TLS port |
 | `--tcp-parallel` | `LVMSYNC_TRANSPORT_TCP_PARALLEL` | `tcp_parallel` | Number of parallel TCP connections |
