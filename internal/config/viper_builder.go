@@ -31,6 +31,13 @@ func (b *builder) Build() (*Config, error) {
 		return nil, fmt.Errorf("error unmarshaling config: %w", err)
 	}
 
+	if b.resumeVerify {
+		conf.ResumeVerify = true
+		if conf.ResumeState == "" {
+			conf.ResumeState = defaultResumeState
+		}
+	}
+
 	if err := b.applyDefaults(&conf); err != nil {
 		return nil, err
 	}

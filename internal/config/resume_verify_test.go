@@ -46,4 +46,10 @@ func TestResumeFlagVerify(t *testing.T) {
 	if cfg.ResumeState != envState {
 		t.Fatalf("ResumeState=%q want %q", cfg.ResumeState, envState)
 	}
+	if defaults.ResumeVerify {
+		t.Fatalf("defaults ResumeVerify=%v want false", defaults.ResumeVerify)
+	}
+	if defaults.ResumeState != "" {
+		t.Fatalf("defaults ResumeState=%q want %q", defaults.ResumeState, "")
+	}
 }
