@@ -52,6 +52,9 @@ func New(ctx context.Context, cfg transport.Config) (transport.Interface, error)
 	if cfg.SSHUser == "" {
 		return nil, fmt.Errorf("ssh user is required")
 	}
+	if cfg.AllowInsecure {
+		cfg.Logger.Warn("allow_insecure_enabled", zap.String("transport", "ssh"), zap.String("security", "host_key_verification_disabled"), zap.String("usage", "development_only"))
+	}
 	var (
 		keySigner  ssh.Signer
 		hostSigner ssh.Signer
@@ -91,6 +94,9 @@ func New(ctx context.Context, cfg transport.Config) (transport.Interface, error)
 			return nil, err
 		}
 	}
+	if hostSigner == nil && !cfg.AllowInsecure {
+		return nil, fmt.Errorf("host key path required unless AllowInsecure is set")
+	}
 
 	serverConf := &ssh.ServerConfig{
 		PasswordCallback: func(c ssh.ConnMetadata, pass []byte) (*ssh.Permissions, error) {
@@ -126,7 +132,6 @@ func New(ctx context.Context, cfg transport.Config) (transport.Interface, error)
 		}
 		hkc = ssh.FixedHostKey(pk)
 	case cfg.AllowInsecure:
-		cfg.Logger.Warn("allow_insecure_enabled", zap.String("transport", "ssh"), zap.String("security", "host_key_verification_disabled"), zap.String("usage", "development_only"))
 		hkc = ssh.InsecureIgnoreHostKey()
 	default:
 		return nil, fmt.Errorf("known hosts or host key required")

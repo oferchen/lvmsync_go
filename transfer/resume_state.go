@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"strings"
+	"path/filepath"
 	"time"
 
 	"go.uber.org/zap"
@@ -34,7 +35,9 @@ type resumeState struct {
 	FirstBlockDigest  string           `json:"first_block_digest"`
 }
 
-// writeResumeState persists resume state; logger must be non-nil.
+// writeResumeState persists resume state using a WAL file. The state is written
+// to a temporary file, fsynced, and atomically renamed to `<path>.wal` to avoid
+// corruption on crashes. The logger must be non-nil.
 func writeResumeState(cfg *config.Config, logger *zap.Logger, path string, chunks resumeChunks, size uint64, deviceID string, epoch uint64) {
 	toState := func(ch resumeChunk) resumeChunkState {
 		return resumeChunkState{
@@ -61,8 +64,40 @@ func writeResumeState(cfg *config.Config, logger *zap.Logger, path string, chunk
 		logger.Warn("Failed to marshal resume state", zap.Error(err))
 		return
 	}
-	if err := os.WriteFile(path, data, 0o600); err != nil {
-		logger.Warn("Failed to update resume state", zap.Error(err))
+
+	walPath := path + ".wal"
+	tmpPath := walPath + ".tmp"
+
+	f, err := os.OpenFile(tmpPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	if err != nil {
+		logger.Warn("Failed to create resume WAL", zap.Error(err))
+		return
+	}
+	if _, err := f.Write(data); err != nil {
+		logger.Warn("Failed to write resume WAL", zap.Error(err))
+		f.Close()
+		os.Remove(tmpPath)
+		return
+	}
+	if err := f.Sync(); err != nil {
+		logger.Warn("Failed to fsync resume WAL", zap.Error(err))
+		f.Close()
+		os.Remove(tmpPath)
+		return
+	}
+	if err := f.Close(); err != nil {
+		logger.Warn("Failed to close resume WAL", zap.Error(err))
+		os.Remove(tmpPath)
+		return
+	}
+	if err := os.Rename(tmpPath, walPath); err != nil {
+		logger.Warn("Failed to rename resume WAL", zap.Error(err))
+		os.Remove(tmpPath)
+		return
+	}
+	if dir, err := os.Open(filepath.Dir(walPath)); err == nil {
+		dir.Sync()
+		dir.Close()
 	}
 }
 
@@ -94,6 +129,9 @@ func finalizeResumeState(cfg *config.Config, rt *resumeTracker, logger *zap.Logg
 	if err := os.Remove(cfg.ResumeState); err != nil && !os.IsNotExist(err) {
 		logger.Warn("Failed to remove resume state", zap.Error(err))
 	}
+	if err := os.Remove(cfg.ResumeState + ".wal"); err != nil && !os.IsNotExist(err) {
+		logger.Warn("Failed to remove resume WAL", zap.Error(err))
+	}
 	rt.bytes = 0
 	rt.last = time.Time{}
 	rt.resumeChunks = resumeChunks{}
@@ -103,34 +141,47 @@ func finalizeResumeState(cfg *config.Config, rt *resumeTracker, logger *zap.Logg
 }
 
 func readResumeState(cfg *config.Config, logger *zap.Logger, size uint64, deviceID string, epoch uint64, digest [32]byte) resumeCheckpoint {
-	var out resumeCheckpoint
 	if cfg.ResumeState == "" {
-		return out
+		return resumeCheckpoint{}
+	}
+
+	if cp, ok := loadResumeState(cfg.ResumeState+".wal", cfg, size, deviceID, epoch, digest, logger); ok {
+		return cp
+	}
+	if cp, ok := loadResumeState(cfg.ResumeState, cfg, size, deviceID, epoch, digest, logger); ok {
+		return cp
 	}
 	if strings.ToLower(cfg.VerifyLevel) != "none" {
 		cfg.ResumeVerify = true
 	}
 	data, err := os.ReadFile(cfg.ResumeState)
+	return resumeCheckpoint{}
+}
+
+// loadResumeState loads and validates a resume state file. It returns the
+// checkpoint and true on success.
+func loadResumeState(path string, cfg *config.Config, size uint64, deviceID string, epoch uint64, digest [32]byte, logger *zap.Logger) (resumeCheckpoint, bool) {
+	var out resumeCheckpoint
+	data, err := os.ReadFile(path)
 	if err != nil {
-		return out
+		return out, false
 	}
 	var rs resumeState
 	if err := json.Unmarshal(data, &rs); err != nil {
-		return out
+		return out, false
 	}
-	if rs.Transport != cfg.Transport || rs.Compress != cfg.Compress ||
-		rs.ChecksumAlgorithm != cfg.ChecksumAlgorithm {
-		return out
+	if rs.Transport != cfg.Transport || rs.Compress != cfg.Compress || rs.ChecksumAlgorithm != cfg.ChecksumAlgorithm {
+		return out, false
 	}
 	if (rs.DeviceID != "" && deviceID != "" && rs.DeviceID != deviceID) ||
 		(rs.SizeBytes != 0 && size != 0 && rs.SizeBytes != size) ||
 		(rs.Epoch != 0 && epoch != 0 && rs.Epoch != epoch) {
-		return out
+		return out, false
 	}
 	if rs.FirstBlockDigest != "" && digest != ([32]byte{}) {
 		b, err := hex.DecodeString(rs.FirstBlockDigest)
 		if err != nil || len(b) != 32 || !bytes.Equal(b, digest[:]) {
-			return out
+			return out, false
 		}
 	}
 	decode := func(cs resumeChunkState) (resumeChunk, bool) {
@@ -160,5 +211,5 @@ func readResumeState(cfg *config.Config, logger *zap.Logger, size uint64, device
 			zap.Uint64("resume_offset_bytes", rc.Offset),
 			zap.Uint32("resume_length_bytes", rc.Length))
 	}
-	return out
+	return out, true
 }
