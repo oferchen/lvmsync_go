@@ -8,13 +8,15 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+
+	"lvmsync_go/internal/privilege"
 )
 
 // RawDevice is unsupported on non-Linux platforms.
 type RawDevice struct{}
 
 // OpenRaw returns an error on non-Linux systems.
-func OpenRaw(context.Context, string, bool, string, []string, string, []string, time.Duration, time.Duration, *zap.Logger, *Runner) (*RawDevice, error) {
+func OpenRaw(context.Context, string, bool, string, []string, string, []string, time.Duration, time.Duration, privilege.Escalator, *zap.Logger, *Runner) (*RawDevice, error) {
 	return nil, fmt.Errorf("raw devices are only supported on Linux")
 }
 

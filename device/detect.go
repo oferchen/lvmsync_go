@@ -11,6 +11,7 @@ import (
 	"github.com/kballard/go-shellquote"
 	"go.uber.org/zap"
 
+	"lvmsync_go/internal/privilege"
 	"lvmsync_go/lvm"
 )
 
@@ -46,7 +47,16 @@ func detectLVMDevice(ctx context.Context, path, lvmEscalation string, runner *Ru
 }
 
 // detectRawDevice opens a raw block device.
-func detectRawDevice(ctx context.Context, path string, offline bool, fsFreezeCmd, fsThawCmd string, freezeTimeout, thawTimeout time.Duration, logger *zap.Logger, runner *Runner) (Device, error) {
+func detectRawDevice(
+	ctx context.Context,
+	path string,
+	offline bool,
+	fsFreezeCmd, fsThawCmd string,
+	freezeTimeout, thawTimeout time.Duration,
+	esc privilege.Escalator,
+	logger *zap.Logger,
+	runner *Runner,
+) (Device, error) {
 	var freezePath, thawPath string
 	var freezeArgs, thawArgs []string
 	if fsFreezeCmd != "" {
@@ -73,7 +83,7 @@ func detectRawDevice(ctx context.Context, path string, offline bool, fsFreezeCmd
 			thawArgs = parts[1:]
 		}
 	}
-	dev, err := openRawFunc(ctx, path, offline, freezePath, freezeArgs, thawPath, thawArgs, freezeTimeout, thawTimeout, logger, runner)
+	dev, err := openRawFunc(ctx, path, offline, freezePath, freezeArgs, thawPath, thawArgs, freezeTimeout, thawTimeout, esc, logger, runner)
 	if err != nil {
 		logger.Error("detect_device_failed", zap.String("path", path), zap.String("device_type", TypeRaw), zap.Error(err))
 		return nil, err
@@ -94,6 +104,7 @@ func Detect(
 	offline bool,
 	explicitType, fsFreezeCmd, fsThawCmd, lvmEscalation string,
 	freezeTimeout, thawTimeout time.Duration,
+	esc privilege.Escalator,
 	logger *zap.Logger,
 	runner *Runner,
 ) (Device, error) {
@@ -126,7 +137,7 @@ func Detect(
 			if info.Mode()&os.ModeDevice == 0 || info.Mode()&os.ModeCharDevice != 0 {
 				return nil, fmt.Errorf("expected block device for type raw: %s", resolved)
 			}
-			return detectRawDevice(ctx, resolved, offline, fsFreezeCmd, fsThawCmd, freezeTimeout, thawTimeout, logger, runner)
+			return detectRawDevice(ctx, resolved, offline, fsFreezeCmd, fsThawCmd, freezeTimeout, thawTimeout, esc, logger, runner)
 		default:
 			return nil, fmt.Errorf("unknown device type %q", explicitType)
 		}
@@ -140,7 +151,7 @@ func Detect(
 		if err == nil && fsType == "LVM2_member" {
 			return detectLVMDevice(ctx, resolved, lvmEscalation, runner, logger)
 		}
-		return detectRawDevice(ctx, resolved, offline, fsFreezeCmd, fsThawCmd, freezeTimeout, thawTimeout, logger, runner)
+		return detectRawDevice(ctx, resolved, offline, fsFreezeCmd, fsThawCmd, freezeTimeout, thawTimeout, esc, logger, runner)
 	}
 	err = fmt.Errorf("unsupported path type: %s", resolved)
 	logger.Error("device_detect_failed", zap.String("path", resolved), zap.String("device_type", "unknown"), zap.Error(err))

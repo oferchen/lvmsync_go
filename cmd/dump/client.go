@@ -19,6 +19,7 @@ import (
 	"lvmsync_go/internal/config"
 	cpufeatures "lvmsync_go/internal/cpufeatures"
 	digestpkg "lvmsync_go/internal/digest"
+	"lvmsync_go/internal/privilege"
 	"lvmsync_go/internal/rsyncwire"
 	"lvmsync_go/remote"
 	"lvmsync_go/transfer"
@@ -41,7 +42,7 @@ type Runner struct {
 	dumpDedup      func(context.Context, *transfer.Transfer, *config.Config, string, string, io.Writer, transfer.DeduplicationStrategy) error
 	newSSHClient   func(context.Context, string, string, string, int, string, bool, time.Duration, time.Duration, int, *zap.Logger) (*remote.SSHClient, error)
 	openFile       func(string, int, os.FileMode) (*os.File, error)
-	detectDevice   func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger, *device.Runner) (device.Device, error)
+	detectDevice   func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, privilege.Escalator, *zap.Logger, *device.Runner) (device.Device, error)
 	sumFile        func(string, string) ([32]byte, error)
 	streamToRemote func(context.Context, *config.Config, io.WriteCloser, string, string, string, *zap.Logger) error
 }
@@ -243,7 +244,20 @@ func (r *Runner) ExecuteDump(ctx context.Context, cfg *config.Config, snapshotDe
 // Run executes client mode transferring data to dest and returns the destination type.
 func (r *Runner) Run(ctx context.Context, cfg *config.Config, source, dest string, logger *zap.Logger) (string, error) {
 	defer rootcmd.SyncLogger(logger)
-	dev, err := r.detectDevice(ctx, source, cfg.Offline, cfg.SourceType, cfg.FSFreezeCommand, cfg.FSThawCommand, cfg.LVMEscalation, cfg.FreezeTimeout, cfg.ThawTimeout, logger, device.NewRunner())
+	dev, err := r.detectDevice(
+		ctx,
+		source,
+		cfg.Offline,
+		cfg.SourceType,
+		cfg.FSFreezeCommand,
+		cfg.FSThawCommand,
+		cfg.LVMEscalation,
+		cfg.FreezeTimeout,
+		cfg.ThawTimeout,
+		privilege.New(ctx),
+		logger,
+		device.NewRunner(),
+	)
 	if err != nil {
 		return cfg.DestType, err
 	}
@@ -290,7 +304,7 @@ func (r *Runner) Run(ctx context.Context, cfg *config.Config, source, dest strin
 func (r *Runner) RunLocalDump(ctx context.Context, cfg *config.Config, snapshotDevice, originDevice, dest string, logger *zap.Logger) (string, error) {
 	destType := cfg.DestType
 	if destType == "auto" {
-		if dev, err := device.Detect(context.Background(), dest, true, destType, "", "", cfg.LVMEscalation, cfg.FreezeTimeout, cfg.ThawTimeout, logger, device.NewRunner()); err == nil {
+		if dev, err := device.Detect(context.Background(), dest, true, destType, "", "", cfg.LVMEscalation, cfg.FreezeTimeout, cfg.ThawTimeout, privilege.New(context.Background()), logger, device.NewRunner()); err == nil {
 			switch dev.(type) {
 			case *device.RawDevice:
 				if !cfg.SkipSnapshotCreation {

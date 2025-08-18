@@ -15,6 +15,8 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
 
+	"lvmsync_go/escalate"
+	"lvmsync_go/internal/privilege"
 	"lvmsync_go/remote"
 )
 
@@ -75,6 +77,11 @@ func prepareFreeze(
 
 // openDevice ensures the path is a block device and opens it for reading and writing.
 func openDevice(path string) (*os.File, error) {
+	if reexeced, err := escalate.EnsureRootOrReexec(escalate.Options{}); err != nil {
+		return nil, err
+	} else if reexeced {
+		return nil, fmt.Errorf("re-exec requested for root")
+	}
 	info, err := os.Stat(path)
 	if err != nil {
 		return nil, err
@@ -115,9 +122,16 @@ func OpenRaw(
 	fsThawCmdArgs []string,
 	freezeTimeout time.Duration,
 	thawTimeout time.Duration,
+	esc privilege.Escalator,
 	logger *zap.Logger,
 	runner *Runner,
 ) (_ *RawDevice, err error) {
+	if esc == nil {
+		esc = privilege.New(ctx)
+	}
+	if err := esc.Ensure(ctx); err != nil {
+		return nil, err
+	}
 	if runner == nil {
 		runner = NewRunner()
 	}

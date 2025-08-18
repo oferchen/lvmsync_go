@@ -3,13 +3,21 @@
 package device
 
 import (
+	"fmt"
 	"os"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
+
+	"lvmsync_go/escalate"
 )
 
 func blkdiscard(f *os.File, offset, length uint64) error {
+	if reexeced, err := escalate.EnsureRootOrReexec(escalate.Options{}); err != nil {
+		return err
+	} else if reexeced {
+		return fmt.Errorf("re-exec requested for root")
+	}
 	data := [2]uint64{offset, length}
 	_, _, errno := unix.Syscall(unix.SYS_IOCTL, f.Fd(), unix.BLKDISCARD, uintptr(unsafe.Pointer(&data)))
 	if errno != 0 {

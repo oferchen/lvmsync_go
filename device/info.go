@@ -10,6 +10,8 @@ import (
 
 	"github.com/moby/sys/mountinfo"
 	"go.uber.org/zap"
+
+	"lvmsync_go/internal/privilege"
 )
 
 const (
@@ -32,7 +34,7 @@ type Info struct {
 	uuidFunc    func(context.Context, string) (string, error)
 	lvmUUIDFunc func(context.Context, string) (string, error)
 	mountFunc   func(context.Context, string) (bool, error)
-	detectFunc  func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger, *Runner) (Device, error)
+	detectFunc  func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, privilege.Escalator, *zap.Logger, *Runner) (Device, error)
 }
 
 // NewInfo returns an Info using production dependencies.
@@ -51,7 +53,7 @@ func NewInfoWithDeps(
 	uuid func(context.Context, string) (string, error),
 	lvmUUID func(context.Context, string) (string, error),
 	mount func(context.Context, string) (bool, error),
-	detect func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger, *Runner) (Device, error),
+	detect func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, privilege.Escalator, *zap.Logger, *Runner) (Device, error),
 ) *Info {
 	if uuid == nil {
 		uuid = defaultUUIDFunc
@@ -78,8 +80,8 @@ func (i *Info) SetMountFunc(f func(context.Context, string) (bool, error)) func(
 
 // SetDetectFunc allows tests to override the device detector. It returns the previous function for restoration.
 func (i *Info) SetDetectFunc(
-	f func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger, *Runner) (Device, error),
-) func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger, *Runner) (Device, error) {
+	f func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, privilege.Escalator, *zap.Logger, *Runner) (Device, error),
+) func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, privilege.Escalator, *zap.Logger, *Runner) (Device, error) {
 	prev := i.detectFunc
 	i.detectFunc = f
 	return prev
@@ -174,7 +176,7 @@ func (i *Info) SizeBytes(ctx context.Context, path string) (size uint64, err err
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	dev, err := i.detectFunc(ctx, path, true, "", "", "", "", 0, 0, zap.NewNop(), NewRunner())
+	dev, err := i.detectFunc(ctx, path, true, "", "", "", "", 0, 0, privilege.New(ctx), zap.NewNop(), NewRunner())
 	if err != nil {
 		return 0, err
 	}

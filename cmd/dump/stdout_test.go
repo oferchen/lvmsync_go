@@ -11,6 +11,7 @@ import (
 
 	"lvmsync_go/device"
 	"lvmsync_go/internal/config"
+	"lvmsync_go/internal/privilege"
 	"lvmsync_go/transfer"
 )
 
@@ -43,7 +44,7 @@ func TestRunStdout(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	origDetect := detectDevice
-	detectDevice = func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger, *device.Runner) (device.Device, error) {
+	detectDevice = func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, privilege.Escalator, *zap.Logger, *device.Runner) (device.Device, error) {
 		return &fakeDevice{path: "/dev/snap"}, nil
 	}
 	defer func() { detectDevice = origDetect }()

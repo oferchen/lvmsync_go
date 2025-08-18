@@ -18,6 +18,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"lvmsync_go/device"
+	"lvmsync_go/internal/privilege"
 )
 
 const (
@@ -79,7 +80,7 @@ type IndexOption func(*indexOptions)
 func defaultIndexOptions() indexOptions {
 	return indexOptions{
 		detectDevice: func(ctx context.Context, path string, logger *zap.Logger) (device.Device, error) {
-			return device.Detect(ctx, path, true, "", "", "", "", 0, 0, logger, device.NewRunner())
+			return device.Detect(ctx, path, true, "", "", "", "", 0, 0, privilege.New(ctx), logger, device.NewRunner())
 		},
 		closeHook: func() error { return nil },
 		info:      device.NewInfo(),
