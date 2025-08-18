@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 
+	rootcmd "lvmsync_go/cmd/root"
 	"lvmsync_go/common"
 	"lvmsync_go/internal/exitcode"
 	"lvmsync_go/transport"
@@ -127,7 +128,7 @@ func TestListenerSetup(t *testing.T) {
 	}
 }
 
-func TestMapExitCode(t *testing.T) {
+func TestExitCodeMapping(t *testing.T) {
 	tests := []struct {
 		name string
 		err  error
@@ -138,10 +139,12 @@ func TestMapExitCode(t *testing.T) {
 		{"runtime", errors.New("listen failed"), exitcode.ErrRuntime},
 		{"verify", errors.New("digest mismatch"), exitcode.ErrVerify},
 		{"partial", errors.New("received signal: interrupt"), exitcode.ErrPartial},
+		{"precondition", errors.New("precondition not met"), exitcode.ErrPrecondition},
+		{"resumable", errors.New("resumable: retry later"), exitcode.ErrResumable},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if c := mapExitCode(tt.err); c != tt.code {
+			if c := rootcmd.ExitCode(tt.err); c != tt.code {
 				t.Fatalf("expected %d, got %d", tt.code, c)
 			}
 		})

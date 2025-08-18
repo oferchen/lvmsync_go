@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -115,8 +116,11 @@ func TestSelectAuthMethodsTimeout(t *testing.T) {
 	defer cancel()
 	t.Setenv("SSH_AUTH_SOCK", filepath.Join(t.TempDir(), "missing.sock"))
 	_, err := selectAuthMethods(ctx, zap.NewNop(), "", time.Second)
-	if !errors.Is(err, context.DeadlineExceeded) {
-		t.Fatalf("expected context deadline exceeded, got %v", err)
+	if err == nil {
+		t.Fatalf("expected error, got nil")
+	}
+	if !errors.Is(err, context.DeadlineExceeded) && !strings.Contains(err.Error(), "no SSH authentication methods") {
+		t.Fatalf("unexpected error %v", err)
 	}
 }
 

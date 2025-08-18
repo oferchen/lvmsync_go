@@ -1466,8 +1466,10 @@ Invalid configurations will cause the tool to abort with a clear error message.
 | [`exitcode.ErrRuntime`](internal/exitcode/exitcode.go) | `50` | Runtime failure |
 | [`exitcode.ErrVerify`](internal/exitcode/exitcode.go) | `60` | Verification mismatch |
 | [`exitcode.ErrPartial`](internal/exitcode/exitcode.go) | `70` | Partial transfer |
+| [`exitcode.ErrPrecondition`](internal/exitcode/exitcode.go) | `80` | Precondition failed |
+| [`exitcode.ErrResumable`](internal/exitcode/exitcode.go) | `90` | Resumable exit |
 
-Exit code definitions live in [internal/exitcode](internal/exitcode/exitcode.go), and handling resides in [main.go](main.go).
+Exit code definitions live in [internal/exitcode](internal/exitcode/exitcode.go), and handling resides in [cmd/root/root.go](cmd/root/root.go).
 
 Shell scripts can rely on `set -e` to abort on non-zero exit codes:
 

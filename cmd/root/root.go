@@ -2,9 +2,11 @@ package root
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
@@ -12,6 +14,7 @@ import (
 	"lvmsync_go/app"
 	clientpkg "lvmsync_go/internal/client"
 	"lvmsync_go/internal/config"
+	"lvmsync_go/internal/exitcode"
 	"lvmsync_go/internal/logging"
 	"lvmsync_go/internal/privilege"
 	"lvmsync_go/transport"
@@ -283,4 +286,30 @@ func Execute() error {
 	}
 	SyncLogger(logger)
 	return nil
+}
+
+// ExitCode maps an error to an exit code.
+func ExitCode(err error) int {
+	if err == nil {
+		return exitcode.OK
+	}
+	msg := err.Error()
+	switch {
+	case strings.Contains(msg, "privilege check"):
+		return exitcode.ErrCapability
+	case strings.Contains(msg, "parse") || strings.Contains(msg, "missing") || strings.Contains(msg, "required") || strings.Contains(msg, "invalid") || strings.Contains(msg, "config"):
+		return exitcode.ErrConfig
+	case strings.Contains(msg, "precondition"):
+		return exitcode.ErrPrecondition
+	case strings.Contains(msg, "resumable") || strings.Contains(msg, "resume"):
+		return exitcode.ErrResumable
+	case strings.Contains(msg, "device"):
+		return exitcode.ErrDevice
+	case strings.Contains(msg, "mismatch") || strings.Contains(msg, "blocks differ"):
+		return exitcode.ErrVerify
+	case strings.Contains(msg, "signal") || errors.Is(err, context.Canceled):
+		return exitcode.ErrPartial
+	default:
+		return exitcode.ErrRuntime
+	}
 }

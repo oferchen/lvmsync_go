@@ -75,7 +75,9 @@ func TestMainLogsConfigError(t *testing.T) {
 
 	var code int
 	runner := NewRunnerWithDeps(
-		func() (*config.Config, []string, *zap.Logger, error) { return nil, nil, nil, errors.New("cfg fail") },
+		func() (*config.Config, []string, *zap.Logger, error) {
+			return nil, nil, nil, errors.New("config invalid")
+		},
 		rootcmd.Run,
 		rootcmd.SyncLogger,
 		func(c int) { code = c },
