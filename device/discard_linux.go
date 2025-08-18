@@ -7,13 +7,17 @@ import (
 	"os"
 	"unsafe"
 
+	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
 
 	"lvmsync_go/escalate"
 )
 
-func blkdiscard(f *os.File, offset, length uint64) error {
-	if reexeced, err := escalate.EnsureRootOrReexec(escalate.Options{}); err != nil {
+func blkdiscard(f *os.File, offset, length uint64, logger *zap.Logger) error {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+	if reexeced, err := escalate.EnsureRootOrReexec(escalate.Options{}, logger); err != nil {
 		return err
 	} else if reexeced {
 		return fmt.Errorf("re-exec requested for root")
@@ -29,7 +33,7 @@ func blkdiscard(f *os.File, offset, length uint64) error {
 var discardImpl = blkdiscard
 
 // SetDiscardFunc overrides the discard implementation. It returns a restore function.
-func SetDiscardFunc(fn func(*os.File, uint64, uint64) error) func() {
+func SetDiscardFunc(fn func(*os.File, uint64, uint64, *zap.Logger) error) func() {
 	orig := discardImpl
 	if fn == nil {
 		discardImpl = blkdiscard
@@ -40,6 +44,6 @@ func SetDiscardFunc(fn func(*os.File, uint64, uint64) error) func() {
 }
 
 // DiscardRange issues BLKDISCARD for the specified range on f.
-func DiscardRange(f *os.File, offset, length uint64) error {
-	return discardImpl(f, offset, length)
+func DiscardRange(f *os.File, offset, length uint64, logger *zap.Logger) error {
+	return discardImpl(f, offset, length, logger)
 }
