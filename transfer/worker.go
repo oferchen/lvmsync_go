@@ -177,7 +177,7 @@ func (t *Transfer) DumpChangesParallel(ctx context.Context, cfg *config.Config, 
 	}
 	defer common.CloseWithErr(srcFile, &err, "close source file")
 
-	checkpoint := readResumeState(cfg, t.Logger)
+	checkpoint := readResumeState(cfg, t.Logger, 0, cfg.DeviceUUID, 0)
 	resumeStart := findResumeIndex(ctx, cfg, srcFile, ranges, checkpoint, t.Logger)
 	results := t.startParallelWorkers(ctx, cfg, srcFile, ranges, resumeStart, t.Logger)
 

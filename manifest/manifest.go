@@ -25,8 +25,8 @@ const (
 	Version uint32 = 2
 
 	// HeaderSize is the binary size of Header.
-	HeaderSize = 4 + 4 + 8 + 8 + 4 + 4 + 4 + 4 + 64 + 32 // 136 bytes
-	entrySize  = 8 + 4 + 4 + 8 + 32                      // 56 bytes
+	HeaderSize = 4 + 4 + 8 + 8 + 4 + 4 + 4 + 4 + 8 + 64 + 32 // 144 bytes
+	entrySize  = 8 + 4 + 4 + 8 + 32                          // 56 bytes
 
 	// FlagCDC marks chunks produced by content-defined chunking.
 	FlagCDC uint32 = 1 << 0
@@ -49,6 +49,7 @@ type Header struct {
 	AvgChunkSize    uint32
 	MaxChunkSize    uint32
 	HybridFixedSize uint32
+	Epoch           uint64
 	DeviceID        [64]byte
 	MAC             [32]byte
 }
@@ -127,7 +128,8 @@ func headerMAC(h *Header) [32]byte {
 	binary.LittleEndian.PutUint32(buf[28:32], h.AvgChunkSize)
 	binary.LittleEndian.PutUint32(buf[32:36], h.MaxChunkSize)
 	binary.LittleEndian.PutUint32(buf[36:40], h.HybridFixedSize)
-	copy(buf[40:], h.DeviceID[:])
+	binary.LittleEndian.PutUint64(buf[40:48], h.Epoch)
+	copy(buf[48:], h.DeviceID[:])
 	sum := blake3.Sum256(buf[:])
 	return sum
 }
@@ -142,8 +144,9 @@ func (i *Index) writeHeader() {
 	binary.LittleEndian.PutUint32(buf[28:32], i.hdr.AvgChunkSize)
 	binary.LittleEndian.PutUint32(buf[32:36], i.hdr.MaxChunkSize)
 	binary.LittleEndian.PutUint32(buf[36:40], i.hdr.HybridFixedSize)
-	copy(buf[40:104], i.hdr.DeviceID[:])
-	copy(buf[104:136], i.hdr.MAC[:])
+	binary.LittleEndian.PutUint64(buf[40:48], i.hdr.Epoch)
+	copy(buf[48:112], i.hdr.DeviceID[:])
+	copy(buf[112:144], i.hdr.MAC[:])
 	copy(i.data[:HeaderSize], buf[:])
 }
 
@@ -160,8 +163,9 @@ func (i *Index) readHeader() error {
 	i.hdr.AvgChunkSize = binary.LittleEndian.Uint32(buf[28:32])
 	i.hdr.MaxChunkSize = binary.LittleEndian.Uint32(buf[32:36])
 	i.hdr.HybridFixedSize = binary.LittleEndian.Uint32(buf[36:40])
-	copy(i.hdr.DeviceID[:], buf[40:104])
-	copy(i.hdr.MAC[:], buf[104:136])
+	i.hdr.Epoch = binary.LittleEndian.Uint64(buf[40:48])
+	copy(i.hdr.DeviceID[:], buf[48:112])
+	copy(i.hdr.MAC[:], buf[112:144])
 	if mac := headerMAC(&i.hdr); !bytes.Equal(mac[:], i.hdr.MAC[:]) {
 		return fmt.Errorf("manifest: header MAC mismatch")
 	}
@@ -196,7 +200,7 @@ func (i *Index) Close() error {
 }
 
 // Create initializes a new manifest index at path for the given device.
-func Create(path, deviceID string, size uint64, blockSize, cdcMin, cdcAvg, cdcMax, hybridFixed uint32, opts ...IndexOption) (*Index, error) {
+func Create(path, deviceID string, size, epoch uint64, blockSize, cdcMin, cdcAvg, cdcMax, hybridFixed uint32, opts ...IndexOption) (*Index, error) {
 	cfg := applyOptions(opts)
 	if len(deviceID) > 64 {
 		return nil, fmt.Errorf("manifest: device ID exceeds 64 bytes")
@@ -229,6 +233,7 @@ func Create(path, deviceID string, size uint64, blockSize, cdcMin, cdcAvg, cdcMa
 		AvgChunkSize:    cdcAvg,
 		MaxChunkSize:    cdcMax,
 		HybridFixedSize: hybridFixed,
+		Epoch:           epoch,
 	}
 	copy(idx.hdr.DeviceID[:], []byte(deviceID))
 	idx.hdr.MAC = headerMAC(&idx.hdr)
@@ -489,8 +494,8 @@ func Rebuild(
 	}
 	defer f.Close()
 	var idx *Index
-
-	idx, err = Create(output, id, size, blockSize, cdcMin, cdcAvg, cdcMax, hybridFixed, opts...)
+	epoch := uint64(time.Now().UnixNano())
+	idx, err = Create(output, id, size, epoch, blockSize, cdcMin, cdcAvg, cdcMax, hybridFixed, opts...)
 	if err != nil {
 		return err
 	}
