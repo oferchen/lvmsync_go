@@ -110,6 +110,7 @@ func (t *Transfer) dumpChangesCore(ctx context.Context, cfg *config.Config, snap
 
 	if cfg.Delta == "rsync" {
 		return t.streamRsyncDelta(ctx, cfg, snapshot, source, out)
+	}
 	if cfg.DryRun {
 		size, err := t.Info.SizeBytes(ctx, snapshot)
 		if err != nil {
