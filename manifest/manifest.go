@@ -67,6 +67,9 @@ type Index struct {
 	table []uint64
 	bloom []uint64
 	mask  uint64
+
+	path    string
+	tmpPath string
 }
 
 // indexOptions collects constructor options for Index and helpers like Rebuild.
@@ -195,8 +198,16 @@ func (i *Index) Close() error {
 		}
 	}
 	if i.f != nil {
+		if syncErr := i.f.Sync(); syncErr != nil {
+			err = multierr.Append(err, syncErr)
+		}
 		if ferr := i.f.Close(); ferr != nil {
 			err = multierr.Append(err, ferr)
+		}
+		if i.tmpPath != "" {
+			if renErr := fsyncRename(i.tmpPath, i.path); renErr != nil {
+				err = multierr.Append(err, renErr)
+			}
 		}
 	}
 	if i.closeHook != nil {
@@ -218,20 +229,11 @@ func Create(path, deviceID string, size, epoch uint64, blockSize, cdcMin, cdcAvg
 	}
 	chunkCount := (size + uint64(blockSize) - 1) / uint64(blockSize)
 	total := HeaderSize + entrySize*chunkCount
-	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600)
+	f, data, tmp, err := openTemp(path, int64(total))
 	if err != nil {
 		return nil, err
 	}
-	if err := f.Truncate(int64(total)); err != nil {
-		f.Close()
-		return nil, err
-	}
-	data, err := unix.Mmap(int(f.Fd()), 0, int(total), unix.PROT_READ|unix.PROT_WRITE, unix.MAP_SHARED)
-	if err != nil {
-		f.Close()
-		return nil, err
-	}
-	idx := &Index{f: f, data: data, closeHook: cfg.closeHook}
+	idx := &Index{f: f, data: data, closeHook: cfg.closeHook, path: path, tmpPath: tmp}
 	idx.hdr = Header{
 		Version:         Version,
 		BlockSize:       blockSize,

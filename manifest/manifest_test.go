@@ -196,15 +196,8 @@ func TestCreateSyncsHeader(t *testing.T) {
 	if err := idx.f.Close(); err != nil {
 		t.Fatalf("close: %v", err)
 	}
-	idx2, err := Open(path)
-	if err != nil {
-		t.Fatalf("Open: %v", err)
-	}
-	if idx2.hdr.Version != Version || idx2.hdr.ChunkCount != 1 {
-		t.Fatalf("header mismatch: %+v", idx2.hdr)
-	}
-	if err := idx2.Close(); err != nil {
-		t.Fatalf("close2: %v", err)
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatalf("manifest should not exist after crash")
 	}
 }
 
