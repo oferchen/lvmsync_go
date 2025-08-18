@@ -32,6 +32,7 @@ type Config struct {
 	StdoutMode               bool          `mapstructure:"stdout"`
 	DryRun                   bool          `mapstructure:"dry_run"`
 	Force                    bool          `mapstructure:"force"`
+	AllowOverwrite           bool          `mapstructure:"allow_overwrite"`
 	Discard                  bool          `mapstructure:"discard"`
 	Offline                  bool          `mapstructure:"offline"`
 	FSFreezeCommand          string        `mapstructure:"fs-freeze-command"`
@@ -48,6 +49,7 @@ type Config struct {
 	RetryDelay               time.Duration `mapstructure:"retry_delay"`
 	ResumeState              string        `mapstructure:"resume"`
 	ResumeToken              string        `mapstructure:"resume_token"`
+	ResumeVerify             bool          `mapstructure:"-"`
 	DeviceUUID               string        `mapstructure:"device_uuid"`
 	SSHHost                  string        `mapstructure:"ssh_host"`
 	SSHUser                  string        `mapstructure:"ssh_user"`
@@ -165,6 +167,7 @@ func DefaultConfig() (*Config, error) {
 		StdoutMode:               false,
 		DryRun:                   false,
 		Force:                    false,
+		AllowOverwrite:           false,
 		Offline:                  false,
 		FSFreezeCommand:          "",
 		FSThawCommand:            "",

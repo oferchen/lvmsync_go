@@ -3,6 +3,7 @@
 package device
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"os"
@@ -46,6 +47,24 @@ func prepareFreeze(
 	logger *zap.Logger,
 	runner *Runner,
 ) (bool, error) {
+	force := forceFromContext(ctx)
+	allow := allowOverwriteFromContext(ctx)
+	if offline || fsFreezeCmdPath != "" || fsThawCmdPath != "" {
+		if !force {
+			return false, fmt.Errorf("--force required for offline or freeze operations")
+		}
+		if !allow {
+			fmt.Fprint(os.Stderr, "Raw device operations may overwrite data. Type 'yes' to continue: ")
+			reader := bufio.NewReader(os.Stdin)
+			resp, err := reader.ReadString('\n')
+			if err != nil {
+				return false, fmt.Errorf("confirmation failed: %w", err)
+			}
+			if strings.TrimSpace(resp) != "yes" {
+				return false, fmt.Errorf("operation cancelled")
+			}
+		}
+	}
 	if offline {
 		return false, nil
 	}

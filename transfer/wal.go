@@ -108,6 +108,13 @@ func (w *WAL) Append(r Range) error {
 	return w.f.Sync()
 }
 
+func (w *WAL) Sync() error {
+	if w.f != nil {
+		return w.f.Sync()
+	}
+	return nil
+}
+
 func (w *WAL) Close() error {
 	if w.f != nil {
 		return w.f.Close()

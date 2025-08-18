@@ -47,7 +47,7 @@ func TestVerifyDestinationCanceledContext(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	errCh := make(chan error, 1)
-	go func() { errCh <- tr.verifyDestination(ctx, cfg, dest) }()
+	go func() { _, _, _, err := tr.verifyDestination(ctx, cfg, dest); errCh <- err }()
 	time.Sleep(10 * time.Millisecond)
 	cancel()
 	select {

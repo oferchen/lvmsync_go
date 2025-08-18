@@ -181,3 +181,39 @@ func TestMainDeviceErrorExitCode(t *testing.T) {
 		t.Fatalf("expected exit code %d, got %d", exitcode.ErrDevice, code)
 	}
 }
+
+func TestMainVerifyExitCode(t *testing.T) {
+	var code int
+	logger := zap.NewNop()
+	runner := NewRunnerWithDeps(
+		func() (*config.Config, []string, *zap.Logger, error) { return &config.Config{}, nil, logger, nil },
+		func(_ *config.Config, _ []string, _ *zap.Logger) error { return errors.New("digest mismatch") },
+		rootcmd.SyncLogger,
+		func(c int) { code = c },
+		func() *zap.Logger { return zap.NewNop() },
+		"linux",
+	)
+	runner.Run()
+	if code != exitcode.ErrVerify {
+		t.Fatalf("expected exit code %d, got %d", exitcode.ErrVerify, code)
+	}
+}
+
+func TestMainPartialExitCode(t *testing.T) {
+	var code int
+	logger := zap.NewNop()
+	runner := NewRunnerWithDeps(
+		func() (*config.Config, []string, *zap.Logger, error) { return &config.Config{}, nil, logger, nil },
+		func(_ *config.Config, _ []string, _ *zap.Logger) error {
+			return errors.New("received signal: interrupt")
+		},
+		rootcmd.SyncLogger,
+		func(c int) { code = c },
+		func() *zap.Logger { return zap.NewNop() },
+		"linux",
+	)
+	runner.Run()
+	if code != exitcode.ErrPartial {
+		t.Fatalf("expected exit code %d, got %d", exitcode.ErrPartial, code)
+	}
+}

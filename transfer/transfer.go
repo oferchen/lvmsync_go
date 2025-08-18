@@ -18,6 +18,7 @@ import (
 	rootcmd "lvmsync_go/cmd/root"
 	"lvmsync_go/common"
 	"lvmsync_go/device"
+	hashutil "lvmsync_go/hash"
 	"lvmsync_go/internal/config"
 	manifestpkg "lvmsync_go/manifest"
 )
@@ -28,6 +29,7 @@ type Transfer struct {
 	workerWG *sync.WaitGroup
 	Tracker  *resumeTracker
 	Info     device.DeviceInfoProvider
+	wal      *WAL
 }
 
 // NewTransfer creates a Transfer with the provided logger and wait group.
@@ -233,59 +235,100 @@ func readManifestHeader(ctx context.Context, path string, timeout time.Duration)
 	return &hdr, nil
 }
 
-func (t *Transfer) verifyDestination(ctx context.Context, cfg *config.Config, destPath string) error {
+func (t *Transfer) verifyDestination(ctx context.Context, cfg *config.Config, destPath string) (uint64, string, uint64, error) {
 	if ctx == nil {
-		return fmt.Errorf("nil context")
+		return 0, "", 0, fmt.Errorf("nil context")
 	}
+	var size uint64
+	var id string
+	var epoch uint64
 	if cfg.ManifestPath != "" {
 		hdr, err := readManifestHeader(ctx, cfg.ManifestPath, 0)
 		if err != nil {
-			return err
+			return 0, "", 0, err
 		}
-		id, err := t.Info.GetDeviceID(ctx, destPath)
+		id, err = t.Info.GetDeviceID(ctx, destPath)
 		if err != nil {
-			return fmt.Errorf("read destination id: %w", err)
+			return 0, "", 0, fmt.Errorf("read destination id: %w", err)
 		}
 		manID := strings.TrimRight(string(hdr.DeviceID[:]), "\x00")
 		if id != manID {
 			t.Logger.Error("device_id_mismatch", zap.String("expected_resource_id", manID), zap.String("resource_id", id))
-			return fmt.Errorf("destination device id %s does not match manifest %s", id, manID)
+			return 0, "", 0, fmt.Errorf("destination device id %s does not match manifest %s", id, manID)
 		}
-		size, err := t.Info.SizeBytes(ctx, destPath)
+		size, err = t.Info.SizeBytes(ctx, destPath)
 		if err != nil {
-			return fmt.Errorf("read destination size: %w", err)
+			return 0, "", 0, fmt.Errorf("read destination size: %w", err)
 		}
 		if size != hdr.SizeBytes {
 			t.Logger.Error("device_size_mismatch", zap.Uint64("expected_size_bytes", hdr.SizeBytes), zap.Uint64("size_bytes", size))
-			return fmt.Errorf("destination device size %d does not match manifest %d", size, hdr.SizeBytes)
+			return 0, "", 0, fmt.Errorf("destination device size %d does not match manifest %d", size, hdr.SizeBytes)
 		}
 		if cfg.ResumeState != "" {
 			if _, err := os.Stat(cfg.ResumeState); err == nil {
 				chk := readResumeState(cfg, t.Logger, hdr.SizeBytes, manID, hdr.Epoch)
 				if chk == (resumeCheckpoint{}) {
-					return fmt.Errorf("resume state does not match destination metadata")
+					return 0, "", 0, fmt.Errorf("resume state does not match destination metadata")
 				}
 			}
 		}
+		epoch = hdr.Epoch
 		t.Logger.Info("destination_validated", zap.String("resource_id", id), zap.Uint64("size_bytes", size))
-	} else if cfg.DeviceUUID != "" {
-		id, err := t.Info.GetDeviceID(ctx, destPath)
-		if err != nil {
-			return fmt.Errorf("read destination uuid: %w", err)
+	} else {
+		if cfg.ResumeState != "" || cfg.DeviceUUID != "" {
+			var err error
+			id, err = t.Info.GetDeviceID(ctx, destPath)
+			if err != nil {
+				return 0, "", 0, fmt.Errorf("read destination id: %w", err)
+			}
+			if cfg.ResumeState != "" {
+				size, err = t.Info.SizeBytes(ctx, destPath)
+				if err != nil {
+					return 0, "", 0, fmt.Errorf("read destination size: %w", err)
+				}
+			}
+			if cfg.DeviceUUID != "" && id != cfg.DeviceUUID {
+				t.Logger.Error("device_id_mismatch", zap.String("expected_resource_id", cfg.DeviceUUID), zap.String("resource_id", id))
+				return 0, "", 0, fmt.Errorf("destination device uuid %s does not match expected %s", id, cfg.DeviceUUID)
+			}
+			t.Logger.Info("destination_validated", zap.String("resource_id", id), zap.Uint64("size_bytes", size))
 		}
-		if id != cfg.DeviceUUID {
-			t.Logger.Error("device_id_mismatch", zap.String("expected_resource_id", cfg.DeviceUUID), zap.String("resource_id", id))
-			return fmt.Errorf("destination device uuid %s does not match expected %s", id, cfg.DeviceUUID)
-		}
-		t.Logger.Info("destination_validated", zap.String("resource_id", id))
 	}
 	mounted, err := t.Info.IsMountedRW(ctx, destPath)
 	if err != nil {
-		return fmt.Errorf("check mount status: %w", err)
+		return 0, "", 0, fmt.Errorf("check mount status: %w", err)
 	}
 	if mounted && !cfg.Force {
 		t.Logger.Error("destination_mounted_rw", zap.String("path", destPath))
-		return fmt.Errorf("destination device %s is mounted read-write", destPath)
+		return 0, "", 0, fmt.Errorf("destination device %s is mounted read-write", destPath)
+	}
+	return size, id, epoch, nil
+}
+
+func verifyWAL(cfg *config.Config, dest *os.File, ranges []Range, logger *zap.Logger) error {
+	if cfg.ManifestPath == "" {
+		return fmt.Errorf("manifest required for resume verify")
+	}
+	idx, err := manifestpkg.Open(cfg.ManifestPath)
+	if err != nil {
+		return fmt.Errorf("open manifest: %w", err)
+	}
+	defer idx.Close()
+	buf := make([]byte, cfg.BlockSize)
+	for _, r := range ranges {
+		size := r.End - r.Start
+		if int(size) > len(buf) {
+			buf = make([]byte, size)
+		}
+		if _, err := dest.ReadAt(buf[:size], int64(r.Start)); err != nil {
+			return fmt.Errorf("read wal range: %w", err)
+		}
+		xx := hashutil.SumXXH3(buf[:size])
+		sum := blake3.Sum256(buf[:size])
+		if !idx.Match(r.Start, uint32(size), 0, xx, func() [32]byte { return sum }) {
+			logger.Error("wal_verify_mismatch", zap.Uint64("offset_bytes", r.Start))
+			return fmt.Errorf("wal verification failed at offset %d", r.Start)
+		}
 	}
 	return nil
 }

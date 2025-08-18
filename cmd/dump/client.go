@@ -304,7 +304,9 @@ func (r *Runner) Run(ctx context.Context, cfg *config.Config, source, dest strin
 func (r *Runner) RunLocalDump(ctx context.Context, cfg *config.Config, snapshotDevice, originDevice, dest string, logger *zap.Logger) (string, error) {
 	destType := cfg.DestType
 	if destType == "auto" {
-		if dev, err := device.Detect(context.Background(), dest, true, destType, "", "", cfg.LVMEscalation, cfg.FreezeTimeout, cfg.ThawTimeout, privilege.New(context.Background()), logger, device.NewRunner()); err == nil {
+		ctx := device.WithForce(context.Background(), cfg.Force)
+		ctx = device.WithAllowOverwrite(ctx, cfg.AllowOverwrite)
+		if dev, err := device.Detect(ctx, dest, true, destType, "", "", cfg.LVMEscalation, cfg.FreezeTimeout, cfg.ThawTimeout, privilege.New(ctx), logger, device.NewRunner()); err == nil {
 			switch dev.(type) {
 			case *device.RawDevice:
 				if !cfg.SkipSnapshotCreation {

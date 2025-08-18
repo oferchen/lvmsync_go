@@ -24,6 +24,8 @@ func TestRunnerExitCodes(t *testing.T) {
 		{"config", "linux", errors.New("cfg"), nil, exitcode.ErrConfig},
 		{"device", "linux", nil, errors.New("device gone"), exitcode.ErrDevice},
 		{"runtime", "linux", nil, errors.New("boom"), exitcode.ErrRuntime},
+		{"verify", "linux", nil, errors.New("digest mismatch"), exitcode.ErrVerify},
+		{"partial", "linux", nil, errors.New("received signal: interrupt"), exitcode.ErrPartial},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {

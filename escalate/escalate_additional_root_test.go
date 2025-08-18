@@ -14,8 +14,7 @@ func TestEnsureRootOrReexec_SudoMissing(t *testing.T) {
 	}
 	t.Setenv("PATH", "/nonexistent")
 	_, err := EnsureRootOrReexec(Options{
-		Geteuid:     func() int { return 1000 },
-		SanitizeEnv: false,
+		Geteuid: func() int { return 1000 },
 	})
 	if err == nil || !strings.Contains(err.Error(), "sudo not found") {
 		t.Fatalf("expected sudo not found error, got %v", err)
@@ -28,7 +27,7 @@ func TestDropToInvokerIfSudo_InvalidEnv(t *testing.T) {
 	}
 	t.Setenv("SUDO_UID", "notnum")
 	t.Setenv("SUDO_GID", "100")
-	if err := DropToInvokerIfSudo(); err == nil {
+	if err := DropToInvokerIfSudo(Options{}); err == nil {
 		t.Fatal("expected error for invalid SUDO_UID")
 	}
 }
