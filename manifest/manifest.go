@@ -234,6 +234,14 @@ func Create(path, deviceID string, size uint64, blockSize, cdcMin, cdcAvg, cdcMa
 	idx.hdr.MAC = headerMAC(&idx.hdr)
 	idx.writeHeader()
 	idx.initTables()
+	if err := unix.Msync(idx.data[:HeaderSize], unix.MS_SYNC); err != nil {
+		idx.Close()
+		return nil, err
+	}
+	if err := f.Sync(); err != nil {
+		idx.Close()
+		return nil, err
+	}
 	return idx, nil
 }
 
