@@ -101,18 +101,23 @@ jobs:
         run: go test -coverprofile=coverage.out ./...
 
       - name: golangci-lint
+        if: github.event_name == 'pull_request'
         run: golangci-lint run
 
       - name: Go vet
+        if: github.event_name == 'pull_request'
         run: make vet
 
       - name: Staticcheck
+        if: github.event_name == 'pull_request'
         run: make staticcheck
 
       - name: Race detector
+        if: github.event_name == 'pull_request'
         run: make test-race
 
       - name: Integration tests
+        if: github.event_name == 'pull_request'
         run: make integration
         
       - name: Build, test, and lint
