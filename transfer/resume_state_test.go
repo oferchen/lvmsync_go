@@ -156,6 +156,19 @@ func TestReadResumeStateSizeMismatch(t *testing.T) {
 	}
 }
 
+func TestReadResumeStateDeviceIDMismatch(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "resume.json")
+	dig := blake3.Sum256([]byte("data"))
+	cfg := &config.Config{Transport: "ssh", Compress: "none", ChecksumAlgorithm: "blake3", ResumeState: path, DedupMode: "fixed", CheckpointBytes: 4, FirstBlockDigest: hex.EncodeToString(dig[:])}
+	rt := &resumeTracker{sizeBytes: 100, deviceID: "id", epoch: 1}
+	saveResumeState(cfg, rt, 0, dig, 4, zap.NewNop())
+	cp := readResumeState(cfg, zap.NewNop(), 100, "other", 1, dig)
+	if cp != (resumeCheckpoint{}) {
+		t.Fatalf("expected empty checkpoint on device id mismatch")
+	}
+}
+
 func TestReadResumeStateEpochMismatch(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "resume.json")

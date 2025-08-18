@@ -269,6 +269,18 @@ func (r *Runner) Run(ctx context.Context, cfg *config.Config, source, dest strin
 	case *device.FileDevice:
 		cfg.SourceType = "file"
 	}
+	if cfg.DryRun {
+		size := int64(dev.SizeBytes())
+		durMs, bwBps := transfer.Estimate(size, cfg.SpeedLimit)
+		logger.Info("dry run",
+			zap.Int64("size_bytes", size),
+			zap.Int64("estimated_duration_ms", durMs),
+			zap.Int64("estimated_bandwidth_bps", bwBps),
+		)
+		dev.Cleanup(ctx)
+		dev.Close()
+		return cfg.DestType, nil
+	}
 	if cfg.SourceType == "raw" && !cfg.SkipSnapshotCreation {
 		dev.Close()
 		dev.Cleanup(ctx)
@@ -303,6 +315,9 @@ func (r *Runner) Run(ctx context.Context, cfg *config.Config, source, dest strin
 // RunLocalDump dumps changes to a local destination device and returns the detected destination type.
 func (r *Runner) RunLocalDump(ctx context.Context, cfg *config.Config, snapshotDevice, originDevice, dest string, logger *zap.Logger) (string, error) {
 	destType := cfg.DestType
+	if cfg.DryRun {
+		return destType, r.ExecuteDump(ctx, cfg, snapshotDevice, originDevice, io.Discard, logger)
+	}
 	if destType == "auto" {
 		ctx := device.WithForce(context.Background(), cfg.Force)
 		ctx = device.WithAllowOverwrite(ctx, cfg.AllowOverwrite)
@@ -549,6 +564,9 @@ func (r *Runner) ExecuteRemoteCommand(ctx context.Context, cfg *config.Config, c
 
 // RunRemoteDump streams snapshot data to a remote host over SSH.
 func (r *Runner) RunRemoteDump(ctx context.Context, cfg *config.Config, snapshotDevice, originDevice, dest string, logger *zap.Logger) (err error) {
+	if cfg.DryRun {
+		return r.ExecuteDump(ctx, cfg, snapshotDevice, originDevice, io.Discard, logger)
+	}
 	parts := strings.SplitN(dest, ":", 2)
 	if len(parts) != 2 {
 		return fmt.Errorf("invalid destination %q: expected host:device", dest)
