@@ -3,6 +3,7 @@ package device
 import (
 	"context"
 	"fmt"
+	"io"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -11,6 +12,8 @@ import (
 	"github.com/moby/sys/mountinfo"
 	"go.uber.org/zap"
 
+	"lvmsync_go/common"
+	"lvmsync_go/hash"
 	"lvmsync_go/internal/privilege"
 )
 
@@ -27,6 +30,7 @@ type DeviceInfoProvider interface {
 	IDsMatch(ctx context.Context, src, dest string) (bool, error)
 	IsMountedRW(ctx context.Context, path string) (bool, error)
 	SizeBytes(ctx context.Context, path string) (uint64, error)
+	FirstBlockDigest(ctx context.Context, path string, size uint64) ([32]byte, error)
 }
 
 // Info implements DeviceInfoProvider using configurable helpers.
@@ -34,6 +38,7 @@ type Info struct {
 	uuidFunc    func(context.Context, string) (string, error)
 	lvmUUIDFunc func(context.Context, string) (string, error)
 	mountFunc   func(context.Context, string) (bool, error)
+	firstDigest func(context.Context, string, uint64) ([32]byte, error)
 	detectFunc  func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, privilege.Escalator, *zap.Logger, *Runner) (Device, error)
 }
 
@@ -43,6 +48,7 @@ func NewInfo() *Info {
 		uuidFunc:    defaultUUIDFunc,
 		lvmUUIDFunc: defaultLVMUUIDFunc,
 		mountFunc:   defaultMountFunc,
+		firstDigest: defaultFirstBlockDigest,
 		detectFunc:  Detect,
 	}
 }
@@ -53,6 +59,7 @@ func NewInfoWithDeps(
 	uuid func(context.Context, string) (string, error),
 	lvmUUID func(context.Context, string) (string, error),
 	mount func(context.Context, string) (bool, error),
+	digest func(context.Context, string, uint64) ([32]byte, error),
 	detect func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, privilege.Escalator, *zap.Logger, *Runner) (Device, error),
 ) *Info {
 	if uuid == nil {
@@ -64,10 +71,13 @@ func NewInfoWithDeps(
 	if mount == nil {
 		mount = defaultMountFunc
 	}
+	if digest == nil {
+		digest = defaultFirstBlockDigest
+	}
 	if detect == nil {
 		detect = Detect
 	}
-	return &Info{uuidFunc: uuid, lvmUUIDFunc: lvmUUID, mountFunc: mount, detectFunc: detect}
+	return &Info{uuidFunc: uuid, lvmUUIDFunc: lvmUUID, mountFunc: mount, firstDigest: digest, detectFunc: detect}
 }
 
 // SetMountFunc allows tests to override the mount status checker. It returns
@@ -189,6 +199,20 @@ func (i *Info) SizeBytes(ctx context.Context, path string) (size uint64, err err
 	return size, err
 }
 
+// FirstBlockDigest returns the BLAKE3 digest of the first size bytes of the device at path.
+// If ctx has no deadline, a default timeout is applied.
+func (i *Info) FirstBlockDigest(ctx context.Context, path string, size uint64) ([32]byte, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if _, ok := ctx.Deadline(); !ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, uuidTimeout)
+		defer cancel()
+	}
+	return i.firstDigest(ctx, path, size)
+}
+
 func defaultMountFunc(ctx context.Context, path string) (bool, error) {
 	real, err := filepath.EvalSymlinks(path)
 	if err != nil {
@@ -224,4 +248,22 @@ func defaultMountFunc(ctx context.Context, path string) (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+func defaultFirstBlockDigest(ctx context.Context, path string, size uint64) ([32]byte, error) {
+	var out [32]byte
+	if size == 0 {
+		return out, fmt.Errorf("size must be greater than zero")
+	}
+	f, err := common.OpenWithContext(ctx, path)
+	if err != nil {
+		return out, err
+	}
+	defer f.Close()
+	buf := make([]byte, size)
+	n, err := io.ReadFull(f, buf)
+	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+		return out, err
+	}
+	return hash.SumBLAKE3(buf[:n]), nil
 }

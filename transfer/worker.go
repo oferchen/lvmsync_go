@@ -2,6 +2,7 @@ package transfer
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
@@ -177,7 +178,12 @@ func (t *Transfer) DumpChangesParallel(ctx context.Context, cfg *config.Config, 
 	}
 	defer common.CloseWithErr(srcFile, &err, "close source file")
 
-	checkpoint := readResumeState(cfg, t.Logger, 0, cfg.DeviceUUID, 0)
+	digest, err := t.Info.FirstBlockDigest(ctx, source, firstBlockDigestSize)
+	if err != nil {
+		return err
+	}
+	cfg.FirstBlockDigest = hex.EncodeToString(digest[:])
+	checkpoint := readResumeState(cfg, t.Logger, 0, cfg.DeviceUUID, 0, digest)
 	resumeStart := findResumeIndex(ctx, cfg, srcFile, ranges, checkpoint, t.Logger)
 	results := t.startParallelWorkers(ctx, cfg, srcFile, ranges, resumeStart, t.Logger)
 

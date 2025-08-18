@@ -37,7 +37,7 @@ func TestRunDefaultOutputPath(t *testing.T) {
 		t.Fatalf("write device: %v", err)
 	}
 
-	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return "uuid", nil }, nil, nil, nil)
+	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return "uuid", nil }, nil, nil, nil, nil)
 
 	cfg, err := config.DefaultConfig()
 	if err != nil {
@@ -80,7 +80,7 @@ func TestRunManifestPathFlag(t *testing.T) {
 		t.Fatalf("write device: %v", err)
 	}
 
-	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return "uuid", nil }, nil, nil, nil)
+	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return "uuid", nil }, nil, nil, nil, nil)
 
 	cfg, err := config.DefaultConfig()
 	if err != nil {
@@ -298,7 +298,7 @@ func TestRunWritesVersion(t *testing.T) {
 	if err := os.WriteFile(devicePath, []byte("data"), 0o600); err != nil {
 		t.Fatalf("write device: %v", err)
 	}
-	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return "uuid", nil }, nil, nil, nil)
+	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return "uuid", nil }, nil, nil, nil, nil)
 	cfg, err := config.DefaultConfig()
 	if err != nil {
 		t.Fatalf("DefaultConfig: %v", err)

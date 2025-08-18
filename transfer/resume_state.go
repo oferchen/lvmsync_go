@@ -1,6 +1,7 @@
 package transfer
 
 import (
+	"bytes"
 	"encoding/hex"
 	"encoding/json"
 	"os"
@@ -29,6 +30,7 @@ type resumeState struct {
 	SizeBytes         uint64           `json:"size_bytes"`
 	DeviceID          string           `json:"device_id"`
 	Epoch             uint64           `json:"epoch"`
+	FirstBlockDigest  string           `json:"first_block_digest"`
 }
 
 // writeResumeState persists resume state; logger must be non-nil.
@@ -51,6 +53,7 @@ func writeResumeState(cfg *config.Config, logger *zap.Logger, path string, chunk
 		SizeBytes:         0,
 		DeviceID:          cfg.DeviceUUID,
 		Epoch:             0,
+		FirstBlockDigest:  cfg.FirstBlockDigest,
 	}
 	data, err := json.Marshal(rs)
 	if err != nil {
@@ -95,7 +98,7 @@ func finalizeResumeState(cfg *config.Config, rt *resumeTracker, logger *zap.Logg
 	rt.resumeChunks = resumeChunks{}
 }
 
-func readResumeState(cfg *config.Config, logger *zap.Logger, size uint64, deviceID string, epoch uint64) resumeCheckpoint {
+func readResumeState(cfg *config.Config, logger *zap.Logger, size uint64, deviceID string, epoch uint64, digest [32]byte) resumeCheckpoint {
 	var out resumeCheckpoint
 	if cfg.ResumeState == "" {
 		return out
@@ -116,6 +119,12 @@ func readResumeState(cfg *config.Config, logger *zap.Logger, size uint64, device
 		(rs.SizeBytes != 0 && size != 0 && rs.SizeBytes != size) ||
 		(rs.Epoch != 0 && epoch != 0 && rs.Epoch != epoch) {
 		return out
+	}
+	if rs.FirstBlockDigest != "" && digest != ([32]byte{}) {
+		b, err := hex.DecodeString(rs.FirstBlockDigest)
+		if err != nil || len(b) != 32 || !bytes.Equal(b, digest[:]) {
+			return out
+		}
 	}
 	decode := func(cs resumeChunkState) (resumeChunk, bool) {
 		b, err := hex.DecodeString(cs.Chunk)

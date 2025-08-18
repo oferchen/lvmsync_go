@@ -3,6 +3,7 @@ package transfer
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"errors"
 	"os"
 	"path/filepath"
@@ -14,6 +15,7 @@ import (
 	"lvmsync_go/common"
 	"lvmsync_go/device"
 	"lvmsync_go/internal/config"
+	manifestpkg "lvmsync_go/manifest"
 
 	"go.uber.org/zap"
 )
@@ -31,6 +33,7 @@ func TestProcessDumpDataUUIDMismatch(t *testing.T) {
 		func(context.Context, string) (string, error) { return "actual", nil },
 		func(context.Context, string) (string, error) { return "", errors.New("no lvm") },
 		func(context.Context, string) (bool, error) { return false, nil },
+		nil,
 		nil,
 	)
 	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, info)
@@ -82,6 +85,7 @@ func TestProcessDumpDataMountedDevice(t *testing.T) {
 		func(context.Context, string) (string, error) { return "id", nil },
 		func(context.Context, string) (string, error) { return "", errors.New("no lvm") },
 		func(context.Context, string) (bool, error) { return true, nil },
+		nil,
 		nil,
 	)
 	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, info)
@@ -147,6 +151,7 @@ func TestApplyDataUUIDMismatch(t *testing.T) {
 		func(context.Context, string) (string, error) { return "", errors.New("no lvm") },
 		func(context.Context, string) (bool, error) { return false, nil },
 		nil,
+		nil,
 	)
 	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, info)
 	cfg := &config.Config{BlockSize: 1024, Compress: "none", MaxRetries: 1, DeviceUUID: "expected"}
@@ -197,6 +202,7 @@ func TestApplyDataMountedDevice(t *testing.T) {
 		func(context.Context, string) (string, error) { return "id", nil },
 		func(context.Context, string) (string, error) { return "", errors.New("no lvm") },
 		func(context.Context, string) (bool, error) { return true, nil },
+		nil,
 		nil,
 	)
 	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, info)
@@ -251,6 +257,7 @@ func TestProcessDumpDataCanceledContext(t *testing.T) {
 		func(context.Context, string) (string, error) { return "", errors.New("no lvm") },
 		func(context.Context, string) (bool, error) { return false, nil },
 		nil,
+		nil,
 	)
 	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, info)
 	cfg := &config.Config{BlockSize: 1024, Compress: "none", MaxRetries: 1, DeviceUUID: "id", DedupStrategy: "none", VerifyChecksum: true, ChecksumAlgorithm: "sha256"}
@@ -290,5 +297,45 @@ func TestProcessDumpDataCanceledContext(t *testing.T) {
 	}
 	if !bytes.HasPrefix(data, sentinel) {
 		t.Fatalf("destination modified")
+	}
+}
+
+func TestVerifyDestinationDigestMismatch(t *testing.T) {
+	info := device.NewInfoWithDeps(
+		func(context.Context, string) (string, error) { return "id", nil },
+		nil,
+		func(context.Context, string) (bool, error) { return false, nil },
+		func(context.Context, string, uint64) ([32]byte, error) {
+			var d [32]byte
+			d[0] = 1
+			return d, nil
+		},
+		nil,
+	)
+	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, info)
+	dest := filepath.Join(t.TempDir(), "dest")
+	if err := os.WriteFile(dest, make([]byte, 1024), 0o600); err != nil {
+		t.Fatalf("write dest: %v", err)
+	}
+	man := filepath.Join(t.TempDir(), "man")
+	var hdr manifestpkg.Header
+	hdr.Version = manifestpkg.Version
+	hdr.BlockSize = 512
+	hdr.SizeBytes = 1024
+	hdr.ChunkCount = 2
+	copy(hdr.DeviceID[:], []byte("id"))
+	hdr.FirstBlockDigest[0] = 2
+	hdr.MAC = manifestHeaderMAC(&hdr)
+	f, err := os.Create(man)
+	if err != nil {
+		t.Fatalf("create manifest: %v", err)
+	}
+	if err := binary.Write(f, binary.LittleEndian, &hdr); err != nil {
+		t.Fatalf("write manifest: %v", err)
+	}
+	f.Close()
+	cfg := &config.Config{ManifestPath: man}
+	if err := tr.verifyDestination(context.Background(), cfg, dest); err == nil || !strings.Contains(err.Error(), "digest mismatch") {
+		t.Fatalf("expected digest mismatch, got %v", err)
 	}
 }

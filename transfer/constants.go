@@ -12,4 +12,6 @@ const (
 	// intraCacheCapacity limits the number of chunks tracked for intra-run
 	// deduplication.
 	intraCacheCapacity = 4096
+
+	firstBlockDigestSize = 1 << 20 // 1 MiB
 )

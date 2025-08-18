@@ -38,6 +38,7 @@ func TestVerifyDestinationCanceledContext(t *testing.T) {
 		func(context.Context, string) (string, error) { return "", errors.New("no lvm") },
 		func(context.Context, string) (bool, error) { return false, nil },
 		nil,
+		nil,
 	)
 	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, info)
 	cfg := &config.Config{DeviceUUID: "id"}
