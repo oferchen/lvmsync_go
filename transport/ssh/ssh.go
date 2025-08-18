@@ -75,8 +75,6 @@ func New(ctx context.Context, cfg transport.Config) (transport.Interface, error)
 		if err != nil {
 			return nil, err
 		}
-	} else {
-		return nil, fmt.Errorf("host key path required when allow_insecure is false")
 	}
 
 	serverConf := &ssh.ServerConfig{
@@ -87,7 +85,9 @@ func New(ctx context.Context, cfg transport.Config) (transport.Interface, error)
 			return nil, fmt.Errorf("authentication failed")
 		},
 	}
-	serverConf.AddHostKey(hostSigner)
+	if hostSigner != nil {
+		serverConf.AddHostKey(hostSigner)
+	}
 	if keySigner != nil {
 		serverConf.PublicKeyCallback = func(c ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
 			if c.User() == cfg.SSHUser && bytes.Equal(key.Marshal(), keySigner.PublicKey().Marshal()) {
@@ -259,6 +259,17 @@ func (t *Transport) Listen(ctx context.Context, address string) (net.Listener, e
 		zap.Int64("duration_ms", 0),
 	)
 	start := time.Now()
+	if t.hostSigner == nil {
+		err := fmt.Errorf("host key not configured")
+		fields := []zap.Field{
+			zap.String("address", address),
+			zap.String("role", role),
+			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+			zap.Error(err),
+		}
+		t.logger.Error("listen_end", fields...)
+		return nil, err
+	}
 	lc := net.ListenConfig{}
 	tcpLn, err := lc.Listen(ctx, "tcp", address)
 	fields := []zap.Field{
