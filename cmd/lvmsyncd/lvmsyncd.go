@@ -23,7 +23,6 @@ import (
 
 	rootcmd "lvmsync_go/cmd/root"
 	"lvmsync_go/common"
-	"lvmsync_go/internal/exitcode"
 	"lvmsync_go/transport"
 	_ "lvmsync_go/transport/h2"
 	_ "lvmsync_go/transport/quic"
@@ -312,29 +311,9 @@ func handleConn(ctx context.Context, conn net.Conn, tr transport.Interface, modu
 	return nil
 }
 
-func mapExitCode(err error) int {
-	if err == nil {
-		return exitcode.OK
-	}
-	msg := err.Error()
-	if strings.Contains(msg, "parse") || strings.Contains(msg, "missing") || strings.Contains(msg, "required") || strings.Contains(msg, "invalid") {
-		return exitcode.ErrConfig
-	}
-	if strings.Contains(msg, "device") {
-		return exitcode.ErrDevice
-	}
-	if strings.Contains(msg, "mismatch") || strings.Contains(msg, "blocks differ") {
-		return exitcode.ErrVerify
-	}
-	if strings.Contains(msg, "signal") || strings.Contains(msg, "canceled") {
-		return exitcode.ErrPartial
-	}
-	return exitcode.ErrRuntime
-}
-
 func main() {
 	logger, _ := zap.NewProduction()
 	if err := run(os.Args[1:], logger); err != nil {
-		os.Exit(mapExitCode(err))
+		os.Exit(rootcmd.ExitCode(err))
 	}
 }

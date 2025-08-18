@@ -17,4 +17,8 @@ const (
 	ErrVerify = 60
 	// ErrPartial indicates a resumable transfer was aborted before completion.
 	ErrPartial = 70
+	// ErrPrecondition indicates a precondition failure before execution.
+	ErrPrecondition = 80
+	// ErrResumable indicates the process exited early but can be resumed.
+	ErrResumable = 90
 )

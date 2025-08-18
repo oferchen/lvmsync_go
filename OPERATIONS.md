@@ -46,6 +46,8 @@ Reads both devices and reports mismatches without writing data.
 | `50` | Runtime failure | Inspect logs, fix the issue, and rerun using `--resume` when applicable. |
 | `60` | Verification mismatch | Investigate mismatched data before retrying. |
 | `70` | Partial transfer | Address the error and resume with `--resume`. |
+| `80` | Precondition failed | Fix prerequisites and retry. |
+| `90` | Resumable exit | Resume with `--resume` after resolving the issue. |
 
 ## Troubleshooting
 
