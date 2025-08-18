@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"os/exec"
 	"strings"
 	"testing"
 
@@ -63,6 +64,15 @@ func TestSelfPath(t *testing.T) {
 	p, err := selfPath()
 	if err != nil || p == "" {
 		t.Fatalf("selfPath failed: %v %q", err, p)
+	}
+}
+
+func TestIsRoot(t *testing.T) {
+	if !IsRoot(Options{Geteuid: func() int { return 0 }}) {
+		t.Fatal("expected root")
+	}
+	if IsRoot(Options{Geteuid: func() int { return 1000 }}) {
+		t.Fatal("expected non-root")
 	}
 }
 
@@ -221,6 +231,23 @@ func TestEnsureRootOrReexec_RunnerError(t *testing.T) {
 	}
 }
 
+func TestEnsureRootOrReexec_RunnerExitCode(t *testing.T) {
+	_, err := EnsureRootOrReexec(Options{
+		Geteuid:  func() int { return 1000 },
+		LookPath: func(string) (string, error) { return "/usr/bin/sudo", nil },
+		ExecRunner: func(string, []string, []string, io.Reader, io.Writer, io.Writer) error {
+			return exec.Command("sh", "-c", "exit 42").Run()
+		},
+	})
+	var ee *exec.ExitError
+	if err == nil || !errors.As(err, &ee) {
+		t.Fatalf("expected ExitError, got %v", err)
+	}
+	if code := ee.ExitCode(); code != 42 {
+		t.Fatalf("expected exit code 42, got %d", code)
+	}
+}
+
 func TestEnsureRootOrReexec_DropsDisallowedFlags(t *testing.T) {
 	var got execCall
 	reexeced, err := EnsureRootOrReexec(Options{
@@ -281,6 +308,24 @@ func TestEnsureRootOrReexec_DefaultUnsanitizedEnv(t *testing.T) {
 	}
 	if len(got.env) != 0 {
 		t.Fatalf("expected empty env to inherit unsanitized environment, got %v", got.env)
+	}
+}
+
+func TestEnsureRootOrReexec_EnvPassthrough(t *testing.T) {
+	var got execCall
+	reexeced, err := EnsureRootOrReexec(Options{
+		Geteuid:  func() int { return 1000 },
+		LookPath: func(string) (string, error) { return "/usr/bin/sudo", nil },
+		Environ: func() []string {
+			return []string{"LD_PRELOAD=/x", "LANG=C"}
+		},
+		ExecRunner: fakeRunner(&got, nil),
+	})
+	if err != nil || !reexeced {
+		t.Fatalf("unexpected result: %v %v", reexeced, err)
+	}
+	if len(got.env) != 2 || got.env[0] != "LD_PRELOAD=/x" || got.env[1] != "LANG=C" {
+		t.Fatalf("env not forwarded: %v", got.env)
 	}
 }
 

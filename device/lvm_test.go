@@ -4,9 +4,11 @@ package device
 
 import (
 	"context"
+	"io"
 	"os"
 	"os/exec"
 	"reflect"
+	"strings"
 	"testing"
 
 	"go.uber.org/zap"
@@ -15,6 +17,10 @@ import (
 	"lvmsync_go/internal/lock"
 	"lvmsync_go/lvm"
 )
+
+type ttyLVMReader struct{ io.Reader }
+
+func (t ttyLVMReader) Fd() uintptr { return 0 }
 
 func TestOpenLVM(t *testing.T) {
 	if os.Geteuid() != 0 {
@@ -167,5 +173,21 @@ func TestLVMDeviceCloseErrorLogging(t *testing.T) {
 	}
 	if logs.FilterMessage("lvm_device_close_failed").Len() == 0 {
 		t.Fatalf("expected lvm_device_close_failed log")
+	}
+}
+
+func TestConfirmOverwriteTTYLVM(t *testing.T) {
+	ctx := WithForce(context.Background(), true)
+	r := ttyLVMReader{strings.NewReader("yes\n")}
+	if err := confirmOverwrite(ctx, r, io.Discard, func(int) bool { return true }); err != nil {
+		t.Fatalf("confirmOverwrite: %v", err)
+	}
+}
+
+func TestConfirmOverwriteNonTTYLVM(t *testing.T) {
+	ctx := WithForce(context.Background(), true)
+	r := strings.NewReader("yes\n")
+	if err := confirmOverwrite(ctx, r, io.Discard, func(int) bool { return true }); err == nil || !strings.Contains(err.Error(), "--allow-overwrite") {
+		t.Fatalf("expected allow-overwrite error, got %v", err)
 	}
 }

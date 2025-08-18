@@ -57,19 +57,23 @@ func (b *ConfigBuilder) Build(fs *pflag.FlagSet, args []string) (*Config, []stri
 			resumeVerify = true
 			_ = f.Value.Set("")
 			f.Changed = false
+			os.Unsetenv("LVMSYNC_RESUME")
 		}
 	}
 	v, warns, err := buildViper(b.FlagSets)
 	if err != nil {
 		return nil, nil, warns, err
 	}
-	vb := &builder{v: v, defaults: b.defaults}
+	vb := &builder{v: v, defaults: b.defaults, resumeVerify: resumeVerify}
 	cfg, err := vb.Build()
 	if err != nil {
 		return nil, nil, warns, err
 	}
 	if resumeVerify {
 		cfg.ResumeVerify = true
+		if cfg.ResumeState == "" {
+			cfg.ResumeState = defaultResumeState
+		}
 	}
 	if cfg.AllowInsecure {
 		_, envSet := os.LookupEnv("LVMSYNC_ALLOW_INSECURE")

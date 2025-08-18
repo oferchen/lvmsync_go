@@ -108,6 +108,22 @@ func SaveChecksumState(filename string, state *ChecksumState, logger *zap.Logger
 func (t *Transfer) dumpChangesCore(ctx context.Context, cfg *config.Config, snapshot, source string, out io.Writer, dedup DeduplicationStrategy, handshake string) (err error) {
 	defer rootcmd.SyncLogger(t.Logger)
 
+	if cfg.Delta == "rsync" {
+		return t.streamRsyncDelta(ctx, cfg, snapshot, source, out)
+	if cfg.DryRun {
+		size, err := t.Info.SizeBytes(ctx, snapshot)
+		if err != nil {
+			return err
+		}
+		durationMs, bandwidthBps := Estimate(int64(size), cfg.SpeedLimit)
+		t.Logger.Info("dry run",
+			zap.Int64("size_bytes", int64(size)),
+			zap.Int64("estimated_duration_ms", durationMs),
+			zap.Int64("estimated_bandwidth_bps", bandwidthBps),
+		)
+		return nil
+	}
+
 	ranges, err := prepareRanges(ctx, cfg, snapshot, source, t.Logger)
 	if err != nil {
 		return err
@@ -247,6 +263,9 @@ func (t *Transfer) verifyDestination(ctx context.Context, cfg *config.Config, de
 	if ctx == nil {
 		return 0, "", 0, fmt.Errorf("nil context")
 	}
+	if cfg.ResumeState != "" && strings.ToLower(cfg.VerifyLevel) != "none" {
+		cfg.ResumeVerify = true
+	}
 	var size uint64
 	var id string
 	var epoch uint64
@@ -305,6 +324,10 @@ func (t *Transfer) verifyDestination(ctx context.Context, cfg *config.Config, de
 				size, err = t.Info.SizeBytes(ctx, destPath)
 				if err != nil {
 					return 0, "", 0, fmt.Errorf("read destination size: %w", err)
+				}
+				chk := readResumeState(cfg, t.Logger, size, id, 0, [32]byte{})
+				if chk == (resumeCheckpoint{}) {
+					return 0, "", 0, fmt.Errorf("resume state does not match destination metadata")
 				}
 			}
 			if cfg.DeviceUUID != "" && id != cfg.DeviceUUID {

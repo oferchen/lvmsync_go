@@ -61,19 +61,22 @@ type Options struct {
 	Sys        syscallFacade // defaults to real unix syscalls
 }
 
-// IsRoot reports whether effective UID is 0 (overridable for tests via Options).
-func IsRoot() bool { return os.Geteuid() == 0 }
+// IsRoot reports whether the effective UID is 0.
+// The check can be overridden for tests via Options.Geteuid.
+func IsRoot(opts Options) bool {
+	geteuid := opts.Geteuid
+	if geteuid == nil {
+		geteuid = os.Geteuid
+	}
+	return geteuid() == 0
+}
 
 // EnsureRootOrReexec ensures the process runs as root.
 // If already root, returns (false, nil).
 // If not root, re-execs the current binary through `sudo -n` and returns (true, err).
 // When (true, nil) is returned, the caller should exit immediately.
 func EnsureRootOrReexec(opts Options) (bool, error) {
-	geteuid := opts.Geteuid
-	if geteuid == nil {
-		geteuid = os.Geteuid
-	}
-	if geteuid() == 0 {
+	if IsRoot(opts) {
 		return false, nil
 	}
 
@@ -103,14 +106,13 @@ func EnsureRootOrReexec(opts Options) (bool, error) {
 	args = append(args, filterAllowed(argv[1:], opts.AllowedPassthrough)...)
 
 	var env []string
-	switch {
-	case opts.SanitizeEnv:
+	if opts.SanitizeEnv {
+		environ := os.Environ
 		if opts.Environ != nil {
-			env = sanitizedChildEnv(opts.Environ())
-		} else {
-			env = sanitizedChildEnv(os.Environ())
+			environ = opts.Environ
 		}
-	case opts.Environ != nil:
+		env = sanitizedChildEnv(environ())
+	} else if opts.Environ != nil {
 		env = opts.Environ()
 	}
 
