@@ -1,4 +1,4 @@
 {
-  "readiness": "R2",
-  "notes": "Transport backends unimplemented; not production ready"
+  "readiness": "R3",
+  "notes": "Core transports implemented; pending integration tests and logging audit"
 }
