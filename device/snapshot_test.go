@@ -17,7 +17,8 @@ func TestSnapshotLifecycle(t *testing.T) {
 	if os.Geteuid() != 0 {
 		t.Skip("root required")
 	}
-	ctx := context.Background()
+	ctx := WithForce(context.Background(), true)
+	ctx = WithAllowOverwrite(ctx, true)
 
 	// File device snapshot is a no-op.
 	f, err := os.CreateTemp(t.TempDir(), "file")
@@ -99,7 +100,8 @@ func TestSnapshotLVCreateFailure(t *testing.T) {
 	if os.Geteuid() != 0 {
 		t.Skip("root required")
 	}
-	ctx := context.Background()
+	ctx := WithForce(context.Background(), true)
+	ctx = WithAllowOverwrite(ctx, true)
 	var cmds []string
 	cmd := cmdFunc(func(ctx context.Context, name string, args ...string) *exec.Cmd {
 		cmds = append(cmds, name+" "+strings.Join(args, " "))
