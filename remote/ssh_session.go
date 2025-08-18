@@ -17,6 +17,7 @@ import (
 type SSHSession struct {
 	Client  *SSHClient
 	Session *ssh.Session
+	host    string
 }
 
 type SSHMultiplexer struct {
@@ -41,6 +42,7 @@ func GetMultiplexedSession(client *SSHClient, host string) (*SSHSession, error) 
 		return nil, err
 	}
 
+	session.host = host
 	multiplexer.sessions[host] = session
 	return session, nil
 }
@@ -68,6 +70,16 @@ func (s *SSHSession) Close() {
 	if err := s.Session.Close(); err != nil && !errors.Is(err, io.EOF) {
 		s.Client.Logger.Warn("session close error", zap.Error(err))
 	}
+	if s.host != "" {
+		RemoveSession(s.host)
+	}
+}
+
+// RemoveSession deletes the cached session for the given host.
+func RemoveSession(host string) {
+	multiplexer.mu.Lock()
+	defer multiplexer.mu.Unlock()
+	delete(multiplexer.sessions, host)
 }
 
 // RunSSHCommand executes a command on a remote host over SSH and logs using logger.
