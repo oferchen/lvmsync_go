@@ -28,6 +28,7 @@ func TestResumeFlagPath(t *testing.T) {
 
 func TestResumeFlagVerify(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("LVMSYNC_RESUME", "statefile")
 	defaults, err := DefaultConfig()
 	if err != nil {
 		t.Fatalf("default: %v", err)

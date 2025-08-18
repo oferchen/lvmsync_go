@@ -23,14 +23,14 @@ func TestSaveAndReadResumeState(t *testing.T) {
 		DedupMode:         "fixed",
 		CheckpointBytes:   4,
 	}
-	rt := &resumeTracker{}
+	rt := &resumeTracker{sizeBytes: 100, deviceID: "id", epoch: 1}
 	digest := blake3.Sum256([]byte("data"))
 	cfg.FirstBlockDigest = hex.EncodeToString(digest[:])
 	saveResumeState(cfg, rt, 0, digest, 4, zap.NewNop())
 	if _, err := os.Stat(path); err != nil {
 		t.Fatalf("expected resume state file: %v", err)
 	}
-	cp := readResumeState(cfg, zap.NewNop(), 0, cfg.DeviceUUID, 0, digest)
+	cp := readResumeState(cfg, zap.NewNop(), 100, "id", 1, digest)
 	rc := cp.chunk("fixed")
 	if rc.Offset != 0 || rc.Length != 4 || hex.EncodeToString(rc.Chunk[:]) != hex.EncodeToString(digest[:]) {
 		t.Fatalf("unexpected checkpoint: %+v", rc)
@@ -60,5 +60,31 @@ func TestReadResumeStateDigestMismatch(t *testing.T) {
 	cp := readResumeState(cfg, zap.NewNop(), 0, cfg.DeviceUUID, 0, bad)
 	if cp != (resumeCheckpoint{}) {
 		t.Fatalf("expected empty checkpoint on digest mismatch")
+	}
+}
+
+func TestReadResumeStateSizeMismatch(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "resume.json")
+	dig := blake3.Sum256([]byte("data"))
+	cfg := &config.Config{Transport: "ssh", Compress: "none", ChecksumAlgorithm: "blake3", ResumeState: path, DedupMode: "fixed", CheckpointBytes: 4, FirstBlockDigest: hex.EncodeToString(dig[:])}
+	rt := &resumeTracker{sizeBytes: 100, deviceID: "id", epoch: 1}
+	saveResumeState(cfg, rt, 0, dig, 4, zap.NewNop())
+	cp := readResumeState(cfg, zap.NewNop(), 200, "id", 1, dig)
+	if cp != (resumeCheckpoint{}) {
+		t.Fatalf("expected empty checkpoint on size mismatch")
+	}
+}
+
+func TestReadResumeStateEpochMismatch(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "resume.json")
+	dig := blake3.Sum256([]byte("data"))
+	cfg := &config.Config{Transport: "ssh", Compress: "none", ChecksumAlgorithm: "blake3", ResumeState: path, DedupMode: "fixed", CheckpointBytes: 4, FirstBlockDigest: hex.EncodeToString(dig[:])}
+	rt := &resumeTracker{sizeBytes: 100, deviceID: "id", epoch: 1}
+	saveResumeState(cfg, rt, 0, dig, 4, zap.NewNop())
+	cp := readResumeState(cfg, zap.NewNop(), 100, "id", 2, dig)
+	if cp != (resumeCheckpoint{}) {
+		t.Fatalf("expected empty checkpoint on epoch mismatch")
 	}
 }

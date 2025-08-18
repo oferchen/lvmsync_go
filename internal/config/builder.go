@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/spf13/pflag"
 )
@@ -49,6 +50,15 @@ func (b *ConfigBuilder) Build(fs *pflag.FlagSet, args []string) (*Config, []stri
 	if err := fs.Parse(args); err != nil {
 		return nil, nil, nil, err
 	}
+
+	resumeVerify := false
+	if f := fs.Lookup("resume"); f != nil && f.Changed {
+		if strings.EqualFold(f.Value.String(), "verify") {
+			resumeVerify = true
+			_ = f.Value.Set("")
+			f.Changed = false
+		}
+	}
 	v, warns, err := buildViper(b.FlagSets)
 	if err != nil {
 		return nil, nil, warns, err
@@ -57,6 +67,9 @@ func (b *ConfigBuilder) Build(fs *pflag.FlagSet, args []string) (*Config, []stri
 	cfg, err := vb.Build()
 	if err != nil {
 		return nil, nil, warns, err
+	}
+	if resumeVerify {
+		cfg.ResumeVerify = true
 	}
 	if cfg.AllowInsecure {
 		_, envSet := os.LookupEnv("LVMSYNC_ALLOW_INSECURE")

@@ -22,8 +22,9 @@ lvmsync run --resume=verify /dev/vg0/snap0 /dev/vg0/target
 ```
 
 1. Resume the transfer using the existing state.
-2. After the copy completes, `lvmsync verify` checks the destination against the source or manifest.
-3. A verification failure keeps the resume file for another attempt.
+2. Validate previously written blocks against the manifest before applying new data.
+3. After the copy completes, `lvmsync verify` checks the destination against the source or manifest.
+4. Any verification mismatch aborts the run and leaves the resume file for another attempt.
 
 ### `--verify-only`
 
@@ -42,7 +43,9 @@ Reads both devices and reports mismatches without writing data.
 | `20` | Device error | Verify device paths and snapshot health. |
 | `30` | Unsupported platform | Run on a supported Linux platform. |
 | `40` | Configuration error | Review flags, environment variables, and `config.yaml`. |
-| `50` | Runtime failure or verification mismatch | Inspect logs, fix the issue, and rerun using `--resume` when applicable. |
+| `50` | Runtime failure | Inspect logs, fix the issue, and rerun using `--resume` when applicable. |
+| `60` | Verification mismatch | Investigate mismatched data before retrying. |
+| `70` | Partial transfer | Address the error and resume with `--resume`. |
 
 ## Troubleshooting
 
