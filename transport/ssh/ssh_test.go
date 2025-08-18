@@ -284,9 +284,29 @@ func TestNewZeroesKeyMaterial(t *testing.T) {
 
 func TestNewHostKeyRequired(t *testing.T) {
 	core, _ := observer.New(zap.InfoLevel)
-	cfg := transport.Config{Logger: zap.New(core), SSHUser: "u", SSHPassword: "p"}
+	kh := emptyKnownHosts(t)
+	cfg := transport.Config{Logger: zap.New(core), SSHUser: "u", SSHPassword: "p", SSHKnownHosts: kh}
 	if _, err := New(context.Background(), cfg); err == nil || !strings.Contains(err.Error(), "host key path required") {
 		t.Fatalf("expected host key requirement error, got %v", err)
+	}
+}
+
+func TestNewHostKeyVerificationRequired(t *testing.T) {
+	core, _ := observer.New(zap.InfoLevel)
+	dir := t.TempDir()
+	keyPath := filepath.Join(dir, "id_rsa")
+	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("GenerateKey: %v", err)
+	}
+	privBytes := x509.MarshalPKCS1PrivateKey(priv)
+	pemBytes := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: privBytes})
+	if err := os.WriteFile(keyPath, pemBytes, 0600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	cfg := transport.Config{Logger: zap.New(core), SSHUser: "u", SSHPassword: "p", HostKeyPath: keyPath}
+	if _, err := New(context.Background(), cfg); err == nil || !strings.Contains(err.Error(), "known hosts or host key required") {
+		t.Fatalf("expected host key verification error, got %v", err)
 	}
 }
 

@@ -12,6 +12,7 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
+	"golang.org/x/term"
 
 	"lvmsync_go/internal/lock"
 	"lvmsync_go/lvm"
@@ -154,6 +155,9 @@ func (r *Runner) runLVM(ctx context.Context, escalation, cmdName string, args ..
 // Snapshot creates, activates, and opens an LVM snapshot of the device using
 // the provided snapshotSize (e.g., "1G" or "20%").
 func (d *LVMDevice) Snapshot(ctx context.Context, snapshotSize string) (Device, error) {
+	if err := confirmOverwrite(ctx, os.Stdin, os.Stderr, term.IsTerminal); err != nil {
+		return nil, err
+	}
 	vg, err := lvm.GetVolumeGroupName(d.path)
 	if err != nil {
 		return nil, err
