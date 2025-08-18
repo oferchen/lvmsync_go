@@ -1,0 +1,36 @@
+---
+# .github/workflows/loopback-integration.yml
+
+name: Loopback integration
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+jobs:
+  loopback:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Go
+        uses: actions/setup-go@v5.5.0
+        with:
+          go-version: "${{ vars.GO_VERSION || '1.24' }}"
+          cache: true
+
+      - name: Install LVM tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lvm2
+
+      - name: Run loopback integration test
+        run: sudo --preserve-env=PATH bash integration/loopback.sh
