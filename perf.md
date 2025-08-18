@@ -23,10 +23,15 @@ Common options:
 - `--parallel 4`
 - `--transport` set per test case
 - `--compress` set per test case
+- `--probe-only` for pre-flight checks and dry-run estimates
+- `--verify-only` when measuring read-only verification costs
 
 ## Running Benchmarks
 
 Benchmarks are executed with helper scripts that wrap the `lvmsync run` command and collect timing data.
+
+Ensure the privilege model is satisfied: run as root or configure `--lvm-escalation`.  
+Non-zero exit codes indicate problems (`10` for privilege failures, `60` for verification mismatches).
 
 ### LAN Flags
 

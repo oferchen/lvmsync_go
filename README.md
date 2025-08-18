@@ -21,6 +21,8 @@ For details on running with minimal privileges and sudoers examples, see [SECURI
 - **Hashing**: Hardware-accelerated XXH3 provides fast deduplication hints while BLAKE3 digests are stored in manifests for integrity.
 - **Remote Execution via SSH**: Replicates data over SSH with support for pre/post-scripts.
 - **Resume Support**: Ability to resume interrupted transfers and verify results with `--resume=verify`.
+- **Probe and Verification Modes**: `--probe-only` validates devices and privileges without writing, while `--verify-only` scans both sides and reports mismatches.
+- **Dry-run Estimates**: `--dry-run` samples the manifest to project bytes and ETA without transferring data.
 - **Device Identity Tuple**: Each run records `(device_id, size_bytes, major:minor)` to prevent writing to the wrong destination.
 - **Handshake Timeouts**: Transport connections apply context deadlines during handshakes and clear them once negotiation succeeds.
 - **Sparse Destination Optimization**: Detects runs of zero bytes and punches holes when the filesystem supports it.
@@ -42,14 +44,33 @@ For details on running with minimal privileges and sudoers examples, see [SECURI
   Configuration values follow flag > environment variable > config file precedence.
 - **Configuration Validation**: Checks key parameters (e.g., volume group existence, escalation command) before starting operations.
 
-### Resume and overwrite flows
+### Resume, verification, and safe overwrite flows
 
 Transfers store the device identity tuple and compare it against the destination before writing. Mismatches abort the run to avoid accidental overwrites. Use `--force` to bypass this check when intentionally overwriting.
 
-- `--resume=statefile` continues an interrupted run.
-- `--resume=verify` resumes the copy and then performs a verification pass.
+**Resume after failure**
+```sh
+lvmsync run --resume=statefile /dev/vg0/snap0 /dev/vg0/target
+```
 
-For snapshot workflow, resume modes, verification-only runs, and recovery guidance, see [operations guide](OPERATIONS.md).
+**Resume with verification**
+```sh
+lvmsync run --resume=verify /dev/vg0/snap0 /dev/vg0/target
+```
+
+**Verification only**
+```sh
+lvmsync run --verify-only /dev/vg0/snap0 /dev/vg0/target
+```
+
+**Safe overwrite procedure**
+```sh
+lvmsync run --probe-only /dev/vg0/snap0 /dev/vg0/target
+lvmsync run --verify-only /dev/vg0/snap0 /dev/vg0/target
+lvmsync run /dev/vg0/snap0 /dev/vg0/target
+```
+
+Exit code `60` signals verification mismatches. See [operations guide](OPERATIONS.md) for detailed recovery steps.
 
 ## Supported Platforms
 
@@ -635,6 +656,8 @@ Flags override environment variables, which override `config.yaml` values.
 | `--force` | `LVMSYNC_FORCE` | `force` | Override safety checks and proceed on mounted destination |
 | `--discard` | `LVMSYNC_DISCARD` | `discard` | Issue BLKDISCARD before writing blocks |
 | `--dry-run` | `LVMSYNC_DRY_RUN` | `dry_run` | Log estimated transfer bytes without sending data; uses manifest sampling when available |
+| `--verify-only` | `LVMSYNC_VERIFY_ONLY` | `verify_only` | Read source and destination and report mismatches without writing data |
+| `--probe-only` | `LVMSYNC_PROBE_ONLY` | `probe_only` | Validate devices and privileges and log estimates without transferring data |
 | `--transport` | `LVMSYNC_TRANSPORT_TRANSPORT` | `transport` | Ordered transports to try (e.g., `quic,h2,tcp+tls,ssh`) |
 | `--tcp-port` | `LVMSYNC_TRANSPORT_TCP_PORT` | `tcp_port` | TCP+TLS port |
 | `--tcp-parallel` | `LVMSYNC_TRANSPORT_TCP_PARALLEL` | `tcp_parallel` | Number of parallel TCP connections |
