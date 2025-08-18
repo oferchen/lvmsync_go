@@ -102,7 +102,8 @@ func New(cfg transport.Config) (transport.Interface, error) {
 }
 
 func init() {
-	transport.MustRegister("h2", func(cfg transport.Config) (transport.Interface, error) {
+	logger := zap.NewNop()
+	if err := transport.MustRegister("h2", func(cfg transport.Config) (transport.Interface, error) {
 		tr, err := New(cfg)
 		if err != nil {
 			return nil, err
@@ -111,7 +112,10 @@ func init() {
 			return nil, fmt.Errorf("h2: nil transport")
 		}
 		return tr, nil
-	}, zap.NewNop(), rootcmd.SyncLogger)
+	}); err != nil {
+		logger.Error("register_failed", zap.String("transport", "h2"), zap.Error(err))
+		rootcmd.SyncLogger(logger)
+	}
 }
 
 func (t *Transport) Name() string { return "h2" }

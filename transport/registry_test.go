@@ -127,7 +127,7 @@ func TestGetOrdered(t *testing.T) {
 	}
 }
 
-func TestMustRegisterPanics(t *testing.T) {
+func TestMustRegisterDuplicate(t *testing.T) {
 	regMu.Lock()
 	original := registry
 	registry = map[string]Factory{}
@@ -138,20 +138,22 @@ func TestMustRegisterPanics(t *testing.T) {
 		regMu.Unlock()
 	}()
 
-	syncLogger := func(l *zap.Logger) { _ = l.Sync() }
-	MustRegister("dup", func(Config) (Interface, error) { return nil, nil }, zap.NewNop(), syncLogger)
+	if err := MustRegister("dup", func(Config) (Interface, error) { return nil, nil }); err != nil {
+		t.Fatalf("first register: %v", err)
+	}
 
+	syncLogger := func(l *zap.Logger) { _ = l.Sync() }
 	core, obs := observer.New(zapcore.ErrorLevel)
 	logger := zap.New(core)
 
-	defer func() {
-		if r := recover(); r == nil {
-			t.Fatalf("expected panic")
-		}
-		if obs.FilterMessage("register_failed").Len() != 1 {
-			t.Fatalf("expected register_failed log")
-		}
-	}()
+	if err := MustRegister("dup", func(Config) (Interface, error) { return nil, nil }); err != nil {
+		logger.Error("register_failed", zap.String("transport", "dup"), zap.Error(err))
+		syncLogger(logger)
+	} else {
+		t.Fatalf("expected duplicate registration error")
+	}
 
-	MustRegister("dup", func(Config) (Interface, error) { return nil, nil }, logger, syncLogger)
+	if obs.FilterMessage("register_failed").Len() != 1 {
+		t.Fatalf("expected register_failed log")
+	}
 }
