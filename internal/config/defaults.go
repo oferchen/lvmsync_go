@@ -31,6 +31,7 @@ type Config struct {
 	ConfigFile               string        `mapstructure:"config"`
 	StdoutMode               bool          `mapstructure:"stdout"`
 	DryRun                   bool          `mapstructure:"dry_run"`
+	ProbeOnly                bool          `mapstructure:"probe_only"`
 	Force                    bool          `mapstructure:"force"`
 	AllowOverwrite           bool          `mapstructure:"allow_overwrite"`
 	Discard                  bool          `mapstructure:"discard"`
@@ -169,6 +170,7 @@ func DefaultConfig() (*Config, error) {
 		Mode:                     "default",
 		StdoutMode:               false,
 		DryRun:                   false,
+		ProbeOnly:                false,
 		Force:                    false,
 		AllowOverwrite:           false,
 		Offline:                  false,

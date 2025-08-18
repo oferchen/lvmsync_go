@@ -55,6 +55,7 @@ func initGeneralFlags(cfg *Config) *pflag.FlagSet {
 	fs.String("config", "", "Path to config YAML file")
 	fs.Bool("stdout", cfg.StdoutMode, "Write change dump to STDOUT")
 	fs.Bool("dry-run", cfg.DryRun, "Print actions without executing")
+	fs.Bool("probe-only", cfg.ProbeOnly, "Output size_bytes, device_uuid, and manifest_epoch without writing")
 	fs.Bool("force", cfg.Force, "Override safety checks for offline raw access or filesystem freeze")
 	fs.Bool("allow-overwrite", cfg.AllowOverwrite, "Skip interactive confirmation when using --force")
 	fs.Bool("discard", cfg.Discard, "Issue BLKDISCARD before writing blocks")
