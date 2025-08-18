@@ -29,7 +29,7 @@ func TestSaveAndReadResumeState(t *testing.T) {
 	if _, err := os.Stat(path); err != nil {
 		t.Fatalf("expected resume state file: %v", err)
 	}
-	cp := readResumeState(cfg, zap.NewNop())
+	cp := readResumeState(cfg, zap.NewNop(), 0, cfg.DeviceUUID, 0)
 	rc := cp.chunk("fixed")
 	if rc.Offset != 0 || rc.Length != 4 || hex.EncodeToString(rc.Chunk[:]) != hex.EncodeToString(digest[:]) {
 		t.Fatalf("unexpected checkpoint: %+v", rc)

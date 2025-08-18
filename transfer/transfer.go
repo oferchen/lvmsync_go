@@ -128,7 +128,7 @@ func (t *Transfer) dumpChangesCore(ctx context.Context, cfg *config.Config, snap
 	}
 	defer cleanupPipe()
 
-	checkpoint := readResumeState(cfg, t.Logger)
+	checkpoint := readResumeState(cfg, t.Logger, 0, cfg.DeviceUUID, 0)
 	startIdx := findResumeIndex(ctx, cfg, srcFile, ranges, checkpoint, t.Logger)
 	if startIdx > 0 {
 		ranges = ranges[startIdx:]
@@ -201,7 +201,8 @@ func manifestHeaderMAC(h *manifestpkg.Header) [32]byte {
 	binary.LittleEndian.PutUint32(buf[28:32], h.AvgChunkSize)
 	binary.LittleEndian.PutUint32(buf[32:36], h.MaxChunkSize)
 	binary.LittleEndian.PutUint32(buf[36:40], h.HybridFixedSize)
-	copy(buf[40:], h.DeviceID[:])
+	binary.LittleEndian.PutUint64(buf[40:48], h.Epoch)
+	copy(buf[48:], h.DeviceID[:])
 	return blake3.Sum256(buf[:])
 }
 
@@ -257,6 +258,14 @@ func (t *Transfer) verifyDestination(ctx context.Context, cfg *config.Config, de
 		if size != hdr.SizeBytes {
 			t.Logger.Error("device_size_mismatch", zap.Uint64("expected_size_bytes", hdr.SizeBytes), zap.Uint64("size_bytes", size))
 			return fmt.Errorf("destination device size %d does not match manifest %d", size, hdr.SizeBytes)
+		}
+		if cfg.ResumeState != "" {
+			if _, err := os.Stat(cfg.ResumeState); err == nil {
+				chk := readResumeState(cfg, t.Logger, hdr.SizeBytes, manID, hdr.Epoch)
+				if chk == (resumeCheckpoint{}) {
+					return fmt.Errorf("resume state does not match destination metadata")
+				}
+			}
 		}
 		t.Logger.Info("destination_validated", zap.String("resource_id", id), zap.Uint64("size_bytes", size))
 	} else if cfg.DeviceUUID != "" {

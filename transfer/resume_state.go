@@ -26,6 +26,9 @@ type resumeState struct {
 	Fixed             resumeChunkState `json:"fixed"`
 	CDC               resumeChunkState `json:"cdc"`
 	Hybrid            resumeChunkState `json:"hybrid"`
+	SizeBytes         uint64           `json:"size_bytes"`
+	DeviceID          string           `json:"device_id"`
+	Epoch             uint64           `json:"epoch"`
 }
 
 // writeResumeState persists resume state; logger must be non-nil.
@@ -45,6 +48,9 @@ func writeResumeState(cfg *config.Config, logger *zap.Logger, path string, chunk
 		Fixed:             toState(chunks.Fixed),
 		CDC:               toState(chunks.CDC),
 		Hybrid:            toState(chunks.Hybrid),
+		SizeBytes:         0,
+		DeviceID:          cfg.DeviceUUID,
+		Epoch:             0,
 	}
 	data, err := json.Marshal(rs)
 	if err != nil {
@@ -89,7 +95,7 @@ func finalizeResumeState(cfg *config.Config, rt *resumeTracker, logger *zap.Logg
 	rt.resumeChunks = resumeChunks{}
 }
 
-func readResumeState(cfg *config.Config, logger *zap.Logger) resumeCheckpoint {
+func readResumeState(cfg *config.Config, logger *zap.Logger, size uint64, deviceID string, epoch uint64) resumeCheckpoint {
 	var out resumeCheckpoint
 	if cfg.ResumeState == "" {
 		return out
@@ -104,6 +110,11 @@ func readResumeState(cfg *config.Config, logger *zap.Logger) resumeCheckpoint {
 	}
 	if rs.Transport != cfg.Transport || rs.Compress != cfg.Compress ||
 		rs.ChecksumAlgorithm != cfg.ChecksumAlgorithm {
+		return out
+	}
+	if (rs.DeviceID != "" && deviceID != "" && rs.DeviceID != deviceID) ||
+		(rs.SizeBytes != 0 && size != 0 && rs.SizeBytes != size) ||
+		(rs.Epoch != 0 && epoch != 0 && rs.Epoch != epoch) {
 		return out
 	}
 	decode := func(cs resumeChunkState) (resumeChunk, bool) {

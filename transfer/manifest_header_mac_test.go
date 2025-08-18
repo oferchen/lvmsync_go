@@ -20,6 +20,7 @@ func TestManifestHeaderMACSize(t *testing.T) {
 	hdr.AvgChunkSize = 2
 	hdr.MaxChunkSize = 3
 	hdr.HybridFixedSize = 4
+	hdr.Epoch = 1
 	copy(hdr.DeviceID[:], []byte("dev"))
 
 	mac := manifestHeaderMAC(&hdr)

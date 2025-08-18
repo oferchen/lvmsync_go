@@ -260,7 +260,7 @@ func TestLoopbackFileToFileOverTCPTLS(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open src: %v", err)
 	}
-	checkpoint := readResumeState(cfg, tt.Logger)
+	checkpoint := readResumeState(cfg, tt.Logger, 0, cfg.DeviceUUID, 0)
 	startIdx := findResumeIndex(context.Background(), cfg, srcFile, ranges, checkpoint, tt.Logger)
 	if startIdx > 0 {
 		ranges = ranges[startIdx:]
@@ -530,7 +530,7 @@ func runRawToRawLoopback(t *testing.T, transportName string) {
 			if err != nil {
 				t.Fatalf("open src: %v", err)
 			}
-			checkpoint := readResumeState(cfg, tt.Logger)
+			checkpoint := readResumeState(cfg, tt.Logger, 0, cfg.DeviceUUID, 0)
 			startIdx := findResumeIndex(context.Background(), cfg, srcFile, ranges, checkpoint, tt.Logger)
 			if startIdx > 0 {
 				ranges = ranges[startIdx:]
@@ -704,7 +704,7 @@ func TestLoopbackSparseFileToFileOverSSH(t *testing.T) {
 			if err != nil {
 				t.Fatalf("open src: %v", err)
 			}
-			checkpoint := readResumeState(cfg, tt.Logger)
+			checkpoint := readResumeState(cfg, tt.Logger, 0, cfg.DeviceUUID, 0)
 			startIdx := findResumeIndex(context.Background(), cfg, srcFile, ranges, checkpoint, tt.Logger)
 			if startIdx > 0 {
 				ranges = ranges[startIdx:]
