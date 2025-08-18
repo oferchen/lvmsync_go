@@ -91,27 +91,21 @@ func (m *mockSys) Setresuid(r, e, s int) error {
 }
 
 func TestDropToInvokerIfSudo_NoEnv(t *testing.T) {
-	old := sys
-	sys = &mockSys{}
-	t.Cleanup(func() { sys = old })
+	m := &mockSys{}
 	os.Unsetenv("SUDO_UID")
 	os.Unsetenv("SUDO_GID")
 
-	if err := DropToInvokerIfSudo(); err != nil {
+	if err := DropToInvokerIfSudo(Options{Sys: m}); err != nil {
 		t.Fatalf("expected no-op nil err, got %v", err)
 	}
 }
 
 func TestDropToInvokerIfSudo_Success(t *testing.T) {
 	m := &mockSys{}
-	old := sys
-	sys = m
-	t.Cleanup(func() { sys = old })
-
 	t.Setenv("SUDO_UID", "1000")
 	t.Setenv("SUDO_GID", "100")
 
-	if err := DropToInvokerIfSudo(); err != nil {
+	if err := DropToInvokerIfSudo(Options{Sys: m}); err != nil {
 		t.Fatalf("DropToInvokerIfSudo error: %v", err)
 	}
 	if len(m.groups) != 1 || m.groups[0] != 100 {
@@ -127,13 +121,9 @@ func TestDropToInvokerIfSudo_Success(t *testing.T) {
 
 func TestDropToInvokerIfSudo_ParseError(t *testing.T) {
 	m := &mockSys{}
-	old := sys
-	sys = m
-	t.Cleanup(func() { sys = old })
-
 	t.Setenv("SUDO_UID", "notnum")
 	t.Setenv("SUDO_GID", "100")
-	if err := DropToInvokerIfSudo(); err == nil {
+	if err := DropToInvokerIfSudo(Options{Sys: m}); err == nil {
 		t.Fatal("expected parse error")
 	}
 }
