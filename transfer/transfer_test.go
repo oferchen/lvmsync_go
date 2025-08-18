@@ -47,7 +47,7 @@ func TestSaveResumeStatePermissions(t *testing.T) {
 	rt := &resumeTracker{}
 	saveResumeState(cfg, rt, 0, [32]byte{}, 1, zap.NewNop())
 
-	info, err := os.Stat(cfg.ResumeState)
+	info, err := os.Stat(cfg.ResumeState + ".wal")
 	if err != nil {
 		t.Fatalf("stat resume state: %v", err)
 	}

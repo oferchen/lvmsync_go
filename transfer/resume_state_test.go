@@ -2,6 +2,7 @@ package transfer
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -27,8 +28,9 @@ func TestSaveAndReadResumeState(t *testing.T) {
 	digest := blake3.Sum256([]byte("data"))
 	cfg.FirstBlockDigest = hex.EncodeToString(digest[:])
 	saveResumeState(cfg, rt, 0, digest, 4, zap.NewNop())
-	if _, err := os.Stat(path); err != nil {
-		t.Fatalf("expected resume state file: %v", err)
+	wal := path + ".wal"
+	if _, err := os.Stat(wal); err != nil {
+		t.Fatalf("expected resume wal file: %v", err)
 	}
 	cp := readResumeState(cfg, zap.NewNop(), 100, "id", 1, digest)
 	rc := cp.chunk("fixed")
@@ -36,8 +38,8 @@ func TestSaveAndReadResumeState(t *testing.T) {
 		t.Fatalf("unexpected checkpoint: %+v", rc)
 	}
 	finalizeResumeState(cfg, rt, zap.NewNop())
-	if _, err := os.Stat(path); !os.IsNotExist(err) {
-		t.Fatalf("resume state not removed: %v", err)
+	if _, err := os.Stat(wal); !os.IsNotExist(err) {
+		t.Fatalf("resume wal not removed: %v", err)
 	}
 }
 
@@ -60,6 +62,84 @@ func TestReadResumeStateDigestMismatch(t *testing.T) {
 	cp := readResumeState(cfg, zap.NewNop(), 0, cfg.DeviceUUID, 0, bad)
 	if cp != (resumeCheckpoint{}) {
 		t.Fatalf("expected empty checkpoint on digest mismatch")
+	}
+}
+
+// TestResumeStateWALRecovery verifies that a WAL left behind after a crash is
+// preferred over the stale resume state file.
+func TestResumeStateWALRecovery(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "resume.json")
+	digest := blake3.Sum256([]byte("data"))
+
+	// Write stale resume state file.
+	stale := resumeState{
+		Transport:         "ssh",
+		Compress:          "none",
+		ChecksumAlgorithm: "blake3",
+		DedupMode:         "fixed",
+		Fixed: resumeChunkState{
+			Offset: 8,
+			Length: 4,
+			Chunk:  hex.EncodeToString(digest[:]),
+		},
+	}
+	b, err := json.Marshal(stale)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if err := os.WriteFile(path, b, 0o600); err != nil {
+		t.Fatalf("write stale resume: %v", err)
+	}
+
+	cfg := &config.Config{Transport: "ssh", Compress: "none", ChecksumAlgorithm: "blake3", ResumeState: path, DedupMode: "fixed", CheckpointBytes: 1, FirstBlockDigest: hex.EncodeToString(digest[:])}
+	rt := &resumeTracker{sizeBytes: 100, deviceID: "id", epoch: 1}
+	saveResumeState(cfg, rt, 0, digest, 4, zap.NewNop())
+
+	cp := readResumeState(cfg, zap.NewNop(), 100, "id", 1, digest)
+	rc := cp.chunk("fixed")
+	if rc.Offset != 0 {
+		t.Fatalf("expected wal offset 0, got %d", rc.Offset)
+	}
+}
+
+// TestResumeStateCorruptWALIgnored ensures a corrupt WAL doesn't prevent
+// reading the valid resume state file.
+func TestResumeStateCorruptWALIgnored(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "resume.json")
+	wal := path + ".wal"
+
+	// Write corrupt WAL.
+	if err := os.WriteFile(wal, []byte("corrupt"), 0o600); err != nil {
+		t.Fatalf("write wal: %v", err)
+	}
+
+	digest := blake3.Sum256([]byte("data"))
+	state := resumeState{
+		Transport:         "ssh",
+		Compress:          "none",
+		ChecksumAlgorithm: "blake3",
+		DedupMode:         "fixed",
+		Fixed: resumeChunkState{
+			Offset: 12,
+			Length: 4,
+			Chunk:  hex.EncodeToString(digest[:]),
+		},
+	}
+	b, err := json.Marshal(state)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if err := os.WriteFile(path, b, 0o600); err != nil {
+		t.Fatalf("write resume: %v", err)
+	}
+
+	cfg := &config.Config{Transport: "ssh", Compress: "none", ChecksumAlgorithm: "blake3", ResumeState: path, DedupMode: "fixed", FirstBlockDigest: hex.EncodeToString(digest[:])}
+	cp := readResumeState(cfg, zap.NewNop(), 0, "", 0, digest)
+	rc := cp.chunk("fixed")
+	if rc.Offset != 12 {
+		t.Fatalf("expected offset 12 from resume state, got %d", rc.Offset)
 	}
 }
 
