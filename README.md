@@ -1220,6 +1220,12 @@ LVMSync binds its command line flags to [Viper](https://github.com/spf13/viper),
 
 Environment variables use the `LVMSYNC_` prefix and match flag names converted to upper case with hyphens replaced by underscores. The `--config` flag can point to an alternative YAML file.
 
+Unused or unknown keys in the YAML file produce runtime warnings to surface typos. For example, a `config.yaml` containing an unrecognized `unused_key` triggers:
+
+```json
+{"level":"warn","msg":"unknown configuration key \"unused_key\""}
+```
+
 ### Examples by Option Group
 
 #### General
