@@ -154,6 +154,9 @@ func readResumeState(cfg *config.Config, logger *zap.Logger, size uint64, device
 	if strings.ToLower(cfg.VerifyLevel) != "none" {
 		cfg.ResumeVerify = true
 	}
+	if strings.ToLower(cfg.VerifyLevel) != "none" {
+		cfg.ResumeVerify = true
+	}
 	data, err := os.ReadFile(cfg.ResumeState)
 	return resumeCheckpoint{}
 }
