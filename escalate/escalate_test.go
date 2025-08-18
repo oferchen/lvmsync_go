@@ -249,6 +249,52 @@ func TestEnsureRootOrReexec_DropsDisallowedFlags(t *testing.T) {
 	}
 }
 
+func TestEnsureRootOrReexec_DefaultSanitizedEnv(t *testing.T) {
+	var got execCall
+	t.Setenv("LD_PRELOAD", "/tmp/x.so")
+	t.Setenv("LANG", "C")
+	t.Setenv("TERM", "dumb")
+	reexeced, err := EnsureRootOrReexec(Options{
+		Geteuid:     func() int { return 1000 },
+		LookPath:    func(string) (string, error) { return "/usr/bin/sudo", nil },
+		SanitizeEnv: true,
+		ExecRunner:  fakeRunner(&got, nil),
+	})
+	if err != nil || !reexeced {
+		t.Fatalf("unexpected result: %v %v", reexeced, err)
+	}
+	if got.env == nil {
+		t.Fatal("expected sanitized env")
+	}
+	joined := strings.Join(got.env, "\n")
+	if strings.Contains(joined, "LD_PRELOAD=") {
+		t.Fatalf("LD_PRELOAD leaked: %v", got.env)
+	}
+	if !strings.Contains(joined, "LANG=C") || !strings.Contains(joined, "TERM=dumb") {
+		t.Fatalf("whitelisted vars missing: %v", got.env)
+	}
+	if got.env[0] != "PATH=/usr/sbin:/usr/bin:/sbin:/bin" {
+		t.Fatalf("unexpected PATH: %q", got.env[0])
+	}
+}
+
+func TestEnsureRootOrReexec_UnsanitizedEnv(t *testing.T) {
+	var got execCall
+	t.Setenv("LD_PRELOAD", "/tmp/x.so")
+	reexeced, err := EnsureRootOrReexec(Options{
+		Geteuid:     func() int { return 1000 },
+		LookPath:    func(string) (string, error) { return "/usr/bin/sudo", nil },
+		SanitizeEnv: false,
+		ExecRunner:  fakeRunner(&got, nil),
+	})
+	if err != nil || !reexeced {
+		t.Fatalf("unexpected result: %v %v", reexeced, err)
+	}
+	if len(got.env) != 0 {
+		t.Fatalf("expected empty env to inherit unsanitized environment, got %v", got.env)
+	}
+}
+
 func TestEnsureRootOrReexec_ErrorLogging(t *testing.T) {
 	var got execCall
 	core, logs := observer.New(zapcore.ErrorLevel)
