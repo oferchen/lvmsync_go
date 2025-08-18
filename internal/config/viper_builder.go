@@ -224,15 +224,15 @@ func (b *builder) finalizeConfig(conf *Config) error {
 		return fmt.Errorf("unsupported checksum algorithm: %s", conf.ChecksumAlgorithm)
 	}
 
-	if !conf.AllowInsecure && (conf.TLSCert != "" || conf.TLSKey != "" || conf.CACert != "") {
-		if conf.TLSCert == "" || conf.TLSKey == "" {
-			return fmt.Errorf("tls-cert and tls-key must be specified unless allow-insecure is set")
+	if !conf.AllowInsecure && (conf.ClientCert != "" || conf.ClientKey != "" || conf.CACert != "") {
+		if conf.ClientCert == "" || conf.ClientKey == "" {
+			return fmt.Errorf("client-cert and client-key must be specified unless allow-insecure is set")
 		}
-		if _, err := os.Stat(conf.TLSCert); err != nil {
-			return fmt.Errorf("tls-cert: %w", err)
+		if _, err := os.Stat(conf.ClientCert); err != nil {
+			return fmt.Errorf("client-cert: %w", err)
 		}
-		if _, err := os.Stat(conf.TLSKey); err != nil {
-			return fmt.Errorf("tls-key: %w", err)
+		if _, err := os.Stat(conf.ClientKey); err != nil {
+			return fmt.Errorf("client-key: %w", err)
 		}
 		if conf.CACert != "" {
 			if _, err := os.Stat(conf.CACert); err != nil {

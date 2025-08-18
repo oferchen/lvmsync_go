@@ -47,8 +47,8 @@ type listener struct {
 	logger *zap.Logger
 }
 
-// New constructs a Transport using the provided TLS roots and client cert.
-// Logger is optional; a no-op logger is used when nil.
+// New constructs a Transport using the provided TLS roots, server certificate,
+// and client certificate. Logger is optional; a no-op logger is used when nil.
 func New(cfg transport.Config) (transport.Interface, error) {
 	if cfg.Logger == nil {
 		cfg.Logger = zap.NewNop()
@@ -56,8 +56,10 @@ func New(cfg transport.Config) (transport.Interface, error) {
 	if cfg.Roots == nil && !cfg.AllowInsecure {
 		return nil, fmt.Errorf("tls roots are required unless AllowInsecure is set")
 	}
-	cert := cfg.ClientCert
-	if len(cert.Certificate) == 0 && !cfg.AllowInsecure {
+	if len(cfg.ServerCert.Certificate) == 0 && !cfg.AllowInsecure {
+		return nil, fmt.Errorf("server certificate is required unless AllowInsecure is set")
+	}
+	if len(cfg.ClientCert.Certificate) == 0 && !cfg.AllowInsecure {
 		return nil, fmt.Errorf("client certificate is required unless AllowInsecure is set")
 	}
 	clientAuth := tls.RequireAndVerifyClientCert
@@ -77,9 +79,11 @@ func New(cfg transport.Config) (transport.Interface, error) {
 		MinVersion:         tls.VersionTLS13,
 		NextProtos:         []string{alpn},
 	}
-	if len(cert.Certificate) > 0 {
-		serverTLS.Certificates = []tls.Certificate{cert}
-		clientTLS.Certificates = []tls.Certificate{cert}
+	if len(cfg.ServerCert.Certificate) > 0 {
+		serverTLS.Certificates = []tls.Certificate{cfg.ServerCert}
+	}
+	if len(cfg.ClientCert.Certificate) > 0 {
+		clientTLS.Certificates = []tls.Certificate{cfg.ClientCert}
 	}
 	qconf := &quic.Config{EnableDatagrams: true, Allow0RTT: false}
 	return &Transport{serverTLS: serverTLS, clientTLS: clientTLS, qconf: qconf, logger: cfg.Logger}, nil

@@ -103,8 +103,8 @@ type Config struct {
 	ManifestTimeout          time.Duration `mapstructure:"manifest_timeout"`
 	ManifestProgressInterval time.Duration `mapstructure:"manifest_progress_interval"`
 	ManifestAllowMounted     bool          `mapstructure:"manifest_allow_mounted"`
-	TLSCert                  string        `mapstructure:"tls_cert"`
-	TLSKey                   string        `mapstructure:"tls_key"`
+	ClientCert               string        `mapstructure:"client_cert"`
+	ClientKey                string        `mapstructure:"client_key"`
 	CACert                   string        `mapstructure:"ca_cert"`
 	AllowInsecure            bool          `mapstructure:"allow_insecure"`
 	Transport                string        `mapstructure:"transport"`
@@ -234,8 +234,8 @@ func DefaultConfig() (*Config, error) {
 		ManifestTimeout:          time.Minute,
 		ManifestProgressInterval: 10 * time.Second,
 		ManifestAllowMounted:     false,
-		TLSCert:                  "",
-		TLSKey:                   "",
+		ClientCert:               "",
+		ClientKey:                "",
 		CACert:                   "",
 		AllowInsecure:            false,
 		Transport:                "quic,h2,tcp+tls,ssh",

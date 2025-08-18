@@ -66,7 +66,8 @@ Expose multiple transports with `lvmsyncd`:
 
 ```sh
 lvmsyncd --listen tcp+tls://:9443 --listen ssh://:2222 \
-  --tls-cert cert.pem --tls-key key.pem --ca-cert ca.pem \
+  --server-cert cert.pem --server-key key.pem \
+  --client-cert cert.pem --client-key key.pem --ca-cert ca.pem \
   --ssh-host-key-path host_key
 ```
 
@@ -84,12 +85,12 @@ Listeners enforce these defaults:
 - Bidirectional streams and datagram support
 - BBR congestion control
 - Rejects 0-RTT packets
-- Flags: `--tls-cert`, `--tls-key`, `--ca-cert`, `--allow-insecure`
+- Flags: `--server-cert`, `--server-key`, `--client-cert`, `--client-key`, `--ca-cert`, `--allow-insecure`
 
 Example:
 
 ```sh
-lvmsyncd --listen quic://:12000 --tls-cert cert.pem --tls-key key.pem --ca-cert ca.pem
+lvmsyncd --listen quic://:12000 --server-cert cert.pem --server-key key.pem --client-cert cert.pem --client-key key.pem --ca-cert ca.pem
 ```
 
 ## HTTP/2 (h2)
@@ -97,14 +98,14 @@ lvmsyncd --listen quic://:12000 --tls-cert cert.pem --tls-key key.pem --ca-cert 
 - Runs over TLS 1.3 with mutual authentication
 - Provides stream-level back-pressure
 - Enforces context deadlines during connection and HTTP/2 handshakes
-- Flags: `--tls-cert`, `--tls-key`, `--ca-cert`, `--allow-insecure`, `--tcp-port`
+- Flags: `--server-cert`, `--server-key`, `--client-cert`, `--client-key`, `--ca-cert`, `--allow-insecure`, `--tcp-port`
 
 ## TCP+TLS
 
 - Plain TCP encapsulated in TLS 1.3
 - Requires mutual TLS authentication
 - Logs a warning if listener shutdown encounters an error
-- Flags: `--tls-cert`, `--tls-key`, `--ca-cert`, `--allow-insecure`, `--tcp-port`
+- Flags: `--server-cert`, `--server-key`, `--client-cert`, `--client-key`, `--ca-cert`, `--allow-insecure`, `--tcp-port`
 
 ## SSH
 

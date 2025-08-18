@@ -32,8 +32,10 @@ type options struct {
 	tcpPort       int
 	stdio         bool
 	inetd         bool
-	tlsCert       string
-	tlsKey        string
+	serverCert    string
+	serverKey     string
+	clientCert    string
+	clientKey     string
 	caCert        string
 	allowInsecure bool
 }
@@ -56,8 +58,10 @@ func parseOptions(v *viper.Viper) options {
 		tcpPort:       v.GetInt("tcp-port"),
 		stdio:         v.GetBool("stdio"),
 		inetd:         v.GetBool("inetd"),
-		tlsCert:       v.GetString("tls-cert"),
-		tlsKey:        v.GetString("tls-key"),
+		serverCert:    v.GetString("server-cert"),
+		serverKey:     v.GetString("server-key"),
+		clientCert:    v.GetString("client-cert"),
+		clientKey:     v.GetString("client-key"),
 		caCert:        v.GetString("ca-cert"),
 		allowInsecure: v.GetBool("allow-insecure"),
 	}
@@ -85,8 +89,10 @@ func bindFlags(cmd *cobra.Command, v *viper.Viper) error {
 	fs.Int("tcp-port", 8730, "TCP port to listen on")
 	fs.Bool("stdio", false, "use stdio for a single connection")
 	fs.Bool("inetd", false, "use stdio under inetd activation")
-	fs.String("tls-cert", "", "TLS certificate file")
-	fs.String("tls-key", "", "TLS key file")
+	fs.String("server-cert", "", "server TLS certificate file")
+	fs.String("server-key", "", "server TLS key file")
+	fs.String("client-cert", "", "client TLS certificate file")
+	fs.String("client-key", "", "client TLS key file")
 	fs.String("ca-cert", "", "CA certificate file")
 	fs.Bool("allow-insecure", false, "allow insecure connections (no TLS)")
 	cmd.Flags().AddFlagSet(fs)
@@ -142,19 +148,25 @@ func (d dummyAddr) String() string  { return string(d) }
 func start(ctx context.Context, opts options, logger *zap.Logger) error {
 	cfg := transport.Config{Logger: logger, AllowInsecure: opts.allowInsecure}
 	if !opts.allowInsecure {
-		if opts.tlsCert == "" || opts.tlsKey == "" || opts.caCert == "" {
-			return fmt.Errorf("tls-cert, tls-key, and ca-cert are required unless --allow-insecure is set")
+		if opts.serverCert == "" || opts.serverKey == "" || opts.clientCert == "" || opts.clientKey == "" || opts.caCert == "" {
+			return fmt.Errorf("server-cert, server-key, client-cert, client-key, and ca-cert are required unless --allow-insecure is set")
 		}
 	} else {
 		logger.Warn("allow_insecure_enabled", zap.String("component", "lvmsyncd"))
 	}
-	if opts.tlsCert != "" && opts.tlsKey != "" {
-		cert, err := tls.LoadX509KeyPair(opts.tlsCert, opts.tlsKey)
+	if opts.serverCert != "" && opts.serverKey != "" {
+		cert, err := tls.LoadX509KeyPair(opts.serverCert, opts.serverKey)
 		if err != nil {
-			return fmt.Errorf("load TLS key pair: %w", err)
+			return fmt.Errorf("load server TLS key pair: %w", err)
+		}
+		cfg.ServerCert = cert
+	}
+	if opts.clientCert != "" && opts.clientKey != "" {
+		cert, err := tls.LoadX509KeyPair(opts.clientCert, opts.clientKey)
+		if err != nil {
+			return fmt.Errorf("load client TLS key pair: %w", err)
 		}
 		cfg.ClientCert = cert
-		cfg.ServerCert = cert
 	}
 	if opts.caCert != "" {
 		pem, err := os.ReadFile(opts.caCert)

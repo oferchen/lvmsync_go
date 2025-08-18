@@ -35,8 +35,9 @@ special listeners:
 - `--inetd` – inherit an already‑bound socket from the parent process.
 
 Transport security uses TLS by default.  Provide certificate paths with
-`--tls-cert`, `--tls-key`, and `--ca-cert`.  Insecure mode can be enabled with
-`--allow-insecure`, but it should only be used for local development.
+`--server-cert`, `--server-key`, `--client-cert`, `--client-key`, and
+`--ca-cert`.  Insecure mode can be enabled with `--allow-insecure`, but it
+should only be used for local development.
 
 Example listeners:
 
@@ -67,7 +68,8 @@ Example mTLS invocation:
 ```sh
 lvmsyncd \
   --listen tcp://:9443 \
-  --tls-cert server.pem --tls-key server.key \
+  --server-cert server.pem --server-key server.key \
+  --client-cert client.pem --client-key client.key \
   --ca-cert ca.pem --module /usr/lib/lvmsync/modules/snapshot.so
 ```
 
