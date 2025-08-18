@@ -97,6 +97,12 @@ jobs:
       - name: Go build
         run: go build ./...
 
+      - name: Build lvmsync binary
+        run: go build -o lvmsync ./cmd/lvmsync
+
+      - name: Benchmark smoke test
+        run: scripts/bench_smoke.sh
+
       - name: Go test
         run: go test -coverprofile=coverage.out ./...
 
