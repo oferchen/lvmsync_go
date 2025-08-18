@@ -1412,14 +1412,14 @@ Invalid configurations will cause the tool to abort with a clear error message.
 ## Exit Codes
 
 
-| Code | Meaning |
-|------|---------|
-| `0`  | Success |
-| `10` | Privilege or capability check failed |
-| `20` | Device error |
-| `30` | Unsupported platform |
-| `40` | Configuration error |
-| `50` | Runtime failure |
+| Constant | Code | Meaning |
+|----------|------|---------|
+| [`exitcode.OK`](internal/exitcode/exitcode.go) | `0`  | Success |
+| [`exitcode.ErrCapability`](internal/exitcode/exitcode.go) | `10` | Privilege or capability check failed |
+| [`exitcode.ErrDevice`](internal/exitcode/exitcode.go) | `20` | Device error |
+| [`exitcode.ErrPlatform`](internal/exitcode/exitcode.go) | `30` | Unsupported platform |
+| [`exitcode.ErrConfig`](internal/exitcode/exitcode.go) | `40` | Configuration error |
+| [`exitcode.ErrRuntime`](internal/exitcode/exitcode.go) | `50` | Runtime failure |
 
 Exit code definitions live in [internal/exitcode](internal/exitcode/exitcode.go), and handling resides in [main.go](main.go).
 
