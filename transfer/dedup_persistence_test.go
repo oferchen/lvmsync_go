@@ -81,7 +81,7 @@ func TestManifestIndexLifecycle(t *testing.T) {
 	file.Close()
 
 	manPath := filepath.Join(dir, "dev.man")
-	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return "id", nil }, nil, nil, nil)
+	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return "id", nil }, nil, nil, nil, nil)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	if err := manifestpkg.Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false, 0, 0, 0, 0, manifestpkg.WithDeviceInfo(info)); err != nil {

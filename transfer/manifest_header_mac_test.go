@@ -22,6 +22,8 @@ func TestManifestHeaderMACSize(t *testing.T) {
 	hdr.HybridFixedSize = 4
 	hdr.Epoch = 1
 	copy(hdr.DeviceID[:], []byte("dev"))
+	digest := blake3.Sum256([]byte("data"))
+	hdr.FirstBlockDigest = digest
 
 	mac := manifestHeaderMAC(&hdr)
 

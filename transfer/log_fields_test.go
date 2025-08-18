@@ -57,7 +57,7 @@ func TestReadResumeDigestLogField(t *testing.T) {
 	chk := resumeChunk{Chunk: digest, Offset: 1024, Length: 2048}
 	writeResumeState(cfg, logger, stateFile, resumeChunks{Fixed: chk})
 
-	val := readResumeState(cfg, logger, 0, cfg.DeviceUUID, 0).Fixed
+	val := readResumeState(cfg, logger, 0, cfg.DeviceUUID, 0, [32]byte{}).Fixed
 	if val.Chunk != digest {
 		t.Fatalf("expected digest match")
 	}

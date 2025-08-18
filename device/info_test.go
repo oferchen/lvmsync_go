@@ -29,7 +29,7 @@ func TestGetUUIDCanceledContext(t *testing.T) {
 func TestGetUUIDStub(t *testing.T) {
 	info := NewInfoWithDeps(func(context.Context, string) (string, error) {
 		return "stub-uuid", nil
-	}, nil, nil, nil)
+	}, nil, nil, nil, nil)
 	got, err := info.GetUUID(context.Background(), "/dev/sda")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -49,7 +49,7 @@ func TestGetUUIDError(t *testing.T) {
 			t.Fatalf("unexpected path %q", path)
 		}
 		return "", wantErr
-	}, nil, nil, nil)
+	}, nil, nil, nil, nil)
 	if _, err := info.GetUUID(context.Background(), "/dev/fail"); !errors.Is(err, wantErr) {
 		t.Fatalf("expected %v, got %v", wantErr, err)
 	}
@@ -59,6 +59,7 @@ func TestGetDeviceIDPrefersLVM(t *testing.T) {
 	info := NewInfoWithDeps(
 		func(context.Context, string) (string, error) { return "blkid-id", nil },
 		func(context.Context, string) (string, error) { return "lv-id", nil },
+		nil,
 		nil,
 		nil,
 	)
@@ -81,7 +82,7 @@ func TestIDsMatch(t *testing.T) {
 				return "id2", nil
 			}
 			return "same", nil
-		}, nil, nil, nil)
+		}, nil, nil, nil, nil)
 	match, err := info.IDsMatch(context.Background(), "/dev/src", "/dev/dest")
 	if err != nil {
 		t.Fatalf("IDsMatch: %v", err)
@@ -124,7 +125,7 @@ func TestIsMountedRW(t *testing.T) {
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
-			info := NewInfoWithDeps(nil, nil, func(context.Context, string) (bool, error) { return tt.val, nil }, nil)
+			info := NewInfoWithDeps(nil, nil, func(context.Context, string) (bool, error) { return tt.val, nil }, nil, nil)
 			got, err := info.IsMountedRW(context.Background(), "/dev/sda")
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -143,7 +144,7 @@ func TestIsMountedRWError(t *testing.T) {
 			t.Fatalf("expected context with deadline")
 		}
 		return false, want
-	}, nil)
+	}, nil, nil)
 	if _, err := info.IsMountedRW(context.Background(), "/dev/sda"); !errors.Is(err, want) {
 		t.Fatalf("expected %v, got %v", want, err)
 	}
@@ -192,6 +193,36 @@ func TestDefaultMountFunc(t *testing.T) {
 				t.Fatalf("expected %v, got %v", tc.want, got)
 			}
 		})
+	}
+}
+
+func TestFirstBlockDigest(t *testing.T) {
+	want := [32]byte{1, 2, 3}
+	info := NewInfoWithDeps(nil, nil, nil, func(ctx context.Context, path string, size uint64) ([32]byte, error) {
+		if _, ok := ctx.Deadline(); !ok {
+			t.Fatalf("expected context with deadline")
+		}
+		if path != "dev" || size != 123 {
+			t.Fatalf("unexpected args %q %d", path, size)
+		}
+		return want, nil
+	}, nil)
+	got, err := info.FirstBlockDigest(context.Background(), "dev", 123)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != want {
+		t.Fatalf("expected %v, got %v", want, got)
+	}
+}
+
+func TestFirstBlockDigestError(t *testing.T) {
+	want := errors.New("boom")
+	info := NewInfoWithDeps(nil, nil, nil, func(context.Context, string, uint64) ([32]byte, error) {
+		return [32]byte{}, want
+	}, nil)
+	if _, err := info.FirstBlockDigest(context.Background(), "dev", 1); !errors.Is(err, want) {
+		t.Fatalf("expected %v, got %v", want, err)
 	}
 }
 

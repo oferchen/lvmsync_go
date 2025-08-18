@@ -28,7 +28,7 @@ func TestResumeFinalChecksum(t *testing.T) {
 		t.Fatalf("open src: %v", err)
 	}
 	defer srcFile.Close()
-	checkpoint := readResumeState(cfg, logger, 0, cfg.DeviceUUID, 0)
+	checkpoint := readResumeState(cfg, logger, 0, cfg.DeviceUUID, 0, [32]byte{})
 	start := findResumeIndex(context.Background(), cfg, srcFile, ranges, checkpoint, logger)
 	w := bufio.NewWriter(io.Discard)
 	_, _, digest, err := iterateBlocks(context.Background(), cfg, ranges[start:], srcFile, w, nil, [2]int{-1, -1}, logger, nil)

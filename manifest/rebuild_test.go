@@ -24,7 +24,7 @@ func TestRegenerateMissing(t *testing.T) {
 	detect := func(ctx context.Context, path string, logger *zap.Logger) (device.Device, error) {
 		return &mockDevice{path: dev, size: uint64(len(data)), blockSize: 4}, nil
 	}
-	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return "uuid", nil }, nil, nil, nil)
+	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return "uuid", nil }, nil, nil, nil, nil)
 	if err := Regenerate(context.Background(), dev, man, zap.NewNop(), 0, false, 0, 0, 0, 0, WithDetectDevice(detect), WithDeviceInfo(info)); err != nil {
 		t.Fatalf("regenerate: %v", err)
 	}
@@ -56,7 +56,7 @@ func TestRegenerateStale(t *testing.T) {
 	detect := func(ctx context.Context, path string, logger *zap.Logger) (device.Device, error) {
 		return &mockDevice{path: dev, size: uint64(len(orig)), blockSize: 4}, nil
 	}
-	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return "uuid", nil }, nil, nil, nil)
+	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return "uuid", nil }, nil, nil, nil, nil)
 	if err := Rebuild(context.Background(), dev, man, zap.NewNop(), 0, false, 0, 0, 0, 0, WithDetectDevice(detect), WithDeviceInfo(info)); err != nil {
 		t.Fatalf("rebuild: %v", err)
 	}
@@ -93,7 +93,7 @@ func TestRegenerateExisting(t *testing.T) {
 	detect := func(ctx context.Context, path string, logger *zap.Logger) (device.Device, error) {
 		return &mockDevice{path: dev, size: uint64(len(data)), blockSize: 4}, nil
 	}
-	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return "uuid", nil }, nil, nil, nil)
+	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return "uuid", nil }, nil, nil, nil, nil)
 	if err := Rebuild(context.Background(), dev, man, zap.NewNop(), 0, false, 0, 0, 0, 0, WithDetectDevice(detect), WithDeviceInfo(info)); err != nil {
 		t.Fatalf("rebuild: %v", err)
 	}

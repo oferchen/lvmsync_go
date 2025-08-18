@@ -24,7 +24,7 @@ func TestResumeCDCOffset(t *testing.T) {
 	digest := blake3.Sum256([]byte("chunk"))
 	writeResumeState(cfg, logger, state, resumeChunks{CDC: resumeChunk{Chunk: digest, Offset: 80, Length: 40}})
 
-	chk := readResumeState(cfg, logger, 0, cfg.DeviceUUID, 0)
+	chk := readResumeState(cfg, logger, 0, cfg.DeviceUUID, 0, [32]byte{})
 	ranges := []Range{{Start: 0, End: 99}, {Start: 100, End: 199}}
 	idx := findResumeIndex(context.Background(), cfg, nil, ranges, chk, logger)
 	if idx != 1 {

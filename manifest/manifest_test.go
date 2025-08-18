@@ -473,7 +473,7 @@ func TestRebuild(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 	file.Close()
-	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return "uuid-test", nil }, nil, nil, nil)
+	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return "uuid-test", nil }, nil, nil, nil, nil)
 	manPath := filepath.Join(dir, "rebuild.man")
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
@@ -523,7 +523,7 @@ func TestRebuildCloseHook(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 	file.Close()
-	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return "uuid-test", nil }, nil, nil, nil)
+	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return "uuid-test", nil }, nil, nil, nil, nil)
 	manPath := filepath.Join(dir, "closeonce.man")
 	count := 0
 
@@ -552,7 +552,7 @@ func TestRebuildCloseError(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 	file.Close()
-	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return "uuid-test", nil }, nil, nil, nil)
+	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return "uuid-test", nil }, nil, nil, nil, nil)
 	manPath := filepath.Join(dir, "closeerr.man")
 	hookErr := errors.New("close fail")
 	hook := func() error { return hookErr }
@@ -578,7 +578,7 @@ func TestRebuildOptionApplication(t *testing.T) {
 	}
 	file.Close()
 
-	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return "uuid-test", nil }, nil, nil, nil)
+	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return "uuid-test", nil }, nil, nil, nil, nil)
 
 	calledDetect := false
 	detect := func(context.Context, string, *zap.Logger) (device.Device, error) {
@@ -621,7 +621,7 @@ func TestRebuildNonDefaultBlockSize(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 	file.Close()
-	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return "uuid-bs", nil }, nil, nil, nil)
+	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return "uuid-bs", nil }, nil, nil, nil, nil)
 	detect := func(context.Context, string, *zap.Logger) (device.Device, error) {
 		return &mockDevice{path: file.Name(), size: uint64(2 * bs), blockSize: uint64(bs)}, nil
 	}
@@ -671,7 +671,7 @@ func TestRebuildLogsProgress(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 	file.Close()
-	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return "uuid-test", nil }, nil, nil, nil)
+	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return "uuid-test", nil }, nil, nil, nil, nil)
 	manPath := filepath.Join(dir, "progress.man")
 	core, logs := observer.New(zap.InfoLevel)
 	logger := zap.New(core)
@@ -706,7 +706,7 @@ func TestRebuildLogsCompletion(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 	file.Close()
-	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return "uuid-test", nil }, nil, nil, nil)
+	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return "uuid-test", nil }, nil, nil, nil, nil)
 	manPath := filepath.Join(dir, "complete.man")
 	core, logs := observer.New(zap.InfoLevel)
 	logger := zap.New(core)
@@ -738,7 +738,7 @@ func TestRebuildCanceledContext(t *testing.T) {
 		t.Fatalf("truncate: %v", err)
 	}
 	file.Close()
-	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return "uuid-test", nil }, nil, nil, nil)
+	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return "uuid-test", nil }, nil, nil, nil, nil)
 	detect := func(ctx context.Context, path string, logger *zap.Logger) (device.Device, error) {
 		return &mockDevice{path: file.Name(), size: uint64(size), blockSize: 1}, nil
 	}
@@ -779,6 +779,7 @@ func TestRebuildMounted(t *testing.T) {
 				func(context.Context, string) (string, error) { return "uuid-test", nil },
 				nil,
 				func(context.Context, string) (bool, error) { return tt.mounted, nil },
+				nil,
 				nil,
 			)
 			manPath := filepath.Join(dir, tt.name+".man")

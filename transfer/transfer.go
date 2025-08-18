@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/gob"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
@@ -122,13 +123,19 @@ func (t *Transfer) dumpChangesCore(ctx context.Context, cfg *config.Config, snap
 	}
 	defer common.CloseWithErr(srcFile, &err, "close source file")
 
+	digest, err := t.Info.FirstBlockDigest(ctx, source, firstBlockDigestSize)
+	if err != nil {
+		return err
+	}
+	cfg.FirstBlockDigest = hex.EncodeToString(digest[:])
+
 	pipeFds, cleanupPipe, err := setupPipe(cfg, t.Logger)
 	if err != nil {
 		return err
 	}
 	defer cleanupPipe()
 
-	checkpoint := readResumeState(cfg, t.Logger, 0, cfg.DeviceUUID, 0)
+	checkpoint := readResumeState(cfg, t.Logger, 0, cfg.DeviceUUID, 0, digest)
 	startIdx := findResumeIndex(ctx, cfg, srcFile, ranges, checkpoint, t.Logger)
 	if startIdx > 0 {
 		ranges = ranges[startIdx:]
@@ -202,7 +209,8 @@ func manifestHeaderMAC(h *manifestpkg.Header) [32]byte {
 	binary.LittleEndian.PutUint32(buf[32:36], h.MaxChunkSize)
 	binary.LittleEndian.PutUint32(buf[36:40], h.HybridFixedSize)
 	binary.LittleEndian.PutUint64(buf[40:48], h.Epoch)
-	copy(buf[48:], h.DeviceID[:])
+	copy(buf[48:112], h.DeviceID[:])
+	copy(buf[112:144], h.FirstBlockDigest[:])
 	return blake3.Sum256(buf[:])
 }
 
@@ -259,9 +267,21 @@ func (t *Transfer) verifyDestination(ctx context.Context, cfg *config.Config, de
 			t.Logger.Error("device_size_mismatch", zap.Uint64("expected_size_bytes", hdr.SizeBytes), zap.Uint64("size_bytes", size))
 			return fmt.Errorf("destination device size %d does not match manifest %d", size, hdr.SizeBytes)
 		}
+		dig, err := t.Info.FirstBlockDigest(ctx, destPath, firstBlockDigestSize)
+		if err != nil {
+			return fmt.Errorf("read destination digest: %w", err)
+		}
+		if dig != hdr.FirstBlockDigest {
+			t.Logger.Error(
+				"first_block_digest_mismatch",
+				zap.String("expected_digest", hex.EncodeToString(hdr.FirstBlockDigest[:])),
+				zap.String("first_block_digest", hex.EncodeToString(dig[:])),
+			)
+			return fmt.Errorf("destination device digest mismatch")
+		}
 		if cfg.ResumeState != "" {
 			if _, err := os.Stat(cfg.ResumeState); err == nil {
-				chk := readResumeState(cfg, t.Logger, hdr.SizeBytes, manID, hdr.Epoch)
+				chk := readResumeState(cfg, t.Logger, hdr.SizeBytes, manID, hdr.Epoch, hdr.FirstBlockDigest)
 				if chk == (resumeCheckpoint{}) {
 					return fmt.Errorf("resume state does not match destination metadata")
 				}
@@ -276,6 +296,16 @@ func (t *Transfer) verifyDestination(ctx context.Context, cfg *config.Config, de
 		if id != cfg.DeviceUUID {
 			t.Logger.Error("device_id_mismatch", zap.String("expected_resource_id", cfg.DeviceUUID), zap.String("resource_id", id))
 			return fmt.Errorf("destination device uuid %s does not match expected %s", id, cfg.DeviceUUID)
+		}
+		if cfg.FirstBlockDigest != "" {
+			dig, err := t.Info.FirstBlockDigest(ctx, destPath, firstBlockDigestSize)
+			if err != nil {
+				return fmt.Errorf("read destination digest: %w", err)
+			}
+			if hex.EncodeToString(dig[:]) != cfg.FirstBlockDigest {
+				t.Logger.Error("first_block_digest_mismatch", zap.String("expected_digest", cfg.FirstBlockDigest), zap.String("first_block_digest", hex.EncodeToString(dig[:])))
+				return fmt.Errorf("destination device digest mismatch")
+			}
 		}
 		t.Logger.Info("destination_validated", zap.String("resource_id", id))
 	}

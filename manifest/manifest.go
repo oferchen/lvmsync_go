@@ -26,14 +26,15 @@ const (
 	Version uint32 = 2
 
 	// HeaderSize is the binary size of Header.
-	HeaderSize = 4 + 4 + 8 + 8 + 4 + 4 + 4 + 4 + 8 + 64 + 32 // 144 bytes
-	entrySize  = 8 + 4 + 4 + 8 + 32                          // 56 bytes
+	HeaderSize = 4 + 4 + 8 + 8 + 4 + 4 + 4 + 4 + 8 + 64 + 32 + 32 // 176 bytes
+	entrySize  = 8 + 4 + 4 + 8 + 32                               // 56 bytes
 
 	// FlagCDC marks chunks produced by content-defined chunking.
 	FlagCDC uint32 = 1 << 0
 
 	// bloomRange is the size in bytes of each range tracked by a Bloom filter.
-	bloomRange = 1 << 20 // 1 MiB
+	bloomRange           = 1 << 20 // 1 MiB
+	firstBlockDigestSize = 1 << 20 // 1 MiB
 
 	emptySlot = ^uint64(0)
 )
@@ -42,17 +43,18 @@ const (
 // It is stored in little-endian binary form at the start of the file.
 // The MAC field is the BLAKE3 digest of the preceding header fields.
 type Header struct {
-	Version         uint32
-	BlockSize       uint32
-	SizeBytes       uint64
-	ChunkCount      uint64
-	MinChunkSize    uint32
-	AvgChunkSize    uint32
-	MaxChunkSize    uint32
-	HybridFixedSize uint32
-	Epoch           uint64
-	DeviceID        [64]byte
-	MAC             [32]byte
+	Version          uint32
+	BlockSize        uint32
+	SizeBytes        uint64
+	ChunkCount       uint64
+	MinChunkSize     uint32
+	AvgChunkSize     uint32
+	MaxChunkSize     uint32
+	HybridFixedSize  uint32
+	Epoch            uint64
+	DeviceID         [64]byte
+	FirstBlockDigest [32]byte
+	MAC              [32]byte
 }
 
 // Index is an mmap-backed manifest file containing chunk metadata.
@@ -130,7 +132,8 @@ func headerMAC(h *Header) [32]byte {
 	binary.LittleEndian.PutUint32(buf[32:36], h.MaxChunkSize)
 	binary.LittleEndian.PutUint32(buf[36:40], h.HybridFixedSize)
 	binary.LittleEndian.PutUint64(buf[40:48], h.Epoch)
-	copy(buf[48:], h.DeviceID[:])
+	copy(buf[48:112], h.DeviceID[:])
+	copy(buf[112:144], h.FirstBlockDigest[:])
 	sum := blake3.Sum256(buf[:])
 	return sum
 }
@@ -147,7 +150,8 @@ func (i *Index) writeHeader() {
 	binary.LittleEndian.PutUint32(buf[36:40], i.hdr.HybridFixedSize)
 	binary.LittleEndian.PutUint64(buf[40:48], i.hdr.Epoch)
 	copy(buf[48:112], i.hdr.DeviceID[:])
-	copy(buf[112:144], i.hdr.MAC[:])
+	copy(buf[112:144], i.hdr.FirstBlockDigest[:])
+	copy(buf[144:176], i.hdr.MAC[:])
 	copy(i.data[:HeaderSize], buf[:])
 }
 
@@ -166,7 +170,8 @@ func (i *Index) readHeader() error {
 	i.hdr.HybridFixedSize = binary.LittleEndian.Uint32(buf[36:40])
 	i.hdr.Epoch = binary.LittleEndian.Uint64(buf[40:48])
 	copy(i.hdr.DeviceID[:], buf[48:112])
-	copy(i.hdr.MAC[:], buf[112:144])
+	copy(i.hdr.FirstBlockDigest[:], buf[112:144])
+	copy(i.hdr.MAC[:], buf[144:176])
 	if mac := headerMAC(&i.hdr); !bytes.Equal(mac[:], i.hdr.MAC[:]) {
 		return fmt.Errorf("manifest: header MAC mismatch")
 	}
@@ -485,6 +490,10 @@ func Rebuild(
 	if err != nil {
 		return err
 	}
+	digest, err := cfg.info.FirstBlockDigest(ctx, dev.Path(), firstBlockDigestSize)
+	if err != nil {
+		return err
+	}
 	if err = ctx.Err(); err != nil {
 		return err
 	}
@@ -505,6 +514,12 @@ func Rebuild(
 			err = cerr
 		}
 	}()
+	copy(idx.hdr.FirstBlockDigest[:], digest[:])
+	idx.hdr.MAC = headerMAC(&idx.hdr)
+	idx.writeHeader()
+	if err := unix.Msync(idx.data[:HeaderSize], unix.MS_SYNC); err != nil {
+		return err
+	}
 	start := time.Now()
 	lastLog := start
 	buf := make([]byte, blockSize)

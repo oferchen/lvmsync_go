@@ -49,6 +49,7 @@ type Config struct {
 	ResumeState              string        `mapstructure:"resume"`
 	ResumeToken              string        `mapstructure:"resume_token"`
 	DeviceUUID               string        `mapstructure:"device_uuid"`
+	FirstBlockDigest         string        `mapstructure:"first_block_digest"`
 	SSHHost                  string        `mapstructure:"ssh_host"`
 	SSHUser                  string        `mapstructure:"ssh_user"`
 	SSHPassword              string        `mapstructure:"ssh_password"`
@@ -180,6 +181,7 @@ func DefaultConfig() (*Config, error) {
 		ResumeState:              "",
 		ResumeToken:              "",
 		DeviceUUID:               "",
+		FirstBlockDigest:         "",
 		SSHHost:                  "localhost",
 		SSHUser:                  "root",
 		SSHPassword:              "",
