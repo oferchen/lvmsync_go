@@ -100,15 +100,16 @@ func NewLogger(cfg *config.Config, component string, opts ...Option) (*zap.Logge
 	if o.samplingFirst == 0 || o.samplingThereafter == 0 {
 		c.Sampling = nil
 	} else {
-		c.Sampling = &zap.SamplingConfig{Initial: o.samplingFirst, Thereafter: o.samplingThereafter}
+		c.Sampling = &zap.SamplingConfig{Initial: int(o.samplingFirst), Thereafter: int(o.samplingThereafter)}
 	}
-	zapOpts := []zap.Option{zap.AddCaller(), zap.Fields(zap.String("component", component))}
+	zapOpts := []zap.Option{zap.AddCaller()}
 	if o.redactor != nil {
 		zapOpts = append(zapOpts, zap.WrapCore(func(core zapcore.Core) zapcore.Core {
 			return redactingCore{Core: core, redactor: o.redactor}
 		}))
 	}
 	zapOpts = append(zapOpts, o.zapOpts...)
+	zapOpts = append(zapOpts, zap.Fields(zap.String("component", component)))
 	return c.Build(zapOpts...)
 }
 
