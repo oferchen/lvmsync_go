@@ -15,7 +15,9 @@ func TestPrepareFreezeSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("missing true binary: %v", err)
 	}
-	issued, err := prepareFreeze(context.Background(), false, truePath, nil, truePath, nil, time.Second, zap.NewNop(), NewRunner())
+	ctx := WithForce(context.Background(), true)
+	ctx = WithAllowOverwrite(ctx, true)
+	issued, err := prepareFreeze(ctx, false, truePath, nil, truePath, nil, time.Second, zap.NewNop(), NewRunner())
 	if err != nil {
 		t.Fatalf("prepareFreeze: %v", err)
 	}
@@ -33,7 +35,9 @@ func TestPrepareFreezeFailure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("missing true binary: %v", err)
 	}
-	if _, err := prepareFreeze(context.Background(), false, falsePath, nil, truePath, nil, time.Second, zap.NewNop(), NewRunner()); err == nil {
+	ctx := WithForce(context.Background(), true)
+	ctx = WithAllowOverwrite(ctx, true)
+	if _, err := prepareFreeze(ctx, false, falsePath, nil, truePath, nil, time.Second, zap.NewNop(), NewRunner()); err == nil {
 		t.Fatalf("expected freeze command failure")
 	}
 }
@@ -90,5 +94,49 @@ func TestQueryDeviceInfoFailure(t *testing.T) {
 	defer f.Close()
 	if _, _, err := queryDeviceInfo(f, f.Name(), zap.NewNop()); err == nil {
 		t.Fatalf("expected error for non-block device")
+	}
+}
+
+func TestPrepareFreezeRequiresForceOffline(t *testing.T) {
+	if _, err := prepareFreeze(context.Background(), true, "", nil, "", nil, time.Second, zap.NewNop(), NewRunner()); err == nil {
+		t.Fatalf("expected --force requirement")
+	}
+}
+
+func TestPrepareFreezeForceOffline(t *testing.T) {
+	ctx := WithForce(context.Background(), true)
+	ctx = WithAllowOverwrite(ctx, true)
+	issued, err := prepareFreeze(ctx, true, "", nil, "", nil, time.Second, zap.NewNop(), NewRunner())
+	if err != nil {
+		t.Fatalf("prepareFreeze: %v", err)
+	}
+	if issued {
+		t.Fatalf("freeze should not be issued when offline")
+	}
+}
+
+func TestPrepareFreezeRequiresForceCommands(t *testing.T) {
+	truePath, err := exec.LookPath("true")
+	if err != nil {
+		t.Fatalf("missing true binary: %v", err)
+	}
+	if _, err := prepareFreeze(context.Background(), false, truePath, nil, truePath, nil, time.Second, zap.NewNop(), NewRunner()); err == nil {
+		t.Fatalf("expected --force requirement")
+	}
+}
+
+func TestPrepareFreezeForceCommands(t *testing.T) {
+	truePath, err := exec.LookPath("true")
+	if err != nil {
+		t.Fatalf("missing true binary: %v", err)
+	}
+	ctx := WithForce(context.Background(), true)
+	ctx = WithAllowOverwrite(ctx, true)
+	issued, err := prepareFreeze(ctx, false, truePath, nil, truePath, nil, time.Second, zap.NewNop(), NewRunner())
+	if err != nil {
+		t.Fatalf("prepareFreeze: %v", err)
+	}
+	if !issued {
+		t.Fatalf("expected freeze to be issued")
 	}
 }
