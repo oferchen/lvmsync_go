@@ -1,1 +1,18 @@
-[]
+[
+  {
+    "type": "TODO",
+    "component": "device",
+    "evidence": "mountinfo parsing lacks bind mount and multiple-entry handling",
+    "impact": "device detection may fail on complex mounts",
+    "fix": "expand mountinfo parsing to handle bind mounts and multiple entries; add tests",
+    "priority": "medium"
+  },
+  {
+    "type": "TODO",
+    "component": "escalate",
+    "evidence": "privilege escalation lacks test coverage",
+    "impact": "escalation regressions may go unnoticed",
+    "fix": "add root-only tests for privilege escalation success and failure paths",
+    "priority": "medium"
+  }
+]
