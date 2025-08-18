@@ -33,6 +33,9 @@ type Chunker struct {
 	// reusable buffer to avoid per-chunk allocations
 	buf []byte
 
+	// reusable entropy counts window to avoid per-chunk allocations
+	counts [256]int
+
 	// gear table allowing deterministic seeding
 	gear [256]uint64
 }
@@ -112,9 +115,12 @@ func (c *Chunker) NextChunk(r io.Reader) (Chunk, error) {
 	// initialize entropy window
 	copy(c.window[:], buf[size-64:size])
 	c.winPos = 0
-	counts := [256]int{}
+	// reset reusable entropy counts
+	for i := range c.counts {
+		c.counts[i] = 0
+	}
 	for _, b := range c.window {
-		counts[b]++
+		c.counts[b]++
 	}
 
 	for size < c.Max {
@@ -130,7 +136,7 @@ func (c *Chunker) NextChunk(r io.Reader) (Chunk, error) {
 		// update rolling hash
 		h = (h << 1) + c.gear[b[0]]
 		// update entropy window and determine mask
-		e := c.updateEntropy(b[0], &counts)
+		e := c.updateEntropy(b[0], &c.counts)
 		mask := c.selectMask(e)
 
 		if size >= c.Min && h&mask == 0 {

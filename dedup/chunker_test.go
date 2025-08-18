@@ -110,3 +110,20 @@ func TestChunkerSeedAffectsBoundaries(t *testing.T) {
 		t.Fatalf("expected different chunk boundaries with different seeds")
 	}
 }
+
+func TestChunkerNextChunkAllocations(t *testing.T) {
+	data := make([]byte, 1024)
+	ch, err := NewChunker(64, 128, 256)
+	if err != nil {
+		t.Fatalf("new chunker: %v", err)
+	}
+	ch.buf = make([]byte, ch.Max)
+	r := bytes.NewReader(nil)
+	allocs := testing.AllocsPerRun(100, func() {
+		r.Reset(data)
+		_, _ = ch.NextChunk(r)
+	})
+	if allocs > 1 {
+		t.Fatalf("expected at most one allocation, got %f", allocs)
+	}
+}
