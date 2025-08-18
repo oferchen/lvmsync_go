@@ -137,7 +137,7 @@ variables, which override configuration files.
 
 ## lvmsync daemon
 
-The `lvmsyncd` binary loads optional modules and listens on one or more URIs. Use `--listen` repeatedly to specify addresses and `--module` to load plugin modules. `--once` exits after initialization.
+The `lvmsyncd` binary loads optional modules and listens on one or more URIs. Use `--listen` repeatedly to specify addresses and `--module` to load plugin modules.
 
 Configuration can come from flags, `LVMSYNC_DAEMON_` environment variables, or a `lvmsyncd.yaml` file. Multi-value environment variables are comma-separated.
 
@@ -145,13 +145,11 @@ Configuration can come from flags, `LVMSYNC_DAEMON_` environment variables, or a
 |------|----------------------|------------|-------------|
 | `--listen` | `LVMSYNC_DAEMON_LISTEN` | `listen` | comma-separated list of listen URIs |
 | `--module` | `LVMSYNC_DAEMON_MODULE` | `module` | comma-separated module paths |
-| `--once` | `LVMSYNC_DAEMON_ONCE` | `once` | run once then exit |
-| `--sudo-helper` | `LVMSYNC_DAEMON_SUDO_HELPER` | `sudo-helper` | optional sudo helper path |
 
 Example:
 
 ```sh
-LVMSYNC_DAEMON_LISTEN=unix:///run/lvmsyncd.sock,tcp://:9000 lvmsyncd --module ./mod.so
+LVMSYNC_DAEMON_LISTEN=unix:///run/lvmsyncd.sock,tcp+tls://:9000 lvmsyncd --module ./mod.so
 ```
 
 See [daemon documentation](docs/daemon.md) for module configuration, ACLs, and
@@ -529,7 +527,7 @@ Running `LVMSYNC_RETRY_DELAY=2s lvmsync run --retry-delay 3s` uses a retry delay
 Environment variables for the lvmsync daemon use the `LVMSYNC_DAEMON_` prefix. Multi-value settings are comma-separated:
 
 ```sh
-LVMSYNC_DAEMON_LISTEN=unix:///run/lvmsyncd.sock,tcp://:9000 lvmsyncd
+LVMSYNC_DAEMON_LISTEN=unix:///run/lvmsyncd.sock,tcp+tls://:9000 lvmsyncd
 ```
 
 Grouped options use dedicated prefixes: `LVMSYNC_DEDUP_`,

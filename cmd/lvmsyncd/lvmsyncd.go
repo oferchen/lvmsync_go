@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"os/signal"
 	"strings"
@@ -27,9 +28,8 @@ import (
 )
 
 type options struct {
-	modules       map[string]string
-	transports    []string
-	tcpPort       int
+	modules       map[string]struct{}
+	listens       []string
 	stdio         bool
 	inetd         bool
 	serverCert    string
@@ -40,12 +40,11 @@ type options struct {
 	allowInsecure bool
 }
 
-func parseModules(vals []string) map[string]string {
-	m := make(map[string]string)
+func parseModules(vals []string) map[string]struct{} {
+	m := make(map[string]struct{}, len(vals))
 	for _, v := range vals {
-		parts := strings.SplitN(v, "=", 2)
-		if len(parts) == 2 {
-			m[parts[0]] = parts[1]
+		if v != "" {
+			m[v] = struct{}{}
 		}
 	}
 	return m
@@ -54,8 +53,7 @@ func parseModules(vals []string) map[string]string {
 func parseOptions(v *viper.Viper) options {
 	return options{
 		modules:       parseModules(v.GetStringSlice("module")),
-		transports:    splitTransports(v.GetString("transport")),
-		tcpPort:       v.GetInt("tcp-port"),
+		listens:       v.GetStringSlice("listen"),
 		stdio:         v.GetBool("stdio"),
 		inetd:         v.GetBool("inetd"),
 		serverCert:    v.GetString("server-cert"),
@@ -67,27 +65,11 @@ func parseOptions(v *viper.Viper) options {
 	}
 }
 
-func splitTransports(s string) []string {
-	if s == "" {
-		return nil
-	}
-	parts := strings.Split(s, ",")
-	out := make([]string, 0, len(parts))
-	for _, p := range parts {
-		p = strings.TrimSpace(p)
-		if p != "" {
-			out = append(out, p)
-		}
-	}
-	return out
-}
-
 func bindFlags(cmd *cobra.Command, v *viper.Viper) error {
 	fs := pflag.NewFlagSet("lvmsyncd", pflag.ExitOnError)
-	fs.StringSlice("module", nil, "module mapping name=path")
-	fs.String("transport", "tcp+tls", "comma-separated transports")
-	fs.Int("tcp-port", 8730, "TCP port to listen on")
-	fs.Bool("stdio", false, "use stdio for a single connection")
+	fs.StringSlice("module", nil, "module path")
+	fs.StringSlice("listen", nil, "transport listen URI")
+	fs.Bool("stdio", false, "serve a single connection over stdio")
 	fs.Bool("inetd", false, "use stdio under inetd activation")
 	fs.String("server-cert", "", "server TLS certificate file")
 	fs.String("server-key", "", "server TLS key file")
@@ -99,7 +81,7 @@ func bindFlags(cmd *cobra.Command, v *viper.Viper) error {
 	if err := v.BindPFlags(fs); err != nil {
 		return err
 	}
-	v.SetEnvPrefix("LVMSYNCD")
+	v.SetEnvPrefix("LVMSYNC_DAEMON")
 	v.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	v.AutomaticEnv()
 	return nil
@@ -145,6 +127,33 @@ type dummyAddr string
 func (d dummyAddr) Network() string { return string(d) }
 func (d dummyAddr) String() string  { return string(d) }
 
+type listenSpec struct {
+	scheme string
+	addr   string
+}
+
+func parseListen(listens []string) ([]listenSpec, error) {
+	specs := make([]listenSpec, 0, len(listens))
+	for _, l := range listens {
+		if l == "" {
+			continue
+		}
+		u, err := url.Parse(l)
+		if err != nil {
+			return nil, fmt.Errorf("parse listen URI %q: %w", l, err)
+		}
+		if u.Scheme == "" {
+			return nil, fmt.Errorf("missing scheme in %q", l)
+		}
+		addr := u.Host
+		if addr == "" {
+			addr = u.Path
+		}
+		specs = append(specs, listenSpec{scheme: u.Scheme, addr: addr})
+	}
+	return specs, nil
+}
+
 func start(ctx context.Context, opts options, logger *zap.Logger) error {
 	cfg := transport.Config{Logger: logger, AllowInsecure: opts.allowInsecure}
 	if !opts.allowInsecure {
@@ -179,22 +188,36 @@ func start(ctx context.Context, opts options, logger *zap.Logger) error {
 		}
 		cfg.Roots = roots
 	}
-	trs, err := transport.GetOrdered(opts.transports, cfg)
+	specs, err := parseListen(opts.listens)
 	if err != nil {
-		return fmt.Errorf("get transport: %w", err)
+		return err
 	}
 	if opts.stdio || opts.inetd {
-		if len(trs) == 0 {
-			return fmt.Errorf("no transport specified")
+		scheme := "tcp+tls"
+		if len(specs) > 0 {
+			scheme = specs[0].scheme
+		}
+		tr, err := transport.Get(scheme, cfg)
+		if err != nil {
+			return fmt.Errorf("get transport: %w", err)
 		}
 		conn := &stdioConn{}
-		return handleConn(ctx, conn, trs[0], opts.modules, logger)
+		return handleConn(ctx, conn, tr, opts.modules, logger)
 	}
-	addr := fmt.Sprintf(":%d", opts.tcpPort)
-	errCh := make(chan error, len(trs))
+	if len(specs) == 0 {
+		return fmt.Errorf("no listeners provided")
+	}
+	errCh := make(chan error, len(specs))
 	var wg sync.WaitGroup
-	for _, tr := range trs {
-		ln, err := tr.Listen(ctx, addr)
+	for _, sp := range specs {
+		tr, err := transport.Get(sp.scheme, cfg)
+		if err != nil {
+			return fmt.Errorf("get transport: %w", err)
+		}
+		if sp.addr == "" {
+			return fmt.Errorf("missing address for %s", sp.scheme)
+		}
+		ln, err := tr.Listen(ctx, sp.addr)
 		if err != nil {
 			return fmt.Errorf("listen: %w", err)
 		}
@@ -223,7 +246,7 @@ func start(ctx context.Context, opts options, logger *zap.Logger) error {
 	}
 }
 
-func handleConn(ctx context.Context, conn net.Conn, tr transport.Interface, modules map[string]string, logger *zap.Logger) error {
+func handleConn(ctx context.Context, conn net.Conn, tr transport.Interface, modules map[string]struct{}, logger *zap.Logger) error {
 	remote := conn.RemoteAddr().String()
 	logger.Info("conn_accepted", zap.String("remote_addr", remote))
 	defer func() {

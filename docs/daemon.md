@@ -43,12 +43,12 @@ Example listeners:
 
 ```sh
 # Multiple network listeners
-lvmsyncd --listen unix:///run/lvmsyncd.sock --listen tcp://:9443
+lvmsyncd --listen unix:///run/lvmsyncd.sock --listen tcp+tls://:9443
 
-# Systemd socket activation
+# Systemd socket activation (defaults to tcp+tls)
 lvmsyncd --inetd
 
-# Standard input/output
+# Standard input/output (defaults to tcp+tls)
 lvmsyncd --stdio
 ```
 
@@ -67,9 +67,8 @@ Example mTLS invocation:
 
 ```sh
 lvmsyncd \
-  --listen tcp://:9443 \
-  --server-cert server.pem --server-key server.key \
-  --client-cert client.pem --client-key client.key \
+  --listen tcp+tls://:9443 \
+  --tls-cert server.pem --tls-key server.key \
   --ca-cert ca.pem --module /usr/lib/lvmsync/modules/snapshot.so
 ```
 

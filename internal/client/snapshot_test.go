@@ -154,3 +154,31 @@ func TestCreateSnapshotCleanupNoPanic(t *testing.T) {
 		t.Fatalf("expected closed monitor channel")
 	}
 }
+
+func TestPrepareSnapshotCreateSnapshotError(t *testing.T) {
+	cfg, err := config.DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig error: %v", err)
+	}
+	cfg.SkipDiskCheck = true
+	cfg.VolumeGroup = "vg"
+	cfg.TargetVolumeGroup = "vg2"
+
+	r := client.NewRunnerWithDeps(
+		func(string, string, *lvm.FDCache, *zap.Logger) (uint64, error) { return 1024, nil },
+		nil,
+		nil,
+		nil,
+		nil,
+		func(context.Context, string, string, string, *zap.Logger) error { return errors.New("create error") },
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+
+	logger := zap.NewNop()
+	if _, _, _, err := r.PrepareSnapshot(context.Background(), cfg, "/dev/vg/orig", logger); err == nil {
+		t.Fatalf("expected create error")
+	}
+}
