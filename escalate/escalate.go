@@ -99,16 +99,20 @@ func EnsureRootOrReexec(opts Options) (bool, error) {
 	}
 	args = append(args, filterAllowed(argv[1:], opts.AllowedPassthrough)...)
 
-	env := ([]string)(nil)
-	if opts.SanitizeEnv || (opts.Environ == nil && opts.SanitizeEnv == false) {
+	var env []string
+	switch {
+	case opts.SanitizeEnv:
 		// Default is true unless explicitly false.
-		if opts.Environ == nil {
-			env = sanitizedChildEnv(os.Environ())
-		} else {
+		if opts.Environ != nil {
 			env = sanitizedChildEnv(opts.Environ())
+		} else {
+			env = sanitizedChildEnv(os.Environ())
 		}
-	} else if opts.Environ != nil {
+	case opts.Environ != nil:
 		env = opts.Environ()
+	default:
+		// SanitizeEnv explicitly false and no custom Environ: inherit the
+		// current environment by leaving env nil.
 	}
 
 	stdin := opts.Stdin // nil by default (no TTY password prompts)
