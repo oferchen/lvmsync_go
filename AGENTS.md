@@ -273,6 +273,11 @@ Run these commands locally before opening a pull request:
 - Each gap entry must appear in both files with matching details.
 - `reports/gaps_test.go` fails `go test` when `gaps.json` is non-empty.
 - Remove entries after fixes to keep CI green.
+- When adding a gap:
+  1. Review outstanding TODO items or missing tests.
+  2. Add an entry to `reports/gaps.md` and the matching object to `reports/gaps.json`.
+  3. Run `go test ./reports` to surface the failing gap test.
+  4. After addressing the gap, delete the entry from both files and rerun tests to ensure they pass.
 
 ## Regex Patterns
 
