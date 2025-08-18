@@ -23,6 +23,7 @@ import (
 type RunOptions struct {
 	DryRun    bool
 	Transport string
+	Delta     string
 	DedupMode string
 	BlockSize int
 	CDCMin    int
@@ -153,6 +154,7 @@ func NewRootCmd(logger *zap.Logger, r *Runner) *cobra.Command {
 			opts := RunOptions{
 				DryRun:    cfg.DryRun,
 				Transport: cfg.Transport,
+				Delta:     cfg.Delta,
 				DedupMode: cfg.DedupMode,
 				BlockSize: cfg.BlockSize,
 				CDCMin:    cfg.CDCMin,

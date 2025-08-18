@@ -14,6 +14,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/coreos/go-systemd/v22/activation"
+	"github.com/coreos/go-systemd/v22/daemon"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -206,6 +208,44 @@ func start(ctx context.Context, opts options, logger *zap.Logger) error {
 		return handleConn(ctx, conn, tr, opts.modules, logger)
 	}
 	if len(specs) == 0 {
+		listeners, err := activation.Listeners()
+		if err != nil {
+			return fmt.Errorf("activation listeners: %w", err)
+		}
+		if len(listeners) > 0 {
+			tr, err := transport.Get("tcp+tls", cfg)
+			if err != nil {
+				return fmt.Errorf("get transport: %w", err)
+			}
+			errCh := make(chan error, len(listeners))
+			var wg sync.WaitGroup
+			for _, ln := range listeners {
+				wg.Add(1)
+				go func(ln net.Listener) {
+					defer wg.Done()
+					for {
+						c, err := ln.Accept()
+						if err != nil {
+							if ctx.Err() != nil {
+								return
+							}
+							errCh <- err
+							return
+						}
+						go handleConn(ctx, c, tr, opts.modules, logger)
+					}
+				}(ln)
+			}
+			daemon.SdNotify(false, daemon.SdNotifyReady)
+			select {
+			case <-ctx.Done():
+				wg.Wait()
+				daemon.SdNotify(false, daemon.SdNotifyStopping)
+				return ctx.Err()
+			case err := <-errCh:
+				return err
+			}
+		}
 		return fmt.Errorf("no listeners provided")
 	}
 	errCh := make(chan error, len(specs))

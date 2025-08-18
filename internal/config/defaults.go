@@ -91,6 +91,7 @@ type Config struct {
 	Progress                 bool          `mapstructure:"progress"`
 	BlockSize                int           `mapstructure:"-"`
 	BlockSizeRaw             string        `mapstructure:"-"`
+	Delta                    string        `mapstructure:"delta"`
 	DedupMode                string        `mapstructure:"dedup"`
 	CDCMin                   int           `mapstructure:"cdc_min"`
 	CDCAvg                   int           `mapstructure:"cdc_avg"`
@@ -224,6 +225,7 @@ func DefaultConfig() (*Config, error) {
 		Progress:                 true,
 		BlockSize:                0,
 		BlockSizeRaw:             Auto,
+		Delta:                    "none",
 		DedupMode:                "fixed",
 		CDCMin:                   4 * 1024,
 		CDCAvg:                   64 * 1024,
