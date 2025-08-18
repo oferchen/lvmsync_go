@@ -54,6 +54,11 @@ jobs:
             libselinux-dev libsepol-dev \
             git curl
 
+      - name: Configure reproducible builds
+        run: |
+          echo "SOURCE_DATE_EPOCH=$(git log -1 --pretty=%ct)" >> $GITHUB_ENV
+          echo "GOFLAGS=-trimpath -buildvcs=false" >> $GITHUB_ENV
+
       - name: Set up QEMU for cross-compilation
         uses: docker/setup-qemu-action@v3.0.0
 
@@ -90,6 +95,24 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GOLANGCI_LINT_TOKEN }}
           SKIP_DOCKER_PUSH: ${{ env.SKIP_DOCKER_PUSH }}
+
+      - name: Build distroless image
+        run: |
+          docker buildx build \
+            --platform linux/amd64,linux/arm64 \
+            -f Dockerfile.distroless \
+            --build-arg BIN=bpm \
+            --build-arg BUILD_PATH=. \
+            --tag docker.io/oferchen/bpm:${{ github.ref_name }}-distroless \
+            --tag ghcr.io/oferchen/bpm:${{ github.ref_name }}-distroless \
+            $([ "${{ env.SKIP_DOCKER_PUSH }}" == "true" ] && echo "--load" || echo "--push")
+
+      - name: Attach checksums and SBOM to release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            dist/*checksums.txt
+            dist/*.sbom.json
 
       - name: Upload checksums
         uses: actions/upload-artifact@v4

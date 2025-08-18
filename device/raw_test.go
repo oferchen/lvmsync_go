@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,6 +15,10 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 )
+
+type ttyReader struct{ io.Reader }
+
+func (t ttyReader) Fd() uintptr { return 0 }
 
 func helperCommand(t *testing.T) string {
 	dir := t.TempDir()
@@ -200,6 +205,22 @@ func TestOpenRawFreezeTimeout(t *testing.T) {
 	_, err = OpenRaw(ctx, "/dev/null", false, sleepPath, []string{"2"}, truePath, nil, 100*time.Millisecond, time.Second, fakeEsc{}, zap.NewNop(), NewRunner())
 	if err == nil || !strings.Contains(err.Error(), "signal: killed") {
 		t.Fatalf("expected freeze command to be killed, got %v", err)
+	}
+}
+
+func TestConfirmOverwriteTTYRaw(t *testing.T) {
+	ctx := WithForce(context.Background(), true)
+	r := ttyReader{strings.NewReader("yes\n")}
+	if err := confirmOverwrite(ctx, r, io.Discard, func(int) bool { return true }); err != nil {
+		t.Fatalf("confirmOverwrite: %v", err)
+	}
+}
+
+func TestConfirmOverwriteNonTTYRaw(t *testing.T) {
+	ctx := WithForce(context.Background(), true)
+	r := strings.NewReader("yes\n")
+	if err := confirmOverwrite(ctx, r, io.Discard, func(int) bool { return true }); err == nil || !strings.Contains(err.Error(), "--allow-overwrite") {
+		t.Fatalf("expected allow-overwrite error, got %v", err)
 	}
 }
 

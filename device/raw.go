@@ -3,7 +3,6 @@
 package device
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"os"
@@ -15,6 +14,7 @@ import (
 
 	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
+	"golang.org/x/term"
 
 	"lvmsync_go/escalate"
 	"lvmsync_go/internal/privilege"
@@ -47,22 +47,9 @@ func prepareFreeze(
 	logger *zap.Logger,
 	runner *Runner,
 ) (bool, error) {
-	force := forceFromContext(ctx)
-	allow := allowOverwriteFromContext(ctx)
 	if offline || fsFreezeCmdPath != "" || fsThawCmdPath != "" {
-		if !force {
-			return false, fmt.Errorf("--force required for offline or freeze operations")
-		}
-		if !allow {
-			fmt.Fprint(os.Stderr, "Raw device operations may overwrite data. Type 'yes' to continue: ")
-			reader := bufio.NewReader(os.Stdin)
-			resp, err := reader.ReadString('\n')
-			if err != nil {
-				return false, fmt.Errorf("confirmation failed: %w", err)
-			}
-			if strings.TrimSpace(resp) != "yes" {
-				return false, fmt.Errorf("operation cancelled")
-			}
+		if err := confirmOverwrite(ctx, os.Stdin, os.Stderr, term.IsTerminal); err != nil {
+			return false, err
 		}
 	}
 	if offline {

@@ -28,7 +28,8 @@ func TestResumeFlagPath(t *testing.T) {
 
 func TestResumeFlagVerify(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	t.Setenv("LVMSYNC_RESUME", "statefile")
+	envState := "statefile"
+	t.Setenv("LVMSYNC_RESUME", envState)
 	defaults, err := DefaultConfig()
 	if err != nil {
 		t.Fatalf("default: %v", err)
@@ -42,6 +43,8 @@ func TestResumeFlagVerify(t *testing.T) {
 	if !cfg.ResumeVerify {
 		t.Fatalf("ResumeVerify=%v want true", cfg.ResumeVerify)
 	}
+	if cfg.ResumeState != "statefile" {
+		t.Fatalf("ResumeState=%q want %q", cfg.ResumeState, "statefile")
 	if cfg.ResumeState != defaultResumeState {
 		t.Fatalf("ResumeState=%q want %q", cfg.ResumeState, defaultResumeState)
 	}
