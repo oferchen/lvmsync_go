@@ -3,7 +3,10 @@ package main
 import (
 	"context"
 	"net"
+	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -14,15 +17,38 @@ import (
 )
 
 // mockTransport implements transport.Interface for testing negotiation.
-type mockTransport struct{ negotiated bool }
+type mockTransport struct {
+	negotiated bool
+	listened   *[]string
+	mu         sync.Mutex
+}
 
-func (m *mockTransport) Name() string                                         { return "mock" }
-func (m *mockTransport) Dial(context.Context, string) (net.Conn, error)       { return nil, nil }
-func (m *mockTransport) Listen(context.Context, string) (net.Listener, error) { return nil, nil }
+func (m *mockTransport) Name() string                                   { return "mock" }
+func (m *mockTransport) Dial(context.Context, string) (net.Conn, error) { return nil, nil }
+func (m *mockTransport) Listen(ctx context.Context, addr string) (net.Listener, error) {
+	if m.listened != nil {
+		m.mu.Lock()
+		*m.listened = append(*m.listened, addr)
+		m.mu.Unlock()
+	}
+	return &dummyListener{ctx: ctx, addr: dummyAddr(addr)}, nil
+}
 func (m *mockTransport) Negotiate(context.Context, net.Conn, transport.Role, common.Handshake) (common.Handshake, error) {
 	m.negotiated = true
 	return common.Handshake{}, nil
 }
+
+type dummyListener struct {
+	ctx  context.Context
+	addr net.Addr
+}
+
+func (d *dummyListener) Accept() (net.Conn, error) {
+	<-d.ctx.Done()
+	return nil, d.ctx.Err()
+}
+func (d *dummyListener) Close() error   { return nil }
+func (d *dummyListener) Addr() net.Addr { return d.addr }
 
 func TestFlagParsing(t *testing.T) {
 	v := viper.New()
@@ -30,19 +56,13 @@ func TestFlagParsing(t *testing.T) {
 	if err := bindFlags(cmd, v); err != nil {
 		t.Fatalf("bindFlags: %v", err)
 	}
-	args := []string{"--module", "foo=/dev/null", "--module", "bar=/dev/zero", "--transport", "h2,tcp+tls", "--tcp-port", "9000"}
+	args := []string{"--module", "/dev/null", "--module", "/dev/zero", "--listen", "h2://:9000", "--listen", "tcp+tls://:9443"}
 	if err := cmd.ParseFlags(args); err != nil {
 		t.Fatalf("ParseFlags: %v", err)
 	}
 	opts := parseOptions(v)
-	if len(opts.modules) != 2 || opts.modules["foo"] != "/dev/null" || opts.modules["bar"] != "/dev/zero" {
-		t.Fatalf("modules parsed incorrectly: %+v", opts.modules)
-	}
-	if len(opts.transports) != 2 || opts.transports[0] != "h2" || opts.transports[1] != "tcp+tls" {
-		t.Fatalf("transports parsed incorrectly: %+v", opts.transports)
-	}
-	if opts.tcpPort != 9000 {
-		t.Fatalf("tcpPort parsed incorrectly: %d", opts.tcpPort)
+	if len(opts.modules) != 2 || opts.listens[0] != "h2://:9000" || opts.listens[1] != "tcp+tls://:9443" {
+		t.Fatalf("options parsed incorrectly: %+v", opts)
 	}
 }
 
@@ -51,7 +71,7 @@ func TestModuleACL(t *testing.T) {
 	server, client := net.Pipe()
 	done := make(chan error, 1)
 	go func() {
-		done <- handleConn(context.Background(), server, tr, map[string]string{"foo": "/dev/null"}, zap.NewNop())
+		done <- handleConn(context.Background(), server, tr, map[string]struct{}{"/dev/null": {}}, zap.NewNop())
 	}()
 	if _, err := client.Write([]byte("bar\n")); err != nil {
 		t.Fatalf("write: %v", err)
@@ -66,9 +86,9 @@ func TestTransportNegotiation(t *testing.T) {
 	server, client := net.Pipe()
 	done := make(chan error, 1)
 	go func() {
-		done <- handleConn(context.Background(), server, tr, map[string]string{"foo": "/dev/null"}, zap.NewNop())
+		done <- handleConn(context.Background(), server, tr, map[string]struct{}{"/dev/null": {}}, zap.NewNop())
 	}()
-	if _, err := client.Write([]byte("foo\n")); err != nil {
+	if _, err := client.Write([]byte("/dev/null\n")); err != nil {
 		t.Fatalf("write: %v", err)
 	}
 	if err := <-done; err != nil {
@@ -76,5 +96,31 @@ func TestTransportNegotiation(t *testing.T) {
 	}
 	if !tr.negotiated {
 		t.Fatalf("expected negotiation to occur")
+	}
+}
+
+func TestListenerSetup(t *testing.T) {
+	var addrs []string
+	if err := transport.Register("mocklisten", func(cfg transport.Config) (transport.Interface, error) {
+		return &mockTransport{listened: &addrs}, nil
+	}); err != nil && !strings.Contains(err.Error(), "already registered") {
+		t.Fatalf("register: %v", err)
+	}
+	opts := options{
+		modules:       map[string]struct{}{"/dev/null": {}},
+		listens:       []string{"mocklisten://:1111", "mocklisten://:2222"},
+		allowInsecure: true,
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- start(ctx, opts, zap.NewNop()) }()
+	time.Sleep(100 * time.Millisecond)
+	cancel()
+	err := <-done
+	if err != context.Canceled {
+		t.Fatalf("start returned %v", err)
+	}
+	if len(addrs) != 2 || addrs[0] != ":1111" || addrs[1] != ":2222" {
+		t.Fatalf("listener addresses %v", addrs)
 	}
 }
