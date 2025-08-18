@@ -108,8 +108,10 @@ func SyncLogger(logger *zap.Logger) {
 	}
 }
 
-// Configure loads configuration, ensures privileges, validates, and sets up logging.
-func Configure() (*config.Config, []string, *zap.Logger, error) {
+// ConfigureWithEscalator loads configuration, ensures privileges via the provided
+// privilege.Escalator, validates, and sets up logging. A nil escalator defaults
+// to the production implementation.
+func ConfigureWithEscalator(esc privilege.Escalator) (*config.Config, []string, *zap.Logger, error) {
 	defaults, err := config.DefaultConfig()
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("configuration error: %w", err)
@@ -122,7 +124,9 @@ func Configure() (*config.Config, []string, *zap.Logger, error) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.LVMTimeout)
 	defer cancel()
-	esc := privilege.New(ctx)
+	if esc == nil {
+		esc = privilege.New(ctx)
+	}
 	if err = esc.Ensure(ctx); err != nil {
 		return nil, nil, nil, fmt.Errorf("privilege check failed: %w", err)
 	}
@@ -154,6 +158,12 @@ func Configure() (*config.Config, []string, *zap.Logger, error) {
 		zap.String("lvmsync_path", cfg.LVMSyncPath),
 	)
 	return cfg, args, logger, nil
+}
+
+// Configure loads configuration, ensures privileges, validates, and sets up
+// logging using the default privilege escalator.
+func Configure() (*config.Config, []string, *zap.Logger, error) {
+	return ConfigureWithEscalator(nil)
 }
 
 // PrepareSnapshot wraps snapshot preparation.
