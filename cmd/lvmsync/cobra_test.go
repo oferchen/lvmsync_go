@@ -100,8 +100,8 @@ func TestRunCommandInvalidConfig(t *testing.T) {
 func TestManifestRebuildRoutes(t *testing.T) {
 	var gotDevice string
 	var dry bool
-	r := NewRunnerWithDeps(nil, func(device string, d bool, logger *zap.Logger) error {
-		gotDevice, dry = device, d
+	r := NewRunnerWithDeps(nil, func(device string, cfg *config.Config, logger *zap.Logger) error {
+		gotDevice, dry = device, cfg.DryRun
 		return nil
 	}, nil)
 	if err := ExecuteWithRunner([]string{"manifest", "rebuild", "--dry-run", "/dev/vg0"}, zap.NewNop(), r); err != nil {
@@ -117,7 +117,7 @@ func TestManifestRebuildRoutes(t *testing.T) {
 
 func TestManifestRebuildInvalidConfig(t *testing.T) {
 	called := false
-	r := NewRunnerWithDeps(nil, func(device string, dryRun bool, logger *zap.Logger) error {
+	r := NewRunnerWithDeps(nil, func(device string, cfg *config.Config, logger *zap.Logger) error {
 		called = true
 		return nil
 	}, nil)

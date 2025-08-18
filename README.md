@@ -958,7 +958,8 @@ Resume an interrupted transfer using a checkpointed state file:
 lvmsync run --resume statefile /dev/vg0/snap0 /dev/vg0/data
 ```
 
-Rebuild a manifest index for an existing device:
+Rebuild a manifest index for an existing device. The command verifies the
+current manifest and rewrites it when digests or device metadata have changed:
 
 ```sh
 lvmsync manifest rebuild /dev/vg0/lv0

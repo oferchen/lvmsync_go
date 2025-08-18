@@ -1,6 +1,7 @@
 package lvmsync
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -33,7 +34,7 @@ type RunOptions struct {
 // Runner holds command behaviors to allow dependency injection in tests.
 type Runner struct {
 	run             func(src, dst string, opts RunOptions, logger *zap.Logger) error
-	manifestRebuild func(device string, dryRun bool, logger *zap.Logger) error
+	manifestRebuild func(device string, cfg *config.Config, logger *zap.Logger) error
 	verify          func(args []string, logger *zap.Logger) error
 }
 
@@ -43,8 +44,8 @@ func (r *Runner) Run(src, dst string, opts RunOptions, logger *zap.Logger) error
 }
 
 // ManifestRebuild regenerates a manifest for the specified device.
-func (r *Runner) ManifestRebuild(device string, dryRun bool, logger *zap.Logger) error {
-	return r.manifestRebuild(device, dryRun, logger)
+func (r *Runner) ManifestRebuild(device string, cfg *config.Config, logger *zap.Logger) error {
+	return r.manifestRebuild(device, cfg, logger)
 }
 
 // Verify compares source and destination devices against a manifest.
@@ -55,16 +56,47 @@ func (r *Runner) Verify(args []string, logger *zap.Logger) error {
 // NewRunner constructs a Runner with default no-op behaviors.
 func NewRunner() *Runner {
 	return &Runner{
-		run:             func(src, dst string, opts RunOptions, logger *zap.Logger) error { return nil },
-		manifestRebuild: func(device string, dryRun bool, logger *zap.Logger) error { return nil },
-		verify:          func(args []string, logger *zap.Logger) error { return verifycmd.Run(args, logger) },
+		run: func(src, dst string, opts RunOptions, logger *zap.Logger) error { return nil },
+		manifestRebuild: func(device string, cfg *config.Config, logger *zap.Logger) error {
+			if cfg.DryRun {
+				logger.Info("dry run - skipping rebuild")
+				return nil
+			}
+			path := cfg.ManifestPath
+			if path == "" {
+				path = device + ".manifest"
+			}
+			ctx := context.Background()
+			if cfg.ManifestTimeout > 0 {
+				var cancel context.CancelFunc
+				ctx, cancel = context.WithTimeout(ctx, cfg.ManifestTimeout)
+				defer cancel()
+			}
+			hybridFixed := uint32(0)
+			if cfg.DedupMode == "hybrid" {
+				hybridFixed = uint32(cfg.BlockSize)
+			}
+			return manifest.Regenerate(
+				ctx,
+				device,
+				path,
+				logger,
+				cfg.ManifestProgressInterval,
+				cfg.ManifestAllowMounted,
+				uint32(cfg.CDCMin),
+				uint32(cfg.CDCAvg),
+				uint32(cfg.CDCMax),
+				hybridFixed,
+			)
+		},
+		verify: func(args []string, logger *zap.Logger) error { return verifycmd.Run(args, logger) },
 	}
 }
 
 // NewRunnerWithDeps constructs a Runner with custom behaviors, useful for tests.
 func NewRunnerWithDeps(
 	run func(src, dst string, opts RunOptions, logger *zap.Logger) error,
-	rebuild func(device string, dryRun bool, logger *zap.Logger) error,
+	rebuild func(device string, cfg *config.Config, logger *zap.Logger) error,
 	verify func(args []string, logger *zap.Logger) error,
 ) *Runner {
 	r := NewRunner()
@@ -164,7 +196,7 @@ func NewRootCmd(logger *zap.Logger, r *Runner) *cobra.Command {
 				fs.Usage()
 				return fmt.Errorf("usage: lvmsync manifest rebuild [flags] <device>")
 			}
-			return r.ManifestRebuild(remaining[0], cfg.DryRun, logger)
+			return r.ManifestRebuild(remaining[0], cfg, logger)
 		},
 	}
 	manifestCmd.AddCommand(rebuildCmd)
