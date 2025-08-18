@@ -31,7 +31,7 @@ func NewRunner() *Runner {
 		SyncLogger: rootcmd.SyncLogger,
 		Exit:       os.Exit,
 		ExampleLogger: func() *zap.Logger {
-			logger, err := logging.NewLogger(nil)
+			logger, err := logging.NewLogger(nil, "main")
 			if err != nil {
 				return zap.NewNop()
 			}
