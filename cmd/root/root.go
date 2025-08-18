@@ -192,9 +192,9 @@ func (r *Runner) dispatchSubcommand(cfg *config.Config, args []string, logger *z
 	return false, nil
 }
 
-func (r *Runner) prepareClient(cfg *config.Config, args []string, logger *zap.Logger) (context.Context, func(), string, string, chan error, error) {
+func (r *Runner) prepareClient(cfg *config.Config, args []string, logger *zap.Logger) (context.Context, func(), string, string, chan error, chan error, error) {
 	if _, err := r.selectTransportFn(cfg, logger); err != nil {
-		return nil, nil, "", "", nil, fmt.Errorf("select transport: %w", err)
+		return nil, nil, "", "", nil, nil, fmt.Errorf("select transport: %w", err)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -206,24 +206,38 @@ func (r *Runner) prepareClient(cfg *config.Config, args []string, logger *zap.Lo
 		pflag.Usage()
 		cancel()
 		signal.Stop(signals)
-		return nil, nil, "", "", nil, fmt.Errorf("invalid arguments")
+		return nil, nil, "", "", nil, nil, fmt.Errorf("invalid arguments")
 	}
+
 	originalVolume := args[0]
 	destPath := ""
 	if !cfg.StdoutMode {
 		destPath = args[1]
 	}
-	snapshotPath = originalVolume
+
+	snapPath, monitorErrCh, snapCleanup, err := r.prepareSnapshotFn(ctx, cfg, originalVolume, logger)
+	if err != nil {
+		cancel()
+		signal.Stop(signals)
+		if snapCleanup != nil {
+			snapCleanup()
+		}
+		return nil, nil, "", "", nil, nil, fmt.Errorf("prepare snapshot: %w", err)
+	}
+	snapshotPath = snapPath
 
 	cleanup := func() {
+		if snapCleanup != nil {
+			snapCleanup()
+		}
 		signal.Stop(signals)
 		cancel()
 	}
-	return ctx, cleanup, snapshotPath, destPath, sigErrCh, nil
+	return ctx, cleanup, snapshotPath, destPath, sigErrCh, monitorErrCh, nil
 }
 
-func (r *Runner) executeSync(ctx context.Context, cfg *config.Config, snapshotPath, destPath string, sigErrCh chan error, logger *zap.Logger) error {
-	return r.ExecuteClient(ctx, cfg, snapshotPath, destPath, sigErrCh, nil, logger)
+func (r *Runner) executeSync(ctx context.Context, cfg *config.Config, snapshotPath, destPath string, sigErrCh, monitorErrCh chan error, logger *zap.Logger) error {
+	return r.ExecuteClient(ctx, cfg, snapshotPath, destPath, sigErrCh, monitorErrCh, logger)
 }
 
 func (r *Runner) Run(cfg *config.Config, args []string, logger *zap.Logger) error {
@@ -232,13 +246,13 @@ func (r *Runner) Run(cfg *config.Config, args []string, logger *zap.Logger) erro
 		return err
 	}
 
-	ctx, cleanup, snapshotPath, destPath, sigErrCh, err := r.prepareClient(cfg, args, logger)
+	ctx, cleanup, snapshotPath, destPath, sigErrCh, monitorErrCh, err := r.prepareClient(cfg, args, logger)
 	if err != nil {
 		return err
 	}
 	defer cleanup()
 
-	return r.executeSync(ctx, cfg, snapshotPath, destPath, sigErrCh, logger)
+	return r.executeSync(ctx, cfg, snapshotPath, destPath, sigErrCh, monitorErrCh, logger)
 }
 
 // Run invokes the default runner's Run method.
