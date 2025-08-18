@@ -43,7 +43,9 @@ Reads both devices and reports mismatches without writing data.
 | `20` | Device error | Verify device paths and snapshot health. |
 | `30` | Unsupported platform | Run on a supported Linux platform. |
 | `40` | Configuration error | Review flags, environment variables, and `config.yaml`. |
-| `50` | Runtime failure or verification mismatch | Inspect logs, fix the issue, and rerun using `--resume` when applicable. |
+| `50` | Runtime failure | Inspect logs, fix the issue, and rerun using `--resume` when applicable. |
+| `60` | Verification mismatch | Investigate mismatched data before retrying. |
+| `70` | Partial transfer | Address the error and resume with `--resume`. |
 
 ## Troubleshooting
 
