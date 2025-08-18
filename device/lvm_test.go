@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 
 	"lvmsync_go/internal/lock"
 	"lvmsync_go/lvm"
@@ -93,5 +94,53 @@ func TestRunLVMFailure(t *testing.T) {
 	runner := NewDeviceRunner(cmd)
 	if err := runner.runLVM(ctx, "", "lvremove", "-f", "/dev/vg0/snap"); err == nil {
 		t.Fatalf("expected error from runLVM")
+	}
+}
+
+func TestLVMDeviceCloseReleasesLock(t *testing.T) {
+	restoreDir := lock.SetBaseDir(t.TempDir())
+	t.Cleanup(restoreDir)
+
+	f, err := os.CreateTemp(t.TempDir(), "lvmdev")
+	if err != nil {
+		t.Fatalf("temp file: %v", err)
+	}
+	lk, err := lock.Acquire("vg", "lv")
+	if err != nil {
+		t.Fatalf("acquire: %v", err)
+	}
+	d := &LVMDevice{f: f, path: f.Name(), lock: lk, logger: zap.NewNop()}
+	if err := d.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	if _, err := lock.Acquire("vg", "lv"); err != nil {
+		t.Fatalf("lock not released: %v", err)
+	}
+}
+
+func TestLVMDeviceCloseErrorLogging(t *testing.T) {
+	restoreDir := lock.SetBaseDir(t.TempDir())
+	t.Cleanup(restoreDir)
+
+	core, logs := observer.New(zap.InfoLevel)
+	logger := zap.New(core)
+
+	f, err := os.CreateTemp(t.TempDir(), "lvmdev")
+	if err != nil {
+		t.Fatalf("temp file: %v", err)
+	}
+	lk, err := lock.Acquire("vg", "lv")
+	if err != nil {
+		t.Fatalf("acquire: %v", err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatalf("preclose: %v", err)
+	}
+	d := &LVMDevice{f: f, path: f.Name(), lock: lk, logger: logger}
+	if err := d.Close(); err == nil {
+		t.Fatalf("expected error from Close")
+	}
+	if logs.FilterMessage("lvm_device_close_failed").Len() == 0 {
+		t.Fatalf("expected lvm_device_close_failed log")
 	}
 }
