@@ -86,6 +86,31 @@ func TestRunLVMPrivilegeEscalation(t *testing.T) {
 	}
 }
 
+func TestRunLVMPrivilegeEscalationQuoted(t *testing.T) {
+	ctx := context.Background()
+	restore := lvm.SetEscalationChecker(func(string) error { return nil })
+	defer restore()
+	var gotName string
+	var gotArgs []string
+	cmd := cmdFunc(func(ctx context.Context, name string, args ...string) *exec.Cmd {
+		gotName = name
+		gotArgs = append([]string(nil), args...)
+		return exec.CommandContext(ctx, "true")
+	})
+	runner := NewDeviceRunner(cmd)
+	origEuid := geteuid
+	geteuid = func() int { return 1 }
+	t.Cleanup(func() { geteuid = origEuid })
+	esc := "\"/usr/bin/sudo wrapper\" -p 'my prompt' -n"
+	if err := runner.runLVM(ctx, esc, "lvremove", "-f", "/dev/vg0/snap"); err != nil {
+		t.Fatalf("runLVM: %v", err)
+	}
+	want := []string{"-p", "my prompt", "-n", "lvremove", "-f", "/dev/vg0/snap"}
+	if gotName != "/usr/bin/sudo wrapper" || !reflect.DeepEqual(gotArgs, want) {
+		t.Fatalf("unexpected command: %s %v", gotName, gotArgs)
+	}
+}
+
 func TestRunLVMFailure(t *testing.T) {
 	ctx := context.Background()
 	cmd := cmdFunc(func(ctx context.Context, name string, args ...string) *exec.Cmd {

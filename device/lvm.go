@@ -133,7 +133,10 @@ func (r *Runner) runLVM(ctx context.Context, escalation, cmdName string, args ..
 		return err
 	}
 	if geteuid() != 0 {
-		parts := strings.Fields(escalation)
+		parts, err := lvm.ParseEscalation(escalation)
+		if err != nil {
+			return err
+		}
 		if len(parts) > 0 {
 			lvmCmd := cmdName
 			cmdName = parts[0]
