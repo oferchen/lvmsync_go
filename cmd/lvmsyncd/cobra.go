@@ -2,7 +2,10 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net"
+	"net/url"
 	"plugin"
 	"strings"
 
@@ -10,6 +13,10 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
+
+	"lvmsync_go/transport"
 )
 
 // Options holds configuration for lvmsyncd.
@@ -35,7 +42,7 @@ func loadModules(mods []string, logger *zap.Logger) error {
 	return nil
 }
 
-func start(ctx context.Context, opts Options, logger *zap.Logger) error {
+func start(ctx context.Context, opts Options, logger *zap.Logger, getTransport func(string, transport.Config) (transport.Interface, error)) error {
 	if err := loadModules(opts.Modules, logger); err != nil {
 		return err
 	}
@@ -48,21 +55,107 @@ func start(ctx context.Context, opts Options, logger *zap.Logger) error {
 	if opts.Once {
 		return nil
 	}
-	<-ctx.Done()
-	return ctx.Err()
+
+	g, ctx := errgroup.WithContext(ctx)
+
+	for _, uri := range opts.Listen {
+		u, err := url.Parse(uri)
+		if err != nil {
+			return fmt.Errorf("parse listen uri %q: %w", uri, err)
+		}
+		scheme := u.Scheme
+		addr := u.Host
+		switch scheme {
+		case "grpc":
+			g.Go(func() error {
+				ln, err := net.Listen("tcp", addr)
+				if err != nil {
+					return fmt.Errorf("grpc listen %q: %w", addr, err)
+				}
+				srv := grpc.NewServer()
+				serveErr := make(chan error, 1)
+				go func() { serveErr <- srv.Serve(ln) }()
+				select {
+				case err := <-serveErr:
+					if errors.Is(err, grpc.ErrServerStopped) || errors.Is(err, net.ErrClosed) {
+						return ctx.Err()
+					}
+					return fmt.Errorf("grpc serve: %w", err)
+				case <-ctx.Done():
+					srv.GracefulStop()
+					ln.Close()
+					err := <-serveErr
+					if errors.Is(err, grpc.ErrServerStopped) || errors.Is(err, net.ErrClosed) {
+						return ctx.Err()
+					}
+					if err != nil {
+						return fmt.Errorf("grpc serve: %w", err)
+					}
+					return ctx.Err()
+				}
+			})
+		default:
+			schemeCopy := scheme
+			addrCopy := addr
+			uriCopy := uri
+			g.Go(func() error {
+				tr, err := getTransport(schemeCopy, transport.Config{Logger: logger})
+				if err != nil {
+					return fmt.Errorf("get transport %q: %w", schemeCopy, err)
+				}
+				ln, err := tr.Listen(ctx, addrCopy)
+				if err != nil {
+					return fmt.Errorf("listen %q: %w", uriCopy, err)
+				}
+				defer ln.Close()
+				go func() {
+					<-ctx.Done()
+					ln.Close()
+				}()
+				for {
+					if _, err := ln.Accept(); err != nil {
+						select {
+						case <-ctx.Done():
+							return ctx.Err()
+						default:
+							return err
+						}
+					}
+				}
+			})
+		}
+	}
+
+	return g.Wait()
 }
 
 // Runner holds dependencies for lvmsyncd execution.
 type Runner struct {
-	Start func(ctx context.Context, opts Options, logger *zap.Logger) error
+	Start        func(ctx context.Context, opts Options, logger *zap.Logger, getTransport func(string, transport.Config) (transport.Interface, error)) error
+	GetTransport func(string, transport.Config) (transport.Interface, error)
 }
 
 // NewRunner returns a Runner with production dependencies.
-func NewRunner() *Runner { return &Runner{Start: start} }
+func NewRunner() *Runner {
+	return &Runner{
+		Start:        start,
+		GetTransport: transport.Get,
+	}
+}
 
-// NewRunnerWithDeps creates a Runner with custom start function for tests.
-func NewRunnerWithDeps(start func(ctx context.Context, opts Options, logger *zap.Logger) error) *Runner {
-	return &Runner{Start: start}
+// NewRunnerWithDeps creates a Runner with custom dependencies for tests.
+func NewRunnerWithDeps(
+	startFn func(ctx context.Context, opts Options, logger *zap.Logger, getTransport func(string, transport.Config) (transport.Interface, error)) error,
+	get func(string, transport.Config) (transport.Interface, error),
+) *Runner {
+	r := NewRunner()
+	if startFn != nil {
+		r.Start = startFn
+	}
+	if get != nil {
+		r.GetTransport = get
+	}
+	return r
 }
 
 type flagBinder interface {
@@ -138,7 +231,7 @@ func (r *Runner) NewCmd(logger *zap.Logger, v flagBinder) (*cobra.Command, error
 			if ctx == nil {
 				ctx = context.Background()
 			}
-			return r.Start(ctx, opts, logger)
+			return r.Start(ctx, opts, logger, r.GetTransport)
 		},
 	}
 	if err := bindFlagSets(cmd, v); err != nil {
