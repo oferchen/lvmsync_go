@@ -24,11 +24,10 @@ func TestPrepareSkipSnapshot(t *testing.T) {
 	cfg.VolumeGroup = "vg"
 	cfg.TargetVolumeGroup = "vg2"
 
-	restore := client.SetParseSnapshotSizeForTest(func(string, string, *lvm.FDCache, *zap.Logger) (uint64, error) { return 1, nil })
-	defer restore()
+	r := client.NewRunnerWithDeps(func(string, string, *lvm.FDCache, *zap.Logger) (uint64, error) { return 1, nil }, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 
 	logger := zap.NewNop()
-	snap, monitorCh, cleanup, err := client.PrepareSnapshot(context.Background(), cfg, "/dev/vg/orig", logger)
+	snap, monitorCh, cleanup, err := r.PrepareSnapshot(context.Background(), cfg, "/dev/vg/orig", logger)
 	if err != nil {
 		t.Fatalf("Prepare returned error: %v", err)
 	}
@@ -52,41 +51,35 @@ func TestPrepareSnapshotCreatesSnapshot(t *testing.T) {
 	cfg.SnapshotSize = "25%"
 
 	var parseArg string
-	restoreParse := client.SetParseSnapshotSizeForTest(func(s, _ string, _ *lvm.FDCache, _ *zap.Logger) (uint64, error) {
-		parseArg = s
-		return 1024, nil
-	})
-	defer restoreParse()
-
 	var created bool
-	restoreCreate := client.SetCreateSnapshotForTest(func(ctx context.Context, orig, name, size string, _ *zap.Logger) error {
-		created = true
-		if size != "1024" {
-			t.Fatalf("unexpected size: %s", size)
-		}
-		return nil
-	})
-	defer restoreCreate()
-
-	restorePath := client.SetGetSnapshotDevicePathForTest(func(name, vg string, _ *zap.Logger) string {
-		return "/dev/" + vg + "/" + name
-	})
-	defer restorePath()
-
-	restoreMonitor := client.SetMonitorSnapshotForTest(func(ctx context.Context, path string, threshold float64, interval time.Duration, _ *zap.Logger) error {
-		return nil
-	})
-	defer restoreMonitor()
-
 	var removedPath string
-	restoreRemove := client.SetRemoveSnapshotForTest(func(ctx context.Context, path string, _ *zap.Logger) error {
-		removedPath = path
-		return nil
-	})
-	defer restoreRemove()
+	r := client.NewRunnerWithDeps(
+		func(s, _ string, _ *lvm.FDCache, _ *zap.Logger) (uint64, error) {
+			parseArg = s
+			return 1024, nil
+		},
+		nil,
+		nil,
+		nil,
+		nil,
+		func(ctx context.Context, orig, name, size string, _ *zap.Logger) error {
+			created = true
+			if size != "1024" {
+				t.Fatalf("unexpected size: %s", size)
+			}
+			return nil
+		},
+		func(name, vg string, _ *zap.Logger) string { return "/dev/" + vg + "/" + name },
+		func(context.Context, string, float64, time.Duration, *zap.Logger) error { return nil },
+		func(ctx context.Context, path string, _ *zap.Logger) error {
+			removedPath = path
+			return nil
+		},
+		nil,
+	)
 
 	logger := zap.NewNop()
-	snap, monitorCh, cleanup, err := client.PrepareSnapshot(context.Background(), cfg, "/dev/vg/orig", logger)
+	snap, monitorCh, cleanup, err := r.PrepareSnapshot(context.Background(), cfg, "/dev/vg/orig", logger)
 	if err != nil {
 		t.Fatalf("PrepareSnapshot error: %v", err)
 	}
@@ -118,28 +111,26 @@ func TestCreateSnapshotCleanupNoPanic(t *testing.T) {
 	cfg.VolumeGroup = "vg"
 	cfg.TargetVolumeGroup = "vg2"
 
-	restoreParse := client.SetParseSnapshotSizeForTest(func(string, string, *lvm.FDCache, *zap.Logger) (uint64, error) { return 1024, nil })
-	defer restoreParse()
-
-	restoreCreate := client.SetCreateSnapshotForTest(func(context.Context, string, string, string, *zap.Logger) error { return nil })
-	defer restoreCreate()
-
-	restorePath := client.SetGetSnapshotDevicePathForTest(func(name, vg string, _ *zap.Logger) string { return "/dev/" + vg + "/" + name })
-	defer restorePath()
-
 	ready := make(chan struct{}, 1)
-	restoreMonitor := client.SetMonitorSnapshotForTest(func(ctx context.Context, path string, threshold float64, interval time.Duration, _ *zap.Logger) error {
-		ready <- struct{}{}
-		<-ctx.Done()
-		return errors.New("monitor error")
-	})
-	defer restoreMonitor()
-
-	restoreRemove := client.SetRemoveSnapshotForTest(func(context.Context, string, *zap.Logger) error { return nil })
-	defer restoreRemove()
+	r := client.NewRunnerWithDeps(
+		func(string, string, *lvm.FDCache, *zap.Logger) (uint64, error) { return 1024, nil },
+		nil,
+		nil,
+		nil,
+		nil,
+		func(context.Context, string, string, string, *zap.Logger) error { return nil },
+		func(name, vg string, _ *zap.Logger) string { return "/dev/" + vg + "/" + name },
+		func(ctx context.Context, path string, threshold float64, interval time.Duration, _ *zap.Logger) error {
+			ready <- struct{}{}
+			<-ctx.Done()
+			return errors.New("monitor error")
+		},
+		func(context.Context, string, *zap.Logger) error { return nil },
+		nil,
+	)
 
 	logger := zap.NewNop()
-	_, monitorCh, cleanup, err := client.PrepareSnapshot(context.Background(), cfg, "/dev/vg/orig", logger)
+	_, monitorCh, cleanup, err := r.PrepareSnapshot(context.Background(), cfg, "/dev/vg/orig", logger)
 	if err != nil {
 		t.Fatalf("PrepareSnapshot error: %v", err)
 	}

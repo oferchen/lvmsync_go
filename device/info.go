@@ -24,6 +24,7 @@ type DeviceInfoProvider interface {
 	GetDeviceID(ctx context.Context, path string) (string, error)
 	IDsMatch(ctx context.Context, src, dest string) (bool, error)
 	IsMountedRW(ctx context.Context, path string) (bool, error)
+	SizeBytes(ctx context.Context, path string) (uint64, error)
 }
 
 // Info implements DeviceInfoProvider using configurable helpers.
@@ -67,45 +68,12 @@ func NewInfoWithDeps(
 	return &Info{uuidFunc: uuid, lvmUUIDFunc: lvmUUID, mountFunc: mount, detectFunc: detect}
 }
 
-var (
-	defaultInfo = &Info{
-		uuidFunc:    defaultUUIDFunc,
-		lvmUUIDFunc: defaultLVMUUIDFunc,
-		mountFunc:   defaultMountFunc,
-	}
-	detectFunc = Detect
-)
-
-func init() { defaultInfo.detectFunc = Detect }
-
-// SetUUIDFunc allows tests to override the implementation used by the package
-// level helpers to lookup a device's UUID or serial. It returns the previous
-// function for restoration.
-func SetUUIDFunc(f func(context.Context, string) (string, error)) func(context.Context, string) (string, error) {
-	prev := defaultInfo.uuidFunc
-	defaultInfo.uuidFunc = f
-	return prev
-}
-
-// SetLVMUUIDFunc allows tests to override the implementation used to lookup an
-// LVM logical volume's UUID. It returns the previous function for restoration.
-func SetLVMUUIDFunc(f func(context.Context, string) (string, error)) func(context.Context, string) (string, error) {
-	prev := defaultInfo.lvmUUIDFunc
-	defaultInfo.lvmUUIDFunc = f
-	return prev
-}
-
 // SetMountFunc allows tests to override the mount status checker. It returns
 // the previous function for restoration.
 func (i *Info) SetMountFunc(f func(context.Context, string) (bool, error)) func(context.Context, string) (bool, error) {
 	prev := i.mountFunc
 	i.mountFunc = f
 	return prev
-}
-
-// SetMountFunc allows tests to override the mount status checker on the default provider.
-func SetMountFunc(f func(context.Context, string) (bool, error)) func(context.Context, string) (bool, error) {
-	return defaultInfo.SetMountFunc(f)
 }
 
 // SetDetectFunc allows tests to override the device detector. It returns the previous function for restoration.
@@ -115,13 +83,6 @@ func (i *Info) SetDetectFunc(
 	prev := i.detectFunc
 	i.detectFunc = f
 	return prev
-}
-
-// SetDetectFunc overrides the detector used by the default provider.
-func SetDetectFunc(
-	f func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger, *Runner) (Device, error),
-) func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger, *Runner) (Device, error) {
-	return defaultInfo.SetDetectFunc(f)
 }
 
 func (i *Info) GetUUID(ctx context.Context, path string) (string, error) {
@@ -261,27 +222,4 @@ func defaultMountFunc(ctx context.Context, path string) (bool, error) {
 		}
 	}
 	return false, nil
-}
-
-// Package-level helpers using the default provider.
-func GetUUID(ctx context.Context, path string) (string, error) {
-	return defaultInfo.GetUUID(ctx, path)
-}
-
-func GetDeviceID(ctx context.Context, path string) (string, error) {
-	return defaultInfo.GetDeviceID(ctx, path)
-}
-
-func IDsMatch(ctx context.Context, src, dest string) (bool, error) {
-	return defaultInfo.IDsMatch(ctx, src, dest)
-}
-
-func IsMountedRW(ctx context.Context, path string) (bool, error) {
-	return defaultInfo.IsMountedRW(ctx, path)
-}
-
-// SizeBytes returns the total size of the device at path in bytes.
-// If ctx has no deadline, a default timeout is applied.
-func SizeBytes(ctx context.Context, path string) (uint64, error) {
-	return defaultInfo.SizeBytes(ctx, path)
 }
