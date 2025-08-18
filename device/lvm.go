@@ -31,11 +31,10 @@ type LVMDevice struct {
 
 // OpenLVM opens an LVM logical volume and queries its size and block size.
 // Size information is obtained through the lvm package helpers.
-func (r *Runner) OpenLVM(path string, cache *lvm.FDCache, escalation string, logger *zap.Logger) (*LVMDevice, error) {
+func (r *Runner) OpenLVM(ctx context.Context, path string, cache *lvm.FDCache, escalation string, logger *zap.Logger) (*LVMDevice, error) {
 	if r.openLVMOverride != nil {
-		return r.openLVMOverride(path, cache, escalation, logger)
+		return r.openLVMOverride(ctx, path, cache, escalation, logger)
 	}
-	ctx := context.Background()
 	exists, err := r.volumeExists(ctx, path)
 	if err != nil {
 		return nil, err
@@ -152,7 +151,7 @@ func (d *LVMDevice) Snapshot(ctx context.Context, snapshotSize string) (Device, 
 	}
 	cache := lvm.NewDeviceFDCache(d.logger)
 	defer cache.Close()
-	snapDev, err := d.runner.OpenLVM(snapPath, cache, d.escalation, d.logger)
+	snapDev, err := d.runner.OpenLVM(ctx, snapPath, cache, d.escalation, d.logger)
 	if err != nil {
 		_ = d.runner.runLVM(ctx, d.escalation, "lvremove", "-f", snapPath)
 		return nil, err
