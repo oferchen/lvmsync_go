@@ -9,7 +9,6 @@ import (
 	"reflect"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -129,6 +128,7 @@ func TestStartContextCancelStopsListeners(t *testing.T) {
 	defer cancel()
 
 	var tl *trackingListener
+	started := make(chan struct{})
 	get := func(string, transport.Config) (transport.Interface, error) {
 		ft := fakeTransport{listen: func(ctx context.Context, addr string) (net.Listener, error) {
 			ln, err := net.Listen("tcp", addr)
@@ -136,6 +136,7 @@ func TestStartContextCancelStopsListeners(t *testing.T) {
 				return nil, err
 			}
 			tl = &trackingListener{Listener: ln}
+			close(started)
 			go func() {
 				<-ctx.Done()
 				tl.Close()
@@ -147,7 +148,7 @@ func TestStartContextCancelStopsListeners(t *testing.T) {
 
 	opts := Options{Listen: []string{"grpc://127.0.0.1:0", "fake://127.0.0.1:0"}}
 	go func() {
-		time.Sleep(100 * time.Millisecond)
+		<-started
 		cancel()
 	}()
 	err := start(ctx, opts, zap.NewNop(), get)
