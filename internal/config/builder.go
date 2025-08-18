@@ -57,7 +57,6 @@ func (b *ConfigBuilder) Build(fs *pflag.FlagSet, args []string) (*Config, []stri
 			resumeVerify = true
 			_ = f.Value.Set("")
 			f.Changed = false
-			os.Unsetenv("LVMSYNC_RESUME")
 		}
 	}
 	v, warns, err := buildViper(b.FlagSets)

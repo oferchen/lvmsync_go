@@ -34,7 +34,9 @@ func (b *builder) Build() (*Config, error) {
 
 	if b.resumeVerify {
 		conf.ResumeVerify = true
-		conf.ResumeState = defaultResumeState
+		if conf.ResumeState == "" {
+			conf.ResumeState = defaultResumeState
+		}
 	}
 
 	if err := b.applyDefaults(&conf); err != nil {
