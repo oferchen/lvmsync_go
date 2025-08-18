@@ -496,6 +496,11 @@ first):
 3. `config.yaml`
 4. Built-in defaults
 
+This precedence applies to duration timeouts, filesystem paths, and security
+flags. Unknown keys in `config.yaml` generate warnings, and settings like
+`allow_insecure` must be explicitly acknowledged via flag or environment
+variable.
+
 Environment variables use the flag name in uppercase with underscores, e.g.:
 
 ```sh
