@@ -13,6 +13,7 @@ import (
 
 	"lvmsync_go/device"
 	"lvmsync_go/internal/config"
+	"lvmsync_go/internal/privilege"
 	remotetest "lvmsync_go/remote/testutil"
 	"lvmsync_go/transfer"
 )
@@ -56,7 +57,7 @@ func TestRemotePostScriptRunsOnError(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	origDetect := detectDevice
-	detectDevice = func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger, *device.Runner) (device.Device, error) {
+	detectDevice = func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, privilege.Escalator, *zap.Logger, *device.Runner) (device.Device, error) {
 		return &fakeDevice{path: "/dev/snap"}, nil
 	}
 	defer func() { detectDevice = origDetect }()
@@ -110,7 +111,7 @@ func TestRemotePostScriptNotRunIfPreScriptFails(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	origDetect := detectDevice
-	detectDevice = func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger, *device.Runner) (device.Device, error) {
+	detectDevice = func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, privilege.Escalator, *zap.Logger, *device.Runner) (device.Device, error) {
 		return &fakeDevice{path: "/dev/snap"}, nil
 	}
 	defer func() { detectDevice = origDetect }()
@@ -169,7 +170,7 @@ func TestRemotePostScriptContextError(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	origDetect := detectDevice
-	detectDevice = func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, *zap.Logger, *device.Runner) (device.Device, error) {
+	detectDevice = func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, privilege.Escalator, *zap.Logger, *device.Runner) (device.Device, error) {
 		return &fakeDevice{path: "/dev/snap"}, nil
 	}
 	defer func() { detectDevice = origDetect }()
