@@ -32,6 +32,7 @@ type Config struct {
 	StdoutMode               bool          `mapstructure:"stdout"`
 	DryRun                   bool          `mapstructure:"dry_run"`
 	Force                    bool          `mapstructure:"force"`
+	AllowOverwrite           bool          `mapstructure:"allow_overwrite"`
 	Discard                  bool          `mapstructure:"discard"`
 	Offline                  bool          `mapstructure:"offline"`
 	FSFreezeCommand          string        `mapstructure:"fs-freeze-command"`
@@ -165,6 +166,7 @@ func DefaultConfig() (*Config, error) {
 		StdoutMode:               false,
 		DryRun:                   false,
 		Force:                    false,
+		AllowOverwrite:           false,
 		Offline:                  false,
 		FSFreezeCommand:          "",
 		FSThawCommand:            "",

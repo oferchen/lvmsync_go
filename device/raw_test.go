@@ -32,7 +32,9 @@ func TestOpenRawLogsInfoAndClose(t *testing.T) {
 	defer cleanup()
 	core, logs := observer.New(zap.InfoLevel)
 	logger := zap.New(core)
-	d, err := OpenRaw(context.Background(), loop, true, "", nil, "", nil, time.Second, time.Second, fakeEsc{}, logger, NewRunner())
+	ctx := WithForce(context.Background(), true)
+	ctx = WithAllowOverwrite(ctx, true)
+	d, err := OpenRaw(ctx, loop, true, "", nil, "", nil, time.Second, time.Second, fakeEsc{}, logger, NewRunner())
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
@@ -64,7 +66,9 @@ func TestRawDeviceCloseErrorLogging(t *testing.T) {
 	defer cleanup()
 	core, logs := observer.New(zap.InfoLevel)
 	logger := zap.New(core)
-	d, err := OpenRaw(context.Background(), loop, true, "", nil, "", nil, time.Second, time.Second, fakeEsc{}, logger, NewRunner())
+	ctx := WithForce(context.Background(), true)
+	ctx = WithAllowOverwrite(ctx, true)
+	d, err := OpenRaw(ctx, loop, true, "", nil, "", nil, time.Second, time.Second, fakeEsc{}, logger, NewRunner())
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
@@ -85,14 +89,18 @@ func TestOpenRawRejectsRegularFile(t *testing.T) {
 		t.Fatalf("temp file: %v", err)
 	}
 	f.Close()
-	if _, err := OpenRaw(context.Background(), f.Name(), true, "", nil, "", nil, 0, 0, fakeEsc{}, zap.NewNop(), NewRunner()); err == nil {
+	ctx := WithForce(context.Background(), true)
+	ctx = WithAllowOverwrite(ctx, true)
+	if _, err := OpenRaw(ctx, f.Name(), true, "", nil, "", nil, 0, 0, fakeEsc{}, zap.NewNop(), NewRunner()); err == nil {
 		t.Fatalf("expected error for regular file")
 	}
 }
 
 func TestOpenRawRejectsCharDevice(t *testing.T) {
 	if _, err := os.Stat("/dev/null"); err == nil {
-		if _, err := OpenRaw(context.Background(), "/dev/null", true, "", nil, "", nil, 0, 0, fakeEsc{}, zap.NewNop(), NewRunner()); err == nil {
+		ctx := WithForce(context.Background(), true)
+		ctx = WithAllowOverwrite(ctx, true)
+		if _, err := OpenRaw(ctx, "/dev/null", true, "", nil, "", nil, 0, 0, fakeEsc{}, zap.NewNop(), NewRunner()); err == nil {
 			t.Fatalf("expected error for char device")
 		}
 	} else if os.IsNotExist(err) {
@@ -107,7 +115,9 @@ func TestOpenRawRequiresOfflineOrFreeze(t *testing.T) {
 }
 
 func TestOpenRawEscalatorError(t *testing.T) {
-	if _, err := OpenRaw(context.Background(), "/dev/null", true, "", nil, "", nil, 0, 0, fakeEsc{err: errors.New("boom")}, zap.NewNop(), NewRunner()); err == nil || !strings.Contains(err.Error(), "boom") {
+	ctx := WithForce(context.Background(), true)
+	ctx = WithAllowOverwrite(ctx, true)
+	if _, err := OpenRaw(ctx, "/dev/null", true, "", nil, "", nil, 0, 0, fakeEsc{err: errors.New("boom")}, zap.NewNop(), NewRunner()); err == nil || !strings.Contains(err.Error(), "boom") {
 		t.Fatalf("expected escalator error, got %v", err)
 	}
 }
@@ -121,7 +131,9 @@ func TestOpenRawFreezeCommandFailure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("missing true binary: %v", err)
 	}
-	if _, err := OpenRaw(context.Background(), "/dev/null", false, falsePath, nil, truePath, nil, time.Second, time.Second, fakeEsc{}, zap.NewNop(), NewRunner()); err == nil {
+	ctx := WithForce(context.Background(), true)
+	ctx = WithAllowOverwrite(ctx, true)
+	if _, err := OpenRaw(ctx, "/dev/null", false, falsePath, nil, truePath, nil, time.Second, time.Second, fakeEsc{}, zap.NewNop(), NewRunner()); err == nil {
 		t.Fatalf("expected freeze command failure")
 	}
 }
@@ -135,7 +147,9 @@ func TestOpenRawThawsOnFailure(t *testing.T) {
 	}
 	freezeArgs := []string{freezeTmp}
 	thawArgs := []string{thawTmp}
-	if _, err := OpenRaw(context.Background(), "/dev/null", false, touchPath, freezeArgs, touchPath, thawArgs, time.Second, time.Second, fakeEsc{}, zap.NewNop(), NewRunner()); err == nil {
+	ctx := WithForce(context.Background(), true)
+	ctx = WithAllowOverwrite(ctx, true)
+	if _, err := OpenRaw(ctx, "/dev/null", false, touchPath, freezeArgs, touchPath, thawArgs, time.Second, time.Second, fakeEsc{}, zap.NewNop(), NewRunner()); err == nil {
 		t.Fatalf("expected error for char device")
 	}
 	if _, err := os.Stat(freezeTmp); err != nil {
@@ -181,7 +195,9 @@ func TestOpenRawFreezeTimeout(t *testing.T) {
 	if err != nil {
 		t.Fatalf("missing true binary: %v", err)
 	}
-	_, err = OpenRaw(context.Background(), "/dev/null", false, sleepPath, []string{"2"}, truePath, nil, 100*time.Millisecond, time.Second, fakeEsc{}, zap.NewNop(), NewRunner())
+	ctx := WithForce(context.Background(), true)
+	ctx = WithAllowOverwrite(ctx, true)
+	_, err = OpenRaw(ctx, "/dev/null", false, sleepPath, []string{"2"}, truePath, nil, 100*time.Millisecond, time.Second, fakeEsc{}, zap.NewNop(), NewRunner())
 	if err == nil || !strings.Contains(err.Error(), "signal: killed") {
 		t.Fatalf("expected freeze command to be killed, got %v", err)
 	}
@@ -213,7 +229,9 @@ func TestOpenRawStoresThawConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("missing touch binary: %v", err)
 	}
-	d, err := OpenRaw(context.Background(), loop, false, truePath, nil, touchPath, []string{thawTmp}, time.Second, time.Second, fakeEsc{}, zap.NewNop(), NewRunner())
+	ctx := WithForce(context.Background(), true)
+	ctx = WithAllowOverwrite(ctx, true)
+	d, err := OpenRaw(ctx, loop, false, truePath, nil, touchPath, []string{thawTmp}, time.Second, time.Second, fakeEsc{}, zap.NewNop(), NewRunner())
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
@@ -234,7 +252,9 @@ func TestOpenRawFreezeThawLogs(t *testing.T) {
 	logger := zap.New(core)
 	helper := helperCommand(t)
 	runner := NewDeviceRunner(cmdFunc(fakeExecCommandContext))
-	_, err := OpenRaw(context.Background(), "/dev/null", false, helper, []string{"freeze-success"}, helper, []string{"thaw-success"}, time.Second, time.Second, fakeEsc{}, logger, runner)
+	ctx := WithForce(context.Background(), true)
+	ctx = WithAllowOverwrite(ctx, true)
+	_, err := OpenRaw(ctx, "/dev/null", false, helper, []string{"freeze-success"}, helper, []string{"thaw-success"}, time.Second, time.Second, fakeEsc{}, logger, runner)
 	if err == nil {
 		t.Fatalf("expected error for char device")
 	}
@@ -251,7 +271,9 @@ func TestOpenRawFreezeTimeoutLogs(t *testing.T) {
 	logger := zap.New(core)
 	helper := helperCommand(t)
 	runner := NewDeviceRunner(cmdFunc(fakeExecCommandContext))
-	_, err := OpenRaw(context.Background(), "/dev/null", false, helper, []string{"freeze-timeout"}, helper, []string{"thaw-success"}, 50*time.Millisecond, time.Second, fakeEsc{}, logger, runner)
+	ctx := WithForce(context.Background(), true)
+	ctx = WithAllowOverwrite(ctx, true)
+	_, err := OpenRaw(ctx, "/dev/null", false, helper, []string{"freeze-timeout"}, helper, []string{"thaw-success"}, 50*time.Millisecond, time.Second, fakeEsc{}, logger, runner)
 	if err == nil || !strings.Contains(err.Error(), "signal: killed") {
 		t.Fatalf("expected freeze timeout, got %v", err)
 	}
@@ -271,7 +293,9 @@ func TestOpenRawThawFailure(t *testing.T) {
 	logger := zap.New(core)
 	helper := helperCommand(t)
 	runner := NewDeviceRunner(cmdFunc(fakeExecCommandContext))
-	_, err := OpenRaw(context.Background(), "/dev/null", false, helper, []string{"freeze-success"}, helper, []string{"thaw-fail"}, time.Second, time.Second, fakeEsc{}, logger, runner)
+	ctx := WithForce(context.Background(), true)
+	ctx = WithAllowOverwrite(ctx, true)
+	_, err := OpenRaw(ctx, "/dev/null", false, helper, []string{"freeze-success"}, helper, []string{"thaw-fail"}, time.Second, time.Second, fakeEsc{}, logger, runner)
 	if err == nil {
 		t.Fatalf("expected error for char device")
 	}
@@ -298,7 +322,9 @@ func TestOpenRawFreezeCommandFailureIncludesOutput(t *testing.T) {
 		t.Fatalf("missing true binary: %v", err)
 	}
 	runner := NewDeviceRunner(cmdFunc(fakeExecCommandContext))
-	if _, err := OpenRaw(context.Background(), "/dev/null", false, helper, []string{"freeze-fail-output"}, truePath, nil, time.Second, time.Second, fakeEsc{}, logger, runner); err == nil || !strings.Contains(err.Error(), "freeze output") {
+	ctx := WithForce(context.Background(), true)
+	ctx = WithAllowOverwrite(ctx, true)
+	if _, err := OpenRaw(ctx, "/dev/null", false, helper, []string{"freeze-fail-output"}, truePath, nil, time.Second, time.Second, fakeEsc{}, logger, runner); err == nil || !strings.Contains(err.Error(), "freeze output") {
 		t.Fatalf("expected freeze output in error, got %v", err)
 	}
 	entries := logs.FilterMessage("fs_freeze_failed").All()

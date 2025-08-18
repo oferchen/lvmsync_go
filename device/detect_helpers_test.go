@@ -120,7 +120,9 @@ func TestDetectRawDeviceSuccess(t *testing.T) {
 	defer func() { openRawFunc = orig }()
 	core, logs := observer.New(zap.InfoLevel)
 	logger := zap.New(core)
-	dev, err := detectRawDevice(context.Background(), "/dev/test", true, "", "", 0, 0, fakeEsc{}, logger, NewRunner())
+	ctx := WithForce(context.Background(), true)
+	ctx = WithAllowOverwrite(ctx, true)
+	dev, err := detectRawDevice(ctx, "/dev/test", true, "", "", 0, 0, fakeEsc{}, logger, NewRunner())
 	if err != nil {
 		t.Fatalf("detect: %v", err)
 	}
@@ -141,7 +143,9 @@ func TestDetectRawDeviceSuccess(t *testing.T) {
 }
 
 func TestDetectRawDeviceError(t *testing.T) {
-	if _, err := detectRawDevice(context.Background(), "/dev/null", true, "", "", 0, 0, fakeEsc{}, zap.NewNop(), NewRunner()); err == nil {
+	ctx := WithForce(context.Background(), true)
+	ctx = WithAllowOverwrite(ctx, true)
+	if _, err := detectRawDevice(ctx, "/dev/null", true, "", "", 0, 0, fakeEsc{}, zap.NewNop(), NewRunner()); err == nil {
 		t.Fatalf("expected error")
 	}
 }
@@ -156,7 +160,9 @@ func TestDetectRawDeviceFreezeParseError(t *testing.T) {
 	defer func() { openRawFunc = orig }()
 	core, logs := observer.New(zap.ErrorLevel)
 	logger := zap.New(core)
-	_, err := detectRawDevice(context.Background(), "/dev/test", true, "/bin/echo \"unterminated", "", 0, 0, fakeEsc{}, logger, NewRunner())
+	ctx := WithForce(context.Background(), true)
+	ctx = WithAllowOverwrite(ctx, true)
+	_, err := detectRawDevice(ctx, "/dev/test", true, "/bin/echo \"unterminated", "", 0, 0, fakeEsc{}, logger, NewRunner())
 	if err == nil || !strings.Contains(err.Error(), "invalid freeze command") {
 		t.Fatalf("expected freeze parse error, got %v", err)
 	}
@@ -182,7 +188,9 @@ func TestDetectRawDeviceThawParseError(t *testing.T) {
 	defer func() { openRawFunc = orig }()
 	core, logs := observer.New(zap.ErrorLevel)
 	logger := zap.New(core)
-	_, err := detectRawDevice(context.Background(), "/dev/test", true, "", "/bin/echo \"unterminated", 0, 0, fakeEsc{}, logger, NewRunner())
+	ctx := WithForce(context.Background(), true)
+	ctx = WithAllowOverwrite(ctx, true)
+	_, err := detectRawDevice(ctx, "/dev/test", true, "", "/bin/echo \"unterminated", 0, 0, fakeEsc{}, logger, NewRunner())
 	if err == nil || !strings.Contains(err.Error(), "invalid thaw command") {
 		t.Fatalf("expected thaw parse error, got %v", err)
 	}
