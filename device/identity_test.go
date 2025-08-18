@@ -68,7 +68,7 @@ func TestIdentityUUIDMismatch(t *testing.T) {
 			return "id1", nil
 		}
 		return "id2", nil
-	}, nil, nil, nil)
+	}, nil, nil, nil, nil)
 	prev := info.SetDetectFunc(func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, privilege.Escalator, *zap.Logger, *Runner) (Device, error) {
 		return &identityStub{size: 1}, nil
 	})

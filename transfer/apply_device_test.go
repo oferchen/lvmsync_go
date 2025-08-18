@@ -335,7 +335,7 @@ func TestVerifyDestinationDigestMismatch(t *testing.T) {
 	}
 	f.Close()
 	cfg := &config.Config{ManifestPath: man}
-	if err := tr.verifyDestination(context.Background(), cfg, dest); err == nil || !strings.Contains(err.Error(), "digest mismatch") {
+	if _, _, _, err := tr.verifyDestination(context.Background(), cfg, dest); err == nil || !strings.Contains(err.Error(), "digest mismatch") {
 		t.Fatalf("expected digest mismatch, got %v", err)
 	}
 }
