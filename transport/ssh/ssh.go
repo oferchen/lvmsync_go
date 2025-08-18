@@ -125,7 +125,10 @@ func New(ctx context.Context, cfg transport.Config) (transport.Interface, error)
 		if sock := os.Getenv("SSH_AUTH_SOCK"); sock != "" {
 			agentCtx, cancel := context.WithTimeout(ctx, defaultDialTimeout)
 			defer cancel()
-			if signers, err := agentSigners(agentCtx, sock); err == nil && len(signers) > 0 {
+			signers, err := agentSigners(agentCtx, sock)
+			if err != nil {
+				cfg.Logger.Warn("ssh_agent_unreachable", zap.String("transport", "ssh"), zap.Error(err))
+			} else if len(signers) > 0 {
 				auths = append(auths, ssh.PublicKeys(signers...))
 			}
 		}
