@@ -70,6 +70,7 @@ func (b *ConfigBuilder) Build(fs *pflag.FlagSet, args []string) (*Config, []stri
 	}
 	if resumeVerify {
 		cfg.ResumeVerify = true
+		cfg.ResumeState = defaultResumeState
 	}
 	if cfg.AllowInsecure {
 		_, envSet := os.LookupEnv("LVMSYNC_ALLOW_INSECURE")
