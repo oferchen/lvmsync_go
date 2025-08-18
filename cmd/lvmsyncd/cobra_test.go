@@ -3,21 +3,27 @@ package main
 import (
 	"context"
 	"errors"
+	"net"
 	"reflect"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
+
+	"lvmsync_go/common"
+	"lvmsync_go/transport"
 )
 
 func TestFlagParsing(t *testing.T) {
 	logger := zap.NewNop()
 	var got Options
-	r := NewRunnerWithDeps(func(ctx context.Context, opts Options, _ *zap.Logger) error {
+	r := NewRunnerWithDeps(func(ctx context.Context, opts Options, _ *zap.Logger, _ func(string, transport.Config) (transport.Interface, error)) error {
 		got = opts
 		return nil
-	})
+	}, nil)
 	args := []string{
 		"--listen", "tcp://:8080",
 		"--listen", "unix:///tmp/sock",
@@ -51,5 +57,89 @@ func TestNewCmdBindError(t *testing.T) {
 	r := NewRunner()
 	if _, err := r.NewCmd(zap.NewNop(), &bindErrViper{Viper: viper.New()}); err == nil || err.Error() != "bind fail" {
 		t.Fatalf("expected bind fail, got %v", err)
+	}
+}
+
+type trackingListener struct {
+	net.Listener
+	mu     sync.Mutex
+	closed bool
+}
+
+func (l *trackingListener) Close() error {
+	l.mu.Lock()
+	l.closed = true
+	l.mu.Unlock()
+	return l.Listener.Close()
+}
+
+func (l *trackingListener) Closed() bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.closed
+}
+
+type fakeTransport struct {
+	listen func(context.Context, string) (net.Listener, error)
+}
+
+func (f fakeTransport) Name() string                                   { return "fake" }
+func (f fakeTransport) Dial(context.Context, string) (net.Conn, error) { return nil, nil }
+func (f fakeTransport) Listen(ctx context.Context, addr string) (net.Listener, error) {
+	if f.listen != nil {
+		return f.listen(ctx, addr)
+	}
+	return nil, nil
+}
+func (f fakeTransport) Negotiate(ctx context.Context, conn net.Conn, role transport.Role, hs common.Handshake) (common.Handshake, error) {
+	return hs, nil
+}
+
+func TestStartContextCancelStopsListeners(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var tl *trackingListener
+	get := func(string, transport.Config) (transport.Interface, error) {
+		ft := fakeTransport{listen: func(ctx context.Context, addr string) (net.Listener, error) {
+			ln, err := net.Listen("tcp", addr)
+			if err != nil {
+				return nil, err
+			}
+			tl = &trackingListener{Listener: ln}
+			go func() {
+				<-ctx.Done()
+				tl.Close()
+			}()
+			return tl, nil
+		}}
+		return ft, nil
+	}
+
+	opts := Options{Listen: []string{"grpc://127.0.0.1:0", "fake://127.0.0.1:0"}}
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		cancel()
+	}()
+	err := start(ctx, opts, zap.NewNop(), get)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context canceled, got %v", err)
+	}
+	if tl == nil || !tl.Closed() {
+		t.Fatalf("listener not closed")
+	}
+}
+
+func TestStartTransportError(t *testing.T) {
+	get := func(string, transport.Config) (transport.Interface, error) {
+		ft := fakeTransport{listen: func(context.Context, string) (net.Listener, error) {
+			return nil, errors.New("listen fail")
+		}}
+		return ft, nil
+	}
+	opts := Options{Listen: []string{"fake://127.0.0.1:0"}}
+	err := start(context.Background(), opts, zap.NewNop(), get)
+	if err == nil || err.Error() != "listen \"fake://127.0.0.1:0\": listen fail" {
+		t.Fatalf("expected listen error, got %v", err)
 	}
 }
