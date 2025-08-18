@@ -306,6 +306,10 @@ func (t *Transfer) verifyDestination(ctx context.Context, cfg *config.Config, de
 				if err != nil {
 					return 0, "", 0, fmt.Errorf("read destination size: %w", err)
 				}
+				chk := readResumeState(cfg, t.Logger, size, id, 0, [32]byte{})
+				if chk == (resumeCheckpoint{}) {
+					return 0, "", 0, fmt.Errorf("resume state does not match destination metadata")
+				}
 			}
 			if cfg.DeviceUUID != "" && id != cfg.DeviceUUID {
 				t.Logger.Error("device_id_mismatch", zap.String("expected_resource_id", cfg.DeviceUUID), zap.String("resource_id", id))
