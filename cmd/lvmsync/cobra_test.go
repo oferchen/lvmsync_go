@@ -31,7 +31,7 @@ func TestRunCommandExecutes(t *testing.T) {
 	r := NewRunnerWithDeps(func(src, dst string, opts RunOptions, logger *zap.Logger) error {
 		gotSrc, gotDst, gotOpts = src, dst, opts
 		return nil
-	}, nil, nil, nil)
+	}, nil, nil)
 	if err := ExecuteWithRunner([]string{"run", "src", "dst"}, zap.NewNop(), r); err != nil {
 		t.Fatalf("execute run: %v", err)
 	}
@@ -55,7 +55,7 @@ func TestRunCommandDryRun(t *testing.T) {
 	r := NewRunnerWithDeps(func(src, dst string, opts RunOptions, logger *zap.Logger) error {
 		called = true
 		return nil
-	}, nil, nil, nil)
+	}, nil, nil)
 	if err := ExecuteWithRunner([]string{"run", "--dry-run", src, "dst"}, zap.NewNop(), r); err != nil {
 		t.Fatalf("execute run dry-run: %v", err)
 	}
@@ -74,7 +74,7 @@ func TestRunCommandDryRunEnv(t *testing.T) {
 	r := NewRunnerWithDeps(func(src, dst string, o RunOptions, logger *zap.Logger) error {
 		called = true
 		return nil
-	}, nil, nil, nil)
+	}, nil, nil)
 	if err := ExecuteWithRunner([]string{"run", src, "dst"}, zap.NewNop(), r); err != nil {
 		t.Fatalf("execute run with env: %v", err)
 	}
@@ -88,7 +88,7 @@ func TestRunCommandInvalidConfig(t *testing.T) {
 	r := NewRunnerWithDeps(func(src, dst string, opts RunOptions, logger *zap.Logger) error {
 		called = true
 		return nil
-	}, nil, nil, nil)
+	}, nil, nil)
 	if err := ExecuteWithRunner([]string{"run", "--cdc-min=65536", "--cdc-avg=1024", "src", "dst"}, zap.NewNop(), r); err == nil {
 		t.Fatalf("expected error for invalid config")
 	}
@@ -103,7 +103,7 @@ func TestManifestRebuildRoutes(t *testing.T) {
 	r := NewRunnerWithDeps(nil, func(device string, d bool, logger *zap.Logger) error {
 		gotDevice, dry = device, d
 		return nil
-	}, nil, nil)
+	}, nil)
 	if err := ExecuteWithRunner([]string{"manifest", "rebuild", "--dry-run", "/dev/vg0"}, zap.NewNop(), r); err != nil {
 		t.Fatalf("execute rebuild: %v", err)
 	}
@@ -120,7 +120,7 @@ func TestManifestRebuildInvalidConfig(t *testing.T) {
 	r := NewRunnerWithDeps(nil, func(device string, dryRun bool, logger *zap.Logger) error {
 		called = true
 		return nil
-	}, nil, nil)
+	}, nil)
 	if err := ExecuteWithRunner([]string{"manifest", "rebuild", "--ssh-keepalive=0s", "/dev/vg0"}, zap.NewNop(), r); err == nil {
 		t.Fatalf("expected error for invalid config")
 	}
@@ -134,7 +134,7 @@ func TestVerifyRoutes(t *testing.T) {
 	r := NewRunnerWithDeps(nil, nil, func(a []string, logger *zap.Logger) error {
 		got = append([]string{}, a...)
 		return nil
-	}, nil)
+	})
 	if err := ExecuteWithRunner([]string{"verify", "a", "b"}, zap.NewNop(), r); err != nil {
 		t.Fatalf("execute verify: %v", err)
 	}
@@ -149,7 +149,7 @@ func TestExecuteSyncsLogger(t *testing.T) {
 	if err := os.WriteFile(src, []byte("data"), 0o600); err != nil {
 		t.Fatalf("write src: %v", err)
 	}
-	r := NewRunnerWithDeps(func(src, dst string, opts RunOptions, logger *zap.Logger) error { return nil }, nil, nil, nil)
+	r := NewRunnerWithDeps(func(src, dst string, opts RunOptions, logger *zap.Logger) error { return nil }, nil, nil)
 	var syncs int
 	core, _ := observer.New(zap.InfoLevel)
 	logger := zap.New(syncTrackerCore{Core: core, syncs: &syncs})

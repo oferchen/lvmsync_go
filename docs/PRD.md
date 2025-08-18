@@ -14,8 +14,10 @@ LVMSync runs on Linux only and is validated on the `amd64` and `arm64` architect
 - Resume and deduplicate transfers to minimize bandwidth usage.
 - Easy to operate locally or over SSH with configurable options.
 
-## lvmsyncd Architecture
+## lvmsyncd Daemon and Logging
 
+The `lvmsyncd` daemon exposes an rsyncd-style interface with module-to-device mappings. It listens on `:8730` via TLS/TCP by default and can optionally enable QUIC or HTTP/2 front-ends. Activation via `--stdio` or `--inetd` is supported for single-connection or socket-activated deployments. All logging for this daemon must use the structured `zap` logger.
+## lvmsyncd Architecture
 The `lvmsyncd` daemon loads modules and listens on URIs specified by `--listen`.
 Each scheme selects a transport and configuration is sourced from flags,
 `LVMSYNC_DAEMON_*` environment variables, or a `lvmsyncd.yaml` file. The flag
@@ -58,6 +60,20 @@ surface remains minimal and all logging uses the structured `zap` logger.
 5. **Extended Documentation**
    - Document package architecture and developer guidelines.
    - Explain how to run tests and CI locally.
+
+6. **Implement lvmsyncd Daemon**
+   - Build the `lvmsyncd` daemon with a minimal flag surface.
+   - Enforce `zap` for structured logging.
+
+7. **Audit Flag Surface**
+   - Review existing CLI flags for redundancy and simplification.
+   - Keep documentation and configuration options consistent.
+
+8. **Update lvmsyncd Documentation**
+   - Document `lvmsyncd` usage in `README` and configuration examples.
+
+9. **Add lvmsyncd Tests**
+   - Provide unit tests covering daemon behavior and flag parsing.
 
 6. **Document lvmsyncd Architecture**
    - Describe module loading, listen URIs, and configuration precedence.
