@@ -153,6 +153,9 @@ Example:
 LVMSYNC_DAEMON_LISTEN=unix:///run/lvmsyncd.sock,tcp://:9000 lvmsyncd --module ./mod.so
 ```
 
+See [daemon documentation](docs/daemon.md) for module configuration, ACLs, and
+listener options.
+
 ## Resume and Verify Workflows
 
 Resume interrupted transfers with a state file:
