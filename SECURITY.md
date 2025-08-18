@@ -6,6 +6,13 @@ LVMSync splits privileged and unprivileged responsibilities. The main controller
 
 The controller orchestrates replication, validates parameters, and interacts with remote peers. Operations that require root — such as managing LVM volumes, opening raw block devices or issuing discard commands — are executed through a privileged helper invoked via `sudo` or Linux capabilities. The helper performs only the requested action and exits immediately, minimising the trusted code surface.
 
+## Probe and verify modes
+
+Read-only operations can run without elevated privileges.  
+`--probe-only` checks device metadata, validates privileges, and emits dry-run estimates.  
+`--verify-only` reads source and destination devices and reports mismatches.  
+Both commands exit `0` on success, return `60` for verification failures, and `10` when required capabilities are missing.
+
 ## Example sudoers configuration
 
 Tight `sudoers` rules limit what the helper may execute:
