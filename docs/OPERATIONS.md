@@ -18,19 +18,10 @@ lvmsync run --resume=statefile /dev/vg0/snap0 /dev/vg0/target
 ```
 
 1. Load the resume state and validate settings.
-2. Copy remaining blocks, persisting checkpoints.
-3. Delete the state file when the transfer finishes.
-4. If the command fails, rerun with the same `--resume` file after fixing the issue.
-
-### `--resume=verify`
-
-```sh
-lvmsync run --resume=verify /dev/vg0/snap0 /dev/vg0/target
-```
-
-1. Resume the transfer using the existing state.
-2. After the copy completes, `lvmsync verify` checks the destination against the source or manifest.
-3. A verification failure keeps the resume file for another attempt.
+2. Validate previously written blocks against the manifest before applying new data unless `--verify=none`.
+3. Copy remaining blocks, persisting checkpoints.
+4. Delete the state file when the transfer finishes.
+5. If the command fails, rerun with the same `--resume` file after fixing the issue.
 
 ### `--verify-only`
 

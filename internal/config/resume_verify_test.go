@@ -42,7 +42,7 @@ func TestResumeFlagVerify(t *testing.T) {
 	if !cfg.ResumeVerify {
 		t.Fatalf("ResumeVerify=%v want true", cfg.ResumeVerify)
 	}
-	if cfg.ResumeState != defaultResumeState {
-		t.Fatalf("ResumeState=%q want %q", cfg.ResumeState, defaultResumeState)
+	if cfg.ResumeState != "statefile" {
+		t.Fatalf("ResumeState=%q want %q", cfg.ResumeState, "statefile")
 	}
 }
