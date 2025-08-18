@@ -8,7 +8,7 @@ The controller orchestrates replication, validates parameters, and interacts wit
 
 ## Example sudoers configuration
 
-Tight `sudoers` rules limit what the helper may execute:
+Tight `sudoers` rules limit what the helper may execute. See [docs/sudoers.md](docs/sudoers.md) for command-specific entries:
 
 ```sudoers
 # Allow LVM administration commands

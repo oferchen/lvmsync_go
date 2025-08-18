@@ -4,7 +4,7 @@
 
 LVMSync is a high-performance incremental data replication tool for LVM snapshots. It efficiently transfers only changed blocks using metadata from snapshot COW (Copy-On-Write) devices and communicates with LVM through native Go bindings rather than shell commands.
 
-For details on running with minimal privileges and sudoers examples, see [SECURITY.md](SECURITY.md).
+For details on running with minimal privileges and sudoers examples, see [SECURITY.md](SECURITY.md) and [docs/sudoers.md](docs/sudoers.md).
 
 ## Features
 
