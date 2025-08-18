@@ -63,7 +63,7 @@ func (b *ConfigBuilder) Build(fs *pflag.FlagSet, args []string) (*Config, []stri
 	if err != nil {
 		return nil, nil, warns, err
 	}
-	vb := &builder{v: v, defaults: b.defaults, resumeVerify: resumeVerify}
+	vb := &builder{v: v, defaults: b.defaults}
 	cfg, err := vb.Build()
 	if err != nil {
 		return nil, nil, warns, err

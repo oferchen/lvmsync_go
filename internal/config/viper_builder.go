@@ -20,9 +20,8 @@ import (
 )
 
 type builder struct {
-	v            *viper.Viper
-	defaults     *Config
-	resumeVerify bool
+	v        *viper.Viper
+	defaults *Config
 }
 
 func (b *builder) Build() (*Config, error) {
