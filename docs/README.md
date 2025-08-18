@@ -5,6 +5,7 @@
 - [Transports](transports.md) – transport negotiation and options.
 - [LVM Snapshots](lvm.md) – snapshot creation, extension, discard, and mount checks.
 - [Verification](verify.md) – command usage for integrity checks.
+- [Operations](OPERATIONS.md) – snapshot flow, resume and verify sequences, and exit codes.
 - [Privilege Escalation](privilege_escalation.md) – configuring LVM privilege escalation.
 - [Daemon](daemon.md) – module configuration, ACLs, and listener options.
 - Configuration precedence – flags override environment variables, which in

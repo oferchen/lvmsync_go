@@ -40,6 +40,8 @@ For details on running with minimal privileges and sudoers examples, see [SECURI
 - **Flexible Configuration**: Flags, environment variables, or `config.yaml`. See [Configuration](#configuration).
 - **Configuration Validation**: Checks key parameters (e.g., volume group existence, escalation command) before starting operations.
 
+For snapshot workflow, resume modes, verification-only runs, and recovery guidance, see [operations guide](docs/OPERATIONS.md).
+
 ## Supported Platforms
 
 LVMSync supports Linux only. A runtime check in [`main.go`](main.go) aborts
