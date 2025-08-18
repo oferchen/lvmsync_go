@@ -4,6 +4,14 @@ This guide outlines exit codes, resume workflows, and common troubleshooting ste
 
 ## Resume and Verification Sequences
 
+### `--probe-only`
+
+```sh
+lvmsync run --probe-only /dev/vg0/snap0 /dev/vg0/target
+```
+
+Validates device identities and privileges and logs dry-run estimates without writing data.
+
 ### `--resume`
 
 ```sh
@@ -33,6 +41,28 @@ lvmsync run --verify-only /dev/vg0/snap0 /dev/vg0/target
 ```
 
 Reads both devices and reports mismatches without writing data.
+
+## Safe Overwrite Procedure
+
+1. Probe devices and ensure privileges are correct:
+
+   ```sh
+   lvmsync run --probe-only /dev/vg0/snap0 /dev/vg0/target
+   ```
+
+2. Verify existing blocks:
+
+   ```sh
+   lvmsync run --verify-only /dev/vg0/snap0 /dev/vg0/target
+   ```
+
+3. Perform the copy, optionally resuming with verification:
+
+   ```sh
+   lvmsync run --resume=verify /dev/vg0/snap0 /dev/vg0/target
+   ```
+
+Exit code `60` indicates a verification mismatch and leaves the destination untouched.
 
 ## Exit Codes and Recovery
 

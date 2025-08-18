@@ -34,8 +34,11 @@ func TestEstimateTransferSuccess(t *testing.T) {
 	if size := ctx["size_bytes"]; size != int64(4) {
 		t.Fatalf("unexpected size %v", size)
 	}
-	if eta, ok := ctx["eta_seconds"].(float64); !ok || eta != 2 {
-		t.Fatalf("unexpected eta_seconds %v", ctx["eta_seconds"])
+	if dur := ctx["estimated_duration_ms"]; dur != int64(2000) {
+		t.Fatalf("unexpected duration %v", dur)
+	}
+	if bw := ctx["estimated_bandwidth_bps"]; bw != int64(16) {
+		t.Fatalf("unexpected bandwidth %v", bw)
 	}
 }
 

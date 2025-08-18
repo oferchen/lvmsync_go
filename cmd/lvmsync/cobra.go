@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -17,6 +16,7 @@ import (
 	verifycmd "lvmsync_go/cmd/verify"
 	"lvmsync_go/internal/config"
 	"lvmsync_go/manifest"
+	"lvmsync_go/transfer"
 )
 
 // RunOptions collects flags for the run command.
@@ -247,11 +247,13 @@ func estimateTransfer(src string, cfg *config.Config, logger *zap.Logger) error 
 	size := info.Size()
 	// No manifest provided; estimate full size.
 	if cfg.ManifestPath == "" {
-		var eta time.Duration
-		if cfg.SpeedLimit > 0 {
-			eta = time.Duration(size/int64(cfg.SpeedLimit)) * time.Second
-		}
-		logger.Info("dry run", zap.Int64("size_bytes", size), zap.Int64("estimated_tx_bytes", size), zap.Float64("eta_seconds", eta.Seconds()))
+		durMs, bwBps := transfer.Estimate(size, cfg.SpeedLimit)
+		logger.Info("dry run",
+			zap.Int64("size_bytes", size),
+			zap.Int64("estimated_tx_bytes", size),
+			zap.Int64("estimated_duration_ms", durMs),
+			zap.Int64("estimated_bandwidth_bps", bwBps),
+		)
 		return nil
 	}
 
@@ -308,15 +310,13 @@ func estimateTransfer(src string, cfg *config.Config, logger *zap.Logger) error 
 		ratio /= float64(samples)
 	}
 	est := int64(ratio * float64(size))
-	var eta time.Duration
-	if cfg.SpeedLimit > 0 {
-		eta = time.Duration(est/int64(cfg.SpeedLimit)) * time.Second
-	}
+	durMs, bwBps := transfer.Estimate(est, cfg.SpeedLimit)
 	logger.Info(
 		"dry run",
 		zap.Int64("size_bytes", size),
 		zap.Int64("estimated_tx_bytes", est),
-		zap.Float64("eta_seconds", eta.Seconds()),
+		zap.Int64("estimated_duration_ms", durMs),
+		zap.Int64("estimated_bandwidth_bps", bwBps),
 	)
 	return nil
 }
