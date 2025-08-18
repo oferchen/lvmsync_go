@@ -24,6 +24,10 @@ Common options:
 - `--transport` set per test case
 - `--compress` set per test case
 
+## Running Benchmarks
+
+Benchmarks are executed with helper scripts that wrap the `lvmsync run` command and collect timing data.
+
 ### LAN Flags
 
 LAN tests run on a single switch with <1 ms latency.
@@ -77,11 +81,12 @@ make bench-wan SRC=/dev/vg0/snap0 DEST=user@wan:/dev/vg0/vol0 IFACE=eth0
 | ssh       | zstd        | 3.9  | 50 |
 
 ## Reproducing
+Benchmark runs are reproducible when the dataset, hardware, and commit hash are recorded.
 
-Helper scripts iterate through transport and compression combinations:
-
-- `scripts/bench_lan.sh`
-- `scripts/bench_wan.sh`
-
-These scripts output elapsed time and CPU percentage for each run using
-`/usr/bin/time`. Adjust source and destination paths as needed.
+1. Build the binary: `go build ./...`.
+2. Capture the commit: `git rev-parse HEAD`.
+3. Use the helper scripts to iterate through transport and compression combinations:
+   - `scripts/bench_lan.sh`
+   - `scripts/bench_wan.sh`
+4. Each script prints throughput and CPU usage via `/usr/bin/time -f '%e %P'`.
+5. Save the script output together with the commit hash for comparison across runs.
