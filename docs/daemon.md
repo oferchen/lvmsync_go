@@ -35,8 +35,9 @@ special listeners:
 - `--inetd` – inherit an already‑bound socket from the parent process.
 
 Transport security uses TLS by default.  Provide certificate paths with
-`--tls-cert`, `--tls-key`, and `--ca-cert`.  Insecure mode can be enabled with
-`--allow-insecure`, but it should only be used for local development.
+`--server-cert`, `--server-key`, `--client-cert`, `--client-key`, and
+`--ca-cert`.  Insecure mode can be enabled with `--allow-insecure`, but it
+should only be used for local development.
 
 Example listeners:
 

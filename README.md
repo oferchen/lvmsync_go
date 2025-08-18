@@ -96,7 +96,7 @@ Force SSH only:
 lvmsync run --transport ssh user@backup:/dev/vg1/target /dev/vg0/source
 ```
 
-The CLI groups transport flags using [`pflag`](https://github.com/spf13/pflag) and binds them to [`viper`](https://github.com/spf13/viper) while emitting structured logs via [`zap`](https://github.com/uber-go/zap). All flags use **kebab-case** (e.g., `--tls-cert`, `--allow-insecure`) for consistency across commands:
+The CLI groups transport flags using [`pflag`](https://github.com/spf13/pflag) and binds them to [`viper`](https://github.com/spf13/viper) while emitting structured logs via [`zap`](https://github.com/uber-go/zap). All flags use **kebab-case** (e.g., `--client-cert`, `--allow-insecure`) for consistency across commands:
 
 ```go
 import (
@@ -127,9 +127,10 @@ Transfers rely on a manifest that tracks chunk offsets and digests:
 3. `lvmsync verify <source> <destination>` compares the destination with the manifest and logs any mismatches.
 
 
-authentication. Provide certificate files with `--tls-cert`, `--tls-key`, and
-`--ca-cert`. Insecure mode can be enabled with `--allow-insecure`, but it is
-disabled by default and should only be used for testing.
+authentication. Provide certificate files with `--server-cert`, `--server-key`,
+`--client-cert`, `--client-key`, and `--ca-cert`. Insecure mode can be enabled
+with `--allow-insecure`, but it is disabled by default and should only be used
+for testing.
 
 Configuration can be supplied via flags, environment variables prefixed with
 variables, which override configuration files.
@@ -619,8 +620,8 @@ Flags override environment variables, which override `config.yaml` values.
 | `--tcp-port` | `LVMSYNC_TRANSPORT_TCP_PORT` | `tcp_port` | TCP+TLS port |
 | `--tcp-parallel` | `LVMSYNC_TRANSPORT_TCP_PARALLEL` | `tcp_parallel` | Number of parallel TCP connections |
 | `--tcp-lowat` | `LVMSYNC_TRANSPORT_TCP_LOWAT` | `tcp_lowat` | TCP_NOTSENT_LOWAT in bytes |
-| `--tls-cert` | `LVMSYNC_TLS_CERT` | `tls_cert` | TLS certificate file |
-| `--tls-key` | `LVMSYNC_TLS_KEY` | `tls_key` | TLS key file |
+| `--client-cert` | `LVMSYNC_CLIENT_CERT` | `client_cert` | Client TLS certificate file |
+| `--client-key` | `LVMSYNC_CLIENT_KEY` | `client_key` | Client TLS key file |
 | `--ca-cert` | `LVMSYNC_CA_CERT` | `ca_cert` | CA certificate file |
 | `--allow-insecure` | `LVMSYNC_ALLOW_INSECURE` | `allow_insecure` | Allow insecure (no TLS) |
 
@@ -659,7 +660,7 @@ scheme selects a transport and optional parameters configure authentication.
 Start a TLS/TCP listener:
 
 ```sh
-lvmsyncd --listen tcp+tls://:9443 --tls-cert cert.pem --tls-key key.pem --ca-cert ca.pem
+lvmsyncd --listen tcp+tls://:9443 --server-cert server.pem --server-key server.key --client-cert client.pem --client-key client.key --ca-cert ca.pem
 ```
 
 Activate an SSH listener:
@@ -717,7 +718,7 @@ Transport selection is controlled by the `--transport` flag, which accepts a com
 transports to attempt (for example `quic,h2,tcp+tls,ssh`). The `quic` transport runs over TLS 1.3 with mutual
 authentication, negotiates the `lvmsync` ALPN, and exposes both bidirectional streams and datagrams. The `h2`
 transport also requires TLS 1.3 with client certificates and negotiates the `h2` ALPN. Provide certificates via
-`--tls-cert`, `--tls-key`, and `--ca-cert`. TLS transports require a trusted CA certificate and refuse
+`--server-cert`, `--server-key`, `--client-cert`, `--client-key`, and `--ca-cert`. TLS transports require a trusted CA certificate and refuse
 connections when no roots are provided unless insecure mode is explicitly acknowledged with the `--allow-insecure`
 flag or the `LVMSYNC_ALLOW_INSECURE` environment variable. This bypasses certificate verification and is intended
 for development only; configuration files alone cannot enable it. Client certificates must be supplied explicitly;
@@ -736,8 +737,8 @@ configure transport behavior.
 | `--tcp-lowat` | `LVMSYNC_TRANSPORT_TCP_LOWAT` | TCP_NOTSENT_LOWAT in bytes |
 | `--ssh-port` | `LVMSYNC_SSH_PORT` | SSH port |
 | `--ssh-port` | `LVMSYNC_SSH_PORT` | SSH port | ❌ |
-| `--tls-cert` | `LVMSYNC_TLS_CERT` | TLS certificate file | ✅ |
-| `--tls-key` | `LVMSYNC_TLS_KEY` | TLS key file | ✅ |
+| `--client-cert` | `LVMSYNC_CLIENT_CERT` | Client TLS certificate file | ✅ |
+| `--client-key` | `LVMSYNC_CLIENT_KEY` | Client TLS key file | ✅ |
 | `--ca-cert` | `LVMSYNC_CA_CERT` | CA certificate file | ✅ |
 | `--tcp-parallel` | `LVMSYNC_TCP_PARALLEL` | Number of parallel TCP connections | n/a |
 | `--tcp-lowat` | `LVMSYNC_TCP_LOWAT` | TCP_NOTSENT_LOWAT in bytes | n/a |
@@ -755,9 +756,9 @@ lvmsync run --transport quic,h2,tcp+tls,ssh --tcp-port 9443 /dev/vg0/snap0 /mnt/
 0-RTT data is disabled by default.
 
 ```sh
-lvmsync run --transport quic --tls-cert cert.pem --tls-key key.pem --ca-cert ca.pem
+lvmsync run --transport quic --client-cert cert.pem --client-key key.pem --ca-cert ca.pem
 # or
-LVMSYNC_TRANSPORT_TRANSPORT=quic LVMSYNC_TLS_CERT=cert.pem LVMSYNC_TLS_KEY=key.pem LVMSYNC_CA_CERT=ca.pem lvmsync run
+LVMSYNC_TRANSPORT_TRANSPORT=quic LVMSYNC_CLIENT_CERT=cert.pem LVMSYNC_CLIENT_KEY=key.pem LVMSYNC_CA_CERT=ca.pem lvmsync run
 ```
 
 **TCP+TLS**
@@ -771,7 +772,7 @@ LVMSYNC_TRANSPORT_TRANSPORT=tcp+tls LVMSYNC_TRANSPORT_TCP_PORT=9443 lvmsync run
 **HTTP/2**
 
 ```sh
-lvmsync run --transport h2 --h2-port 9443 --tls-cert cert.pem --tls-key key.pem --ca-cert ca.pem
+lvmsync run --transport h2 --h2-port 9443 --client-cert cert.pem --client-key key.pem --ca-cert ca.pem
 ```
 
 **SSH**
@@ -1122,8 +1123,8 @@ The client aborts dialing if a connection cannot be established within
 | `--keepalive-time` | Interval between server pings | `2m` |
 | `--keepalive-timeout` | Timeout waiting for keepalive ack | `20s` |
 | `--request-timeout` | Deadline for unary RPCs | `15s` |
-| `--tls-cert`       | TLS certificate file         | `""`            |
-| `--tls-key`        | TLS key file                 | `""`            |
+| `--client-cert`    | Client TLS certificate file  | `""`            |
+| `--client-key`     | Client TLS key file          | `""`            |
 | `--ca-cert`        | CA certificate file          | `""`            |
 | `--allow-insecure` | Allow insecure (disable TLS) | `false`         |
 

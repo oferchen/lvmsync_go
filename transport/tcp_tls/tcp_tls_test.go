@@ -62,7 +62,7 @@ func checkHandshakeFields(t *testing.T, logs *observer.ObservedLogs, msg string,
 func TestTCPTLSTransportHandshake(t *testing.T) {
 	cert, root := generateSelfSignedCert(t)
 	core, logs := observer.New(zap.InfoLevel)
-	trIface, err := New(transport.Config{Logger: zap.New(core), Roots: root, ClientCert: cert})
+	trIface, err := New(transport.Config{Logger: zap.New(core), Roots: root, ClientCert: cert, ServerCert: cert})
 	if err != nil {
 		t.Fatalf("new transport: %v", err)
 	}
@@ -139,7 +139,7 @@ func TestTCPTLSTransportHandshake(t *testing.T) {
 
 func TestTCPTLSALPNMatch(t *testing.T) {
 	cert, root := generateSelfSignedCert(t)
-	trIface, err := New(transport.Config{Logger: zap.NewNop(), Roots: root, ClientCert: cert})
+	trIface, err := New(transport.Config{Logger: zap.NewNop(), Roots: root, ClientCert: cert, ServerCert: cert})
 	if err != nil {
 		t.Fatalf("new transport: %v", err)
 	}
@@ -182,7 +182,7 @@ func TestTCPTLSALPNMatch(t *testing.T) {
 func TestTCPTLSALPNMismatch(t *testing.T) {
 	cert, root := generateSelfSignedCert(t)
 	core, logs := observer.New(zap.InfoLevel)
-	trIface, err := New(transport.Config{Logger: zap.New(core), Roots: root, ClientCert: cert})
+	trIface, err := New(transport.Config{Logger: zap.New(core), Roots: root, ClientCert: cert, ServerCert: cert})
 	if err != nil {
 		t.Fatalf("new transport: %v", err)
 	}
@@ -218,7 +218,7 @@ func TestTCPTLSALPNMismatch(t *testing.T) {
 
 func TestTCPTLSTransportSelectBestHandshake(t *testing.T) {
 	cert, root := generateSelfSignedCert(t)
-	trIface, err := New(transport.Config{Logger: zap.NewNop(), Roots: root, ClientCert: cert})
+	trIface, err := New(transport.Config{Logger: zap.NewNop(), Roots: root, ClientCert: cert, ServerCert: cert})
 	if err != nil {
 		t.Fatalf("new transport: %v", err)
 	}
@@ -326,7 +326,7 @@ func TestTCPTLSTransportSelectBestHandshake(t *testing.T) {
 func TestTCPTLSTransportHandshakeError(t *testing.T) {
 	cert, root := generateSelfSignedCert(t)
 	core, logs := observer.New(zap.InfoLevel)
-	trIface, err := New(transport.Config{Logger: zap.New(core), Roots: root, ClientCert: cert})
+	trIface, err := New(transport.Config{Logger: zap.New(core), Roots: root, ClientCert: cert, ServerCert: cert})
 	if err != nil {
 		t.Fatalf("new transport: %v", err)
 	}
@@ -371,7 +371,7 @@ func TestTCPTLSTransportHandshakeError(t *testing.T) {
 func TestTCPTLSTransportCDCMismatch(t *testing.T) {
 	cert, root := generateSelfSignedCert(t)
 	core, logs := observer.New(zap.InfoLevel)
-	trIface, err := New(transport.Config{Logger: zap.New(core), Roots: root, ClientCert: cert})
+	trIface, err := New(transport.Config{Logger: zap.New(core), Roots: root, ClientCert: cert, ServerCert: cert})
 	if err != nil {
 		t.Fatalf("new transport: %v", err)
 	}
@@ -418,7 +418,7 @@ func TestTCPTLSTransportCDCMismatch(t *testing.T) {
 
 func TestTCPTLSDialUnreachable(t *testing.T) {
 	cert, root := generateSelfSignedCert(t)
-	trIface, err := New(transport.Config{Logger: zap.NewNop(), Roots: root, ClientCert: cert})
+	trIface, err := New(transport.Config{Logger: zap.NewNop(), Roots: root, ClientCert: cert, ServerCert: cert})
 	if err != nil {
 		t.Fatalf("new transport: %v", err)
 	}
@@ -453,7 +453,7 @@ func TestTCPTLSDialUnreachable(t *testing.T) {
 func TestTCPTLSDialErrorLogging(t *testing.T) {
 	cert, root := generateSelfSignedCert(t)
 	core, logs := observer.New(zap.InfoLevel)
-	trIface, err := New(transport.Config{Logger: zap.New(core), Roots: root, ClientCert: cert})
+	trIface, err := New(transport.Config{Logger: zap.New(core), Roots: root, ClientCert: cert, ServerCert: cert})
 	if err != nil {
 		t.Fatalf("new transport: %v", err)
 	}
@@ -469,7 +469,7 @@ func TestTCPTLSDialErrorLogging(t *testing.T) {
 func TestTCPTLSListenErrorLogging(t *testing.T) {
 	cert, root := generateSelfSignedCert(t)
 	core, logs := observer.New(zap.InfoLevel)
-	trIface, err := New(transport.Config{Logger: zap.New(core), Roots: root, ClientCert: cert})
+	trIface, err := New(transport.Config{Logger: zap.New(core), Roots: root, ClientCert: cert, ServerCert: cert})
 	if err != nil {
 		t.Fatalf("new transport: %v", err)
 	}
@@ -484,7 +484,7 @@ func TestTCPTLSListenErrorLogging(t *testing.T) {
 
 func TestTCPTLSNegotiateInvalidRole(t *testing.T) {
 	cert, root := generateSelfSignedCert(t)
-	trIface, err := New(transport.Config{Logger: zap.NewNop(), Roots: root, ClientCert: cert})
+	trIface, err := New(transport.Config{Logger: zap.NewNop(), Roots: root, ClientCert: cert, ServerCert: cert})
 	if err != nil {
 		t.Fatalf("new transport: %v", err)
 	}
@@ -500,7 +500,7 @@ func TestTCPTLSNegotiateInvalidRole(t *testing.T) {
 
 func TestTCPTLSUnsupportedCipher(t *testing.T) {
 	cert, root := generateSelfSignedCert(t)
-	trIface, err := New(transport.Config{Logger: zap.NewNop(), Roots: root, ClientCert: cert})
+	trIface, err := New(transport.Config{Logger: zap.NewNop(), Roots: root, ClientCert: cert, ServerCert: cert})
 	if err != nil {
 		t.Fatalf("new transport: %v", err)
 	}
@@ -552,7 +552,7 @@ func TestTCPTLSUnsupportedCipher(t *testing.T) {
 func TestTCPTLSCertValidation(t *testing.T) {
 	root := x509.NewCertPool()
 	cert, _ := generateSelfSignedCert(t)
-	trIface, _ := New(transport.Config{Roots: root, ClientCert: cert, Logger: zap.NewNop()})
+	trIface, _ := New(transport.Config{Roots: root, ClientCert: cert, ServerCert: cert, Logger: zap.NewNop()})
 	tr := trIface.(*Transport)
 	ctx := context.Background()
 	ln, err := tr.Listen(ctx, "127.0.0.1:0")
@@ -576,7 +576,7 @@ func TestTCPTLSCertValidation(t *testing.T) {
 
 func TestTCPTLSDialContextCancel(t *testing.T) {
 	cert, root := generateSelfSignedCert(t)
-	trIface, err := New(transport.Config{Logger: zap.NewNop(), Roots: root, ClientCert: cert})
+	trIface, err := New(transport.Config{Logger: zap.NewNop(), Roots: root, ClientCert: cert, ServerCert: cert})
 	if err != nil {
 		t.Fatalf("new transport: %v", err)
 	}
@@ -645,7 +645,7 @@ func TestTCPTLSTransportAllowInsecureWarn(t *testing.T) {
 
 func TestTCPTLSTransportLoggerOptional(t *testing.T) {
 	cert, root := generateSelfSignedCert(t)
-	if _, err := New(transport.Config{Roots: root, ClientCert: cert}); err != nil {
+	if _, err := New(transport.Config{Roots: root, ClientCert: cert, ServerCert: cert}); err != nil {
 		t.Fatalf("New: %v", err)
 	}
 }
@@ -669,12 +669,23 @@ func TestTCPTLSTransportRequiresClientCert(t *testing.T) {
 	}
 }
 
+func TestTCPTLSTransportRequiresServerCert(t *testing.T) {
+	root := x509.NewCertPool()
+	cert, _ := generateSelfSignedCert(t)
+	if _, err := New(transport.Config{Logger: zap.NewNop(), Roots: root, ClientCert: cert}); err == nil {
+		t.Fatalf("expected error when server cert is nil")
+	}
+	if _, err := New(transport.Config{Logger: zap.NewNop(), Roots: root, ClientCert: cert, AllowInsecure: true}); err != nil {
+		t.Fatalf("allow insecure should permit missing server cert: %v", err)
+	}
+}
+
 func TestTCPTLSListenCloseErrorWarn(t *testing.T) {
 	cert, root := generateSelfSignedCert(t)
 	core, obs := observer.New(zap.WarnLevel)
 	logger := zap.New(core)
 	ctx, cancel := context.WithCancel(context.Background())
-	trIface, err := New(transport.Config{Logger: logger, Roots: root, ClientCert: cert})
+	trIface, err := New(transport.Config{Logger: logger, Roots: root, ClientCert: cert, ServerCert: cert})
 	if err != nil {
 		t.Fatalf("new transport: %v", err)
 	}

@@ -52,6 +52,16 @@ func TestNewRequiresClientCert(t *testing.T) {
 	}
 }
 
+func TestNewRequiresServerCert(t *testing.T) {
+	cert, roots := generateSelfSignedCert(t)
+	if _, err := New(transport.Config{Logger: zap.NewNop(), Roots: roots, ClientCert: cert}); err == nil {
+		t.Fatalf("expected error when server certificate missing")
+	}
+	if _, err := New(transport.Config{Logger: zap.NewNop(), Roots: roots, ClientCert: cert, AllowInsecure: true}); err != nil {
+		t.Fatalf("allow insecure should permit missing server cert: %v", err)
+	}
+}
+
 func TestNewAllowInsecure(t *testing.T) {
 	if _, err := New(transport.Config{Logger: zap.NewNop(), AllowInsecure: true}); err != nil {
 		t.Fatalf("allow insecure: %v", err)
@@ -71,7 +81,7 @@ func TestNewDisables0RTT(t *testing.T) {
 
 func TestDialListenHandshake(t *testing.T) {
 	cert, roots := generateSelfSignedCert(t)
-	trIface, err := New(transport.Config{Logger: zap.NewNop(), Roots: roots, ClientCert: cert})
+	trIface, err := New(transport.Config{Logger: zap.NewNop(), Roots: roots, ClientCert: cert, ServerCert: cert})
 	if err != nil {
 		t.Fatalf("new transport: %v", err)
 	}
@@ -115,7 +125,7 @@ func TestDialListenHandshake(t *testing.T) {
 
 func TestDialError(t *testing.T) {
 	cert, roots := generateSelfSignedCert(t)
-	trIface, err := New(transport.Config{Logger: zap.NewNop(), Roots: roots, ClientCert: cert})
+	trIface, err := New(transport.Config{Logger: zap.NewNop(), Roots: roots, ClientCert: cert, ServerCert: cert})
 	if err != nil {
 		t.Fatalf("new transport: %v", err)
 	}
@@ -129,7 +139,7 @@ func TestDialError(t *testing.T) {
 
 func TestListenError(t *testing.T) {
 	cert, roots := generateSelfSignedCert(t)
-	trIface, err := New(transport.Config{Logger: zap.NewNop(), Roots: roots, ClientCert: cert})
+	trIface, err := New(transport.Config{Logger: zap.NewNop(), Roots: roots, ClientCert: cert, ServerCert: cert})
 	if err != nil {
 		t.Fatalf("new transport: %v", err)
 	}
@@ -177,7 +187,7 @@ func (n notifyingCache) Put(key string, cs *tls.ClientSessionState) {
 
 func TestRejects0RTT(t *testing.T) {
 	cert, _ := generateSelfSignedCert(t)
-	trIface, err := New(transport.Config{Logger: zap.NewNop(), ClientCert: cert, AllowInsecure: true})
+	trIface, err := New(transport.Config{Logger: zap.NewNop(), ClientCert: cert, ServerCert: cert, AllowInsecure: true})
 	if err != nil {
 		t.Fatalf("new transport: %v", err)
 	}
