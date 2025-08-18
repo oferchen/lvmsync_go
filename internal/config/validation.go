@@ -51,18 +51,6 @@ func (c *Config) ValidateWith(geteuid func() int) error {
 	if c.SSHKeepAliveInterval <= 0 {
 		return fmt.Errorf("ssh keepalive interval must be > 0")
 	}
-	if c.GRPCDialTimeout <= 0 {
-		return fmt.Errorf("grpc dial timeout must be > 0")
-	}
-	if c.GRPCSetupTimeout <= 0 {
-		return fmt.Errorf("grpc setup timeout must be > 0")
-	}
-	if c.HeartbeatInterval <= 0 {
-		return fmt.Errorf("grpc heartbeat interval must be > 0")
-	}
-	if c.HeartbeatSendTimeout <= 0 {
-		return fmt.Errorf("grpc heartbeat send timeout must be > 0")
-	}
 	if c.TCPParallel < 1 || c.TCPParallel > 4 {
 		return fmt.Errorf("tcp_parallel must be between 1 and 4")
 	}

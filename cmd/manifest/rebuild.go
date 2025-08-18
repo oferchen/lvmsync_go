@@ -49,7 +49,6 @@ func (r *Runner) Run(cfg *config.Config, args []string, logger *zap.Logger) erro
 	builder.FlagSets.Remote = pflag.NewFlagSet("Remote Options", pflag.ExitOnError)
 	builder.FlagSets.Compression = pflag.NewFlagSet("Compression Options", pflag.ExitOnError)
 	builder.FlagSets.LVM = pflag.NewFlagSet("LVM Options", pflag.ExitOnError)
-	builder.FlagSets.GRPC = pflag.NewFlagSet("gRPC Options", pflag.ExitOnError)
 	builder.FlagSets.Transport = pflag.NewFlagSet("Transport Options", pflag.ExitOnError)
 	fs := pflag.NewFlagSet("manifest rebuild", pflag.ContinueOnError)
 	conf, remaining, warns, err := builder.Build(fs, args[1:])

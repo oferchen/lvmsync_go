@@ -57,9 +57,6 @@ func (b *builder) applyDefaults(conf *Config) error {
 	if !isSet(b.v, "numa-pin") {
 		conf.NumaPin = b.defaults.NumaPin
 	}
-	if conf.GRPCPort == 0 {
-		conf.GRPCPort = b.defaults.GRPCPort
-	}
 	if conf.Transport == "" {
 		conf.Transport = b.defaults.Transport
 	}
@@ -81,18 +78,6 @@ func (b *builder) applyDefaults(conf *Config) error {
 	}
 	if conf.LVMTimeout == 0 {
 		conf.LVMTimeout = b.defaults.LVMTimeout
-	}
-	if conf.GRPCDialTimeout == 0 {
-		conf.GRPCDialTimeout = b.defaults.GRPCDialTimeout
-	}
-	if conf.GRPCSetupTimeout == 0 {
-		conf.GRPCSetupTimeout = b.defaults.GRPCSetupTimeout
-	}
-	if conf.HeartbeatInterval == 0 {
-		conf.HeartbeatInterval = b.defaults.HeartbeatInterval
-	}
-	if conf.HeartbeatSendTimeout == 0 {
-		conf.HeartbeatSendTimeout = b.defaults.HeartbeatSendTimeout
 	}
 	if conf.TCPParallel == 0 {
 		conf.TCPParallel = b.defaults.TCPParallel
@@ -239,16 +224,7 @@ func (b *builder) finalizeConfig(conf *Config) error {
 		return fmt.Errorf("unsupported checksum algorithm: %s", conf.ChecksumAlgorithm)
 	}
 
-	if b.v != nil {
-		if conf.GRPCListen == "" {
-			conf.GRPCListen = b.v.GetString("grpc-listen")
-		}
-		if conf.GRPCConnect == "" {
-			conf.GRPCConnect = b.v.GetString("grpc-connect")
-		}
-	}
-
-	if !conf.AllowInsecure && (conf.GRPCListen != "" || conf.GRPCConnect != "") {
+	if !conf.AllowInsecure && (conf.TLSCert != "" || conf.TLSKey != "" || conf.CACert != "") {
 		if conf.TLSCert == "" || conf.TLSKey == "" {
 			return fmt.Errorf("tls-cert and tls-key must be specified unless allow-insecure is set")
 		}
@@ -339,9 +315,6 @@ func buildViper(flagSets *FlagSets) (*viper.Viper, []string, error) {
 		return nil, nil, err
 	}
 	if err := bindLVMEnv(flagSets.LVM, v); err != nil {
-		return nil, nil, err
-	}
-	if err := bindGRPCEnv(flagSets.GRPC, v); err != nil {
 		return nil, nil, err
 	}
 	var warnings []string

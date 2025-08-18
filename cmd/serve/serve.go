@@ -19,7 +19,6 @@ import (
 
 	rootcmd "lvmsync_go/cmd/root"
 	"lvmsync_go/common"
-	grpcserver "lvmsync_go/grpc/server"
 	"lvmsync_go/transport"
 	_ "lvmsync_go/transport/quic"
 )
@@ -203,26 +202,6 @@ func handleConn(ctx context.Context, conn net.Conn, tr transport.Interface, opts
 		return
 	}
 	logger.Info("handshake_succeeded", zap.String("remote_addr", remote))
-
-	srvCfg := grpcserver.Config{
-		TLSCert:       opts.TLSCert,
-		TLSKey:        opts.TLSKey,
-		CACert:        opts.CACert,
-		AllowInsecure: opts.AllowInsecure,
-	}
-	srv, cleanup, err := grpcserver.New(srvCfg, nil, logger)
-	if err != nil {
-		logger.Error("grpc_init_failed", zap.Error(err))
-		return
-	}
-	l := newSingleConnListener(conn)
-	go func() {
-		<-ctx.Done()
-		l.Close()
-		srv.GracefulStop()
-	}()
-	if err := srv.Serve(l); err != nil && err != net.ErrClosed {
-		logger.Error("grpc_serve_error", zap.Error(err))
-	}
-	cleanup()
+	// Control plane removed; close the connection after handshake.
+	_ = conn.Close()
 }

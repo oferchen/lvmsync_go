@@ -16,7 +16,6 @@ type FlagSets struct {
 	Dedup       *pflag.FlagSet
 	Compression *pflag.FlagSet
 	LVM         *pflag.FlagSet
-	GRPC        *pflag.FlagSet
 	Transport   *pflag.FlagSet
 	Manifest    *pflag.FlagSet
 }
@@ -30,7 +29,6 @@ func NewFlagSets(cfg *Config) *FlagSets {
 		Dedup:       initDedupFlags(cfg),
 		Compression: initCompressionFlags(cfg),
 		LVM:         initLVMFlags(cfg),
-		GRPC:        initGRPCFlags(cfg),
 		Transport:   initTransportFlags(cfg),
 		Manifest:    initManifestFlags(cfg),
 	}
@@ -45,7 +43,6 @@ func (f *FlagSets) All() []*pflag.FlagSet {
 		f.Dedup,
 		f.Compression,
 		f.LVM,
-		f.GRPC,
 		f.Transport,
 		f.Manifest,
 	}
@@ -159,22 +156,6 @@ func initLVMFlags(cfg *Config) *pflag.FlagSet {
 	return fs
 }
 
-func initGRPCFlags(cfg *Config) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("gRPC Options", pflag.ExitOnError)
-	fs.Int("grpc-port", cfg.GRPCPort, "gRPC server port")
-	fs.String("grpc-listen", cfg.GRPCListen, "gRPC listen address")
-	fs.String("grpc-connect", cfg.GRPCConnect, "gRPC connect address")
-	fs.Duration("grpc-dial-timeout", cfg.GRPCDialTimeout, "gRPC dial timeout")
-	fs.Duration("grpc-setup-timeout", cfg.GRPCSetupTimeout, "gRPC setup timeout")
-	fs.Duration("grpc-heartbeat-interval", cfg.HeartbeatInterval, "gRPC heartbeat interval")
-	fs.Duration("grpc-heartbeat-send-timeout", cfg.HeartbeatSendTimeout, "gRPC heartbeat send timeout")
-	fs.String("tls-cert", cfg.TLSCert, "Path to TLS certificate")
-	fs.String("tls-key", cfg.TLSKey, "Path to TLS private key")
-	fs.String("ca-cert", cfg.CACert, "Path to CA certificate")
-	fs.Bool("allow-insecure", cfg.AllowInsecure, "Allow insecure connections")
-	return fs
-}
-
 func initTransportFlags(cfg *Config) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("Transport Options", pflag.ExitOnError)
 	fs.String("transport", cfg.Transport, "Transport modes (comma-separated)")
@@ -264,27 +245,6 @@ func bindLVMEnv(fs *pflag.FlagSet, v *viper.Viper) error {
 		name := strings.ToUpper(strings.ReplaceAll(f.Name, "-", "_"))
 		name = strings.TrimPrefix(name, "LVM_")
 		env := "LVMSYNC_LVM"
-		if name != "" {
-			env += "_" + name
-		}
-		if e := v.BindEnv(f.Name, env); e != nil {
-			err = e
-		}
-	})
-	return err
-}
-
-// bindGRPCEnv binds gRPC flag names to environment variables with the
-// LVMSYNC_GRPC_ prefix.
-func bindGRPCEnv(fs *pflag.FlagSet, v *viper.Viper) error {
-	var err error
-	fs.VisitAll(func(f *pflag.Flag) {
-		if err != nil {
-			return
-		}
-		name := strings.ToUpper(strings.ReplaceAll(f.Name, "-", "_"))
-		name = strings.TrimPrefix(name, "GRPC_")
-		env := "LVMSYNC_GRPC"
 		if name != "" {
 			env += "_" + name
 		}
