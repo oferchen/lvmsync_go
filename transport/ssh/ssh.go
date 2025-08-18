@@ -25,6 +25,17 @@ import (
 
 const defaultDialTimeout = 5 * time.Second
 
+func zeroBytes(b []byte) {
+	for i := range b {
+		b[i] = 0
+	}
+}
+
+var (
+	testKeyBytesHook  = func([]byte) {}
+	testHostBytesHook = func([]byte) {}
+)
+
 // Transport implements the transport.Interface over SSH.
 type Transport struct {
 	serverConf *ssh.ServerConfig
@@ -51,6 +62,8 @@ func New(ctx context.Context, cfg transport.Config) (transport.Interface, error)
 			return nil, err
 		}
 		keySigner, err = ssh.ParsePrivateKey(keyBytes)
+		zeroBytes(keyBytes)
+		testKeyBytesHook(keyBytes)
 		if err != nil {
 			return nil, err
 		}
@@ -62,6 +75,8 @@ func New(ctx context.Context, cfg transport.Config) (transport.Interface, error)
 			return nil, err
 		}
 		hostSigner, err = ssh.ParsePrivateKey(hostBytes)
+		zeroBytes(hostBytes)
+		testHostBytesHook(hostBytes)
 		if err != nil {
 			return nil, err
 		}
