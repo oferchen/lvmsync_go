@@ -6,6 +6,10 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 // --- Pure helper tests ---
@@ -242,5 +246,37 @@ func TestEnsureRootOrReexec_DropsDisallowedFlags(t *testing.T) {
 	joined := strings.Join(got.args, " ")
 	if strings.Contains(joined, "--unsafe=1") {
 		t.Fatalf("disallowed flag forwarded: %v", got.args)
+	}
+}
+
+func TestEnsureRootOrReexec_ErrorLogging(t *testing.T) {
+	var got execCall
+	core, logs := observer.New(zapcore.ErrorLevel)
+	logger := zap.New(core)
+	t.Cleanup(func() { _ = logger.Sync() })
+
+	_, err := EnsureRootOrReexec(Options{
+		Geteuid:    func() int { return 1000 },
+		LookPath:   func(string) (string, error) { return "/usr/bin/sudo", nil },
+		ExecRunner: fakeRunner(&got, errors.New("boom")),
+	})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+
+	logger.Error("escalation_failed", zap.Error(err))
+	entries := logs.All()
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 log entry, got %d", len(entries))
+	}
+	e := entries[0]
+	if e.Message != "escalation_failed" {
+		t.Fatalf("wrong message: %q", e.Message)
+	}
+	if len(e.Context) == 0 || e.Context[0].Key != "error" {
+		t.Fatalf("log missing error field: %+v", e.Context)
+	}
+	if errField, ok := e.Context[0].Interface.(error); !ok || errField.Error() != err.Error() {
+		t.Fatalf("unexpected error value: %+v", e.Context[0])
 	}
 }
