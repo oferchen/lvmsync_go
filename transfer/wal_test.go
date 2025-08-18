@@ -25,7 +25,7 @@ func TestWALMismatch(t *testing.T) {
 	}
 }
 
-func TestWALDurability(t *testing.T) {
+func TestWALRecovery(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "wal")
 	w, _, err := OpenWAL(path, 100, "dev", 1)

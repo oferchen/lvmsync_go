@@ -23,7 +23,7 @@ func TestVerifyDestinationNilContext(t *testing.T) {
 	if err := os.WriteFile(dest, []byte("data"), 0600); err != nil {
 		t.Fatalf("write dest: %v", err)
 	}
-	if err := tr.verifyDestination(nil, cfg, dest); err == nil || !strings.Contains(err.Error(), "nil context") {
+	if _, _, _, err := tr.verifyDestination(nil, cfg, dest); err == nil || !strings.Contains(err.Error(), "nil context") {
 		t.Fatalf("expected nil context error, got %v", err)
 	}
 }
@@ -46,7 +46,7 @@ func TestVerifyDestinationCanceledContext(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	errCh := make(chan error, 1)
-	go func() { errCh <- tr.verifyDestination(ctx, cfg, dest) }()
+	go func() { _, _, _, err := tr.verifyDestination(ctx, cfg, dest); errCh <- err }()
 	time.Sleep(10 * time.Millisecond)
 	cancel()
 	select {

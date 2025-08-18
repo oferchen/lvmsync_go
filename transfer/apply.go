@@ -36,7 +36,8 @@ func (t *Transfer) processDumpDataCore(ctx context.Context, cfg *config.Config, 
 
 	reader := bufio.NewReader(decReader)
 
-	if err := t.verifyDestination(ctx, cfg, destPath); err != nil {
+	size, id, epoch, err := t.verifyDestination(ctx, cfg, destPath)
+	if err != nil {
 		return err
 	}
 
@@ -62,13 +63,31 @@ func (t *Transfer) processDumpDataCore(ctx context.Context, cfg *config.Config, 
 	}
 	defer common.CloseWithErr(destFile, &err, "close destination device")
 
+	if cfg.ResumeState != "" {
+		var walRanges []Range
+		t.wal, walRanges, err = OpenWAL(cfg.ResumeState+".wal", size, id, epoch)
+		if err != nil {
+			return err
+		}
+		if cfg.ResumeVerify {
+			if err := verifyWAL(cfg, destFile, walRanges, t.Logger); err != nil {
+				return err
+			}
+		}
+	}
+
 	startTime := time.Now()
 	checksum := GetChecksumStrategy(cfg.ChecksumAlgorithm)
-	bw, err := newBlockWriter(cfg, destFile, dedup, verify, checksum, t.Logger)
+	bw, err := newBlockWriter(cfg, destFile, dedup, verify, checksum, t.Logger, t.wal)
 	var totalBytes int64
 	totalBytes, err = bw.write(reader)
 	if err != nil {
 		return err
+	}
+	if t.wal != nil {
+		if err := t.wal.Sync(); err != nil {
+			return err
+		}
 	}
 
 	elapsed := time.Since(startTime)
