@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"fmt"
 	"io"
+	"math"
 	"net"
 	"os"
 	"path/filepath"
@@ -13,6 +15,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 
 	"lvmsync_go/internal/digest"
 	"lvmsync_go/internal/rsyncwire"
@@ -304,5 +307,156 @@ func TestHandleCacheLRUEviction(t *testing.T) {
 	run("vg", "b", "b")
 	if _, err := os.Stat(filepath.Join(dir, "vg", "a.sig")); !os.IsNotExist(err) {
 		t.Fatalf("expected a.sig evicted, got %v", err)
+	}
+}
+
+func TestHandleDeltaOffsetOverflow(t *testing.T) {
+	c1, c2 := net.Pipe()
+	defer c1.Close()
+	defer c2.Close()
+
+	dev := &memDevice{buf: make([]byte, 1)}
+	core, logs := observer.New(zap.ErrorLevel)
+	srv := New(dev, zap.New(core), nil, "", "")
+	ctx := context.Background()
+	errCh := make(chan error, 1)
+	go func() { errCh <- srv.Handle(ctx, rsyncwire.NewStream(c2, maxFrame)) }()
+
+	stream := rsyncwire.NewStream(c1, maxFrame)
+	var buf bytes.Buffer
+	buf.WriteByte('D')
+	binary.Write(&buf, binary.BigEndian, uint64(math.MaxInt64)+1)
+	buf.WriteByte(0x1)
+	if err := stream.Send(buf.Bytes()); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	c1.Close()
+	err := <-errCh
+	if err == nil || !strings.Contains(err.Error(), "delta offset overflows int64") {
+		t.Fatalf("expected overflow error, got %v", err)
+	}
+	entries := logs.FilterMessage("delta_out_of_bounds").All()
+	if len(entries) != 1 {
+		t.Fatalf("expected log, got %v", logs.All())
+	}
+	ctxMap := entries[0].ContextMap()
+	if v, ok := ctxMap["offset_bytes"].(uint64); !ok || v != uint64(math.MaxInt64)+1 {
+		t.Fatalf("unexpected offset_bytes %v", ctxMap["offset_bytes"])
+	}
+	if v, ok := ctxMap["delta_size_bytes"].(int64); !ok || v != 1 {
+		t.Fatalf("unexpected delta_size_bytes %v", ctxMap["delta_size_bytes"])
+	}
+	if v, ok := ctxMap["device_size_bytes"].(int64); !ok || v != dev.Size() {
+		t.Fatalf("unexpected device_size_bytes %v", ctxMap["device_size_bytes"])
+	}
+}
+
+func TestHandleDeltaOutOfBounds(t *testing.T) {
+	c1, c2 := net.Pipe()
+	defer c1.Close()
+	defer c2.Close()
+
+	dev := &memDevice{buf: make([]byte, 10)}
+	core, logs := observer.New(zap.ErrorLevel)
+	srv := New(dev, zap.New(core), nil, "", "")
+	ctx := context.Background()
+	errCh := make(chan error, 1)
+	go func() { errCh <- srv.Handle(ctx, rsyncwire.NewStream(c2, maxFrame)) }()
+
+	cl := rsyncwire.NewClient(rsyncwire.NewStream(c1, maxFrame))
+	if err := cl.SendDelta(9, []byte("ab")); err != nil {
+		t.Fatalf("SendDelta: %v", err)
+	}
+	c1.Close()
+	err := <-errCh
+	if err == nil || !strings.Contains(err.Error(), "delta out of bounds") {
+		t.Fatalf("expected out of bounds error, got %v", err)
+	}
+	entries := logs.FilterMessage("delta_out_of_bounds").All()
+	if len(entries) != 1 {
+		t.Fatalf("expected log, got %v", logs.All())
+	}
+	ctxMap := entries[0].ContextMap()
+	if v, ok := ctxMap["offset_bytes"].(int64); !ok || v != 9 {
+		t.Fatalf("unexpected offset_bytes %v", ctxMap["offset_bytes"])
+	}
+	if v, ok := ctxMap["delta_size_bytes"].(int64); !ok || v != 2 {
+		t.Fatalf("unexpected delta_size_bytes %v", ctxMap["delta_size_bytes"])
+	}
+	if v, ok := ctxMap["end_offset_bytes"].(int64); !ok || v != 11 {
+		t.Fatalf("unexpected end_offset_bytes %v", ctxMap["end_offset_bytes"])
+	}
+	if v, ok := ctxMap["device_size_bytes"].(int64); !ok || v != 10 {
+		t.Fatalf("unexpected device_size_bytes %v", ctxMap["device_size_bytes"])
+	}
+}
+
+func TestHandleUnknownFrameType(t *testing.T) {
+	c1, c2 := net.Pipe()
+	defer c1.Close()
+	defer c2.Close()
+
+	dev := &memDevice{buf: make([]byte, 1)}
+	srv := New(dev, zap.NewNop(), nil, "", "")
+	ctx := context.Background()
+	errCh := make(chan error, 1)
+	go func() { errCh <- srv.Handle(ctx, rsyncwire.NewStream(c2, maxFrame)) }()
+
+	if err := rsyncwire.NewStream(c1, maxFrame).Send([]byte{'X'}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	c1.Close()
+	err := <-errCh
+	if err == nil || !strings.Contains(err.Error(), "unknown frame type") {
+		t.Fatalf("expected unknown frame error, got %v", err)
+	}
+}
+
+func TestHandleDigestMismatch(t *testing.T) {
+	c1, c2 := net.Pipe()
+	defer c1.Close()
+	defer c2.Close()
+
+	dev := &memDevice{buf: make([]byte, 2)}
+	core, logs := observer.New(zap.ErrorLevel)
+	srv := New(dev, zap.New(core), nil, "", "")
+	ctx := context.Background()
+	errCh := make(chan error, 1)
+	go func() { errCh <- srv.Handle(ctx, rsyncwire.NewStream(c2, maxFrame)) }()
+
+	cl := rsyncwire.NewClient(rsyncwire.NewStream(c1, maxFrame))
+	data := []byte("hi")
+	if err := cl.SendDelta(0, data); err != nil {
+		t.Fatalf("SendDelta: %v", err)
+	}
+	bad, err := digest.SumReader(bytes.NewReader([]byte("ho")), digest.SHA256)
+	if err != nil {
+		t.Fatalf("digest: %v", err)
+	}
+	if err := cl.SendDigest(digest.SHA256, bad); err != nil {
+		t.Fatalf("SendDigest: %v", err)
+	}
+	c1.Close()
+	err = <-errCh
+	if err == nil || !strings.Contains(err.Error(), "digest mismatch") {
+		t.Fatalf("expected digest mismatch, got %v", err)
+	}
+	entries := logs.FilterMessage("digest_mismatch").All()
+	if len(entries) != 1 {
+		t.Fatalf("expected digest mismatch log, got %v", logs.All())
+	}
+	ctxMap := entries[0].ContextMap()
+	actual, err := digest.SumReader(bytes.NewReader(data), digest.SHA256)
+	if err != nil {
+		t.Fatalf("digest: %v", err)
+	}
+	if v, ok := ctxMap["algorithm"].(string); !ok || v != digest.SHA256 {
+		t.Fatalf("unexpected algorithm %v", ctxMap["algorithm"])
+	}
+	if v, ok := ctxMap["expected_digest"].(string); !ok || v != fmt.Sprintf("%x", bad) {
+		t.Fatalf("unexpected expected_digest %v", ctxMap["expected_digest"])
+	}
+	if v, ok := ctxMap["actual_digest"].(string); !ok || v != fmt.Sprintf("%x", actual) {
+		t.Fatalf("unexpected actual_digest %v", ctxMap["actual_digest"])
 	}
 }
