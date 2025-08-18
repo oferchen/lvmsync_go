@@ -2,6 +2,8 @@
 
 LVMSync operates on block devices and prefers Linux capabilities over sudo.
 
+For security design and sudoers examples, see [SECURITY.md](../SECURITY.md).
+
 ## Capabilities
 
 Grant required capabilities to the binary:
