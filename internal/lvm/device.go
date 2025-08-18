@@ -13,9 +13,23 @@ type Checker struct {
 	Requester string
 }
 
+// validateName ensures name is a single path element without traversal.
+func validateName(name, label string) error {
+	if name == "" || name != filepath.Base(name) || name == "." || name == ".." {
+		return fmt.Errorf("invalid %s name %q", label, name)
+	}
+	return nil
+}
+
 // PreOpen ensures the logical volume exists and is ready for writes.
 // It locks the volume and returns the device path.
 func (c Checker) PreOpen(ctx context.Context, vg, lv string) (string, error) {
+	if err := validateName(vg, "volume group"); err != nil {
+		return "", err
+	}
+	if err := validateName(lv, "logical volume"); err != nil {
+		return "", err
+	}
 	vol := filepath.Join(vg, lv)
 	ok, err := c.Agent.VolumeExists(ctx, vol)
 	if err != nil {
