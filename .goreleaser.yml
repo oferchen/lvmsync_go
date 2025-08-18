@@ -1,4 +1,3 @@
----
 # OVERHEAD: GoReleaser config aligned to Alpine multi-stage Dockerfile.
 # - Single-source name via anchor (&name) reused for build id, binary, and Docker ids.
 # - Docker images are built FROM source inside Dockerfile (no prebuilt ids), so they work on Alpine (musl).
@@ -27,9 +26,15 @@ archives:
 checksum:
   name_template: '{{ .ProjectName }}-{{ .Version }}-checksums.txt'
 
+sboms:
+  - id: binary
+    artifacts: binary
+  - id: archive
+    artifacts: archive
+
 dockers:
   # Build per-arch images from Dockerfile (multi-stage Alpine)
-  - id: *name-amd64
+  - id: bpm-amd64
     use: buildx
     dockerfile: Dockerfile
     platforms: ["linux/amd64"]
@@ -45,7 +50,7 @@ dockers:
       - "--build-arg=BIN={{ .ProjectName }}"
       - "--build-arg=BUILD_PATH=."
 
-  - id: *name-arm64
+  - id: bpm-arm64
     use: buildx
     dockerfile: Dockerfile
     platforms: ["linux/arm64"]

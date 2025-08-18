@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -15,7 +16,7 @@ func newCommand() *cobra.Command {
 		Use:   "serve",
 		Short: "Deprecated server command",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return fmt.Errorf(deprecationMsg)
+			return errors.New(deprecationMsg)
 		},
 		SilenceUsage:  true,
 		SilenceErrors: true,

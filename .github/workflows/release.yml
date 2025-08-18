@@ -34,6 +34,16 @@ jobs:
         with:
           go-version: "${{ vars.GO_VERSION || '1.24.x' }}"
 
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-${{ env.GO_VERSION }}-
+
       - name: Install build dependencies
         run: |
           sudo apt-get update
@@ -70,11 +80,25 @@ jobs:
           echo "${{ secrets.GITHUB_TOKEN }}" | \
             docker login ghcr.io -u "${{ github.actor }}" --password-stdin
 
+      - name: Install GoReleaser
+        run: |
+          curl -sL https://github.com/goreleaser/goreleaser/releases/download/v1.26.2/goreleaser_Linux_x86_64.tar.gz \
+            | tar -xz -C /usr/local/bin goreleaser
+
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v6.0.0
-        with:
-          version: latest
-          args: release --clean --timeout=90m
+        run: make release
         env:
           GITHUB_TOKEN: ${{ secrets.GOLANGCI_LINT_TOKEN }}
           SKIP_DOCKER_PUSH: ${{ env.SKIP_DOCKER_PUSH }}
+
+      - name: Upload checksums
+        uses: actions/upload-artifact@v4
+        with:
+          name: checksums
+          path: dist/*checksums.txt
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: dist/*.sbom.json
