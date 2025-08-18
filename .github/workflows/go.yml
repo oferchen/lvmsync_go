@@ -102,7 +102,7 @@ jobs:
 
       - name: golangci-lint
         if: github.event_name == 'pull_request'
-        run: golangci-lint run
+        run: golangci-lint run --config=.golangci.yml
 
       - name: Go vet
         if: github.event_name == 'pull_request'

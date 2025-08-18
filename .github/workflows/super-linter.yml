@@ -71,7 +71,7 @@ jobs:
           # VALIDATE_GO_RELEASER: true
 
           GO_LINTER: golangci-lint
-          GO_LINT_FLAGS: ""
+          GO_LINT_FLAGS: "--config=.golangci.yml"
           GOLANGCI_LINT_VERSION: v2.3.1
 
           # Formatters
