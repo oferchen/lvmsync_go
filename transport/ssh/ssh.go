@@ -29,7 +29,6 @@ const defaultDialTimeout = 5 * time.Second
 type Transport struct {
 	serverConf *ssh.ServerConfig
 	clientConf *ssh.ClientConfig
-	hostSigner ssh.Signer
 	logger     *zap.Logger
 }
 
@@ -143,7 +142,7 @@ func New(ctx context.Context, cfg transport.Config) (transport.Interface, error)
 		HostKeyCallback: hkc,
 	}
 
-	return &Transport{serverConf: serverConf, clientConf: clientConf, hostSigner: hostSigner, logger: cfg.Logger}, nil
+	return &Transport{serverConf: serverConf, clientConf: clientConf, logger: cfg.Logger}, nil
 }
 
 func agentSigners(ctx context.Context, sock string) ([]ssh.Signer, error) {
