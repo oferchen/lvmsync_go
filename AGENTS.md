@@ -18,6 +18,9 @@ command-line use, environment variables, and `config.yaml` files.
   `NewRunnerWithDeps` constructors so tests can inject mocks.
 - Callers and subcommands should invoke methods on a `Runner` instance rather than
   modifying global variables.
+- Privilege checks rely on a `privilege.Escalator` interface. `cmd/root.ConfigureWithEscalator`
+  accepts an `Escalator` so tests can stub privilege escalation without invoking
+  real `sudo`.
 
 ## Device Detection
 

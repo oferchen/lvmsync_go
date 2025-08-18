@@ -4,13 +4,25 @@ import (
 	"context"
 	"errors"
 	"os"
+	"os/exec"
 	"testing"
 
 	"go.uber.org/zap"
 
 	"lvmsync_go/internal/config"
+	"lvmsync_go/internal/privilege"
 	"lvmsync_go/transport"
 )
+
+type stubEscalator struct{ err error }
+
+func (s stubEscalator) Ensure(context.Context) error { return s.err }
+
+func (s stubEscalator) Command(context.Context, string, ...string) *exec.Cmd {
+	return exec.Command("true")
+}
+
+var _ privilege.Escalator = (*stubEscalator)(nil)
 
 func TestPrepareClientCreatesSnapshotAndCleanup(t *testing.T) {
 	cfg, err := config.DefaultConfig()
@@ -221,21 +233,32 @@ func TestRunExecuteClientError(t *testing.T) {
 func TestConfigure(t *testing.T) {
 	orig := os.Args
 	defer func() { os.Args = orig }()
-	os.Args = []string{"cmd", "/src", "/dst"}
-	cfg, args, logger, err := Configure()
-	if err != nil {
-		t.Fatalf("Configure error: %v", err)
-	}
-	if cfg == nil || logger == nil || len(args) != 2 {
-		t.Fatalf("invalid configure results")
-	}
+
+	t.Run("success", func(t *testing.T) {
+		os.Args = []string{"cmd", "/src", "/dst"}
+		cfg, args, logger, err := ConfigureWithEscalator(stubEscalator{})
+		if err != nil {
+			t.Fatalf("Configure error: %v", err)
+		}
+		if cfg == nil || logger == nil || len(args) != 2 {
+			t.Fatalf("invalid configure results")
+		}
+	})
+
+	t.Run("escalation failure", func(t *testing.T) {
+		os.Args = []string{"cmd", "/src", "/dst"}
+		_, _, _, err := ConfigureWithEscalator(stubEscalator{err: errors.New("boom")})
+		if err == nil {
+			t.Fatalf("expected configure error")
+		}
+	})
 }
 
-func TestConfigureError(t *testing.T) {
+func TestConfigureConfigError(t *testing.T) {
 	orig := os.Args
 	defer func() { os.Args = orig }()
 	os.Args = []string{"cmd", "--compress-threshold", "2", "/src", "/dst"}
-	if _, _, _, err := Configure(); err == nil {
+	if _, _, _, err := ConfigureWithEscalator(stubEscalator{}); err == nil {
 		t.Fatalf("expected configure error")
 	}
 }
