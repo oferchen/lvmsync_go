@@ -58,7 +58,7 @@ func TestResumeValidation(t *testing.T) {
 		t.Fatalf("write resume: %v", err)
 	}
 	cfg := &config.Config{ResumeState: path, DedupMode: "fixed", Transport: "ssh", Compress: "none", ChecksumAlgorithm: "blake3"}
-	chk := readResumeState(cfg, zap.NewNop(), 2, "dest", 2)
+	chk := readResumeState(cfg, zap.NewNop(), 2, "dest", 2, [32]byte{})
 	if rc := chk.chunk("fixed"); rc != (resumeChunk{}) {
 		t.Fatalf("expected empty checkpoint, got %#v", rc)
 	}

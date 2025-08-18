@@ -24,7 +24,7 @@ func TestVerifyDestinationNilContext(t *testing.T) {
 		t.Fatalf("write dest: %v", err)
 	}
 	//lint:ignore SA1012 testing nil context handling
-	if err := tr.verifyDestination(nil, cfg, dest); err == nil || !strings.Contains(err.Error(), "nil context") {
+	if _, _, _, err := tr.verifyDestination(nil, cfg, dest); err == nil || !strings.Contains(err.Error(), "nil context") {
 		t.Fatalf("expected nil context error, got %v", err)
 	}
 }
