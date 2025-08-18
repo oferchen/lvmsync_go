@@ -163,7 +163,7 @@ func processBlock(
 		return false, nil
 	}
 	if cfg.Discard {
-		if err := device.DiscardRange(destFile, offset, uint64(chunkSize)); err != nil {
+		if err := device.DiscardRange(destFile, offset, uint64(chunkSize), logger); err != nil {
 			logger.Debug("discard failed", zap.Error(err))
 		}
 	}

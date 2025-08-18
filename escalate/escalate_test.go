@@ -2,6 +2,7 @@ package escalate
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -105,7 +106,7 @@ func TestDropToInvokerIfSudo_NoEnv(t *testing.T) {
 	os.Unsetenv("SUDO_UID")
 	os.Unsetenv("SUDO_GID")
 
-	if err := DropToInvokerIfSudo(Options{Sys: m}); err != nil {
+	if err := DropToInvokerIfSudo(Options{Sys: m}, zap.NewNop()); err != nil {
 		t.Fatalf("expected no-op nil err, got %v", err)
 	}
 }
@@ -115,7 +116,7 @@ func TestDropToInvokerIfSudo_Success(t *testing.T) {
 	t.Setenv("SUDO_UID", "1000")
 	t.Setenv("SUDO_GID", "100")
 
-	if err := DropToInvokerIfSudo(Options{Sys: m}); err != nil {
+	if err := DropToInvokerIfSudo(Options{Sys: m}, zap.NewNop()); err != nil {
 		t.Fatalf("DropToInvokerIfSudo error: %v", err)
 	}
 	if len(m.groups) != 1 || m.groups[0] != 100 {
@@ -133,8 +134,40 @@ func TestDropToInvokerIfSudo_ParseError(t *testing.T) {
 	m := &mockSys{}
 	t.Setenv("SUDO_UID", "notnum")
 	t.Setenv("SUDO_GID", "100")
-	if err := DropToInvokerIfSudo(Options{Sys: m}); err == nil {
+	if err := DropToInvokerIfSudo(Options{Sys: m}, zap.NewNop()); err == nil {
 		t.Fatal("expected parse error")
+	}
+}
+
+func TestDropToInvokerIfSudo_Logs(t *testing.T) {
+	m := &mockSys{}
+	t.Setenv("SUDO_UID", "1000")
+	t.Setenv("SUDO_GID", "100")
+	t.Setenv("LVMSYNC_ACTION_ID", "act123")
+	argv := []string{"prog"}
+	core, logs := observer.New(zapcore.InfoLevel)
+	logger := zap.New(core)
+	if err := DropToInvokerIfSudo(Options{Sys: m, Args: argv}, logger); err != nil {
+		t.Fatalf("DropToInvokerIfSudo error: %v", err)
+	}
+	entries := logs.All()
+	if len(entries) != 2 {
+		t.Fatalf("expected 2 log entries, got %d", len(entries))
+	}
+	host, _ := os.Hostname()
+	first := entries[0].ContextMap()
+	if first["action_id"] != "act123" {
+		t.Fatalf("action_id = %v", first["action_id"])
+	}
+	if fmt.Sprint(first["argv"]) != fmt.Sprint(argv) {
+		t.Fatalf("argv = %v", first["argv"])
+	}
+	if first["hostname"] != host {
+		t.Fatalf("hostname = %v", first["hostname"])
+	}
+	second := entries[1].ContextMap()
+	if second["result"] != "dropped" {
+		t.Fatalf("result = %v", second["result"])
 	}
 }
 
@@ -156,7 +189,7 @@ func fakeRunner(rec *execCall, ret error) func(string, []string, []string, io.Re
 func TestEnsureRootOrReexec_AlreadyRoot(t *testing.T) {
 	reexeced, err := EnsureRootOrReexec(Options{
 		Geteuid: func() int { return 0 },
-	})
+	}, zap.NewNop())
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
 	}
@@ -186,7 +219,7 @@ func TestEnsureRootOrReexec_ReexecHappyPath(t *testing.T) {
 		Stdout:     io.Discard,
 		Stderr:     io.Discard,
 	}
-	reexeced, err := EnsureRootOrReexec(opts)
+	reexeced, err := EnsureRootOrReexec(opts, zap.NewNop())
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
 	}
@@ -213,7 +246,7 @@ func TestEnsureRootOrReexec_SudoNotFound(t *testing.T) {
 	_, err := EnsureRootOrReexec(Options{
 		Geteuid:  func() int { return 1000 },
 		LookPath: func(string) (string, error) { return "", errors.New("missing") },
-	})
+	}, zap.NewNop())
 	if err == nil || !strings.Contains(err.Error(), "sudo not found") {
 		t.Fatalf("expected sudo not found error, got %v", err)
 	}
@@ -225,7 +258,7 @@ func TestEnsureRootOrReexec_RunnerError(t *testing.T) {
 		Geteuid:    func() int { return 1000 },
 		LookPath:   func(string) (string, error) { return "/usr/bin/sudo", nil },
 		ExecRunner: fakeRunner(&got, errors.New("boom")),
-	})
+	}, zap.NewNop())
 	if err == nil || !strings.Contains(err.Error(), "sudo escalation failed") {
 		t.Fatalf("expected wrapped runner error, got %v", err)
 	}
@@ -238,7 +271,7 @@ func TestEnsureRootOrReexec_RunnerExitCode(t *testing.T) {
 		ExecRunner: func(string, []string, []string, io.Reader, io.Writer, io.Writer) error {
 			return exec.Command("sh", "-c", "exit 42").Run()
 		},
-	})
+	}, zap.NewNop())
 	var ee *exec.ExitError
 	if err == nil || !errors.As(err, &ee) {
 		t.Fatalf("expected ExitError, got %v", err)
@@ -256,7 +289,7 @@ func TestEnsureRootOrReexec_DropsDisallowedFlags(t *testing.T) {
 		Args:               []string{"/bin/prog", "--mode=apply", "--unsafe=1"},
 		AllowedPassthrough: map[string]bool{"--mode": true},
 		ExecRunner:         fakeRunner(&got, nil),
-	})
+	}, zap.NewNop())
 	if err != nil || !reexeced {
 		t.Fatalf("unexpected result: %v %v", reexeced, err)
 	}
@@ -276,7 +309,7 @@ func TestEnsureRootOrReexec_SanitizedEnv(t *testing.T) {
 		LookPath:    func(string) (string, error) { return "/usr/bin/sudo", nil },
 		SanitizeEnv: true,
 		ExecRunner:  fakeRunner(&got, nil),
-	})
+	}, zap.NewNop())
 	if err != nil || !reexeced {
 		t.Fatalf("unexpected result: %v %v", reexeced, err)
 	}
@@ -302,7 +335,7 @@ func TestEnsureRootOrReexec_DefaultUnsanitizedEnv(t *testing.T) {
 		Geteuid:    func() int { return 1000 },
 		LookPath:   func(string) (string, error) { return "/usr/bin/sudo", nil },
 		ExecRunner: fakeRunner(&got, nil),
-	})
+	}, zap.NewNop())
 	if err != nil || !reexeced {
 		t.Fatalf("unexpected result: %v %v", reexeced, err)
 	}
@@ -320,7 +353,7 @@ func TestEnsureRootOrReexec_EnvPassthrough(t *testing.T) {
 			return []string{"LD_PRELOAD=/x", "LANG=C"}
 		},
 		ExecRunner: fakeRunner(&got, nil),
-	})
+	}, zap.NewNop())
 	if err != nil || !reexeced {
 		t.Fatalf("unexpected result: %v %v", reexeced, err)
 	}
@@ -339,7 +372,7 @@ func TestEnsureRootOrReexec_ErrorLogging(t *testing.T) {
 		Geteuid:    func() int { return 1000 },
 		LookPath:   func(string) (string, error) { return "/usr/bin/sudo", nil },
 		ExecRunner: fakeRunner(&got, errors.New("boom")),
-	})
+	}, zap.NewNop())
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -358,5 +391,35 @@ func TestEnsureRootOrReexec_ErrorLogging(t *testing.T) {
 	}
 	if errField, ok := e.Context[0].Interface.(error); !ok || errField.Error() != err.Error() {
 		t.Fatalf("unexpected error value: %+v", e.Context[0])
+	}
+}
+
+func TestEnsureRootOrReexec_Logs(t *testing.T) {
+	t.Setenv("LVMSYNC_ACTION_ID", "act123")
+	argv := []string{"prog"}
+	core, logs := observer.New(zapcore.InfoLevel)
+	logger := zap.New(core)
+	reexeced, err := EnsureRootOrReexec(Options{Args: argv, Geteuid: func() int { return 0 }}, logger)
+	if err != nil || reexeced {
+		t.Fatalf("unexpected result: %v %v", reexeced, err)
+	}
+	entries := logs.All()
+	if len(entries) != 2 {
+		t.Fatalf("expected 2 log entries, got %d", len(entries))
+	}
+	host, _ := os.Hostname()
+	first := entries[0].ContextMap()
+	if first["action_id"] != "act123" {
+		t.Fatalf("action_id = %v", first["action_id"])
+	}
+	if fmt.Sprint(first["argv"]) != fmt.Sprint(argv) {
+		t.Fatalf("argv = %v", first["argv"])
+	}
+	if first["hostname"] != host {
+		t.Fatalf("hostname = %v", first["hostname"])
+	}
+	second := entries[1].ContextMap()
+	if second["result"] != "already_root" {
+		t.Fatalf("result = %v", second["result"])
 	}
 }

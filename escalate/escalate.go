@@ -16,12 +16,12 @@
 //
 // Typical usage:
 //
-//			reexeced, err := escalate.EnsureRootOrReexec(escalate.Options{})
+//			reexeced, err := escalate.EnsureRootOrReexec(escalate.Options{}, logger)
 //			if err != nil { log.Fatal(err) }
 //			if reexeced { return } // parent should exit after delegating to sudo
 //
 //			// ... privileged work ...
-//	             if err := escalate.DropToInvokerIfSudo(escalate.Options{}); err != nil {
+//	             if err := escalate.DropToInvokerIfSudo(escalate.Options{}, logger); err != nil {
 //	                     log.Fatal(err)
 //	             }
 //	             // ... continue unprivileged work ...
@@ -36,6 +36,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
 )
 
@@ -75,8 +76,20 @@ func IsRoot(opts Options) bool {
 // If already root, returns (false, nil).
 // If not root, re-execs the current binary through `sudo -n` and returns (true, err).
 // When (true, nil) is returned, the caller should exit immediately.
-func EnsureRootOrReexec(opts Options) (bool, error) {
+func EnsureRootOrReexec(opts Options, logger *zap.Logger) (bool, error) {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+	argv := opts.Args
+	if argv == nil {
+		argv = os.Args
+	}
+	host, _ := os.Hostname()
+	actionID := os.Getenv("LVMSYNC_ACTION_ID")
+	logger.Info("ensure_root_or_reexec", zap.String("action_id", actionID), zap.Strings("argv", argv), zap.String("hostname", host), zap.String("result", "start"))
+
 	if IsRoot(opts) {
+		logger.Info("ensure_root_or_reexec", zap.String("action_id", actionID), zap.Strings("argv", argv), zap.String("hostname", host), zap.String("result", "already_root"))
 		return false, nil
 	}
 
@@ -94,10 +107,6 @@ func EnsureRootOrReexec(opts Options) (bool, error) {
 		return false, fmt.Errorf("resolve self path: %w", err)
 	}
 
-	argv := opts.Args
-	if argv == nil {
-		argv = os.Args
-	}
 	args := make([]string, 0, 3+len(opts.ExtraArgs)+len(argv))
 	args = append(args, "-n", "--", self)
 	if len(opts.ExtraArgs) > 0 {
@@ -132,26 +141,42 @@ func EnsureRootOrReexec(opts Options) (bool, error) {
 	}
 
 	if err := run(sudoPath, args, env, stdin, stdout, stderr); err != nil {
+		logger.Error("ensure_root_or_reexec", zap.String("action_id", actionID), zap.Strings("argv", argv), zap.String("hostname", host), zap.String("result", "error"), zap.Error(err))
 		return false, fmt.Errorf("sudo escalation failed: %w", err)
 	}
+	logger.Info("ensure_root_or_reexec", zap.String("action_id", actionID), zap.Strings("argv", argv), zap.String("hostname", host), zap.String("result", "reexeced"))
 	return true, nil
 }
 
 // DropToInvokerIfSudo drops privileges back to the invoking user if launched
 // via sudo (SUDO_UID/SUDO_GID). No-op if those env vars are absent.
 // Dependency seams are provided via opts.
-func DropToInvokerIfSudo(opts Options) error {
+func DropToInvokerIfSudo(opts Options, logger *zap.Logger) error {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+	argv := opts.Args
+	if argv == nil {
+		argv = os.Args
+	}
+	host, _ := os.Hostname()
+	actionID := os.Getenv("LVMSYNC_ACTION_ID")
+	logger.Info("drop_to_invoker_if_sudo", zap.String("action_id", actionID), zap.Strings("argv", argv), zap.String("hostname", host), zap.String("result", "start"))
+
 	suid := os.Getenv("SUDO_UID")
 	sgid := os.Getenv("SUDO_GID")
 	if suid == "" || sgid == "" {
+		logger.Info("drop_to_invoker_if_sudo", zap.String("action_id", actionID), zap.Strings("argv", argv), zap.String("hostname", host), zap.String("result", "no_sudo"))
 		return nil
 	}
 	uid, err := parseInt(suid)
 	if err != nil {
+		logger.Error("drop_to_invoker_if_sudo", zap.String("action_id", actionID), zap.Strings("argv", argv), zap.String("hostname", host), zap.String("result", "error"), zap.Error(err))
 		return fmt.Errorf("parse SUDO_UID (%q): %w", suid, err)
 	}
 	gid, err := parseInt(sgid)
 	if err != nil {
+		logger.Error("drop_to_invoker_if_sudo", zap.String("action_id", actionID), zap.Strings("argv", argv), zap.String("hostname", host), zap.String("result", "error"), zap.Error(err))
 		return fmt.Errorf("parse SUDO_GID (%q): %w", sgid, err)
 	}
 	sys := opts.Sys
@@ -159,14 +184,18 @@ func DropToInvokerIfSudo(opts Options) error {
 		sys = unixFacade{}
 	}
 	if err := sys.Setgroups([]int{gid}); err != nil {
+		logger.Error("drop_to_invoker_if_sudo", zap.String("action_id", actionID), zap.Strings("argv", argv), zap.String("hostname", host), zap.String("result", "error"), zap.Error(err))
 		return fmt.Errorf("setgroups: %w", err)
 	}
 	if err := sys.Setresgid(gid, gid, gid); err != nil {
+		logger.Error("drop_to_invoker_if_sudo", zap.String("action_id", actionID), zap.Strings("argv", argv), zap.String("hostname", host), zap.String("result", "error"), zap.Error(err))
 		return fmt.Errorf("setresgid: %w", err)
 	}
 	if err := sys.Setresuid(uid, uid, uid); err != nil {
+		logger.Error("drop_to_invoker_if_sudo", zap.String("action_id", actionID), zap.Strings("argv", argv), zap.String("hostname", host), zap.String("result", "error"), zap.Error(err))
 		return fmt.Errorf("setresuid: %w", err)
 	}
+	logger.Info("drop_to_invoker_if_sudo", zap.String("action_id", actionID), zap.Strings("argv", argv), zap.String("hostname", host), zap.String("result", "dropped"))
 	return nil
 }
 

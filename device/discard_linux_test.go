@@ -6,6 +6,8 @@ import (
 	"errors"
 	"os"
 	"testing"
+
+	"go.uber.org/zap"
 )
 
 func TestDiscardRangeStubAndRestore(t *testing.T) {
@@ -17,7 +19,7 @@ func TestDiscardRangeStubAndRestore(t *testing.T) {
 
 	stubErr := errors.New("stub discard error")
 	calls := 0
-	restore := SetDiscardFunc(func(got *os.File, off, length uint64) error {
+	restore := SetDiscardFunc(func(got *os.File, off, length uint64, _ *zap.Logger) error {
 		calls++
 		if got != f || off != 123 || length != 456 {
 			t.Errorf("unexpected args: %v %d %d", got.Name(), off, length)
@@ -25,7 +27,7 @@ func TestDiscardRangeStubAndRestore(t *testing.T) {
 		return stubErr
 	})
 
-	err = DiscardRange(f, 123, 456)
+	err = DiscardRange(f, 123, 456, zap.NewNop())
 	if !errors.Is(err, stubErr) {
 		t.Fatalf("expected stub error, got %v", err)
 	}
@@ -35,7 +37,7 @@ func TestDiscardRangeStubAndRestore(t *testing.T) {
 
 	restore()
 
-	err = DiscardRange(f, 123, 456)
+	err = DiscardRange(f, 123, 456, zap.NewNop())
 	if err == nil || errors.Is(err, stubErr) {
 		t.Fatalf("expected non-stub error after restore, got %v", err)
 	}

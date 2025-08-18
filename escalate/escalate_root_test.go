@@ -48,7 +48,7 @@ func TestHelperEscalateAndDrop(t *testing.T) {
 	))
 	defer logger.Sync()
 
-	reexeced, err := EnsureRootOrReexec(Options{})
+	reexeced, err := EnsureRootOrReexec(Options{}, logger)
 	if err != nil || reexeced {
 		logger.Error("escalation_failed", zap.Bool("reexeced", reexeced), zap.Error(err))
 		os.Exit(1)
@@ -57,7 +57,7 @@ func TestHelperEscalateAndDrop(t *testing.T) {
 
 	os.Setenv("SUDO_UID", "1")
 	os.Setenv("SUDO_GID", "1")
-	if err := DropToInvokerIfSudo(Options{}); err != nil {
+	if err := DropToInvokerIfSudo(Options{}, logger); err != nil {
 		logger.Error("deescalation_failed", zap.Error(err))
 		os.Exit(2)
 	}
