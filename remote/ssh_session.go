@@ -71,8 +71,9 @@ func (s *SSHSession) Close() {
 }
 
 // RunSSHCommand executes a command on a remote host over SSH and logs using logger.
+// stdout and stderr direct command output; nil values are replaced with io.Discard.
 // logger must be non-nil; pass zap.NewNop() to disable logging.
-func RunSSHCommand(ctx context.Context, logger *zap.Logger, host, user, keyPath, hostKeyPath string, port int, command string, timeout time.Duration) error {
+func RunSSHCommand(ctx context.Context, logger *zap.Logger, host, user, keyPath, hostKeyPath string, port int, command string, timeout time.Duration, stdout, stderr io.Writer) error {
 	publicKey, err := readHostPublicKey(hostKeyPath)
 	if err != nil {
 		return fmt.Errorf("failed to load host public key: %w", err)
@@ -103,15 +104,30 @@ func RunSSHCommand(ctx context.Context, logger *zap.Logger, host, user, keyPath,
 	}
 	defer session.Close()
 
-	var stdoutBuf, stderrBuf io.Writer
-	cmdErr := session.Start(command, nil, stdoutBuf, stderrBuf)
-	if cmdErr != nil {
-		return fmt.Errorf("failed to start command: %w", cmdErr)
+	if stdout == nil {
+		stdout = io.Discard
+	}
+	if stderr == nil {
+		stderr = io.Discard
 	}
 
-	err = session.Wait()
-	if err != nil {
-		return fmt.Errorf("SSH command failed: %w", err)
+	errCh := make(chan error, 1)
+	if err := session.Start(command, nil, stdout, stderr); err != nil {
+		return fmt.Errorf("failed to start command: %w", err)
+	}
+	go func() { errCh <- session.Wait() }()
+
+	select {
+	case <-ctx.Done():
+		if sigErr := session.Session.Signal(ssh.SIGKILL); sigErr != nil && !errors.Is(sigErr, io.EOF) {
+			logger.Warn("session signal error", zap.Error(sigErr))
+		}
+		<-errCh
+		return ctx.Err()
+	case err := <-errCh:
+		if err != nil {
+			return fmt.Errorf("SSH command failed: %w", err)
+		}
 	}
 
 	logger.Info("SSH command completed", zap.String("host", host), zap.String("command", command))
