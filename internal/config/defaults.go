@@ -50,6 +50,7 @@ type Config struct {
 	ResumeState              string        `mapstructure:"resume"`
 	ResumeToken              string        `mapstructure:"resume_token"`
 	ResumeVerify             bool          `mapstructure:"-"`
+	VerifyOnly               bool          `mapstructure:"verify_only"`
 	DeviceUUID               string        `mapstructure:"device_uuid"`
 	FirstBlockDigest         string        `mapstructure:"first_block_digest"`
 	SSHHost                  string        `mapstructure:"ssh_host"`
@@ -184,6 +185,7 @@ func DefaultConfig() (*Config, error) {
 		RetryDelay:               100 * time.Millisecond,
 		ResumeState:              "",
 		ResumeToken:              "",
+		VerifyOnly:               false,
 		DeviceUUID:               "",
 		FirstBlockDigest:         "",
 		SSHHost:                  "localhost",

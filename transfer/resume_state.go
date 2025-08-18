@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"os"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -105,6 +106,9 @@ func readResumeState(cfg *config.Config, logger *zap.Logger, size uint64, device
 	var out resumeCheckpoint
 	if cfg.ResumeState == "" {
 		return out
+	}
+	if strings.ToLower(cfg.VerifyLevel) != "none" {
+		cfg.ResumeVerify = true
 	}
 	data, err := os.ReadFile(cfg.ResumeState)
 	if err != nil {

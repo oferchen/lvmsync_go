@@ -247,6 +247,9 @@ func (t *Transfer) verifyDestination(ctx context.Context, cfg *config.Config, de
 	if ctx == nil {
 		return 0, "", 0, fmt.Errorf("nil context")
 	}
+	if cfg.ResumeState != "" && strings.ToLower(cfg.VerifyLevel) != "none" {
+		cfg.ResumeVerify = true
+	}
 	var size uint64
 	var id string
 	var epoch uint64
