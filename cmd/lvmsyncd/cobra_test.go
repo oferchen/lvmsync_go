@@ -3,12 +3,15 @@ package main
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"net"
 	"reflect"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -59,6 +62,31 @@ func TestNewCmdBindError(t *testing.T) {
 		t.Fatalf("expected bind fail, got %v", err)
 	}
 }
+
+func TestLoadConfigUnknownKey(t *testing.T) {
+	v := viper.New()
+	if err := bindFlagSets(&cobra.Command{}, v); err != nil {
+		t.Fatalf("bindFlagSets: %v", err)
+	}
+	cfgPath := writeTempConfig(t, "stray: 1\n")
+	v.Set("config", cfgPath)
+	_, warns, err := loadConfig(v)
+	if err != nil {
+		t.Fatalf("loadConfig: %v", err)
+	}
+	if len(warns) != 1 || warns[0] != `unknown configuration key "stray"` {
+		t.Fatalf("unexpected warnings %v", warns)
+	}
+}
+
+func writeTempConfig(t *testing.T, content string) string {
+	t.Helper()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	return path
 
 type trackingListener struct {
 	net.Listener

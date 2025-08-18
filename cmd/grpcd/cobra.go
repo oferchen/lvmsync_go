@@ -107,7 +107,11 @@ func bindFlagSets(cmd *cobra.Command, v flagBinder) error {
 	return nil
 }
 
-func loadConfig(v *viper.Viper) (Options, error) {
+func loadConfig(v *viper.Viper) (Options, []string, error) {
+	known := map[string]struct{}{}
+	for _, k := range v.AllKeys() {
+		known[k] = struct{}{}
+	}
 	cfgFile := v.GetString("config")
 	if cfgFile != "" {
 		v.SetConfigFile(cfgFile)
@@ -117,7 +121,13 @@ func loadConfig(v *viper.Viper) (Options, error) {
 	}
 	if err := v.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok && cfgFile != "" {
-			return Options{}, err
+			return Options{}, nil, err
+		}
+	}
+	var warns []string
+	for _, k := range v.AllKeys() {
+		if _, ok := known[k]; !ok {
+			warns = append(warns, fmt.Sprintf("unknown configuration key %q", k))
 		}
 	}
 	return Options{
@@ -129,7 +139,7 @@ func loadConfig(v *viper.Viper) (Options, error) {
 		KeepaliveTime:    v.GetDuration("keepalive-time"),
 		KeepaliveTimeout: v.GetDuration("keepalive-timeout"),
 		RequestTimeout:   v.GetDuration("request-timeout"),
-	}, nil
+	}, warns, nil
 }
 
 // NewCmd creates the root cobra command.
@@ -150,9 +160,14 @@ func (r *Runner) NewCmd(logger *zap.Logger, v flagBinder) (*cobra.Command, error
 		Use:   "lvmsync-grpcd",
 		Short: "LVMSync gRPC daemon",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			opts, err := loadConfig(vv)
+			opts, warns, err := loadConfig(vv)
 			if err != nil {
 				return err
+			}
+			for _, w := range warns {
+				if logger != nil {
+					logger.Warn(w)
+				}
 			}
 			ctx := cmd.Context()
 			if ctx == nil {
