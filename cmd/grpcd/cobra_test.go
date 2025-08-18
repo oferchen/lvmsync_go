@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -78,6 +79,22 @@ func TestNewCmdBindError(t *testing.T) {
 	r := NewRunner()
 	if _, err := r.NewCmd(zap.NewNop(), &bindErrViper{Viper: viper.New()}); err == nil || err.Error() != "bind fail" {
 		t.Fatalf("expected bind fail, got %v", err)
+	}
+}
+
+func TestLoadConfigUnknownKey(t *testing.T) {
+	v := viper.New()
+	if err := bindFlagSets(&cobra.Command{}, v); err != nil {
+		t.Fatalf("bindFlagSets: %v", err)
+	}
+	cfgPath := writeTempConfig(t, "extra: 1\n")
+	v.Set("config", cfgPath)
+	_, warns, err := loadConfig(v)
+	if err != nil {
+		t.Fatalf("loadConfig: %v", err)
+	}
+	if len(warns) != 1 || warns[0] != `unknown configuration key "extra"` {
+		t.Fatalf("unexpected warnings %v", warns)
 	}
 }
 
