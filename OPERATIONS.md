@@ -1,13 +1,6 @@
 # Operations
 
-This guide covers snapshot lifecycle management, resume options, verification modes, and expected exit codes for recovery.
-
-## Snapshot Creation and Cleanup Flow
-
-1. `lvmsync run` validates the source and destination.
-2. A snapshot of the source logical volume is created unless `--skip-snapshot-creation` is used.
-3. Snapshot usage is monitored while blocks are streamed to the destination.
-4. On completion or interruption, the snapshot is removed.
+This guide outlines exit codes, resume workflows, and common troubleshooting steps for LVMSync.
 
 ## Resume and Verification Sequences
 
@@ -49,7 +42,12 @@ Reads both devices and reports mismatches without writing data.
 | `20` | Device error | Verify device paths and snapshot health. |
 | `30` | Unsupported platform | Run on a supported Linux platform. |
 | `40` | Configuration error | Review flags, environment variables, and `config.yaml`. |
-| `50` | Runtime failure | Inspect logs and fix the issue. |
-| `60` | Verification mismatch | Investigate mismatched data before retrying. |
-| `70` | Partial transfer | Address the error and resume with `--resume`. |
+| `50` | Runtime failure or verification mismatch | Inspect logs, fix the issue, and rerun using `--resume` when applicable. |
+
+## Troubleshooting
+
+- Compare source and destination identities; the device identity tuple `(device_id, size_bytes, major:minor)` must match the resume file.
+- Confirm the destination is not mounted read-write. Use `--force` only when intentionally overwriting.
+- Rerun with `--resume` after resolving issues to avoid re-copying completed blocks.
+- Review logs for detailed errors and ensure all configuration values follow the expected flag > environment variable > config file precedence.
 

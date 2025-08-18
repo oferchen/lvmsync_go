@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"os"
 	"runtime"
 	"strings"
@@ -86,9 +88,15 @@ func (r *Runner) Run() {
 	if err := r.RunFunc(cfg, args, logger); err != nil {
 		logger.Error("run failed", zap.Error(err))
 		r.SyncLogger(logger)
-		if strings.Contains(err.Error(), "device") {
+		msg := err.Error()
+		switch {
+		case strings.Contains(msg, "device"):
 			r.Exit(exitcode.ErrDevice)
-		} else {
+		case strings.Contains(msg, "mismatch") || strings.Contains(msg, "blocks differ"):
+			r.Exit(exitcode.ErrVerify)
+		case strings.Contains(msg, "signal") || errors.Is(err, context.Canceled):
+			r.Exit(exitcode.ErrPartial)
+		default:
 			r.Exit(exitcode.ErrRuntime)
 		}
 		return

@@ -133,7 +133,7 @@ func (t *Transfer) startParallelWorkers(ctx context.Context, cfg *config.Config,
 		for i := resumeStart; i < numBlocks; i++ {
 			select {
 			case <-ctx.Done():
-				break
+				return
 			case tasks <- BlockTask{Index: i, R: ranges[i]}:
 			}
 		}

@@ -14,6 +14,8 @@ func TestExitCodeValues(t *testing.T) {
 		{"ErrPlatform", ErrPlatform, 30},
 		{"ErrConfig", ErrConfig, 40},
 		{"ErrRuntime", ErrRuntime, 50},
+		{"ErrVerify", ErrVerify, 60},
+		{"ErrPartial", ErrPartial, 70},
 	}
 	for _, c := range cases {
 		if c.code != c.want {

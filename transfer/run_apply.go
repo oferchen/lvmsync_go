@@ -62,5 +62,14 @@ func (t *Transfer) RunApply(cfg *config.Config, applyFile, destDevice string) (e
 	defer common.CloseWithErr(rc, &err, "close apply file")
 	err = t.applyData(cfg, rc, destDevice)
 	finalizeResumeState(cfg, t.Tracker, t.Logger)
+	if t.wal != nil {
+		if syncErr := t.wal.Sync(); syncErr != nil && err == nil {
+			err = syncErr
+		}
+		if closeErr := t.wal.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
+		t.wal = nil
+	}
 	return err
 }

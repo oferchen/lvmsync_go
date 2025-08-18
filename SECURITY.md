@@ -14,14 +14,25 @@ Tight `sudoers` rules limit what the helper may execute:
 # Allow LVM administration commands
 lvmsync ALL=(root) NOPASSWD: /sbin/lvm, /sbin/lvcreate, /sbin/lvremove, /sbin/lvs, /sbin/pvs, /sbin/vgs
 
-# Permit opening block devices through the helper
-lvmsync ALL=(root) NOPASSWD: /usr/local/bin/lvmsync-helper open, /usr/local/bin/lvmsync-helper write
+# Permit opening devices and issuing writes or discards through the helper
+lvmsync ALL=(root) NOPASSWD: \
+    /usr/local/bin/lvmsync-helper open, \
+    /usr/local/bin/lvmsync-helper write, \
+    /usr/local/bin/lvmsync-helper discard
 
-# Enable discarding unused blocks
+# Enable direct blkdiscard when the helper is unavailable
 lvmsync ALL=(root) NOPASSWD: /usr/sbin/blkdiscard
 ```
 
 Adjust paths to match your distribution.
+
+## Environment sanitization
+
+The helper normally inherits the caller's environment, including `PATH` and
+other variables. Pass the `--sanitize-env` flag or enable the `SanitizeEnv`
+option to run the helper with a minimal, whitelisted environment that drops
+`LD_PRELOAD` and similar variables and enforces a safe `PATH`. Sanitization is
+disabled by default to avoid surprising behavior in mixed environments.
 
 ## Risks of raw-device writes
 

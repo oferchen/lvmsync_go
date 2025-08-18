@@ -13,4 +13,8 @@ const (
 	ErrConfig = 40
 	// ErrRuntime represents errors during command execution.
 	ErrRuntime = 50
+	// ErrVerify indicates checksum or digest verification failures.
+	ErrVerify = 60
+	// ErrPartial indicates a resumable transfer was aborted before completion.
+	ErrPartial = 70
 )

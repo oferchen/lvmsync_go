@@ -136,6 +136,8 @@ func TestMapExitCode(t *testing.T) {
 		{"success", nil, exitcode.OK},
 		{"config", errors.New("parse listen"), exitcode.ErrConfig},
 		{"runtime", errors.New("listen failed"), exitcode.ErrRuntime},
+		{"verify", errors.New("digest mismatch"), exitcode.ErrVerify},
+		{"partial", errors.New("received signal: interrupt"), exitcode.ErrPartial},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
