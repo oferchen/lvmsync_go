@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -29,6 +30,7 @@ type LVMDevice struct {
 	logger      *zap.Logger
 	lock        *lock.Lock
 	runner      *Runner
+	wal         *WAL
 }
 
 // OpenLVM opens an LVM logical volume and queries its size and block size.
@@ -101,6 +103,44 @@ func (d *LVMDevice) SizeBytes() uint64 { return d.size }
 
 // BlockSize returns the logical block size in bytes.
 func (d *LVMDevice) BlockSize() uint64 { return d.blockSize }
+
+// Identity gathers size, kernel uuid and GPT info for the logical volume.
+func (d *LVMDevice) Identity() (DeviceIdentity, error) {
+	id := DeviceIdentity{SizeBytes: d.SizeBytes()}
+	out, err := exec.Command("lvs", "--noheadings", "-o", "lv_uuid", d.Path()).Output()
+	if err != nil {
+		return DeviceIdentity{}, err
+	}
+	id.KernelUUID = strings.TrimSpace(string(out))
+	if out, err = exec.Command("blkid", "-o", "value", "-s", "PTUUID", d.Path()).Output(); err == nil {
+		id.GPTUUID = strings.TrimSpace(string(out))
+	}
+	return id, nil
+}
+
+// SetWAL attaches a WAL to the device.
+func (d *LVMDevice) SetWAL(w *WAL) { d.wal = w }
+
+// AppendWAL records an applied range in the attached WAL.
+func (d *LVMDevice) AppendWAL(r Range) error {
+	if d.wal == nil {
+		return nil
+	}
+	return d.wal.Append(r)
+}
+
+// RecoverWAL replays recorded ranges using fn.
+func (d *LVMDevice) RecoverWAL(fn func(Range) error) error {
+	if d.wal == nil {
+		return nil
+	}
+	for _, r := range d.wal.Ranges() {
+		if err := fn(r); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
 // Close closes the device and releases the lock if present.
 func (d *LVMDevice) Close() error {

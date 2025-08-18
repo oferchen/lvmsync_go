@@ -528,3 +528,8 @@ func (s *stubDevice) BlockSize() uint64                                { return 
 func (s *stubDevice) Snapshot(context.Context, string) (Device, error) { return nil, nil }
 func (s *stubDevice) Cleanup(context.Context) error                    { return nil }
 func (s *stubDevice) Close() error                                     { return s.closeErr }
+func (s *stubDevice) Identity() (DeviceIdentity, error) {
+	return DeviceIdentity{SizeBytes: s.size}, nil
+}
+func (s *stubDevice) AppendWAL(r Range) error               { return nil }
+func (s *stubDevice) RecoverWAL(fn func(Range) error) error { return nil }

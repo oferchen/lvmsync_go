@@ -23,6 +23,11 @@ func OpenRaw(context.Context, string, bool, string, []string, string, []string, 
 func (d *RawDevice) Path() string      { return "" }
 func (d *RawDevice) SizeBytes() uint64 { return 0 }
 func (d *RawDevice) BlockSize() uint64 { return 0 }
+func (d *RawDevice) Identity() (DeviceIdentity, error) {
+	return DeviceIdentity{}, fmt.Errorf("unsupported")
+}
+func (d *RawDevice) AppendWAL(r Range) error               { return nil }
+func (d *RawDevice) RecoverWAL(fn func(Range) error) error { return nil }
 func (d *RawDevice) Snapshot(context.Context, string) (Device, error) {
 	return nil, fmt.Errorf("raw device snapshots are only supported on Linux")
 }
