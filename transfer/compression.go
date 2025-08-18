@@ -145,11 +145,8 @@ func estimateRatio(data []byte, algo string, level, concurrency int) (float64, e
 // settings. Compression is skipped when the estimated ratio exceeds the
 // threshold. The returned string indicates the algorithm used; "none" means no
 // compression was applied. Decisions are logged using the provided logger.
+// logger must be non-nil; use zap.NewNop() to disable logging.
 func CompressChunk(data []byte, compress string, lz4Level, zstdLevel, concurrency int, threshold float64, logger *zap.Logger) ([]byte, string, error) {
-	if logger == nil {
-		logger = zap.NewNop()
-	}
-
 	algo, lvl := selectAlgorithm(len(data), compress, lz4Level, zstdLevel)
 	if algo == "none" {
 		logger.Debug("compression_disabled")

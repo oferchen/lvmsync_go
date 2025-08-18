@@ -13,10 +13,10 @@ import (
 )
 
 func TestSaveChecksumState(t *testing.T) {
-	t.Run("nil logger", func(t *testing.T) {
+	t.Run("no logging", func(t *testing.T) {
 		filename := filepath.Join(t.TempDir(), "state")
 		state := &ChecksumState{Checksums: make(map[uint64][]byte), Strategy: "sha256"}
-		if err := SaveChecksumState(filename, state, nil); err != nil {
+		if err := SaveChecksumState(filename, state, zap.NewNop()); err != nil {
 			t.Fatalf("SaveChecksumState returned error: %v", err)
 		}
 	})

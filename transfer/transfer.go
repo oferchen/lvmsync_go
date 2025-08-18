@@ -31,12 +31,9 @@ type Transfer struct {
 }
 
 // NewTransfer creates a Transfer with the provided logger and wait group.
-// When wg is nil, a new instance is allocated. A nil logger is replaced with
-// zap.NewNop().
+// When wg is nil, a new instance is allocated. logger must be non-nil; callers
+// wanting no logs should pass zap.NewNop().
 func NewTransfer(logger *zap.Logger, wg *sync.WaitGroup, info device.DeviceInfoProvider) *Transfer {
-	if logger == nil {
-		logger = zap.NewNop()
-	}
 	if wg == nil {
 		wg = &sync.WaitGroup{}
 	}
@@ -78,13 +75,11 @@ func LoadChecksumState(filename string) (state *ChecksumState, err error) {
 	return state, nil
 }
 
-// SaveChecksumState persists block checksums. It defaults to a no-op logger when nil.
+// SaveChecksumState persists block checksums. logger must be non-nil; use
+// zap.NewNop() to disable logging.
 //
 //revive:disable-next-line:cognitive-complexity
 func SaveChecksumState(filename string, state *ChecksumState, logger *zap.Logger) (err error) {
-	if logger == nil {
-		logger = zap.NewNop()
-	}
 	var file *os.File
 	file, err = os.Create(filename)
 	if err != nil {

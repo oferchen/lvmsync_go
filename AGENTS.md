@@ -36,6 +36,8 @@ command-line use, environment variables, and `config.yaml` files.
 - Transport constructors must accept a `*zap.Logger`; avoid package-level loggers.
 - Pass loggers explicitly to commands and helpers; do not use `zap.L()` or other globals.
 - Use `zap.NewNop()` instead of `nil` when no logging is needed.
+- Constructors and other exported functions must require a non-nil logger; callers
+  must always supply one (use `zap.NewNop()` to disable logging).
 - Log connection lifecycle events and errors with `snake_case` fields including units (e.g., `bytes_transferred`, `duration_ms`).
 - Do not log secrets or authentication tokens; scrub sensitive values before emitting them.
 - Callers using transports should `defer rootcmd.SyncLogger(logger)` to ensure logs are flushed.

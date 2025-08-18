@@ -118,9 +118,6 @@ func OpenRaw(
 	logger *zap.Logger,
 	runner *Runner,
 ) (_ *RawDevice, err error) {
-	if logger == nil {
-		return nil, fmt.Errorf("logger is nil")
-	}
 	if runner == nil {
 		runner = NewRunner()
 	}

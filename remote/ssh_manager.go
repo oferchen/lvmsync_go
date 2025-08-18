@@ -53,12 +53,9 @@ func WithPrivateKeyParser(p func([]byte) (ssh.Signer, error)) SSHManagerOption {
 // knownHostsPath. The timeout applies to establishing new connections.
 //
 // The provided ctx controls cancellation for initialization steps such as
-// retrieving authentication methods. It should include a deadline.
+// retrieving authentication methods. It should include a deadline. logger must
+// be non-nil; pass zap.NewNop() to disable logging.
 func NewSSHManager(ctx context.Context, user, keyPath string, timeout time.Duration, knownHostsPath string, logger *zap.Logger, opts ...SSHManagerOption) (*SSHManager, error) {
-	if logger == nil {
-		logger = zap.NewNop()
-	}
-
 	mgr := &SSHManager{
 		clients:         make(map[string]*sshClientEntry),
 		timeout:         timeout,
