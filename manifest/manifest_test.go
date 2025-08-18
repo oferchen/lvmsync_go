@@ -182,6 +182,32 @@ func TestReadHeaderMACMismatch(t *testing.T) {
 	}
 }
 
+func TestCreateSyncsHeader(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "crash.man")
+	idx, err := Create(path, "dev", 4096, 4096, 0, 0, 0, 0)
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	// Simulate crash by closing without fsync.
+	if err := unix.Munmap(idx.data); err != nil {
+		t.Fatalf("munmap: %v", err)
+	}
+	if err := idx.f.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+	idx2, err := Open(path)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	if idx2.hdr.Version != Version || idx2.hdr.ChunkCount != 1 {
+		t.Fatalf("header mismatch: %+v", idx2.hdr)
+	}
+	if err := idx2.Close(); err != nil {
+		t.Fatalf("close2: %v", err)
+	}
+}
+
 func TestUpgrade(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "old.man")
