@@ -14,8 +14,8 @@ import (
 type Option func(*options)
 
 type options struct {
-	samplingFirst      uint32
-	samplingThereafter uint32
+	samplingFirst      int
+	samplingThereafter int
 	redactor           func(zapcore.Field) zapcore.Field
 	zapOpts            []zap.Option
 }
@@ -36,7 +36,7 @@ func applyOptions(opts []Option) options {
 }
 
 // WithSampling sets the sampling rates. A zero value disables sampling.
-func WithSampling(first, thereafter uint32) Option {
+func WithSampling(first, thereafter int) Option {
 	return func(o *options) {
 		o.samplingFirst = first
 		o.samplingThereafter = thereafter
@@ -102,13 +102,14 @@ func NewLogger(cfg *config.Config, component string, opts ...Option) (*zap.Logge
 	} else {
 		c.Sampling = &zap.SamplingConfig{Initial: o.samplingFirst, Thereafter: o.samplingThereafter}
 	}
-	zapOpts := []zap.Option{zap.AddCaller(), zap.Fields(zap.String("component", component))}
+	zapOpts := []zap.Option{zap.AddCaller()}
 	if o.redactor != nil {
 		zapOpts = append(zapOpts, zap.WrapCore(func(core zapcore.Core) zapcore.Core {
 			return redactingCore{Core: core, redactor: o.redactor}
 		}))
 	}
 	zapOpts = append(zapOpts, o.zapOpts...)
+	zapOpts = append(zapOpts, zap.Fields(zap.String("component", component)))
 	return c.Build(zapOpts...)
 }
 
