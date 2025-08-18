@@ -2,9 +2,10 @@
 
 ## Usage
 
-LVMSync supports multiple transports selectable with the `--transport` flag.
-Transports are tried in order until a connection is established. The default
-order is `quic,h2,tcp+tls,ssh`. Flags override `LVMSYNC_TRANSPORT_*`
+`lvmsyncd` exposes transports by listening on URIs passed to `--listen`. Each
+scheme selects a transport such as `quic`, `tcp+tls`, or `ssh`. Clients choose
+their preferred order with the `--transport` flag; transports are tried in order
+until a connection is established. Flags override `LVMSYNC_TRANSPORT_*`
 environment variables, which override `transport` keys in `config.yaml`.
 
 Each transport constructor accepts a configuration with an optional `zap.Logger`.
@@ -61,12 +62,15 @@ used only in development.
 
 ## Examples
 
+Expose multiple transports with `lvmsyncd`:
+
 ```sh
-lvmsync --transport quic,h2,tcp+tls,ssh --tcp-port 9443
+lvmsyncd --listen tcp+tls://:9443 --listen ssh://:2222 \
+  --tls-cert cert.pem --tls-key key.pem --ca-cert ca.pem \
+  --ssh-host-key-path host_key
 ```
 
-
-clients. Defaults:
+Listeners enforce these defaults:
 
 - `--keepalive-time` (2m): interval between server pings.
 - `--keepalive-timeout` (20s): wait for a ping acknowledgement before closing.
@@ -85,13 +89,7 @@ clients. Defaults:
 Example:
 
 ```sh
-lvmsync --transport quic --tls-cert cert.pem --tls-key key.pem --ca-cert ca.pem
-```
-
-Run a listener with the `serve` subcommand:
-
-```sh
-lvmsync serve --transport quic --quic-listen :12000 --tls-cert cert.pem --tls-key key.pem --ca-cert ca.pem
+lvmsyncd --listen quic://:12000 --tls-cert cert.pem --tls-key key.pem --ca-cert ca.pem
 ```
 
 ## HTTP/2 (h2)
