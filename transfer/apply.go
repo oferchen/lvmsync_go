@@ -40,6 +40,9 @@ func (t *Transfer) processDumpDataCore(ctx context.Context, cfg *config.Config, 
 	if err != nil {
 		return err
 	}
+	t.Tracker.sizeBytes = size
+	t.Tracker.deviceID = id
+	t.Tracker.epoch = epoch
 
 	var destFile *os.File
 	if cfg.ODirect {
