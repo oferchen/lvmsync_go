@@ -212,7 +212,7 @@ func defaultMountFunc(ctx context.Context, path string) (bool, error) {
 		infos = r.infos
 	}
 	for _, mi := range infos {
-		if mi.Source != real {
+		if mi.Source != real && mi.Mountpoint != real && mi.Root != real {
 			continue
 		}
 		for _, opt := range strings.Split(mi.Options, ",") {
