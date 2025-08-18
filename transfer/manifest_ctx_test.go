@@ -35,6 +35,7 @@ func TestReadManifestHeaderNilContext(t *testing.T) {
 	dir := t.TempDir()
 	p := filepath.Join(dir, "man")
 	writeHeader(t, p)
+	//lint:ignore SA1012 testing nil context handling
 	if _, err := readManifestHeader(nil, p, 0); err == nil || !strings.Contains(err.Error(), "nil context") {
 		t.Fatalf("expected nil context error, got %v", err)
 	}

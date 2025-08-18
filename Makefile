@@ -1,4 +1,4 @@
-.PHONY: build test lint verify bench-lan bench-wan
+.PHONY: build test lint verify bench-lan bench-wan vet staticcheck test-race integration release
 
 build:
         @mkdir -p bin
@@ -11,10 +11,25 @@ test:
 lint:
         golangci-lint run
 
+vet:
+        go vet ./...
+
+staticcheck:
+        staticcheck ./...
+
 verify:
         go build ./...
         go test -coverprofile=coverage.out ./...
         golangci-lint run
+
+test-race:
+        go test -race ./...
+
+integration:
+        go test -tags=integration ./...
+
+release:
+        goreleaser release --clean --timeout=90m
 
 bench-lan:
 	scripts/bench_lan.sh $(SRC) $(DEST)

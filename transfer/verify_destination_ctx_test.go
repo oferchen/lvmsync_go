@@ -23,6 +23,7 @@ func TestVerifyDestinationNilContext(t *testing.T) {
 	if err := os.WriteFile(dest, []byte("data"), 0600); err != nil {
 		t.Fatalf("write dest: %v", err)
 	}
+	//lint:ignore SA1012 testing nil context handling
 	if err := tr.verifyDestination(nil, cfg, dest); err == nil || !strings.Contains(err.Error(), "nil context") {
 		t.Fatalf("expected nil context error, got %v", err)
 	}

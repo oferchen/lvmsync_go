@@ -41,6 +41,16 @@ jobs:
           go-version: ${{ matrix.go-version }}
           cache: true
 
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-go-${{ matrix.go-version }}-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-${{ matrix.go-version }}-
+
       - name: Auto-fix gofmt/goimports
         run: |
           go install golang.org/x/tools/cmd/goimports@latest
@@ -81,6 +91,9 @@ jobs:
       - name: Install golangci-lint
         run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 
+      - name: Install staticcheck
+        run: go install honnef.co/go/tools/cmd/staticcheck@latest
+
       - name: Go build
         run: go build ./...
 
@@ -89,6 +102,18 @@ jobs:
 
       - name: golangci-lint
         run: golangci-lint run
+
+      - name: Go vet
+        run: make vet
+
+      - name: Staticcheck
+        run: make staticcheck
+
+      - name: Race detector
+        run: make test-race
+
+      - name: Integration tests
+        run: make integration
         
       - name: Build, test, and lint
         run: make verify
