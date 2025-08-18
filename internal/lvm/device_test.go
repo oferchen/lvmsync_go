@@ -3,6 +3,7 @@ package lvm
 import (
 	"context"
 	"errors"
+	"path/filepath"
 	"testing"
 )
 
@@ -39,6 +40,16 @@ func TestCheckerPreOpen(t *testing.T) {
 	}
 	if path != "/dev/vg/lv" {
 		t.Fatalf("path %s", path)
+	}
+	root := t.TempDir()
+	c.DevRoot = root
+	path, err = c.PreOpen(ctx, "vg", "lv")
+	if err != nil {
+		t.Fatalf("preopen with root: %v", err)
+	}
+	want := filepath.Join(root, "vg", "lv")
+	if path != want {
+		t.Fatalf("path %s want %s", path, want)
 	}
 	mock.exists = false
 	if _, err := c.PreOpen(ctx, "vg", "lv"); err == nil {

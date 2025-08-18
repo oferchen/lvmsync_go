@@ -11,6 +11,7 @@ import (
 type Checker struct {
 	Agent     Agent
 	Requester string
+	DevRoot   string
 }
 
 // PreOpen ensures the logical volume exists and is ready for writes.
@@ -42,7 +43,11 @@ func (c Checker) PreOpen(ctx context.Context, vg, lv string) (string, error) {
 	if err := c.Agent.Lock(ctx, vol, c.Requester); err != nil {
 		return "", err
 	}
-	return filepath.Join("/dev", vg, lv), nil
+	root := c.DevRoot
+	if root == "" {
+		root = "/dev"
+	}
+	return filepath.Join(root, vg, lv), nil
 }
 
 // PostCommit fsyncs the device and releases the lock.

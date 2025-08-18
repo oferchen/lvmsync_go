@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"lvmsync_go/internal/lvm"
@@ -63,8 +64,9 @@ func (m *mockAgent) IsMounted(ctx context.Context, volume string) (bool, error) 
 
 func TestDeviceWriterOpenSuccess(t *testing.T) {
 	ctx := context.Background()
-	path := "/dev/testvg1/testlv1"
-	if err := os.MkdirAll("/dev/testvg1", 0o755); err != nil {
+	root := t.TempDir()
+	path := filepath.Join(root, "testvg1", "testlv1")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
 	ftmp, err := os.Create(path)
@@ -72,13 +74,9 @@ func TestDeviceWriterOpenSuccess(t *testing.T) {
 		t.Fatalf("create: %v", err)
 	}
 	ftmp.Close()
-	t.Cleanup(func() {
-		os.Remove(path)
-		os.Remove("/dev/testvg1")
-	})
 
 	agent := &mockAgent{volumeExists: true, autoExtend: true, discard: true}
-	dw := DeviceWriter{Checker: lvm.Checker{Agent: agent, Requester: "req"}}
+	dw := DeviceWriter{Checker: lvm.Checker{Agent: agent, Requester: "req", DevRoot: root}}
 
 	f, closeFn, err := dw.Open(ctx, "testvg1", "testlv1", false)
 	if err != nil {
@@ -103,8 +101,9 @@ func TestDeviceWriterOpenSuccess(t *testing.T) {
 
 func TestDeviceWriterOpenPreOpenFailure(t *testing.T) {
 	ctx := context.Background()
+	root := t.TempDir()
 	agent := &mockAgent{volumeExists: false}
-	dw := DeviceWriter{Checker: lvm.Checker{Agent: agent, Requester: "req"}}
+	dw := DeviceWriter{Checker: lvm.Checker{Agent: agent, Requester: "req", DevRoot: root}}
 	f, closeFn, err := dw.Open(ctx, "vg", "lv", false)
 	if err == nil {
 		t.Fatalf("expected error")
@@ -119,8 +118,9 @@ func TestDeviceWriterOpenPreOpenFailure(t *testing.T) {
 
 func TestDeviceWriterOpenPostCommitFailure(t *testing.T) {
 	ctx := context.Background()
-	path := "/dev/testvg2/testlv2"
-	if err := os.MkdirAll("/dev/testvg2", 0o755); err != nil {
+	root := t.TempDir()
+	path := filepath.Join(root, "testvg2", "testlv2")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
 	ftmp, err := os.Create(path)
@@ -128,13 +128,9 @@ func TestDeviceWriterOpenPostCommitFailure(t *testing.T) {
 		t.Fatalf("create: %v", err)
 	}
 	ftmp.Close()
-	t.Cleanup(func() {
-		os.Remove(path)
-		os.Remove("/dev/testvg2")
-	})
 
 	agent := &mockAgent{volumeExists: true, autoExtend: true, discard: true, unlockErr: errors.New("unlock failed")}
-	dw := DeviceWriter{Checker: lvm.Checker{Agent: agent, Requester: "req"}}
+	dw := DeviceWriter{Checker: lvm.Checker{Agent: agent, Requester: "req", DevRoot: root}}
 
 	f, closeFn, err := dw.Open(ctx, "testvg2", "testlv2", false)
 	if err != nil {
