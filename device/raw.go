@@ -33,6 +33,7 @@ type RawDevice struct {
 	thawCmdPath   string
 	thawCmdArgs   []string
 	runner        *Runner
+	wal           *WAL
 }
 
 // prepareFreeze validates and runs the filesystem freeze command when offline is false.
@@ -180,6 +181,44 @@ func (d *RawDevice) SizeBytes() uint64 { return d.size }
 
 // BlockSize returns the logical block size of the device in bytes.
 func (d *RawDevice) BlockSize() uint64 { return d.blockSize }
+
+// Identity gathers size, kernel uuid and GPT information for the device.
+func (d *RawDevice) Identity() (DeviceIdentity, error) {
+	id := DeviceIdentity{SizeBytes: d.SizeBytes()}
+	out, err := exec.Command("blkid", "-o", "value", "-s", "UUID", d.Path()).Output()
+	if err != nil {
+		return DeviceIdentity{}, err
+	}
+	id.KernelUUID = strings.TrimSpace(string(out))
+	if out, err = exec.Command("blkid", "-o", "value", "-s", "PTUUID", d.Path()).Output(); err == nil {
+		id.GPTUUID = strings.TrimSpace(string(out))
+	}
+	return id, nil
+}
+
+// SetWAL attaches a WAL to the device.
+func (d *RawDevice) SetWAL(w *WAL) { d.wal = w }
+
+// AppendWAL records the applied range in the attached WAL.
+func (d *RawDevice) AppendWAL(r Range) error {
+	if d.wal == nil {
+		return nil
+	}
+	return d.wal.Append(r)
+}
+
+// RecoverWAL replays recorded ranges using fn.
+func (d *RawDevice) RecoverWAL(fn func(Range) error) error {
+	if d.wal == nil {
+		return nil
+	}
+	for _, r := range d.wal.Ranges() {
+		if err := fn(r); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
 // Close closes the underlying file descriptor.
 func (d *RawDevice) Close() error {

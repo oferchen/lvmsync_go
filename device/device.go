@@ -18,6 +18,12 @@ type Device interface {
 	Cleanup(ctx context.Context) error
 	// Close releases any resources associated with the device.
 	Close() error
+	// Identity gathers metadata describing the device.
+	Identity() (DeviceIdentity, error)
+	// AppendWAL records an applied range in the device's WAL.
+	AppendWAL(r Range) error
+	// RecoverWAL replays ranges from the WAL using fn.
+	RecoverWAL(fn func(Range) error) error
 }
 
 // Device type identifiers for Detect and CLI hints.

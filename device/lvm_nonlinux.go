@@ -34,7 +34,12 @@ func (r *Runner) OpenLVM(context.Context, string, *lvm.FDCache, string, *zap.Log
 func (d *LVMDevice) Path() string      { return "" }
 func (d *LVMDevice) SizeBytes() uint64 { return 0 }
 func (d *LVMDevice) BlockSize() uint64 { return 0 }
-func (d *LVMDevice) Close() error      { return nil }
+func (d *LVMDevice) Identity() (DeviceIdentity, error) {
+	return DeviceIdentity{}, fmt.Errorf("unsupported")
+}
+func (d *LVMDevice) AppendWAL(r Range) error               { return nil }
+func (d *LVMDevice) RecoverWAL(fn func(Range) error) error { return nil }
+func (d *LVMDevice) Close() error                          { return nil }
 func (d *LVMDevice) Snapshot(context.Context, string) (Device, error) {
 	return nil, fmt.Errorf("LVM snapshots are only supported on Linux")
 }
