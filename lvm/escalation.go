@@ -5,19 +5,44 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+
+	"github.com/kballard/go-shellquote"
 )
 
 // execCommand is used for running external commands and can be overridden in tests.
 var execCommand = exec.Command
 
+// geteuid returns the effective user ID; overridable for tests.
+var geteuid = os.Geteuid
+
+// ParseEscalation splits the escalation command using shell-style quoting and
+// rejects unsafe characters. It returns an error if the command is empty or
+// contains unsupported tokens like pipes or redirects.
+func ParseEscalation(escalation string) ([]string, error) {
+	if strings.TrimSpace(escalation) == "" {
+		return nil, fmt.Errorf("lvm escalation command is empty")
+	}
+	if strings.ContainsAny(escalation, "|&;<>") {
+		return nil, fmt.Errorf("unsupported characters in lvm escalation command")
+	}
+	parts, err := shellquote.Split(escalation)
+	if err != nil {
+		return nil, fmt.Errorf("invalid lvm escalation command: %w", err)
+	}
+	if len(parts) == 0 {
+		return nil, fmt.Errorf("lvm escalation command is empty")
+	}
+	return parts, nil
+}
+
 // verifyEscalation checks that the escalation command succeeds when not running as root.
 func verifyEscalation(escalation string) error {
-	if os.Geteuid() == 0 {
+	if geteuid() == 0 {
 		return nil
 	}
-	parts := strings.Fields(escalation)
-	if len(parts) == 0 {
-		return fmt.Errorf("insufficient privileges: LVM operations require root privileges")
+	parts, err := ParseEscalation(escalation)
+	if err != nil {
+		return fmt.Errorf("insufficient privileges: %w", err)
 	}
 	cmd := execCommand(parts[0], append(parts[1:], "true")...)
 	out, err := cmd.CombinedOutput()

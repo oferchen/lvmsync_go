@@ -16,9 +16,6 @@ import (
 	"golang.org/x/crypto/ssh/knownhosts"
 )
 
-// parsePrivateKey is a variable to allow test stubbing.
-var parsePrivateKey = ssh.ParsePrivateKey
-
 // SSHManager maintains SSH client connections for reuse and ensures
 // consistent host key verification.
 //
@@ -31,11 +28,23 @@ type sshClientEntry struct {
 }
 
 type SSHManager struct {
-	mu        sync.Mutex
-	clients   map[string]*sshClientEntry
-	sshConfig *ssh.ClientConfig
-	timeout   time.Duration
-	logger    *zap.Logger
+	mu              sync.Mutex
+	clients         map[string]*sshClientEntry
+	sshConfig       *ssh.ClientConfig
+	timeout         time.Duration
+	logger          *zap.Logger
+	parsePrivateKey func([]byte) (ssh.Signer, error)
+}
+
+// SSHManagerOption customizes the SSHManager configuration.
+type SSHManagerOption func(*SSHManager)
+
+// WithPrivateKeyParser sets a custom private key parser used to load
+// authentication keys.
+func WithPrivateKeyParser(p func([]byte) (ssh.Signer, error)) SSHManagerOption {
+	return func(m *SSHManager) {
+		m.parsePrivateKey = p
+	}
 }
 
 // NewSSHManager initializes an SSHManager for the provided user. The keyPath
@@ -45,12 +54,23 @@ type SSHManager struct {
 //
 // The provided ctx controls cancellation for initialization steps such as
 // retrieving authentication methods. It should include a deadline.
-func NewSSHManager(ctx context.Context, user, keyPath string, timeout time.Duration, knownHostsPath string, logger *zap.Logger) (*SSHManager, error) {
+func NewSSHManager(ctx context.Context, user, keyPath string, timeout time.Duration, knownHostsPath string, logger *zap.Logger, opts ...SSHManagerOption) (*SSHManager, error) {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
 
-	authMethods, err := getSSHAuthMethods(ctx, keyPath, timeout, logger)
+	mgr := &SSHManager{
+		clients:         make(map[string]*sshClientEntry),
+		timeout:         timeout,
+		logger:          logger,
+		parsePrivateKey: ssh.ParsePrivateKey,
+	}
+
+	for _, opt := range opts {
+		opt(mgr)
+	}
+
+	authMethods, err := getSSHAuthMethods(ctx, keyPath, timeout, logger, mgr.parsePrivateKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize authentication: %w", err)
 	}
@@ -60,19 +80,14 @@ func NewSSHManager(ctx context.Context, user, keyPath string, timeout time.Durat
 		return nil, fmt.Errorf("failed to set up host key verification: %w", err)
 	}
 
-	sshConfig := &ssh.ClientConfig{
+	mgr.sshConfig = &ssh.ClientConfig{
 		User:            user,
 		Auth:            authMethods,
 		HostKeyCallback: hostKeyCallback,
 		Timeout:         timeout,
 	}
 
-	return &SSHManager{
-		clients:   make(map[string]*sshClientEntry),
-		sshConfig: sshConfig,
-		timeout:   timeout,
-		logger:    logger,
-	}, nil
+	return mgr, nil
 }
 
 // GetClient returns an SSH client connected to the specified host and port.
@@ -123,11 +138,11 @@ func (s *SSHManager) CloseAll() error {
 	return errs
 }
 
-func getSSHAuthMethods(ctx context.Context, keyPath string, timeout time.Duration, logger *zap.Logger) ([]ssh.AuthMethod, error) {
+func getSSHAuthMethods(ctx context.Context, keyPath string, timeout time.Duration, logger *zap.Logger, parser func([]byte) (ssh.Signer, error)) ([]ssh.AuthMethod, error) {
 	authMethods := []ssh.AuthMethod{}
 
 	if keyPath != "" {
-		signer, err := loadPrivateKey(keyPath)
+		signer, err := loadPrivateKey(parser, keyPath)
 		if err != nil {
 			return nil, err
 		}
@@ -167,7 +182,7 @@ func dialSSH(ctx context.Context, addr string, sshConfig *ssh.ClientConfig, time
 	return ssh.NewClient(clientConn, chans, reqs), nil
 }
 
-func loadPrivateKey(keyPath string) (ssh.Signer, error) {
+func loadPrivateKey(parse func([]byte) (ssh.Signer, error), keyPath string) (ssh.Signer, error) {
 	info, err := os.Stat(keyPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to stat private key: %w", err)
@@ -180,7 +195,7 @@ func loadPrivateKey(keyPath string) (ssh.Signer, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read private key: %w", err)
 	}
-	signer, err := parsePrivateKey(keyData)
+	signer, err := parse(keyData)
 	// Zero the key material to avoid leaving it in memory.
 	for i := range keyData {
 		keyData[i] = 0

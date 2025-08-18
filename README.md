@@ -615,7 +615,7 @@ Flags override environment variables, which override `config.yaml` values.
 | `--skip-snapshot-creation` | `LVMSYNC_SKIP_SNAPSHOT_CREATION` | `skip_snapshot_creation` | Skip automatic snapshot creation |
 | `--skip-disk-check` | `LVMSYNC_SKIP_DISK_CHECK` | `skip_disk_check` | Skip disk space check before snapshot creation |
 | `--snapshot-size` | `LVMSYNC_SNAPSHOT_SIZE` | `snapshot_size` | Snapshot size (e.g., `20G` or `20%`) |
-| `--lvm-escalation` | `LVMSYNC_LVM_ESCALATION` | `lvm_escalation` | Command used to escalate privileges for LVM commands; validated at startup |
+| `--lvm-escalation` | `LVMSYNC_LVM_ESCALATION` | `lvm_escalation` | Command used to escalate privileges for LVM commands; parsed with shell-style quoting and validated at startup |
 | `--lvm-timeout` | `LVMSYNC_LVM_TIMEOUT` | `lvm_timeout` | Timeout for LVM operations and privilege checks |
 | `--sig-cache-ttl` | `LVMSYNC_LVM_SIG_CACHE_TTL` | `sig-cache-ttl` | TTL for cached LVM signatures |
 | `--sig-cache-max` | `LVMSYNC_LVM_SIG_CACHE_MAX` | `sig-cache-max` | Maximum cached LVM signatures |
@@ -844,6 +844,8 @@ lvmsync run --transport quic,h2,tcp+tls,ssh --tcp-port 9443 /dev/vg0/snap0 /mnt/
 ```
 
 **QUIC**
+
+0-RTT data is disabled by default.
 
 ```sh
 lvmsync run --transport quic --tls-cert cert.pem --tls-key key.pem --ca-cert ca.pem
@@ -1190,10 +1192,18 @@ timeouts or cancellations are reported separately.
 | `--volume-group` | Source volume group. Derived from the source device path when empty | "" |
 | `--target-volume-group` | Volume group name of the target LVM volume | "" |
 | `--target-vgs` | Candidate target volume groups for auto-selection | [] |
-| `--lvm-escalation` | Command used to re-execute the program with elevated privileges when not running as root (e.g., "sudo -n"); validated at startup | "sudo -n" |
+| `--lvm-escalation` | Command used to re-execute the program with elevated privileges when not running as root (e.g., `sudo -p "my prompt" -n`); parsed with shell-style quoting and validated at startup | "sudo -n" |
 | `--lvm-timeout` | Timeout for LVM operations and privilege checks | 10s |
 | `--sig-cache-ttl` | TTL for cached LVM signatures | 24h |
 | `--sig-cache-max` | Maximum cached LVM signatures | 128 |
+
+The `--lvm-escalation` value must be a single executable and its arguments; pipes,
+redirects, and other shell operators are rejected. Quote any paths or argument
+values containing spaces, for example:
+
+```sh
+--lvm-escalation "/usr/bin/sudo wrapper" -p "no password" -n
+```
 
 `lvm_timeout` also bounds the startup privilege check to avoid hanging when
 escalation commands stall.

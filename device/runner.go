@@ -29,7 +29,7 @@ type Runner struct {
 	discardEnabled    func(context.Context, string) (bool, error)
 	isMountedRW       func(context.Context, string) (bool, error)
 	lockAcquire       func(string, string) (*lock.Lock, error)
-	openLVMOverride   func(string, *lvm.FDCache, string, *zap.Logger) (*LVMDevice, error)
+	openLVMOverride   func(context.Context, string, *lvm.FDCache, string, *zap.Logger) (*LVMDevice, error)
 }
 
 // NewDeviceRunner returns a Runner using production dependencies and the provided Commander.

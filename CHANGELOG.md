@@ -67,6 +67,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - transfer: sample 8 KiB per chunk and log compression decisions.
 
 ### Fixed
+- lvm: parse `--lvm-escalation` using shell-style quoting and reject unsafe formats
 - tests: accept net.Error timeouts in h2 handshake timeout
 - manifest: log configuration warnings with structured fields
 - lock: reject VG/LV names with invalid characters via regex validation

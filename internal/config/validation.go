@@ -90,9 +90,9 @@ func (c *Config) ValidateWith(geteuid func() int) error {
 		}
 	}
 	if geteuid() != 0 {
-		parts := strings.Fields(c.LVMEscalation)
-		if len(parts) == 0 {
-			return fmt.Errorf("lvm escalation command is empty")
+		parts, err := lvm.ParseEscalation(c.LVMEscalation)
+		if err != nil {
+			return err
 		}
 		if _, err := findInPath(parts[0]); err != nil {
 			return fmt.Errorf("lvm escalation command %q not found: %w", parts[0], err)

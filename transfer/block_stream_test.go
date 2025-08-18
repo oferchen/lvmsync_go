@@ -42,13 +42,19 @@ func TestPrepareResultHeader(t *testing.T) {
 
 func TestNewDigestHasherAuto(t *testing.T) {
 	data := []byte("data")
-	orig := digest.Select
-	digest.Select = func() string { return digest.BLAKE3 }
+	origAVX2, origAVX512, origNEON, origAESNI := digest.HasAVX2, digest.HasAVX512, digest.HasNEON, digest.HasAESNI
+	digest.HasAVX2 = func() bool { return true }
+	digest.HasAVX512 = func() bool { return false }
+	digest.HasNEON = func() bool { return false }
+	digest.HasAESNI = func() bool { return false }
 	h := newDigestHasher(config.Auto)
 	if _, ok := h.(*blake3.Hasher); !ok {
 		t.Fatalf("expected BLAKE3 hasher")
 	}
-	digest.Select = func() string { return digest.SHA256 }
+	digest.HasAVX2 = func() bool { return false }
+	digest.HasAVX512 = func() bool { return false }
+	digest.HasNEON = func() bool { return false }
+	digest.HasAESNI = func() bool { return false }
 	h = newDigestHasher(config.Auto)
 	h.Write(data)
 	sum := h.Sum(nil)
@@ -56,5 +62,5 @@ func TestNewDigestHasherAuto(t *testing.T) {
 	if !bytes.Equal(sum, exp[:]) {
 		t.Fatalf("expected SHA-256 sum, got %x", sum)
 	}
-	digest.Select = orig
+	digest.HasAVX2, digest.HasAVX512, digest.HasNEON, digest.HasAESNI = origAVX2, origAVX512, origNEON, origAESNI
 }
