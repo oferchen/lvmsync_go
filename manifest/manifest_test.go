@@ -447,12 +447,11 @@ func TestRebuild(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 	file.Close()
-	prev := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "uuid-test", nil })
-	defer device.SetUUIDFunc(prev)
+	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return "uuid-test", nil }, nil, nil, nil)
 	manPath := filepath.Join(dir, "rebuild.man")
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false, 0, 0, 0, 0); err != nil {
+	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false, 0, 0, 0, 0, WithDeviceInfo(info)); err != nil {
 		t.Fatalf("rebuild: %v", err)
 	}
 	idx, err := Open(manPath)
@@ -498,15 +497,14 @@ func TestRebuildCloseHook(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 	file.Close()
-	prevUUID := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "uuid-test", nil })
-	defer device.SetUUIDFunc(prevUUID)
+	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return "uuid-test", nil }, nil, nil, nil)
 	manPath := filepath.Join(dir, "closeonce.man")
 	count := 0
 
 	hook := func() error { count++; return nil }
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false, 0, 0, 0, 0, WithCloseHook(hook)); err != nil {
+	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false, 0, 0, 0, 0, WithCloseHook(hook), WithDeviceInfo(info)); err != nil {
 		t.Fatalf("rebuild: %v", err)
 	}
 	if count != 1 {
@@ -528,14 +526,13 @@ func TestRebuildCloseError(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 	file.Close()
-	prevUUID := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "uuid-test", nil })
-	defer device.SetUUIDFunc(prevUUID)
+	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return "uuid-test", nil }, nil, nil, nil)
 	manPath := filepath.Join(dir, "closeerr.man")
 	hookErr := errors.New("close fail")
 	hook := func() error { return hookErr }
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false, 0, 0, 0, 0, WithCloseHook(hook)); err == nil || !strings.Contains(err.Error(), "close fail") {
+	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false, 0, 0, 0, 0, WithCloseHook(hook), WithDeviceInfo(info)); err == nil || !strings.Contains(err.Error(), "close fail") {
 		t.Fatalf("expected close error, got %v", err)
 	}
 }
@@ -555,8 +552,7 @@ func TestRebuildOptionApplication(t *testing.T) {
 	}
 	file.Close()
 
-	prevUUID := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "uuid-test", nil })
-	defer device.SetUUIDFunc(prevUUID)
+	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return "uuid-test", nil }, nil, nil, nil)
 
 	calledDetect := false
 	detect := func(context.Context, string, *zap.Logger) (device.Device, error) {
@@ -569,7 +565,7 @@ func TestRebuildOptionApplication(t *testing.T) {
 	manPath := filepath.Join(dir, "options.man")
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false, 0, 0, 0, 0, WithDetectDevice(detect), WithCloseHook(hook)); err != nil {
+	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false, 0, 0, 0, 0, WithDetectDevice(detect), WithCloseHook(hook), WithDeviceInfo(info)); err != nil {
 		t.Fatalf("rebuild: %v", err)
 	}
 	if !calledDetect {
@@ -599,15 +595,14 @@ func TestRebuildNonDefaultBlockSize(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 	file.Close()
-	prevUUID := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "uuid-bs", nil })
-	defer device.SetUUIDFunc(prevUUID)
+	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return "uuid-bs", nil }, nil, nil, nil)
 	detect := func(context.Context, string, *zap.Logger) (device.Device, error) {
 		return &mockDevice{path: file.Name(), size: uint64(2 * bs), blockSize: uint64(bs)}, nil
 	}
 	manPath := filepath.Join(dir, "rebuildbs.man")
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false, 0, 0, 0, 0, WithDetectDevice(detect)); err != nil {
+	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false, 0, 0, 0, 0, WithDetectDevice(detect), WithDeviceInfo(info)); err != nil {
 		t.Fatalf("rebuild: %v", err)
 	}
 	idx, err := Open(manPath)
@@ -650,14 +645,13 @@ func TestRebuildLogsProgress(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 	file.Close()
-	prevUUID := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "uuid-test", nil })
-	defer device.SetUUIDFunc(prevUUID)
+	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return "uuid-test", nil }, nil, nil, nil)
 	manPath := filepath.Join(dir, "progress.man")
 	core, logs := observer.New(zap.InfoLevel)
 	logger := zap.New(core)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	if err := Rebuild(ctx, file.Name(), manPath, logger, 0, false, 0, 0, 0, 0); err != nil {
+	if err := Rebuild(ctx, file.Name(), manPath, logger, 0, false, 0, 0, 0, 0, WithDeviceInfo(info)); err != nil {
 		t.Fatalf("rebuild: %v", err)
 	}
 	entries := logs.FilterMessage("rebuild progress").All()
@@ -686,14 +680,13 @@ func TestRebuildLogsCompletion(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 	file.Close()
-	prevUUID := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "uuid-test", nil })
-	defer device.SetUUIDFunc(prevUUID)
+	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return "uuid-test", nil }, nil, nil, nil)
 	manPath := filepath.Join(dir, "complete.man")
 	core, logs := observer.New(zap.InfoLevel)
 	logger := zap.New(core)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	if err := Rebuild(ctx, file.Name(), manPath, logger, 0, false, 0, 0, 0, 0); err != nil {
+	if err := Rebuild(ctx, file.Name(), manPath, logger, 0, false, 0, 0, 0, 0, WithDeviceInfo(info)); err != nil {
 		t.Fatalf("rebuild: %v", err)
 	}
 	entries := logs.FilterMessage("rebuild_complete").All()
@@ -719,8 +712,7 @@ func TestRebuildCanceledContext(t *testing.T) {
 		t.Fatalf("truncate: %v", err)
 	}
 	file.Close()
-	prevUUID := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "uuid-test", nil })
-	defer device.SetUUIDFunc(prevUUID)
+	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return "uuid-test", nil }, nil, nil, nil)
 	detect := func(ctx context.Context, path string, logger *zap.Logger) (device.Device, error) {
 		return &mockDevice{path: file.Name(), size: uint64(size), blockSize: 1}, nil
 	}
@@ -730,7 +722,7 @@ func TestRebuildCanceledContext(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 		cancel()
 	}()
-	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false, 0, 0, 0, 0, WithDetectDevice(detect)); !errors.Is(err, context.Canceled) {
+	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false, 0, 0, 0, 0, WithDetectDevice(detect), WithDeviceInfo(info)); !errors.Is(err, context.Canceled) {
 		t.Fatalf("expected context.Canceled, got %v", err)
 	}
 }
@@ -745,8 +737,6 @@ func TestRebuildMounted(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 	file.Close()
-	prevUUID := device.SetUUIDFunc(func(context.Context, string) (string, error) { return "uuid-test", nil })
-	defer device.SetUUIDFunc(prevUUID)
 	cases := []struct {
 		name    string
 		mounted bool
@@ -759,12 +749,16 @@ func TestRebuildMounted(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			prevMount := device.SetMountFunc(func(context.Context, string) (bool, error) { return tt.mounted, nil })
-			t.Cleanup(func() { device.SetMountFunc(prevMount) })
+			info := device.NewInfoWithDeps(
+				func(context.Context, string) (string, error) { return "uuid-test", nil },
+				nil,
+				func(context.Context, string) (bool, error) { return tt.mounted, nil },
+				nil,
+			)
 			manPath := filepath.Join(dir, tt.name+".man")
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
-			err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, tt.allow, 0, 0, 0, 0)
+			err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, tt.allow, 0, 0, 0, 0, WithDeviceInfo(info))
 			if tt.wantErr {
 				if err == nil {
 					t.Fatalf("expected error")

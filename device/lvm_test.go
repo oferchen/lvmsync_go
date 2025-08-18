@@ -56,7 +56,7 @@ func TestOpenLVMNonBlockDevice(t *testing.T) {
 func TestOpenLVMChecks(t *testing.T) {
 	cache := lvm.NewDeviceFDCache(zap.NewNop())
 	defer cache.Close()
-	runner := NewRunnerWithDeps(func(context.Context, string) (bool, error) { return false, nil }, lvm.AutoExtendEnabled, lvm.DiscardEnabled, IsMountedRW, lock.Acquire, nil)
+	runner := NewRunnerWithDeps(func(context.Context, string) (bool, error) { return false, nil }, lvm.AutoExtendEnabled, lvm.DiscardEnabled, defaultIsMountedRW, lock.Acquire, nil)
 	if _, err := runner.OpenLVM("/dev/missing", cache, "", zap.NewNop()); err == nil {
 		t.Fatalf("expected error when volume missing")
 	}

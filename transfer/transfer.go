@@ -252,7 +252,7 @@ func (t *Transfer) verifyDestination(ctx context.Context, cfg *config.Config, de
 			t.Logger.Error("device_id_mismatch", zap.String("expected_resource_id", manID), zap.String("resource_id", id))
 			return fmt.Errorf("destination device id %s does not match manifest %s", id, manID)
 		}
-		size, err := device.SizeBytes(ctx, destPath)
+		size, err := t.Info.SizeBytes(ctx, destPath)
 		if err != nil {
 			return fmt.Errorf("read destination size: %w", err)
 		}
