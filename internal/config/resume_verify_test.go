@@ -27,7 +27,6 @@ func TestResumeFlagPath(t *testing.T) {
 }
 
 func TestResumeFlagVerify(t *testing.T) {
-	t.Skip("resume verify precedence not verified")
 	t.Setenv("HOME", t.TempDir())
 	envState := "statefile"
 	t.Setenv("LVMSYNC_RESUME", envState)
@@ -44,9 +43,13 @@ func TestResumeFlagVerify(t *testing.T) {
 	if !cfg.ResumeVerify {
 		t.Fatalf("ResumeVerify=%v want true", cfg.ResumeVerify)
 	}
-	if cfg.ResumeState != "statefile" {
-		t.Fatalf("ResumeState=%q want %q", cfg.ResumeState, "statefile")
-	if cfg.ResumeState != defaultResumeState {
-		t.Fatalf("ResumeState=%q want %q", cfg.ResumeState, defaultResumeState)
+	if cfg.ResumeState != envState {
+		t.Fatalf("ResumeState=%q want %q", cfg.ResumeState, envState)
+	}
+	if defaults.ResumeVerify {
+		t.Fatalf("defaults ResumeVerify=%v want false", defaults.ResumeVerify)
+	}
+	if defaults.ResumeState != "" {
+		t.Fatalf("defaults ResumeState=%q want %q", defaults.ResumeState, "")
 	}
 }
