@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"net"
 	"strings"
 	"sync"
@@ -13,6 +14,7 @@ import (
 	"go.uber.org/zap"
 
 	"lvmsync_go/common"
+	"lvmsync_go/internal/exitcode"
 	"lvmsync_go/transport"
 )
 
@@ -122,5 +124,24 @@ func TestListenerSetup(t *testing.T) {
 	}
 	if len(addrs) != 2 || addrs[0] != ":1111" || addrs[1] != ":2222" {
 		t.Fatalf("listener addresses %v", addrs)
+	}
+}
+
+func TestMapExitCode(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		code int
+	}{
+		{"success", nil, exitcode.OK},
+		{"config", errors.New("parse listen"), exitcode.ErrConfig},
+		{"runtime", errors.New("listen failed"), exitcode.ErrRuntime},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if c := mapExitCode(tt.err); c != tt.code {
+				t.Fatalf("expected %d, got %d", tt.code, c)
+			}
+		})
 	}
 }
