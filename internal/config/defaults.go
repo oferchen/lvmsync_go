@@ -49,6 +49,7 @@ type Config struct {
 	RetryDelay               time.Duration `mapstructure:"retry_delay"`
 	ResumeState              string        `mapstructure:"resume"`
 	ResumeToken              string        `mapstructure:"resume_token"`
+	ResumeVerify             bool          `mapstructure:"-"`
 	DeviceUUID               string        `mapstructure:"device_uuid"`
 	SSHHost                  string        `mapstructure:"ssh_host"`
 	SSHUser                  string        `mapstructure:"ssh_user"`

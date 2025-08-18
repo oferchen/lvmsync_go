@@ -27,17 +27,18 @@ type blockWriter struct {
 	sinceSync int64
 	rt        *resumeTracker
 	deps      *Deps
+	wal       *WAL
 }
 
 // newBlockWriter constructs a blockWriter, detecting the destination's physical
 // block size when the configured block size is "auto" (0) and parsing the
 // sync interval when provided as a string. It validates that the configured
 // block size is aligned to the underlying sector size.
-func newBlockWriter(cfg *config.Config, dest *os.File, dedup DeduplicationStrategy, verify bool, checksum ChecksumStrategy, logger *zap.Logger) (*blockWriter, error) {
-	return newBlockWriterWithDeps(cfg, dest, dedup, verify, checksum, logger, DefaultDeps)
+func newBlockWriter(cfg *config.Config, dest *os.File, dedup DeduplicationStrategy, verify bool, checksum ChecksumStrategy, logger *zap.Logger, wal *WAL) (*blockWriter, error) {
+	return newBlockWriterWithDeps(cfg, dest, dedup, verify, checksum, logger, wal, DefaultDeps)
 }
 
-func newBlockWriterWithDeps(cfg *config.Config, dest *os.File, dedup DeduplicationStrategy, verify bool, checksum ChecksumStrategy, logger *zap.Logger, deps *Deps) (*blockWriter, error) {
+func newBlockWriterWithDeps(cfg *config.Config, dest *os.File, dedup DeduplicationStrategy, verify bool, checksum ChecksumStrategy, logger *zap.Logger, wal *WAL, deps *Deps) (*blockWriter, error) {
 	if cfg.BlockSize <= 0 || cfg.ODirect {
 		sector, err := DetectSectorSize(dest)
 		if err != nil {
@@ -68,6 +69,7 @@ func newBlockWriterWithDeps(cfg *config.Config, dest *os.File, dedup Deduplicati
 		checksum: checksum,
 		logger:   logger,
 		deps:     deps,
+		wal:      wal,
 	}
 	if cfg.IntraDedup {
 		bw.intra = newChunkCache(intraCacheCapacity)
@@ -119,6 +121,11 @@ func (bw *blockWriter) write(reader *bufio.Reader) (int64, error) {
 			return total, err
 		}
 		saveResumeState(bw.cfg, bw.rt, offset, chunkID, int64(chunkSize), bw.logger)
+		if bw.wal != nil && written {
+			if err := bw.wal.Append(Range{Start: offset, End: offset + uint64(chunkSize)}); err != nil {
+				return total, err
+			}
+		}
 		if written {
 			total += int64(chunkSize)
 			bw.sinceSync += int64(chunkSize)

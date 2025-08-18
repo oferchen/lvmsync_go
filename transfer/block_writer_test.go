@@ -25,7 +25,7 @@ func TestBlockWriterSyncIntervalTriggers(t *testing.T) {
 		calls++
 		return nil
 	}}
-	bw, err := newBlockWriterWithDeps(cfg, tmp, nil, false, nil, zap.NewNop(), deps)
+	bw, err := newBlockWriterWithDeps(cfg, tmp, nil, false, nil, zap.NewNop(), nil, deps)
 	if err != nil {
 		t.Fatalf("newBlockWriter: %v", err)
 	}
@@ -65,7 +65,7 @@ func TestBlockWriterInvalidSyncInterval(t *testing.T) {
 	cases := []string{"bogus", "10%"}
 	for _, interval := range cases {
 		cfg := &config.Config{BlockSize: 4, SyncInterval: interval}
-		if _, err := newBlockWriter(cfg, tmp, nil, false, nil, zap.NewNop()); err == nil {
+		if _, err := newBlockWriter(cfg, tmp, nil, false, nil, zap.NewNop(), nil); err == nil {
 			t.Fatalf("newBlockWriter(%q) expected error", interval)
 		}
 	}
