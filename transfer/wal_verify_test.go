@@ -31,7 +31,7 @@ func buildManifest(t *testing.T, devPath, manPath, uuid string, size uint64) {
 	detect := func(ctx context.Context, path string, logger *zap.Logger) (device.Device, error) {
 		return &mockDevice{path: devPath, size: size, blockSize: 4}, nil
 	}
-	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return uuid, nil }, nil, nil, nil)
+	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return uuid, nil }, nil, nil, nil, nil)
 	if err := manifestpkg.Rebuild(context.Background(), devPath, manPath, zap.NewNop(), 0, false, 0, 0, 0, 0, manifestpkg.WithDetectDevice(detect), manifestpkg.WithDeviceInfo(info)); err != nil {
 		t.Fatalf("rebuild: %v", err)
 	}

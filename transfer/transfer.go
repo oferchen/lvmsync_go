@@ -274,7 +274,7 @@ func (t *Transfer) verifyDestination(ctx context.Context, cfg *config.Config, de
 		}
 		dig, err := t.Info.FirstBlockDigest(ctx, destPath, firstBlockDigestSize)
 		if err != nil {
-			return fmt.Errorf("read destination digest: %w", err)
+			return 0, "", 0, fmt.Errorf("read destination digest: %w", err)
 		}
 		if dig != hdr.FirstBlockDigest {
 			t.Logger.Error(
@@ -282,7 +282,7 @@ func (t *Transfer) verifyDestination(ctx context.Context, cfg *config.Config, de
 				zap.String("expected_digest", hex.EncodeToString(hdr.FirstBlockDigest[:])),
 				zap.String("first_block_digest", hex.EncodeToString(dig[:])),
 			)
-			return fmt.Errorf("destination device digest mismatch")
+			return 0, "", 0, fmt.Errorf("destination device digest mismatch")
 		}
 		if cfg.ResumeState != "" {
 			if _, err := os.Stat(cfg.ResumeState); err == nil {
@@ -316,11 +316,11 @@ func (t *Transfer) verifyDestination(ctx context.Context, cfg *config.Config, de
 		if cfg.FirstBlockDigest != "" {
 			dig, err := t.Info.FirstBlockDigest(ctx, destPath, firstBlockDigestSize)
 			if err != nil {
-				return fmt.Errorf("read destination digest: %w", err)
+				return 0, "", 0, fmt.Errorf("read destination digest: %w", err)
 			}
 			if hex.EncodeToString(dig[:]) != cfg.FirstBlockDigest {
 				t.Logger.Error("first_block_digest_mismatch", zap.String("expected_digest", cfg.FirstBlockDigest), zap.String("first_block_digest", hex.EncodeToString(dig[:])))
-				return fmt.Errorf("destination device digest mismatch")
+				return 0, "", 0, fmt.Errorf("destination device digest mismatch")
 			}
 		}
 		t.Logger.Info("destination_validated", zap.String("resource_id", id))

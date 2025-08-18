@@ -22,8 +22,9 @@ lvmsync run --resume=verify /dev/vg0/snap0 /dev/vg0/target
 ```
 
 1. Resume the transfer using the existing state.
-2. After the copy completes, `lvmsync verify` checks the destination against the source or manifest.
-3. A verification failure keeps the resume file for another attempt.
+2. Validate previously written blocks against the manifest before applying new data.
+3. After the copy completes, `lvmsync verify` checks the destination against the source or manifest.
+4. Any verification mismatch aborts the run and leaves the resume file for another attempt.
 
 ### `--verify-only`
 
