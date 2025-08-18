@@ -14,7 +14,7 @@ This guide covers snapshot lifecycle management, resume options, verification mo
 ### `--resume`
 
 ```sh
-lvmsync run --resume statefile /dev/vg0/snap0 /dev/vg0/target
+lvmsync run --resume=statefile /dev/vg0/snap0 /dev/vg0/target
 ```
 
 1. Load the resume state and validate settings.

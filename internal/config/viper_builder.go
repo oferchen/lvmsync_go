@@ -216,6 +216,10 @@ func (b *builder) validateCompression(conf *Config) error {
 }
 
 func (b *builder) finalizeConfig(conf *Config) error {
+	if strings.EqualFold(conf.ResumeState, "verify") {
+		conf.ResumeVerify = true
+		conf.ResumeState = defaultResumeState
+	}
 	algo := strings.ToLower(conf.ChecksumAlgorithm)
 	switch algo {
 	case "sha256", "blake3", Auto:
