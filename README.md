@@ -1471,6 +1471,20 @@ Invalid configurations will cause the tool to abort with a clear error message.
 
 Exit code definitions live in [internal/exitcode](internal/exitcode/exitcode.go), and handling resides in [cmd/root/root.go](cmd/root/root.go).
 
+Verification mismatches exit with [`exitcode.ErrVerify`](internal/exitcode/exitcode.go):
+
+```sh
+lvmsync run --verify-only /dev/vg0/snap0 /dev/vg0/bad_target || echo "verify failed with exit $?"
+# verify failed with exit 60
+```
+
+Precondition failures exit with [`exitcode.ErrPrecondition`](internal/exitcode/exitcode.go):
+
+```sh
+lvmsync run /dev/vg0/missing /dev/vg0/target || echo "precondition failed with exit $?"
+# precondition failed with exit 80
+```
+
 Shell scripts can rely on `set -e` to abort on non-zero exit codes:
 
 ```sh

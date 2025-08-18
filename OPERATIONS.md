@@ -56,18 +56,34 @@ Exit code `60` indicates a verification mismatch and leaves the destination unto
 
 ## Exit Codes and Recovery
 
-| Code | Meaning | Recovery Step |
-|------|---------|---------------|
-| `0`  | Success | None |
-| `10` | Privilege or capability check failed | Run as root or adjust `--lvm-escalation`. |
-| `20` | Device error | Verify device paths and snapshot health. |
-| `30` | Unsupported platform | Run on a supported Linux platform. |
-| `40` | Configuration error | Review flags, environment variables, and `config.yaml`. |
-| `50` | Runtime failure | Inspect logs, fix the issue, and rerun using `--resume` when applicable. |
-| `60` | Verification mismatch | Investigate mismatched data before retrying. |
-| `70` | Partial transfer | Address the error and resume with `--resume`. |
-| `80` | Precondition failed | Fix prerequisites and retry. |
-| `90` | Resumable exit | Resume with `--resume` after resolving the issue. |
+| Constant | Code | Meaning | Recovery Step |
+|----------|------|---------|---------------|
+| [`exitcode.OK`](internal/exitcode/exitcode.go) | `0`  | Success | None |
+| [`exitcode.ErrCapability`](internal/exitcode/exitcode.go) | `10` | Privilege or capability check failed | Run as root or adjust `--lvm-escalation`. |
+| [`exitcode.ErrDevice`](internal/exitcode/exitcode.go) | `20` | Device error | Verify device paths and snapshot health. |
+| [`exitcode.ErrPlatform`](internal/exitcode/exitcode.go) | `30` | Unsupported platform | Run on a supported Linux platform. |
+| [`exitcode.ErrConfig`](internal/exitcode/exitcode.go) | `40` | Configuration error | Review flags, environment variables, and `config.yaml`. |
+| [`exitcode.ErrRuntime`](internal/exitcode/exitcode.go) | `50` | Runtime failure | Inspect logs, fix the issue, and rerun using `--resume` when applicable. |
+| [`exitcode.ErrVerify`](internal/exitcode/exitcode.go) | `60` | Verification mismatch | Investigate mismatched data before retrying. |
+| [`exitcode.ErrPartial`](internal/exitcode/exitcode.go) | `70` | Partial transfer | Address the error and resume with `--resume`. |
+| [`exitcode.ErrPrecondition`](internal/exitcode/exitcode.go) | `80` | Precondition failed | Fix prerequisites and retry. |
+| [`exitcode.ErrResumable`](internal/exitcode/exitcode.go) | `90` | Resumable exit | Resume with `--resume` after resolving the issue. |
+
+Definitions live in [internal/exitcode](internal/exitcode/exitcode.go).
+
+Verification mismatches exit with [`exitcode.ErrVerify`](internal/exitcode/exitcode.go):
+
+```sh
+lvmsync run --verify-only /dev/vg0/snap0 /dev/vg0/bad_target || echo "verify failed with exit $?"
+# verify failed with exit 60
+```
+
+Precondition failures exit with [`exitcode.ErrPrecondition`](internal/exitcode/exitcode.go):
+
+```sh
+lvmsync run /dev/vg0/missing /dev/vg0/target || echo "precondition failed with exit $?"
+# precondition failed with exit 80
+```
 
 ## Troubleshooting
 
