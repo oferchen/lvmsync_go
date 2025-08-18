@@ -8,14 +8,16 @@ copies can be verified.
 
 1. Rebuild a manifest for the source device:
    `lvmsync manifest rebuild <device>`
+   This verifies any existing manifest and rewrites it when digests or device
+   metadata change.
 2. Run a transfer using `lvmsync run`.
 3. Verify that the destination matches the manifest:
    `lvmsync verify <source> <dest>`
 
 ## Usage
 
-- `lvmsync manifest rebuild <device>` regenerates a manifest when one is
-  missing or out of date.
+- `lvmsync manifest rebuild <device>` verifies an existing manifest and
+  regenerates it when digests or metadata are stale.
 - `lvmsync verify <source> <dest>` compares a destination against the manifest
   for the source. Override the manifest path with `--manifest-path` if needed.
 
