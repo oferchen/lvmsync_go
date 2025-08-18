@@ -16,13 +16,15 @@
 //
 // Typical usage:
 //
-//	reexeced, err := escalate.EnsureRootOrReexec(escalate.Options{})
-//	if err != nil { log.Fatal(err) }
-//	if reexeced { return } // parent should exit after delegating to sudo
+//			reexeced, err := escalate.EnsureRootOrReexec(escalate.Options{})
+//			if err != nil { log.Fatal(err) }
+//			if reexeced { return } // parent should exit after delegating to sudo
 //
-//	// ... privileged work ...
-//	if err := escalate.DropToInvokerIfSudo(); err != nil { log.Fatal(err) }
-//	// ... continue unprivileged work ...
+//			// ... privileged work ...
+//	             if err := escalate.DropToInvokerIfSudo(escalate.Options{}); err != nil {
+//	                     log.Fatal(err)
+//	             }
+//	             // ... continue unprivileged work ...
 package escalate
 
 import (
@@ -53,9 +55,10 @@ type Options struct {
 	Geteuid    func() int                        // defaults to os.Geteuid
 	LookPath   func(file string) (string, error) // defaults to exec.LookPath
 	ExecRunner func(name string, args, env []string, stdin io.Reader, stdout, stderr io.Writer) error
-	Stdin      io.Reader // defaults to nil (no prompting)
-	Stdout     io.Writer // defaults to os.Stdout
-	Stderr     io.Writer // defaults to os.Stderr
+	Stdin      io.Reader     // defaults to nil (no prompting)
+	Stdout     io.Writer     // defaults to os.Stdout
+	Stderr     io.Writer     // defaults to os.Stderr
+	Sys        syscallFacade // defaults to real unix syscalls
 }
 
 // IsRoot reports whether effective UID is 0 (overridable for tests via Options).
@@ -138,7 +141,8 @@ func EnsureRootOrReexec(opts Options) (bool, error) {
 
 // DropToInvokerIfSudo drops privileges back to the invoking user if launched
 // via sudo (SUDO_UID/SUDO_GID). No-op if those env vars are absent.
-func DropToInvokerIfSudo() error {
+// Dependency seams are provided via opts.
+func DropToInvokerIfSudo(opts Options) error {
 	suid := os.Getenv("SUDO_UID")
 	sgid := os.Getenv("SUDO_GID")
 	if suid == "" || sgid == "" {
@@ -151,6 +155,10 @@ func DropToInvokerIfSudo() error {
 	gid, err := parseInt(sgid)
 	if err != nil {
 		return fmt.Errorf("parse SUDO_GID (%q): %w", sgid, err)
+	}
+	sys := opts.Sys
+	if sys == nil {
+		sys = unixFacade{}
 	}
 	if err := sys.Setgroups([]int{gid}); err != nil {
 		return fmt.Errorf("setgroups: %w", err)
@@ -248,8 +256,6 @@ type unixFacade struct{}
 func (unixFacade) Setgroups(gids []int) error  { return unix.Setgroups(gids) }
 func (unixFacade) Setresgid(r, e, s int) error { return unix.Setresgid(r, e, s) }
 func (unixFacade) Setresuid(r, e, s int) error { return unix.Setresuid(r, e, s) }
-
-var sys syscallFacade = unixFacade{}
 
 func defaultExecRunner(name string, args, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
 	cmd := exec.Command(name, args...)
