@@ -81,7 +81,7 @@ func New(cfg transport.Config) (transport.Interface, error) {
 		serverTLS.Certificates = []tls.Certificate{cert}
 		clientTLS.Certificates = []tls.Certificate{cert}
 	}
-	qconf := &quic.Config{EnableDatagrams: true}
+	qconf := &quic.Config{EnableDatagrams: true, Allow0RTT: false}
 	return &Transport{serverTLS: serverTLS, clientTLS: clientTLS, qconf: qconf, logger: cfg.Logger}, nil
 }
 

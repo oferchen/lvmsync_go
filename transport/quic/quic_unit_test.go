@@ -6,11 +6,13 @@ import (
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"math/big"
 	"net"
 	"testing"
 	"time"
 
+	quic "github.com/quic-go/quic-go"
 	"go.uber.org/zap"
 
 	"lvmsync_go/common"
@@ -53,6 +55,17 @@ func TestNewRequiresClientCert(t *testing.T) {
 func TestNewAllowInsecure(t *testing.T) {
 	if _, err := New(transport.Config{Logger: zap.NewNop(), AllowInsecure: true}); err != nil {
 		t.Fatalf("allow insecure: %v", err)
+	}
+}
+
+func TestNewDisables0RTT(t *testing.T) {
+	trIface, err := New(transport.Config{Logger: zap.NewNop(), AllowInsecure: true})
+	if err != nil {
+		t.Fatalf("new transport: %v", err)
+	}
+	tr := trIface.(*Transport)
+	if tr.qconf.Allow0RTT {
+		t.Fatalf("expected Allow0RTT false")
 	}
 }
 
@@ -147,4 +160,100 @@ func TestNegotiateMismatch(t *testing.T) {
 		t.Fatalf("expected client negotiate error")
 	}
 	c1.Close()
+}
+
+type notifyingCache struct {
+	tls.ClientSessionCache
+	ch chan struct{}
+}
+
+func (n notifyingCache) Put(key string, cs *tls.ClientSessionState) {
+	n.ClientSessionCache.Put(key, cs)
+	select {
+	case n.ch <- struct{}{}:
+	default:
+	}
+}
+
+func TestRejects0RTT(t *testing.T) {
+	cert, _ := generateSelfSignedCert(t)
+	trIface, err := New(transport.Config{Logger: zap.NewNop(), ClientCert: cert, AllowInsecure: true})
+	if err != nil {
+		t.Fatalf("new transport: %v", err)
+	}
+	tr := trIface.(*Transport)
+	cache := tls.NewLRUClientSessionCache(1)
+	ticketCh := make(chan struct{}, 1)
+	tr.clientTLS.ClientSessionCache = notifyingCache{ClientSessionCache: cache, ch: ticketCh}
+
+	// establish a connection to obtain a session ticket
+	ln0, err := quic.ListenAddrEarly("127.0.0.1:0", tr.serverTLS, &quic.Config{Allow0RTT: true})
+	if err != nil {
+		t.Fatalf("listen early: %v", err)
+	}
+	go func() {
+		conn, err := ln0.Accept(context.Background())
+		if err == nil {
+			<-conn.Context().Done()
+		}
+	}()
+	conn0, err := quic.DialAddr(context.Background(), ln0.Addr().String(), tr.clientTLS, tr.qconf)
+	if err != nil {
+		t.Fatalf("dial initial: %v", err)
+	}
+	<-ticketCh
+	conn0.CloseWithError(0, "")
+	ln0.Close()
+
+	// start a listener that rejects 0-RTT
+	ln, err := quic.ListenAddrEarly("127.0.0.1:0", tr.serverTLS, &quic.Config{Allow0RTT: false})
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer ln.Close()
+
+	done := make(chan error, 1)
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+		defer cancel()
+		srvConn, err := ln.Accept(ctx)
+		if err != nil {
+			done <- err
+			return
+		}
+		if srvConn.ConnectionState().Used0RTT {
+			done <- fmt.Errorf("server accepted 0-RTT")
+			return
+		}
+		ctx2, cancel2 := context.WithTimeout(context.Background(), 50*time.Millisecond)
+		defer cancel2()
+		if _, err := srvConn.AcceptUniStream(ctx2); err != context.DeadlineExceeded {
+			done <- fmt.Errorf("expected deadline exceeded, got %v", err)
+			return
+		}
+		srvConn.CloseWithError(0, "")
+		done <- nil
+	}()
+
+	cliConn, err := quic.DialAddrEarly(context.Background(), ln.Addr().String(), tr.clientTLS, tr.qconf)
+	if err != nil {
+		t.Fatalf("dial early: %v", err)
+	}
+	str, err := cliConn.OpenUniStream()
+	if err != nil {
+		t.Fatalf("open stream: %v", err)
+	}
+	if _, err := str.Write([]byte("data")); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if err := str.Close(); err != nil {
+		t.Fatalf("close stream: %v", err)
+	}
+	if cliConn.ConnectionState().Used0RTT {
+		t.Fatalf("client used 0-RTT")
+	}
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	cliConn.CloseWithError(0, "")
 }

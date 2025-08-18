@@ -845,6 +845,8 @@ lvmsync run --transport quic,h2,tcp+tls,ssh --tcp-port 9443 /dev/vg0/snap0 /mnt/
 
 **QUIC**
 
+0-RTT data is disabled by default.
+
 ```sh
 lvmsync run --transport quic --tls-cert cert.pem --tls-key key.pem --ca-cert ca.pem
 # or
