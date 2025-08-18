@@ -90,7 +90,7 @@ func bindFlags(cmd *cobra.Command, v *viper.Viper) error {
 
 func run(args []string, logger *zap.Logger) error {
 	if logger == nil {
-		logger = zap.NewNop()
+		panic("nil logger")
 	}
 	defer rootcmd.SyncLogger(logger)
 

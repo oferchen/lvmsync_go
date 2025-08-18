@@ -10,6 +10,25 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+func TestNewFDCacheNilLoggerPanics(t *testing.T) {
+	defer func() {
+		if recover() == nil {
+			t.Fatalf("expected panic")
+		}
+	}()
+	NewFDCache(fdCacheSize, nil)
+}
+
+func TestSetLoggerNilPanics(t *testing.T) {
+	cache := NewFDCache(fdCacheSize, zap.NewNop())
+	defer func() {
+		if recover() == nil {
+			t.Fatalf("expected panic")
+		}
+	}()
+	cache.SetLogger(nil)
+}
+
 func TestFDCacheEvictionOrder(t *testing.T) {
 	cache := NewFDCache(fdCacheSize, zap.NewNop())
 

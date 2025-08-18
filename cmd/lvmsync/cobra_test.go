@@ -212,3 +212,21 @@ func TestEstimateTransferMissingManifest(t *testing.T) {
 		t.Fatalf("expected error for missing manifest")
 	}
 }
+
+func TestExecuteWithRunnerNilLoggerPanics(t *testing.T) {
+	defer func() {
+		if recover() == nil {
+			t.Fatalf("expected panic")
+		}
+	}()
+	ExecuteWithRunner([]string{"run", "src", "dst"}, nil, nil)
+}
+
+func TestEstimateTransferNilLoggerPanics(t *testing.T) {
+	defer func() {
+		if recover() == nil {
+			t.Fatalf("expected panic")
+		}
+	}()
+	estimateTransfer("", &config.Config{}, nil)
+}

@@ -100,6 +100,16 @@ func TestHandleApplyDelta(t *testing.T) {
 	}
 }
 
+func TestNewNilLoggerPanics(t *testing.T) {
+	dev := &memDevice{}
+	defer func() {
+		if recover() == nil {
+			t.Fatalf("expected panic")
+		}
+	}()
+	New(dev, nil, nil, "", "")
+}
+
 func TestHandleShortWrite(t *testing.T) {
 	c1, c2 := net.Pipe()
 	defer c1.Close()

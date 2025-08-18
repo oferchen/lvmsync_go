@@ -52,7 +52,7 @@ type Server struct {
 // logger is replaced with zap.NewNop().
 func New(dev Device, logger *zap.Logger, cache *signaturecache.Cache, vg, lv string) *Server {
 	if logger == nil {
-		logger = zap.NewNop()
+		panic("nil logger")
 	}
 	return &Server{dev: dev, logger: logger, cache: cache, vg: vg, lv: lv}
 }

@@ -85,3 +85,10 @@ func TestRegistryDialFallbackSequence(t *testing.T) {
 		t.Fatalf("attempt sequence %v, expected %v", seq, expected)
 	}
 }
+
+func TestDialWithFallbackNilLogger(t *testing.T) {
+	ctx := context.Background()
+	if _, _, err := DialWithFallback(ctx, "addr", []string{}, Config{}); err == nil {
+		t.Fatalf("expected error")
+	}
+}

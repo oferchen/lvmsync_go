@@ -73,7 +73,7 @@ func GetOrdered(names []string, cfg Config) ([]Interface, error) {
 func DialWithFallback(ctx context.Context, address string, names []string, cfg Config) (Interface, net.Conn, error) {
 	logger := cfg.Logger
 	if logger == nil {
-		logger = zap.NewNop()
+		return nil, nil, fmt.Errorf("logger is nil")
 	}
 	for _, name := range names {
 		logger.Info("dial_attempt", zap.String("transport", name))

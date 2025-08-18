@@ -36,7 +36,7 @@ func init() {
 // Run executes manifest subcommands. Currently only "rebuild" is supported.
 func (r *Runner) Run(cfg *config.Config, args []string, logger *zap.Logger) error {
 	if logger == nil {
-		logger = zap.NewNop()
+		panic("nil logger")
 	}
 	defer rootcmd.SyncLogger(logger)
 	if len(args) == 0 || args[0] != "rebuild" {
