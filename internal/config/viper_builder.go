@@ -20,9 +20,8 @@ import (
 )
 
 type builder struct {
-	v            *viper.Viper
-	defaults     *Config
-	resumeVerify bool
+	v        *viper.Viper
+	defaults *Config
 }
 
 func (b *builder) Build() (*Config, error) {
@@ -30,11 +29,6 @@ func (b *builder) Build() (*Config, error) {
 	var conf Config
 	if err := b.v.Unmarshal(&conf); err != nil {
 		return nil, fmt.Errorf("error unmarshaling config: %w", err)
-	}
-
-	if b.resumeVerify {
-		conf.ResumeVerify = true
-		conf.ResumeState = defaultResumeState
 	}
 
 	if err := b.applyDefaults(&conf); err != nil {
