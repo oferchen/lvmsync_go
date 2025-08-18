@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
 
@@ -101,12 +102,26 @@ func (d *LVMDevice) SizeBytes() uint64 { return d.size }
 // BlockSize returns the logical block size in bytes.
 func (d *LVMDevice) BlockSize() uint64 { return d.blockSize }
 
-// Close closes the device.
+// Close closes the device and releases the lock if present.
 func (d *LVMDevice) Close() error {
+	var err error
 	if d.f != nil {
-		return d.f.Close()
+		if cerr := d.f.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+			d.logger.Error("lvm_device_close_failed", zap.String("path", d.path), zap.Error(cerr))
+		} else {
+			d.logger.Info("lvm_device_closed", zap.String("path", d.path))
+		}
+		d.f = nil
 	}
-	return nil
+	if d.lock != nil {
+		if rerr := d.lock.Release(); rerr != nil {
+			err = multierr.Append(err, rerr)
+			d.logger.Error("lvm_device_lock_release_failed", zap.String("path", d.path), zap.Error(rerr))
+		}
+		d.lock = nil
+	}
+	return err
 }
 
 var (
