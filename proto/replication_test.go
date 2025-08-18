@@ -56,5 +56,156 @@ func TestReplicationMessagesRoundTrip(t *testing.T) {
 		if !gproto.Equal(msg, newMsg) {
 			t.Fatalf("round trip mismatch for %T", msg)
 		}
+
+		switch m := newMsg.(type) {
+		case *VolumeMetadata:
+			if m.GetVolumeName() != "vol" || m.GetSizeBytes() != 1 || m.GetChunkSize() != 2 {
+				t.Fatalf("unexpected VolumeMetadata: %+v", m)
+			}
+			_ = m.String()
+			m.Reset()
+			m.ProtoReflect()
+			m.Descriptor()
+		case *LockRequest:
+			if m.GetVolumeName() != "vol" || m.GetRequester() != "alice" {
+				t.Fatalf("unexpected LockRequest: %+v", m)
+			}
+			_ = m.String()
+			m.Reset()
+			m.ProtoReflect()
+			m.Descriptor()
+		case *StatusResponse:
+			if !m.GetOk() || m.GetMessage() != "ok" {
+				t.Fatalf("unexpected StatusResponse: %+v", m)
+			}
+			_ = m.String()
+			m.Reset()
+			m.ProtoReflect()
+			m.Descriptor()
+		case *Empty:
+			_ = m.String()
+			m.Reset()
+			m.ProtoReflect()
+			m.Descriptor()
+		case *HandshakeRequest:
+			if m.GetSectorSize() != 512 || m.GetAlignment() != 4096 || m.GetMaxConcurrency() != 8 || !m.GetDedupSupported() || !m.GetCompressionSupported() {
+				t.Fatalf("unexpected HandshakeRequest: %+v", m)
+			}
+			_ = m.String()
+			m.Reset()
+			m.ProtoReflect()
+			m.Descriptor()
+		case *HandshakeResponse:
+			if !m.GetOk() || m.GetMessage() != "hi" {
+				t.Fatalf("unexpected HandshakeResponse: %+v", m)
+			}
+			_ = m.String()
+			m.Reset()
+			m.ProtoReflect()
+			m.Descriptor()
+		case *SessionRequest:
+			if m.GetVolumeName() != "vol" || m.GetDeviceUuid() != "uuid" || string(m.GetClientCert()) != "cert" {
+				t.Fatalf("unexpected SessionRequest: %+v", m)
+			}
+			_ = m.String()
+			m.Reset()
+			m.ProtoReflect()
+			m.Descriptor()
+		case *SessionResponse:
+			if m.GetSessionId() != "id" || string(m.GetPsk()) != "psk" || string(m.GetServerCert()) != "servercert" {
+				t.Fatalf("unexpected SessionResponse: %+v", m)
+			}
+			_ = m.String()
+			m.Reset()
+			m.ProtoReflect()
+			m.Descriptor()
+		case *ResumeBitmap:
+			if m.GetSessionId() != "id" || len(m.GetBitmap()) != 3 {
+				t.Fatalf("unexpected ResumeBitmap: %+v", m)
+			}
+			_ = m.String()
+			m.Reset()
+			m.ProtoReflect()
+			m.Descriptor()
+		case *ManifestMessage:
+			if m.GetSessionId() != "id" || string(m.GetManifest()) != "manifest" {
+				t.Fatalf("unexpected ManifestMessage: %+v", m)
+			}
+			_ = m.String()
+			m.Reset()
+			m.ProtoReflect()
+			m.Descriptor()
+		case *FinalizeRequest:
+			if m.GetSessionId() != "id" {
+				t.Fatalf("unexpected FinalizeRequest: %+v", m)
+			}
+			_ = m.String()
+			m.Reset()
+			m.ProtoReflect()
+			m.Descriptor()
+		case *Ack:
+			if m.GetSessionId() != "id" || !m.GetOk() || m.GetMessage() != "done" {
+				t.Fatalf("unexpected Ack: %+v", m)
+			}
+			_ = m.String()
+			m.Reset()
+			m.ProtoReflect()
+			m.Descriptor()
+		case *ProbeRequest:
+			if m.GetVolumeName() != "vol" {
+				t.Fatalf("unexpected ProbeRequest: %+v", m)
+			}
+			_ = m.String()
+			m.Reset()
+			m.ProtoReflect()
+			m.Descriptor()
+		case *StartSyncRequest:
+			if m.GetVolumeName() != "vol" || m.GetRequester() != "req" {
+				t.Fatalf("unexpected StartSyncRequest: %+v", m)
+			}
+			_ = m.String()
+			m.Reset()
+			m.ProtoReflect()
+			m.Descriptor()
+		case *CancelRequest:
+			if m.GetSessionId() != "id" {
+				t.Fatalf("unexpected CancelRequest: %+v", m)
+			}
+			_ = m.String()
+			m.Reset()
+			m.ProtoReflect()
+			m.Descriptor()
+		case *ProgressRequest:
+			if m.GetSessionId() != "id" {
+				t.Fatalf("unexpected ProgressRequest: %+v", m)
+			}
+			_ = m.String()
+			m.Reset()
+			m.ProtoReflect()
+			m.Descriptor()
+		case *Progress:
+			if m.GetSessionId() != "id" || m.GetCompleted() != 10 || m.GetTotal() != 20 {
+				t.Fatalf("unexpected Progress: %+v", m)
+			}
+			_ = m.String()
+			m.Reset()
+			m.ProtoReflect()
+			m.Descriptor()
+		case *BuildManifestRequest:
+			if m.GetSessionId() != "id" {
+				t.Fatalf("unexpected BuildManifestRequest: %+v", m)
+			}
+			_ = m.String()
+			m.Reset()
+			m.ProtoReflect()
+			m.Descriptor()
+		case *VerifyRequest:
+			if m.GetSessionId() != "id" {
+				t.Fatalf("unexpected VerifyRequest: %+v", m)
+			}
+			_ = m.String()
+			m.Reset()
+			m.ProtoReflect()
+		}
 	}
 }
