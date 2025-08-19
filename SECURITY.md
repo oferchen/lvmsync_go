@@ -8,13 +8,7 @@ The controller orchestrates replication, validates parameters, and interacts wit
 
 ## Probe and verify modes
 
-Read-only operations can run without elevated privileges.
-`--probe-only` checks device metadata, validates privileges, and prints `size_bytes device_id manifest_epoch` so operators can capture the identity tuple before writing.
-`--verify-only` reads source and destination devices and reports mismatches.
-
-Read-only operations can run without elevated privileges.  
-`--probe-only` checks device metadata, validates privileges, and emits dry-run estimates. It prints `(size_bytes, kernel_uuid, gpt_uuid, fs_uuid, major, minor, manifest_epoch)` for confirmation.
-`--verify-only` reads source and destination devices and reports mismatches.  
+Read-only operations can run without elevated privileges. `--probe-only` checks device metadata, validates privileges, and prints the canonical identity tuple `(size_bytes, kernel_uuid, gpt_uuid, fs_uuid, major, minor, manifest_epoch)` so operators can capture it before writing. `--verify-only` reads source and destination devices and reports mismatches.
 
 Both commands exit `0` on success, return `60` for verification failures, and `10` when required capabilities are missing.
 
