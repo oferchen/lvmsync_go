@@ -43,7 +43,7 @@ func (s *identityStub) BlockSize() uint64                                { retur
 func (s *identityStub) Snapshot(context.Context, string) (Device, error) { return s, nil }
 func (s *identityStub) Cleanup(context.Context) error                    { return nil }
 func (s *identityStub) Close() error                                     { return nil }
-func (s *identityStub) Identity() (DeviceIdentity, error) {
+func (s *identityStub) Identity(context.Context) (DeviceIdentity, error) {
 	return DeviceIdentity{SizeBytes: s.size}, nil
 }
 func (s *identityStub) AppendWAL(r Range) error               { return nil }
