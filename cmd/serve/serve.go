@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	_ "lvmsync_go/transport/rsyncwire"
 )
 
 const deprecationMsg = "serve command deprecated; use lvmsyncd instead"

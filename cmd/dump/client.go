@@ -26,6 +26,7 @@ import (
 	"lvmsync_go/transport"
 	_ "lvmsync_go/transport/h2"
 	_ "lvmsync_go/transport/quic"
+	_ "lvmsync_go/transport/rsyncwire"
 	_ "lvmsync_go/transport/ssh"
 	_ "lvmsync_go/transport/tcp_tls"
 )
