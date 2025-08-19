@@ -29,7 +29,7 @@ For details on running with minimal privileges and sudoers examples, see [SECURI
 - **Dry-run Estimates**: `--dry-run` samples the manifest to project bytes and ETA without transferring data.
 - **Device Identity Tuple**: Each run records `(device_id, size_bytes, major:minor)` to prevent writing to the wrong destination.
 - **Handshake Timeouts**: Transport connections apply context deadlines during handshakes and clear them once negotiation succeeds.
-- **Sparse Destination Optimization**: Detects runs of zero bytes and punches holes when the filesystem supports it.
+- **Sparse Destination Optimization**: Detects runs of zero bytes and punches holes when the filesystem supports it, logging a warning once and disabling hole punching when unsupported.
 - **Aligned I/O Buffers and NUMA Pinning**: `--odirect` allocates block-size aligned slabs from a `sync.Pool` and can pin worker goroutines to a device's NUMA node (`--numa-pin`) or an explicit node (`--numa-node`).
 - **LVM Snapshot Management**:
   - Automatic snapshot creation and removal.
