@@ -29,7 +29,7 @@ For snapshot cleanup, resuming transfers, and verify-only rollback procedures, s
 - **Crash-Safe WAL**: Records committed ranges in a write-ahead log so interrupted runs can recover. See [WAL documentation](docs/wal.md) for layout and replay details.
 - **Probe and Verification Modes**: `--probe-only` validates devices and privileges without writing, while `--verify-only` scans both sides and reports mismatches.
 - **Dry-run Estimates**: `--dry-run` samples the manifest to project bytes and ETA without transferring data.
-- **Device Identity Tuple**: Each run records `(device_id, size_bytes, major:minor)` to prevent writing to the wrong destination.
+- **Device Identity Tuple**: Each run records `(device_id, fs_uuid, size_bytes, major:minor)` to prevent writing to the wrong destination.
 - **Handshake Timeouts**: Transport connections apply context deadlines during handshakes and clear them once negotiation succeeds.
 - **Sparse Destination Optimization**: Detects runs of zero bytes and punches holes when the filesystem supports it, logging a warning once and disabling hole punching when unsupported.
 - **Aligned I/O Buffers and NUMA Pinning**: `--odirect` allocates block-size aligned slabs from a `sync.Pool` and can pin worker goroutines to a device's NUMA node (`--numa-pin`) or an explicit node (`--numa-node`).
@@ -52,7 +52,7 @@ For snapshot cleanup, resuming transfers, and verify-only rollback procedures, s
 
 ### Resume, verification, and safe overwrite flows
 
-Transfers store the device identity tuple and compare it against the destination before writing. Mismatches abort the run to avoid accidental overwrites. Use `--force` to bypass this check when intentionally overwriting.
+Transfers store the device identity tuple `(device_id, fs_uuid, size_bytes, major:minor)` and compare it against the destination before writing. Mismatches abort the run to avoid accidental overwrites. Use `--force` to bypass this check when intentionally overwriting.
 
 - `--resume=statefile` continues an interrupted run (verification runs unless `--verify=none`).
 - `--verify-only` reads both devices and reports mismatches without writing data.

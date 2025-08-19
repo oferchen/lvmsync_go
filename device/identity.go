@@ -5,6 +5,7 @@ type DeviceIdentity struct {
 	SizeBytes  uint64
 	KernelUUID string
 	GPTUUID    string
+	FSUUID     string
 }
 
 // Range represents a byte range on a device.

@@ -67,7 +67,7 @@ func TestIdentitySizeMismatchFailsEarly(t *testing.T) {
 	}
 }
 
-func TestIdentityUUIDMismatch(t *testing.T) {
+func TestIdentityFSUUIDMismatch(t *testing.T) {
 	info := NewInfoWithDeps(func(_ context.Context, path string) (string, error) {
 		if strings.Contains(path, "src") {
 			return "id1", nil
@@ -79,6 +79,6 @@ func TestIdentityUUIDMismatch(t *testing.T) {
 	})
 	defer info.SetDetectFunc(prev)
 	if err := verifyIdentity(context.Background(), info, "/dev/src", "/dev/dest"); err == nil || !strings.Contains(err.Error(), "uuid mismatch") {
-		t.Fatalf("expected uuid mismatch error, got %v", err)
+		t.Fatalf("expected fs uuid mismatch error, got %v", err)
 	}
 }
