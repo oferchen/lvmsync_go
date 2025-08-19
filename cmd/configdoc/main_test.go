@@ -1,9 +1,14 @@
 package main
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 func TestRunGeneratesDoc(t *testing.T) {
@@ -43,5 +48,28 @@ func TestRunMissingGoMod(t *testing.T) {
 	}
 	if err := run(); err == nil {
 		t.Fatal("expected error")
+	}
+}
+
+func TestMainLogsAndSyncs(t *testing.T) {
+	syncCalled := false
+	exitCode := 0
+	core, logs := observer.New(zapcore.ErrorLevel)
+	r := newRunnerWithDeps(
+		func() error { return errors.New("fail") },
+		func(*zap.Logger) { syncCalled = true },
+		func(c int) { exitCode = c },
+		func() *zap.Logger { return zap.New(core) },
+	)
+	r.Run()
+	if exitCode != 1 {
+		t.Fatalf("exit code: got %d want 1", exitCode)
+	}
+	entries := logs.FilterMessage("run_failed").All()
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 log entry, got %d", len(entries))
+	}
+	if !syncCalled {
+		t.Fatalf("expected SyncLogger to be called")
 	}
 }

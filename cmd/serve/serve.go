@@ -1,43 +1,83 @@
+// Package main contains the deprecated serve command.
 package main
 
 import (
 	"errors"
-	"fmt"
-	"io"
 	"os"
 
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
+
+	rootcmd "lvmsync_go/cmd/root"
 	_ "lvmsync_go/transport/rsyncwire"
 )
 
 const deprecationMsg = "serve command deprecated; use lvmsyncd instead"
 
-func newCommand() *cobra.Command {
+type runner struct {
+	run        func([]string, *zap.Logger) int
+	syncLogger func(*zap.Logger)
+	exit       func(int)
+	newLogger  func() *zap.Logger
+}
+
+func newRunner() *runner {
+	return &runner{
+		run:        run,
+		syncLogger: rootcmd.SyncLogger,
+		exit:       os.Exit,
+		newLogger:  func() *zap.Logger { return zap.NewExample() },
+	}
+}
+
+func newRunnerWithDeps(runFunc func([]string, *zap.Logger) int, syncFunc func(*zap.Logger), exitFunc func(int), loggerFunc func() *zap.Logger) *runner {
+	r := newRunner()
+	if runFunc != nil {
+		r.run = runFunc
+	}
+	if syncFunc != nil {
+		r.syncLogger = syncFunc
+	}
+	if exitFunc != nil {
+		r.exit = exitFunc
+	}
+	if loggerFunc != nil {
+		r.newLogger = loggerFunc
+	}
+	return r
+}
+
+func (r *runner) Run(args []string) {
+	logger := r.newLogger()
+	defer r.syncLogger(logger)
+	code := r.run(args, logger)
+	r.exit(code)
+}
+
+func newCommand(logger *zap.Logger) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "serve",
 		Short: "Deprecated server command",
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
+			logger.Error("command_deprecated", zap.String("replacement", "lvmsyncd"))
 			return errors.New(deprecationMsg)
 		},
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
-	cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
-		fmt.Fprintln(cmd.OutOrStdout(), deprecationMsg)
+	cmd.SetHelpFunc(func(_ *cobra.Command, _ []string) {
+		logger.Warn(deprecationMsg)
 	})
 	return cmd
 }
 
-func run(args []string, w io.Writer) int {
-	cmd := newCommand()
+func run(args []string, logger *zap.Logger) int {
+	cmd := newCommand(logger)
 	cmd.SetArgs(args)
 	if err := cmd.Execute(); err != nil {
-		fmt.Fprintln(w, deprecationMsg)
 		return 1
 	}
 	return 0
 }
 
-func main() {
-	os.Exit(run(os.Args[1:], os.Stderr))
-}
+func main() { newRunner().Run(os.Args[1:]) }
