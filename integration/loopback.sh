@@ -81,4 +81,23 @@ done
 # Verify-only
 "$BIN" run --verify-only /dev/vgsrc/snap /dev/vgd/dest
 
+# Sparse file handling verification
+SRC_SPARSE="$TMPDIR/src_sparse.img"
+dd if=/dev/zero of="$SRC_SPARSE" bs=1M count=1
+truncate -s 2M "$SRC_SPARSE"
+DST_SPARSE="$TMPDIR/dst_sparse.img"
+"$BIN" run "$SRC_SPARSE" "$DST_SPARSE"
+used=$(stat -c %b "$DST_SPARSE")
+if [ $((used*512)) -ge $((2*1024*1024)) ]; then
+  echo "hole punching failed"
+  exit 1
+fi
+DST_FULL="$TMPDIR/dst_full.img"
+"$BIN" run --sparse=never "$SRC_SPARSE" "$DST_FULL"
+used_full=$(stat -c %b "$DST_FULL")
+if [ $((used_full*512)) -lt $((2*1024*1024)) ]; then
+  echo "expected full allocation with sparse=never"
+  exit 1
+fi
+
 exit 0
