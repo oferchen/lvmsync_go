@@ -28,12 +28,9 @@ For snapshot cleanup, resuming transfers, and verify-only rollback procedures, s
 - **Resume Support**: Ability to resume interrupted transfers with verification enabled by default (use `--verify=none` to skip).
 - **Crash-Safe WAL**: Records committed ranges in a write-ahead log so interrupted runs can recover. See [WAL documentation](docs/wal.md) for layout and replay details.
  - **Probe and Verification Modes**: `--probe-only` validates devices and privileges without writing and prints `size_bytes device_id manifest_epoch` to stdout, while `--verify-only` scans both sides and reports mismatches.
-- **Dry-run Estimates**: `--dry-run` samples the manifest to project bytes and ETA without transferring data.
-- **Planning**: `--plan` prints resolved configuration, transport order, estimated bytes, and compression decisions as JSON without transferring data.
-
- - **Device Identity Tuple**: Each run records `(device_id, fs_uuid, size_bytes, major:minor, manifest_epoch)` to prevent writing to the wrong destination.
-
-- **Device Identity Tuple**: Each run records `(size_bytes, kernel_uuid, gpt_uuid, fs_uuid, major, minor, manifest_epoch)` to prevent writing to the wrong destination.
+ - **Dry-run Estimates**: `--dry-run` samples the manifest to project bytes and ETA without transferring data.
+ - **Planning**: `--plan` prints resolved configuration, transport order, estimated bytes, and compression decisions as JSON without transferring data.
+ - **Device Identity Tuple**: Each run records `(size_bytes, kernel_uuid, gpt_uuid, fs_uuid, major, minor, manifest_epoch)` to prevent writing to the wrong destination.
 
 - **Handshake Timeouts**: Transport connections apply context deadlines during handshakes and clear them once negotiation succeeds.
 - **Sparse Destination Optimization**: Detects runs of zero bytes and punches holes when the filesystem supports it. Use `--sparse=never` to always write zeros instead.
@@ -57,7 +54,7 @@ For snapshot cleanup, resuming transfers, and verify-only rollback procedures, s
 
 ### Resume, verification, and safe overwrite flows
 
-Transfers store the device identity tuple `(device_id, fs_uuid, size_bytes, major:minor, manifest_epoch)` and compare it against the destination before writing. Mismatches abort the run and LVMSync refuses to resume when the tuple differs. Use `--force` to bypass this check when intentionally overwriting.
+Transfers store the device identity tuple `(size_bytes, kernel_uuid, gpt_uuid, fs_uuid, major, minor, manifest_epoch)` and compare it against the destination before writing. Mismatches abort the run to avoid accidental overwrites. Use `--force` to bypass this check when intentionally overwriting.
 
 Example `--probe-only` output showing `size_bytes device_id manifest_epoch`:
 
@@ -65,8 +62,6 @@ Example `--probe-only` output showing `size_bytes device_id manifest_epoch`:
 lvmsync run --probe-only /dev/vg0/snap0 /dev/vg0/target
 # 10737418240 12345678-9abc-def0-1234-56789abcdef0 1700000000
 ```
-
-Transfers store the device identity tuple `(size_bytes, kernel_uuid, gpt_uuid, fs_uuid, major, minor, manifest_epoch)` and compare it against the destination before writing. Mismatches abort the run to avoid accidental overwrites. Use `--force` to bypass this check when intentionally overwriting.
 
 
 - `--resume=statefile` continues an interrupted run (verification runs unless `--verify=none`).
