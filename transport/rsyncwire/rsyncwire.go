@@ -31,6 +31,11 @@ func New(cfg transport.Config) (transport.Interface, error) {
 	if !cfg.AllowInsecure {
 		return nil, fmt.Errorf("rsync transport requires AllowInsecure")
 	}
+	cfg.Logger.Warn(
+		"plaintext_connection",
+		zap.String("transport", "rsync"),
+		zap.String("docs", "docs/transports.md"),
+	)
 	return &Transport{logger: cfg.Logger}, nil
 }
 
