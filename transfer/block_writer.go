@@ -88,6 +88,9 @@ func (bw *blockWriter) write(reader *bufio.Reader) (int64, error) {
 	}
 	headerBuf := make([]byte, headerLen)
 	var total int64
+	var zeroStart uint64
+	var zeroLen uint64
+	var holes []Range
 	for {
 		offset, chunkSize, crc, transmitted, err := readBlockHeader(reader, headerBuf, bw.verify, bw.checksum)
 		if err == io.EOF {
@@ -109,7 +112,7 @@ func (bw *blockWriter) write(reader *bufio.Reader) (int64, error) {
 		} else {
 			chunkID = zeroHash(int(chunkSize))
 		}
-		written, err := processBlock(bw.cfg, bw.dest, bw.dedup, bw.intra, bw.verify, bw.checksum, offset, crc, transmitted, data, chunkSize, bw.logger, bw.wal)
+		written, zlen, err := processBlock(bw.cfg, bw.dest, bw.dedup, bw.intra, bw.verify, bw.checksum, offset, crc, transmitted, data, chunkSize, bw.logger, bw.wal)
 		if bw.cfg.ODirect {
 			if data != nil {
 				putAlignedBlockBuffer(data)
@@ -120,6 +123,56 @@ func (bw *blockWriter) write(reader *bufio.Reader) (int64, error) {
 		if err != nil {
 			return total, err
 		}
+		if zlen > 0 {
+			if zeroLen == 0 {
+				zeroStart = offset
+				zeroLen = zlen
+			} else if offset == zeroStart+zeroLen {
+				zeroLen += zlen
+			} else {
+				if bw.wal != nil {
+					if err := bw.wal.Append(Range{Start: zeroStart, End: zeroStart + zeroLen}); err != nil {
+						return total, err
+					}
+				}
+				if err := writeZeroRange(bw.cfg, bw.dest, zeroStart, zeroLen, bw.logger); err != nil {
+					return total, err
+				}
+				holes = append(holes, Range{Start: zeroStart, End: zeroStart + zeroLen})
+				total += int64(zeroLen)
+				bw.sinceSync += int64(zeroLen)
+				if bw.cfg.SyncIntervalBytes > 0 && bw.sinceSync >= int64(bw.cfg.SyncIntervalBytes) {
+					if err := bw.deps.FdatasyncFile(bw.dest); err != nil {
+						return total, err
+					}
+					bw.sinceSync = 0
+				}
+				zeroStart = offset
+				zeroLen = zlen
+			}
+			saveResumeState(bw.cfg, bw.rt, offset, chunkID, int64(zlen), bw.logger)
+			continue
+		}
+		if zeroLen > 0 {
+			if bw.wal != nil {
+				if err := bw.wal.Append(Range{Start: zeroStart, End: zeroStart + zeroLen}); err != nil {
+					return total, err
+				}
+			}
+			if err := writeZeroRange(bw.cfg, bw.dest, zeroStart, zeroLen, bw.logger); err != nil {
+				return total, err
+			}
+			holes = append(holes, Range{Start: zeroStart, End: zeroStart + zeroLen})
+			total += int64(zeroLen)
+			bw.sinceSync += int64(zeroLen)
+			if bw.cfg.SyncIntervalBytes > 0 && bw.sinceSync >= int64(bw.cfg.SyncIntervalBytes) {
+				if err := bw.deps.FdatasyncFile(bw.dest); err != nil {
+					return total, err
+				}
+				bw.sinceSync = 0
+			}
+			zeroLen = 0
+		}
 		saveResumeState(bw.cfg, bw.rt, offset, chunkID, int64(chunkSize), bw.logger)
 		if written {
 			total += int64(chunkSize)
@@ -129,6 +182,36 @@ func (bw *blockWriter) write(reader *bufio.Reader) (int64, error) {
 					return total, err
 				}
 				bw.sinceSync = 0
+			}
+		}
+	}
+	if zeroLen > 0 {
+		if bw.wal != nil {
+			if err := bw.wal.Append(Range{Start: zeroStart, End: zeroStart + zeroLen}); err != nil {
+				return total, err
+			}
+		}
+		if err := writeZeroRange(bw.cfg, bw.dest, zeroStart, zeroLen, bw.logger); err != nil {
+			return total, err
+		}
+		holes = append(holes, Range{Start: zeroStart, End: zeroStart + zeroLen})
+		total += int64(zeroLen)
+		bw.sinceSync += int64(zeroLen)
+		if bw.cfg.SyncIntervalBytes > 0 && bw.sinceSync >= int64(bw.cfg.SyncIntervalBytes) {
+			if err := bw.deps.FdatasyncFile(bw.dest); err != nil {
+				return total, err
+			}
+			bw.sinceSync = 0
+		}
+	}
+	if bw.cfg.Sparse != "never" && seekHoleSupported(bw.dest) {
+		for _, h := range holes {
+			off, err := nextDataOffset(bw.dest, int64(h.Start))
+			if err != nil {
+				return total, err
+			}
+			if off != -1 && off < int64(h.End) {
+				return total, fmt.Errorf("hole verification failed at offset %d", h.Start)
 			}
 		}
 	}

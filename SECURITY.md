@@ -11,6 +11,11 @@ The controller orchestrates replication, validates parameters, and interacts wit
 Read-only operations can run without elevated privileges.
 `--probe-only` checks device metadata, validates privileges, and prints `size_bytes device_id manifest_epoch` so operators can capture the identity tuple before writing.
 `--verify-only` reads source and destination devices and reports mismatches.
+
+Read-only operations can run without elevated privileges.  
+`--probe-only` checks device metadata, validates privileges, and emits dry-run estimates. It prints `(size_bytes, kernel_uuid, gpt_uuid, fs_uuid, major, minor, manifest_epoch)` for confirmation.
+`--verify-only` reads source and destination devices and reports mismatches.  
+
 Both commands exit `0` on success, return `60` for verification failures, and `10` when required capabilities are missing.
 
 Example `--probe-only` output:
@@ -64,7 +69,9 @@ The helper normally inherits the caller's environment, including `PATH` and
 `GCONV_PATH`. Pass the `--sanitize-env` flag or enable the `SanitizeEnv` option
 to run the helper with a minimal, whitelisted environment that drops those
 variables entirely. Sanitization is disabled by default to avoid surprising
-behavior in mixed environments.
+behavior in mixed environments. After each privileged command the helper
+clears any ambient capability sets to minimise the time elevated rights remain
+active.
 
 ## Logging hygiene
 
@@ -80,7 +87,7 @@ A misconfigured `sudoers` rule or path could destroy unrelated data or allow
 full-disk compromise. LVMSync mitigates this risk by:
 
 * Requiring explicit device paths; globbing and symlinks are rejected.
-* Verifying device size and LVM signatures before writing.
+* Verifying the device identity tuple `(size_bytes, kernel_uuid, gpt_uuid, fs_uuid, major, minor, manifest_epoch)` before writing.
 * Dropping privileges immediately after completing the privileged section.
 
 Review `sudoers` entries carefully and test on non-production systems before granting wide access.

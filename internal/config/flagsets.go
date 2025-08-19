@@ -56,12 +56,13 @@ func initGeneralFlags(cfg *Config) *pflag.FlagSet {
 	fs.Bool("stdout", cfg.StdoutMode, "Write change dump to STDOUT")
 	fs.Bool("yes-i-know", cfg.YesIKnow, "Confirm writing binary data to STDOUT")
 	fs.Bool("dry-run", cfg.DryRun, "Print actions without executing")
-	fs.Bool("probe-only", cfg.ProbeOnly, "Output size_bytes, device_uuid, and manifest_epoch without writing")
+	fs.Bool("probe-only", cfg.ProbeOnly, "Output size_bytes, kernel_uuid, gpt_uuid, fs_uuid, major, minor, and manifest_epoch without writing")
 	fs.Bool("plan", cfg.Plan, "Print configuration plan as JSON and exit")
 	fs.Bool("force", cfg.Force, "Override safety checks for offline raw access or filesystem freeze")
 	fs.Bool("allow-overwrite", cfg.AllowOverwrite, "Skip interactive confirmation when using --force")
 	fs.Bool("discard", cfg.Discard, "Issue BLKDISCARD before writing blocks")
 	fs.Bool("offline", cfg.Offline, "Assume source raw device is offline")
+	fs.Bool("sanitize-env", cfg.SanitizeEnv, "Drop PATH, LANG, and unsafe variables before privilege escalation")
 	fs.String("sparse", cfg.Sparse, "Sparse file handling: auto or never")
 	fs.String("fs-freeze-command", cfg.FSFreezeCommand, "Command to freeze filesystem before reading raw source")
 	fs.String("fs-thaw-command", cfg.FSThawCommand, "Command to thaw filesystem after reading raw source")
@@ -164,6 +165,7 @@ func initLVMFlags(cfg *Config) *pflag.FlagSet {
 	fs.String("volume-group", cfg.VolumeGroup, "LVM volume group")
 	fs.String("target-volume-group", cfg.TargetVolumeGroup, "Target LVM volume group")
 	fs.StringSlice("target-vgs", cfg.TargetVGCandidates, "Candidate target VGs for volume selection")
+	fs.Bool("create-dest-lv", cfg.CreateDestLV, "Create destination logical volume when missing")
 	return fs
 }
 

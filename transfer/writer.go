@@ -137,49 +137,44 @@ func processBlock(
 	chunkSize uint32,
 	logger *zap.Logger,
 	wal *WAL,
-) (bool, error) {
+) (bool, uint64, error) {
 	if offset > math.MaxInt64 {
-		return false, fmt.Errorf("offset %d overflows int64", offset)
+		return false, 0, fmt.Errorf("offset %d overflows int64", offset)
 	}
 	if err := verifyCRC(crc, data, offset); err != nil {
-		return false, err
+		return false, 0, err
 	}
 	if err := verifyChecksum(verify, checksum, data, transmitted, offset); err != nil {
-		return false, err
+		return false, 0, err
 	}
-	if chunkSize == 0 || isAllZero(data) {
-		if wal != nil {
-			if err := wal.Append(Range{Start: offset, End: offset + uint64(chunkSize)}); err != nil {
-				return false, err
-			}
-		}
-		if err := writeZeroBlock(cfg, destFile, offset, logger); err != nil {
-			return false, err
-		}
-		return true, nil
+	if chunkSize == 0 {
+		return false, uint64(cfg.BlockSize), nil
+	}
+	if isAllZero(data) {
+		return false, uint64(chunkSize), nil
 	}
 	if dedup != nil {
 		intOffset := int64(offset)
 		if !dedup.ShouldTransfer(intOffset, data) {
-			return false, nil
+			return false, 0, nil
 		}
 		dedup.RecordTransfer(intOffset, data)
 	}
 	if intra != nil && intra.Seen(data) {
-		return false, nil
+		return false, 0, nil
 	}
 	if wal != nil {
 		if err := wal.Append(Range{Start: offset, End: offset + uint64(chunkSize)}); err != nil {
-			return false, err
+			return false, 0, err
 		}
 	}
 	if cfg.Discard {
-		if err := device.DiscardRange(destFile, offset, uint64(chunkSize), logger); err != nil {
+		if err := device.DiscardRange(destFile, offset, uint64(chunkSize), cfg.SanitizeEnv, logger); err != nil {
 			logger.Debug("discard failed", zap.Error(err))
 		}
 	}
 	if err := writeData(destFile, offset, data, logger); err != nil {
-		return false, err
+		return false, 0, err
 	}
-	return true, nil
+	return true, 0, nil
 }

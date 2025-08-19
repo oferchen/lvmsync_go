@@ -43,6 +43,7 @@ type Config struct {
 	FSThawCommand            string        `mapstructure:"fs-thaw-command"`
 	FreezeTimeout            time.Duration `mapstructure:"freeze-timeout"`
 	ThawTimeout              time.Duration `mapstructure:"thaw-timeout"`
+	SanitizeEnv              bool          `mapstructure:"sanitize_env"`
 	Mode                     string        `mapstructure:"mode"`
 	Parallel                 int           `mapstructure:"parallel"`
 	Concurrency              int           `mapstructure:"concurrency"`
@@ -90,6 +91,7 @@ type Config struct {
 	VolumeGroup              string        `mapstructure:"volume_group"`
 	TargetVolumeGroup        string        `mapstructure:"target_volume_group"`
 	TargetVGCandidates       []string      `mapstructure:"target_vgs"`
+	CreateDestLV             bool          `mapstructure:"create_dest_lv"`
 	LVMEscalation            string        `mapstructure:"lvm_escalation"`
 	LVMTimeout               time.Duration `mapstructure:"lvm_timeout"`
 	SigCacheTTL              time.Duration `mapstructure:"sig_cache_ttl"`
@@ -186,6 +188,7 @@ func DefaultConfig() (*Config, error) {
 		FSThawCommand:            "",
 		FreezeTimeout:            10 * time.Second,
 		ThawTimeout:              10 * time.Second,
+		SanitizeEnv:              false,
 		Parallel:                 4,
 		Concurrency:              0,
 		ZeroCopy:                 false,
@@ -231,6 +234,7 @@ func DefaultConfig() (*Config, error) {
 		VolumeGroup:              "",
 		TargetVolumeGroup:        "",
 		TargetVGCandidates:       []string{},
+		CreateDestLV:             false,
 		LVMEscalation:            "sudo -n",
 		LVMTimeout:               10 * time.Second,
 		SigCacheTTL:              24 * time.Hour,

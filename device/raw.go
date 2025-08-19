@@ -201,6 +201,9 @@ func (d *RawDevice) Identity(ctx context.Context) (DeviceIdentity, error) {
 	}
 	out, err := exec.CommandContext(ctx, blkidPath, "-o", "value", "-s", "UUID", d.Path()).Output()
 	if err != nil {
+		if ctx.Err() != nil {
+			return DeviceIdentity{}, ctx.Err()
+		}
 		return DeviceIdentity{}, err
 	}
 	uuid := strings.TrimSpace(string(out))

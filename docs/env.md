@@ -17,6 +17,7 @@
 | LVMSYNC_COMPRESS_THRESHOLD | `--compress-threshold` | `compress-threshold` | Skip compression when estimated ratio exceeds this value |
 | LVMSYNC_CONCURRENCY | `--concurrency` | `concurrency` | Number of concurrent connections |
 | LVMSYNC_CONFIG | `--config` | `config` | Path to config YAML file |
+| LVMSYNC_CREATE_DEST_LV | `--create-dest-lv` | `create-dest-lv` | Create destination logical volume when missing |
 | LVMSYNC_DEDUP | `--dedup` | `dedup` | Deduplication mode: [fixed cdc hybrid] |
 | LVMSYNC_DEDUP_STATE_FILE | `--dedup-state-file` | `dedup-state-file` | Path to deduplication state file |
 | LVMSYNC_DEDUP_STRATEGY | `--dedup-strategy` | `dedup-strategy` | Deduplication strategy: [none auto checksum rolling_hash bloom] |
@@ -48,12 +49,13 @@
 | LVMSYNC_OUTPUT | `--output` | `output` | Output format: text or json |
 | LVMSYNC_PARALLEL | `--parallel` | `parallel` | Number of concurrent workers |
 | LVMSYNC_PLAN | `--plan` | `plan` | Print configuration plan as JSON and exit |
-| LVMSYNC_PROBE_ONLY | `--probe-only` | `probe-only` | Output size_bytes, device_uuid, and manifest_epoch without writing |
+| LVMSYNC_PROBE_ONLY | `--probe-only` | `probe-only` | Output size_bytes, kernel_uuid, gpt_uuid, fs_uuid, major, minor, and manifest_epoch without writing |
 | LVMSYNC_PROGRESS | `--progress` | `progress` | Show progress during transfer |
 | LVMSYNC_REMOTE_POST_SCRIPT | `--remote-post-script` | `remote-post-script` | Remote script to run after transfer |
 | LVMSYNC_REMOTE_PRE_SCRIPT | `--remote-pre-script` | `remote-pre-script` | Remote script to run before transfer |
 | LVMSYNC_RESUME | `--resume` | `resume` | Path to resume state file |
 | LVMSYNC_RETRY_DELAY | `--retry-delay` | `retry-delay` | Initial delay between retries |
+| LVMSYNC_SANITIZE_ENV | `--sanitize-env` | `sanitize-env` | Drop PATH, LANG, and unsafe variables before privilege escalation |
 | LVMSYNC_SIG_CACHE_MAX | `--sig-cache-max` | `sig-cache-max` | Maximum LVM signature cache entries |
 | LVMSYNC_SIG_CACHE_TTL | `--sig-cache-ttl` | `sig-cache-ttl` | TTL for LVM signature cache entries |
 | LVMSYNC_SKIP_DISK_CHECK | `--skip-disk-check` | `skip-disk-check` | Skip disk space check |

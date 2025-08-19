@@ -30,7 +30,11 @@ For snapshot cleanup, resuming transfers, and verify-only rollback procedures, s
  - **Probe and Verification Modes**: `--probe-only` validates devices and privileges without writing and prints `size_bytes device_id manifest_epoch` to stdout, while `--verify-only` scans both sides and reports mismatches.
 - **Dry-run Estimates**: `--dry-run` samples the manifest to project bytes and ETA without transferring data.
 - **Planning**: `--plan` prints resolved configuration, transport order, estimated bytes, and compression decisions as JSON without transferring data.
+
  - **Device Identity Tuple**: Each run records `(device_id, fs_uuid, size_bytes, major:minor, manifest_epoch)` to prevent writing to the wrong destination.
+
+- **Device Identity Tuple**: Each run records `(size_bytes, kernel_uuid, gpt_uuid, fs_uuid, major, minor, manifest_epoch)` to prevent writing to the wrong destination.
+
 - **Handshake Timeouts**: Transport connections apply context deadlines during handshakes and clear them once negotiation succeeds.
 - **Sparse Destination Optimization**: Detects runs of zero bytes and punches holes when the filesystem supports it. Use `--sparse=never` to always write zeros instead.
 - **Aligned I/O Buffers and NUMA Pinning**: `--odirect` allocates block-size aligned slabs from a `sync.Pool` and can pin worker goroutines to a device's NUMA node (`--numa-pin`) or an explicit node (`--numa-node`).
@@ -61,6 +65,9 @@ Example `--probe-only` output showing `size_bytes device_id manifest_epoch`:
 lvmsync run --probe-only /dev/vg0/snap0 /dev/vg0/target
 # 10737418240 12345678-9abc-def0-1234-56789abcdef0 1700000000
 ```
+
+Transfers store the device identity tuple `(size_bytes, kernel_uuid, gpt_uuid, fs_uuid, major, minor, manifest_epoch)` and compare it against the destination before writing. Mismatches abort the run to avoid accidental overwrites. Use `--force` to bypass this check when intentionally overwriting.
+
 
 - `--resume=statefile` continues an interrupted run (verification runs unless `--verify=none`).
 - `--verify-only` reads both devices and reports mismatches without writing data.
@@ -684,6 +691,7 @@ Flags override environment variables, which override `config.yaml` values.
 | `--skip-snapshot-creation` | `LVMSYNC_SKIP_SNAPSHOT_CREATION` | `skip_snapshot_creation` | Skip automatic snapshot creation (requires `--force`) |
 | `--skip-disk-check` | `LVMSYNC_SKIP_DISK_CHECK` | `skip_disk_check` | Skip disk space check before snapshot creation |
 | `--snapshot-size` | `LVMSYNC_SNAPSHOT_SIZE` | `snapshot_size` | Snapshot size (e.g., `20G` or `20%`) |
+| `--create-dest-lv` | `LVMSYNC_LVM_CREATE_DEST_LV` | `create_dest_lv` | Create destination logical volume when missing |
 | `--lvm-escalation` | `LVMSYNC_LVM_ESCALATION` | `lvm_escalation` | Command used to escalate privileges for LVM commands; parsed with shell-style quoting and validated at startup |
 | `--sanitize-env` | `LVMSYNC_SANITIZE_ENV` | `sanitize_env` | Drop dangerous variables like `LD_PRELOAD` and remove `PATH`/`LANG` during escalation |
 | `--lvm-timeout` | `LVMSYNC_LVM_TIMEOUT` | `lvm_timeout` | Timeout for LVM operations and privilege checks |
@@ -773,6 +781,7 @@ zstd_level: 3             # Compression Options
 lz4_level: hc             # Compression Options
 compress_threshold: 0.9   # Compression Options
 snapshot_size: 20%        # LVM Options
+create_dest_lv: false     # LVM Options
 ```
 
 Use `--config` to point to a different file.

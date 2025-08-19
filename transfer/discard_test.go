@@ -18,17 +18,17 @@ func TestProcessBlockDiscard(t *testing.T) {
 	}
 	defer f.Close()
 	called := false
-	restore := device.SetDiscardFunc(func(_ *os.File, off, length uint64, _ *zap.Logger) error {
+	restore := device.SetDiscardFunc(func(_ *os.File, off, length uint64, sanitize bool, _ *zap.Logger) error {
 		called = true
-		if off != 0 || length != 4 {
-			t.Errorf("unexpected params: off=%d len=%d", off, length)
+		if off != 0 || length != 4 || sanitize {
+			t.Errorf("unexpected params: off=%d len=%d sanitize=%v", off, length, sanitize)
 		}
 		return nil
 	})
 	defer restore()
 	data := []byte("abcd")
 	crc := crc32c(data)
-	if written, err := processBlock(cfg, f, nil, nil, false, nil, 0, crc, nil, data, 4, zap.NewNop(), nil); err != nil || !written {
+	if written, _, err := processBlock(cfg, f, nil, nil, false, nil, 0, crc, nil, data, 4, zap.NewNop(), nil); err != nil || !written {
 		t.Fatalf("processBlock: %v written=%v", err, written)
 	}
 	if !called {
@@ -44,14 +44,14 @@ func TestProcessBlockDiscardDisabled(t *testing.T) {
 	}
 	defer f.Close()
 	called := false
-	restore := device.SetDiscardFunc(func(_ *os.File, off, length uint64, _ *zap.Logger) error {
+	restore := device.SetDiscardFunc(func(_ *os.File, off, length uint64, sanitize bool, _ *zap.Logger) error {
 		called = true
 		return nil
 	})
 	defer restore()
 	data := []byte("abcd")
 	crc := crc32c(data)
-	if _, err := processBlock(cfg, f, nil, nil, false, nil, 0, crc, nil, data, 4, zap.NewNop(), nil); err != nil {
+	if _, _, err := processBlock(cfg, f, nil, nil, false, nil, 0, crc, nil, data, 4, zap.NewNop(), nil); err != nil {
 		t.Fatalf("processBlock: %v", err)
 	}
 	if called {

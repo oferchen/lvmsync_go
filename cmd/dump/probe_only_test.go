@@ -30,8 +30,8 @@ func TestProbeOnlyNoSideEffects(t *testing.T) {
 			t.Fatalf("openFile called")
 			return nil, nil
 		},
-		probeDest: func(context.Context, *config.Config, string, *zap.Logger) (uint64, string, uint64, error) {
-			return 123, "uuid", 456, nil
+		probeDest: func(context.Context, *config.Config, string, *zap.Logger) (device.DeviceIdentity, error) {
+			return device.DeviceIdentity{SizeBytes: 123, KernelUUID: "k", GPTUUID: "g", FSUUID: "f", Major: 1, Minor: 2, ManifestEpoch: 456}, nil
 		},
 	})
 
@@ -52,7 +52,7 @@ func TestProbeOnlyNoSideEffects(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadAll: %v", err)
 	}
-	expected := "123 uuid 456\n"
+	expected := "123 k g f 1 2 456\n"
 	if string(out) != expected {
 		t.Fatalf("expected %q, got %q", expected, string(out))
 	}
