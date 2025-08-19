@@ -95,8 +95,10 @@ Each subsequent entry describes one chunk and also uses little‑endian encoding
 | `xxh3`    | 8    | Fast non‑cryptographic hash |
 | `blake3`  | 32   | BLAKE3 digest of the chunk |
 
-The header `version` field allows future format changes without breaking
-backwards compatibility.
+The `version` field records the manifest format revision. LVMSync upgrades
+older headers in place when possible and recalculates the header MAC.
+Manifests written with unknown versions should be regenerated with
+`lvmsync manifest rebuild` to migrate to the current layout.
 
 ## Two-Level Index
 
@@ -111,6 +113,14 @@ populates both the hash table and Bloom filters on the fly.
 
 Device identifiers are stored in a fixed 64-byte field; creation fails if the
 ID exceeds this limit.
+
+## Garbage Collection & Atomic Commit
+
+The `manifest` package exposes a [`GC`](../manifest/index.go) helper that
+rewrites the manifest, dropping orphaned or duplicate entries before updating
+the header MAC. Once written to a temporary file, [`fsyncRename`](../manifest/index.go)
+flushes the directory and atomically swaps the new file into place so crashes
+never leave a partial manifest behind.
 
 ## Resume Tokens
 
