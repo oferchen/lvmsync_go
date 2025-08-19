@@ -333,7 +333,7 @@ func ParseSnapshotSize(sizeStr, volumePath string, cache *FDCache, logger *zap.L
 	}
 
 	if isPercent {
-		if val <= 0 || val > 100 {
+		if val == 0 || val > 100 {
 			return 0, fmt.Errorf("percentage must be between 0 and 100, got %v", val)
 		}
 
@@ -342,9 +342,9 @@ func ParseSnapshotSize(sizeStr, volumePath string, cache *FDCache, logger *zap.L
 			return 0, fmt.Errorf("failed to get volume size for %q: %w", volumePath, err)
 		}
 
-		res := float64(volSize) * (val / 100.0)
+		res := float64(volSize) * (float64(val) / 100.0)
 		parsedSize := uint64(res)
-		if res < 0 || float64(parsedSize) != res {
+		if float64(parsedSize) != res {
 			return 0, fmt.Errorf("snapshot size %q overflows uint64", sizeStr)
 		}
 
@@ -355,16 +355,11 @@ func ParseSnapshotSize(sizeStr, volumePath string, cache *FDCache, logger *zap.L
 		return parsedSize, nil
 	}
 
-	parsedSize := uint64(val)
-	if val < 0 || float64(parsedSize) != val {
-		return 0, fmt.Errorf("snapshot size %q overflows uint64", sizeStr)
-	}
-
 	logger.Debug("parsed snapshot size",
 		zap.String("input", sizeStr),
-		zap.Uint64("bytes", parsedSize))
+		zap.Uint64("bytes", val))
 
-	return parsedSize, nil
+	return val, nil
 }
 
 func GetSnapshotDevicePath(snapshotName, volumeGroup string, logger *zap.Logger) string {

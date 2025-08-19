@@ -262,11 +262,10 @@ func (b *builder) parseBytesOrFallback(key, fallback string) (int, error) {
 	if err != nil || isPercent {
 		return 0, fmt.Errorf("invalid %s value %q: %w", key, raw, err)
 	}
-	u := uint64(val)
-	if float64(u) != val || u > uint64(math.MaxInt) {
+	if val > uint64(math.MaxInt) {
 		return 0, fmt.Errorf("%s value %q overflows int", key, raw)
 	}
-	return int(u), nil
+	return int(val), nil
 }
 
 func (b *builder) parseBlockSize() (int, string, error) {
@@ -281,11 +280,10 @@ func (b *builder) parseBlockSize() (int, string, error) {
 	if err != nil || isPercent {
 		return 0, "", fmt.Errorf("invalid block-size value %q: %w", raw, err)
 	}
-	u := uint64(val)
-	if float64(u) != val || u > uint64(math.MaxInt) {
+	if val > uint64(math.MaxInt) {
 		return 0, "", fmt.Errorf("block-size value %q overflows int", raw)
 	}
-	return int(u), raw, nil
+	return int(val), raw, nil
 }
 
 func buildViper(flagSets *FlagSets) (*viper.Viper, []string, bool, error) {
