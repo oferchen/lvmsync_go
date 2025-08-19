@@ -15,9 +15,10 @@ func TestParse(t *testing.T) {
 	}{
 		{"1KB", 1000, false, false},
 		{"1MB", 1000000, false, false},
-		{"1.5GB", uint64(1.5 * 1e9), false, false},
+		{"1.5GB", 3 * (1000 * 1000 * 1000) / 2, false, false},
 		{"1KiB", 1 << 10, false, false},
 		{"1MiB", 1 << 20, false, false},
+		{"1.5GiB", 3 * (1 << 29), false, false},
 		{"50%", 50, true, false},
 		{"bad", 0, false, true},
 		{"10XB", 0, false, true},
