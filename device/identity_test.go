@@ -1,6 +1,7 @@
 package device
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"strings"
@@ -80,5 +81,26 @@ func TestIdentityFSUUIDMismatch(t *testing.T) {
 	defer info.SetDetectFunc(prev)
 	if err := verifyIdentity(context.Background(), info, "/dev/src", "/dev/dest"); err == nil || !strings.Contains(err.Error(), "uuid mismatch") {
 		t.Fatalf("expected fs uuid mismatch error, got %v", err)
+	}
+}
+
+func TestDeviceIdentityFormatParseOrder(t *testing.T) {
+	id := DeviceIdentity{
+		SizeBytes:     1,
+		KernelUUID:    "k",
+		GPTUUID:       "g",
+		FSUUID:        "f",
+		Major:         2,
+		Minor:         3,
+		ManifestEpoch: 4,
+	}
+	var buf bytes.Buffer
+	fmt.Fprintf(&buf, "%d %s %s %s %d %d %d", id.SizeBytes, id.KernelUUID, id.GPTUUID, id.FSUUID, id.Major, id.Minor, id.ManifestEpoch)
+	var parsed DeviceIdentity
+	if _, err := fmt.Fscan(&buf, &parsed.SizeBytes, &parsed.KernelUUID, &parsed.GPTUUID, &parsed.FSUUID, &parsed.Major, &parsed.Minor, &parsed.ManifestEpoch); err != nil {
+		t.Fatalf("Fscan: %v", err)
+	}
+	if parsed != id {
+		t.Fatalf("round-trip mismatch: got %+v want %+v", parsed, id)
 	}
 }
