@@ -19,15 +19,15 @@ func TestDiscardRangeStubAndRestore(t *testing.T) {
 
 	stubErr := errors.New("stub discard error")
 	calls := 0
-	restore := SetDiscardFunc(func(got *os.File, off, length uint64, _ *zap.Logger) error {
+	restore := SetDiscardFunc(func(got *os.File, off, length uint64, sanitize bool, _ *zap.Logger) error {
 		calls++
-		if got != f || off != 123 || length != 456 {
-			t.Errorf("unexpected args: %v %d %d", got.Name(), off, length)
+		if got != f || off != 123 || length != 456 || sanitize {
+			t.Errorf("unexpected args: %v %d %d %v", got.Name(), off, length, sanitize)
 		}
 		return stubErr
 	})
 
-	err = DiscardRange(f, 123, 456, zap.NewNop())
+	err = DiscardRange(f, 123, 456, false, zap.NewNop())
 	if !errors.Is(err, stubErr) {
 		t.Fatalf("expected stub error, got %v", err)
 	}
@@ -37,7 +37,7 @@ func TestDiscardRangeStubAndRestore(t *testing.T) {
 
 	restore()
 
-	err = DiscardRange(f, 123, 456, zap.NewNop())
+	err = DiscardRange(f, 123, 456, false, zap.NewNop())
 	if err == nil || errors.Is(err, stubErr) {
 		t.Fatalf("expected non-stub error after restore, got %v", err)
 	}
@@ -57,5 +57,5 @@ func TestDiscardRangeNilLoggerPanics(t *testing.T) {
 			t.Fatalf("expected panic")
 		}
 	}()
-	_ = DiscardRange(f, 0, 0, nil)
+	_ = DiscardRange(f, 0, 0, false, nil)
 }

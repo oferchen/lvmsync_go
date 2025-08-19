@@ -53,7 +53,9 @@ The helper normally inherits the caller's environment, including `PATH` and
 `GCONV_PATH`. Pass the `--sanitize-env` flag or enable the `SanitizeEnv` option
 to run the helper with a minimal, whitelisted environment that drops those
 variables entirely. Sanitization is disabled by default to avoid surprising
-behavior in mixed environments.
+behavior in mixed environments. After each privileged command the helper
+clears any ambient capability sets to minimise the time elevated rights remain
+active.
 
 ## Logging hygiene
 

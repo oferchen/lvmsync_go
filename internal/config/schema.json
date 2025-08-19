@@ -220,6 +220,9 @@
     "retry_delay": {
       "type": "string"
     },
+    "sanitize_env": {
+      "type": "boolean"
+    },
     "sig_cache_max": {
       "type": "integer"
     },

@@ -55,6 +55,7 @@
 | LVMSYNC_REMOTE_PRE_SCRIPT | `--remote-pre-script` | `remote-pre-script` | Remote script to run before transfer |
 | LVMSYNC_RESUME | `--resume` | `resume` | Path to resume state file |
 | LVMSYNC_RETRY_DELAY | `--retry-delay` | `retry-delay` | Initial delay between retries |
+| LVMSYNC_SANITIZE_ENV | `--sanitize-env` | `sanitize-env` | Drop PATH, LANG, and unsafe variables before privilege escalation |
 | LVMSYNC_SIG_CACHE_MAX | `--sig-cache-max` | `sig-cache-max` | Maximum LVM signature cache entries |
 | LVMSYNC_SIG_CACHE_TTL | `--sig-cache-ttl` | `sig-cache-ttl` | TTL for LVM signature cache entries |
 | LVMSYNC_SKIP_DISK_CHECK | `--skip-disk-check` | `skip-disk-check` | Skip disk space check |
