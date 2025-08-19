@@ -116,7 +116,9 @@ no additional coordination.
 LVMSync negotiates transports in the order provided by `--transport` (default
 `ssh,tcp+tls,h2,quic`). All transports require TLS 1.3 with mutual
 authentication or SSH host key verification unless `--allow-insecure` is set.
-See [docs/transports.md](docs/transports.md) for details.
+The `rsync` transport is plaintext and refuses to initialize unless
+`--allow-insecure` acknowledges the lack of encryption. See
+[docs/transports.md](docs/transports.md) for details.
 
 | Transport | Security defaults | Notes |
 |-----------|------------------|-------|
@@ -124,6 +126,7 @@ See [docs/transports.md](docs/transports.md) for details.
 | `h2`      | TLS 1.3                | HTTP/2 streams |
 | `tcp+tls` | TLS 1.3                | Plain TCP wrapped in TLS |
 | `ssh`     | Host key verification  | Uses OpenSSH-style authentication |
+| `rsync`   | Plaintext, requires `--allow-insecure` | rsync wire protocol |
 
 ### Examples
 
@@ -720,7 +723,7 @@ SSH transport negotiation also derives read and write deadlines from the caller'
 - **Rsync delta with dedup and compression**:
 
   ```sh
-  lvmsync run --delta=rsync --dedup-strategy bloom --compress lz4 --transport rsync --dry-run /tmp/src /tmp/dst
+  lvmsync run --delta=rsync --dedup-strategy bloom --compress lz4 --transport rsync --allow-insecure --dry-run /tmp/src /tmp/dst
   ```
 
 - **Throughput-optimized transfer**:

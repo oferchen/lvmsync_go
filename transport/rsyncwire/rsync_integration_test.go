@@ -67,7 +67,7 @@ func TestNegotiateWithRsyncDaemon(t *testing.T) {
 		t.Fatalf("daemon not ready: %v", readyErr)
 	}
 
-	tr, err := New(transport.Config{Logger: zap.NewNop()})
+	tr, err := New(transport.Config{Logger: zap.NewNop(), AllowInsecure: true})
 	if err != nil {
 		t.Fatalf("new transport: %v", err)
 	}
@@ -87,7 +87,7 @@ func TestNegotiateBadGreeting(t *testing.T) {
 		c2.Write([]byte("bad\n"))
 		c2.Close()
 	}()
-	tr, err := New(transport.Config{Logger: zap.NewNop()})
+	tr, err := New(transport.Config{Logger: zap.NewNop(), AllowInsecure: true})
 	if err != nil {
 		t.Fatalf("new transport: %v", err)
 	}
@@ -98,7 +98,7 @@ func TestNegotiateBadGreeting(t *testing.T) {
 
 func TestServerHandshake(t *testing.T) {
 	c1, c2 := net.Pipe()
-	tr, err := New(transport.Config{Logger: zap.NewNop()})
+	tr, err := New(transport.Config{Logger: zap.NewNop(), AllowInsecure: true})
 	if err != nil {
 		t.Fatalf("new transport: %v", err)
 	}
