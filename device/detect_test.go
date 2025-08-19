@@ -46,6 +46,7 @@ func TestDetectFile(t *testing.T) {
 	logger := zap.New(core)
 	ctx := WithForce(context.Background(), true)
 	ctx = WithAllowOverwrite(ctx, true)
+	ctx = WithYesIKnow(ctx, true)
 	dev, err := Detect(ctx, f.Name(), true, "", "", "", "", 0, 0, fakeEsc{}, logger, NewRunner())
 	if err != nil {
 		t.Fatalf("detect: %v", err)
@@ -79,6 +80,7 @@ func TestDetectFileSymlink(t *testing.T) {
 	}
 	ctx := WithForce(context.Background(), true)
 	ctx = WithAllowOverwrite(ctx, true)
+	ctx = WithYesIKnow(ctx, true)
 	dev, err := Detect(ctx, link, true, "", "", "", "", 0, 0, fakeEsc{}, zap.NewNop(), NewRunner())
 	if err != nil {
 		t.Fatalf("detect: %v", err)
@@ -99,6 +101,7 @@ func TestDetectRaw(t *testing.T) {
 	logger := zap.New(core)
 	ctx := WithForce(context.Background(), true)
 	ctx = WithAllowOverwrite(ctx, true)
+	ctx = WithYesIKnow(ctx, true)
 	dev, err := Detect(ctx, loop, true, "", "", "", "", 0, 0, fakeEsc{}, logger, NewRunner())
 	if err != nil {
 		t.Fatalf("detect: %v", err)
@@ -140,6 +143,7 @@ func TestDetectRawSymlink(t *testing.T) {
 	}
 	ctx := WithForce(context.Background(), true)
 	ctx = WithAllowOverwrite(ctx, true)
+	ctx = WithYesIKnow(ctx, true)
 	dev, err := Detect(ctx, link, true, "", "", "", "", 0, 0, fakeEsc{}, zap.NewNop(), NewRunner())
 	if err != nil {
 		t.Fatalf("detect: %v", err)
@@ -165,6 +169,7 @@ func TestDetectLVMSymlink(t *testing.T) {
 
 	ctx := WithForce(context.Background(), true)
 	ctx = WithAllowOverwrite(ctx, true)
+	ctx = WithYesIKnow(ctx, true)
 	dev, err := Detect(ctx, lvPath, true, "", "", "", "", 0, 0, fakeEsc{}, zap.NewNop(), NewRunner())
 	if err != nil {
 		t.Fatalf("detect: %v", err)
@@ -193,6 +198,7 @@ func TestDetectLVM(t *testing.T) {
 	}
 	ctx := WithForce(context.Background(), true)
 	ctx = WithAllowOverwrite(ctx, true)
+	ctx = WithYesIKnow(ctx, true)
 	dev, err := Detect(ctx, loop, true, "", "", "", "", 0, 0, fakeEsc{}, zap.NewNop(), runner)
 	if err != nil {
 		t.Fatalf("detect: %v", err)
@@ -224,6 +230,7 @@ func TestDetectRawCommandQuoting(t *testing.T) {
 	thaw := "/bin/echo 'thaw path with spaces'"
 	ctx := WithForce(context.Background(), true)
 	ctx = WithAllowOverwrite(ctx, true)
+	ctx = WithYesIKnow(ctx, true)
 	dev, err := Detect(ctx, loop, false, "raw", freeze, thaw, "", 0, 0, fakeEsc{}, zap.NewNop(), NewDeviceRunner(cmd))
 	if err != nil {
 		t.Fatalf("detect: %v", err)

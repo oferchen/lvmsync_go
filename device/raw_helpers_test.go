@@ -17,6 +17,7 @@ func TestPrepareFreezeSuccess(t *testing.T) {
 	}
 	ctx := WithForce(context.Background(), true)
 	ctx = WithAllowOverwrite(ctx, true)
+	ctx = WithYesIKnow(ctx, true)
 	issued, err := prepareFreeze(ctx, false, truePath, nil, truePath, nil, time.Second, zap.NewNop(), NewRunner())
 	if err != nil {
 		t.Fatalf("prepareFreeze: %v", err)
@@ -37,6 +38,7 @@ func TestPrepareFreezeFailure(t *testing.T) {
 	}
 	ctx := WithForce(context.Background(), true)
 	ctx = WithAllowOverwrite(ctx, true)
+	ctx = WithYesIKnow(ctx, true)
 	if _, err := prepareFreeze(ctx, false, falsePath, nil, truePath, nil, time.Second, zap.NewNop(), NewRunner()); err == nil {
 		t.Fatalf("expected freeze command failure")
 	}
@@ -106,6 +108,7 @@ func TestPrepareFreezeRequiresForceOffline(t *testing.T) {
 func TestPrepareFreezeForceOffline(t *testing.T) {
 	ctx := WithForce(context.Background(), true)
 	ctx = WithAllowOverwrite(ctx, true)
+	ctx = WithYesIKnow(ctx, true)
 	issued, err := prepareFreeze(ctx, true, "", nil, "", nil, time.Second, zap.NewNop(), NewRunner())
 	if err != nil {
 		t.Fatalf("prepareFreeze: %v", err)
@@ -132,6 +135,7 @@ func TestPrepareFreezeForceCommands(t *testing.T) {
 	}
 	ctx := WithForce(context.Background(), true)
 	ctx = WithAllowOverwrite(ctx, true)
+	ctx = WithYesIKnow(ctx, true)
 	issued, err := prepareFreeze(ctx, false, truePath, nil, truePath, nil, time.Second, zap.NewNop(), NewRunner())
 	if err != nil {
 		t.Fatalf("prepareFreeze: %v", err)

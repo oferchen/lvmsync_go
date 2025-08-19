@@ -141,6 +141,7 @@ func TestRunLVMFailure(t *testing.T) {
 func TestCreateLV(t *testing.T) {
 	ctx := WithForce(context.Background(), true)
 	ctx = WithAllowOverwrite(ctx, true)
+	ctx = WithYesIKnow(ctx, true)
 	var name string
 	var args []string
 	cmd := cmdFunc(func(ctx context.Context, n string, a ...string) *exec.Cmd {
@@ -179,6 +180,7 @@ func TestCreateLVRequiresForce(t *testing.T) {
 func TestCreateLVRunLVMError(t *testing.T) {
 	ctx := WithForce(context.Background(), true)
 	ctx = WithAllowOverwrite(ctx, true)
+	ctx = WithYesIKnow(ctx, true)
 	cmd := cmdFunc(func(ctx context.Context, n string, a ...string) *exec.Cmd {
 		return exec.CommandContext(ctx, "false")
 	})
@@ -258,6 +260,7 @@ func TestSnapshotReadOnly(t *testing.T) {
 	}
 	ctx := WithForce(context.Background(), true)
 	ctx = WithAllowOverwrite(ctx, true)
+	ctx = WithYesIKnow(ctx, true)
 	var cmds []string
 	cmd := cmdFunc(func(ctx context.Context, name string, args ...string) *exec.Cmd {
 		cmds = append(cmds, name+" "+strings.Join(args, " "))

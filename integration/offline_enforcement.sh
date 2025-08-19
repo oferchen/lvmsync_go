@@ -42,7 +42,7 @@ fi
 # Scenario B: provide freeze and thaw commands, expect success
 FREEZE_CMD="$(pwd)/docs/fsfreeze-freeze.sh $MNT"
 THAW_CMD="$(pwd)/docs/fsfreeze-thaw.sh $MNT"
-"$BIN" --dry-run --transport=rsync --force --allow-overwrite \
+"$BIN" --dry-run --transport=rsync --force --allow-overwrite --yes-i-know \
   --fs-freeze-command "$FREEZE_CMD" \
   --fs-thaw-command "$THAW_CMD" \
   "$LOOP" "$DEST"
