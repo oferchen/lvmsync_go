@@ -11,10 +11,12 @@ import (
 
 	"go.uber.org/zap"
 
+	"lvmsync_go/device"
 	"lvmsync_go/internal/config"
 	digestpkg "lvmsync_go/internal/digest"
 	"lvmsync_go/internal/rsyncserver"
 	"lvmsync_go/internal/rsyncwire"
+	manifestpkg "lvmsync_go/manifest"
 )
 
 type countingConn struct {
@@ -58,6 +60,35 @@ func (m *rsyncserverMemDevice) ReadAt(p []byte, off int64) (int, error) {
 func (m *rsyncserverMemDevice) Size() int64 { return int64(len(m.buf)) }
 
 func (m *rsyncserverMemDevice) Sync() error { return nil }
+
+type rdMockDevice struct {
+	path      string
+	size      uint64
+	blockSize uint64
+}
+
+func (m *rdMockDevice) Path() string      { return m.path }
+func (m *rdMockDevice) SizeBytes() uint64 { return m.size }
+func (m *rdMockDevice) BlockSize() uint64 { return m.blockSize }
+func (m *rdMockDevice) Snapshot(ctx context.Context, snapshotSize string) (device.Device, error) {
+	return m, nil
+}
+func (m *rdMockDevice) Cleanup(ctx context.Context) error         { return nil }
+func (m *rdMockDevice) Close() error                              { return nil }
+func (m *rdMockDevice) Identity() (device.DeviceIdentity, error)  { return device.DeviceIdentity{}, nil }
+func (m *rdMockDevice) AppendWAL(device.Range) error              { return nil }
+func (m *rdMockDevice) RecoverWAL(func(device.Range) error) error { return nil }
+
+func rdBuildManifest(t *testing.T, devPath, manPath string, size uint64, cdcMin, cdcAvg, cdcMax uint32) {
+	t.Helper()
+	detect := func(ctx context.Context, path string, logger *zap.Logger) (device.Device, error) {
+		return &rdMockDevice{path: devPath, size: size, blockSize: 4}, nil
+	}
+	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return "uuid", nil }, nil, nil, nil, nil)
+	if err := manifestpkg.Rebuild(context.Background(), devPath, manPath, zap.NewNop(), 0, false, cdcMin, cdcAvg, cdcMax, 0, manifestpkg.WithDetectDevice(detect), manifestpkg.WithDeviceInfo(info)); err != nil {
+		t.Fatalf("rebuild: %v", err)
+	}
+}
 
 func TestDumpChangesRsyncDelta(t *testing.T) {
 	cfg, err := config.DefaultConfig()
@@ -105,6 +136,113 @@ func TestDumpChangesRsyncDelta(t *testing.T) {
 	}
 	if cc.n >= int64(len(snapshotData)) {
 		t.Fatalf("delta not efficient: sent %d >= %d", cc.n, len(snapshotData))
+	}
+}
+
+func TestRsyncDeltaCDCShift(t *testing.T) {
+	cfg, err := config.DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	cfg.Delta = "rsync"
+	cfg.Compress = "none"
+	cfg.ChecksumAlgorithm = digestpkg.SHA256
+	cfg.CDCMin = 64
+	cfg.CDCAvg = 64
+	cfg.CDCMax = 128
+
+	dir := t.TempDir()
+	origPath := dir + "/orig"
+	snapPath := dir + "/snap"
+	manPath := dir + "/man"
+
+	originData := bytes.Repeat([]byte("a"), 512)
+	snapshotData := append([]byte("abcdefghij"), originData[:len(originData)-10]...)
+	if err := os.WriteFile(origPath, originData, 0o600); err != nil {
+		t.Fatalf("write origin: %v", err)
+	}
+	if err := os.WriteFile(snapPath, snapshotData, 0o600); err != nil {
+		t.Fatalf("write snap: %v", err)
+	}
+	rdBuildManifest(t, origPath, manPath, uint64(len(originData)), 64, 64, 128)
+	cfg.ManifestPath = manPath
+
+	dev := &rsyncserverMemDevice{buf: make([]byte, len(originData))}
+	copy(dev.buf, originData)
+	srv := rsyncserver.New(dev, zap.NewNop(), nil, "", "")
+
+	c1, c2 := net.Pipe()
+	cc := &countingConn{Conn: c1}
+	errCh := make(chan error, 1)
+	go func() { errCh <- srv.Handle(context.Background(), rsyncwire.NewStream(c2, rsyncMaxFrame)) }()
+
+	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, nil)
+	if err := tr.DumpChangesSequential(context.Background(), cfg, snapPath, origPath, cc); err != nil {
+		t.Fatalf("DumpChangesSequential: %v", err)
+	}
+	c1.Close()
+	if err := <-errCh; err != nil {
+		t.Fatalf("Handle: %v", err)
+	}
+	if !bytes.Equal(dev.buf, snapshotData) {
+		t.Fatalf("device mismatch")
+	}
+	if cc.n >= int64(len(snapshotData)) {
+		t.Fatalf("delta not efficient: sent %d >= %d", cc.n, len(snapshotData))
+	}
+}
+
+func TestRsyncDeltaCDCMutate(t *testing.T) {
+	cfg, err := config.DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig: %v", err)
+	}
+	cfg.Delta = "rsync"
+	cfg.Compress = "none"
+	cfg.ChecksumAlgorithm = digestpkg.SHA256
+	cfg.CDCMin = 64
+	cfg.CDCAvg = 64
+	cfg.CDCMax = 128
+
+	dir := t.TempDir()
+	origPath := dir + "/orig"
+	snapPath := dir + "/snap"
+	manPath := dir + "/man"
+
+	originData := bytes.Repeat([]byte("a"), 512)
+	snapshotData := append([]byte(nil), originData...)
+	copy(snapshotData[128:138], []byte("ABCDEFGHIJ"))
+	if err := os.WriteFile(origPath, originData, 0o600); err != nil {
+		t.Fatalf("write origin: %v", err)
+	}
+	if err := os.WriteFile(snapPath, snapshotData, 0o600); err != nil {
+		t.Fatalf("write snap: %v", err)
+	}
+	rdBuildManifest(t, origPath, manPath, uint64(len(originData)), 64, 64, 128)
+	cfg.ManifestPath = manPath
+
+	dev := &rsyncserverMemDevice{buf: make([]byte, len(originData))}
+	copy(dev.buf, originData)
+	srv := rsyncserver.New(dev, zap.NewNop(), nil, "", "")
+
+	c1, c2 := net.Pipe()
+	cc := &countingConn{Conn: c1}
+	errCh := make(chan error, 1)
+	go func() { errCh <- srv.Handle(context.Background(), rsyncwire.NewStream(c2, rsyncMaxFrame)) }()
+
+	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, nil)
+	if err := tr.DumpChangesSequential(context.Background(), cfg, snapPath, origPath, cc); err != nil {
+		t.Fatalf("DumpChangesSequential: %v", err)
+	}
+	c1.Close()
+	if err := <-errCh; err != nil {
+		t.Fatalf("Handle: %v", err)
+	}
+	if !bytes.Equal(dev.buf, snapshotData) {
+		t.Fatalf("device mismatch")
+	}
+	if cc.n >= int64(len(snapshotData))/2 {
+		t.Fatalf("delta not efficient: sent %d >= %d", cc.n, len(snapshotData)/2)
 	}
 }
 
