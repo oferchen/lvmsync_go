@@ -48,7 +48,7 @@ func TestOpenDeviceSuccess(t *testing.T) {
 	}
 	loop, cleanup := setupLoop(t, 1<<20)
 	defer cleanup()
-	f, err := openDevice(loop, zap.NewNop())
+	f, err := openDevice(loop)
 	if err != nil {
 		t.Fatalf("openDevice: %v", err)
 	}
@@ -61,18 +61,9 @@ func TestOpenDeviceFailure(t *testing.T) {
 		t.Fatalf("temp file: %v", err)
 	}
 	f.Close()
-	if _, err := openDevice(f.Name(), zap.NewNop()); err == nil {
+	if _, err := openDevice(f.Name()); err == nil {
 		t.Fatalf("expected error for non-block device")
 	}
-}
-
-func TestOpenDeviceNilLoggerPanics(t *testing.T) {
-	defer func() {
-		if r := recover(); r == nil {
-			t.Fatalf("expected panic")
-		}
-	}()
-	openDevice("", nil)
 }
 
 func TestQueryDeviceInfoSuccess(t *testing.T) {
@@ -81,7 +72,7 @@ func TestQueryDeviceInfoSuccess(t *testing.T) {
 	}
 	loop, cleanup := setupLoop(t, 1<<20)
 	defer cleanup()
-	f, err := openDevice(loop, zap.NewNop())
+	f, err := openDevice(loop)
 	if err != nil {
 		t.Fatalf("openDevice: %v", err)
 	}
