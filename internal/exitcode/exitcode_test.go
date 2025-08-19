@@ -11,6 +11,7 @@ func TestExitCodeValues(t *testing.T) {
 		{"OK", OK, 0},
 		{"ErrCapability", ErrCapability, 10},
 		{"ErrDevice", ErrDevice, 20},
+		{"ErrSnapshotExhausted", ErrSnapshotExhausted, 25},
 		{"ErrPlatform", ErrPlatform, 30},
 		{"ErrConfig", ErrConfig, 40},
 		{"ErrRuntime", ErrRuntime, 50},

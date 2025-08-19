@@ -317,6 +317,8 @@ func ExitCode(err error) int {
 		return exitcode.ErrPrecondition
 	case strings.Contains(msg, "resumable") || strings.Contains(msg, "resume"):
 		return exitcode.ErrResumable
+	case strings.Contains(msg, "snapshot exhausted"):
+		return exitcode.ErrSnapshotExhausted
 	case strings.Contains(msg, "device"):
 		return exitcode.ErrDevice
 	case strings.Contains(msg, "mismatch") || strings.Contains(msg, "blocks differ"):

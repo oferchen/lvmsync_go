@@ -7,6 +7,8 @@ const (
 	ErrCapability = 10
 	// ErrDevice indicates a device-related failure.
 	ErrDevice = 20
+	// ErrSnapshotExhausted indicates snapshot space was exhausted during transfer.
+	ErrSnapshotExhausted = 25
 	// ErrPlatform is returned when the operating system is unsupported.
 	ErrPlatform = 30
 	// ErrConfig represents configuration or validation failures.
