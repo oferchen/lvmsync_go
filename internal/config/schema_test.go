@@ -8,11 +8,10 @@ import (
 	"github.com/spf13/pflag"
 )
 
-func TestSchemaValidationUnknownType(t *testing.T) {
+func TestSchemaValidationInvalidType(t *testing.T) {
 	defaults, _ := DefaultConfig()
 	b := NewBuilder(defaults)
 	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
-	// write temp config with wrong type for parallel (string instead of int)
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "cfg.yaml")
 	if err := os.WriteFile(cfgPath, []byte("parallel: 'nope'\n"), 0644); err != nil {
@@ -21,6 +20,24 @@ func TestSchemaValidationUnknownType(t *testing.T) {
 	_, _, _, err := b.Build(fs, []string{"--config", cfgPath})
 	if err == nil {
 		t.Fatalf("expected error")
+	}
+}
+
+func TestSchemaValidationValid(t *testing.T) {
+	defaults, _ := DefaultConfig()
+	b := NewBuilder(defaults)
+	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "cfg.yaml")
+	if err := os.WriteFile(cfgPath, []byte("parallel: 5\n"), 0644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	cfg, _, _, err := b.Build(fs, []string{"--config", cfgPath})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.Parallel != 5 {
+		t.Fatalf("expected parallel 5, got %d", cfg.Parallel)
 	}
 }
 

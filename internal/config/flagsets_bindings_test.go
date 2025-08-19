@@ -32,7 +32,7 @@ func TestFlagSetEnvBindings(t *testing.T) {
 		}
 		t.Setenv(tc.env, tc.val)
 	}
-	v, _, _, err := buildViper(flagSets)
+	v, _, _, _, err := buildViper(flagSets)
 	if err != nil {
 		t.Fatalf("buildViper: %v", err)
 	}

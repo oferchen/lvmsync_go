@@ -59,9 +59,14 @@ func (b *ConfigBuilder) Build(fs *pflag.FlagSet, args []string) (*Config, []stri
 			f.Changed = false
 		}
 	}
-	v, warns, allowInsecureYAML, err := buildViper(b.FlagSets)
+	v, warns, allowInsecureYAML, raw, err := buildViper(b.FlagSets)
 	if err != nil {
 		return nil, nil, warns, err
+	}
+	if len(raw) > 0 {
+		if err := validateSchema(raw); err != nil {
+			return nil, nil, warns, err
+		}
 	}
 	vb := &builder{v: v, defaults: b.defaults}
 	cfg, err := vb.Build()
