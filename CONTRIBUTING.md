@@ -18,3 +18,18 @@ Use a short, imperative subject line and include a scope when helpful. Examples:
 feat(lvm): add volume snapshot support
 chore(ci): update lint configuration
 ```
+
+## Linting
+
+Go code is formatted and linted with dedicated tooling rather than the
+GitHub Super Linter. Run the following before submitting changes:
+
+```sh
+gofmt -w .
+goimports -w .
+golangci-lint run
+go vet ./...
+staticcheck ./...
+```
+
+These commands are enforced in CI via the Go workflows.
