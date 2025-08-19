@@ -72,9 +72,6 @@ func GetOrdered(names []string, cfg Config) ([]Interface, error) {
 // message. If all transports fail to dial, an error is returned.
 func DialWithFallback(ctx context.Context, address string, names []string, cfg Config) (Interface, net.Conn, error) {
 	logger := cfg.Logger
-	if logger == nil {
-		return nil, nil, fmt.Errorf("logger is nil")
-	}
 	for _, name := range names {
 		logger.Info("dial_attempt", zap.String("transport", name))
 		tr, err := Get(name, cfg)

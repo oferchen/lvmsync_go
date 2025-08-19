@@ -77,9 +77,6 @@ func IsRoot(opts Options) bool {
 // If not root, re-execs the current binary through `sudo -n` and returns (true, err).
 // When (true, nil) is returned, the caller should exit immediately.
 func EnsureRootOrReexec(opts Options, logger *zap.Logger) (bool, error) {
-	if logger == nil {
-		logger = zap.NewNop()
-	}
 	argv := opts.Args
 	if argv == nil {
 		argv = os.Args
@@ -152,9 +149,6 @@ func EnsureRootOrReexec(opts Options, logger *zap.Logger) (bool, error) {
 // via sudo (SUDO_UID/SUDO_GID). No-op if those env vars are absent.
 // Dependency seams are provided via opts.
 func DropToInvokerIfSudo(opts Options, logger *zap.Logger) error {
-	if logger == nil {
-		logger = zap.NewNop()
-	}
 	argv := opts.Args
 	if argv == nil {
 		argv = os.Args

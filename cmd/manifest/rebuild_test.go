@@ -176,15 +176,18 @@ func TestRunMissingArgs(t *testing.T) {
 	}
 }
 
-func TestRunNilLoggerError(t *testing.T) {
+func TestRunNilLoggerPanics(t *testing.T) {
 	cfg, err := config.DefaultConfig()
 	if err != nil {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
 	r := NewRunner()
-	if err := r.Run(cfg, []string{"rebuild", "/dev/test"}, nil); err == nil {
-		t.Fatalf("expected error")
-	}
+	defer func() {
+		if r := recover(); r == nil {
+			t.Fatalf("expected panic")
+		}
+	}()
+	_ = r.Run(cfg, []string{"rebuild", "/dev/test"}, nil)
 }
 
 func TestRunAppliesManifestTimeout(t *testing.T) {

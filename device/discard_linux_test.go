@@ -45,3 +45,17 @@ func TestDiscardRangeStubAndRestore(t *testing.T) {
 		t.Fatalf("stub called after restore: %d", calls)
 	}
 }
+
+func TestDiscardRangeNilLoggerPanics(t *testing.T) {
+	f, err := os.CreateTemp(t.TempDir(), "discard")
+	if err != nil {
+		t.Fatalf("temp file: %v", err)
+	}
+	defer f.Close()
+	defer func() {
+		if r := recover(); r == nil {
+			t.Fatalf("expected panic")
+		}
+	}()
+	_ = DiscardRange(f, 0, 0, nil)
+}

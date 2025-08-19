@@ -100,14 +100,6 @@ func TestHandleApplyDelta(t *testing.T) {
 	}
 }
 
-func TestNewNilLoggerDefaults(t *testing.T) {
-	dev := &memDevice{}
-	srv := New(dev, nil, nil, "", "")
-	if srv.logger == nil {
-		t.Fatalf("expected non-nil logger")
-	}
-}
-
 func TestHandleShortWrite(t *testing.T) {
 	c1, c2 := net.Pipe()
 	defer c1.Close()

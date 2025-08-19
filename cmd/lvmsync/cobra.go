@@ -227,9 +227,6 @@ func Execute(args []string, logger *zap.Logger) error {
 // ExecuteWithRunner runs the command tree using the provided Runner.
 // If args is nil, the global os.Args are used by cobra.
 func ExecuteWithRunner(args []string, logger *zap.Logger, r *Runner) error {
-	if logger == nil {
-		return fmt.Errorf("nil logger")
-	}
 	defer rootcmd.SyncLogger(logger)
 	cmd := NewRootCmd(logger, r)
 	if args != nil {
@@ -239,9 +236,6 @@ func ExecuteWithRunner(args []string, logger *zap.Logger, r *Runner) error {
 }
 
 func estimateTransfer(src string, cfg *config.Config, logger *zap.Logger) error {
-	if logger == nil {
-		return fmt.Errorf("nil logger")
-	}
 	info, err := os.Stat(src)
 	if err != nil {
 		return fmt.Errorf("stat source: %w", err)

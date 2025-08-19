@@ -45,9 +45,6 @@ func init() {
 // Run executes the verify command with the provided arguments and logger.
 // Args should exclude the "verify" subcommand itself.
 func (r *Runner) Run(args []string, logger *zap.Logger) error {
-	if logger == nil {
-		return fmt.Errorf("nil logger")
-	}
 	defer rootcmd.SyncLogger(logger)
 	cmd := &cobra.Command{
 		Use:                "verify [flags] <source> <dest>",

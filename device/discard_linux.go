@@ -14,9 +14,6 @@ import (
 )
 
 func blkdiscard(f *os.File, offset, length uint64, logger *zap.Logger) error {
-	if logger == nil {
-		logger = zap.NewNop()
-	}
 	if reexeced, err := escalate.EnsureRootOrReexec(escalate.Options{}, logger); err != nil {
 		return err
 	} else if reexeced {
