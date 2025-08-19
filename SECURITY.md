@@ -18,7 +18,7 @@ Example `--probe-only` output:
 
 ```sh
 lvmsync run --probe-only /dev/vg0/snap0 /dev/vg0/target
-# 10737418240 12345678-9abc-def0-1234-56789abcdef0 01234567-89ab-cdef-0123-456789abcdef deadbeef-dead-beef-dead-beefdeadbeef 253 0 1700000000
+# 10737418240 12345678-9abc-def0-1234-56789abcdef0 9abcdef0-1234-5678-90ab-cdef12345678 0fedcba9-8765-4321-0fed-cba987654321 253 0 1700000000
 ```
 
 ## Device identity enforcement

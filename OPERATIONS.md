@@ -8,10 +8,10 @@ This guide outlines exit codes, resume workflows, and common troubleshooting ste
 
 ```sh
 lvmsync run --probe-only /dev/vg0/snap0 /dev/vg0/target
-# 10737418240 12345678-9abc-def0-1234-56789abcdef0 1700000000
+# 10737418240 12345678-9abc-def0-1234-56789abcdef0 9abcdef0-1234-5678-90ab-cdef12345678 0fedcba9-8765-4321-0fed-cba987654321 253 0 1700000000
 ```
 
-Validates device identities and privileges and prints `size_bytes device_id manifest_epoch` without writing data.
+Validates device identities and privileges and prints `size_bytes kernel_uuid gpt_uuid fs_uuid major minor manifest_epoch` without writing data.
 
 ### `--resume`
 
