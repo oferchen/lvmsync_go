@@ -55,6 +55,7 @@ type walFile interface {
 	Truncate(int64) error
 	Close() error
 	Stat() (fs.FileInfo, error)
+	Name() string
 }
 
 type WAL struct {

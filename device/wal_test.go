@@ -2,9 +2,9 @@ package device
 
 import (
 	"encoding/binary"
+	"errors"
 	"io"
 	"io/fs"
-	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -166,13 +166,14 @@ func (s *shortWriteFile) Sync() error                              { return nil 
 func (s *shortWriteFile) Truncate(int64) error                     { return nil }
 func (s *shortWriteFile) Close() error                             { return nil }
 func (s *shortWriteFile) Stat() (fs.FileInfo, error)               { return nil, nil }
+func (s *shortWriteFile) Name() string                             { return "" }
 
 func TestWALAppendShortWrite(t *testing.T) {
 	w := &WAL{f: &shortWriteFile{}}
 	err := w.Append(Range{Start: 0, End: 1})
 	if err == nil {
 		t.Fatalf("expected error on short write")
-  }
+	}
 }
 
 func TestWALSyncDirCreate(t *testing.T) {
