@@ -169,7 +169,79 @@ func TestParallelFlagOverridesEnvAndYAML(t *testing.T) {
 	}
 }
 
+func TestParallelEnvOverridesYAML(t *testing.T) {
+       t.Setenv("HOME", t.TempDir())
+       defaults, err := DefaultConfig()
+       if err != nil {
+               t.Fatalf("default: %v", err)
+       }
+       b := NewBuilder(defaults)
+       dir := t.TempDir()
+       cfgFile := filepath.Join(dir, "cfg.yaml")
+       if err := os.WriteFile(cfgFile, []byte("parallel: 4\n"), 0o644); err != nil {
+               t.Fatalf("write config: %v", err)
+       }
+       t.Setenv("LVMSYNC_PARALLEL", "8")
+       fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+       cfg, _, _, err := b.Build(fs, []string{"--config", cfgFile})
+       if err != nil {
+               t.Fatalf("build: %v", err)
+       }
+       if cfg.Parallel != 8 {
+               t.Fatalf("Parallel=%d want %d", cfg.Parallel, 8)
+       }
+}
+
 func TestCompressThresholdFlagOverridesEnvAndYAML(t *testing.T) {
+       t.Setenv("HOME", t.TempDir())
+       defaults, err := DefaultConfig()
+       if err != nil {
+               t.Fatalf("default: %v", err)
+       }
+       b := NewBuilder(defaults)
+       dir := t.TempDir()
+       cfgFile := filepath.Join(dir, "cfg.yaml")
+       if err := os.WriteFile(cfgFile, []byte("compress_threshold: 0.5\n"), 0o644); err != nil {
+               t.Fatalf("write config: %v", err)
+       }
+       t.Setenv("LVMSYNC_COMPRESSION_COMPRESS_THRESHOLD", "0.6")
+       fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+       cfg, _, _, err := b.Build(fs, []string{"--config", cfgFile, "--compress-threshold", "0.7"})
+       if err != nil {
+               t.Fatalf("build: %v", err)
+       }
+       if cfg.CompressThreshold != 0.7 {
+               t.Fatalf("CompressThreshold=%v want %v", cfg.CompressThreshold, 0.7)
+       }
+}
+
+func TestCompressThresholdEnvOverridesYAML(t *testing.T) {
+       t.Setenv("HOME", t.TempDir())
+       defaults, err := DefaultConfig()
+       if err != nil {
+               t.Fatalf("default: %v", err)
+       }
+       b := NewBuilder(defaults)
+       dir := t.TempDir()
+       cfgFile := filepath.Join(dir, "cfg.yaml")
+       if err := os.WriteFile(cfgFile, []byte("parallel: 4\ncompress_threshold: 0.5\n"), 0o644); err != nil {
+               t.Fatalf("write config: %v", err)
+       }
+       t.Setenv("LVMSYNC_PARALLEL", "8")
+       t.Setenv("LVMSYNC_COMPRESSION_COMPRESS_THRESHOLD", "0.6")
+       fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+       cfg, _, _, err := b.Build(fs, []string{"--config", cfgFile})
+       if err != nil {
+               t.Fatalf("build: %v", err)
+       }
+       if cfg.Parallel != 8 {
+               t.Fatalf("Parallel=%d want %d", cfg.Parallel, 8)
+       }
+       if cfg.CompressThreshold != 0.6 {
+               t.Fatalf("CompressThreshold=%v want %v", cfg.CompressThreshold, 0.6)
+       }
+
+  func TestCompressThresholdFlagOverridesEnvAndYAML(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	defaults, err := DefaultConfig()
 	if err != nil {
