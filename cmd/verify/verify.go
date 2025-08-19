@@ -46,7 +46,7 @@ func init() {
 // Args should exclude the "verify" subcommand itself.
 func (r *Runner) Run(args []string, logger *zap.Logger) error {
 	if logger == nil {
-		panic("nil logger")
+		return fmt.Errorf("nil logger")
 	}
 	defer rootcmd.SyncLogger(logger)
 	cmd := &cobra.Command{

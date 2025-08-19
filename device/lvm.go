@@ -211,7 +211,11 @@ func (d *LVMDevice) Snapshot(ctx context.Context, snapshotSize string) (Device, 
 		_ = d.runner.runLVM(ctx, d.escalation, "lvremove", "-f", snapPath)
 		return nil, err
 	}
-	cache := lvm.NewDeviceFDCache(d.logger)
+	cache, err := lvm.NewDeviceFDCache(d.logger)
+	if err != nil {
+		_ = d.runner.runLVM(ctx, d.escalation, "lvremove", "-f", snapPath)
+		return nil, err
+	}
 	defer cache.Close()
 	snapDev, err := d.runner.OpenLVM(ctx, snapPath, cache, d.escalation, d.logger)
 	if err != nil {

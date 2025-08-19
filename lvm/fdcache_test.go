@@ -10,27 +10,27 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func TestNewFDCacheNilLoggerPanics(t *testing.T) {
-	defer func() {
-		if recover() == nil {
-			t.Fatalf("expected panic")
-		}
-	}()
-	NewFDCache(fdCacheSize, nil)
+func TestNewFDCacheNilLoggerError(t *testing.T) {
+	if _, err := NewFDCache(fdCacheSize, nil); err == nil {
+		t.Fatalf("expected error")
+	}
 }
 
-func TestSetLoggerNilPanics(t *testing.T) {
-	cache := NewFDCache(fdCacheSize, zap.NewNop())
-	defer func() {
-		if recover() == nil {
-			t.Fatalf("expected panic")
-		}
-	}()
-	cache.SetLogger(nil)
+func TestSetLoggerNilError(t *testing.T) {
+	cache, err := NewFDCache(fdCacheSize, zap.NewNop())
+	if err != nil {
+		t.Fatalf("NewFDCache: %v", err)
+	}
+	if err := cache.SetLogger(nil); err == nil {
+		t.Fatalf("expected error")
+	}
 }
 
 func TestFDCacheEvictionOrder(t *testing.T) {
-	cache := NewFDCache(fdCacheSize, zap.NewNop())
+	cache, err := NewFDCache(fdCacheSize, zap.NewNop())
+	if err != nil {
+		t.Fatalf("NewFDCache: %v", err)
+	}
 
 	tmpDir := t.TempDir()
 	var fd0, fd1 int
@@ -74,7 +74,10 @@ func TestFDCacheEvictionOrder(t *testing.T) {
 }
 
 func TestFDCacheCloseClosesAll(t *testing.T) {
-	cache := NewFDCache(fdCacheSize, zap.NewNop())
+	cache, err := NewFDCache(fdCacheSize, zap.NewNop())
+	if err != nil {
+		t.Fatalf("NewFDCache: %v", err)
+	}
 	tmpDir := t.TempDir()
 	var fds []int
 	for i := 0; i < 3; i++ {
@@ -99,7 +102,10 @@ func TestFDCacheCloseClosesAll(t *testing.T) {
 }
 
 func TestGetVolumeSizeCachesFD(t *testing.T) {
-	cache := NewDeviceFDCache(zap.NewNop())
+	cache, err := NewDeviceFDCache(zap.NewNop())
+	if err != nil {
+		t.Fatalf("NewDeviceFDCache: %v", err)
+	}
 	defer cache.Close()
 
 	tmpFile := filepath.Join(t.TempDir(), "vol")
@@ -144,7 +150,10 @@ func TestGetVolumeSizeCachesFD(t *testing.T) {
 }
 
 func TestFDCLOEXEC(t *testing.T) {
-	cache := NewDeviceFDCache(zap.NewNop())
+	cache, err := NewDeviceFDCache(zap.NewNop())
+	if err != nil {
+		t.Fatalf("NewDeviceFDCache: %v", err)
+	}
 	defer cache.Close()
 
 	tmpFile := filepath.Join(t.TempDir(), "file")

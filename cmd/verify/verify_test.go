@@ -162,13 +162,10 @@ func TestVerifyWithManifestAllocations(t *testing.T) {
 	}
 }
 
-func TestRunNilLoggerPanics(t *testing.T) {
-	defer func() {
-		if recover() == nil {
-			t.Fatalf("expected panic")
-		}
-	}()
-	Run([]string{"--dry-run", "src", "dst"}, nil)
+func TestRunNilLoggerError(t *testing.T) {
+	if err := Run([]string{"--dry-run", "src", "dst"}, nil); err == nil {
+		t.Fatalf("expected error")
+	}
 }
 
 func TestVerifyDevicesRebuildsManifest(t *testing.T) {

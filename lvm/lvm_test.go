@@ -33,7 +33,10 @@ func TestParseSnapshotSize(t *testing.T) {
 	if err := os.WriteFile(tmpFile, make([]byte, 1024*1024), 0644); err != nil {
 		t.Fatalf("failed to create temp volume: %v", err)
 	}
-	cache := NewDeviceFDCache(zap.NewNop())
+	cache, err := NewDeviceFDCache(zap.NewNop())
+	if err != nil {
+		t.Fatalf("NewDeviceFDCache: %v", err)
+	}
 	defer cache.Close()
 
 	tests := []struct {
@@ -69,7 +72,10 @@ func TestGetVolumeSize(t *testing.T) {
 			t.Fatalf("failed to create temp volume: %v", err)
 		}
 
-		cache := NewDeviceFDCache(zap.NewNop())
+		cache, err := NewDeviceFDCache(zap.NewNop())
+		if err != nil {
+			t.Fatalf("NewDeviceFDCache: %v", err)
+		}
 		defer cache.Close()
 		size, err := GetVolumeSize(tmpFile, cache, zap.NewNop())
 		if err != nil {
@@ -91,7 +97,10 @@ func TestGetVolumeSize(t *testing.T) {
 			t.Fatalf("truncate failed: %v", err)
 		}
 
-		cache := NewDeviceFDCache(zap.NewNop())
+		cache, err := NewDeviceFDCache(zap.NewNop())
+		if err != nil {
+			t.Fatalf("NewDeviceFDCache: %v", err)
+		}
 		defer cache.Close()
 		size, err := GetVolumeSize(tmpFile, cache, zap.NewNop())
 		if err != nil {
@@ -117,7 +126,10 @@ func TestGetVolumeSizeIoctlLarge(t *testing.T) {
 	}
 	defer func() { ioctlGetUint64Func = orig }()
 
-	cache := NewDeviceFDCache(zap.NewNop())
+	cache, err := NewDeviceFDCache(zap.NewNop())
+	if err != nil {
+		t.Fatalf("NewDeviceFDCache: %v", err)
+	}
 	defer cache.Close()
 	size, err := GetVolumeSize(tmpFile, cache, zap.NewNop())
 	if err != nil {

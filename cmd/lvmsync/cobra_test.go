@@ -289,20 +289,14 @@ func TestEstimateTransferMissingManifest(t *testing.T) {
 	}
 }
 
-func TestExecuteWithRunnerNilLoggerPanics(t *testing.T) {
-	defer func() {
-		if recover() == nil {
-			t.Fatalf("expected panic")
-		}
-	}()
-	ExecuteWithRunner([]string{"run", "src", "dst"}, nil, nil)
+func TestExecuteWithRunnerNilLoggerError(t *testing.T) {
+	if err := ExecuteWithRunner([]string{"run", "src", "dst"}, nil, nil); err == nil {
+		t.Fatalf("expected error")
+	}
 }
 
-func TestEstimateTransferNilLoggerPanics(t *testing.T) {
-	defer func() {
-		if recover() == nil {
-			t.Fatalf("expected panic")
-		}
-	}()
-	estimateTransfer("", &config.Config{}, nil)
+func TestEstimateTransferNilLoggerError(t *testing.T) {
+	if err := estimateTransfer("", &config.Config{}, nil); err == nil {
+		t.Fatalf("expected error")
+	}
 }
