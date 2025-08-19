@@ -3,7 +3,9 @@ package verify
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -13,6 +15,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
+	"gopkg.in/yaml.v3"
 
 	"lvmsync_go/internal/config"
 	manifestpkg "lvmsync_go/manifest"
@@ -200,5 +203,63 @@ func TestVerifyDevicesRebuildsManifest(t *testing.T) {
 	}
 	if !called {
 		t.Fatalf("expected rebuild invoked")
+	}
+}
+
+func TestRunOutputsJSON(t *testing.T) {
+	src := createTestFile(t, 1024)
+	dst := createTestFile(t, 1024)
+	var buf bytes.Buffer
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	done := make(chan struct{})
+	go func() {
+		io.Copy(&buf, r)
+		close(done)
+	}()
+	if err := Run([]string{"--output", "json", src, dst}, zap.NewNop()); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	w.Close()
+	<-done
+	os.Stdout = oldStdout
+	var out struct {
+		Verified bool `json:"verified"`
+	}
+	if err := json.Unmarshal(buf.Bytes(), &out); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if !out.Verified {
+		t.Fatalf("expected verified true")
+	}
+}
+
+func TestRunOutputsYAML(t *testing.T) {
+	src := createTestFile(t, 1024)
+	dst := createTestFile(t, 1024)
+	var buf bytes.Buffer
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	done := make(chan struct{})
+	go func() {
+		io.Copy(&buf, r)
+		close(done)
+	}()
+	if err := Run([]string{"--output", "yaml", src, dst}, zap.NewNop()); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	w.Close()
+	<-done
+	os.Stdout = oldStdout
+	var out struct {
+		Verified bool `yaml:"verified"`
+	}
+	if err := yaml.Unmarshal(buf.Bytes(), &out); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if !out.Verified {
+		t.Fatalf("expected verified true")
 	}
 }

@@ -50,7 +50,7 @@
 | LVMSYNC_NUMA_PIN | `--numa-pin` | `numa-pin` | Pin worker goroutines to device NUMA node |
 | LVMSYNC_ODIRECT | `--odirect` | `odirect` | Use O_DIRECT for device I/O when possible |
 | LVMSYNC_OFFLINE | `--offline` | `offline` | Assume source raw device is offline |
-| LVMSYNC_OUTPUT | `--output` | `output` | Output format: text or json |
+| LVMSYNC_OUTPUT | `--output` | `output` | Output format: text, json, or yaml |
 | LVMSYNC_PARALLEL | `--parallel` | `parallel` | Number of concurrent workers |
 | LVMSYNC_PLAN | `--plan` | `plan` | Print configuration plan as JSON and exit |
 | LVMSYNC_PROBE_ONLY | `--probe-only` | `probe-only` | Output size_bytes, kernel_uuid, gpt_uuid, fs_uuid, major, minor, and manifest_epoch without writing |

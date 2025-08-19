@@ -2,7 +2,9 @@
 
 `lvmsync verify` compares two devices and reports any blocks that differ.
 It reads both paths in chunks, computing BLAKE3 digests for each block. A
-non-zero exit status is returned when mismatches are detected.
+non-zero exit status is returned when mismatches are detected. Specify
+`--output=json` or `--output=yaml` to emit structured verification results
+to stdout.
 
 ## Examples
 
