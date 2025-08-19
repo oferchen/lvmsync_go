@@ -9,9 +9,11 @@ func TestParse(t *testing.T) {
 		percent bool
 		wantErr bool
 	}{
-		{"1KB", 1000, false, false},
-		{"1MB", 1e6, false, false},
-		{"1.5GB", 1.5e9, false, false},
+		{"1KB", float64(1 << 10), false, false},
+		{"1MB", float64(1 << 20), false, false},
+		{"1.5GB", 1.5 * float64(1<<30), false, false},
+		{"1KiB", float64(1 << 10), false, false},
+		{"1MiB", float64(1 << 20), false, false},
 		{"50%", 50, true, false},
 		{"bad", 0, false, true},
 		{"10XB", 0, false, true},
