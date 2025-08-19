@@ -39,7 +39,7 @@ func TestBlockWriterCoalescesZeroBlocks(t *testing.T) {
 	stream.Write(hdr)
 	stream.Write(data)
 
-	bw, err := newBlockWriter(cfg, dest, nil, false, nil, zap.NewNop(), nil)
+	bw, err := newBlockWriter(cfg, dest, nil, false, nil, zap.NewNop(), nil, nil)
 	if err != nil {
 		t.Fatalf("newBlockWriter: %v", err)
 	}
