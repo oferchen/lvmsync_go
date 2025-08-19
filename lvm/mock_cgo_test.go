@@ -17,7 +17,7 @@ type mockCGO struct {
 func newMockCGO() *mockCGO { return &mockCGO{vgFree: make(map[string]uint64)} }
 
 func (m *mockCGO) CreateSnapshot(lvPath, snapName string, sizeBytes uint64) error {
-	m.calls = append(m.calls, fmt.Sprintf("create:%s:%s:%d", lvPath, snapName, sizeBytes))
+	m.calls = append(m.calls, fmt.Sprintf("create:%s:%s:%d:ro", lvPath, snapName, sizeBytes))
 	return nil
 }
 

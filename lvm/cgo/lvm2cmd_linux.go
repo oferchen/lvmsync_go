@@ -78,7 +78,7 @@ func (c *Cmd) run(args []string) (string, error) {
 // CreateSnapshot creates a snapshot of lvPath.
 func (c *Cmd) CreateSnapshot(lvPath, snapshotName string, sizeBytes uint64) error {
 	size := fmt.Sprintf("%dB", sizeBytes)
-	_, err := c.run([]string{"lvcreate", "-s", "-n", snapshotName, "-L", size, lvPath})
+	_, err := c.run([]string{"lvcreate", "-s", "-n", snapshotName, "-L", size, "-pr", lvPath})
 	return err
 }
 

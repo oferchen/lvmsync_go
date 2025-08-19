@@ -207,11 +207,11 @@ func (d *LVMDevice) Snapshot(ctx context.Context, snapshotSize string) (Device, 
 		return nil, err
 	}
 	snapName := generateSnapshot()
-	if err := d.runner.runLVM(ctx, d.escalation, "lvcreate", "-s", "-n", snapName, "-L", snapshotSize, d.path); err != nil {
+	if err := d.runner.runLVM(ctx, d.escalation, "lvcreate", "-s", "-n", snapName, "-L", snapshotSize, "-pr", d.path); err != nil {
 		return nil, err
 	}
 	snapPath := lvm.GetSnapshotDevicePath(snapName, vg, d.logger)
-	if err := d.runner.runLVM(ctx, d.escalation, "lvchange", "-ay", snapPath); err != nil {
+	if err := d.runner.runLVM(ctx, d.escalation, "lvchange", "-ay", "-pr", snapPath); err != nil {
 		_ = d.runner.runLVM(ctx, d.escalation, "lvremove", "-f", snapPath)
 		return nil, err
 	}
