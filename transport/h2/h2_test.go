@@ -235,13 +235,13 @@ func TestPerformH2HandshakeTimeout(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
-        if _, err := performH2Handshake(ctx, conn, zap.NewNop()); err == nil {
-                t.Fatalf("expected timeout error")
-        } else if !errors.Is(err, context.DeadlineExceeded) {
-                if netErr, ok := err.(net.Error); !ok || !netErr.Timeout() {
-                        t.Fatalf("unexpected error: %v", err)
-                }
-        }
+	if _, err := performH2Handshake(ctx, conn, zap.NewNop()); err == nil {
+		t.Fatalf("expected timeout error")
+	} else if !errors.Is(err, context.DeadlineExceeded) {
+		if netErr, ok := err.(net.Error); !ok || !netErr.Timeout() {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	}
 }
 
 func TestPerformH2HandshakeCanceled(t *testing.T) {
@@ -701,6 +701,29 @@ func TestH2TransportRequiresClientCert(t *testing.T) {
 	}
 	if _, err := New(transport.Config{Logger: zap.NewNop(), Roots: pool, ServerCert: cert, AllowInsecure: true}); err != nil {
 		t.Fatalf("allow insecure should permit missing client cert: %v", err)
+	}
+}
+
+func TestH2ClientAuthDefaults(t *testing.T) {
+	cert, pool := generateSelfSignedCert(t)
+	trIface, err := New(transport.Config{Logger: zap.NewNop(), Roots: pool, ClientCert: cert, ServerCert: cert})
+	if err != nil {
+		t.Fatalf("new transport: %v", err)
+	}
+	tr := trIface.(*Transport)
+	if tr.serverConf.ClientAuth != tls.RequireAndVerifyClientCert {
+		t.Fatalf("expected RequireAndVerifyClientCert, got %v", tr.serverConf.ClientAuth)
+	}
+}
+
+func TestH2ClientAuthInsecure(t *testing.T) {
+	trIface, err := New(transport.Config{Logger: zap.NewNop(), AllowInsecure: true})
+	if err != nil {
+		t.Fatalf("new transport: %v", err)
+	}
+	tr := trIface.(*Transport)
+	if tr.serverConf.ClientAuth != tls.RequireAnyClientCert {
+		t.Fatalf("expected RequireAnyClientCert, got %v", tr.serverConf.ClientAuth)
 	}
 }
 
