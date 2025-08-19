@@ -2,6 +2,10 @@
 
 This guide outlines exit codes, resume workflows, and common troubleshooting steps for LVMSync.
 
+## Strict configuration
+
+`--strict-config` or `LVMSYNC_STRICT_CONFIG=1` converts configuration warnings into errors, allowing CI pipelines to fail fast when unknown or deprecated settings are present.
+
 ## Resume and Verification Sequences
 
 ### `--probe-only`

@@ -54,6 +54,7 @@ func initGeneralFlags(cfg *Config) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("General Options", pflag.ExitOnError)
 	fs.String("config", "", "Path to config YAML file")
 	fs.Bool("stdout", cfg.StdoutMode, "Write change dump to STDOUT")
+	fs.Bool("strict-config", cfg.StrictConfig, "Treat configuration warnings as errors")
 	fs.Bool("yes-i-know", cfg.YesIKnow, "Confirm destructive write operations in non-interactive sessions")
 	fs.Bool("dry-run", cfg.DryRun, "Print actions without executing")
 	fs.Bool("probe-only", cfg.ProbeOnly, "Output size_bytes, kernel_uuid, gpt_uuid, fs_uuid, major, minor, and manifest_epoch without writing")

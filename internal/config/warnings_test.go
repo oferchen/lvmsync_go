@@ -111,3 +111,54 @@ func TestUnboundEnvKeyWarns(t *testing.T) {
 		t.Fatalf("warnings=%v", warns)
 	}
 }
+
+func TestStrictConfigYAML(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("default: %v", err)
+	}
+	b := NewBuilder(defaults)
+	b.FlagSets.SSH = pflag.NewFlagSet("SSH Options", pflag.ExitOnError)
+	dir := t.TempDir()
+	cfgFile := filepath.Join(dir, "cfg.yaml")
+	if err := os.WriteFile(cfgFile, []byte("ssh_host: example\n"), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	_, _, _, err = b.Build(fs, []string{"--config", cfgFile, "--strict-config"})
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+}
+
+func TestStrictConfigEnv(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("LVMSYNC_SSH_HOST", "example")
+	t.Setenv("LVMSYNC_STRICT_CONFIG", "1")
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("default: %v", err)
+	}
+	b := NewBuilder(defaults)
+	b.FlagSets.SSH = pflag.NewFlagSet("SSH Options", pflag.ExitOnError)
+	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	_, _, _, err = b.Build(fs, nil)
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+}
+
+func TestStrictConfigAllowInsecureFlag(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("default: %v", err)
+	}
+	b := NewBuilder(defaults)
+	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	_, _, _, err = b.Build(fs, []string{"--allow-insecure", "--strict-config"})
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+}

@@ -48,6 +48,8 @@ jobs:
           cache: true
 
       - name: Go vet
+        env:
+          LVMSYNC_STRICT_CONFIG: 1
         run: go vet ./...
 
   staticcheck:

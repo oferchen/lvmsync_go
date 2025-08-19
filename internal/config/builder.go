@@ -74,6 +74,7 @@ func (b *ConfigBuilder) Build(fs *pflag.FlagSet, args []string) (*Config, []stri
 	if err != nil {
 		return nil, nil, warns, err
 	}
+	strict := v.GetBool("strict-config")
 	if len(raw) > 0 {
 		if err := validateSchema(raw); err != nil {
 			return nil, nil, warns, err
@@ -118,6 +119,9 @@ func (b *ConfigBuilder) Build(fs *pflag.FlagSet, args []string) (*Config, []stri
 		warns = append(warns, "allow_insecure enabled; security checks disabled")
 	} else if allowInsecureYAML {
 		return nil, nil, warns, fmt.Errorf("allow_insecure requires --allow-insecure flag or LVMSYNC_ALLOW_INSECURE environment variable")
+	}
+	if strict && len(warns) > 0 {
+		return nil, nil, warns, fmt.Errorf("%s", strings.Join(warns, "; "))
 	}
 	return cfg, fs.Args(), warns, nil
 }
