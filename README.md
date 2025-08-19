@@ -1,6 +1,8 @@
 # LVMSync
-[![Build Status](https://github.com/oferchen/lvmsync_go/actions/workflows/go.yml/badge.svg?branch=main)](https://github.com/oferchen/lvmsync_go/actions/workflows/go.yml)
-[![Build Status](https://github.com/oferchen/lvmsync_go/actions/workflows/super-linter.yml/badge.svg?branch=main)](https://github.com/oferchen/lvmsync_go/actions/workflows/super-linter.yml)
+[![Go](https://github.com/oferchen/lvmsync_go/actions/workflows/go.yml/badge.svg?branch=main)](https://github.com/oferchen/lvmsync_go/actions/workflows/go.yml)
+[![Super Linter](https://github.com/oferchen/lvmsync_go/actions/workflows/super-linter.yml/badge.svg?branch=main)](https://github.com/oferchen/lvmsync_go/actions/workflows/super-linter.yml)
+[![Loopback Integration](https://github.com/oferchen/lvmsync_go/actions/workflows/loopback-integration.yml/badge.svg?branch=main)](https://github.com/oferchen/lvmsync_go/actions/workflows/loopback-integration.yml)
+[![Coverage](https://img.shields.io/badge/coverage-71.6%25-brightgreen)](https://github.com/oferchen/lvmsync_go/actions/workflows/go.yml)
 
 LVMSync is a high-performance incremental data replication tool for LVM snapshots. It efficiently transfers only changed blocks using metadata from snapshot COW (Copy-On-Write) devices and communicates with LVM through native Go bindings rather than shell commands.
 
