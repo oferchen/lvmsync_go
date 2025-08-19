@@ -85,4 +85,12 @@ jobs:
           cache: true
 
       - name: Go test with race detector
-        run: go test -race ./...
+        run: go test -race -coverprofile=coverage.out ./...
+
+      - name: Show coverage
+        run: go tool cover -func=coverage.out | tail -n 1
+
+      - name: Enforce coverage threshold
+        run: |
+          pct=$(go tool cover -func=coverage.out | tail -n 1 | awk '{print $3}' | tr -d '%')
+          awk -v p="$pct" 'BEGIN { if (p < 50) { printf("coverage %.2f%% is below 50%%\n", p); exit 1 } }'
