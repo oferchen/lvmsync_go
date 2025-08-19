@@ -9,6 +9,7 @@ LVMSync is a high-performance incremental data replication tool for LVM snapshot
 For benchmark methodology and reproducible performance numbers, see [perf.md](perf.md).
 
 For details on running with minimal privileges and sudoers examples, see [SECURITY.md](SECURITY.md) and [docs/sudoers.md](docs/sudoers.md).
+For snapshot cleanup, resuming transfers, and verify-only rollback procedures, see [docs/danger_rollback.md](docs/danger_rollback.md).
 
 ## Features
 
