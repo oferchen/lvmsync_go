@@ -1,3 +1,3 @@
 | Type | Component | Evidence | Impact | Fix | Priority |
 |------|-----------|----------|--------|-----|----------|
-<!-- no outstanding gaps -->
+<!-- resolved: missing negative test for NUMA fallback covered -->

@@ -30,7 +30,7 @@ For snapshot cleanup, resuming transfers, and verify-only rollback procedures, s
 - **Dry-run Estimates**: `--dry-run` samples the manifest to project bytes and ETA without transferring data.
 - **Device Identity Tuple**: Each run records `(device_id, size_bytes, major:minor)` to prevent writing to the wrong destination.
 - **Handshake Timeouts**: Transport connections apply context deadlines during handshakes and clear them once negotiation succeeds.
-- **Sparse Destination Optimization**: Detects runs of zero bytes and punches holes when the filesystem supports it.
+- **Sparse Destination Optimization**: Detects runs of zero bytes and punches holes when the filesystem supports it, logging a warning once and disabling hole punching when unsupported.
 - **Aligned I/O Buffers and NUMA Pinning**: `--odirect` allocates block-size aligned slabs from a `sync.Pool` and can pin worker goroutines to a device's NUMA node (`--numa-pin`) or an explicit node (`--numa-node`).
 - **LVM Snapshot Management**:
   - Automatic snapshot creation and removal.
@@ -469,7 +469,7 @@ Recent refactors added several configuration options:
 - `--block-size` selects the transfer block size. Use `auto` to match the destination's physical sector size.
 - `--sync-interval` sets how many bytes are written between `fdatasync` calls. Accepts size suffixes like `64KB` or `1GB`; invalid values cause startup errors.
 - `--odirect` uses O_DIRECT with block-size aligned buffers.
-- `--numa-pin` pins worker goroutines to CPUs local to the source device's NUMA node.
+- `--numa-pin` pins worker goroutines to CPUs local to the source device's NUMA node. If `/sys` lacks NUMA details, LVMSync logs a warning and continues without pinning. Use `--numa-node` to override.
 - `--numa-node` pins worker goroutines to the specified NUMA node.
 
 ### Device types
@@ -616,8 +616,8 @@ Flags override environment variables, which override `config.yaml` values.
 | `--concurrency` | `LVMSYNC_TRANSPORT_CONCURRENCY` | `concurrency` | Stream concurrency (0 to autotune based on BDP) |
 | `--zerocopy` | `LVMSYNC_ZEROCOPY` | `zerocopy` | Enable zero-copy transfers |
 | `--odirect` | `LVMSYNC_ODIRECT` | `odirect` | Use O_DIRECT for device I/O when possible |
-| `--numa-pin` | `LVMSYNC_NUMA_PIN` | `numa_pin` | Pin worker goroutines to device NUMA node |
-| `--numa-node` | `LVMSYNC_NUMA_NODE` | `numa_node` | Pin worker goroutines to specified NUMA node |
+| `--numa-pin` | `LVMSYNC_NUMA_PIN` | `numa_pin` | Pin worker goroutines to device NUMA node; logs a warning and continues if NUMA data is missing |
+| `--numa-node` | `LVMSYNC_NUMA_NODE` | `numa_node` | Pin worker goroutines to specified NUMA node, overriding automatic detection |
 | `--max-retries` | `LVMSYNC_MAX_RETRIES` | `max_retries` | Maximum number of retries per block |
 | `--retry-delay` | `LVMSYNC_RETRY_DELAY` | `retry_delay` | Initial delay between retries |
 | `--resume` | `LVMSYNC_RESUME` | `resume` | Path to resume state file (verification runs unless `--verify=none`) |
@@ -1504,43 +1504,7 @@ Invalid configurations will cause the tool to abort with a clear error message.
 
 ## Exit Codes
 
-| Constant | Code | Meaning | Recovery Step |
-|----------|------|---------|---------------|
-| [`exitcode.OK`](internal/exitcode/exitcode.go) | `0`  | Success | None |
-| [`exitcode.ErrCapability`](internal/exitcode/exitcode.go) | `10` | Privilege or capability check failed | Run as root or adjust `--lvm-escalation`. |
-| [`exitcode.ErrDevice`](internal/exitcode/exitcode.go) | `20` | Device error | Verify device paths and snapshot health. |
-| [`exitcode.ErrPlatform`](internal/exitcode/exitcode.go) | `30` | Unsupported platform | Run on a supported Linux platform. |
-| [`exitcode.ErrConfig`](internal/exitcode/exitcode.go) | `40` | Configuration error | Review flags, environment variables, and `config.yaml`. |
-| [`exitcode.ErrRuntime`](internal/exitcode/exitcode.go) | `50` | Runtime failure | Inspect logs, fix the issue, and rerun using `--resume` when applicable. |
-| [`exitcode.ErrVerify`](internal/exitcode/exitcode.go) | `60` | Verification mismatch | Investigate mismatched data before retrying. |
-| [`exitcode.ErrPartial`](internal/exitcode/exitcode.go) | `70` | Partial transfer | Address the error and resume with `--resume`. |
-| [`exitcode.ErrPrecondition`](internal/exitcode/exitcode.go) | `80` | Precondition failed | Fix prerequisites and retry. |
-| [`exitcode.ErrResumable`](internal/exitcode/exitcode.go) | `90` | Resumable exit | Resume with `--resume` after resolving the issue. |
-
-Exit code definitions live in [internal/exitcode](internal/exitcode/exitcode.go), and handling resides in [cmd/root/root.go](cmd/root/root.go).
-
-Verification mismatches exit with [`exitcode.ErrVerify`](internal/exitcode/exitcode.go):
-
-```sh
-lvmsync run --verify-only /dev/vg0/snap0 /dev/vg0/bad_target || echo "verify failed with exit $?"
-# verify failed with exit 60
-```
-
-Precondition failures exit with [`exitcode.ErrPrecondition`](internal/exitcode/exitcode.go):
-
-```sh
-lvmsync run /dev/vg0/missing /dev/vg0/target || echo "precondition failed with exit $?"
-# precondition failed with exit 80
-```
-
-Shell scripts can rely on `set -e` to abort on non-zero exit codes:
-
-```sh
-#!/bin/sh
-set -e
-lvmsync "$@"
-echo "transfer completed successfully"
-```
+LVMSync signals success and failure with structured exit codes. Refer to the [operations guide](docs/OPERATIONS.md#exit-codes) for the complete list and recommended recovery steps.
 
 ## Credits
 
