@@ -73,3 +73,25 @@ func CleanupRegistered(ctx context.Context) {
 		cancel()
 	}
 }
+
+// CleanupSnapshot removes a single snapshot, unregistering it first.
+// It logs success or failure and ignores nil paths.
+func CleanupSnapshot(ctx context.Context, path string, logger *zap.Logger) {
+	if path == "" {
+		return
+	}
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+	UnregisterSnapshot(path)
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	rmCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	if err := removeSnap(rmCtx, path, logger); err != nil {
+		logger.Warn("failed to remove snapshot", zap.String("snapshot", path), zap.Error(err))
+	} else {
+		logger.Info("snapshot removed", zap.String("snapshot", path))
+	}
+}

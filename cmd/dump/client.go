@@ -47,12 +47,11 @@ type Runner struct {
 	detectDevice   func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, privilege.Escalator, *zap.Logger, *device.Runner) (device.Device, error)
 	sumFile        func(string, string) ([32]byte, error)
 	streamToRemote func(context.Context, *config.Config, io.WriteCloser, string, string, string, *zap.Logger) error
-	probeDest      func(context.Context, *config.Config, string, *zap.Logger) (uint64, string, uint64, error)
+	probeDest      func(context.Context, *config.Config, string, *zap.Logger) (device.DeviceIdentity, error)
 	createLV       func(context.Context, string, string, uint64, *zap.Logger) error
 	parseLVPath    func(string) (string, string, error)
 	getVolumeSize  func(string, *lvm.FDCache, *zap.Logger) (uint64, error)
 	newFDC         func(*zap.Logger) (*lvm.FDCache, error)
-	probeDest      func(context.Context, *config.Config, string, *zap.Logger) (device.DeviceIdentity, error)
 }
 
 var (
@@ -333,8 +332,9 @@ func (r *Runner) Run(ctx context.Context, cfg *config.Config, source, dest strin
 	}
 	snapshotDevice := snapDev.Path()
 	originDevice := dev.Path()
+	lvm.RegisterSnapshot(snapshotDevice, logger)
+	defer lvm.CleanupSnapshot(ctx, snapshotDevice, logger)
 	defer func() {
-		snapDev.Cleanup(ctx)
 		snapDev.Close()
 		if snapDev != dev {
 			dev.Cleanup(ctx)
@@ -353,10 +353,11 @@ func (r *Runner) Run(ctx context.Context, cfg *config.Config, source, dest strin
 
 // RunLocalDump dumps changes to a local destination device and returns the detected destination type.
 func (r *Runner) RunLocalDump(ctx context.Context, cfg *config.Config, snapshotDevice, originDevice, dest string, logger *zap.Logger) (string, error) {
-	destType := cfg.DestType
-	devCtx := device.WithForce(context.Background(), cfg.Force)
-	devCtx = device.WithAllowOverwrite(devCtx, cfg.AllowOverwrite)
-	devRunner := device.NewRunner()
+       destType := cfg.DestType
+       devCtx := device.WithForce(context.Background(), cfg.Force)
+       devCtx = device.WithAllowOverwrite(devCtx, cfg.AllowOverwrite)
+       devCtx = device.WithYesIKnow(devCtx, cfg.YesIKnow)
+       devRunner := device.NewRunner()
 	if cfg.DryRun {
 		return destType, r.ExecuteDump(ctx, cfg, snapshotDevice, originDevice, io.Discard, logger)
 	}
@@ -383,28 +384,36 @@ func (r *Runner) RunLocalDump(ctx context.Context, cfg *config.Config, snapshotD
 			return destType, err
 		}
 		if !exists {
-			cache, err := lvm.NewDeviceFDCache(logger)
-		if _, err := os.Stat(dest); errors.Is(err, os.ErrNotExist) {
-			vg, lv, err := r.parseLVPath(dest)
-			if err != nil {
-				return destType, err
-			}
-			cache, err := r.newFDC(logger)
-			if err != nil {
-				return destType, err
-			}
-			defer cache.Close()
-			size, err := lvm.GetVolumeSize(snapshotDevice, cache, logger)
-			if err != nil {
-				return destType, err
-			}
-			if err := devRunner.CreateLV(devCtx, dest, size, cfg.LVMEscalation); err != nil {
-			size, err := r.getVolumeSize(originDevice, cache, logger)
-			if err != nil {
-				return destType, err
-			}
-			if err := r.createLV(ctx, vg, lv, size, logger); err != nil {
-				return destType, err
+			if _, err := os.Stat(dest); errors.Is(err, os.ErrNotExist) {
+				vg, lv, err := r.parseLVPath(dest)
+				if err != nil {
+					return destType, err
+				}
+				cache, err := r.newFDC(logger)
+				if err != nil {
+					return destType, err
+				}
+				defer cache.Close()
+				size, err := r.getVolumeSize(originDevice, cache, logger)
+				if err != nil {
+					return destType, err
+				}
+				if err := r.createLV(ctx, vg, lv, size, logger); err != nil {
+					return destType, err
+				}
+			} else {
+				cache, err := lvm.NewDeviceFDCache(logger)
+				if err != nil {
+					return destType, err
+				}
+				defer cache.Close()
+				size, err := lvm.GetVolumeSize(snapshotDevice, cache, logger)
+				if err != nil {
+					return destType, err
+				}
+				if err := devRunner.CreateLV(devCtx, dest, size, cfg.LVMEscalation); err != nil {
+					return destType, err
+				}
 			}
 		}
 	}

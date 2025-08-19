@@ -62,6 +62,34 @@ func TestParseFractional(t *testing.T) {
 }
 
 func TestParsePercent(t *testing.T) {
+	cases := []struct {
+		in      string
+		want    uint64
+		wantErr bool
+	}{
+		{"50%", 50, false},
+		{"1%", 1, false},
+		{"1.5%", 0, true},
+		{"-10%", 0, true},
+		{strconv.FormatUint(math.MaxUint64, 10) + "0%", 0, true},
+	}
+	for _, tc := range cases {
+		got, pct, err := Parse(tc.in)
+		if (err != nil) != tc.wantErr {
+			t.Fatalf("Parse(%q) error=%v wantErr=%v", tc.in, err, tc.wantErr)
+		}
+		if tc.wantErr {
+			continue
+		}
+		if !pct {
+			t.Fatalf("Parse(%q) percent flag = false", tc.in)
+		}
+		if got != tc.want {
+			t.Fatalf("Parse(%q) = %d want %d", tc.in, got, tc.want)
+		}
+	}
+}
+
 func TestParse(t *testing.T) {
 
 	cases := []struct {
@@ -117,33 +145,6 @@ func TestParse(t *testing.T) {
 			t.Fatalf("Parse(%q) = %d, want %d", tc.in, got, tc.want)
 		}
 	}
-
-	pctCases := []struct {
-		in      string
-		want    uint64
-		wantErr bool
-	}{
-		{"50%", 50, false},
-		{"1%", 1, false},
-		{"1.5%", 0, true},
-		{"-10%", 0, true},
-	}
-	for _, tc := range pctCases {
-		got, pct, err := Parse(tc.in)
-		if (err != nil) != tc.wantErr {
-			t.Fatalf("Parse(%q) error=%v wantErr=%v", tc.in, err, tc.wantErr)
-		}
-		if tc.wantErr {
-			continue
-		}
-		if !pct {
-			t.Fatalf("Parse(%q) percent flag = false", tc.in)
-		}
-		if got != tc.want {
-			t.Fatalf("Parse(%q) = %d want %d", tc.in, got, tc.want)
-		}
-	}
-
 }
 
 func TestParseOverflowAndNegative(t *testing.T) {

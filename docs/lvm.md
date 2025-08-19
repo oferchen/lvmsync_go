@@ -49,7 +49,7 @@ concurrent filesystem modifications from corrupting the copy.
 Enable `--create-dest-lv` (or `LVMSYNC_CREATE_DEST_LV`) to automatically create
 the destination logical volume when it does not exist. The new volume matches
 the source snapshot size. This operation prompts for confirmation unless
-`--allow-overwrite` is provided alongside `--force`:
+`--allow-overwrite` and `--yes-i-know` are provided alongside `--force`:
 
 ```sh
 lvmsync run --create-dest-lv --force /dev/vg0/origin /dev/vg1/target

@@ -398,5 +398,6 @@ func verifyWAL(cfg *config.Config, dest *os.File, ranges []Range, logger *zap.Lo
 			return fmt.Errorf("wal verification failed at offset %d", r.Start)
 		}
 	}
+	logger.Info("wal_resume", zap.Int("range_count", len(ranges)))
 	return nil
 }

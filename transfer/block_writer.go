@@ -28,17 +28,18 @@ type blockWriter struct {
 	rt        *resumeTracker
 	deps      *Deps
 	wal       *WAL
+	applied   []Range
 }
 
 // newBlockWriter constructs a blockWriter, detecting the destination's physical
 // block size when the configured block size is "auto" (0) and parsing the
 // sync interval when provided as a string. It validates that the configured
 // block size is aligned to the underlying sector size.
-func newBlockWriter(cfg *config.Config, dest *os.File, dedup DeduplicationStrategy, verify bool, checksum ChecksumStrategy, logger *zap.Logger, wal *WAL) (*blockWriter, error) {
-	return newBlockWriterWithDeps(cfg, dest, dedup, verify, checksum, logger, wal, DefaultDeps)
+func newBlockWriter(cfg *config.Config, dest *os.File, dedup DeduplicationStrategy, verify bool, checksum ChecksumStrategy, logger *zap.Logger, wal *WAL, applied []Range) (*blockWriter, error) {
+	return newBlockWriterWithDeps(cfg, dest, dedup, verify, checksum, logger, wal, applied, DefaultDeps)
 }
 
-func newBlockWriterWithDeps(cfg *config.Config, dest *os.File, dedup DeduplicationStrategy, verify bool, checksum ChecksumStrategy, logger *zap.Logger, wal *WAL, deps *Deps) (*blockWriter, error) {
+func newBlockWriterWithDeps(cfg *config.Config, dest *os.File, dedup DeduplicationStrategy, verify bool, checksum ChecksumStrategy, logger *zap.Logger, wal *WAL, applied []Range, deps *Deps) (*blockWriter, error) {
 	if cfg.BlockSize <= 0 || cfg.ODirect {
 		sector, err := DetectSectorSize(dest)
 		if err != nil {
@@ -69,11 +70,21 @@ func newBlockWriterWithDeps(cfg *config.Config, dest *os.File, dedup Deduplicati
 		logger:   logger,
 		deps:     deps,
 		wal:      wal,
+		applied:  applied,
 	}
 	if cfg.IntraDedup {
 		bw.intra = newChunkCache(intraCacheCapacity)
 	}
 	return bw, nil
+}
+
+func containsRange(rs []Range, start, end uint64) bool {
+	for _, r := range rs {
+		if start >= r.Start && end <= r.End {
+			return true
+		}
+	}
+	return false
 }
 
 // write consumes block records from reader and writes them to the destination
@@ -98,6 +109,18 @@ func (bw *blockWriter) write(reader *bufio.Reader) (int64, error) {
 		}
 		if err != nil {
 			return total, err
+		}
+		end := offset + uint64(chunkSize)
+		if chunkSize == 0 {
+			end = offset + uint64(bw.cfg.BlockSize)
+		}
+		if containsRange(bw.applied, offset, end) {
+			if chunkSize > 0 {
+				if _, err := io.CopyN(io.Discard, reader, int64(chunkSize)); err != nil {
+					return total, err
+				}
+			}
+			continue
 		}
 		data, err := readBlockData(bw.cfg, reader, chunkSize)
 		if err == io.EOF {
@@ -131,9 +154,11 @@ func (bw *blockWriter) write(reader *bufio.Reader) (int64, error) {
 				zeroLen += zlen
 			} else {
 				if bw.wal != nil {
-					if err := bw.wal.Append(Range{Start: zeroStart, End: zeroStart + zeroLen}); err != nil {
+					r := Range{Start: zeroStart, End: zeroStart + zeroLen}
+					if err := bw.wal.Append(r); err != nil {
 						return total, err
 					}
+					bw.applied = append(bw.applied, r)
 				}
 				if err := writeZeroRange(bw.cfg, bw.dest, zeroStart, zeroLen, bw.logger); err != nil {
 					return total, err
@@ -155,9 +180,11 @@ func (bw *blockWriter) write(reader *bufio.Reader) (int64, error) {
 		}
 		if zeroLen > 0 {
 			if bw.wal != nil {
-				if err := bw.wal.Append(Range{Start: zeroStart, End: zeroStart + zeroLen}); err != nil {
+				r := Range{Start: zeroStart, End: zeroStart + zeroLen}
+				if err := bw.wal.Append(r); err != nil {
 					return total, err
 				}
+				bw.applied = append(bw.applied, r)
 			}
 			if err := writeZeroRange(bw.cfg, bw.dest, zeroStart, zeroLen, bw.logger); err != nil {
 				return total, err
@@ -175,6 +202,10 @@ func (bw *blockWriter) write(reader *bufio.Reader) (int64, error) {
 		}
 		saveResumeState(bw.cfg, bw.rt, offset, chunkID, int64(chunkSize), bw.logger)
 		if written {
+			if bw.wal != nil {
+				r := Range{Start: offset, End: offset + uint64(chunkSize)}
+				bw.applied = append(bw.applied, r)
+			}
 			total += int64(chunkSize)
 			bw.sinceSync += int64(chunkSize)
 			if bw.cfg.SyncIntervalBytes > 0 && bw.sinceSync >= int64(bw.cfg.SyncIntervalBytes) {

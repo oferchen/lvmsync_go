@@ -83,7 +83,7 @@ func TestIterateBlocksSkipsSparseRegions(t *testing.T) {
 	defer os.Remove(dest.Name())
 	defer dest.Close()
 
-	bw, err := newBlockWriter(cfg, dest, nil, false, nil, zap.NewNop(), nil)
+	bw, err := newBlockWriter(cfg, dest, nil, false, nil, zap.NewNop(), nil, nil)
 	if err != nil {
 		t.Fatalf("newBlockWriter: %v", err)
 	}

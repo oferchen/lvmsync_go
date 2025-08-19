@@ -624,7 +624,7 @@ Flags override environment variables, which override `config.yaml` values.
 |------|----------------------|------------|-------------|
 | `--config` | `LVMSYNC_CONFIG` | `config` | Path to config YAML file |
 | `--stdout` | `LVMSYNC_STDOUT` | `stdout` | Write change dump to STDOUT (prompts when TTY, requires `--yes-i-know` otherwise) |
-| `--yes-i-know` | `LVMSYNC_YES_I_KNOW` | `yes_i_know` | Confirm writing binary data to STDOUT in non-interactive sessions |
+| `--yes-i-know` | `LVMSYNC_YES_I_KNOW` | `yes_i_know` | Confirm destructive write operations in non-interactive sessions |
 | `--source-type` | `LVMSYNC_SOURCE_TYPE` | `source-type` | Source device type: `auto`, `file`, `raw`, or `lvm` |
 | `--dest-type` | `LVMSYNC_DEST_TYPE` | `dest-type` | Destination device type: `auto`, `file`, `raw`, or `lvm` |
 | `--offline` | `LVMSYNC_OFFLINE` | `offline` | Assume source raw device is offline |
@@ -702,7 +702,7 @@ Flags override environment variables, which override `config.yaml` values.
 | `--target-vgs` | `LVMSYNC_TARGET_VGS` | `target_vgs` | Candidate target volume groups for auto-selection |
 | `--create-dest-lv` | `LVMSYNC_CREATE_DEST_LV` | `create_dest_lv` | Create destination logical volume when missing (requires `--force` or confirmation) |
 | `--force` | `LVMSYNC_FORCE` | `force` | Override safety checks and proceed on mounted destination |
-| `--allow-overwrite` | `LVMSYNC_ALLOW_OVERWRITE` | `allow_overwrite` | Skip interactive confirmation when using `--force` |
+| `--allow-overwrite` | `LVMSYNC_ALLOW_OVERWRITE` | `allow_overwrite` | Allow overwriting existing data; requires `--yes-i-know` for non-interactive sessions |
 | `--discard` | `LVMSYNC_DISCARD` | `discard` | Issue BLKDISCARD before writing blocks |
 | `--dry-run` | `LVMSYNC_DRY_RUN` | `dry_run` | Log estimated transfer bytes without sending data; uses manifest sampling when available |
 | `--plan` | `LVMSYNC_PLAN` | `plan` | Print configuration plan as JSON and exit |
