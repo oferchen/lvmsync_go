@@ -33,6 +33,7 @@ type Config struct {
 	YesIKnow                 bool          `mapstructure:"yes_i_know"`
 	DryRun                   bool          `mapstructure:"dry_run"`
 	ProbeOnly                bool          `mapstructure:"probe_only"`
+	Plan                     bool          `mapstructure:"plan"`
 	Force                    bool          `mapstructure:"force"`
 	AllowOverwrite           bool          `mapstructure:"allow_overwrite"`
 	Discard                  bool          `mapstructure:"discard"`
@@ -175,6 +176,7 @@ func DefaultConfig() (*Config, error) {
 		YesIKnow:                 false,
 		DryRun:                   false,
 		ProbeOnly:                false,
+		Plan:                     false,
 		Force:                    false,
 		AllowOverwrite:           false,
 		Offline:                  false,

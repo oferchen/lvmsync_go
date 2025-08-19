@@ -146,6 +146,52 @@ func TestStrictHostKeyCheckEnvOverridesYAML(t *testing.T) {
 		t.Fatalf("StrictHostKeyCheck=%v want %v", cfg.StrictHostKeyCheck, false)
 	}
 }
+
+func TestPlanFlagOverridesEnvAndYAML(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("default: %v", err)
+	}
+	b := NewBuilder(defaults)
+	dir := t.TempDir()
+	cfgFile := filepath.Join(dir, "cfg.yaml")
+	if err := os.WriteFile(cfgFile, []byte("plan: false\n"), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	t.Setenv("LVMSYNC_PLAN", "false")
+	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	cfg, _, _, err := b.Build(fs, []string{"--config", cfgFile, "--plan"})
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	if !cfg.Plan {
+		t.Fatalf("Plan=%v want true", cfg.Plan)
+	}
+}
+
+func TestPlanEnvOverridesYAML(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("default: %v", err)
+	}
+	b := NewBuilder(defaults)
+	dir := t.TempDir()
+	cfgFile := filepath.Join(dir, "cfg.yaml")
+	if err := os.WriteFile(cfgFile, []byte("plan: false\n"), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	t.Setenv("LVMSYNC_PLAN", "true")
+	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	cfg, _, _, err := b.Build(fs, []string{"--config", cfgFile})
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	if !cfg.Plan {
+		t.Fatalf("Plan=%v want true", cfg.Plan)
+	}
+}
 func TestParallelFlagOverridesEnvAndYAML(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	defaults, err := DefaultConfig()
