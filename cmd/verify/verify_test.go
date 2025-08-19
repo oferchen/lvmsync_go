@@ -213,16 +213,18 @@ func TestRunOutputsJSON(t *testing.T) {
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
-	done := make(chan struct{})
+	errCh := make(chan error, 1)
 	go func() {
-		io.Copy(&buf, r)
-		close(done)
+		_, err := io.Copy(&buf, r)
+		errCh <- err
 	}()
 	if err := Run([]string{"--output", "json", src, dst}, zap.NewNop()); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 	w.Close()
-	<-done
+	if err := <-errCh; err != nil {
+		t.Fatalf("copy: %v", err)
+	}
 	os.Stdout = oldStdout
 	var out struct {
 		Verified bool `json:"verified"`
@@ -242,16 +244,18 @@ func TestRunOutputsYAML(t *testing.T) {
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
-	done := make(chan struct{})
+	errCh := make(chan error, 1)
 	go func() {
-		io.Copy(&buf, r)
-		close(done)
+		_, err := io.Copy(&buf, r)
+		errCh <- err
 	}()
 	if err := Run([]string{"--output", "yaml", src, dst}, zap.NewNop()); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 	w.Close()
-	<-done
+	if err := <-errCh; err != nil {
+		t.Fatalf("copy: %v", err)
+	}
 	os.Stdout = oldStdout
 	var out struct {
 		Verified bool `yaml:"verified"`
