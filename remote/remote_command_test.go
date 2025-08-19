@@ -18,7 +18,15 @@ func TestValidRemoteCommand(t *testing.T) {
 			t.Errorf("expected %q to be valid", cmd)
 		}
 	}
-	invalid := []string{"bad+cmd", "cmd with space", "cmd!"}
+	invalid := []string{
+		"bad+cmd",
+		"cmd with space",
+		"cmd!",
+		"cmd;ls",
+		"cmd&next",
+		"cmd|grep",
+		"cmd$PATH",
+	}
 	for _, cmd := range invalid {
 		if ValidRemoteCommand(cmd) {
 			t.Errorf("expected %q to be invalid", cmd)
@@ -127,5 +135,31 @@ func TestValidateRemoteCommandNewlines(t *testing.T) {
 		if err := client.ValidateRemoteCommand(ctx, cmd); err == nil || !strings.Contains(err.Error(), "shell metacharacters") {
 			t.Fatalf("expected shell metacharacters error for %q, got %v", cmd, err)
 		}
+	}
+}
+
+func TestValidateRemoteCommandShellMetacharacters(t *testing.T) {
+	client := &SSHClient{Logger: zap.NewNop()}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	cmds := []string{
+		"echo;rm -rf /",
+		"echo && ls",
+		"echo|grep foo",
+		"echo $PATH",
+	}
+	for _, cmd := range cmds {
+		if err := client.ValidateRemoteCommand(ctx, cmd); err == nil || !strings.Contains(err.Error(), "shell metacharacters") {
+			t.Fatalf("expected shell metacharacters error for %q, got %v", cmd, err)
+		}
+	}
+}
+
+func TestValidateRemoteCommandSpacesOnly(t *testing.T) {
+	client := &SSHClient{Logger: zap.NewNop()}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := client.ValidateRemoteCommand(ctx, "   "); err == nil || !strings.Contains(err.Error(), "remote command is empty") {
+		t.Fatalf("expected empty command error, got %v", err)
 	}
 }
