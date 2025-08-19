@@ -30,7 +30,7 @@ For details on running with minimal privileges and sudoers examples, see [SECURI
 - **Device Identity Tuple**: Each run records `(device_id, size_bytes, major:minor)` to prevent writing to the wrong destination.
 - **Handshake Timeouts**: Transport connections apply context deadlines during handshakes and clear them once negotiation succeeds.
 - **Sparse Destination Optimization**: Detects runs of zero bytes and punches holes when the filesystem supports it.
-- **Aligned I/O Buffers and NUMA Pinning**: `--odirect` allocates block-size aligned slabs from a `sync.Pool` and can pin worker goroutines to the device's NUMA node.
+- **Aligned I/O Buffers and NUMA Pinning**: `--odirect` allocates block-size aligned slabs from a `sync.Pool` and can pin worker goroutines to a device's NUMA node (`--numa-pin`) or an explicit node (`--numa-node`).
 - **LVM Snapshot Management**:
   - Automatic snapshot creation and removal.
   - Configurable snapshot size (absolute or percentage-based) via `--snapshot-size`,
@@ -468,6 +468,7 @@ Recent refactors added several configuration options:
 - `--sync-interval` sets how many bytes are written between `fdatasync` calls. Accepts size suffixes like `64KB` or `1GB`; invalid values cause startup errors.
 - `--odirect` uses O_DIRECT with block-size aligned buffers.
 - `--numa-pin` pins worker goroutines to CPUs local to the source device's NUMA node.
+- `--numa-node` pins worker goroutines to the specified NUMA node.
 
 ### Device types
 
@@ -605,6 +606,7 @@ Flags override environment variables, which override `config.yaml` values.
 | `--zerocopy` | `LVMSYNC_ZEROCOPY` | `zerocopy` | Enable zero-copy transfers |
 | `--odirect` | `LVMSYNC_ODIRECT` | `odirect` | Use O_DIRECT for device I/O when possible |
 | `--numa-pin` | `LVMSYNC_NUMA_PIN` | `numa_pin` | Pin worker goroutines to device NUMA node |
+| `--numa-node` | `LVMSYNC_NUMA_NODE` | `numa_node` | Pin worker goroutines to specified NUMA node |
 | `--max-retries` | `LVMSYNC_MAX_RETRIES` | `max_retries` | Maximum number of retries per block |
 | `--retry-delay` | `LVMSYNC_RETRY_DELAY` | `retry_delay` | Initial delay between retries |
 | `--resume` | `LVMSYNC_RESUME` | `resume` | Path to resume state file (verification runs unless `--verify=none`) |

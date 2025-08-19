@@ -46,6 +46,7 @@ type Config struct {
 	ZeroCopy                 bool          `mapstructure:"zerocopy"`
 	ODirect                  bool          `mapstructure:"odirect"`
 	NumaPin                  bool          `mapstructure:"numa_pin"`
+	NumaNode                 int           `mapstructure:"numa_node"`
 	MaxRetries               int           `mapstructure:"max_retries"`
 	RetryDelay               time.Duration `mapstructure:"retry_delay"`
 	ResumeState              string        `mapstructure:"resume"`
@@ -184,6 +185,7 @@ func DefaultConfig() (*Config, error) {
 		ZeroCopy:                 false,
 		ODirect:                  false,
 		NumaPin:                  false,
+		NumaNode:                 -1,
 		MaxRetries:               3,
 		RetryDelay:               100 * time.Millisecond,
 		ResumeState:              "",

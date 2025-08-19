@@ -56,6 +56,26 @@ func pinCurrentThreadToDevice(f *os.File) error {
 	return nil
 }
 
+func pinCurrentThreadToNode(node int) error {
+	cpuListPath := fmt.Sprintf("/sys/devices/system/node/node%d/cpulist", node)
+	cpulist, err := os.ReadFile(cpuListPath)
+	if err != nil {
+		return err
+	}
+	cpus := parseCPUList(strings.TrimSpace(string(cpulist)))
+	if len(cpus) == 0 {
+		return fmt.Errorf("no cpus for node %d", node)
+	}
+	var mask unix.CPUSet
+	for _, cpu := range cpus {
+		mask.Set(cpu)
+	}
+	if err := unix.SchedSetaffinity(0, &mask); err != nil {
+		return fmt.Errorf("set affinity: %w", err)
+	}
+	return nil
+}
+
 func parseCPUList(list string) []int {
 	var cpus []int
 	for _, part := range strings.Split(list, ",") {
@@ -87,7 +107,17 @@ func parseCPUList(list string) []int {
 // with the source device when cfg.NumaPin is true. The returned function must
 // be deferred to release the thread lock. logger must be non-nil.
 func pinWorkerToDevice(cfg *config.Config, src *os.File, logger *zap.Logger) func() {
-	if cfg == nil || !cfg.NumaPin {
+	if cfg == nil {
+		return func() {}
+	}
+	if cfg.NumaNode >= 0 {
+		runtime.LockOSThread()
+		if err := pinCurrentThreadToNode(cfg.NumaNode); err != nil {
+			logger.Warn("numa pin failed", zap.Error(err))
+		}
+		return runtime.UnlockOSThread
+	}
+	if !cfg.NumaPin {
 		return func() {}
 	}
 	runtime.LockOSThread()

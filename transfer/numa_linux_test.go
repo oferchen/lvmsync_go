@@ -25,3 +25,14 @@ func TestParseCPUList(t *testing.T) {
 		}
 	}
 }
+
+func TestPinCurrentThreadToNode(t *testing.T) {
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("panic: %v", r)
+		}
+	}()
+	if err := pinCurrentThreadToNode(0); err != nil {
+		t.Logf("pin failed: %v", err)
+	}
+}
