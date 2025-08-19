@@ -10,7 +10,7 @@ builds:
   - id: *name
     binary: *name
     env: [CGO_ENABLED=1]
-    goos: [linux, darwin]
+    goos: [linux]
     goarch: [amd64, arm64]
 
 archives:
@@ -19,8 +19,6 @@ archives:
     name_template: '{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}'
     format_overrides:
       - goos: linux
-        format: tar.gz
-      - goos: darwin
         format: tar.gz
 
 checksum:
