@@ -126,7 +126,8 @@ LVMSync negotiates transports in the order provided by `--transport` (default
 `ssh,tcp+tls,h2,quic`). All transports require TLS 1.3 with mutual
 authentication or SSH host key verification unless `--allow-insecure` is set.
 The `rsync` transport is plaintext and refuses to initialize unless
-`--allow-insecure` acknowledges the lack of encryption. See
+`--allow-insecure` acknowledges the lack of encryption. Enabling this transport
+logs a warning noting the plaintext connection. See
 [docs/transports.md](docs/transports.md) for details.
 
 | Transport | Security defaults | Notes |

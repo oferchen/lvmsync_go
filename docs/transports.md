@@ -125,4 +125,5 @@ lvmsyncd --listen quic://:12000 --server-cert cert.pem --server-key key.pem --cl
 - Interoperates with upstream `rsyncd` implementations (e.g., OpenRSYNC on macOS 15)
 - Known issue: macOS 15 ships OpenRSYNC 0.6 which may abort large transfers; verify with upstream rsync if issues arise
 - Security: traffic is unencrypted and unauthenticated. `--allow-insecure` must be set and connections should only run on trusted networks or within secure tunnels
+- Enabling the transport logs a warning noting the plaintext connection
 - Flags: `--transport rsync` selects this transport and requires `--allow-insecure`
