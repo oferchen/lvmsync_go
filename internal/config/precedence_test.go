@@ -242,3 +242,94 @@ func TestCompressThresholdEnvOverridesYAML(t *testing.T) {
 		t.Fatalf("CompressThreshold=%v want %v", cfg.CompressThreshold, 0.6)
 	}
 }
+func TestAllowInsecureFlagOverridesEnvAndYAML(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("default: %v", err)
+	}
+	b := NewBuilder(defaults)
+	dir := t.TempDir()
+	cfgFile := filepath.Join(dir, "cfg.yaml")
+	if err := os.WriteFile(cfgFile, []byte("allow_insecure: false\n"), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	t.Setenv("LVMSYNC_ALLOW_INSECURE", "true")
+	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	cfg, _, _, err := b.Build(fs, []string{"--config", cfgFile, "--allow-insecure=false"})
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	if cfg.AllowInsecure {
+		t.Fatalf("AllowInsecure=%v want %v", cfg.AllowInsecure, false)
+	}
+}
+
+func TestAllowInsecureEnvOverridesYAML(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("default: %v", err)
+	}
+	b := NewBuilder(defaults)
+	dir := t.TempDir()
+	cfgFile := filepath.Join(dir, "cfg.yaml")
+	if err := os.WriteFile(cfgFile, []byte("allow_insecure: false\n"), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	t.Setenv("LVMSYNC_ALLOW_INSECURE", "true")
+	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	cfg, _, _, err := b.Build(fs, []string{"--config", cfgFile})
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	if !cfg.AllowInsecure {
+		t.Fatalf("AllowInsecure=%v want %v", cfg.AllowInsecure, true)
+	}
+}
+
+func TestNumaPinFlagOverridesEnvAndYAML(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("default: %v", err)
+	}
+	b := NewBuilder(defaults)
+	dir := t.TempDir()
+	cfgFile := filepath.Join(dir, "cfg.yaml")
+	if err := os.WriteFile(cfgFile, []byte("numa_pin: true\n"), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	t.Setenv("LVMSYNC_NUMA_PIN", "true")
+	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	cfg, _, _, err := b.Build(fs, []string{"--config", cfgFile, "--numa-pin=false"})
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	if cfg.NumaPin {
+		t.Fatalf("NumaPin=%v want %v", cfg.NumaPin, false)
+	}
+}
+
+func TestNumaPinEnvOverridesYAML(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("default: %v", err)
+	}
+	b := NewBuilder(defaults)
+	dir := t.TempDir()
+	cfgFile := filepath.Join(dir, "cfg.yaml")
+	if err := os.WriteFile(cfgFile, []byte("numa_pin: true\n"), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	t.Setenv("LVMSYNC_NUMA_PIN", "false")
+	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	cfg, _, _, err := b.Build(fs, []string{"--config", cfgFile})
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	if cfg.NumaPin {
+		t.Fatalf("NumaPin=%v want %v", cfg.NumaPin, false)
+	}
+}
