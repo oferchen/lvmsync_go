@@ -245,7 +245,7 @@ func TestEstimateTransferWithManifest(t *testing.T) {
 		t.Fatalf("write src: %v", err)
 	}
 	manifestPath := dir + "/manifest"
-	idx, err := manifest.Create(manifestPath, "id", 8, 0, 4, 0, 0, 0, 0)
+	idx, err := manifest.Create(manifestPath, "id", 8, 0, 0, 0, 4, 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("create manifest: %v", err)
 	}

@@ -187,7 +187,15 @@ func (d *RawDevice) BlockSize() uint64 { return d.blockSize }
 
 // Identity gathers size, kernel uuid and GPT information for the device.
 func (d *RawDevice) Identity() (DeviceIdentity, error) {
-	id := DeviceIdentity{SizeBytes: d.SizeBytes()}
+	var st unix.Stat_t
+	if err := unix.Stat(d.Path(), &st); err != nil {
+		return DeviceIdentity{}, err
+	}
+	id := DeviceIdentity{
+		SizeBytes: d.SizeBytes(),
+		Major:     uint32(unix.Major(uint64(st.Rdev))),
+		Minor:     uint32(unix.Minor(uint64(st.Rdev))),
+	}
 	out, err := exec.Command("blkid", "-o", "value", "-s", "UUID", d.Path()).Output()
 	if err != nil {
 		return DeviceIdentity{}, err

@@ -18,6 +18,7 @@ import (
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
+	"golang.org/x/sys/unix"
 	manifestpkg "lvmsync_go/manifest"
 )
 
@@ -68,6 +69,12 @@ func TestProcessDumpDataSizeMismatchPrecondition(t *testing.T) {
 	hdr.BlockSize = 512
 	hdr.SizeBytes = 2048
 	hdr.ChunkCount = 2
+	var st unix.Stat_t
+	if err := unix.Stat(dest, &st); err != nil {
+		t.Fatalf("stat dest: %v", err)
+	}
+	hdr.Major = uint32(unix.Major(uint64(st.Rdev)))
+	hdr.Minor = uint32(unix.Minor(uint64(st.Rdev)))
 	copy(hdr.DeviceID[:], []byte("id"))
 	hdr.MAC = manifestHeaderMAC(&hdr)
 	f, err := os.Create(man)

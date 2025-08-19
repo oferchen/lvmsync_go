@@ -13,6 +13,7 @@ import (
 	"github.com/zeebo/blake3"
 	"go.uber.org/zap"
 
+	"golang.org/x/sys/unix"
 	"lvmsync_go/common"
 	"lvmsync_go/device"
 	hashutil "lvmsync_go/hash"
@@ -58,7 +59,11 @@ func TestResumeVerifySuccess(t *testing.T) {
 		t.Fatalf("write dest: %v", err)
 	}
 	man := filepath.Join(dir, "dest.man")
-	idx, err := manifestpkg.Create(man, "uuid", uint64(len(data)), 0, uint32(blockSize), 0, 0, 0, 0)
+	var st unix.Stat_t
+	if err := unix.Stat(dest, &st); err != nil {
+		t.Fatalf("stat dest: %v", err)
+	}
+	idx, err := manifestpkg.Create(man, "uuid", uint64(len(data)), 0, uint32(unix.Major(uint64(st.Rdev))), uint32(unix.Minor(uint64(st.Rdev))), uint32(blockSize), 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("manifest create: %v", err)
 	}
@@ -124,7 +129,11 @@ func TestResumeVerifyMismatch(t *testing.T) {
 		t.Fatalf("write dest: %v", err)
 	}
 	man := filepath.Join(dir, "dest.man")
-	idx, err := manifestpkg.Create(man, "uuid", uint64(len(data)), 0, uint32(blockSize), 0, 0, 0, 0)
+	var st2 unix.Stat_t
+	if err := unix.Stat(dest, &st2); err != nil {
+		t.Fatalf("stat dest: %v", err)
+	}
+	idx, err := manifestpkg.Create(man, "uuid", uint64(len(data)), 0, uint32(unix.Major(uint64(st2.Rdev))), uint32(unix.Minor(uint64(st2.Rdev))), uint32(blockSize), 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("manifest create: %v", err)
 	}

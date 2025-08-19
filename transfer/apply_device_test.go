@@ -18,6 +18,7 @@ import (
 	manifestpkg "lvmsync_go/manifest"
 
 	"go.uber.org/zap"
+	"golang.org/x/sys/unix"
 )
 
 func minimalStream(t *testing.T) []byte {
@@ -323,6 +324,12 @@ func TestVerifyDestinationDigestMismatch(t *testing.T) {
 	hdr.BlockSize = 512
 	hdr.SizeBytes = 1024
 	hdr.ChunkCount = 2
+	var st unix.Stat_t
+	if err := unix.Stat(dest, &st); err != nil {
+		t.Fatalf("stat dest: %v", err)
+	}
+	hdr.Major = uint32(unix.Major(uint64(st.Rdev)))
+	hdr.Minor = uint32(unix.Minor(uint64(st.Rdev)))
 	copy(hdr.DeviceID[:], []byte("id"))
 	hdr.FirstBlockDigest[0] = 2
 	hdr.MAC = manifestHeaderMAC(&hdr)

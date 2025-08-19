@@ -21,6 +21,8 @@ func TestManifestHeaderMACSize(t *testing.T) {
 	hdr.MaxChunkSize = 3
 	hdr.HybridFixedSize = 4
 	hdr.Epoch = 1
+	hdr.Major = 1
+	hdr.Minor = 2
 	copy(hdr.DeviceID[:], []byte("dev"))
 	digest := blake3.Sum256([]byte("data"))
 	hdr.FirstBlockDigest = digest

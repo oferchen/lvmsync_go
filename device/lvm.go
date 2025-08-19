@@ -104,9 +104,17 @@ func (d *LVMDevice) SizeBytes() uint64 { return d.size }
 // BlockSize returns the logical block size in bytes.
 func (d *LVMDevice) BlockSize() uint64 { return d.blockSize }
 
-// Identity gathers size, kernel uuid and GPT info for the logical volume.
+// Identity gathers size, device numbers and UUID info for the logical volume.
 func (d *LVMDevice) Identity() (DeviceIdentity, error) {
-	id := DeviceIdentity{SizeBytes: d.SizeBytes()}
+	var st unix.Stat_t
+	if err := unix.Stat(d.Path(), &st); err != nil {
+		return DeviceIdentity{}, err
+	}
+	id := DeviceIdentity{
+		SizeBytes: d.SizeBytes(),
+		Major:     uint32(unix.Major(uint64(st.Rdev))),
+		Minor:     uint32(unix.Minor(uint64(st.Rdev))),
+	}
 	out, err := exec.Command("lvs", "--noheadings", "-o", "lv_uuid", d.Path()).Output()
 	if err != nil {
 		return DeviceIdentity{}, err

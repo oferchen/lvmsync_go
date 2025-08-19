@@ -14,7 +14,7 @@ import (
 func TestCompactionRemovesDeleted(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "compaction.man")
-	idx, err := Create(path, "dev", 8192, 0, 4096, 0, 0, 0, 0)
+	idx, err := Create(path, "dev", 8192, 0, 0, 0, 4096, 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}

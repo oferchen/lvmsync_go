@@ -83,7 +83,7 @@ func GC(path string, opts ...IndexOption) error {
 	}
 
 	deviceID := string(bytes.TrimRight(hdr.DeviceID[:], "\x00"))
-	newIdx, err := Create(path, deviceID, hdr.SizeBytes, hdr.Epoch, hdr.BlockSize, hdr.MinChunkSize, hdr.AvgChunkSize, hdr.MaxChunkSize, hdr.HybridFixedSize, opts...)
+	newIdx, err := Create(path, deviceID, hdr.SizeBytes, hdr.Epoch, hdr.Major, hdr.Minor, hdr.BlockSize, hdr.MinChunkSize, hdr.AvgChunkSize, hdr.MaxChunkSize, hdr.HybridFixedSize, opts...)
 	if err != nil {
 		return err
 	}
@@ -128,7 +128,7 @@ func Compact(path string, opts ...IndexOption) error {
 	}
 
 	deviceID := string(bytes.TrimRight(hdr.DeviceID[:], "\x00"))
-	newIdx, err := Create(path, deviceID, hdr.SizeBytes, hdr.Epoch, hdr.BlockSize, hdr.MinChunkSize, hdr.AvgChunkSize, hdr.MaxChunkSize, hdr.HybridFixedSize, opts...)
+	newIdx, err := Create(path, deviceID, hdr.SizeBytes, hdr.Epoch, hdr.Major, hdr.Minor, hdr.BlockSize, hdr.MinChunkSize, hdr.AvgChunkSize, hdr.MaxChunkSize, hdr.HybridFixedSize, opts...)
 	if err != nil {
 		return err
 	}

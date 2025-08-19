@@ -14,7 +14,7 @@ import (
 func TestGCCrashMidway(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "manifest")
-	idx, err := Create(path, "dev", 8192, 0, 4096, 0, 0, 0, 0)
+	idx, err := Create(path, "dev", 8192, 0, 0, 0, 4096, 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -64,7 +64,7 @@ func TestGCCrashMidway(t *testing.T) {
 		t.Fatalf("close2: %v", err)
 	}
 	deviceID := string(bytes.TrimRight(hdr.DeviceID[:], "\x00"))
-	newIdx, err := Create(path, deviceID, hdr.SizeBytes, hdr.Epoch, hdr.BlockSize, hdr.MinChunkSize, hdr.AvgChunkSize, hdr.MaxChunkSize, hdr.HybridFixedSize)
+	newIdx, err := Create(path, deviceID, hdr.SizeBytes, hdr.Epoch, hdr.Major, hdr.Minor, hdr.BlockSize, hdr.MinChunkSize, hdr.AvgChunkSize, hdr.MaxChunkSize, hdr.HybridFixedSize)
 	if err != nil {
 		t.Fatalf("Create new: %v", err)
 	}
