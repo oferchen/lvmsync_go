@@ -64,6 +64,40 @@ func TestRunSyncsLogger(t *testing.T) {
 	}
 }
 
+func TestRunFlagOverridesEnvAndYAML(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	src := t.TempDir() + "/src"
+	if err := os.WriteFile(src, []byte("foo"), 0o600); err != nil {
+		t.Fatalf("write src: %v", err)
+	}
+	dst := t.TempDir() + "/dst"
+	if err := os.WriteFile(dst, []byte("bar"), 0o600); err != nil {
+		t.Fatalf("write dst: %v", err)
+	}
+	manifestPath := src + ".manifest"
+	idx, err := manifestpkg.Create(manifestPath, "dev", uint64(len("foo")), 0, uint32(len("foo")), 0, 0, 0, 0)
+	if err != nil {
+		t.Fatalf("manifest create: %v", err)
+	}
+	digest := blake3.Sum256([]byte("foo"))
+	if err := idx.Set(0, uint32(len("foo")), 0, 0, digest); err != nil {
+		t.Fatalf("manifest set: %v", err)
+	}
+	if err := idx.Close(); err != nil {
+		t.Fatalf("manifest close: %v", err)
+	}
+	dir := t.TempDir()
+	cfgFile := filepath.Join(dir, "cfg.yaml")
+	if err := os.WriteFile(cfgFile, []byte("dry_run: true\n"), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	t.Setenv("LVMSYNC_DRY_RUN", "true")
+	err = Run([]string{"--config", cfgFile, "--dry-run=false", src, dst}, zap.NewNop())
+	if err == nil {
+		t.Fatalf("expected verification error")
+	}
+}
+
 func TestVerifyFullAllocations(t *testing.T) {
 	blockSize := 1024
 	size := blockSize * 4

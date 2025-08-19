@@ -146,8 +146,7 @@ func TestStrictHostKeyCheckEnvOverridesYAML(t *testing.T) {
 		t.Fatalf("StrictHostKeyCheck=%v want %v", cfg.StrictHostKeyCheck, false)
 	}
 }
-
-func TestCompressThresholdFlagOverridesEnvAndYAML(t *testing.T) {
+func TestParallelFlagOverridesEnvAndYAML(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	defaults, err := DefaultConfig()
 	if err != nil {
@@ -156,6 +155,21 @@ func TestCompressThresholdFlagOverridesEnvAndYAML(t *testing.T) {
 	b := NewBuilder(defaults)
 	dir := t.TempDir()
 	cfgFile := filepath.Join(dir, "cfg.yaml")
+	if err := os.WriteFile(cfgFile, []byte("parallel: 4\n"), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	t.Setenv("LVMSYNC_PARALLEL", "8")
+	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	cfg, _, _, err := b.Build(fs, []string{"--config", cfgFile, "--parallel", "16"})
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	if cfg.Parallel != 16 {
+		t.Fatalf("Parallel=%d want %d", cfg.Parallel, 16)
+	}
+}
+
+func TestParallelEnvOverridesYAML(t *testing.T) {
 	if err := os.WriteFile(cfgFile, []byte("compress_threshold: 0.5\n"), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
@@ -179,6 +193,10 @@ func TestCompressThresholdEnvOverridesYAML(t *testing.T) {
 	b := NewBuilder(defaults)
 	dir := t.TempDir()
 	cfgFile := filepath.Join(dir, "cfg.yaml")
+	if err := os.WriteFile(cfgFile, []byte("parallel: 4\n"), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	t.Setenv("LVMSYNC_PARALLEL", "8")
 	if err := os.WriteFile(cfgFile, []byte("compress_threshold: 0.5\n"), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
@@ -188,6 +206,8 @@ func TestCompressThresholdEnvOverridesYAML(t *testing.T) {
 	if err != nil {
 		t.Fatalf("build: %v", err)
 	}
+	if cfg.Parallel != 8 {
+		t.Fatalf("Parallel=%d want %d", cfg.Parallel, 8)
 	if cfg.CompressThreshold != 0.6 {
 		t.Fatalf("CompressThreshold=%v want %v", cfg.CompressThreshold, 0.6)
 	}

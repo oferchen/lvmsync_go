@@ -2,6 +2,7 @@ package lvmsync
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 
 	"lvmsync_go/internal/config"
@@ -83,6 +84,36 @@ func TestRunCommandDryRunEnv(t *testing.T) {
 	}
 	if called {
 		t.Fatalf("runCommand should not be called when dry-run env set")
+	}
+}
+
+func TestRunCommandDryRunFlagOverridesEnvAndYAML(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	src := t.TempDir() + "/src"
+	if err := os.WriteFile(src, []byte("data"), 0o600); err != nil {
+		t.Fatalf("write src: %v", err)
+	}
+	dir := t.TempDir()
+	cfgFile := filepath.Join(dir, "cfg.yaml")
+	if err := os.WriteFile(cfgFile, []byte("dry_run: true\n"), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	t.Setenv("LVMSYNC_DRY_RUN", "true")
+	called := false
+	var gotOpts RunOptions
+	r := NewRunnerWithDeps(func(src, dst string, opts RunOptions, logger *zap.Logger) error {
+		called = true
+		gotOpts = opts
+		return nil
+	}, nil, nil)
+	if err := ExecuteWithRunner([]string{"--config", cfgFile, "run", "--dry-run=false", src, "dst"}, zap.NewNop(), r); err != nil {
+		t.Fatalf("execute run: %v", err)
+	}
+	if !called {
+		t.Fatalf("runCommand should be called when flag overrides env and config")
+	}
+	if gotOpts.DryRun {
+		t.Fatalf("expected dry-run false")
 	}
 }
 
