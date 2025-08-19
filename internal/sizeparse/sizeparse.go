@@ -26,18 +26,25 @@ func Parse(input string) (uint64, bool, error) {
 		if _, ok := r.SetString(num); !ok || !r.IsInt() {
 			return 0, true, fmt.Errorf("invalid percentage value %q", input)
 		}
+
+		if f < 0 {
+			return 0, true, fmt.Errorf("negative percentage value %q", input)
+		}
+		return f, true, nil
+
 		i := r.Num()
 		if i.Sign() < 0 || i.Cmp(maxUint64) > 0 {
 			return 0, true, fmt.Errorf("percentage value %q overflows uint64", input)
 		}
 		return i.Uint64(), true, nil
+
 	}
 
 	s = strings.ReplaceAll(s, " ", "")
 	idx := 0
 	for ; idx < len(s); idx++ {
 		r := rune(s[idx])
-		if !unicode.IsDigit(r) && r != '.' {
+		if !unicode.IsDigit(r) && r != '.' && !(idx == 0 && r == '-') {
 			break
 		}
 	}
@@ -48,6 +55,10 @@ func Parse(input string) (uint64, bool, error) {
 	if _, ok := r.SetString(numStr); !ok {
 		return 0, false, fmt.Errorf("invalid size %q", input)
 	}
+	if f < 0 {
+		return 0, false, fmt.Errorf("negative size %q", input)
+	}
+
 
 	mult := new(big.Rat)
 	switch unit {
