@@ -1,8 +1,8 @@
-# OVERHEAD: GoReleaser config aligned to Alpine multi-stage Dockerfile.
+# OVERHEAD: GoReleaser config aligned to distroless runtime image.
 # - Single-source name via anchor (&name) reused for build id, binary, and Docker ids.
-# - Docker images are built FROM source inside Dockerfile (no prebuilt ids), so they work on Alpine (musl).
-# - Docker pushes remain conditional on SKIP_DOCKER_PUSH.
-# - Multi-arch images + manifests; GoReleaser passes BIN/BUILD_PATH build args.
+# - Docker images are built FROM source inside Dockerfile (no prebuilt ids), using
+#   distroless for runtime.
+# - Docker pushes remain conditional and only happen on tag releases.
 
 project_name: &name lvmsync
 
@@ -34,21 +34,28 @@ sboms:
     artifacts: archive
 
 dockers:
+  # Build multi-arch image from distroless Dockerfile
+  - id: bpm
+    use: buildx
+    dockerfile: Dockerfile.distroless
+    platforms: ["linux/amd64", "linux/arm64"]
+
   # Build per-arch distroless images
   - id: lvmsync-amd64
     use: buildx
     dockerfile: Dockerfile.distroless
     platforms: ["linux/amd64"]
     image_templates:
-      - docker.io/oferchen/{{ .ProjectName }}:{{ .Tag }}-amd64
-      - ghcr.io/oferchen/{{ .ProjectName }}:{{ .Tag }}-amd64
-    skip_push: '{{ eq (env "SKIP_DOCKER_PUSH") "true" }}'
+      - docker.io/oferchen/{{ .ProjectName }}:{{ .Tag }}
+      - ghcr.io/oferchen/{{ .ProjectName }}:{{ .Tag }}
+    skip_push: '{{ or .IsSnapshot (eq (env "SKIP_DOCKER_PUSH") "true") }}'
     build_flag_templates:
       - "--pull"
       - "--label=org.opencontainers.image.title={{ .ProjectName }}"
       - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
       - "--label=org.opencontainers.image.version={{ .Version }}"
       - "--build-arg=BIN={{ .ProjectName }}"
+      - "--build-arg=GIT_SHA={{ .FullCommit }}"
       - "--build-arg=BUILD_PATH=."
 
   - id: lvmsync-arm64

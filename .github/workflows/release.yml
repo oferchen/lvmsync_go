@@ -101,7 +101,6 @@ jobs:
           ls dist/*checksums.txt
           ls dist/*.sbom.json
 
-
       - name: Attach checksums and SBOM to release
         uses: softprops/action-gh-release@v1
         with:
