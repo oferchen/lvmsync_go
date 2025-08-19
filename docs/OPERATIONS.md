@@ -1,6 +1,7 @@
 # Operations
 
 This guide covers snapshot lifecycle management, resume options, verification modes, and expected exit codes for recovery.
+See [danger_rollback.md](danger_rollback.md) for snapshot cleanup, resume, and verify-only rollback procedures.
 
 ## STDOUT mode confirmation
 
