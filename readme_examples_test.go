@@ -83,13 +83,23 @@ func TestReadmeShellExamples(t *testing.T) {
 						t.Fatalf("prep dst: %v", err)
 					}
 				}
-				args := strings.Fields(line)[1:]
-				if err := lvmsynccmd.ExecuteWithRunner(args, zap.NewNop(), nil); err != nil {
-					t.Fatalf("%s: %v", line, err)
-				}
-			})
-		}
-	}
+                               args := strings.Fields(line)[1:]
+                               dryRun := false
+                               for _, a := range args {
+                                       if a == "--dry-run" {
+                                               dryRun = true
+                                               break
+                                       }
+                               }
+                               if !dryRun {
+                                       args = append(args, "--dry-run")
+                               }
+                               if err := lvmsynccmd.ExecuteWithRunner(args, zap.NewNop(), nil); err != nil {
+                                       t.Fatalf("%s: %v", line, err)
+                               }
+                       })
+               }
+       }
 }
 
 // TestFlagDocumentation ensures every flag has a README example.

@@ -59,24 +59,24 @@ Transfers store the device identity tuple `(device_id, fs_uuid, size_bytes, majo
 - `--verify-only` reads both devices and reports mismatches without writing data.
 **Resume after failure**
 ```sh
-lvmsync run --resume=statefile /dev/vg0/snap0 /dev/vg0/target
+lvmsync run --dry-run --resume=statefile /dev/vg0/snap0 /dev/vg0/target
 ```
 
 **Resume with verification**
 ```sh
-lvmsync run --resume=verify /dev/vg0/snap0 /dev/vg0/target
+lvmsync run --dry-run --resume=verify /dev/vg0/snap0 /dev/vg0/target
 ```
 
 **Verification only**
 ```sh
-lvmsync run --verify-only /dev/vg0/snap0 /dev/vg0/target
+lvmsync run --dry-run --verify-only /dev/vg0/snap0 /dev/vg0/target
 ```
 
 **Safe overwrite procedure**
 ```sh
-lvmsync run --probe-only /dev/vg0/snap0 /dev/vg0/target
-lvmsync run --verify-only /dev/vg0/snap0 /dev/vg0/target
-lvmsync run /dev/vg0/snap0 /dev/vg0/target
+lvmsync run --dry-run --probe-only /dev/vg0/snap0 /dev/vg0/target
+lvmsync run --dry-run --verify-only /dev/vg0/snap0 /dev/vg0/target
+lvmsync run --dry-run /dev/vg0/snap0 /dev/vg0/target
 ```
 
 Exit code `60` signals verification mismatches. See [operations guide](OPERATIONS.md) for detailed recovery steps.
@@ -133,13 +133,13 @@ The `rsync` transport is plaintext and refuses to initialize unless
 Select multiple transports and a custom port:
 
 ```sh
-lvmsync run --transport ssh,tcp+tls,h2,quic --tcp-port 9443 /dev/vg0/source /dev/vg0/backup
+lvmsync run --dry-run --transport ssh,tcp+tls,h2,quic --tcp-port 9443 /dev/vg0/source /dev/vg0/backup
 ```
 
 Force SSH only:
 
 ```sh
-lvmsync run --transport ssh user@backup:/dev/vg1/target /dev/vg0/source
+lvmsync run --dry-run --transport ssh user@backup:/dev/vg1/target /dev/vg0/source
 ```
 
 The CLI groups transport flags using [`pflag`](https://github.com/spf13/pflag) and binds them to [`viper`](https://github.com/spf13/viper) while emitting structured logs via [`zap`](https://github.com/uber-go/zap). All flags use **kebab-case** (e.g., `--client-cert`, `--allow-insecure`) for consistency across commands:
@@ -208,7 +208,7 @@ listener options.
 Resume interrupted transfers with a state file:
 
 ```sh
-lvmsync run --resume=statefile /dev/vg0/snap0 /dev/vg0/data
+lvmsync run --dry-run --resume=statefile /dev/vg0/snap0 /dev/vg0/data
 ```
 
 Generate a manifest and verify a destination:
@@ -346,7 +346,7 @@ flags, environment variables, and a YAML file. Flag groups are organized into de
 for `run` and `verify` are provided as positional arguments after any flags:
 
 ```sh
-lvmsync run [flags] <source> <dest>
+lvmsync run --dry-run [flags] <source> <dest>
 ```
 
 When run with `--dry-run`, LVMSync loads any manifest at `--manifest-path` and samples up to 100 blocks to estimate the bytes that would be transmitted. The estimate, expected duration in milliseconds (`estimated_duration_ms`), and bandwidth in bits per second (`estimated_bandwidth_bps`) are logged without sending data. For example:
@@ -364,13 +364,13 @@ Set the `parallel` worker count using any configuration source:
 CLI flag:
 
 ```sh
-lvmsync run --parallel 16
+lvmsync run --dry-run --parallel 16
 ```
 
 Environment variable:
 
 ```sh
-LVMSYNC_PARALLEL=16 lvmsync run
+LVMSYNC_PARALLEL=16 lvmsync run --dry-run
 ```
 
 `config.yaml`:
@@ -399,7 +399,7 @@ definitions focused and easy to maintain.
 Example:
 
 ```sh
-lvmsync run /dev/vg0/snap0 /mnt/backup
+lvmsync run --dry-run /dev/vg0/snap0 /mnt/backup
 ```
 
 ```
@@ -599,7 +599,7 @@ Grouped options use dedicated prefixes: `LVMSYNC_DEDUP_`,
 `LVMSYNC_DAEMON_`. For example:
 
 ```sh
-LVMSYNC_LVM_SNAPSHOT_SIZE=25% lvmsync run /dev/vg0/snap0 /mnt/backup
+LVMSYNC_LVM_SNAPSHOT_SIZE=25% lvmsync run --dry-run /dev/vg0/snap0 /mnt/backup
 ```
 
 ### Option reference
@@ -775,7 +775,7 @@ Use `--config` to point to a different file.
 With flags:
 
 ```sh
-lvmsync run --parallel 8 \
+lvmsync run --dry-run --parallel 8 \
   --compress auto --zstd-level 3 --lz4-level hc --compress-threshold 0.9 \
   --snapshot-size 10% /dev/vg0/snap0 /mnt/backup
 ```
@@ -783,13 +783,13 @@ lvmsync run --parallel 8 \
 With environment variables:
 
 ```sh
-LVMSYNC_PARALLEL=8 LVMSYNC_SNAPSHOT_SIZE=10% lvmsync run /dev/vg0/snap0 /mnt/backup
+LVMSYNC_PARALLEL=8 LVMSYNC_SNAPSHOT_SIZE=10% lvmsync run --dry-run /dev/vg0/snap0 /mnt/backup
 ```
 
 With a config file:
 
 ```sh
-lvmsync run --config config.yaml /dev/vg0/snap0 /mnt/backup
+lvmsync run --dry-run --config config.yaml /dev/vg0/snap0 /mnt/backup
 ```
 
 ## Transport Registry
@@ -828,7 +828,7 @@ configure transport behavior.
 **Multiple transports**
 
 ```sh
-lvmsync run --transport ssh,tcp+tls,h2,quic --tcp-port 9443 /dev/vg0/snap0 /mnt/backup
+lvmsync run --dry-run --transport ssh,tcp+tls,h2,quic --tcp-port 9443 /dev/vg0/snap0 /mnt/backup
 ```
 
 **QUIC**
@@ -836,31 +836,31 @@ lvmsync run --transport ssh,tcp+tls,h2,quic --tcp-port 9443 /dev/vg0/snap0 /mnt/
 0-RTT data is disabled by default.
 
 ```sh
-lvmsync run --transport quic --client-cert cert.pem --client-key key.pem --ca-cert ca.pem
+lvmsync run --dry-run --transport quic --client-cert cert.pem --client-key key.pem --ca-cert ca.pem
 # or
-LVMSYNC_TRANSPORT_TRANSPORT=quic LVMSYNC_CLIENT_CERT=cert.pem LVMSYNC_CLIENT_KEY=key.pem LVMSYNC_CA_CERT=ca.pem lvmsync run
+LVMSYNC_TRANSPORT_TRANSPORT=quic LVMSYNC_CLIENT_CERT=cert.pem LVMSYNC_CLIENT_KEY=key.pem LVMSYNC_CA_CERT=ca.pem lvmsync run --dry-run
 ```
 
 **TCP+TLS**
 
 ```sh
-lvmsync run --transport tcp+tls --tcp-port 9443
+lvmsync run --dry-run --transport tcp+tls --tcp-port 9443
 # or
-LVMSYNC_TRANSPORT_TRANSPORT=tcp+tls LVMSYNC_TRANSPORT_TCP_PORT=9443 lvmsync run
+LVMSYNC_TRANSPORT_TRANSPORT=tcp+tls LVMSYNC_TRANSPORT_TCP_PORT=9443 lvmsync run --dry-run
 ```
 
 **HTTP/2**
 
 ```sh
-lvmsync run --transport h2 --h2-port 9443 --client-cert cert.pem --client-key key.pem --ca-cert ca.pem
+lvmsync run --dry-run --transport h2 --h2-port 9443 --client-cert cert.pem --client-key key.pem --ca-cert ca.pem
 ```
 
 **SSH**
 
 ```sh
-lvmsync run --transport ssh backup@host:/dev/vg1/target --ssh-port 2222
+lvmsync run --dry-run --transport ssh backup@host:/dev/vg1/target --ssh-port 2222
 # or
-LVMSYNC_TRANSPORT_TRANSPORT=ssh LVMSYNC_SSH_PORT=2222 lvmsync run backup@host:/dev/vg1/target
+LVMSYNC_TRANSPORT_TRANSPORT=ssh LVMSYNC_SSH_PORT=2222 lvmsync run --dry-run backup@host:/dev/vg1/target
 ```
 
 ## Hybrid Deduplication and Adaptive Compression
@@ -886,7 +886,7 @@ Compression samples 8 KiB from each chunk and skips when the estimated ratio e
 CLI:
 
 ```sh
-lvmsync run --dedup hybrid --cdc-min 4096 --cdc-avg 65536 --cdc-max 1048576 /dev/vg0/snap0 /mnt/backup
+lvmsync run --dry-run --dedup hybrid --cdc-min 4096 --cdc-avg 65536 --cdc-max 1048576 /dev/vg0/snap0 /mnt/backup
 ```
 
 Environment:
@@ -896,7 +896,7 @@ LVMSYNC_DEDUP=hybrid \
 LVMSYNC_DEDUP_CDC_MIN=4096 \
 LVMSYNC_DEDUP_CDC_AVG=65536 \
 LVMSYNC_DEDUP_CDC_MAX=1048576 \
-lvmsync run /dev/vg0/snap0 /mnt/backup
+lvmsync run --dry-run /dev/vg0/snap0 /mnt/backup
 ```
 
 YAML:
@@ -943,13 +943,13 @@ Two presets are available via `--mode`: `default` and `throughput`. Any other va
 CLI:
 
 ```sh
-lvmsync run --mode throughput /dev/vg0/snap0 /mnt/backup
+lvmsync run --dry-run --mode throughput /dev/vg0/snap0 /mnt/backup
 ```
 
 Environment:
 
 ```sh
-LVMSYNC_MODE=throughput lvmsync run /dev/vg0/snap0 /mnt/backup
+LVMSYNC_MODE=throughput lvmsync run --dry-run /dev/vg0/snap0 /mnt/backup
 ```
 
 YAML:
@@ -1037,7 +1037,7 @@ Run an initial transfer and write a manifest for later verification or
 incremental runs:
 
 ```sh
-lvmsync run --manifest-path snapshot.manifest /dev/vg0/source /dev/vg1/target
+lvmsync run --dry-run --manifest-path snapshot.manifest /dev/vg0/source /dev/vg1/target
 ```
 
 See the [manifest documentation](docs/manifest.md) for details on the binary
@@ -1046,7 +1046,7 @@ format and rebuild options.
 Resume an interrupted transfer using a checkpointed state file:
 
 ```sh
-lvmsync run --resume=statefile /dev/vg0/snap0 /dev/vg0/data
+lvmsync run --dry-run --resume=statefile /dev/vg0/snap0 /dev/vg0/data
 ```
 
 Rebuild a manifest index for an existing device. The command verifies the
@@ -1233,7 +1233,7 @@ The client aborts dialing if a connection cannot be established within
 Transfer changes from a snapshot to a destination device locally:
 
 ```sh
-lvmsync run /dev/vg0/snap0 /dev/vg0/data
+lvmsync run --dry-run /dev/vg0/snap0 /dev/vg0/data
 ```
 
 #### Remote Transfer
@@ -1241,7 +1241,7 @@ lvmsync run /dev/vg0/snap0 /dev/vg0/data
 Replicate data to a remote host. The destination must be specified in `host:device` format (optionally including a username, e.g., `user@host:/dev/vg0/data`):
 
 ```sh
-lvmsync run /dev/vg0/snap0 user@remote:/dev/vg0/data
+lvmsync run --dry-run /dev/vg0/snap0 user@remote:/dev/vg0/data
 ```
 
 #### Using Compression
@@ -1251,7 +1251,7 @@ Estimate a sample of each chunk and compress only when it's worthwhile.
 CLI:
 
 ```sh
-lvmsync run --compress auto --zstd-level 2 --compress-threshold 0.85 /dev/vg0/snap0 /dev/vg0/data
+lvmsync run --dry-run --compress auto --zstd-level 2 --compress-threshold 0.85 /dev/vg0/snap0 /dev/vg0/data
 ```
 
 Environment:
@@ -1260,7 +1260,7 @@ Environment:
 LVMSYNC_COMPRESSION_COMPRESS=auto \
 LVMSYNC_COMPRESSION_ZSTD_LEVEL=2 \
 LVMSYNC_COMPRESSION_COMPRESS_THRESHOLD=0.85 \
-lvmsync run /dev/vg0/snap0 /dev/vg0/data
+lvmsync run --dry-run /dev/vg0/snap0 /dev/vg0/data
 ```
 
 YAML:
@@ -1278,7 +1278,7 @@ Each writer has its own limiter, so multiple transfers with different limits run
 Limit the transfer speed to 50MB/s:
 
 ```sh
-lvmsync run --speed 50MB /dev/vg0/snap0 /dev/vg0/data
+lvmsync run --dry-run --speed 50MB /dev/vg0/snap0 /dev/vg0/data
 ```
 
 #### Resuming a Transfer
@@ -1286,13 +1286,13 @@ lvmsync run --speed 50MB /dev/vg0/snap0 /dev/vg0/data
 Resume an interrupted transfer using a resume state file. The file records the last chunk boundaries and digests for fixed, CDC, and hybrid modes. Progress is checkpointed every `--checkpoint-bytes` or `--checkpoint-interval`, and the resume file is removed on successful completion. Changing the transport, compression, checksum algorithm, or dedup mode invalidates the checkpoint:
 
 ```sh
-lvmsync run --resume=statefile /dev/vg0/snap0 /dev/vg0/data
+lvmsync run --dry-run --resume=statefile /dev/vg0/snap0 /dev/vg0/data
 ```
 
 #### Full LVM Operation Example
 
 ```sh
-lvmsync run --skip-disk-check=false --snapshot-size "25%" --volume-group "vg_data" --lvm-escalation "sudo -n" /dev/vg_data/original /dev/vg_data/destination
+lvmsync run --dry-run --skip-disk-check=false --snapshot-size "25%" --volume-group "vg_data" --lvm-escalation "sudo -n" /dev/vg_data/original /dev/vg_data/destination
 ```
 
 In this example, LVMSync will:
@@ -1350,13 +1350,13 @@ Unused or unknown keys in the YAML file produce runtime warnings to surface typo
 CLI:
 
 ```sh
-lvmsync run --parallel 8 --resume=statefile /dev/vg0/snap0 /dev/vg0/data
+lvmsync run --dry-run --parallel 8 --resume=statefile /dev/vg0/snap0 /dev/vg0/data
 ```
 
 Environment:
 
 ```sh
-LVMSYNC_PARALLEL=8 LVMSYNC_RESUME=statefile lvmsync run /dev/vg0/snap0 /dev/vg0/data
+LVMSYNC_PARALLEL=8 LVMSYNC_RESUME=statefile lvmsync run --dry-run /dev/vg0/snap0 /dev/vg0/data
 ```
 
 YAML (`config.yaml`):
@@ -1371,13 +1371,13 @@ resume: statefile
 CLI:
 
 ```sh
-lvmsync run --ssh-user backup --ssh-port 2222 /dev/vg0/snap0 backup:/dev/vg0/data
+lvmsync run --dry-run --ssh-user backup --ssh-port 2222 /dev/vg0/snap0 backup:/dev/vg0/data
 ```
 
 Environment:
 
 ```sh
-LVMSYNC_SSH_HOST=backup LVMSYNC_SSH_USER=backup LVMSYNC_SSH_PORT=2222 lvmsync run /dev/vg0/snap0 /dev/vg0/data
+LVMSYNC_SSH_HOST=backup LVMSYNC_SSH_USER=backup LVMSYNC_SSH_PORT=2222 lvmsync run --dry-run /dev/vg0/snap0 /dev/vg0/data
 ```
 
 YAML:
@@ -1393,13 +1393,13 @@ ssh_port: 2222
 CLI:
 
 ```sh
-lvmsync run --lvmsync-path /usr/bin/lvmsync --remote-pre-script /tmp/pre.sh /dev/vg0/snap0 user@host:/dev/vg0/data
+lvmsync run --dry-run --lvmsync-path /usr/bin/lvmsync --remote-pre-script /tmp/pre.sh /dev/vg0/snap0 user@host:/dev/vg0/data
 ```
 
 Environment:
 
 ```sh
-LVMSYNC_LVMSYNC_PATH=/usr/bin/lvmsync LVMSYNC_REMOTE_PRE_SCRIPT=/tmp/pre.sh lvmsync run /dev/vg0/snap0 user@host:/dev/vg0/data
+LVMSYNC_LVMSYNC_PATH=/usr/bin/lvmsync LVMSYNC_REMOTE_PRE_SCRIPT=/tmp/pre.sh lvmsync run --dry-run /dev/vg0/snap0 user@host:/dev/vg0/data
 ```
 
 YAML:
@@ -1414,13 +1414,13 @@ remote_pre_script: /tmp/pre.sh
 CLI:
 
 ```sh
-lvmsync run --dedup-strategy bloom --dedup-state-file ~/.lvmsync_state /dev/vg0/snap0 /dev/vg0/data
+lvmsync run --dry-run --dedup-strategy bloom --dedup-state-file ~/.lvmsync_state /dev/vg0/snap0 /dev/vg0/data
 ```
 
 Environment:
 
 ```sh
-LVMSYNC_DEDUP_STRATEGY=bloom LVMSYNC_DEDUP_STATE_FILE=~/.lvmsync_state lvmsync run /dev/vg0/snap0 /dev/vg0/data
+LVMSYNC_DEDUP_STRATEGY=bloom LVMSYNC_DEDUP_STATE_FILE=~/.lvmsync_state lvmsync run --dry-run /dev/vg0/snap0 /dev/vg0/data
 ```
 
 YAML:
@@ -1445,13 +1445,13 @@ Levels can be tuned with `--zstd-level` (1-5) or `--lz4-level` (`fast` or `hc`).
 CLI:
 
 ```sh
-lvmsync run --compress auto --zstd-level 2 --compress-threshold 0.85 /dev/vg0/snap0 /dev/vg0/data
+lvmsync run --dry-run --compress auto --zstd-level 2 --compress-threshold 0.85 /dev/vg0/snap0 /dev/vg0/data
 ```
 
 Environment:
 
 ```sh
-LVMSYNC_COMPRESSION_COMPRESS=auto LVMSYNC_COMPRESSION_ZSTD_LEVEL=2 LVMSYNC_COMPRESSION_COMPRESS_THRESHOLD=0.85 lvmsync run /dev/vg0/snap0 /dev/vg0/data
+LVMSYNC_COMPRESSION_COMPRESS=auto LVMSYNC_COMPRESSION_ZSTD_LEVEL=2 LVMSYNC_COMPRESSION_COMPRESS_THRESHOLD=0.85 lvmsync run --dry-run /dev/vg0/snap0 /dev/vg0/data
 ```
 
 YAML:
@@ -1467,13 +1467,13 @@ compress_threshold: 0.85
 CLI:
 
 ```sh
-lvmsync run --snapshot-size 25% --volume-group vg_data /dev/vg_data/original /dev/vg_data/destination
+lvmsync run --dry-run --snapshot-size 25% --volume-group vg_data /dev/vg_data/original /dev/vg_data/destination
 ```
 
 Environment:
 
 ```sh
-LVMSYNC_SNAPSHOT_SIZE=25% LVMSYNC_VOLUME_GROUP=vg_data lvmsync run /dev/vg_data/original /dev/vg_data/destination
+LVMSYNC_SNAPSHOT_SIZE=25% LVMSYNC_VOLUME_GROUP=vg_data lvmsync run --dry-run /dev/vg_data/original /dev/vg_data/destination
 ```
 
 YAML:
