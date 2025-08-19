@@ -91,7 +91,45 @@ lvmsync run /dev/vg0/missing /dev/vg0/target || echo "precondition failed with e
 - Confirm the destination is not mounted read-write. Use `--force` only when intentionally overwriting.
 - Rerun with `--resume` after resolving issues to avoid re-copying completed blocks.
 - Review logs for detailed errors and ensure all configuration values follow the expected flag > environment variable > config file precedence.
- 
+
+### Snapshot Overflow
+
+Snapshot volumes fill when copy-on-write blocks exceed the allocated snapshot size.
+LVMSync exits with [`exitcode.ErrDevice`](internal/exitcode/exitcode.go) (`20`).
+Grow the snapshot or create a larger one, then rerun with the same `--resume` state:
+
+```sh
+lvmsync run /dev/vg0/snap_full /dev/vg0/dst || echo "snapshot overflow exit $?"
+# snapshot overflow exit 20
+```
+
+### Verify Failure
+
+Verification mismatches stop the transfer with
+[`exitcode.ErrVerify`](internal/exitcode/exitcode.go) (`60`). Inspect the logs to
+identify mismatched blocks before retrying:
+
+```sh
+lvmsync run --verify-only /dev/vg0/snap0 /dev/vg0/target || echo "verify exit $?"
+# verify exit 60
+```
+
+### Resume After Interruption
+
+Unexpected interruptions (signals, network loss) exit with
+[`exitcode.ErrResumable`](internal/exitcode/exitcode.go) (`90`). Fix the underlying
+issue and resume the transfer:
+
+```sh
+lvmsync run --resume state /dev/vg0/snap0 /dev/vg0/target
+```
+
+### Identity Tuple Mismatch
+
+If the source or destination no longer matches the resume state, LVMSync exits with
+[`exitcode.ErrPrecondition`](internal/exitcode/exitcode.go) (`80`). Recreate the
+destination or regenerate the resume state before restarting.
+
 ## Failure Drills
 
 Practice recovery steps regularly so operators are prepared for common failure

@@ -29,6 +29,7 @@ For snapshot cleanup, resuming transfers, and verify-only rollback procedures, s
 - **Crash-Safe WAL**: Records committed ranges in a write-ahead log so interrupted runs can recover. See [WAL documentation](docs/wal.md) for layout and replay details.
 - **Probe and Verification Modes**: `--probe-only` validates devices and privileges without writing, while `--verify-only` scans both sides and reports mismatches.
 - **Dry-run Estimates**: `--dry-run` samples the manifest to project bytes and ETA without transferring data.
+- **Planning**: `--plan` prints resolved configuration, transport order, estimated bytes, and compression decisions as JSON without transferring data.
 - **Device Identity Tuple**: Each run records `(device_id, fs_uuid, size_bytes, major:minor)` to prevent writing to the wrong destination.
 - **Handshake Timeouts**: Transport connections apply context deadlines during handshakes and clear them once negotiation succeeds.
 - **Sparse Destination Optimization**: Detects runs of zero bytes and punches holes when the filesystem supports it, logging a warning once and disabling hole punching when unsupported.
@@ -350,6 +351,8 @@ When run with `--dry-run`, LVMSync loads any manifest at `--manifest-path` and s
 ```json
 {"level":"info","msg":"dry run","size_bytes":4096,"estimated_tx_bytes":4096,"estimated_duration_ms":2000,"estimated_bandwidth_bps":16000}
 ```
+
+Running with `--plan` emits a JSON document describing the resolved configuration, transport order, estimated transfer bytes, and the compression algorithm selected for each chunk size class.
 
 ### Examples
 
@@ -681,6 +684,7 @@ Flags override environment variables, which override `config.yaml` values.
 | `--force` | `LVMSYNC_FORCE` | `force` | Override safety checks and proceed on mounted destination |
 | `--discard` | `LVMSYNC_DISCARD` | `discard` | Issue BLKDISCARD before writing blocks |
 | `--dry-run` | `LVMSYNC_DRY_RUN` | `dry_run` | Log estimated transfer bytes without sending data; uses manifest sampling when available |
+| `--plan` | `LVMSYNC_PLAN` | `plan` | Print configuration plan as JSON and exit |
 | `--verify-only` | `LVMSYNC_VERIFY_ONLY` | `verify_only` | Read source and destination and report mismatches without writing data |
 | `--probe-only` | `LVMSYNC_PROBE_ONLY` | `probe_only` | Validate devices and privileges and log estimates without transferring data |
 | `--transport` | `LVMSYNC_TRANSPORT_TRANSPORT` | `transport` | Ordered transports to try (e.g., `ssh,tcp+tls,h2,quic`) |
@@ -1092,6 +1096,7 @@ Flags are parsed via Viper, so the same settings can be provided through
 | `--block-size`      | Block size for data transfer (e.g., `"4K"`, `"64K"`, `"512K"`, `"1M"`), use `0` for automatic detection | `"4K"`    |
 | `--delta`          | Delta algorithm (`none` or `rsync`) | `"none"` |
 | `--dry-run`         | Print actions without executing | `false`   |
+| `--plan`            | Print configuration plan as JSON and exit | `false`   |
 | `--discard`         | Issue BLKDISCARD before writing blocks | `false`   |
 | `--offline`         | Assume source raw device is offline | `false`   |
 | `--fs-freeze-command` | Command to freeze filesystem before reading raw source; path must be absolute and arguments use shell-style quoting | `""` |

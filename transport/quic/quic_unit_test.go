@@ -6,6 +6,7 @@ import (
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"math/big"
 	"net"
@@ -79,6 +80,23 @@ func TestNewDisables0RTT(t *testing.T) {
 	}
 }
 
+func TestNewSetsALPN(t *testing.T) {
+	trIface, err := New(transport.Config{Logger: zap.NewNop(), AllowInsecure: true})
+	if err != nil {
+		t.Fatalf("new transport: %v", err)
+	}
+	tr := trIface.(*Transport)
+	if alpn != "lvmsync" {
+		t.Fatalf("unexpected alpn %q", alpn)
+	}
+	if len(tr.clientTLS.NextProtos) != 1 || tr.clientTLS.NextProtos[0] != alpn {
+		t.Fatalf("unexpected client ALPN %v", tr.clientTLS.NextProtos)
+	}
+	if len(tr.serverTLS.NextProtos) != 1 || tr.serverTLS.NextProtos[0] != alpn {
+		t.Fatalf("unexpected server ALPN %v", tr.serverTLS.NextProtos)
+	}
+}
+
 func TestDialListenHandshake(t *testing.T) {
 	cert, roots := generateSelfSignedCert(t)
 	trIface, err := New(transport.Config{Logger: zap.NewNop(), Roots: roots, ClientCert: cert, ServerCert: cert})
@@ -114,8 +132,12 @@ func TestDialListenHandshake(t *testing.T) {
 		t.Fatalf("dial: %v", err)
 	}
 	defer conn.Close()
-	if _, err := tr.Negotiate(ctx, conn, transport.Client, hs); err != nil {
+	peer, err := tr.Negotiate(ctx, conn, transport.Client, hs)
+	if err != nil {
 		t.Fatalf("client negotiate: %v", err)
+	}
+	if peer.ALPN != alpn || peer.TLSVersion != "1.3" {
+		t.Fatalf("unexpected ALPN/TLS version %q/%q", peer.ALPN, peer.TLSVersion)
 	}
 	conn.Write([]byte{0})
 	if err := <-srvErr; err != nil {
@@ -258,6 +280,11 @@ func TestRejects0RTT(t *testing.T) {
 	}
 	if err := str.Close(); err != nil {
 		t.Fatalf("close stream: %v", err)
+	}
+	ctx3, cancel3 := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel3()
+	if _, err := cliConn.AcceptUniStream(ctx3); !errors.Is(err, quic.Err0RTTRejected) {
+		t.Fatalf("expected 0-RTT rejected, got %v", err)
 	}
 	if cliConn.ConnectionState().Used0RTT {
 		t.Fatalf("client used 0-RTT")
