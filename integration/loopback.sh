@@ -57,16 +57,21 @@ pvcreate -ffy "$DST_LOOP"
 vgcreate vgd "$DST_LOOP"
 lvcreate -n dest -L 32M vgd
 
-# Mid-transfer crash and resume
+# Mid-transfer interruptions and resume with simulated network flaps
 STATE="$TMPDIR/state.json"
-"$BIN" run --resume="$STATE" /dev/vgsrc/snap /dev/vgd/dest &
-PID=$!
-sleep 1
-kill -9 $PID || true
-if [ ! -f "$STATE" ]; then
-  echo "resume state missing"
-  exit 1
-fi
+for delay in 1 2 3; do
+  "$BIN" run --speed=1M --resume="$STATE" /dev/vgsrc/snap /dev/vgd/dest &
+  PID=$!
+  sleep "$delay"
+  # Simulate an SSH session drop
+  kill -HUP $PID || true
+  sleep 1
+  kill -9 $PID 2>/dev/null || true
+  if [ ! -f "$STATE" ]; then
+    echo "resume state missing"
+    exit 1
+  fi
+done
 "$BIN" run --resume="$STATE" /dev/vgsrc/snap /dev/vgd/dest
 "$BIN" verify /dev/vgsrc/snap /dev/vgd/dest
 

@@ -35,5 +35,5 @@ jobs:
           apt-get update
           apt-get install -y lvm2
 
-      - name: Run loopback integration test
-        run: bash integration/loopback.sh
+      - name: Run enhanced loopback integration test
+        run: timeout 5m bash integration/loopback.sh
