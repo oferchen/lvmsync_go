@@ -16,7 +16,6 @@ import (
 	"golang.org/x/sys/unix"
 	"golang.org/x/term"
 
-	"lvmsync_go/escalate"
 	"lvmsync_go/internal/privilege"
 	"lvmsync_go/remote"
 )
@@ -83,12 +82,8 @@ func prepareFreeze(
 }
 
 // openDevice ensures the path is a block device and opens it for reading and writing.
-func openDevice(path string, logger *zap.Logger) (*os.File, error) {
-	if reexeced, err := escalate.EnsureRootOrReexec(escalate.Options{}, logger); err != nil {
-		return nil, err
-	} else if reexeced {
-		return nil, fmt.Errorf("re-exec requested for root")
-	}
+// Callers must ensure the necessary privilege before invoking this function.
+func openDevice(path string) (*os.File, error) {
 	info, err := os.Stat(path)
 	if err != nil {
 		return nil, err
@@ -158,7 +153,7 @@ func OpenRaw(
 			}
 		}()
 	}
-	f, err := openDevice(path, logger)
+	f, err := openDevice(path)
 	if err != nil {
 		return nil, err
 	}
