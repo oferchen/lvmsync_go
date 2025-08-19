@@ -100,31 +100,31 @@ make bench-wan SRC=/dev/vg0/snap0 DEST=user@wan:/dev/vg0/vol0 IFACE=eth0
 Example output from `scripts/bench_lan.sh`:
 
 ```sh
-$ scripts/bench_lan.sh /dev/vg0/snap0 /mnt/backup/vol0
-== quic/none ==
-1120 MB/s 55% cpu
-== quic/lz4 ==
-980 MB/s 70% cpu
-== quic/zstd ==
-750 MB/s 85% cpu
-== h2/none ==
-1080 MB/s 50% cpu
-== h2/lz4 ==
-940 MB/s 66% cpu
-== h2/zstd ==
-720 MB/s 82% cpu
-== tcp+tls/none ==
-1060 MB/s 45% cpu
-== tcp+tls/lz4 ==
-900 MB/s 60% cpu
-== tcp+tls/zstd ==
-690 MB/s 77% cpu
-== ssh/none ==
-420 MB/s 40% cpu
-== ssh/lz4 ==
-360 MB/s 58% cpu
-== ssh/zstd ==
-260 MB/s 74% cpu
+scripts/bench_lan.sh /dev/vg0/snap0 /mnt/backup/vol0
+# == quic/none ==
+# 1120 MB/s 55% cpu
+# == quic/lz4 ==
+# 980 MB/s 70% cpu
+# == quic/zstd ==
+# 750 MB/s 85% cpu
+# == h2/none ==
+# 1080 MB/s 50% cpu
+# == h2/lz4 ==
+# 940 MB/s 66% cpu
+# == h2/zstd ==
+# 720 MB/s 82% cpu
+# == tcp+tls/none ==
+# 1060 MB/s 45% cpu
+# == tcp+tls/lz4 ==
+# 900 MB/s 60% cpu
+# == tcp+tls/zstd ==
+# 690 MB/s 77% cpu
+# == ssh/none ==
+# 420 MB/s 40% cpu
+# == ssh/lz4 ==
+# 360 MB/s 58% cpu
+# == ssh/zstd ==
+# 260 MB/s 74% cpu
 ```
 
 ### WAN Throughput and CPU
@@ -147,38 +147,38 @@ $ scripts/bench_lan.sh /dev/vg0/snap0 /mnt/backup/vol0
 Example output from `scripts/bench_wan.sh`:
 
 ```sh
-$ scripts/bench_wan.sh /dev/vg0/snap0 user@wan:/dev/vg0/vol0
-== quic/none ==
-11.5 MB/s 20% cpu
-== quic/lz4 ==
-10.1 MB/s 30% cpu
-== quic/zstd ==
-8.2 MB/s 45% cpu
-== h2/none ==
-10.8 MB/s 18% cpu
-== h2/lz4 ==
-9.5 MB/s 28% cpu
-== h2/zstd ==
-7.7 MB/s 42% cpu
-== tcp+tls/none ==
-10.2 MB/s 15% cpu
-== tcp+tls/lz4 ==
-8.9 MB/s 25% cpu
-== tcp+tls/zstd ==
-7.3 MB/s 40% cpu
-== ssh/none ==
-5.5 MB/s 25% cpu
-== ssh/lz4 ==
-4.8 MB/s 35% cpu
-== ssh/zstd ==
-3.9 MB/s 50% cpu
+scripts/bench_wan.sh /dev/vg0/snap0 user@wan:/dev/vg0/vol0
+# == quic/none ==
+# 11.5 MB/s 20% cpu
+# == quic/lz4 ==
+# 10.1 MB/s 30% cpu
+# == quic/zstd ==
+# 8.2 MB/s 45% cpu
+# == h2/none ==
+# 10.8 MB/s 18% cpu
+# == h2/lz4 ==
+# 9.5 MB/s 28% cpu
+# == h2/zstd ==
+# 7.7 MB/s 42% cpu
+# == tcp+tls/none ==
+# 10.2 MB/s 15% cpu
+# == tcp+tls/lz4 ==
+# 8.9 MB/s 25% cpu
+# == tcp+tls/zstd ==
+# 7.3 MB/s 40% cpu
+# == ssh/none ==
+# 5.5 MB/s 25% cpu
+# == ssh/lz4 ==
+# 4.8 MB/s 35% cpu
+# == ssh/zstd ==
+# 3.9 MB/s 50% cpu
 ```
 
 ## Reproducing
 Benchmark runs are reproducible when the dataset, hardware, and commit hash are recorded.
 
 ```sh
-git clone https://github.com/.../lvmsync_go.git
+git clone https://github.com/oferchen/lvmsync_go.git
 cd lvmsync_go
 go build ./...
 git rev-parse HEAD
