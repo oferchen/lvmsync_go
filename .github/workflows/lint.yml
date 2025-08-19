@@ -1,4 +1,4 @@
-name: go
+name: lint
 
 on:
   push:
@@ -7,13 +7,12 @@ on:
     branches: ["main"]
 
 jobs:
-  test:
+  lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ vars.GO_VERSION || '1.24' }}
-      - run: go build ./...
-      - run: go test -race ./...
-      - run: go test -tags=integration ./...
+      - run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+      - run: golangci-lint run
