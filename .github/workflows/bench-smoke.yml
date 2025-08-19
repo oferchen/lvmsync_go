@@ -1,0 +1,36 @@
+---
+# .github/workflows/bench-smoke.yml
+
+name: Bench Smoke
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+jobs:
+  bench-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Go
+        uses: actions/setup-go@v5.5.0
+        with:
+          go-version: "${{ vars.GO_VERSION || '1.24' }}"
+          cache: true
+
+      - name: Build lvmsync
+        run: go build -o lvmsync
+
+      - name: Run bench smoke
+        env:
+          MIN_MBPS: "${{ vars.BENCH_SMOKE_MIN_MBPS || '50' }}"
+        run: scripts/bench_smoke.sh
