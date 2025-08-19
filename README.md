@@ -877,6 +877,9 @@ The three values must be positive, with `--cdc-min` at least 64 bytes, and satis
 LVMSync aborts when the sizes are non-positive, below the minimum, or unordered.
 
 The Bloom filter de-duplicates previously seen chunks. Size it with `--bloom-entries` and desired false positive rate via `--bloom-fp-rate`. For an mmap-backed index, `--bloom-mbits` controls the bitmap size in megabits.
+The defaults (`--bloom-entries=1000000`, `--bloom-fp-rate=0.01`) consume about
+1.14 MiB and yield ~1% false positives, while `--bloom-mbits=27` allocates
+roughly 16 MiB for ~0.8% false positives.
 
 Compression samples 8 KiB from each chunk and skips when the estimated ratio exceeds `--compress-threshold`. `--compress auto` selects LZ4 for chunks under 256 KiB and Zstd for larger chunks when AVX2 or NEON is available, falling back to LZ4 otherwise.
 
