@@ -32,6 +32,14 @@ lvmsync run --verify-only /dev/vg0/snap0 /dev/vg0/target
 
 Reads both devices and reports mismatches without writing data.
 
+## Skipping Snapshot Creation
+
+`--skip-snapshot-creation` uses the source volume directly without creating a snapshot. To confirm the operator understands the risk, this flag must be combined with `--force`:
+
+```sh
+lvmsync run --skip-snapshot-creation --force /dev/vg0/src /dev/vg0/target
+```
+
 ## Safe Overwrite Procedure
 
 1. Probe devices and ensure privileges are correct:

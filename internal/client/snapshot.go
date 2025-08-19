@@ -143,6 +143,9 @@ func (r *Runner) createSnapshotIfNeeded(ctx context.Context, cfg *config.Config,
 	cleanup := func() {}
 
 	if cfg.SkipSnapshotCreation {
+		if !cfg.Force {
+			return "", nil, nil, fmt.Errorf("skip snapshot creation requires --force")
+		}
 		return snapshotPath, monitorErrCh, cleanup, nil
 	}
 
