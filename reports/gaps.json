@@ -1,1 +1,10 @@
-[]
+[
+  {
+    "type": "bug",
+    "component": "internal/sizeparse",
+    "evidence": "go build ./internal/sizeparse fails to compile",
+    "impact": "size parsing unavailable; blocks builds relying on byte size parsing",
+    "fix": "correct the compiler errors and add tests",
+    "priority": "high"
+  }
+]
