@@ -143,7 +143,11 @@ func MonitorSnapshot(ctx context.Context, snapshotPath string, threshold float64
 			}
 
 			if usage >= threshold {
-				return fmt.Errorf("snapshot usage (%.2f%%) exceeds threshold (%.2f%%)", usage, threshold)
+				logger.Error("snapshot exhausted",
+					zap.String("snapshot", snapshotPath),
+					zap.Float64("usage_percent", usage),
+					zap.Float64("threshold_percent", threshold))
+				return fmt.Errorf("snapshot exhausted: usage %.2f%% >= threshold %.2f%%", usage, threshold)
 			}
 		case <-ctx.Done():
 			logger.Info("snapshot monitoring stopped", zap.String("snapshot", snapshotPath))

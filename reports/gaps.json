@@ -1,5 +1,11 @@
 [
   {
+    "type": "test",
+    "component": "snapshot exhaustion",
+    "evidence": "snapshot pressure handled only via mocks",
+    "impact": "real snapshot exhaustion may behave differently",
+    "fix": "add integration test covering snapshot exhaustion cleanup",
+    "priority": "medium"
     "status": "closed",
     "component": "wal",
     "issue": "missing crash recovery docs and tests",

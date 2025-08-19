@@ -16,6 +16,7 @@ must be supplied to bypass the prompt.
 2. A snapshot of the source logical volume is created unless `--skip-snapshot-creation` is used.
 3. Snapshot usage is monitored while blocks are streamed to the destination.
 4. On completion or interruption, the snapshot is removed.
+5. If snapshot usage exceeds the threshold, the transfer aborts with exit code `25` and the snapshot is cleaned up.
 
 ## Resume and Verification Sequences
 
@@ -61,6 +62,7 @@ The write-ahead log records completed block ranges so interrupted transfers can 
 | `0`  | Success | None |
 | `10` | Privilege or capability check failed | Run as root or adjust `--lvm-escalation`. |
 | `20` | Device error | Verify device paths and snapshot health. |
+| `25` | Snapshot exhausted | Extend the snapshot or reduce source writes before resuming. |
 | `30` | Unsupported platform | Run on a supported Linux platform. |
 | `40` | Configuration error | Review flags, environment variables, and `config.yaml`. |
 | `50` | Runtime failure | Inspect logs and fix the issue. |
