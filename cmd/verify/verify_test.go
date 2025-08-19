@@ -268,8 +268,8 @@ func TestRunOutputsJSON(t *testing.T) {
 	os.Stdout = w
 	errCh := make(chan error, 1)
 	go func() {
-		io.Copy(&buf, pr)
-		close(done)
+		_, err := io.Copy(&buf, pr)
+		errCh <- err
 	}()
 	r := newStubRunner()
 	if err := r.Run([]string{"--output", "json", src, dst}, zap.NewNop()); err != nil {
@@ -301,8 +301,8 @@ func TestRunOutputsYAML(t *testing.T) {
 	os.Stdout = w
 	errCh := make(chan error, 1)
 	go func() {
-		io.Copy(&buf, pr)
-		close(done)
+		_, err := io.Copy(&buf, pr)
+		errCh <- err
 	}()
 	r := newStubRunner()
 	if err := r.Run([]string{"--output", "yaml", src, dst}, zap.NewNop()); err != nil {
