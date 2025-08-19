@@ -202,15 +202,12 @@ func DropToInvokerIfSudo(opts Options, logger *zap.Logger) error {
 // ---- Internal helpers (kept small, pure, and fully tested) ----
 
 func sanitizedChildEnv(environ []string) []string {
-	const safePath = "PATH=/usr/sbin:/usr/bin:/sbin:/bin"
 	whitelist := map[string]bool{
-		"LANG":     true,
 		"LC_ALL":   true,
 		"LC_CTYPE": true,
 		"TERM":     true,
 	}
-	out := make([]string, 0, 1+len(environ))
-	out = append(out, safePath)
+	out := make([]string, 0, len(environ))
 	for _, kv := range environ {
 		if strings.HasPrefix(kv, "LD_") || strings.HasPrefix(kv, "GCONV_PATH=") {
 			continue
