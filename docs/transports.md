@@ -36,7 +36,7 @@ func initTransports() {
     defer logger.Sync()
 
     fs := pflag.NewFlagSet("transport", pflag.ExitOnError)
-    fs.String("transport", "quic,h2,tcp+tls,ssh", "ordered transports")
+    fs.String("transport", "ssh,tcp+tls,h2,quic", "ordered transports")
     fs.Int("tcp-port", 9443, "TCP listener port")
 
     v := viper.New()

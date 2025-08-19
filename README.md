@@ -111,7 +111,7 @@ no additional coordination.
 ## Transport Options
 
 LVMSync negotiates transports in the order provided by `--transport` (default
-`quic,h2,tcp+tls,ssh`). All transports require TLS 1.3 with mutual
+`ssh,tcp+tls,h2,quic`). All transports require TLS 1.3 with mutual
 authentication or SSH host key verification unless `--allow-insecure` is set.
 See [docs/transports.md](docs/transports.md) for details.
 
@@ -127,7 +127,7 @@ See [docs/transports.md](docs/transports.md) for details.
 Select multiple transports and a custom port:
 
 ```sh
-lvmsync run --transport quic,h2,tcp+tls,ssh --tcp-port 9443 /dev/vg0/source /dev/vg0/backup
+lvmsync run --transport ssh,tcp+tls,h2,quic --tcp-port 9443 /dev/vg0/source /dev/vg0/backup
 ```
 
 Force SSH only:
@@ -150,7 +150,7 @@ func main() {
     defer logger.Sync()
 
     transport := pflag.NewFlagSet("transport", pflag.ExitOnError)
-    transport.String("transport", "quic,h2,tcp+tls,ssh", "ordered transports")
+    transport.String("transport", "ssh,tcp+tls,h2,quic", "ordered transports")
     transport.Int("tcp-port", 9443, "TCP listener port")
 
     v := viper.New()
@@ -668,7 +668,7 @@ Flags override environment variables, which override `config.yaml` values.
 | `--dry-run` | `LVMSYNC_DRY_RUN` | `dry_run` | Log estimated transfer bytes without sending data; uses manifest sampling when available |
 | `--verify-only` | `LVMSYNC_VERIFY_ONLY` | `verify_only` | Read source and destination and report mismatches without writing data |
 | `--probe-only` | `LVMSYNC_PROBE_ONLY` | `probe_only` | Validate devices and privileges and log estimates without transferring data |
-| `--transport` | `LVMSYNC_TRANSPORT_TRANSPORT` | `transport` | Ordered transports to try (e.g., `quic,h2,tcp+tls,ssh`) |
+| `--transport` | `LVMSYNC_TRANSPORT_TRANSPORT` | `transport` | Ordered transports to try (e.g., `ssh,tcp+tls,h2,quic`) |
 | `--tcp-port` | `LVMSYNC_TRANSPORT_TCP_PORT` | `tcp_port` | TCP+TLS port |
 | `--tcp-parallel` | `LVMSYNC_TRANSPORT_TCP_PARALLEL` | `tcp_parallel` | Number of parallel TCP connections |
 | `--tcp-lowat` | `LVMSYNC_TRANSPORT_TCP_LOWAT` | `tcp_lowat` | TCP_NOTSENT_LOWAT in bytes |
@@ -767,7 +767,7 @@ lvmsync run --config config.yaml /dev/vg0/snap0 /mnt/backup
 ## Transport Registry
 
 Transport selection is controlled by the `--transport` flag, which accepts a comma-separated ordered list of
-transports to attempt (for example `quic,h2,tcp+tls,ssh`). The `quic` transport runs over TLS 1.3 with mutual
+transports to attempt (for example `ssh,tcp+tls,h2,quic`). The `quic` transport runs over TLS 1.3 with mutual
 authentication, negotiates the `lvmsync` ALPN, and exposes both bidirectional streams and datagrams. The `h2`
 transport also requires TLS 1.3 with client certificates and negotiates the `h2` ALPN. Provide certificates via
 `--server-cert`, `--server-key`, `--client-cert`, `--client-key`, and `--ca-cert`. TLS transports require a trusted CA certificate and refuse
@@ -781,7 +781,7 @@ configure transport behavior.
 
 | Flag | Environment variable | Description | mTLS |
 |------|----------------------|-------------|------||
-| `--transport` | `LVMSYNC_TRANSPORT_TRANSPORT` | Ordered transports to try (e.g., `quic,h2,tcp+tls,ssh`) |
+| `--transport` | `LVMSYNC_TRANSPORT_TRANSPORT` | Ordered transports to try (e.g., `ssh,tcp+tls,h2,quic`) |
 | `--concurrency` | `LVMSYNC_TRANSPORT_CONCURRENCY` | Stream concurrency (0 to autotune based on BDP) |
 | `--tcp-port` | `LVMSYNC_TRANSPORT_TCP_PORT` | TCP+TLS port |
 | `--h2-port` | `LVMSYNC_H2_PORT` | HTTP/2 port |
@@ -800,7 +800,7 @@ configure transport behavior.
 **Multiple transports**
 
 ```sh
-lvmsync run --transport quic,h2,tcp+tls,ssh --tcp-port 9443 /dev/vg0/snap0 /mnt/backup
+lvmsync run --transport ssh,tcp+tls,h2,quic --tcp-port 9443 /dev/vg0/snap0 /mnt/backup
 ```
 
 **QUIC**
@@ -903,7 +903,7 @@ Two presets are available via `--mode`: `default` and `throughput`. Any other va
 
 `--mode throughput` applies a set of options tuned for high-bandwidth links:
 
-- transport order `quic,h2,tcp+tls,ssh`
+- transport order `ssh,tcp+tls,h2,quic`
 - concurrency `8`
 - deduplication mode `hybrid`
 - compression `auto`
@@ -995,7 +995,7 @@ make test    # run tests
 ### Basic Syntax
 
 ```sh
-lvmsync run [--dry-run] [--transport quic,h2,tcp+tls,ssh] <snapshot|lvm device> <destination>
+lvmsync run [--dry-run] [--transport ssh,tcp+tls,h2,quic] <snapshot|lvm device> <destination>
 ```
 
 The tool supports both local and remote transfers. Use `--dry-run` to print planned actions without executing and `--transport` to provide an ordered list of transports to try.
@@ -1083,7 +1083,7 @@ Flags are parsed via Viper, so the same settings can be provided through
 | `--fs-thaw-command`  | Command to thaw filesystem after reading raw source; path must be absolute and arguments use shell-style quoting | `""` |
 | `--freeze-timeout`   | Timeout for filesystem freeze command | `10s` |
 | `--thaw-timeout`     | Timeout for filesystem thaw command | `10s` |
-| `--transport`       | Ordered transports to try (e.g., `quic,h2,tcp+tls,ssh`) | `""`      |
+| `--transport`       | Ordered transports to try (e.g., `ssh,tcp+tls,h2,quic`) | `""`      |
 
 #### SSH Options
 
