@@ -2,7 +2,13 @@
 
 package transfer
 
-import "testing"
+import (
+	"os"
+	"reflect"
+	"testing"
+
+	"golang.org/x/sys/unix"
+)
 
 func TestParseCPUList(t *testing.T) {
 	cases := []struct {
@@ -26,13 +32,82 @@ func TestParseCPUList(t *testing.T) {
 	}
 }
 
-func TestPinCurrentThreadToNode(t *testing.T) {
-	defer func() {
-		if r := recover(); r != nil {
-			t.Fatalf("panic: %v", r)
+type fakeNumaOps struct {
+	files map[string][]byte
+	mask  unix.CPUSet
+}
+
+func (f *fakeNumaOps) ReadFile(p string) ([]byte, error) {
+	if f.files == nil {
+		return nil, os.ErrNotExist
+	}
+	b, ok := f.files[p]
+	if !ok {
+		return nil, os.ErrNotExist
+	}
+	return b, nil
+}
+
+func (f *fakeNumaOps) SchedSetaffinity(_ int, m *unix.CPUSet) error {
+	f.mask = *m
+	return nil
+}
+
+func cpusFromMask(m *unix.CPUSet) []int {
+	var cpus []int
+	for i := 0; i < 64; i++ {
+		if m.IsSet(i) {
+			cpus = append(cpus, i)
 		}
-	}()
+	}
+	return cpus
+}
+
+func TestPinCurrentThreadToNodeMock(t *testing.T) {
+	ops := &fakeNumaOps{files: map[string][]byte{
+		"/sys/devices/system/node/node2/cpulist": []byte("4-5"),
+	}}
+	if err := pinCurrentThreadToNodeWithOps(2, ops); err != nil {
+		t.Fatalf("pin: %v", err)
+	}
+	got := cpusFromMask(&ops.mask)
+	want := []int{4, 5}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("cpuset %v != %v", got, want)
+	}
+}
+
+func TestPinCurrentThreadToDeviceMock(t *testing.T) {
+	tmp, err := os.CreateTemp(t.TempDir(), "dev")
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	ops := &fakeNumaOps{files: map[string][]byte{
+		"/sys/dev/block/0:0/numa_node":           []byte("1"),
+		"/sys/devices/system/node/node1/cpulist": []byte("0-1"),
+	}}
+	if err := pinCurrentThreadToDeviceWithOps(tmp, ops); err != nil {
+		t.Fatalf("pin: %v", err)
+	}
+	got := cpusFromMask(&ops.mask)
+	want := []int{0, 1}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("cpuset %v != %v", got, want)
+	}
+}
+
+func TestPinCurrentThreadToNodeMissing(t *testing.T) {
+	ops := &fakeNumaOps{}
+	if err := pinCurrentThreadToNodeWithOps(3, ops); err == nil {
+		t.Fatalf("expected error")
+	}
+}
+
+func TestPinCurrentThreadToNodeReal(t *testing.T) {
 	if err := pinCurrentThreadToNode(0); err != nil {
+		if os.IsNotExist(err) {
+			t.Skipf("numa unsupported: %v", err)
+		}
 		t.Logf("pin failed: %v", err)
 	}
 }
