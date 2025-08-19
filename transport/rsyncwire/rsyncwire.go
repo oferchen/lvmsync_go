@@ -28,6 +28,9 @@ func New(cfg transport.Config) (transport.Interface, error) {
 	if cfg.Logger == nil {
 		cfg.Logger = zap.NewNop()
 	}
+	if !cfg.AllowInsecure {
+		return nil, fmt.Errorf("rsync transport requires AllowInsecure")
+	}
 	return &Transport{logger: cfg.Logger}, nil
 }
 
