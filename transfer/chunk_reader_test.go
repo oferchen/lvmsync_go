@@ -5,6 +5,12 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
+	"golang.org/x/sys/unix"
+
+	"lvmsync_go/internal/config"
 )
 
 func TestChunkReaderSkipsConfirmed(t *testing.T) {
@@ -72,5 +78,45 @@ func TestPunchHoleError(t *testing.T) {
 	defer f.Close()
 	if err := punchHole(f, 0, 4096); err == nil {
 		t.Fatalf("expected error punching hole on read-only file")
+	}
+}
+
+func TestPunchHoleENOTSUPDisables(t *testing.T) {
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "file")
+	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0o600)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer f.Close()
+
+	orig := punchHoleFunc
+	var calls int
+	punchHoleFunc = func(_ *os.File, _ uint64, _ int) error {
+		calls++
+		return unix.ENOTSUP
+	}
+	punchHoleDisabled.Store(false)
+	defer func() {
+		punchHoleFunc = orig
+		punchHoleDisabled.Store(false)
+	}()
+
+	cfg := &config.Config{BlockSize: 4096}
+	core, obs := observer.New(zap.WarnLevel)
+	logger := zap.New(core)
+
+	if err := writeZeroBlock(cfg, f, 0, logger); err != nil {
+		t.Fatalf("writeZeroBlock: %v", err)
+	}
+	if err := writeZeroBlock(cfg, f, uint64(cfg.BlockSize), logger); err != nil {
+		t.Fatalf("writeZeroBlock: %v", err)
+	}
+
+	if calls != 1 {
+		t.Fatalf("expected punchHoleFunc called once, got %d", calls)
+	}
+	if obs.Len() != 1 {
+		t.Fatalf("expected one warning, got %d", obs.Len())
 	}
 }
