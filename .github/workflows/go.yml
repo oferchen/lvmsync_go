@@ -154,6 +154,9 @@ jobs:
       - name: Docs check
         run: make docs-check
 
+      - name: Verify sudoers commands
+        run: scripts/verify_sudoers.sh
+
       - name: Show coverage
         run: go tool cover -func=coverage.out | tail -n 1
 
