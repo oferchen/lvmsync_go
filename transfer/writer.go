@@ -136,6 +136,7 @@ func processBlock(
 	transmitted, data []byte,
 	chunkSize uint32,
 	logger *zap.Logger,
+	wal *WAL,
 ) (bool, error) {
 	if offset > math.MaxInt64 {
 		return false, fmt.Errorf("offset %d overflows int64", offset)
@@ -147,6 +148,11 @@ func processBlock(
 		return false, err
 	}
 	if chunkSize == 0 || isAllZero(data) {
+		if wal != nil {
+			if err := wal.Append(Range{Start: offset, End: offset + uint64(chunkSize)}); err != nil {
+				return false, err
+			}
+		}
 		if err := writeZeroBlock(cfg, destFile, offset, logger); err != nil {
 			return false, err
 		}
@@ -161,6 +167,11 @@ func processBlock(
 	}
 	if intra != nil && intra.Seen(data) {
 		return false, nil
+	}
+	if wal != nil {
+		if err := wal.Append(Range{Start: offset, End: offset + uint64(chunkSize)}); err != nil {
+			return false, err
+		}
 	}
 	if cfg.Discard {
 		if err := device.DiscardRange(destFile, offset, uint64(chunkSize), logger); err != nil {

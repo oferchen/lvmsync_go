@@ -31,6 +31,11 @@ The following steps create the reproducible 10 GiB dataset used for all tests:
 
 The snapshot `/dev/vg0/snap0` is used as the source and `/dev/vg0/bench_dst` as the destination in the benchmarks below.
 
+## Performance Guidance
+
+- Align O_DIRECT reads and writes to the device's logical and physical block sizes. Misaligned operations fall back to buffered I/O or return errors.
+- Pin worker goroutines to the device's NUMA node (`--numa-pin`) or a specific node (`--numa-node`) to improve locality on multisocket systems.
+
 ## Test Flags
 
 Common options:

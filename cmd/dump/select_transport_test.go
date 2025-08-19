@@ -28,7 +28,7 @@ func TestSelectTransportError(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	defer logger.Sync()
 	_, err := SelectTransport(cfg, logger)
-	if err == nil || !strings.Contains(err.Error(), "no supported") {
+	if err == nil || !strings.Contains(err.Error(), "unsupported transport") {
 		t.Fatalf("expected transport error, got %v", err)
 	}
 }
