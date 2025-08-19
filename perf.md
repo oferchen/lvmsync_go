@@ -227,3 +227,42 @@ Benchmarks were recorded from commit `69a57b8` using an 8 MiB dataset.
 | zstd        | none  | 134.95 |
 | none        | fixed | 134.38 |
 | zstd        | fixed | 137.92 |
+
+## Bloom Filter Lookup QPS
+
+Benchmarks were recorded from commit `c3a2374`.
+
+### Environment
+
+- `uname -srvmo`: `Linux 6.12.13 #1 SMP Thu Mar 13 11:34:50 UTC 2025 x86_64 GNU/Linux`
+- `lscpu | head -n 5`:
+
+  ```
+  Architecture:                         x86_64
+  CPU op-mode(s):                       32-bit, 64-bit
+  Address sizes:                        46 bits physical, 48 bits virtual
+  Byte Order:                           Little Endian
+  CPU(s):                               5
+  ```
+
+### Command
+
+```sh
+go test -bench BloomLookup -run ^$ /tmp/bloom_lookup_test.go -bloom_entries=N -bloom_fp_rate=R
+```
+
+### Default Parameters
+
+- `--bloom-entries`: `1000000`
+- `--bloom-fp-rate`: `0.01`
+- Memory footprint: ~1.14 MiB
+
+### Results
+
+| Entries | FP Rate | Memory (MiB) | Lookup QPS (M/s) |
+|--------:|--------:|-------------:|-----------------:|
+| 1,000,000 | 0.01  | 1.14 | 15.92 |
+| 1,000,000 | 0.001 | 1.71 | 16.45 |
+| 5,000,000 | 0.01  | 5.71 | 16.39 |
+| 5,000,000 | 0.001 | 8.57 | 16.45 |
+
