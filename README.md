@@ -662,6 +662,7 @@ Flags override environment variables, which override `config.yaml` values.
 | `--cdc-min` | `LVMSYNC_DEDUP_CDC_MIN` | `cdc_min` | Minimum chunk size for CDC (must be at least 64 bytes) |
 | `--cdc-avg` | `LVMSYNC_DEDUP_CDC_AVG` | `cdc_avg` | Target average chunk size for CDC |
 | `--cdc-max` | `LVMSYNC_DEDUP_CDC_MAX` | `cdc_max` | Maximum chunk size for CDC |
+| `--chunk-seed` | `LVMSYNC_DEDUP_CHUNK_SEED` | `chunk_seed` | Seed for chunking |
 | `--bloom-entries` | `LVMSYNC_DEDUP_BLOOM_ENTRIES` | `bloom_entries` | Estimated number of entries for bloom filter |
 | `--bloom-fp-rate` | `LVMSYNC_DEDUP_BLOOM_FP_RATE` | `bloom_fp_rate` | False positive rate for bloom filter |
 | `--bloom-mbits` | `LVMSYNC_DEDUP_BLOOM_MBITS` | `bloom_mbits` | Bloom filter m bits power |
@@ -682,6 +683,7 @@ Flags override environment variables, which override `config.yaml` values.
 | `--target-volume-group` | `LVMSYNC_TARGET_VOLUME_GROUP` | `target_volume_group` | Volume group name of the target LVM volume |
 | `--target-vgs` | `LVMSYNC_TARGET_VGS` | `target_vgs` | Candidate target volume groups for auto-selection |
 | `--force` | `LVMSYNC_FORCE` | `force` | Override safety checks and proceed on mounted destination |
+| `--allow-overwrite` | `LVMSYNC_ALLOW_OVERWRITE` | `allow_overwrite` | Skip interactive confirmation when using `--force` |
 | `--discard` | `LVMSYNC_DISCARD` | `discard` | Issue BLKDISCARD before writing blocks |
 | `--dry-run` | `LVMSYNC_DRY_RUN` | `dry_run` | Log estimated transfer bytes without sending data; uses manifest sampling when available |
 | `--plan` | `LVMSYNC_PLAN` | `plan` | Print configuration plan as JSON and exit |
@@ -714,7 +716,10 @@ SSH transport negotiation also derives read and write deadlines from the caller'
   ```
 
 
+- **Rsync delta with dedup and compression**:
+
   ```sh
+  lvmsync run --delta=rsync --dedup-strategy bloom --compress lz4 --transport rsync --dry-run /tmp/src /tmp/dst
   ```
 
 - **Throughput-optimized transfer**:
