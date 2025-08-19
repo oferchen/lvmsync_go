@@ -183,7 +183,18 @@ func (d *RawDevice) SizeBytes() uint64 { return d.size }
 func (d *RawDevice) BlockSize() uint64 { return d.blockSize }
 
 // Identity gathers size, kernel uuid and GPT information for the device.
-func (d *RawDevice) Identity() (DeviceIdentity, error) {
+func (d *RawDevice) Identity(ctx context.Context) (DeviceIdentity, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if _, ok := ctx.Deadline(); !ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, identityTimeout)
+		defer cancel()
+	}
+	if blkidPath == "" {
+		return DeviceIdentity{}, fmt.Errorf("blkid not found")
+	}
 	var st unix.Stat_t
 	if err := unix.Stat(d.Path(), &st); err != nil {
 		return DeviceIdentity{}, err
@@ -193,14 +204,14 @@ func (d *RawDevice) Identity() (DeviceIdentity, error) {
 		Major:     uint32(unix.Major(uint64(st.Rdev))),
 		Minor:     uint32(unix.Minor(uint64(st.Rdev))),
 	}
-	out, err := exec.Command("blkid", "-o", "value", "-s", "UUID", d.Path()).Output()
+	out, err := exec.CommandContext(ctx, blkidPath, "-o", "value", "-s", "UUID", d.Path()).Output()
 	if err != nil {
 		return DeviceIdentity{}, err
 	}
 	uuid := strings.TrimSpace(string(out))
 	id.KernelUUID = uuid
 	id.FSUUID = uuid
-	if out, err = exec.Command("blkid", "-o", "value", "-s", "PTUUID", d.Path()).Output(); err == nil {
+	if out, err = exec.CommandContext(ctx, blkidPath, "-o", "value", "-s", "PTUUID", d.Path()).Output(); err == nil {
 		id.GPTUUID = strings.TrimSpace(string(out))
 	}
 	return id, nil

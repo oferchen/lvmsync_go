@@ -547,7 +547,7 @@ func Rebuild(
 	if err != nil {
 		return err
 	}
-	identity, err := dev.Identity()
+	identity, err := dev.Identity(ctx)
 	if err != nil {
 		return err
 	}

@@ -73,9 +73,11 @@ func (m *rdMockDevice) BlockSize() uint64 { return m.blockSize }
 func (m *rdMockDevice) Snapshot(ctx context.Context, snapshotSize string) (device.Device, error) {
 	return m, nil
 }
-func (m *rdMockDevice) Cleanup(ctx context.Context) error         { return nil }
-func (m *rdMockDevice) Close() error                              { return nil }
-func (m *rdMockDevice) Identity() (device.DeviceIdentity, error)  { return device.DeviceIdentity{}, nil }
+func (m *rdMockDevice) Cleanup(ctx context.Context) error { return nil }
+func (m *rdMockDevice) Close() error                      { return nil }
+func (m *rdMockDevice) Identity(context.Context) (device.DeviceIdentity, error) {
+	return device.DeviceIdentity{}, nil
+}
 func (m *rdMockDevice) AppendWAL(device.Range) error              { return nil }
 func (m *rdMockDevice) RecoverWAL(func(device.Range) error) error { return nil }
 

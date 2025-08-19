@@ -105,7 +105,21 @@ func (d *LVMDevice) SizeBytes() uint64 { return d.size }
 func (d *LVMDevice) BlockSize() uint64 { return d.blockSize }
 
 // Identity gathers size, device numbers and UUID info for the logical volume.
-func (d *LVMDevice) Identity() (DeviceIdentity, error) {
+func (d *LVMDevice) Identity(ctx context.Context) (DeviceIdentity, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if _, ok := ctx.Deadline(); !ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, identityTimeout)
+		defer cancel()
+	}
+	if lvsPath == "" {
+		return DeviceIdentity{}, fmt.Errorf("lvs not found")
+	}
+	if blkidPath == "" {
+		return DeviceIdentity{}, fmt.Errorf("blkid not found")
+	}
 	var st unix.Stat_t
 	if err := unix.Stat(d.Path(), &st); err != nil {
 		return DeviceIdentity{}, err
@@ -115,16 +129,16 @@ func (d *LVMDevice) Identity() (DeviceIdentity, error) {
 		Major:     uint32(unix.Major(uint64(st.Rdev))),
 		Minor:     uint32(unix.Minor(uint64(st.Rdev))),
 	}
-	out, err := exec.Command("lvs", "--noheadings", "-o", "lv_uuid", d.Path()).Output()
+	out, err := exec.CommandContext(ctx, lvsPath, "--noheadings", "-o", "lv_uuid", d.Path()).Output()
 	if err != nil {
 		return DeviceIdentity{}, err
 	}
 	id.KernelUUID = strings.TrimSpace(string(out))
-	if out, err = exec.Command("blkid", "-o", "value", "-s", "UUID", d.Path()).Output(); err != nil {
+	if out, err = exec.CommandContext(ctx, blkidPath, "-o", "value", "-s", "UUID", d.Path()).Output(); err != nil {
 		return DeviceIdentity{}, err
 	}
 	id.FSUUID = strings.TrimSpace(string(out))
-	if out, err = exec.Command("blkid", "-o", "value", "-s", "PTUUID", d.Path()).Output(); err == nil {
+	if out, err = exec.CommandContext(ctx, blkidPath, "-o", "value", "-s", "PTUUID", d.Path()).Output(); err == nil {
 		id.GPTUUID = strings.TrimSpace(string(out))
 	}
 	return id, nil
