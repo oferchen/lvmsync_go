@@ -38,14 +38,14 @@ func TestSanitizedChildEnv(t *testing.T) {
 	}
 	out := sanitizedChildEnv(in)
 	joined := strings.Join(out, "\n")
-	if strings.Contains(joined, "LD_PRELOAD=") {
-		t.Fatalf("LD_* leaked into env: %v", out)
+	if strings.Contains(joined, "LD_PRELOAD=") || strings.Contains(joined, "GCONV_PATH=") {
+		t.Fatalf("disallowed vars leaked: %v", out)
 	}
-	if !strings.Contains(joined, "LANG=C") || !strings.Contains(joined, "TERM=xterm-256color") {
-		t.Fatalf("whitelisted vars missing: %v", out)
+	if strings.Contains(joined, "PATH=") || strings.Contains(joined, "LANG=") {
+		t.Fatalf("PATH/LANG should be stripped: %v", out)
 	}
-	if !strings.HasPrefix(out[0], "PATH=") {
-		t.Fatalf("first entry must be safe PATH, got %q", out[0])
+	if len(out) != 1 || out[0] != "TERM=xterm-256color" {
+		t.Fatalf("unexpected sanitized env: %v", out)
 	}
 }
 
@@ -214,7 +214,7 @@ func TestEnsureRootOrReexec_ReexecHappyPath(t *testing.T) {
 		ExtraArgs:          []string{"--do-privileged"},
 		SanitizeEnv:        true,
 		Environ: func() []string {
-			return []string{"LD_PRELOAD=/x", "LANG=C", "TERM=dumb", "FOO=BAR"}
+			return []string{"LD_PRELOAD=/x", "PATH=/usr/local/bin", "LANG=C", "TERM=dumb", "FOO=BAR"}
 		},
 		ExecRunner: fakeRunner(&got, nil),
 		Stdout:     io.Discard,
@@ -238,8 +238,11 @@ func TestEnsureRootOrReexec_ReexecHappyPath(t *testing.T) {
 		t.Fatalf("allowed flags not forwarded: %v", got.args)
 	}
 	envJoined := strings.Join(got.env, "\n")
-	if strings.Contains(envJoined, "LD_PRELOAD=") || !strings.Contains(envJoined, "LANG=") {
+	if strings.Contains(envJoined, "LD_PRELOAD=") || strings.Contains(envJoined, "PATH=") || strings.Contains(envJoined, "LANG=") {
 		t.Fatalf("env not sanitized: %v", got.env)
+	}
+	if len(got.env) != 1 || got.env[0] != "TERM=dumb" {
+		t.Fatalf("unexpected env: %v", got.env)
 	}
 }
 
@@ -330,6 +333,7 @@ func TestEnsureRootOrReexec_InvokesSudoWithAllowlistedArgs(t *testing.T) {
 func TestEnsureRootOrReexec_SanitizedEnv(t *testing.T) {
 	var got execCall
 	t.Setenv("LD_PRELOAD", "/tmp/x.so")
+	t.Setenv("PATH", "/usr/local/bin")
 	t.Setenv("LANG", "C")
 	t.Setenv("TERM", "dumb")
 	reexeced, err := EnsureRootOrReexec(Options{
@@ -345,14 +349,11 @@ func TestEnsureRootOrReexec_SanitizedEnv(t *testing.T) {
 		t.Fatal("expected sanitized env")
 	}
 	joined := strings.Join(got.env, "\n")
-	if strings.Contains(joined, "LD_PRELOAD=") {
-		t.Fatalf("LD_PRELOAD leaked: %v", got.env)
+	if strings.Contains(joined, "LD_PRELOAD=") || strings.Contains(joined, "PATH=") || strings.Contains(joined, "LANG=") {
+		t.Fatalf("disallowed vars present: %v", got.env)
 	}
-	if !strings.Contains(joined, "LANG=C") || !strings.Contains(joined, "TERM=dumb") {
-		t.Fatalf("whitelisted vars missing: %v", got.env)
-	}
-	if got.env[0] != "PATH=/usr/sbin:/usr/bin:/sbin:/bin" {
-		t.Fatalf("unexpected PATH: %q", got.env[0])
+	if !strings.Contains(joined, "TERM=dumb") {
+		t.Fatalf("TERM missing: %v", got.env)
 	}
 }
 
@@ -378,21 +379,21 @@ func TestEnsureRootOrReexec_EnvPassthrough(t *testing.T) {
 		Geteuid:  func() int { return 1000 },
 		LookPath: func(string) (string, error) { return "/usr/bin/sudo", nil },
 		Environ: func() []string {
-			return []string{"LD_PRELOAD=/x", "LANG=C"}
+			return []string{"PATH=/usr/local/bin", "LANG=C"}
 		},
 		ExecRunner: fakeRunner(&got, nil),
 	}, zap.NewNop())
 	if err != nil || !reexeced {
 		t.Fatalf("unexpected result: %v %v", reexeced, err)
 	}
-	if len(got.env) != 2 || got.env[0] != "LD_PRELOAD=/x" || got.env[1] != "LANG=C" {
+	if len(got.env) != 2 || got.env[0] != "PATH=/usr/local/bin" || got.env[1] != "LANG=C" {
 		t.Fatalf("env not forwarded: %v", got.env)
 	}
 }
 
 func TestEnsureRootOrReexec_SanitizeEnvTrue(t *testing.T) {
 	var got execCall
-	env := []string{"LD_PRELOAD=/tmp/x.so", "LANG=C", "TERM=dumb"}
+	env := []string{"LD_PRELOAD=/tmp/x.so", "PATH=/usr/local/bin", "LANG=C", "TERM=dumb"}
 	reexeced, err := EnsureRootOrReexec(Options{
 		Geteuid:     func() int { return 1000 },
 		LookPath:    func(string) (string, error) { return "/usr/bin/sudo", nil },
@@ -411,7 +412,7 @@ func TestEnsureRootOrReexec_SanitizeEnvTrue(t *testing.T) {
 
 func TestEnsureRootOrReexec_SanitizeEnvFalse(t *testing.T) {
 	var got execCall
-	env := []string{"LD_PRELOAD=/tmp/x.so", "LANG=C"}
+	env := []string{"PATH=/usr/local/bin", "LANG=C"}
 	reexeced, err := EnsureRootOrReexec(Options{
 		Geteuid:     func() int { return 1000 },
 		LookPath:    func(string) (string, error) { return "/usr/bin/sudo", nil },
@@ -427,9 +428,27 @@ func TestEnsureRootOrReexec_SanitizeEnvFalse(t *testing.T) {
 	}
 }
 
+func TestEnsureRootOrReexec_SanitizeEnvStripsPathLang(t *testing.T) {
+	var got execCall
+	env := []string{"PATH=/usr/local/bin", "LANG=C"}
+	reexeced, err := EnsureRootOrReexec(Options{
+		Geteuid:     func() int { return 1000 },
+		LookPath:    func(string) (string, error) { return "/usr/bin/sudo", nil },
+		SanitizeEnv: true,
+		Environ:     func() []string { return env },
+		ExecRunner:  fakeRunner(&got, nil),
+	}, zap.NewNop())
+	if err != nil || !reexeced {
+		t.Fatalf("unexpected result: %v %v", reexeced, err)
+	}
+	if len(got.env) != 0 {
+		t.Fatalf("expected PATH/LANG stripped, got %v", got.env)
+	}
+}
+
 func TestEnsureRootOrReexec_DefaultPreservesDisallowedEnv(t *testing.T) {
 	var got execCall
-	env := []string{"LD_PRELOAD=/tmp/x.so", "GCONV_PATH=/bad", "LANG=C"}
+	env := []string{"LD_PRELOAD=/tmp/x.so", "GCONV_PATH=/bad", "PATH=/usr/local/bin", "LANG=C"}
 	reexeced, err := EnsureRootOrReexec(Options{
 		Geteuid:    func() int { return 1000 },
 		LookPath:   func(string) (string, error) { return "/usr/bin/sudo", nil },
@@ -446,7 +465,7 @@ func TestEnsureRootOrReexec_DefaultPreservesDisallowedEnv(t *testing.T) {
 
 func TestEnsureRootOrReexec_SanitizeEnvDropsDisallowed(t *testing.T) {
 	var got execCall
-	env := []string{"LD_PRELOAD=/tmp/x.so", "GCONV_PATH=/bad", "LANG=C", "TERM=dumb"}
+	env := []string{"LD_PRELOAD=/tmp/x.so", "GCONV_PATH=/bad", "PATH=/usr/local/bin", "LANG=C", "TERM=dumb"}
 	reexeced, err := EnsureRootOrReexec(Options{
 		Geteuid:     func() int { return 1000 },
 		LookPath:    func(string) (string, error) { return "/usr/bin/sudo", nil },
@@ -458,14 +477,11 @@ func TestEnsureRootOrReexec_SanitizeEnvDropsDisallowed(t *testing.T) {
 		t.Fatalf("unexpected result: %v %v", reexeced, err)
 	}
 	joined := strings.Join(got.env, "\n")
-	if strings.Contains(joined, "LD_PRELOAD=") || strings.Contains(joined, "GCONV_PATH=") {
+	if strings.Contains(joined, "LD_PRELOAD=") || strings.Contains(joined, "GCONV_PATH=") || strings.Contains(joined, "PATH=") || strings.Contains(joined, "LANG=") {
 		t.Fatalf("disallowed vars present: %v", got.env)
 	}
-	if !strings.Contains(joined, "LANG=C") || !strings.Contains(joined, "TERM=dumb") {
-		t.Fatalf("whitelisted vars missing: %v", got.env)
-	}
-	if got.env[0] != "PATH=/usr/sbin:/usr/bin:/sbin:/bin" {
-		t.Fatalf("unexpected PATH: %q", got.env[0])
+	if !strings.Contains(joined, "TERM=dumb") {
+		t.Fatalf("TERM missing: %v", got.env)
 	}
 }
 
