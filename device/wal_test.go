@@ -2,6 +2,7 @@ package device
 
 import (
 	"encoding/binary"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -150,5 +151,47 @@ func TestWALUpgrade(t *testing.T) {
 	}
 	if want := int64(walHeaderSize + 16); info.Size() != want {
 		t.Fatalf("expected size %d got %d", want, info.Size())
+	}
+}
+
+func TestWALSyncDirCreate(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "wal")
+	id := DeviceIdentity{SizeBytes: 100, KernelUUID: "k", GPTUUID: "g", FSUUID: "f", Major: 1, Minor: 2}
+	stubErr := errors.New("syncdir fail")
+	var calls int
+	restore := SetSyncDirFunc(func(string) error {
+		calls++
+		return stubErr
+	})
+	defer restore()
+	if _, err := OpenWAL(path, id); !errors.Is(err, stubErr) {
+		t.Fatalf("expected %v got %v", stubErr, err)
+	}
+	if calls != 1 {
+		t.Fatalf("expected syncDir called once, got %d", calls)
+	}
+}
+
+func TestWALSyncDirClose(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "wal")
+	id := DeviceIdentity{SizeBytes: 100, KernelUUID: "k", GPTUUID: "g", FSUUID: "f", Major: 1, Minor: 2}
+	w, err := OpenWAL(path, id)
+	if err != nil {
+		t.Fatalf("open wal: %v", err)
+	}
+	stubErr := errors.New("syncdir fail")
+	var calls int
+	restore := SetSyncDirFunc(func(string) error {
+		calls++
+		return stubErr
+	})
+	defer restore()
+	if err := w.Close(); !errors.Is(err, stubErr) {
+		t.Fatalf("expected %v got %v", stubErr, err)
+	}
+	if calls != 1 {
+		t.Fatalf("expected syncDir called once, got %d", calls)
 	}
 }
