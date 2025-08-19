@@ -1,6 +1,7 @@
 package root
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
+	"golang.org/x/term"
 
 	"lvmsync_go/app"
 	clientpkg "lvmsync_go/internal/client"
@@ -124,6 +126,18 @@ func ConfigureWithEscalator(esc privilege.Escalator) (*config.Config, []string, 
 	cfg, args, warns, err := builder.Build(fs, os.Args[1:])
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("configuration error: %w", err)
+	}
+	if cfg.StdoutMode && !cfg.YesIKnow {
+		if term.IsTerminal(int(os.Stdin.Fd())) {
+			fmt.Fprint(os.Stderr, "This will write binary data to your terminal. Continue? [y/N]: ")
+			resp, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+			resp = strings.TrimSpace(strings.ToLower(resp))
+			if resp != "y" && resp != "yes" {
+				return nil, nil, nil, fmt.Errorf("stdout mode requires confirmation")
+			}
+		} else {
+			return nil, nil, nil, fmt.Errorf("stdout mode requires --yes-i-know flag when not run interactively")
+		}
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.LVMTimeout)
 	defer cancel()
