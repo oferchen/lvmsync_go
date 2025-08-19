@@ -24,6 +24,16 @@ lvmsync run --resume=statefile /dev/vg0/snap0 /dev/vg0/target
 4. Delete the state file when the transfer finishes.
 5. If the command fails, rerun with the same `--resume` file after fixing the issue.
 
+### `--resume=verify`
+
+```sh
+lvmsync run --resume=verify /dev/vg0/snap0 /dev/vg0/target
+```
+
+Reloads the write-ahead log and rechecks previously written ranges against the manifest
+before copying remaining data. This detects corrupted or tampered WAL entries before
+continuing.
+
 ### `--verify-only`
 
 ```sh
@@ -61,6 +71,13 @@ lvmsync run --skip-snapshot-creation --force /dev/vg0/src /dev/vg0/target
    ```
 
 Exit code `60` indicates a verification mismatch and leaves the destination untouched.
+
+## WAL Crash Safety
+
+WAL updates are written to a temporary file and `fsync`ed before atomically
+renaming to the final path. The parent directory is then `fsync`ed to persist the
+rename. After a crash LVMSync validates the WAL header and replays only fully
+committed ranges.
 
 ## Exit Codes and Recovery
 
