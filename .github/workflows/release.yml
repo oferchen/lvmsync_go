@@ -101,17 +101,6 @@ jobs:
           ls dist/*checksums.txt
           ls dist/*.sbom.json
 
-      - name: Build distroless image
-        run: |
-          docker buildx build \
-            --platform linux/amd64,linux/arm64 \
-            -f Dockerfile.distroless \
-            --build-arg BIN=bpm \
-            --build-arg BUILD_PATH=. \
-            --tag docker.io/oferchen/bpm:${{ github.ref_name }}-distroless \
-            --tag ghcr.io/oferchen/bpm:${{ github.ref_name }}-distroless \
-            $([ "${{ env.SKIP_DOCKER_PUSH }}" == "true" ] && echo "--load" || echo "--push")
-
       - name: Attach checksums and SBOM to release
         uses: softprops/action-gh-release@v1
         with:
