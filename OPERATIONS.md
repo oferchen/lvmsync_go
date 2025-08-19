@@ -40,6 +40,18 @@ Reads both devices and reports mismatches without writing data.
 lvmsync run --skip-snapshot-creation --force /dev/vg0/src /dev/vg0/target
 ```
 
+Snapshots created by LVMSync are tracked globally and removed if the process
+receives `SIGINT`, `SIGTERM`, or panics.
+
+## Automatic Destination Creation
+
+`--create-dest-lv` creates the destination logical volume when it does not
+exist. This is useful for fresh replication targets:
+
+```sh
+lvmsync run --create-dest-lv /dev/vg0/src /dev/vg0/dest
+```
+
 ## Safe Overwrite Procedure
 
 1. Probe devices and ensure privileges are correct:

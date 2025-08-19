@@ -677,6 +677,7 @@ Flags override environment variables, which override `config.yaml` values.
 | `--skip-snapshot-creation` | `LVMSYNC_SKIP_SNAPSHOT_CREATION` | `skip_snapshot_creation` | Skip automatic snapshot creation (requires `--force`) |
 | `--skip-disk-check` | `LVMSYNC_SKIP_DISK_CHECK` | `skip_disk_check` | Skip disk space check before snapshot creation |
 | `--snapshot-size` | `LVMSYNC_SNAPSHOT_SIZE` | `snapshot_size` | Snapshot size (e.g., `20G` or `20%`) |
+| `--create-dest-lv` | `LVMSYNC_LVM_CREATE_DEST_LV` | `create_dest_lv` | Create destination logical volume when missing |
 | `--lvm-escalation` | `LVMSYNC_LVM_ESCALATION` | `lvm_escalation` | Command used to escalate privileges for LVM commands; parsed with shell-style quoting and validated at startup |
 | `--sanitize-env` | `LVMSYNC_SANITIZE_ENV` | `sanitize_env` | Drop dangerous variables like `LD_PRELOAD` and remove `PATH`/`LANG` during escalation |
 | `--lvm-timeout` | `LVMSYNC_LVM_TIMEOUT` | `lvm_timeout` | Timeout for LVM operations and privilege checks |
@@ -766,6 +767,7 @@ zstd_level: 3             # Compression Options
 lz4_level: hc             # Compression Options
 compress_threshold: 0.9   # Compression Options
 snapshot_size: 20%        # LVM Options
+create_dest_lv: false     # LVM Options
 ```
 
 Use `--config` to point to a different file.

@@ -19,6 +19,7 @@ import (
 	"lvmsync_go/internal/exitcode"
 	"lvmsync_go/internal/logging"
 	"lvmsync_go/internal/privilege"
+	"lvmsync_go/lvm"
 	"lvmsync_go/transport"
 )
 
@@ -268,6 +269,7 @@ func (r *Runner) executeSync(ctx context.Context, cfg *config.Config, snapshotPa
 }
 
 func (r *Runner) Run(cfg *config.Config, args []string, logger *zap.Logger) error {
+	defer lvm.CleanupRegistered(context.Background())
 	handled, err := r.dispatchSubcommand(cfg, args, logger)
 	if handled || err != nil {
 		return err

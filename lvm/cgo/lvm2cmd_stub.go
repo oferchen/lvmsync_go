@@ -18,3 +18,6 @@ func (c *Cmd) RemoveLV(string) error                       { return ErrUnsupport
 func (c *Cmd) SnapshotUsage(string) (float64, error)       { return 0, ErrUnsupported }
 func (c *Cmd) VGFree(string) (uint64, error)               { return 0, ErrUnsupported }
 func (c *Cmd) ListVGs() ([]VolumeGroup, error)             { return nil, ErrUnsupported }
+
+// CreateLV is unsupported without cgo/lvm2.
+func (c *Cmd) CreateLV(string, string, uint64) error { return ErrUnsupported }

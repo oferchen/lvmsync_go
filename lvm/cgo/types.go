@@ -11,4 +11,5 @@ type LVM interface {
 	SnapshotUsage(lvPath string) (float64, error)
 	VGFree(vgName string) (uint64, error)
 	ListVGs() ([]VolumeGroup, error)
+	CreateLV(vgName, lvName string, sizeBytes uint64) error
 }
