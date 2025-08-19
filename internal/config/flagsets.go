@@ -166,8 +166,6 @@ func initLVMFlags(cfg *Config) *pflag.FlagSet {
 	fs.String("target-volume-group", cfg.TargetVolumeGroup, "Target LVM volume group")
 	fs.StringSlice("target-vgs", cfg.TargetVGCandidates, "Candidate target VGs for volume selection")
 
-	fs.Bool("create-dest-lv", cfg.CreateDestLV, "Create destination logical volume if missing")
-
 	fs.Bool("create-dest-lv", cfg.CreateDestLV, "Create destination logical volume when missing")
 
 	return fs
