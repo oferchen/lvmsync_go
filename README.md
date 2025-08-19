@@ -26,6 +26,7 @@ For snapshot cleanup, resuming transfers, and verify-only rollback procedures, s
 - **Hashing**: Hardware-accelerated XXH3 provides fast deduplication hints while BLAKE3 digests are stored in manifests for integrity.
 - **Remote Execution via SSH**: Replicates data over SSH with support for pre/post-scripts.
 - **Resume Support**: Ability to resume interrupted transfers with verification enabled by default (use `--verify=none` to skip).
+- **Crash-Safe WAL**: Records committed ranges in a write-ahead log so interrupted runs can recover. See [WAL documentation](docs/wal.md) for layout and replay details.
 - **Probe and Verification Modes**: `--probe-only` validates devices and privileges without writing, while `--verify-only` scans both sides and reports mismatches.
 - **Dry-run Estimates**: `--dry-run` samples the manifest to project bytes and ETA without transferring data.
 - **Device Identity Tuple**: Each run records `(device_id, size_bytes, major:minor)` to prevent writing to the wrong destination.

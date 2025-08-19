@@ -52,7 +52,7 @@ Reads both devices and reports mismatches without writing data.
 
 ## WAL Crash Safety
 
-The write-ahead log records completed block ranges so interrupted transfers can resume safely. Each appended range is fsynced before returning. On restart `OpenWAL` validates a MAC over the header and ensures the size, epoch, and device ID match the current transfer. Corrupted headers or tampered device IDs cause the log to be rejected, and entries written without a matching fsync are ignored after power loss.
+The write-ahead log records completed block ranges so interrupted transfers can resume safely. Each appended range is fsynced before returning. On restart `OpenWAL` validates a MAC over the header and ensures the size, epoch, and device ID match the current transfer. Corrupted headers or tampered device IDs cause the log to be rejected, and entries written without a matching fsync are ignored after power loss. See [wal.md](wal.md) for header layout and replay semantics.
 
 ## Exit Codes
 

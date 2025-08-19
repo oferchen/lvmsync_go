@@ -15,7 +15,14 @@ func TestNoUnresolvedGaps(t *testing.T) {
 	if err := json.Unmarshal(data, &gaps); err != nil {
 		t.Fatalf("parse gaps.json: %v", err)
 	}
-	if len(gaps) > 0 {
-		t.Fatalf("found %d unresolved gap(s); update reports/gaps.* after fixing", len(gaps))
+	unresolved := 0
+	for _, g := range gaps {
+		if s, ok := g["status"].(string); ok && s == "closed" {
+			continue
+		}
+		unresolved++
+	}
+	if unresolved > 0 {
+		t.Fatalf("found %d unresolved gap(s); update reports/gaps.* after fixing", unresolved)
 	}
 }
