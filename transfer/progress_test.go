@@ -1,6 +1,9 @@
 package transfer
 
 import (
+	"encoding/json"
+	"io"
+	"os"
 	"testing"
 	"time"
 
@@ -41,6 +44,52 @@ func TestReportProgressVerbose(t *testing.T) {
 	}
 	if logs.FilterMessage("parallel dump progress").Len() != 1 {
 		t.Fatalf("expected parallel dump progress log, got %d", logs.FilterMessage("parallel dump progress").Len())
+	}
+}
+
+func TestReportProgressJSON(t *testing.T) {
+	r, w, _ := os.Pipe()
+	old := os.Stdout
+	os.Stdout = w
+	core, _ := observer.New(zap.InfoLevel)
+	logger := zap.New(core)
+	cfg := &config.Config{Progress: true, Output: "json"}
+	reportProgress(cfg, 50, 100, 1, time.Now(), logger)
+	w.Close()
+	os.Stdout = old
+	out, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	var ev progressEvent
+	if err := json.Unmarshal(out, &ev); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if ev.Event != "progress" || ev.Progress != 50 {
+		t.Fatalf("unexpected event %+v", ev)
+	}
+}
+
+func TestFinalizeProgressJSON(t *testing.T) {
+	r, w, _ := os.Pipe()
+	old := os.Stdout
+	os.Stdout = w
+	core, _ := observer.New(zap.InfoLevel)
+	logger := zap.New(core)
+	cfg := &config.Config{Progress: true, Output: "json"}
+	finalizeProgress(cfg, logger)
+	w.Close()
+	os.Stdout = old
+	out, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	var ev progressEvent
+	if err := json.Unmarshal(out, &ev); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if ev.Event != "complete" || ev.Progress != 100 {
+		t.Fatalf("unexpected event %+v", ev)
 	}
 }
 

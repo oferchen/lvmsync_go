@@ -91,6 +91,7 @@ type Config struct {
 	SigCacheTTL              time.Duration `mapstructure:"sig_cache_ttl"`
 	SigCacheMax              int           `mapstructure:"sig_cache_max"`
 	Progress                 bool          `mapstructure:"progress"`
+	Output                   string        `mapstructure:"output"`
 	BlockSize                int           `mapstructure:"-"`
 	BlockSizeRaw             string        `mapstructure:"-"`
 	Delta                    string        `mapstructure:"delta"`
@@ -227,6 +228,7 @@ func DefaultConfig() (*Config, error) {
 		SigCacheTTL:              24 * time.Hour,
 		SigCacheMax:              128,
 		Progress:                 true,
+		Output:                   "text",
 		BlockSize:                0,
 		BlockSizeRaw:             Auto,
 		Delta:                    "none",

@@ -613,6 +613,7 @@ Flags override environment variables, which override `config.yaml` values.
 | `--verify` | `LVMSYNC_VERIFY` | `verify` | Verification level: `full`, `sampled`, or `none` |
 | `--digest` | `LVMSYNC_DIGEST` | `digest` | Digest algorithm: `auto`, `blake3`, or `sha256` (`auto` selects `blake3` when AVX2, AVX-512, or NEON is available, otherwise `sha256`) |
 | `--progress` | `LVMSYNC_PROGRESS` | `progress` | Show progress during transfer |
+| `--output` | `LVMSYNC_OUTPUT` | `output` | Output format for progress: `text` or `json` |
 | `--delta` | `LVMSYNC_DELTA` | `delta` | Delta algorithm: `none` or `rsync` |
 | `--manifest-path` | `LVMSYNC_MANIFEST_PATH` | `manifest_path` | Path to manifest file |
 | `--manifest-progress-interval` | `LVMSYNC_MANIFEST_PROGRESS_INTERVAL` | `manifest_progress_interval` | Interval between progress logs during manifest rebuild |
@@ -922,8 +923,16 @@ mode: throughput
 
 ### Logging and progress
 
-Logs are emitted with [zap](https://github.com/uber-go/zap) to stderr. Progress updates are also written to stderr when
-`--progress` is enabled (default). Disable them with `--progress=false`.
+Logs are emitted with [zap](https://github.com/uber-go/zap) to stderr. When `--output=text` (default), progress updates are
+logged to stderr when `--progress` is enabled. Set `--output=json` to emit progress events on stdout as line-delimited JSON
+objects while preserving the regular logs on stderr. Each object follows this schema:
+
+```json
+{"event": "progress", "bytes_transferred": 12345, "bytes_total": 67890, "progress_percent": 18.2}
+```
+
+A final object with `{"event": "complete", "progress_percent": 100}` marks completion. Disable progress entirely with
+`--progress=false`.
 
 ## Installation
 

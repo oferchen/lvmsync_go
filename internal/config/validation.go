@@ -30,6 +30,9 @@ func (c *Config) ValidateWith(geteuid func() int) error {
 	if c.DestType != "" && c.DestType != "auto" && c.DestType != "file" && c.DestType != "raw" && c.DestType != "lvm" {
 		return fmt.Errorf("invalid dest type %q", c.DestType)
 	}
+	if c.Output != "" && c.Output != "text" && c.Output != "json" {
+		return fmt.Errorf("invalid output %q: must be \"text\" or \"json\"", c.Output)
+	}
 	if c.FSFreezeCommand != "" {
 		parts, err := shellquote.Split(c.FSFreezeCommand)
 		if err != nil {

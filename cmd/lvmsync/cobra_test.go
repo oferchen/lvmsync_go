@@ -88,7 +88,7 @@ func TestRunCommandDryRunEnv(t *testing.T) {
 
 func TestRunCommandDeltaFlag(t *testing.T) {
 	var gotOpts RunOptions
-	r := NewRunnerWithDeps(func(src, dst string, opts RunOptions, logger *zap.Logger) error {
+	r := NewRunnerWithDeps(func(_, _ string, opts RunOptions, _ *zap.Logger) error {
 		gotOpts = opts
 		return nil
 	}, nil, nil)
@@ -97,6 +97,34 @@ func TestRunCommandDeltaFlag(t *testing.T) {
 	}
 	if gotOpts.Delta != "rsync" {
 		t.Fatalf("expected delta rsync, got %q", gotOpts.Delta)
+	}
+}
+
+func TestRunCommandOutputFlag(t *testing.T) {
+	var gotOpts RunOptions
+	r := NewRunnerWithDeps(func(_, _ string, opts RunOptions, _ *zap.Logger) error {
+		gotOpts = opts
+		return nil
+	}, nil, nil)
+	if err := ExecuteWithRunner([]string{"run", "--output", "json", "src", "dst"}, zap.NewNop(), r); err != nil {
+		t.Fatalf("execute run: %v", err)
+	}
+	if gotOpts.Output != "json" {
+		t.Fatalf("expected output json, got %q", gotOpts.Output)
+	}
+}
+
+func TestRunCommandInvalidOutput(t *testing.T) {
+	called := false
+	r := NewRunnerWithDeps(func(_, _ string, _ RunOptions, _ *zap.Logger) error {
+		called = true
+		return nil
+	}, nil, nil)
+	if err := ExecuteWithRunner([]string{"run", "--output", "xml", "src", "dst"}, zap.NewNop(), r); err == nil {
+		t.Fatalf("expected error for invalid output")
+	}
+	if called {
+		t.Fatalf("runCommand should not be called on invalid output")
 	}
 }
 

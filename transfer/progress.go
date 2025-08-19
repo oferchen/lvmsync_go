@@ -1,6 +1,8 @@
 package transfer
 
 import (
+	"encoding/json"
+	"os"
 	"time"
 
 	"go.uber.org/zap"
@@ -8,9 +10,19 @@ import (
 	"lvmsync_go/internal/config"
 )
 
+type progressEvent struct {
+	Event            string  `json:"event"`
+	Progress         float64 `json:"progress_percent"`
+	BytesTransferred int64   `json:"bytes_transferred,omitempty"`
+	BytesTotal       int64   `json:"bytes_total,omitempty"`
+}
+
 func finalizeProgress(cfg *config.Config, logger *zap.Logger) {
 	if cfg.Progress {
 		logger.Info("progress complete")
+		if cfg.Output == "json" {
+			_ = json.NewEncoder(os.Stdout).Encode(progressEvent{Event: "complete", Progress: 100})
+		}
 	}
 }
 
@@ -19,6 +31,14 @@ func reportProgress(cfg *config.Config, transferred, total int64, index int, sta
 		progressPercent := float64(transferred) / float64(total) * 100.0
 
 		logger.Info("transfer progress", zap.Float64("progress_percent", progressPercent))
+		if cfg.Output == "json" {
+			_ = json.NewEncoder(os.Stdout).Encode(progressEvent{
+				Event:            "progress",
+				Progress:         progressPercent,
+				BytesTransferred: transferred,
+				BytesTotal:       total,
+			})
+		}
 	}
 	if cfg.Verbose > 0 && index > 0 && index%100 == 0 {
 		elapsed := time.Since(start).Seconds()
