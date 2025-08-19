@@ -248,14 +248,21 @@ Benchmarks were recorded from commit `c3a2374`.
 ### Command
 
 ```sh
-go test -bench BloomLookup -run ^$ /tmp/bloom_lookup_test.go -bloom_entries=N -bloom_fp_rate=R
+go test -bench BloomLookup -run ^$ /tmp/bloom_lookup_test.go -bloom_mbits=MBITS
 ```
 
-### Default Parameters
+### Default Sizing
 
-- `--bloom-entries`: `1000000`
-- `--bloom-fp-rate`: `0.01`
-- Memory footprint: ~1.14 MiB
+With the default filter settings (`--bloom-entries=1000000` and
+`--bloom-fp-rate=0.01`, ~1.14 MiB for ~1% false positives), the optional
+memory-mapped index is sized with `--bloom-mbits`:
+
+| `--bloom-mbits` | Memory (MiB) | Approx FP Rate |
+|----------------:|-------------:|---------------:|
+| 24              | 2            | ~6%            |
+| 26              | 8            | ~1.5%          |
+| 27              | 16           | ~0.8%          |
+| 28              | 32           | ~0.4%          |
 
 ### Results
 

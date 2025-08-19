@@ -111,7 +111,10 @@ value to its entry index. To avoid unnecessary BLAKE3 computations, every
 that range. During `Match`, the Bloom filter for the chunk's range is checked
 first; only if it may contain the hash does the hash table probe proceed and, if
 needed, the strong digest is computed. `Rebuild` streams the device and
-populates both the hash table and Bloom filters on the fly.
+populates both the hash table and Bloom filters on the fly. The default filter
+settings (`--bloom-entries=1000000`, `--bloom-fp-rate=0.01`) consume about
+1.14 MiB with ~1% false positives, while enabling the optional mmap index with
+`--bloom-mbits=27` allocates roughly 16 MiB for ~0.8% false positives.
 
 Device identifiers are stored in a fixed 64-byte field; creation fails if the
 ID exceeds this limit.
