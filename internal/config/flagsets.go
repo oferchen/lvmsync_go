@@ -62,7 +62,7 @@ func initGeneralFlags(cfg *Config) *pflag.FlagSet {
 	fs.Bool("allow-overwrite", cfg.AllowOverwrite, "Allow overwriting existing data; requires --yes-i-know for non-interactive sessions")
 	fs.Bool("discard", cfg.Discard, "Issue BLKDISCARD before writing blocks")
 	fs.Bool("offline", cfg.Offline, "Assume source raw device is offline")
-	fs.Bool("sanitize-env", cfg.SanitizeEnv, "Drop PATH, LANG, and unsafe variables before privilege escalation")
+	fs.Bool("sanitize-env", cfg.SanitizeEnv, "Drop PATH, LANG, and unsafe variables before privilege escalation (disable with --sanitize-env=false)")
 	fs.String("sparse", cfg.Sparse, "Sparse file handling: auto or never")
 	fs.String("fs-freeze-command", cfg.FSFreezeCommand, "Command to freeze filesystem before reading raw source")
 	fs.String("fs-thaw-command", cfg.FSThawCommand, "Command to thaw filesystem after reading raw source")

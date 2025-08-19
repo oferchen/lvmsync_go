@@ -17,6 +17,8 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 )
 
+func boolPtr(b bool) *bool { return &b }
+
 // --- Pure helper tests ---
 
 func TestFilterAllowed(t *testing.T) {
@@ -221,7 +223,7 @@ func TestEnsureRootOrReexec_ReexecHappyPath(t *testing.T) {
 		Args:               []string{"/bin/prog", "--mode=apply", "--drop-back=false", "--unsafe=1"},
 		AllowedPassthrough: map[string]bool{"--mode": true, "--drop-back": true},
 		ExtraArgs:          []string{"--do-privileged"},
-		SanitizeEnv:        true,
+		SanitizeEnv:        boolPtr(true),
 		Environ: func() []string {
 			return []string{"LD_PRELOAD=/x", "PATH=/usr/local/bin", "LANG=C", "TERM=dumb", "FOO=BAR"}
 		},
@@ -348,7 +350,7 @@ func TestEnsureRootOrReexec_SanitizedEnv(t *testing.T) {
 	reexeced, err := EnsureRootOrReexec(Options{
 		Geteuid:     func() int { return 1000 },
 		LookPath:    func(string) (string, error) { return "/usr/bin/sudo", nil },
-		SanitizeEnv: true,
+		SanitizeEnv: boolPtr(true),
 		ExecRunner:  fakeRunner(&got, nil),
 	}, zap.NewNop())
 	if err != nil || !reexeced {
@@ -366,9 +368,11 @@ func TestEnsureRootOrReexec_SanitizedEnv(t *testing.T) {
 	}
 }
 
-func TestEnsureRootOrReexec_DefaultUnsanitizedEnv(t *testing.T) {
+func TestEnsureRootOrReexec_DefaultSanitizedEnv(t *testing.T) {
 	var got execCall
 	t.Setenv("LD_PRELOAD", "/tmp/x.so")
+	t.Setenv("PATH", "/usr/local/bin")
+	t.Setenv("TERM", "dumb")
 	reexeced, err := EnsureRootOrReexec(Options{
 		Geteuid:    func() int { return 1000 },
 		LookPath:   func(string) (string, error) { return "/usr/bin/sudo", nil },
@@ -377,8 +381,12 @@ func TestEnsureRootOrReexec_DefaultUnsanitizedEnv(t *testing.T) {
 	if err != nil || !reexeced {
 		t.Fatalf("unexpected result: %v %v", reexeced, err)
 	}
-	if len(got.env) != 0 {
-		t.Fatalf("expected empty env to inherit unsanitized environment, got %v", got.env)
+	joined := strings.Join(got.env, "\n")
+	if strings.Contains(joined, "LD_PRELOAD=") || strings.Contains(joined, "PATH=") {
+		t.Fatalf("unexpected vars present: %v", got.env)
+	}
+	if !strings.Contains(joined, "TERM=dumb") {
+		t.Fatalf("TERM missing: %v", got.env)
 	}
 }
 
@@ -390,7 +398,8 @@ func TestEnsureRootOrReexec_EnvPassthrough(t *testing.T) {
 		Environ: func() []string {
 			return []string{"PATH=/usr/local/bin", "LANG=C"}
 		},
-		ExecRunner: fakeRunner(&got, nil),
+		SanitizeEnv: boolPtr(false),
+		ExecRunner:  fakeRunner(&got, nil),
 	}, zap.NewNop())
 	if err != nil || !reexeced {
 		t.Fatalf("unexpected result: %v %v", reexeced, err)
@@ -406,7 +415,7 @@ func TestEnsureRootOrReexec_SanitizeEnvTrue(t *testing.T) {
 	reexeced, err := EnsureRootOrReexec(Options{
 		Geteuid:     func() int { return 1000 },
 		LookPath:    func(string) (string, error) { return "/usr/bin/sudo", nil },
-		SanitizeEnv: true,
+		SanitizeEnv: boolPtr(true),
 		Environ:     func() []string { return env },
 		ExecRunner:  fakeRunner(&got, nil),
 	}, zap.NewNop())
@@ -425,7 +434,7 @@ func TestEnsureRootOrReexec_SanitizeEnvFalse(t *testing.T) {
 	reexeced, err := EnsureRootOrReexec(Options{
 		Geteuid:     func() int { return 1000 },
 		LookPath:    func(string) (string, error) { return "/usr/bin/sudo", nil },
-		SanitizeEnv: false,
+		SanitizeEnv: boolPtr(false),
 		Environ:     func() []string { return env },
 		ExecRunner:  fakeRunner(&got, nil),
 	}, zap.NewNop())
@@ -443,7 +452,7 @@ func TestEnsureRootOrReexec_SanitizeEnvStripsPathLang(t *testing.T) {
 	reexeced, err := EnsureRootOrReexec(Options{
 		Geteuid:     func() int { return 1000 },
 		LookPath:    func(string) (string, error) { return "/usr/bin/sudo", nil },
-		SanitizeEnv: true,
+		SanitizeEnv: boolPtr(true),
 		Environ:     func() []string { return env },
 		ExecRunner:  fakeRunner(&got, nil),
 	}, zap.NewNop())
@@ -455,9 +464,9 @@ func TestEnsureRootOrReexec_SanitizeEnvStripsPathLang(t *testing.T) {
 	}
 }
 
-func TestEnsureRootOrReexec_DefaultPreservesDisallowedEnv(t *testing.T) {
+func TestEnsureRootOrReexec_DefaultDropsDisallowedEnv(t *testing.T) {
 	var got execCall
-	env := []string{"LD_PRELOAD=/tmp/x.so", "GCONV_PATH=/bad", "PATH=/usr/local/bin", "LANG=C"}
+	env := []string{"LD_PRELOAD=/tmp/x.so", "GCONV_PATH=/bad", "PATH=/usr/local/bin", "LANG=C", "TERM=dumb"}
 	reexeced, err := EnsureRootOrReexec(Options{
 		Geteuid:    func() int { return 1000 },
 		LookPath:   func(string) (string, error) { return "/usr/bin/sudo", nil },
@@ -467,8 +476,12 @@ func TestEnsureRootOrReexec_DefaultPreservesDisallowedEnv(t *testing.T) {
 	if err != nil || !reexeced {
 		t.Fatalf("unexpected result: %v %v", reexeced, err)
 	}
-	if !reflect.DeepEqual(got.env, env) {
-		t.Fatalf("env = %v, want %v", got.env, env)
+	joined := strings.Join(got.env, "\n")
+	if strings.Contains(joined, "LD_PRELOAD=") || strings.Contains(joined, "GCONV_PATH=") || strings.Contains(joined, "PATH=") || strings.Contains(joined, "LANG=") {
+		t.Fatalf("disallowed vars present: %v", got.env)
+	}
+	if !strings.Contains(joined, "TERM=dumb") {
+		t.Fatalf("TERM missing: %v", got.env)
 	}
 }
 
@@ -478,7 +491,7 @@ func TestEnsureRootOrReexec_SanitizeEnvDropsDisallowed(t *testing.T) {
 	reexeced, err := EnsureRootOrReexec(Options{
 		Geteuid:     func() int { return 1000 },
 		LookPath:    func(string) (string, error) { return "/usr/bin/sudo", nil },
-		SanitizeEnv: true,
+		SanitizeEnv: boolPtr(true),
 		Environ:     func() []string { return env },
 		ExecRunner:  fakeRunner(&got, nil),
 	}, zap.NewNop())
@@ -494,7 +507,7 @@ func TestEnsureRootOrReexec_SanitizeEnvDropsDisallowed(t *testing.T) {
 	}
 }
 
-func TestEnsureRootOrReexec_DefaultRunnerPreservesEnv(t *testing.T) {
+func TestEnsureRootOrReexec_DefaultRunnerSanitizesEnv(t *testing.T) {
 	dir := t.TempDir()
 	envFile := filepath.Join(dir, "env.txt")
 	script := filepath.Join(dir, "sudo.sh")
@@ -503,37 +516,11 @@ func TestEnsureRootOrReexec_DefaultRunnerPreservesEnv(t *testing.T) {
 		t.Fatalf("write script: %v", err)
 	}
 	t.Setenv("LD_PRELOAD", "/tmp/x.so")
+	t.Setenv("PATH", "/usr/local/bin")
+	t.Setenv("TERM", "dumb")
 	reexeced, err := EnsureRootOrReexec(Options{
 		Geteuid:  func() int { return 1000 },
 		LookPath: func(string) (string, error) { return script, nil },
-	}, zap.NewNop())
-	if err != nil || !reexeced {
-		t.Fatalf("unexpected result: %v %v", reexeced, err)
-	}
-	data, err := os.ReadFile(envFile)
-	if err != nil {
-		t.Fatalf("read env: %v", err)
-	}
-	if !bytes.Contains(data, []byte("LD_PRELOAD=/tmp/x.so")) {
-		t.Fatalf("environment sanitized unexpectedly: %q", data)
-	}
-}
-
-func TestEnsureRootOrReexec_DefaultRunnerSanitizeEnv(t *testing.T) {
-	dir := t.TempDir()
-	envFile := filepath.Join(dir, "env.txt")
-	script := filepath.Join(dir, "sudo.sh")
-	scriptContent := fmt.Sprintf("#!/bin/sh\n/bin/cat /proc/self/environ > %s\n", envFile)
-	if err := os.WriteFile(script, []byte(scriptContent), 0o700); err != nil {
-		t.Fatalf("write script: %v", err)
-	}
-	t.Setenv("LD_PRELOAD", "/tmp/x.so")
-	t.Setenv("TERM", "dumb")
-	t.Setenv("PATH", "/usr/local/bin")
-	reexeced, err := EnsureRootOrReexec(Options{
-		Geteuid:     func() int { return 1000 },
-		LookPath:    func(string) (string, error) { return script, nil },
-		SanitizeEnv: true,
 	}, zap.NewNop())
 	if err != nil || !reexeced {
 		t.Fatalf("unexpected result: %v %v", reexeced, err)
@@ -547,6 +534,34 @@ func TestEnsureRootOrReexec_DefaultRunnerSanitizeEnv(t *testing.T) {
 	}
 	if !bytes.Contains(data, []byte("TERM=dumb")) {
 		t.Fatalf("TERM missing: %q", data)
+	}
+}
+
+func TestEnsureRootOrReexec_DefaultRunnerPreservesEnvWhenDisabled(t *testing.T) {
+	dir := t.TempDir()
+	envFile := filepath.Join(dir, "env.txt")
+	script := filepath.Join(dir, "sudo.sh")
+	scriptContent := fmt.Sprintf("#!/bin/sh\n/bin/cat /proc/self/environ > %s\n", envFile)
+	if err := os.WriteFile(script, []byte(scriptContent), 0o700); err != nil {
+		t.Fatalf("write script: %v", err)
+	}
+	t.Setenv("LD_PRELOAD", "/tmp/x.so")
+	t.Setenv("TERM", "dumb")
+	t.Setenv("PATH", "/usr/local/bin")
+	reexeced, err := EnsureRootOrReexec(Options{
+		Geteuid:     func() int { return 1000 },
+		LookPath:    func(string) (string, error) { return script, nil },
+		SanitizeEnv: boolPtr(false),
+	}, zap.NewNop())
+	if err != nil || !reexeced {
+		t.Fatalf("unexpected result: %v %v", reexeced, err)
+	}
+	data, err := os.ReadFile(envFile)
+	if err != nil {
+		t.Fatalf("read env: %v", err)
+	}
+	if !bytes.Contains(data, []byte("LD_PRELOAD=/tmp/x.so")) || !bytes.Contains(data, []byte("PATH=/usr/local/bin")) {
+		t.Fatalf("environment sanitized unexpectedly: %q", data)
 	}
 }
 

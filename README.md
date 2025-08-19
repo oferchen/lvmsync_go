@@ -693,7 +693,7 @@ Flags override environment variables, which override `config.yaml` values.
 | `--snapshot-size` | `LVMSYNC_SNAPSHOT_SIZE` | `snapshot_size` | Snapshot size (e.g., `20G` or `20%`) |
 | `--create-dest-lv` | `LVMSYNC_LVM_CREATE_DEST_LV` | `create_dest_lv` | Create destination logical volume when missing |
 | `--lvm-escalation` | `LVMSYNC_LVM_ESCALATION` | `lvm_escalation` | Command used to escalate privileges for LVM commands; parsed with shell-style quoting and validated at startup |
-| `--sanitize-env` | `LVMSYNC_SANITIZE_ENV` | `sanitize_env` | Drop dangerous variables like `LD_PRELOAD` and remove `PATH`/`LANG` during escalation |
+| `--sanitize-env` | `LVMSYNC_SANITIZE_ENV` | `sanitize_env` | Drop dangerous variables like `LD_PRELOAD` and remove `PATH`/`LANG` during escalation (disable with `--sanitize-env=false`) |
 | `--lvm-timeout` | `LVMSYNC_LVM_TIMEOUT` | `lvm_timeout` | Timeout for LVM operations and privilege checks |
 | `--sig-cache-ttl` | `LVMSYNC_LVM_SIG_CACHE_TTL` | `sig-cache-ttl` | TTL for cached LVM signatures |
 | `--sig-cache-max` | `LVMSYNC_LVM_SIG_CACHE_MAX` | `sig-cache-max` | Maximum cached LVM signatures |
