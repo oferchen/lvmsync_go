@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -203,6 +204,27 @@ func TestVerifyDevicesRebuildsManifest(t *testing.T) {
 	}
 	if !called {
 		t.Fatalf("expected rebuild invoked")
+	}
+}
+
+func TestVerifyDevicesTimeout(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "src")
+	dst := filepath.Join(dir, "dst")
+	if err := os.WriteFile(src, []byte("foo"), 0o600); err != nil {
+		t.Fatalf("write src: %v", err)
+	}
+	if err := os.WriteFile(dst, []byte("foo"), 0o600); err != nil {
+		t.Fatalf("write dst: %v", err)
+	}
+	r := NewRunnerWithDeps(func(ctx context.Context, device, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error {
+		<-ctx.Done()
+		return ctx.Err()
+	})
+	cfg := &config.Config{ManifestTimeout: time.Millisecond}
+	err := r.verifyDevices(cfg, src, dst, "", zap.NewNop())
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected timeout error, got %v", err)
 	}
 }
 
