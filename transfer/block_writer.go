@@ -55,11 +55,10 @@ func newBlockWriterWithDeps(cfg *config.Config, dest *os.File, dedup Deduplicati
 		if err != nil || isPercent {
 			return nil, fmt.Errorf("invalid sync interval %q: %w", cfg.SyncInterval, err)
 		}
-		u := uint64(val)
-		if float64(u) != val || u > uint64(math.MaxInt) {
+		if val > uint64(math.MaxInt) {
 			return nil, fmt.Errorf("sync interval %q overflows int", cfg.SyncInterval)
 		}
-		cfg.SyncIntervalBytes = int(u)
+		cfg.SyncIntervalBytes = int(val)
 	}
 	bw := &blockWriter{
 		cfg:      cfg,
