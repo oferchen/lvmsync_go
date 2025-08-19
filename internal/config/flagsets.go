@@ -86,6 +86,7 @@ func initGeneralFlags(cfg *Config) *pflag.FlagSet {
 	fs.String("verify", cfg.VerifyLevel, "Verification level: full, sampled, or none")
 	fs.String("digest", cfg.ChecksumAlgorithm, fmt.Sprintf("Digest algorithm: %v", SupportedChecksumAlgorithms))
 	fs.Bool("progress", cfg.Progress, "Show progress during transfer")
+	fs.String("output", cfg.Output, "Output format: text or json")
 	return fs
 }
 

@@ -30,6 +30,7 @@ type RunOptions struct {
 	CDCAvg    int
 	CDCMax    int
 	ChunkSeed uint64
+	Output    string
 }
 
 // Runner holds command behaviors to allow dependency injection in tests.
@@ -161,6 +162,7 @@ func NewRootCmd(logger *zap.Logger, r *Runner) *cobra.Command {
 				CDCAvg:    cfg.CDCAvg,
 				CDCMax:    cfg.CDCMax,
 				ChunkSeed: cfg.ChunkSeed,
+				Output:    cfg.Output,
 			}
 			return r.Run(remaining[0], remaining[1], opts, logger)
 		},
