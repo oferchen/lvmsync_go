@@ -15,6 +15,9 @@ permissions:
 jobs:
   loopback:
     runs-on: ubuntu-latest
+    container:
+      image: ubuntu:24.04
+      options: --cap-add SYS_ADMIN
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -29,8 +32,8 @@ jobs:
 
       - name: Install LVM tools
         run: |
-          sudo apt-get update
-          sudo apt-get install -y lvm2
+          apt-get update
+          apt-get install -y lvm2
 
       - name: Run loopback integration test
-        run: sudo --preserve-env=PATH bash integration/loopback.sh
+        run: bash integration/loopback.sh
