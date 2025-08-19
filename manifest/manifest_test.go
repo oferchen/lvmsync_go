@@ -41,7 +41,7 @@ func (m *mockDevice) RecoverWAL(fn func(device.Range) error) error { return nil 
 func TestIndexCRUD(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "test.man")
-	idx, err := Create(path, "dev", 8192, 0, 4096, 0, 0, 0, 0)
+	idx, err := Create(path, "dev", 8192, 0, 0, 0, 4096, 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -80,7 +80,7 @@ func TestIndexCRUD(t *testing.T) {
 func TestMatchBloomNegative(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "bloom.man")
-	idx, err := Create(path, "dev", 8192, 0, 4096, 0, 0, 0, 0)
+	idx, err := Create(path, "dev", 8192, 0, 0, 0, 4096, 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -120,7 +120,7 @@ func TestMatchBloomNegative(t *testing.T) {
 func TestHashCollision(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "collision.man")
-	idx, err := Create(path, "dev", 8192, 0, 4096, 0, 0, 0, 0)
+	idx, err := Create(path, "dev", 8192, 0, 0, 0, 4096, 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -150,12 +150,12 @@ func TestDeviceIDLength(t *testing.T) {
 	dir := t.TempDir()
 	good := strings.Repeat("a", 64)
 	goodPath := filepath.Join(dir, "good.man")
-	if _, err := Create(goodPath, good, 4096, 0, 4096, 0, 0, 0, 0); err != nil {
+	if _, err := Create(goodPath, good, 4096, 0, 0, 0, 4096, 0, 0, 0, 0); err != nil {
 		t.Fatalf("expected success for 64-byte id: %v", err)
 	}
 	bad := strings.Repeat("b", 65)
 	badPath := filepath.Join(dir, "bad.man")
-	if _, err := Create(badPath, bad, 4096, 0, 4096, 0, 0, 0, 0); err == nil {
+	if _, err := Create(badPath, bad, 4096, 0, 0, 0, 4096, 0, 0, 0, 0); err == nil {
 		t.Fatalf("expected error for id >64 bytes")
 	}
 }
@@ -163,7 +163,7 @@ func TestDeviceIDLength(t *testing.T) {
 func TestCreateZeroBlockSize(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "zero.man")
-	if _, err := Create(path, "dev", 4096, 0, 0, 0, 0, 0, 0); err == nil {
+	if _, err := Create(path, "dev", 4096, 0, 0, 0, 0, 0, 0, 0, 0); err == nil {
 		t.Fatalf("expected error for zero block size")
 	}
 }
@@ -171,7 +171,7 @@ func TestCreateZeroBlockSize(t *testing.T) {
 func TestReadHeaderMACMismatch(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "mac.man")
-	idx, err := Create(path, "dev", 4096, 0, 4096, 0, 0, 0, 0)
+	idx, err := Create(path, "dev", 4096, 0, 0, 0, 4096, 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -190,7 +190,7 @@ func TestReadHeaderMACMismatch(t *testing.T) {
 func TestCreateSyncsHeader(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "crash.man")
-	idx, err := Create(path, "dev", 4096, 0, 4096, 0, 0, 0, 0)
+	idx, err := Create(path, "dev", 4096, 0, 0, 0, 4096, 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -209,7 +209,7 @@ func TestCreateSyncsHeader(t *testing.T) {
 func TestUpgrade(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "old.man")
-	idx, err := Create(path, "dev", 4096, 0, 4096, 0, 0, 0, 0)
+	idx, err := Create(path, "dev", 4096, 0, 0, 0, 4096, 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -248,7 +248,7 @@ func TestCreateCloseHook(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "hook.man")
 	called := 0
-	idx, err := Create(path, "dev", 4096, 0, 4096, 0, 0, 0, 0, WithCloseHook(func() error { called++; return nil }))
+	idx, err := Create(path, "dev", 4096, 0, 0, 0, 4096, 0, 0, 0, 0, WithCloseHook(func() error { called++; return nil }))
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -263,7 +263,7 @@ func TestCreateCloseHook(t *testing.T) {
 func TestOpenCloseHook(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "hook.man")
-	idx, err := Create(path, "dev", 4096, 0, 4096, 0, 0, 0, 0)
+	idx, err := Create(path, "dev", 4096, 0, 0, 0, 4096, 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -286,7 +286,7 @@ func TestOpenCloseHook(t *testing.T) {
 func TestUpgradeCloseHook(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "hook.man")
-	idx, err := Create(path, "dev", 4096, 0, 4096, 0, 0, 0, 0)
+	idx, err := Create(path, "dev", 4096, 0, 0, 0, 4096, 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -312,7 +312,7 @@ func TestUpgradeCloseHook(t *testing.T) {
 func TestIndexCloseAggregatesErrors(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "aggregate.man")
-	idx, err := Create(path, "dev", 4096, 0, 4096, 0, 0, 0, 0)
+	idx, err := Create(path, "dev", 4096, 0, 0, 0, 4096, 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -342,7 +342,7 @@ func TestIndexCloseAggregatesErrors(t *testing.T) {
 func TestMatchXXHShortcut(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "shortcut.man")
-	idx, err := Create(path, "dev", 4096, 0, 4096, 0, 0, 0, 0)
+	idx, err := Create(path, "dev", 4096, 0, 0, 0, 4096, 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -376,7 +376,7 @@ func TestMatchXXHShortcut(t *testing.T) {
 func TestMatchFlagsMismatch(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "flags.man")
-	idx, err := Create(path, "dev", 4096, 0, 4096, 0, 0, 0, 0)
+	idx, err := Create(path, "dev", 4096, 0, 0, 0, 4096, 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -408,7 +408,7 @@ func TestIndexLargeOffsets(t *testing.T) {
 	const blockSize = uint32(1 << 31) // 2 GiB
 	const chunks = uint64(3)
 	size := uint64(blockSize) * chunks
-	idx, err := Create(path, "dev", size, 0, blockSize, 0, 0, 0, 0)
+	idx, err := Create(path, "dev", size, 0, 0, 0, blockSize, 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -440,7 +440,7 @@ func TestIndexLargeOffsets(t *testing.T) {
 func TestIndexOutOfRange(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "oor.man")
-	idx, err := Create(path, "dev", 4096, 0, 4096, 0, 0, 0, 0)
+	idx, err := Create(path, "dev", 4096, 0, 0, 0, 4096, 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}

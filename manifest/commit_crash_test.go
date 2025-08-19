@@ -15,7 +15,7 @@ import (
 func TestCommitCrashMidway(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "manifest")
-	idx, err := Create(path, "dev", 8192, 1, 4096, 0, 0, 0, 0)
+	idx, err := Create(path, "dev", 8192, 1, 0, 0, 4096, 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -59,7 +59,7 @@ func TestCommitCrashMidway(t *testing.T) {
 		t.Fatalf("close2: %v", err)
 	}
 	deviceID := string(bytes.TrimRight(hdr.DeviceID[:], "\x00"))
-	newIdx, err := Create(path, deviceID, hdr.SizeBytes, hdr.Epoch+1, hdr.BlockSize, hdr.MinChunkSize, hdr.AvgChunkSize, hdr.MaxChunkSize, hdr.HybridFixedSize)
+	newIdx, err := Create(path, deviceID, hdr.SizeBytes, hdr.Epoch+1, hdr.Major, hdr.Minor, hdr.BlockSize, hdr.MinChunkSize, hdr.AvgChunkSize, hdr.MaxChunkSize, hdr.HybridFixedSize)
 	if err != nil {
 		t.Fatalf("Create new: %v", err)
 	}

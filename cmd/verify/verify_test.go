@@ -75,7 +75,7 @@ func TestRunFlagOverridesEnvAndYAML(t *testing.T) {
 		t.Fatalf("write dst: %v", err)
 	}
 	manifestPath := src + ".manifest"
-	idx, err := manifestpkg.Create(manifestPath, "dev", uint64(len("foo")), 0, uint32(len("foo")), 0, 0, 0, 0)
+	idx, err := manifestpkg.Create(manifestPath, "dev", uint64(len("foo")), 0, 0, 0, uint32(len("foo")), 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("manifest create: %v", err)
 	}
@@ -130,7 +130,7 @@ func TestVerifyWithManifestAllocations(t *testing.T) {
 	size := blockSize * 3
 	src := createTestFile(t, size)
 	manifestPath := filepath.Join(t.TempDir(), "manifest")
-	idx, err := manifestpkg.Create(manifestPath, "dev", uint64(size), 0, uint32(blockSize), 0, 0, 0, 0)
+	idx, err := manifestpkg.Create(manifestPath, "dev", uint64(size), 0, 0, 0, uint32(blockSize), 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("manifest create: %v", err)
 	}
@@ -184,7 +184,7 @@ func TestVerifyDevicesRebuildsManifest(t *testing.T) {
 	called := false
 	r := NewRunnerWithDeps(func(ctx context.Context, device, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error {
 		called = true
-		idx, err := manifestpkg.Create(output, "dev", uint64(len("foo")), 0, 4096, 0, 0, 0, 0)
+		idx, err := manifestpkg.Create(output, "dev", uint64(len("foo")), 0, 0, 0, 4096, 0, 0, 0, 0)
 		if err != nil {
 			return err
 		}

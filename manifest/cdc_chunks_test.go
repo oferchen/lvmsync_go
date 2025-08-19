@@ -11,7 +11,7 @@ import (
 func TestIndexCDCChunks(t *testing.T) {
 	dir := t.TempDir()
 	manPath := filepath.Join(dir, "man")
-	idx, err := Create(manPath, "dev", 1024, 0, 4, 0, 0, 0, 0)
+	idx, err := Create(manPath, "dev", 1024, 0, 0, 0, 4, 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}

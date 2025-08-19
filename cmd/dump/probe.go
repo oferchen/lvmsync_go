@@ -100,7 +100,9 @@ func manifestHeaderMAC(h *manifestpkg.Header) [32]byte {
 	binary.LittleEndian.PutUint32(buf[32:36], h.MaxChunkSize)
 	binary.LittleEndian.PutUint32(buf[36:40], h.HybridFixedSize)
 	binary.LittleEndian.PutUint64(buf[40:48], h.Epoch)
-	copy(buf[48:112], h.DeviceID[:])
-	copy(buf[112:144], h.FirstBlockDigest[:])
+	binary.LittleEndian.PutUint32(buf[48:52], h.Major)
+	binary.LittleEndian.PutUint32(buf[52:56], h.Minor)
+	copy(buf[56:120], h.DeviceID[:])
+	copy(buf[120:152], h.FirstBlockDigest[:])
 	return blake3.Sum256(buf[:])
 }

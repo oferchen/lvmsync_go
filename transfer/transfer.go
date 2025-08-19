@@ -15,6 +15,7 @@ import (
 
 	"github.com/zeebo/blake3"
 	"go.uber.org/zap"
+	"golang.org/x/sys/unix"
 
 	rootcmd "lvmsync_go/cmd/root"
 	"lvmsync_go/common"
@@ -228,8 +229,10 @@ func manifestHeaderMAC(h *manifestpkg.Header) [32]byte {
 	binary.LittleEndian.PutUint32(buf[32:36], h.MaxChunkSize)
 	binary.LittleEndian.PutUint32(buf[36:40], h.HybridFixedSize)
 	binary.LittleEndian.PutUint64(buf[40:48], h.Epoch)
-	copy(buf[48:112], h.DeviceID[:])
-	copy(buf[112:144], h.FirstBlockDigest[:])
+	binary.LittleEndian.PutUint32(buf[48:52], h.Major)
+	binary.LittleEndian.PutUint32(buf[52:56], h.Minor)
+	copy(buf[56:120], h.DeviceID[:])
+	copy(buf[120:152], h.FirstBlockDigest[:])
 	return blake3.Sum256(buf[:])
 }
 
@@ -291,6 +294,16 @@ func (t *Transfer) verifyDestination(ctx context.Context, cfg *config.Config, de
 		if size != hdr.SizeBytes {
 			t.Logger.Error("device_size_mismatch", zap.Uint64("expected_size_bytes", hdr.SizeBytes), zap.Uint64("size_bytes", size))
 			return 0, "", 0, fmt.Errorf("precondition: destination device size %d does not match manifest %d", size, hdr.SizeBytes)
+		}
+		var st unix.Stat_t
+		if err := unix.Stat(destPath, &st); err != nil {
+			return 0, "", 0, fmt.Errorf("stat destination: %w", err)
+		}
+		major := uint32(unix.Major(uint64(st.Rdev)))
+		minor := uint32(unix.Minor(uint64(st.Rdev)))
+		if major != hdr.Major || minor != hdr.Minor {
+			t.Logger.Error("device_number_mismatch", zap.Uint32("expected_major", hdr.Major), zap.Uint32("expected_minor", hdr.Minor), zap.Uint32("major", major), zap.Uint32("minor", minor))
+			return 0, "", 0, fmt.Errorf("precondition: destination device number mismatch")
 		}
 		dig, err := t.Info.FirstBlockDigest(ctx, destPath, firstBlockDigestSize)
 		if err != nil {
