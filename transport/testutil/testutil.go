@@ -110,3 +110,36 @@ func RunNegotiation(t *testing.T, tr transport.Interface, serverHS, clientHS com
 	srvRes := <-srvCh
 	return srvRes, Result{Peer: peer, Err: err}
 }
+
+func RunNegotiationWithDelay(t *testing.T, tr transport.Interface, serverHS, clientHS common.Handshake, delay, timeout time.Duration) (Result, Result) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	ln, err := tr.Listen(ctx, "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer ln.Close()
+	addr := ln.Addr().String()
+	srvCh := make(chan Result)
+	go func() {
+		time.Sleep(delay)
+		conn, err := ln.Accept()
+		if err != nil {
+			srvCh <- Result{Err: err}
+			return
+		}
+		peer, err := tr.Negotiate(ctx, conn, transport.Server, serverHS)
+		conn.Close()
+		srvCh <- Result{Peer: peer, Err: err}
+	}()
+	conn, err := tr.Dial(ctx, addr)
+	if err != nil {
+		srvRes := <-srvCh
+		return srvRes, Result{Err: err}
+	}
+	peer, err := tr.Negotiate(ctx, conn, transport.Client, clientHS)
+	conn.Close()
+	srvRes := <-srvCh
+	return srvRes, Result{Peer: peer, Err: err}
+}
