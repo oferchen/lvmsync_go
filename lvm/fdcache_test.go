@@ -10,20 +10,18 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func TestNewFDCacheNilLoggerError(t *testing.T) {
-	if _, err := NewFDCache(fdCacheSize, nil); err == nil {
-		t.Fatalf("expected error")
-	}
-}
-
-func TestSetLoggerNilError(t *testing.T) {
-	cache, err := NewFDCache(fdCacheSize, zap.NewNop())
+func TestFDCacheNilLoggerPanics(t *testing.T) {
+	cache, err := NewFDCache(fdCacheSize, nil)
 	if err != nil {
 		t.Fatalf("NewFDCache: %v", err)
 	}
-	if err := cache.SetLogger(nil); err == nil {
-		t.Fatalf("expected error")
-	}
+	cache.fds["bad"] = cache.order.PushBack(&fdCacheEntry{path: "bad", fd: -1})
+	defer func() {
+		if r := recover(); r == nil {
+			t.Fatalf("expected panic")
+		}
+	}()
+	cache.Close()
 }
 
 func TestFDCacheEvictionOrder(t *testing.T) {

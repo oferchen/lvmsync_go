@@ -66,6 +66,15 @@ func TestOpenDeviceFailure(t *testing.T) {
 	}
 }
 
+func TestOpenDeviceNilLoggerPanics(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Fatalf("expected panic")
+		}
+	}()
+	openDevice("", nil)
+}
+
 func TestQueryDeviceInfoSuccess(t *testing.T) {
 	if os.Geteuid() != 0 {
 		t.Skip("requires root")

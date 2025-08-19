@@ -47,13 +47,9 @@ type Server struct {
 	lv      string
 }
 
-// New constructs a Server using the provided Device and logger. The digest
-// algorithm and expected sum are supplied via a later digest frame. A nil
-// logger is replaced with zap.NewNop().
+// New constructs a Server using the provided Device and logger.
+// The digest algorithm and expected sum are supplied via a later digest frame.
 func New(dev Device, logger *zap.Logger, cache *signaturecache.Cache, vg, lv string) *Server {
-	if logger == nil {
-		logger = zap.NewNop()
-	}
 	return &Server{dev: dev, logger: logger, cache: cache, vg: vg, lv: lv}
 }
 

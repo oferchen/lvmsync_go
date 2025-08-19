@@ -84,9 +84,6 @@ func prepareFreeze(
 
 // openDevice ensures the path is a block device and opens it for reading and writing.
 func openDevice(path string, logger *zap.Logger) (*os.File, error) {
-	if logger == nil {
-		logger = zap.NewNop()
-	}
 	if reexeced, err := escalate.EnsureRootOrReexec(escalate.Options{}, logger); err != nil {
 		return nil, err
 	} else if reexeced {

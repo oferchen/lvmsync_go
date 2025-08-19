@@ -38,9 +38,6 @@ const (
 )
 
 func emitPlan(cfg *config.Config, args []string, logger *zap.Logger) error {
-	if logger == nil {
-		return fmt.Errorf("nil logger")
-	}
 	if len(args) < 1 {
 		return fmt.Errorf("missing source argument")
 	}
