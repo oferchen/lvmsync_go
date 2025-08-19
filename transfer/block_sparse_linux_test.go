@@ -7,8 +7,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"encoding/binary"
-	"io"
 	"os"
 	"testing"
 
@@ -85,28 +83,12 @@ func TestIterateBlocksSkipsSparseRegions(t *testing.T) {
 	defer os.Remove(dest.Name())
 	defer dest.Close()
 
-	rd := bytes.NewReader(buf.Bytes())
-	header := make([]byte, 16)
-	for {
-		if _, err := io.ReadFull(rd, header); err != nil {
-			if err == io.EOF {
-				break
-			}
-			t.Fatalf("read header: %v", err)
-		}
-		off := binary.BigEndian.Uint64(header[0:8])
-		size := binary.BigEndian.Uint32(header[8:12])
-		crc := binary.BigEndian.Uint32(header[12:16])
-		var block []byte
-		if size > 0 {
-			block = make([]byte, size)
-			if _, err := io.ReadFull(rd, block); err != nil {
-				t.Fatalf("read block: %v", err)
-			}
-		}
-		if _, err := processBlock(cfg, dest, nil, nil, false, nil, off, crc, nil, block, size, zap.NewNop(), nil); err != nil {
-			t.Fatalf("processBlock: %v", err)
-		}
+	bw, err := newBlockWriter(cfg, dest, nil, false, nil, zap.NewNop(), nil)
+	if err != nil {
+		t.Fatalf("newBlockWriter: %v", err)
+	}
+	if _, err := bw.write(bufio.NewReader(bytes.NewReader(buf.Bytes()))); err != nil {
+		t.Fatalf("write: %v", err)
 	}
 
 	if !seekHoleSupported(dest) {

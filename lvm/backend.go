@@ -8,4 +8,5 @@ type lvmBackend interface {
 	GetSnapshotUsage(ctx context.Context, snapshotPath string) (float64, error)
 	GetVolumeGroupFreeSpace(ctx context.Context, vgName string) (uint64, error)
 	ListVolumeGroups(ctx context.Context, candidates []string) ([]VolumeGroup, error)
+	CreateLogicalVolume(ctx context.Context, vgName, lvName string, sizeBytes uint64) error
 }

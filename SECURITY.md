@@ -8,10 +8,26 @@ The controller orchestrates replication, validates parameters, and interacts wit
 
 ## Probe and verify modes
 
+Read-only operations can run without elevated privileges.
+`--probe-only` checks device metadata, validates privileges, and prints `size_bytes device_id manifest_epoch` so operators can capture the identity tuple before writing.
+`--verify-only` reads source and destination devices and reports mismatches.
+
 Read-only operations can run without elevated privileges.  
-`--probe-only` checks device metadata, validates privileges, and emits dry-run estimates.  
+`--probe-only` checks device metadata, validates privileges, and emits dry-run estimates. It prints `(size_bytes, kernel_uuid, gpt_uuid, fs_uuid, major, minor, manifest_epoch)` for confirmation.
 `--verify-only` reads source and destination devices and reports mismatches.  
+
 Both commands exit `0` on success, return `60` for verification failures, and `10` when required capabilities are missing.
+
+Example `--probe-only` output:
+
+```sh
+lvmsync run --probe-only /dev/vg0/snap0 /dev/vg0/target
+# 10737418240 12345678-9abc-def0-1234-56789abcdef0 1700000000
+```
+
+## Device identity enforcement
+
+Each transfer records `(device_id, fs_uuid, size_bytes, major:minor, manifest_epoch)` and compares it with the destination and any resume state before writing. LVMSync refuses to resume when this tuple differs, preventing accidental or malicious overwrites.
 
 ## Required sudoers entries
 
@@ -53,7 +69,9 @@ The helper normally inherits the caller's environment, including `PATH` and
 `GCONV_PATH`. Pass the `--sanitize-env` flag or enable the `SanitizeEnv` option
 to run the helper with a minimal, whitelisted environment that drops those
 variables entirely. Sanitization is disabled by default to avoid surprising
-behavior in mixed environments.
+behavior in mixed environments. After each privileged command the helper
+clears any ambient capability sets to minimise the time elevated rights remain
+active.
 
 ## Logging hygiene
 
@@ -69,7 +87,7 @@ A misconfigured `sudoers` rule or path could destroy unrelated data or allow
 full-disk compromise. LVMSync mitigates this risk by:
 
 * Requiring explicit device paths; globbing and symlinks are rejected.
-* Verifying device size and LVM signatures before writing.
+* Verifying the device identity tuple `(size_bytes, kernel_uuid, gpt_uuid, fs_uuid, major, minor, manifest_epoch)` before writing.
 * Dropping privileges immediately after completing the privileged section.
 
 Review `sudoers` entries carefully and test on non-production systems before granting wide access.

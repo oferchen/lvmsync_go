@@ -155,6 +155,7 @@ func (r *Runner) createSnapshotIfNeeded(ctx context.Context, cfg *config.Config,
 		return "", nil, nil, fmt.Errorf("snapshot creation failed: %w", err)
 	}
 	snapshotPath = r.getSnapshotDevicePath(snapshotName, cfg.VolumeGroup, logger)
+	lvm.RegisterSnapshot(snapshotPath, logger)
 	logger.Info("Snapshot created", zap.String("snapshot", snapshotPath))
 
 	monitorCtx, cancel := context.WithCancel(ctx)
@@ -172,6 +173,7 @@ func (r *Runner) createSnapshotIfNeeded(ctx context.Context, cfg *config.Config,
 
 	cleanup = func() {
 		cancel()
+		lvm.UnregisterSnapshot(snapshotPath)
 		removeCtx, removeCancel := context.WithTimeout(ctx, 10*time.Second)
 		defer removeCancel()
 		if err := r.removeSnapshot(removeCtx, snapshotPath, logger); err != nil {

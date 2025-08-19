@@ -223,6 +223,9 @@
     "retry_delay": {
       "type": "string"
     },
+    "sanitize_env": {
+      "type": "boolean"
+    },
     "sig_cache_max": {
       "type": "integer"
     },
@@ -298,6 +301,9 @@
         "type": "string"
       },
       "type": "array"
+    },
+    "create_dest_lv": {
+      "type": "boolean"
     },
     "target_volume_group": {
       "type": "string"

@@ -40,6 +40,8 @@ func (f *vgBackend) ListVolumeGroups(_ context.Context, candidates []string) ([]
 	return res, nil
 }
 
+func (f *vgBackend) CreateLogicalVolume(context.Context, string, string, uint64) error { return nil }
+
 func TestSelectVolumeGroup(t *testing.T) {
 	orig := checkPrivs
 	checkPrivs = func() error { return nil }

@@ -36,3 +36,8 @@ func (m *mockCGO) VGFree(vgName string) (uint64, error) {
 }
 
 func (m *mockCGO) ListVGs() ([]cgo.VolumeGroup, error) { return m.vgs, nil }
+
+func (m *mockCGO) CreateLV(vgName, lvName string, sizeBytes uint64) error {
+	m.calls = append(m.calls, fmt.Sprintf("lv:%s:%s:%d", vgName, lvName, sizeBytes))
+	return nil
+}

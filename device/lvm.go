@@ -131,10 +131,16 @@ func (d *LVMDevice) Identity(ctx context.Context) (DeviceIdentity, error) {
 	}
 	out, err := exec.CommandContext(ctx, lvsPath, "--noheadings", "-o", "lv_uuid", d.Path()).Output()
 	if err != nil {
+		if ctx.Err() != nil {
+			return DeviceIdentity{}, ctx.Err()
+		}
 		return DeviceIdentity{}, err
 	}
 	id.KernelUUID = strings.TrimSpace(string(out))
 	if out, err = exec.CommandContext(ctx, blkidPath, "-o", "value", "-s", "UUID", d.Path()).Output(); err != nil {
+		if ctx.Err() != nil {
+			return DeviceIdentity{}, ctx.Err()
+		}
 		return DeviceIdentity{}, err
 	}
 	id.FSUUID = strings.TrimSpace(string(out))

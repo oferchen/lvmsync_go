@@ -17,3 +17,6 @@ func realHasCaps() bool { return false }
 // checkCaps is a no-op on non-Linux platforms since capabilities are
 // unsupported and sudo will be required.
 func checkCaps() error { return nil }
+
+// ClearAmbient is a no-op on non-Linux platforms.
+func ClearAmbient() {}

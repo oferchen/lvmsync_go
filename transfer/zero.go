@@ -78,3 +78,45 @@ func writeZeroBlock(cfg *config.Config, dest *os.File, offset uint64, logger *za
 	}
 	return nil
 }
+
+// writeZeroRange attempts to punch a sparse hole spanning length bytes starting
+// at offset. When hole punching is unsupported, it falls back to writing zeros
+// for the entire range using a reusable buffer.
+func writeZeroRange(cfg *config.Config, dest *os.File, offset uint64, length uint64, logger *zap.Logger) error {
+	if length == 0 {
+		return nil
+	}
+	if cfg.Sparse != "never" && !punchHoleDisabled.Load() {
+		if err := punchHoleFunc(dest, offset, int(length)); err == nil {
+			return nil
+		} else if errors.Is(err, unix.ENOTSUP) {
+			if punchHoleDisabled.CompareAndSwap(false, true) {
+				logger.Warn("hole punching unsupported; disabling", zap.Error(err))
+			}
+		} else {
+			return err
+		}
+	}
+	var zero []byte
+	if cfg.ODirect {
+		zero = getAlignedBlockBuffer(cfg.BlockSize)
+		defer putAlignedBlockBuffer(zero)
+	} else {
+		zero = getBlockBuffer(cfg.BlockSize)
+		defer putBlockBuffer(zero)
+	}
+	remaining := length
+	cur := offset
+	for remaining > 0 {
+		n := cfg.BlockSize
+		if remaining < uint64(n) {
+			n = int(remaining)
+		}
+		if err := writeData(dest, cur, zero[:n], logger); err != nil {
+			return err
+		}
+		remaining -= uint64(n)
+		cur += uint64(n)
+	}
+	return nil
+}

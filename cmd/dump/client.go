@@ -48,6 +48,11 @@ type Runner struct {
 	sumFile        func(string, string) ([32]byte, error)
 	streamToRemote func(context.Context, *config.Config, io.WriteCloser, string, string, string, *zap.Logger) error
 	probeDest      func(context.Context, *config.Config, string, *zap.Logger) (uint64, string, uint64, error)
+	createLV       func(context.Context, string, string, uint64, *zap.Logger) error
+	parseLVPath    func(string) (string, string, error)
+	getVolumeSize  func(string, *lvm.FDCache, *zap.Logger) (uint64, error)
+	newFDC         func(*zap.Logger) (*lvm.FDCache, error)
+	probeDest      func(context.Context, *config.Config, string, *zap.Logger) (device.DeviceIdentity, error)
 }
 
 var (
@@ -73,7 +78,7 @@ var (
 	dumpChangesWithDeduplication = func(ctx context.Context, t *transfer.Transfer, cfg *config.Config, snap, origin string, out io.Writer, d transfer.DeduplicationStrategy) error {
 		return t.DumpChangesWithDeduplication(ctx, cfg, snap, origin, out, d)
 	}
-	probeDestination = func(ctx context.Context, cfg *config.Config, dest string, logger *zap.Logger) (uint64, string, uint64, error) {
+	probeDestination = func(ctx context.Context, cfg *config.Config, dest string, logger *zap.Logger) (device.DeviceIdentity, error) {
 		return realProbeDestination(ctx, cfg, dest, logger)
 	}
 )
@@ -90,6 +95,10 @@ func NewRunner() *Runner {
 		sumFile:        sumFile,
 		streamToRemote: streamToRemote,
 		probeDest:      probeDestination,
+		createLV:       lvm.CreateLogicalVolume,
+		parseLVPath:    lvm.ParseLVPath,
+		getVolumeSize:  lvm.GetVolumeSize,
+		newFDC:         lvm.NewDeviceFDCache,
 	}
 }
 
@@ -130,6 +139,18 @@ func NewRunnerWithDeps(deps *Runner) *Runner {
 	}
 	if deps.probeDest != nil {
 		r.probeDest = deps.probeDest
+	}
+	if deps.createLV != nil {
+		r.createLV = deps.createLV
+	}
+	if deps.parseLVPath != nil {
+		r.parseLVPath = deps.parseLVPath
+	}
+	if deps.getVolumeSize != nil {
+		r.getVolumeSize = deps.getVolumeSize
+	}
+	if deps.newFDC != nil {
+		r.newFDC = deps.newFDC
 	}
 	return r
 }
@@ -255,11 +276,11 @@ func (r *Runner) ExecuteDump(ctx context.Context, cfg *config.Config, snapshotDe
 func (r *Runner) Run(ctx context.Context, cfg *config.Config, source, dest string, logger *zap.Logger) (string, error) {
 	defer rootcmd.SyncLogger(logger)
 	if cfg.ProbeOnly {
-		size, id, epoch, err := r.probeDest(ctx, cfg, dest, logger)
+		id, err := r.probeDest(ctx, cfg, dest, logger)
 		if err != nil {
 			return cfg.DestType, err
 		}
-		fmt.Fprintf(os.Stdout, "%d %s %d\n", size, id, epoch)
+		fmt.Fprintf(os.Stdout, "%d %s %s %s %d %d %d\n", id.SizeBytes, id.KernelUUID, id.GPTUUID, id.FSUUID, id.Major, id.Minor, id.ManifestEpoch)
 		return cfg.DestType, nil
 	}
 	dev, err := r.detectDevice(
@@ -363,6 +384,12 @@ func (r *Runner) RunLocalDump(ctx context.Context, cfg *config.Config, snapshotD
 		}
 		if !exists {
 			cache, err := lvm.NewDeviceFDCache(logger)
+		if _, err := os.Stat(dest); errors.Is(err, os.ErrNotExist) {
+			vg, lv, err := r.parseLVPath(dest)
+			if err != nil {
+				return destType, err
+			}
+			cache, err := r.newFDC(logger)
 			if err != nil {
 				return destType, err
 			}
@@ -372,6 +399,11 @@ func (r *Runner) RunLocalDump(ctx context.Context, cfg *config.Config, snapshotD
 				return destType, err
 			}
 			if err := devRunner.CreateLV(devCtx, dest, size, cfg.LVMEscalation); err != nil {
+			size, err := r.getVolumeSize(originDevice, cache, logger)
+			if err != nil {
+				return destType, err
+			}
+			if err := r.createLV(ctx, vg, lv, size, logger); err != nil {
 				return destType, err
 			}
 		}

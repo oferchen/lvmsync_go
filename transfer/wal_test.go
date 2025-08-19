@@ -2,8 +2,7 @@ package transfer
 
 import (
 	"encoding/binary"
-	"io"
-	"io/fs"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -114,21 +113,25 @@ func TestWALPartialWrite(t *testing.T) {
 	}
 }
 
-type shortWriteFile struct{}
-
-func (s *shortWriteFile) ReadAt(p []byte, off int64) (int, error)  { return 0, io.EOF }
-func (s *shortWriteFile) Write(p []byte) (int, error)              { return len(p) - 1, nil }
-func (s *shortWriteFile) WriteAt(p []byte, off int64) (int, error) { return len(p) - 1, nil }
-func (s *shortWriteFile) Seek(int64, int) (int64, error)           { return 0, nil }
-func (s *shortWriteFile) Sync() error                              { return nil }
-func (s *shortWriteFile) Truncate(int64) error                     { return nil }
-func (s *shortWriteFile) Close() error                             { return nil }
-func (s *shortWriteFile) Stat() (fs.FileInfo, error)               { return nil, nil }
-func (s *shortWriteFile) Name() string                             { return "" }
-
-func TestWALAppendShortWrite(t *testing.T) {
-	w := &WAL{f: &shortWriteFile{}}
-	if err := w.Append(Range{Start: 0, End: 1}); err == nil {
-		t.Fatalf("expected error on short write")
+func TestWALSyncDirAppend(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "wal")
+	w, _, err := OpenWAL(path, 100, "dev", 1)
+	if err != nil {
+		t.Fatalf("open wal: %v", err)
 	}
+	stubErr := errors.New("syncdir fail")
+	var calls int
+	restore := SetSyncDirFunc(func(string) error {
+		calls++
+		return stubErr
+	})
+	defer restore()
+	if err := w.Append(Range{Start: 0, End: 1}); !errors.Is(err, stubErr) {
+		t.Fatalf("expected %v got %v", stubErr, err)
+	}
+	if calls != 1 {
+		t.Fatalf("expected syncDir called once, got %d", calls)
+	}
+	w.Close()
 }

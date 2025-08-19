@@ -42,3 +42,8 @@ func checkCaps() error {
 	}
 	return fmt.Errorf("missing capabilities")
 }
+
+// ClearAmbient drops any ambient capabilities from the current process.
+func ClearAmbient() {
+	_ = unix.Prctl(unix.PR_CAP_AMBIENT, unix.PR_CAP_AMBIENT_CLEAR_ALL, 0, 0, 0)
+}

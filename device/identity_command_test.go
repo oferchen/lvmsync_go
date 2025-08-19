@@ -47,6 +47,11 @@ func TestRawIdentityTimeout(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 	if _, err := d.Identity(ctx); err == nil || (!errors.Is(err, context.DeadlineExceeded) && !strings.Contains(err.Error(), "signal: killed")) {
+
+	if _, err := d.Identity(ctx); err == nil || (!errors.Is(err, context.DeadlineExceeded) && !strings.Contains(err.Error(), "killed")) {
+
+	if _, err := d.Identity(ctx); err == nil || !(errors.Is(err, context.DeadlineExceeded) || strings.Contains(err.Error(), "signal: killed")) {
+
 		t.Fatalf("expected deadline exceeded, got %v", err)
 	}
 }
@@ -86,6 +91,11 @@ func TestLVMIdentityTimeout(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 	if _, err := d.Identity(ctx); err == nil || (!errors.Is(err, context.DeadlineExceeded) && !strings.Contains(err.Error(), "signal: killed")) {
+
+	if _, err := d.Identity(ctx); err == nil || (!errors.Is(err, context.DeadlineExceeded) && !strings.Contains(err.Error(), "killed")) {
+
+	if _, err := d.Identity(ctx); err == nil || !(errors.Is(err, context.DeadlineExceeded) || strings.Contains(err.Error(), "signal: killed")) {
+
 		t.Fatalf("expected deadline exceeded, got %v", err)
 	}
 }

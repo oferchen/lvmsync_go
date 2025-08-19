@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 	"os/exec"
-	"os/signal"
 	"strings"
 	"syscall"
 	"testing"
@@ -63,40 +62,13 @@ func TestSnapshotRemovedOnSignal(t *testing.T) {
 		t.Skipf("CreateSnapshot: %v", err)
 	}
 	snapPath := "/dev/vgsig/snap"
-
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
-	done := make(chan struct{})
-	errCh := make(chan error, 1)
-	go func() {
-		defer close(done)
-		<-sigCh
-		errCh <- RemoveSnapshot(context.Background(), snapPath, zap.NewNop())
-	}()
-
-	t.Cleanup(func() {
-		signal.Stop(sigCh)
-		close(sigCh)
-		select {
-		case <-done:
-		case <-time.After(time.Second):
-			t.Errorf("cleanup goroutine did not exit")
-		}
-	})
+	RegisterSnapshot(snapPath, zap.NewNop())
 
 	if err := syscall.Kill(os.Getpid(), syscall.SIGINT); err != nil {
 		t.Fatalf("send signal: %v", err)
 	}
 
-	select {
-	case err := <-errCh:
-		if err != nil {
-			t.Fatalf("RemoveSnapshot: %v", err)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatalf("timeout waiting for RemoveSnapshot")
-	}
-
+	time.Sleep(2 * time.Second)
 	if err := exec.Command("lvs", snapPath).Run(); err == nil {
 		t.Fatalf("snapshot %s still exists", snapPath)
 	}

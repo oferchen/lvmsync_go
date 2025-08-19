@@ -82,6 +82,13 @@ func (c *Cmd) CreateSnapshot(lvPath, snapshotName string, sizeBytes uint64) erro
 	return err
 }
 
+// CreateLV creates a logical volume in the given volume group.
+func (c *Cmd) CreateLV(vgName, lvName string, sizeBytes uint64) error {
+	size := fmt.Sprintf("%dB", sizeBytes)
+	_, err := c.run([]string{"lvcreate", "-n", lvName, "-L", size, vgName})
+	return err
+}
+
 // RemoveLV removes the logical volume at lvPath.
 func (c *Cmd) RemoveLV(lvPath string) error {
 	_, err := c.run([]string{"lvremove", "-y", lvPath})
