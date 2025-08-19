@@ -15,7 +15,7 @@ import (
 )
 
 func blkdiscard(f *os.File, offset, length uint64, sanitize bool, logger *zap.Logger) error {
-	if reexeced, err := escalate.EnsureRootOrReexec(escalate.Options{SanitizeEnv: sanitize}, logger); err != nil {
+	if reexeced, err := escalate.EnsureRootOrReexec(escalate.Options{SanitizeEnv: &sanitize}, logger); err != nil {
 		return err
 	} else if reexeced {
 		return fmt.Errorf("re-exec requested for root")

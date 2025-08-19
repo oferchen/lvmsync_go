@@ -47,8 +47,10 @@ type Options struct {
 	AllowedPassthrough map[string]bool
 	// ExtraArgs, if set, are appended after the self path (e.g., a subcommand).
 	ExtraArgs []string
-	// SanitizeEnv (default false) uses a hardened child environment.
-	SanitizeEnv bool
+	// SanitizeEnv controls environment sanitization for the re-execed child.
+	// When nil, sanitization is enabled by default. Set to pointer to false to
+	// forward the full environment.
+	SanitizeEnv *bool
 
 	// Dependency seams (optional; default to real OS functions):
 	Args       []string                          // defaults to os.Args
@@ -112,7 +114,11 @@ func EnsureRootOrReexec(opts Options, logger *zap.Logger) (bool, error) {
 	args = append(args, filterAllowed(argv[1:], opts.AllowedPassthrough)...)
 
 	var env []string
-	if opts.SanitizeEnv {
+	sanitize := true
+	if opts.SanitizeEnv != nil {
+		sanitize = *opts.SanitizeEnv
+	}
+	if sanitize {
 		environ := os.Environ
 		if opts.Environ != nil {
 			environ = opts.Environ

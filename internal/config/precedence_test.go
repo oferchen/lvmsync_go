@@ -193,10 +193,7 @@ func TestPlanEnvOverridesYAML(t *testing.T) {
 	}
 }
 
-
 func TestCreateDestLVFlagOverridesEnvAndYAML(t *testing.T) {
-
-func TestSanitizeEnvFlagOverridesEnvAndYAML(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	defaults, err := DefaultConfig()
 	if err != nil {
@@ -220,18 +217,48 @@ func TestSanitizeEnvFlagOverridesEnvAndYAML(t *testing.T) {
 }
 
 func TestCreateDestLVEnvOverridesYAML(t *testing.T) {
-=======
-	if err := os.WriteFile(cfgFile, []byte("sanitize_env: false\n"), 0o644); err != nil {
+	t.Setenv("HOME", t.TempDir())
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("default: %v", err)
+	}
+	b := NewBuilder(defaults)
+	dir := t.TempDir()
+	cfgFile := filepath.Join(dir, "cfg.yaml")
+	if err := os.WriteFile(cfgFile, []byte("create_dest_lv: false\n"), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
-	t.Setenv("LVMSYNC_SANITIZE_ENV", "false")
+	t.Setenv("LVMSYNC_CREATE_DEST_LV", "true")
 	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
-	cfg, _, _, err := b.Build(fs, []string{"--config", cfgFile, "--sanitize-env"})
+	cfg, _, _, err := b.Build(fs, []string{"--config", cfgFile})
 	if err != nil {
 		t.Fatalf("build: %v", err)
 	}
-	if !cfg.SanitizeEnv {
-		t.Fatalf("SanitizeEnv=%v want true", cfg.SanitizeEnv)
+	if !cfg.CreateDestLV {
+		t.Fatalf("CreateDestLV=%v want true", cfg.CreateDestLV)
+	}
+}
+
+func TestSanitizeEnvFlagFalseOverridesEnvAndYAML(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("default: %v", err)
+	}
+	b := NewBuilder(defaults)
+	dir := t.TempDir()
+	cfgFile := filepath.Join(dir, "cfg.yaml")
+	if err := os.WriteFile(cfgFile, []byte("sanitize_env: true\n"), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	t.Setenv("LVMSYNC_SANITIZE_ENV", "true")
+	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	cfg, _, _, err := b.Build(fs, []string{"--config", cfgFile, "--sanitize-env=false"})
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	if cfg.SanitizeEnv {
+		t.Fatalf("SanitizeEnv=%v want false", cfg.SanitizeEnv)
 	}
 }
 
@@ -244,29 +271,17 @@ func TestSanitizeEnvEnvOverridesYAML(t *testing.T) {
 	b := NewBuilder(defaults)
 	dir := t.TempDir()
 	cfgFile := filepath.Join(dir, "cfg.yaml")
-
-	if err := os.WriteFile(cfgFile, []byte("create_dest_lv: false\n"), 0o644); err != nil {
+	if err := os.WriteFile(cfgFile, []byte("sanitize_env: true\n"), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
-	t.Setenv("LVMSYNC_CREATE_DEST_LV", "true")
-
-	if err := os.WriteFile(cfgFile, []byte("sanitize_env: false\n"), 0o644); err != nil {
-		t.Fatalf("write config: %v", err)
-	}
-	t.Setenv("LVMSYNC_SANITIZE_ENV", "true")
-
+	t.Setenv("LVMSYNC_SANITIZE_ENV", "false")
 	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
 	cfg, _, _, err := b.Build(fs, []string{"--config", cfgFile})
 	if err != nil {
 		t.Fatalf("build: %v", err)
 	}
-
-	if !cfg.CreateDestLV {
-		t.Fatalf("CreateDestLV=%v want true", cfg.CreateDestLV)
-
-	if !cfg.SanitizeEnv {
-		t.Fatalf("SanitizeEnv=%v want true", cfg.SanitizeEnv)
-
+	if cfg.SanitizeEnv {
+		t.Fatalf("SanitizeEnv=%v want false", cfg.SanitizeEnv)
 	}
 }
 
