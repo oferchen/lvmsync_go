@@ -1,14 +1,15 @@
 package device
 
 // DeviceIdentity describes metadata uniquely identifying a block device.
-// The identity tuple is (size_bytes, kernel_uuid, gpt_uuid, fs_uuid, major, minor).
+// The identity tuple is (size_bytes, kernel_uuid, gpt_uuid, fs_uuid, major, minor, manifest_epoch).
 type DeviceIdentity struct {
-	SizeBytes  uint64
-	KernelUUID string
-	GPTUUID    string
-	FSUUID     string
-	Major      uint32
-	Minor      uint32
+	SizeBytes     uint64
+	KernelUUID    string
+	GPTUUID       string
+	FSUUID        string
+	Major         uint32
+	Minor         uint32
+	ManifestEpoch uint64
 }
 
 // Range represents a byte range on a device.

@@ -95,7 +95,7 @@ lvmsync run /dev/vg0/missing /dev/vg0/target || echo "precondition failed with e
 
 ## Troubleshooting
 
-- Compare source and destination identities; the device identity tuple `(device_id, fs_uuid, size_bytes, major:minor)` must match the resume file.
+- Compare source and destination identities; the device identity tuple `(size_bytes, kernel_uuid, gpt_uuid, fs_uuid, major, minor, manifest_epoch)` must match the resume file.
 - Confirm the destination is not mounted read-write. Use `--force` only when intentionally overwriting.
 - Rerun with `--resume` after resolving issues to avoid re-copying completed blocks.
 - Review logs for detailed errors and ensure all configuration values follow the expected flag > environment variable > config file precedence.

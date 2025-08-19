@@ -14,52 +14,60 @@ import (
 	"lvmsync_go/common"
 	"lvmsync_go/device"
 	"lvmsync_go/internal/config"
+	"lvmsync_go/internal/privilege"
 	manifestpkg "lvmsync_go/manifest"
 )
 
 const firstBlockDigestSize = 1 << 20
 
-func realProbeDestination(ctx context.Context, cfg *config.Config, dest string, logger *zap.Logger) (uint64, string, uint64, error) {
+func realProbeDestination(ctx context.Context, cfg *config.Config, dest string, logger *zap.Logger) (device.DeviceIdentity, error) {
 	info := device.NewInfo()
-	id, err := info.GetDeviceID(ctx, dest)
+	dev, err := device.Detect(ctx, dest, true, "", "", "", "", 0, 0, privilege.New(ctx), logger, device.NewRunner())
 	if err != nil {
-		return 0, "", 0, fmt.Errorf("read destination id: %w", err)
+		return device.DeviceIdentity{}, err
 	}
-	size, err := info.SizeBytes(ctx, dest)
+	defer dev.Close()
+	id, err := dev.Identity(ctx)
 	if err != nil {
-		return 0, "", 0, fmt.Errorf("read destination size: %w", err)
+		return device.DeviceIdentity{}, err
 	}
-	var epoch uint64
 	if cfg.ManifestPath != "" {
 		hdr, err := readManifestHeader(ctx, cfg.ManifestPath, 0)
 		if err != nil {
-			return 0, "", 0, err
+			return device.DeviceIdentity{}, err
 		}
 		manID := strings.TrimRight(string(hdr.DeviceID[:]), "\x00")
-		if id != manID {
-			return 0, "", 0, fmt.Errorf("destination device id %s does not match manifest %s", id, manID)
+		destID, err := info.GetDeviceID(ctx, dest)
+		if err != nil {
+			return device.DeviceIdentity{}, fmt.Errorf("read destination id: %w", err)
 		}
-		if size != hdr.SizeBytes {
-			return 0, "", 0, fmt.Errorf("destination device size %d does not match manifest %d", size, hdr.SizeBytes)
+		if destID != manID {
+			return device.DeviceIdentity{}, fmt.Errorf("destination device id %s does not match manifest %s", destID, manID)
+		}
+		if id.SizeBytes != hdr.SizeBytes {
+			return device.DeviceIdentity{}, fmt.Errorf("destination device size %d does not match manifest %d", id.SizeBytes, hdr.SizeBytes)
+		}
+		if id.Major != hdr.Major || id.Minor != hdr.Minor {
+			return device.DeviceIdentity{}, fmt.Errorf("destination device major:minor %d:%d does not match manifest %d:%d", id.Major, id.Minor, hdr.Major, hdr.Minor)
 		}
 		dig, err := info.FirstBlockDigest(ctx, dest, firstBlockDigestSize)
 		if err != nil {
-			return 0, "", 0, fmt.Errorf("read destination digest: %w", err)
+			return device.DeviceIdentity{}, fmt.Errorf("read destination digest: %w", err)
 		}
 		if dig != hdr.FirstBlockDigest {
-			return 0, "", 0, fmt.Errorf("destination device digest mismatch")
+			return device.DeviceIdentity{}, fmt.Errorf("destination device digest mismatch")
 		}
-		epoch = hdr.Epoch
+		id.ManifestEpoch = hdr.Epoch
 	}
 	mounted, err := info.IsMountedRW(ctx, dest)
 	if err != nil {
-		return 0, "", 0, fmt.Errorf("check mount status: %w", err)
+		return device.DeviceIdentity{}, fmt.Errorf("check mount status: %w", err)
 	}
 	if mounted && !cfg.Force {
 		logger.Error("destination_mounted_rw", zap.String("path", dest))
-		return 0, "", 0, fmt.Errorf("destination device %s is mounted read-write", dest)
+		return device.DeviceIdentity{}, fmt.Errorf("destination device %s is mounted read-write", dest)
 	}
-	return size, id, epoch, nil
+	return id, nil
 }
 
 func readManifestHeader(ctx context.Context, path string, timeout time.Duration) (*manifestpkg.Header, error) {

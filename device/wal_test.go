@@ -13,7 +13,7 @@ import (
 func TestWALIdentityMismatch(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "wal")
-	id := DeviceIdentity{SizeBytes: 100, KernelUUID: "dev", GPTUUID: "gpt", FSUUID: "fs", Major: 1, Minor: 2}
+	id := DeviceIdentity{SizeBytes: 100, KernelUUID: "dev", GPTUUID: "gpt", FSUUID: "fs", Major: 1, Minor: 2, ManifestEpoch: 1}
 	w, err := OpenWAL(path, id)
 	if err != nil {
 		t.Fatalf("open wal: %v", err)
@@ -21,32 +21,36 @@ func TestWALIdentityMismatch(t *testing.T) {
 	if err := w.Close(); err != nil {
 		t.Fatalf("close: %v", err)
 	}
-	badID := DeviceIdentity{SizeBytes: 101, KernelUUID: "dev", GPTUUID: "gpt", FSUUID: "fs", Major: 1, Minor: 2}
+	badID := DeviceIdentity{SizeBytes: 101, KernelUUID: "dev", GPTUUID: "gpt", FSUUID: "fs", Major: 1, Minor: 2, ManifestEpoch: 1}
 	if _, err := OpenWAL(path, badID); err == nil {
 		t.Fatalf("expected size mismatch error")
 	}
-	badID = DeviceIdentity{SizeBytes: 100, KernelUUID: "dev2", GPTUUID: "gpt", FSUUID: "fs", Major: 1, Minor: 2}
+	badID = DeviceIdentity{SizeBytes: 100, KernelUUID: "dev2", GPTUUID: "gpt", FSUUID: "fs", Major: 1, Minor: 2, ManifestEpoch: 1}
 	if _, err := OpenWAL(path, badID); err == nil {
 		t.Fatalf("expected uuid mismatch error")
 	}
-	badID = DeviceIdentity{SizeBytes: 100, KernelUUID: "dev", GPTUUID: "gpt", FSUUID: "fs2", Major: 1, Minor: 2}
+	badID = DeviceIdentity{SizeBytes: 100, KernelUUID: "dev", GPTUUID: "gpt", FSUUID: "fs2", Major: 1, Minor: 2, ManifestEpoch: 1}
 	if _, err := OpenWAL(path, badID); err == nil {
 		t.Fatalf("expected fs uuid mismatch error")
 	}
-	badID = DeviceIdentity{SizeBytes: 100, KernelUUID: "dev", GPTUUID: "gpt", FSUUID: "fs", Major: 3, Minor: 2}
+	badID = DeviceIdentity{SizeBytes: 100, KernelUUID: "dev", GPTUUID: "gpt", FSUUID: "fs", Major: 3, Minor: 2, ManifestEpoch: 1}
 	if _, err := OpenWAL(path, badID); err == nil {
 		t.Fatalf("expected major mismatch error")
 	}
-	badID = DeviceIdentity{SizeBytes: 100, KernelUUID: "dev", GPTUUID: "gpt", FSUUID: "fs", Major: 1, Minor: 4}
+	badID = DeviceIdentity{SizeBytes: 100, KernelUUID: "dev", GPTUUID: "gpt", FSUUID: "fs", Major: 1, Minor: 4, ManifestEpoch: 1}
 	if _, err := OpenWAL(path, badID); err == nil {
 		t.Fatalf("expected minor mismatch error")
+	}
+	badID = DeviceIdentity{SizeBytes: 100, KernelUUID: "dev", GPTUUID: "gpt", FSUUID: "fs", Major: 1, Minor: 2, ManifestEpoch: 2}
+	if _, err := OpenWAL(path, badID); err == nil {
+		t.Fatalf("expected epoch mismatch error")
 	}
 }
 
 func TestWALRecovery(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "wal")
-	id := DeviceIdentity{SizeBytes: 100, KernelUUID: "dev", GPTUUID: "gpt", FSUUID: "fs", Major: 1, Minor: 2}
+	id := DeviceIdentity{SizeBytes: 100, KernelUUID: "dev", GPTUUID: "gpt", FSUUID: "fs", Major: 1, Minor: 2, ManifestEpoch: 1}
 	w, err := OpenWAL(path, id)
 	if err != nil {
 		t.Fatalf("open wal: %v", err)
@@ -69,7 +73,7 @@ func TestWALRecovery(t *testing.T) {
 func TestWALVersionMismatch(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "wal")
-	id := DeviceIdentity{SizeBytes: 100, KernelUUID: "dev", GPTUUID: "gpt", FSUUID: "fs", Major: 1, Minor: 2}
+	id := DeviceIdentity{SizeBytes: 100, KernelUUID: "dev", GPTUUID: "gpt", FSUUID: "fs", Major: 1, Minor: 2, ManifestEpoch: 1}
 	w, err := OpenWAL(path, id)
 	if err != nil {
 		t.Fatalf("open wal: %v", err)
@@ -88,14 +92,15 @@ func TestWALVersionMismatch(t *testing.T) {
 	var hdr walHeader
 	hdr.Version = walVersion + 1
 	hdr.Size = binary.LittleEndian.Uint64(buf[8:16])
-	hdr.Major = binary.LittleEndian.Uint32(buf[16:20])
-	hdr.Minor = binary.LittleEndian.Uint32(buf[20:24])
-	copy(hdr.Kernel[:], buf[24:88])
-	copy(hdr.GPT[:], buf[88:152])
-	copy(hdr.FS[:], buf[152:216])
+	hdr.Epoch = binary.LittleEndian.Uint64(buf[16:24])
+	hdr.Major = binary.LittleEndian.Uint32(buf[24:28])
+	hdr.Minor = binary.LittleEndian.Uint32(buf[28:32])
+	copy(hdr.Kernel[:], buf[32:96])
+	copy(hdr.GPT[:], buf[96:160])
+	copy(hdr.FS[:], buf[160:224])
 	hdr.MAC = walHeaderMAC(&hdr)
 	binary.LittleEndian.PutUint64(buf[0:8], hdr.Version)
-	copy(buf[216:248], hdr.MAC[:])
+	copy(buf[224:256], hdr.MAC[:])
 	if _, err := f.WriteAt(buf[:], 0); err != nil {
 		t.Fatalf("write header: %v", err)
 	}
@@ -134,13 +139,16 @@ func TestWALUpgrade(t *testing.T) {
 		t.Fatalf("write entry: %v", err)
 	}
 	f.Close()
-	id := DeviceIdentity{SizeBytes: 100, KernelUUID: "dev", GPTUUID: "gpt", FSUUID: "fs", Major: 1, Minor: 2}
+	id := DeviceIdentity{SizeBytes: 100, KernelUUID: "dev", GPTUUID: "gpt", FSUUID: "fs", Major: 1, Minor: 2, ManifestEpoch: 1}
 	w, err := OpenWAL(path, id)
 	if err != nil {
 		t.Fatalf("open wal: %v", err)
 	}
 	if w.header.Version != walVersion {
 		t.Fatalf("expected version %d got %d", walVersion, w.header.Version)
+	}
+	if w.header.Epoch != id.ManifestEpoch {
+		t.Fatalf("expected epoch %d got %d", id.ManifestEpoch, w.header.Epoch)
 	}
 	rs := w.Ranges()
 	if len(rs) != 1 || rs[0].Start != 0 || rs[0].End != 10 {
@@ -179,7 +187,7 @@ func TestWALAppendShortWrite(t *testing.T) {
 func TestWALSyncDirCreate(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "wal")
-	id := DeviceIdentity{SizeBytes: 100, KernelUUID: "k", GPTUUID: "g", FSUUID: "f", Major: 1, Minor: 2}
+	id := DeviceIdentity{SizeBytes: 100, KernelUUID: "k", GPTUUID: "g", FSUUID: "f", Major: 1, Minor: 2, ManifestEpoch: 1}
 	stubErr := errors.New("syncdir fail")
 	var calls int
 	restore := SetSyncDirFunc(func(string) error {
@@ -198,7 +206,7 @@ func TestWALSyncDirCreate(t *testing.T) {
 func TestWALSyncDirClose(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "wal")
-	id := DeviceIdentity{SizeBytes: 100, KernelUUID: "k", GPTUUID: "g", FSUUID: "f", Major: 1, Minor: 2}
+	id := DeviceIdentity{SizeBytes: 100, KernelUUID: "k", GPTUUID: "g", FSUUID: "f", Major: 1, Minor: 2, ManifestEpoch: 1}
 	w, err := OpenWAL(path, id)
 	if err != nil {
 		t.Fatalf("open wal: %v", err)

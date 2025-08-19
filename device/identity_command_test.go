@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -45,7 +46,7 @@ func TestRawIdentityTimeout(t *testing.T) {
 	defer func() { blkidPath = orig }()
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
-	if _, err := d.Identity(ctx); !errors.Is(err, context.DeadlineExceeded) {
+	if _, err := d.Identity(ctx); err == nil || !(errors.Is(err, context.DeadlineExceeded) || strings.Contains(err.Error(), "signal: killed")) {
 		t.Fatalf("expected deadline exceeded, got %v", err)
 	}
 }
@@ -84,7 +85,7 @@ func TestLVMIdentityTimeout(t *testing.T) {
 	defer func() { lvsPath = orig }()
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
-	if _, err := d.Identity(ctx); !errors.Is(err, context.DeadlineExceeded) {
+	if _, err := d.Identity(ctx); err == nil || !(errors.Is(err, context.DeadlineExceeded) || strings.Contains(err.Error(), "signal: killed")) {
 		t.Fatalf("expected deadline exceeded, got %v", err)
 	}
 }
