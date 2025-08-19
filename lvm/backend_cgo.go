@@ -73,3 +73,10 @@ func (b *cgoBackend) ListVolumeGroups(_ context.Context, candidates []string) ([
 	}
 	return res, nil
 }
+
+func (b *cgoBackend) CreateLogicalVolume(_ context.Context, vgName, lvName string, sizeBytes uint64) error {
+	if err := b.lvm.CreateLV(vgName, lvName, sizeBytes); err != nil {
+		return fmt.Errorf("cgo create lv: %w", err)
+	}
+	return nil
+}

@@ -35,11 +35,20 @@ lvmsync run /dev/vg0/origin /dev/vg1/target
 Use `--skip-snapshot-creation` to supply an existing snapshot and manage cleanup
 manually.
 
+Snapshots are registered with a global handler and are removed automatically if
+LVMSync receives `SIGINT`, `SIGTERM`, or encounters a panic.
+
 ## Mount Checks
 
 Before writing to a destination logical volume, LVMSync verifies that it is not
 mounted read-write. The command aborts unless `--force` is used, preventing
 concurrent filesystem modifications from corrupting the copy.
+
+## Destination Creation
+
+`--create-dest-lv` (or `LVMSYNC_LVM_CREATE_DEST_LV=true`) creates the
+destination logical volume when it does not exist. The new LV matches the source
+size and is ready for data before the transfer begins.
 
 ## Environment Example
 

@@ -56,7 +56,7 @@ func initGeneralFlags(cfg *Config) *pflag.FlagSet {
 	fs.Bool("stdout", cfg.StdoutMode, "Write change dump to STDOUT")
 	fs.Bool("yes-i-know", cfg.YesIKnow, "Confirm writing binary data to STDOUT")
 	fs.Bool("dry-run", cfg.DryRun, "Print actions without executing")
-	fs.Bool("probe-only", cfg.ProbeOnly, "Output size_bytes, device_uuid, and manifest_epoch without writing")
+	fs.Bool("probe-only", cfg.ProbeOnly, "Output size_bytes, kernel_uuid, gpt_uuid, fs_uuid, major, minor, and manifest_epoch without writing")
 	fs.Bool("plan", cfg.Plan, "Print configuration plan as JSON and exit")
 	fs.Bool("force", cfg.Force, "Override safety checks for offline raw access or filesystem freeze")
 	fs.Bool("allow-overwrite", cfg.AllowOverwrite, "Skip interactive confirmation when using --force")
@@ -165,6 +165,7 @@ func initLVMFlags(cfg *Config) *pflag.FlagSet {
 	fs.String("volume-group", cfg.VolumeGroup, "LVM volume group")
 	fs.String("target-volume-group", cfg.TargetVolumeGroup, "Target LVM volume group")
 	fs.StringSlice("target-vgs", cfg.TargetVGCandidates, "Candidate target VGs for volume selection")
+	fs.Bool("create-dest-lv", cfg.CreateDestLV, "Create destination logical volume when missing")
 	return fs
 }
 

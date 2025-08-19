@@ -12,13 +12,26 @@ import (
 )
 
 const (
-	walVersion      = 2
+	walVersion      = 3
 	walHeaderV0Size = 8 + 64 + 64 + 64 + 32
 	walHeaderV1Size = 8 + 8 + 64 + 64 + 64 + 32
-	walHeaderSize   = 8 + 8 + 4 + 4 + 64 + 64 + 64 + 32
+	walHeaderV2Size = 8 + 8 + 4 + 4 + 64 + 64 + 64 + 32
+	walHeaderSize   = 8 + 8 + 8 + 4 + 4 + 64 + 64 + 64 + 32
 )
 
 type walHeader struct {
+	Version uint64
+	Size    uint64
+	Epoch   uint64
+	Major   uint32
+	Minor   uint32
+	Kernel  [64]byte
+	GPT     [64]byte
+	FS      [64]byte
+	MAC     [32]byte
+}
+
+type walHeaderV2 struct {
 	Version uint64
 	Size    uint64
 	Major   uint32
@@ -69,6 +82,19 @@ type WAL struct {
 var syncDirFunc = syncDir
 
 func walHeaderMAC(h *walHeader) [32]byte {
+	var buf [8 + 8 + 8 + 4 + 4 + 64 + 64 + 64]byte
+	binary.LittleEndian.PutUint64(buf[0:8], h.Version)
+	binary.LittleEndian.PutUint64(buf[8:16], h.Size)
+	binary.LittleEndian.PutUint64(buf[16:24], h.Epoch)
+	binary.LittleEndian.PutUint32(buf[24:28], h.Major)
+	binary.LittleEndian.PutUint32(buf[28:32], h.Minor)
+	copy(buf[32:96], h.Kernel[:])
+	copy(buf[96:160], h.GPT[:])
+	copy(buf[160:224], h.FS[:])
+	return blake3.Sum256(buf[:])
+}
+
+func walHeaderMACV2(h *walHeaderV2) [32]byte {
 	var buf [8 + 8 + 4 + 4 + 64 + 64 + 64]byte
 	binary.LittleEndian.PutUint64(buf[0:8], h.Version)
 	binary.LittleEndian.PutUint64(buf[8:16], h.Size)
@@ -116,6 +142,7 @@ func OpenWAL(path string, id DeviceIdentity) (*WAL, error) {
 		var hdr walHeader
 		hdr.Version = walVersion
 		hdr.Size = id.SizeBytes
+		hdr.Epoch = id.ManifestEpoch
 		hdr.Major = id.Major
 		hdr.Minor = id.Minor
 		copy(hdr.Kernel[:], []byte(id.KernelUUID))
@@ -125,12 +152,13 @@ func OpenWAL(path string, id DeviceIdentity) (*WAL, error) {
 		var buf [walHeaderSize]byte
 		binary.LittleEndian.PutUint64(buf[0:8], hdr.Version)
 		binary.LittleEndian.PutUint64(buf[8:16], hdr.Size)
-		binary.LittleEndian.PutUint32(buf[16:20], hdr.Major)
-		binary.LittleEndian.PutUint32(buf[20:24], hdr.Minor)
-		copy(buf[24:88], hdr.Kernel[:])
-		copy(buf[88:152], hdr.GPT[:])
-		copy(buf[152:216], hdr.FS[:])
-		copy(buf[216:248], hdr.MAC[:])
+		binary.LittleEndian.PutUint64(buf[16:24], hdr.Epoch)
+		binary.LittleEndian.PutUint32(buf[24:28], hdr.Major)
+		binary.LittleEndian.PutUint32(buf[28:32], hdr.Minor)
+		copy(buf[32:96], hdr.Kernel[:])
+		copy(buf[96:160], hdr.GPT[:])
+		copy(buf[160:224], hdr.FS[:])
+		copy(buf[224:256], hdr.MAC[:])
 		if n, err := f.Write(buf[:]); err != nil {
 			f.Close()
 			return nil, err
@@ -165,17 +193,18 @@ func OpenWAL(path string, id DeviceIdentity) (*WAL, error) {
 		var hdr walHeader
 		hdr.Version = binary.LittleEndian.Uint64(buf[0:8])
 		hdr.Size = binary.LittleEndian.Uint64(buf[8:16])
-		hdr.Major = binary.LittleEndian.Uint32(buf[16:20])
-		hdr.Minor = binary.LittleEndian.Uint32(buf[20:24])
-		copy(hdr.Kernel[:], buf[24:88])
-		copy(hdr.GPT[:], buf[88:152])
-		copy(hdr.FS[:], buf[152:216])
-		copy(hdr.MAC[:], buf[216:248])
+		hdr.Epoch = binary.LittleEndian.Uint64(buf[16:24])
+		hdr.Major = binary.LittleEndian.Uint32(buf[24:28])
+		hdr.Minor = binary.LittleEndian.Uint32(buf[28:32])
+		copy(hdr.Kernel[:], buf[32:96])
+		copy(hdr.GPT[:], buf[96:160])
+		copy(hdr.FS[:], buf[160:224])
+		copy(hdr.MAC[:], buf[224:256])
 		if mac := walHeaderMAC(&hdr); mac != hdr.MAC {
 			f.Close()
 			return nil, fmt.Errorf("wal: header mac mismatch")
 		}
-		if hdr.Size != id.SizeBytes || hdr.Major != id.Major || hdr.Minor != id.Minor ||
+		if hdr.Size != id.SizeBytes || hdr.Epoch != id.ManifestEpoch || hdr.Major != id.Major || hdr.Minor != id.Minor ||
 			string(hdr.Kernel[:len(id.KernelUUID)]) != id.KernelUUID ||
 			string(hdr.GPT[:len(id.GPTUUID)]) != id.GPTUUID ||
 			string(hdr.FS[:len(id.FSUUID)]) != id.FSUUID {
@@ -202,7 +231,96 @@ func OpenWAL(path string, id DeviceIdentity) (*WAL, error) {
 		return w, nil
 	}
 
-	if ver == walVersion-1 && st.Size() >= walHeaderV1Size {
+	if ver == walVersion-1 && st.Size() >= walHeaderV2Size {
+		var buf2 [walHeaderV2Size]byte
+		if _, err := f.ReadAt(buf2[:], 0); err != nil {
+			f.Close()
+			return nil, err
+		}
+		var hdr2 walHeaderV2
+		hdr2.Version = binary.LittleEndian.Uint64(buf2[0:8])
+		hdr2.Size = binary.LittleEndian.Uint64(buf2[8:16])
+		hdr2.Major = binary.LittleEndian.Uint32(buf2[16:20])
+		hdr2.Minor = binary.LittleEndian.Uint32(buf2[20:24])
+		copy(hdr2.Kernel[:], buf2[24:88])
+		copy(hdr2.GPT[:], buf2[88:152])
+		copy(hdr2.FS[:], buf2[152:216])
+		copy(hdr2.MAC[:], buf2[216:248])
+		if mac := walHeaderMACV2(&hdr2); mac != hdr2.MAC {
+			f.Close()
+			return nil, fmt.Errorf("wal: header mac mismatch")
+		}
+		if hdr2.Size != id.SizeBytes || hdr2.Major != id.Major || hdr2.Minor != id.Minor ||
+			string(hdr2.Kernel[:len(id.KernelUUID)]) != id.KernelUUID ||
+			string(hdr2.GPT[:len(id.GPTUUID)]) != id.GPTUUID ||
+			string(hdr2.FS[:len(id.FSUUID)]) != id.FSUUID {
+			f.Close()
+			return nil, fmt.Errorf("wal: metadata mismatch")
+		}
+		data := make([]byte, st.Size()-walHeaderV2Size)
+		if _, err := f.ReadAt(data, walHeaderV2Size); err != nil && err != io.EOF {
+			f.Close()
+			return nil, err
+		}
+		var hdr walHeader
+		hdr.Version = walVersion
+		hdr.Size = hdr2.Size
+		hdr.Epoch = id.ManifestEpoch
+		hdr.Major = hdr2.Major
+		hdr.Minor = hdr2.Minor
+		hdr.Kernel = hdr2.Kernel
+		hdr.GPT = hdr2.GPT
+		hdr.FS = hdr2.FS
+		hdr.MAC = walHeaderMAC(&hdr)
+		var buf [walHeaderSize]byte
+		binary.LittleEndian.PutUint64(buf[0:8], hdr.Version)
+		binary.LittleEndian.PutUint64(buf[8:16], hdr.Size)
+		binary.LittleEndian.PutUint64(buf[16:24], hdr.Epoch)
+		binary.LittleEndian.PutUint32(buf[24:28], hdr.Major)
+		binary.LittleEndian.PutUint32(buf[28:32], hdr.Minor)
+		copy(buf[32:96], hdr.Kernel[:])
+		copy(buf[96:160], hdr.GPT[:])
+		copy(buf[160:224], hdr.FS[:])
+		copy(buf[224:256], hdr.MAC[:])
+		if n, err := f.WriteAt(buf[:], 0); err != nil {
+			f.Close()
+			return nil, err
+		} else if n != len(buf) {
+			f.Close()
+			return nil, fmt.Errorf("wal: short write: wrote %d of %d bytes", n, len(buf))
+		}
+		if len(data) > 0 {
+			if n, err := f.WriteAt(data, walHeaderSize); err != nil {
+				f.Close()
+				return nil, err
+			} else if n != len(data) {
+				f.Close()
+				return nil, fmt.Errorf("wal: short write: wrote %d of %d bytes", n, len(data))
+			}
+		}
+		if err := f.Truncate(int64(walHeaderSize + len(data))); err != nil {
+			f.Close()
+			return nil, err
+		}
+		if err := f.Sync(); err != nil {
+			f.Close()
+			return nil, err
+		}
+		w.header = hdr
+		w.ranges = []Range{}
+		for off := 0; off+16 <= len(data); off += 16 {
+			start := binary.LittleEndian.Uint64(data[off : off+8])
+			end := binary.LittleEndian.Uint64(data[off+8 : off+16])
+			w.ranges = append(w.ranges, Range{Start: start, End: end})
+		}
+		if _, err := f.Seek(int64(walHeaderSize+len(data)), 0); err != nil {
+			f.Close()
+			return nil, err
+		}
+		return w, nil
+	}
+
+	if ver == walVersion-2 && st.Size() >= walHeaderV1Size {
 		var buf1 [walHeaderV1Size]byte
 		if _, err := f.ReadAt(buf1[:], 0); err != nil {
 			f.Close()
@@ -234,6 +352,7 @@ func OpenWAL(path string, id DeviceIdentity) (*WAL, error) {
 		var hdr walHeader
 		hdr.Version = walVersion
 		hdr.Size = hdr1.Size
+		hdr.Epoch = id.ManifestEpoch
 		hdr.Major = id.Major
 		hdr.Minor = id.Minor
 		hdr.Kernel = hdr1.Kernel
@@ -243,12 +362,13 @@ func OpenWAL(path string, id DeviceIdentity) (*WAL, error) {
 		var buf [walHeaderSize]byte
 		binary.LittleEndian.PutUint64(buf[0:8], hdr.Version)
 		binary.LittleEndian.PutUint64(buf[8:16], hdr.Size)
-		binary.LittleEndian.PutUint32(buf[16:20], hdr.Major)
-		binary.LittleEndian.PutUint32(buf[20:24], hdr.Minor)
-		copy(buf[24:88], hdr.Kernel[:])
-		copy(buf[88:152], hdr.GPT[:])
-		copy(buf[152:216], hdr.FS[:])
-		copy(buf[216:248], hdr.MAC[:])
+		binary.LittleEndian.PutUint64(buf[16:24], hdr.Epoch)
+		binary.LittleEndian.PutUint32(buf[24:28], hdr.Major)
+		binary.LittleEndian.PutUint32(buf[28:32], hdr.Minor)
+		copy(buf[32:96], hdr.Kernel[:])
+		copy(buf[96:160], hdr.GPT[:])
+		copy(buf[160:224], hdr.FS[:])
+		copy(buf[224:256], hdr.MAC[:])
 		if n, err := f.WriteAt(buf[:], 0); err != nil {
 			f.Close()
 			return nil, err
@@ -324,6 +444,7 @@ func OpenWAL(path string, id DeviceIdentity) (*WAL, error) {
 		var hdr walHeader
 		hdr.Version = walVersion
 		hdr.Size = hdr0.Size
+		hdr.Epoch = id.ManifestEpoch
 		hdr.Major = id.Major
 		hdr.Minor = id.Minor
 		hdr.Kernel = hdr0.Kernel
@@ -333,12 +454,13 @@ func OpenWAL(path string, id DeviceIdentity) (*WAL, error) {
 		var buf [walHeaderSize]byte
 		binary.LittleEndian.PutUint64(buf[0:8], hdr.Version)
 		binary.LittleEndian.PutUint64(buf[8:16], hdr.Size)
-		binary.LittleEndian.PutUint32(buf[16:20], hdr.Major)
-		binary.LittleEndian.PutUint32(buf[20:24], hdr.Minor)
-		copy(buf[24:88], hdr.Kernel[:])
-		copy(buf[88:152], hdr.GPT[:])
-		copy(buf[152:216], hdr.FS[:])
-		copy(buf[216:248], hdr.MAC[:])
+		binary.LittleEndian.PutUint64(buf[16:24], hdr.Epoch)
+		binary.LittleEndian.PutUint32(buf[24:28], hdr.Major)
+		binary.LittleEndian.PutUint32(buf[28:32], hdr.Minor)
+		copy(buf[32:96], hdr.Kernel[:])
+		copy(buf[96:160], hdr.GPT[:])
+		copy(buf[160:224], hdr.FS[:])
+		copy(buf[224:256], hdr.MAC[:])
 		if n, err := f.WriteAt(buf[:], 0); err != nil {
 			f.Close()
 			return nil, err
@@ -376,18 +498,69 @@ func OpenWAL(path string, id DeviceIdentity) (*WAL, error) {
 	return nil, fmt.Errorf("wal: file too small")
 }
 
+// Append records the range using a temporary file for crash safety. The range is
+// written to `<path>.tmp`, fsynced, atomically renamed to the WAL path, and the
+// directory is fsynced before returning.
 func (w *WAL) Append(r Range) error {
-	var buf [16]byte
-	binary.LittleEndian.PutUint64(buf[0:8], r.Start)
-	binary.LittleEndian.PutUint64(buf[8:16], r.End)
-	n, err := w.f.Write(buf[:])
+	name := w.f.Name()
+	tmpPath := name + ".tmp"
+	tf, err := os.OpenFile(tmpPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
 		return err
 	}
-	if n != len(buf) {
+	if _, err := w.f.Seek(0, 0); err != nil {
+		tf.Close()
+		os.Remove(tmpPath)
+		return err
+	}
+	st, err := w.f.Stat()
+	if err != nil {
+		tf.Close()
+		os.Remove(tmpPath)
+		return err
+	}
+	if _, err := io.Copy(tf, io.NewSectionReader(w.f, 0, st.Size())); err != nil {
+		tf.Close()
+		os.Remove(tmpPath)
+		return err
+	}
+	var buf [16]byte
+	binary.LittleEndian.PutUint64(buf[0:8], r.Start)
+	binary.LittleEndian.PutUint64(buf[8:16], r.End)
+	if n, err := tf.Write(buf[:]); err != nil {
+		tf.Close()
+		os.Remove(tmpPath)
+		return err
+	} else if n != len(buf) {
+		tf.Close()
+		os.Remove(tmpPath)
 		return fmt.Errorf("wal: short write: wrote %d of %d bytes", n, len(buf))
 	}
-	return w.f.Sync()
+	if err := tf.Sync(); err != nil {
+		tf.Close()
+		os.Remove(tmpPath)
+		return err
+	}
+	if err := tf.Close(); err != nil {
+		os.Remove(tmpPath)
+		return err
+	}
+	if err := w.f.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(tmpPath, name); err != nil {
+		return err
+	}
+	nf, err := os.OpenFile(name, os.O_RDWR, 0)
+	if err != nil {
+		return err
+	}
+	if _, err := nf.Seek(0, io.SeekEnd); err != nil {
+		nf.Close()
+		return err
+	}
+	w.f = nf
+	return syncDirFunc(filepath.Dir(name))
 }
 
 // Ranges returns the ranges recorded in the WAL.

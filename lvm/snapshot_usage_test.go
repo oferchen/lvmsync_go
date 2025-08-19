@@ -25,6 +25,10 @@ func (f *usageBackend) ListVolumeGroups(context.Context, []string) ([]VolumeGrou
 	return nil, nil
 }
 
+func (f *usageBackend) CreateLogicalVolume(context.Context, string, string, uint64) error {
+	return nil
+}
+
 func TestGetSnapshotUsage(t *testing.T) {
 	orig := checkPrivs
 	checkPrivs = func() error { return nil }

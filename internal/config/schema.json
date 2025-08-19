@@ -299,6 +299,9 @@
       },
       "type": "array"
     },
+    "create_dest_lv": {
+      "type": "boolean"
+    },
     "target_volume_group": {
       "type": "string"
     },
