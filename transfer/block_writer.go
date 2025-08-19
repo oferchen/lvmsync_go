@@ -109,7 +109,7 @@ func (bw *blockWriter) write(reader *bufio.Reader) (int64, error) {
 		} else {
 			chunkID = zeroHash(int(chunkSize))
 		}
-		written, err := processBlock(bw.cfg, bw.dest, bw.dedup, bw.intra, bw.verify, bw.checksum, offset, crc, transmitted, data, chunkSize, bw.logger)
+		written, err := processBlock(bw.cfg, bw.dest, bw.dedup, bw.intra, bw.verify, bw.checksum, offset, crc, transmitted, data, chunkSize, bw.logger, bw.wal)
 		if bw.cfg.ODirect {
 			if data != nil {
 				putAlignedBlockBuffer(data)
@@ -121,11 +121,6 @@ func (bw *blockWriter) write(reader *bufio.Reader) (int64, error) {
 			return total, err
 		}
 		saveResumeState(bw.cfg, bw.rt, offset, chunkID, int64(chunkSize), bw.logger)
-		if bw.wal != nil && written {
-			if err := bw.wal.Append(Range{Start: offset, End: offset + uint64(chunkSize)}); err != nil {
-				return total, err
-			}
-		}
 		if written {
 			total += int64(chunkSize)
 			bw.sinceSync += int64(chunkSize)
