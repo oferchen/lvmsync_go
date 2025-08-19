@@ -244,6 +244,13 @@
       ],
       "type": "string"
     },
+    "sparse": {
+      "enum": [
+        "auto",
+        "never"
+      ],
+      "type": "string"
+    },
     "speed": {
       "type": "string"
     },

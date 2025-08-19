@@ -32,7 +32,7 @@ For snapshot cleanup, resuming transfers, and verify-only rollback procedures, s
 - **Planning**: `--plan` prints resolved configuration, transport order, estimated bytes, and compression decisions as JSON without transferring data.
 - **Device Identity Tuple**: Each run records `(device_id, fs_uuid, size_bytes, major:minor)` to prevent writing to the wrong destination.
 - **Handshake Timeouts**: Transport connections apply context deadlines during handshakes and clear them once negotiation succeeds.
-- **Sparse Destination Optimization**: Detects runs of zero bytes and punches holes when the filesystem supports it, logging a warning once and disabling hole punching when unsupported.
+- **Sparse Destination Optimization**: Detects runs of zero bytes and punches holes when the filesystem supports it. Use `--sparse=never` to always write zeros instead.
 - **Aligned I/O Buffers and NUMA Pinning**: `--odirect` allocates block-size aligned slabs from a `sync.Pool` and can pin worker goroutines to a device's NUMA node (`--numa-pin`) or an explicit node (`--numa-node`).
 - **LVM Snapshot Management**:
   - Automatic snapshot creation and removal.
@@ -689,6 +689,7 @@ Flags override environment variables, which override `config.yaml` values.
 | `--plan` | `LVMSYNC_PLAN` | `plan` | Print configuration plan as JSON and exit |
 | `--verify-only` | `LVMSYNC_VERIFY_ONLY` | `verify_only` | Read source and destination and report mismatches without writing data |
 | `--probe-only` | `LVMSYNC_PROBE_ONLY` | `probe_only` | Validate devices and privileges and log estimates without transferring data |
+| `--sparse` | `LVMSYNC_SPARSE` | `sparse` | Sparse file handling: `auto` punches holes, `never` writes zero blocks |
 | `--transport` | `LVMSYNC_TRANSPORT_TRANSPORT` | `transport` | Ordered transports to try (e.g., `ssh,tcp+tls,h2,quic`) |
 | `--tcp-port` | `LVMSYNC_TRANSPORT_TCP_PORT` | `tcp_port` | TCP+TLS port |
 | `--tcp-parallel` | `LVMSYNC_TRANSPORT_TCP_PARALLEL` | `tcp_parallel` | Number of parallel TCP connections |
@@ -1103,6 +1104,7 @@ Flags are parsed via Viper, so the same settings can be provided through
 | `--dry-run`         | Print actions without executing | `false`   |
 | `--plan`            | Print configuration plan as JSON and exit | `false`   |
 | `--discard`         | Issue BLKDISCARD before writing blocks | `false`   |
+| `--sparse`          | Sparse file handling: `auto` punches holes, `never` writes zero blocks | `"auto"`   |
 | `--offline`         | Assume source raw device is offline | `false`   |
 | `--fs-freeze-command` | Command to freeze filesystem before reading raw source; path must be absolute and arguments use shell-style quoting | `""` |
 | `--fs-thaw-command`  | Command to thaw filesystem after reading raw source; path must be absolute and arguments use shell-style quoting | `""` |

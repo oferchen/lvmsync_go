@@ -60,6 +60,7 @@
 | LVMSYNC_SKIP_SNAPSHOT_CREATION | `--skip-snapshot-creation` | `skip-snapshot-creation` | Skip snapshot creation |
 | LVMSYNC_SNAPSHOT_SIZE | `--snapshot-size` | `snapshot-size` | Snapshot size (bytes or percentage) |
 | LVMSYNC_SOURCE_TYPE | `--source-type` | `source-type` | Source device type (auto,file,raw,lvm) |
+| LVMSYNC_SPARSE | `--sparse` | `sparse` | Sparse file handling: auto or never |
 | LVMSYNC_SPEED | `--speed` | `speed` | Transfer speed limit |
 | LVMSYNC_SSH_HOST | `--ssh-host` | `ssh-host` | SSH host |
 | LVMSYNC_SSH_HOST_KEY | `--ssh-host-key` | `ssh-host-key` | Expected SSH host public key |

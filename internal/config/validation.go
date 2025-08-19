@@ -33,6 +33,9 @@ func (c *Config) ValidateWith(geteuid func() int) error {
 	if c.Output != "" && c.Output != "text" && c.Output != "json" {
 		return fmt.Errorf("invalid output %q: must be \"text\" or \"json\"", c.Output)
 	}
+	if c.Sparse != "" && c.Sparse != Auto && c.Sparse != "never" {
+		return fmt.Errorf("invalid sparse %q: must be %q or %q", c.Sparse, Auto, "never")
+	}
 	if c.FSFreezeCommand != "" {
 		parts, err := shellquote.Split(c.FSFreezeCommand)
 		if err != nil {

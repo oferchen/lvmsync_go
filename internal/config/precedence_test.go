@@ -192,6 +192,52 @@ func TestPlanEnvOverridesYAML(t *testing.T) {
 		t.Fatalf("Plan=%v want true", cfg.Plan)
 	}
 }
+
+func TestSparseFlagOverridesEnvAndYAML(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("default: %v", err)
+	}
+	b := NewBuilder(defaults)
+	dir := t.TempDir()
+	cfgFile := filepath.Join(dir, "cfg.yaml")
+	if err := os.WriteFile(cfgFile, []byte("sparse: never\n"), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	t.Setenv("LVMSYNC_SPARSE", "never")
+	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	cfg, _, _, err := b.Build(fs, []string{"--config", cfgFile, "--sparse", "auto"})
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	if cfg.Sparse != "auto" {
+		t.Fatalf("Sparse=%q want %q", cfg.Sparse, "auto")
+	}
+}
+
+func TestSparseEnvOverridesYAML(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("default: %v", err)
+	}
+	b := NewBuilder(defaults)
+	dir := t.TempDir()
+	cfgFile := filepath.Join(dir, "cfg.yaml")
+	if err := os.WriteFile(cfgFile, []byte("sparse: auto\n"), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	t.Setenv("LVMSYNC_SPARSE", "never")
+	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	cfg, _, _, err := b.Build(fs, []string{"--config", cfgFile})
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	if cfg.Sparse != "never" {
+		t.Fatalf("Sparse=%q want %q", cfg.Sparse, "never")
+	}
+}
 func TestParallelFlagOverridesEnvAndYAML(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	defaults, err := DefaultConfig()

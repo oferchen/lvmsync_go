@@ -51,12 +51,12 @@ func isAllZero(b []byte) bool {
 	return bytes.Equal(b, zeroBuf(len(b)))
 }
 
-// writeZeroBlock attempts to punch a sparse hole at the given offset. If the
-// filesystem does not support hole punching it falls back to writing a zero
-// filled buffer. The buffer respects the O_DIRECT setting by using aligned
-// allocations when necessary.
+// writeZeroBlock attempts to punch a sparse hole at the given offset unless
+// cfg.Sparse is "never". If the filesystem does not support hole punching it
+// falls back to writing a zero filled buffer. The buffer respects the O_DIRECT
+// setting by using aligned allocations when necessary.
 func writeZeroBlock(cfg *config.Config, dest *os.File, offset uint64, logger *zap.Logger) error {
-	if !punchHoleDisabled.Load() {
+	if cfg.Sparse != "never" && !punchHoleDisabled.Load() {
 		if err := punchHoleFunc(dest, offset, cfg.BlockSize); err == nil {
 			return nil
 		} else if errors.Is(err, unix.ENOTSUP) {

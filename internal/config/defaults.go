@@ -38,6 +38,7 @@ type Config struct {
 	AllowOverwrite           bool          `mapstructure:"allow_overwrite"`
 	Discard                  bool          `mapstructure:"discard"`
 	Offline                  bool          `mapstructure:"offline"`
+	Sparse                   string        `mapstructure:"sparse"`
 	FSFreezeCommand          string        `mapstructure:"fs-freeze-command"`
 	FSThawCommand            string        `mapstructure:"fs-thaw-command"`
 	FreezeTimeout            time.Duration `mapstructure:"freeze-timeout"`
@@ -180,6 +181,7 @@ func DefaultConfig() (*Config, error) {
 		Force:                    false,
 		AllowOverwrite:           false,
 		Offline:                  false,
+		Sparse:                   Auto,
 		FSFreezeCommand:          "",
 		FSThawCommand:            "",
 		FreezeTimeout:            10 * time.Second,
