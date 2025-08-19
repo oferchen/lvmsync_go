@@ -72,3 +72,22 @@ func TestNewLoggerRedactionAndComponent(t *testing.T) {
 		t.Fatalf("component field %v, want comp", v)
 	}
 }
+
+func TestRedactingCoreWith(t *testing.T) {
+	redactor := func(f zapcore.Field) zapcore.Field {
+		if f.Key == "private_key" && f.Type == zapcore.StringType {
+			f.String = "[REDACTED]"
+		}
+		return f
+	}
+	core, logs := observer.New(zap.InfoLevel)
+	logger := zap.New(redactingCore{Core: core, redactor: redactor}).With(zap.String("private_key", "secret"))
+	logger.Info("msg")
+	if logs.Len() != 1 {
+		t.Fatalf("log entries %d, want 1", logs.Len())
+	}
+	fields := logs.All()[0].ContextMap()
+	if v := fields["private_key"]; v != "[REDACTED]" {
+		t.Fatalf("private_key field %v, want [REDACTED]", v)
+	}
+}

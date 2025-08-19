@@ -55,6 +55,13 @@ to run the helper with a minimal, whitelisted environment that drops those
 variables entirely. Sanitization is disabled by default to avoid surprising
 behavior in mixed environments.
 
+## Logging hygiene
+
+Operational logs should never include secret material. Avoid recording
+private keys, certificates, passphrases, or similar credentials. The logger's
+redaction hook can strip sensitive fields before they are written, and new log
+statements should be reviewed for potential disclosure risks.
+
 ## Risks of raw-device writes
 
 Granting raw-device access lets the helper overwrite any block on the target.
