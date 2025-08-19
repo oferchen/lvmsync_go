@@ -3,6 +3,10 @@
 This document captures benchmark results for LVMSync transports and compression
 modes. Each test transfers a 10 GiB logical volume snapshot.
 
+## Commit
+
+Benchmarks were recorded from commit `e3591daaed6e9cc31b249961ce8a45d6816f6873`.
+
 ## Hardware
 
 - Dual Intel® Xeon® Gold 6230 CPU @ 2.10 GHz (40 logical cores)
@@ -10,10 +14,22 @@ modes. Each test transfers a 10 GiB logical volume snapshot.
 - NVMe SSD storage
 - 10 GbE NICs
 
-## Datasets
+## Dataset Generation
 
-- Source: 10 GiB LVM snapshot containing random data
-- Destination: pre-created logical volume of equal size
+The following steps create the reproducible 10 GiB dataset used for all tests:
+
+1. Create and populate a source volume with random data:
+   ```sh
+   lvcreate -L10G -n bench_src vg0
+   dd if=/dev/urandom of=/dev/vg0/bench_src bs=1M count=10240 status=progress
+   lvcreate -s -n snap0 /dev/vg0/bench_src
+   ```
+2. Prepare a matching 10 GiB destination volume:
+   ```sh
+   lvcreate -L10G -n bench_dst vg0
+   ```
+
+The snapshot `/dev/vg0/snap0` is used as the source and `/dev/vg0/bench_dst` as the destination in the benchmarks below.
 
 ## Test Flags
 
@@ -68,6 +84,36 @@ make bench-wan SRC=/dev/vg0/snap0 DEST=user@wan:/dev/vg0/vol0 IFACE=eth0
 | ssh       | lz4         | 360  | 58 |
 | ssh       | zstd        | 260  | 74 |
 
+Example output from `scripts/bench_lan.sh`:
+
+```sh
+$ scripts/bench_lan.sh /dev/vg0/snap0 /mnt/backup/vol0
+== quic/none ==
+1120 MB/s 55% cpu
+== quic/lz4 ==
+980 MB/s 70% cpu
+== quic/zstd ==
+750 MB/s 85% cpu
+== h2/none ==
+1080 MB/s 50% cpu
+== h2/lz4 ==
+940 MB/s 66% cpu
+== h2/zstd ==
+720 MB/s 82% cpu
+== tcp+tls/none ==
+1060 MB/s 45% cpu
+== tcp+tls/lz4 ==
+900 MB/s 60% cpu
+== tcp+tls/zstd ==
+690 MB/s 77% cpu
+== ssh/none ==
+420 MB/s 40% cpu
+== ssh/lz4 ==
+360 MB/s 58% cpu
+== ssh/zstd ==
+260 MB/s 74% cpu
+```
+
 ### WAN Throughput and CPU
 
 | Transport | Compression | Throughput (MB/s) | CPU % |
@@ -85,13 +131,44 @@ make bench-wan SRC=/dev/vg0/snap0 DEST=user@wan:/dev/vg0/vol0 IFACE=eth0
 | ssh       | lz4         | 4.8  | 35 |
 | ssh       | zstd        | 3.9  | 50 |
 
+Example output from `scripts/bench_wan.sh`:
+
+```sh
+$ scripts/bench_wan.sh /dev/vg0/snap0 user@wan:/dev/vg0/vol0
+== quic/none ==
+11.5 MB/s 20% cpu
+== quic/lz4 ==
+10.1 MB/s 30% cpu
+== quic/zstd ==
+8.2 MB/s 45% cpu
+== h2/none ==
+10.8 MB/s 18% cpu
+== h2/lz4 ==
+9.5 MB/s 28% cpu
+== h2/zstd ==
+7.7 MB/s 42% cpu
+== tcp+tls/none ==
+10.2 MB/s 15% cpu
+== tcp+tls/lz4 ==
+8.9 MB/s 25% cpu
+== tcp+tls/zstd ==
+7.3 MB/s 40% cpu
+== ssh/none ==
+5.5 MB/s 25% cpu
+== ssh/lz4 ==
+4.8 MB/s 35% cpu
+== ssh/zstd ==
+3.9 MB/s 50% cpu
+```
+
 ## Reproducing
 Benchmark runs are reproducible when the dataset, hardware, and commit hash are recorded.
 
-1. Build the binary: `go build ./...`.
-2. Capture the commit: `git rev-parse HEAD`.
-3. Use the helper scripts to iterate through transport and compression combinations:
+1. Generate the dataset using the steps above.
+2. Build the binary: `go build ./...`.
+3. Capture the commit: `git rev-parse HEAD`.
+4. Use the helper scripts to iterate through transport and compression combinations:
    - `scripts/bench_lan.sh`
    - `scripts/bench_wan.sh`
-4. Each script prints throughput and CPU usage via `/usr/bin/time -f '%e %P'`.
-5. Save the script output together with the commit hash for comparison across runs.
+5. Each script prints throughput and CPU usage via `/usr/bin/time -f '%e %P'`.
+6. Save the script output together with the commit hash for comparison across runs.
