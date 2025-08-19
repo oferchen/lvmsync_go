@@ -15,4 +15,8 @@ func TestValidateOutput(t *testing.T) {
 	if err := cfg.Validate(); err != nil {
 		t.Fatalf("validate json output: %v", err)
 	}
+	cfg.Output = "yaml"
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("validate yaml output: %v", err)
+	}
 }

@@ -146,6 +146,17 @@ func NewRootCmd(logger *zap.Logger, r *Runner) *cobra.Command {
 				fs.Usage()
 				return fmt.Errorf("usage: lvmsync run [flags] <source> <dest>")
 			}
+			if cfg.VerifyOnly {
+				vArgs := []string{}
+				if cfg.Output != "" {
+					vArgs = append(vArgs, "--output", cfg.Output)
+				}
+				if cfg.DryRun {
+					vArgs = append(vArgs, "--dry-run")
+				}
+				vArgs = append(vArgs, remaining...)
+				return r.Verify(vArgs, logger)
+			}
 			if cfg.DryRun {
 				if err := estimateTransfer(remaining[0], cfg, logger); err != nil {
 					return err

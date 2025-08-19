@@ -219,6 +219,26 @@ func TestVerifyRoutes(t *testing.T) {
 	}
 }
 
+func TestRunVerifyOnlyOutput(t *testing.T) {
+	var got []string
+	r := NewRunnerWithDeps(nil, nil, func(a []string, _ *zap.Logger) error {
+		got = append([]string{}, a...)
+		return nil
+	})
+	if err := ExecuteWithRunner([]string{"run", "--verify-only", "--output", "json", "src", "dst"}, zap.NewNop(), r); err != nil {
+		t.Fatalf("execute run verify-only: %v", err)
+	}
+	exp := []string{"--output", "json", "src", "dst"}
+	if len(got) != len(exp) {
+		t.Fatalf("unexpected args %v", got)
+	}
+	for i := range exp {
+		if got[i] != exp[i] {
+			t.Fatalf("arg %d = %q want %q", i, got[i], exp[i])
+		}
+	}
+}
+
 func TestExecuteSyncsLogger(t *testing.T) {
 	t.Setenv("LVMSYNC_TRANSPORT_TRANSPORT", "ssh")
 	src := t.TempDir() + "/src"

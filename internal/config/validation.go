@@ -30,8 +30,8 @@ func (c *Config) ValidateWith(geteuid func() int) error {
 	if c.DestType != "" && c.DestType != "auto" && c.DestType != "file" && c.DestType != "raw" && c.DestType != "lvm" {
 		return fmt.Errorf("invalid dest type %q", c.DestType)
 	}
-	if c.Output != "" && c.Output != "text" && c.Output != "json" {
-		return fmt.Errorf("invalid output %q: must be \"text\" or \"json\"", c.Output)
+	if c.Output != "" && c.Output != "text" && c.Output != "json" && c.Output != "yaml" {
+		return fmt.Errorf("invalid output %q: must be \"text\", \"json\" or \"yaml\"", c.Output)
 	}
 	if c.Sparse != "" && c.Sparse != Auto && c.Sparse != "never" {
 		return fmt.Errorf("invalid sparse %q: must be %q or %q", c.Sparse, Auto, "never")

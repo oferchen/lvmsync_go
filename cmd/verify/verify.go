@@ -3,6 +3,7 @@ package verify
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -13,6 +14,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/zeebo/blake3"
 	"go.uber.org/zap"
+	"gopkg.in/yaml.v3"
 
 	rootcmd "lvmsync_go/cmd/root"
 	"lvmsync_go/internal/config"
@@ -86,7 +88,34 @@ func (r *Runner) Run(args []string, logger *zap.Logger) error {
 				logger.Info("dry run", zap.Int64("size_bytes", size), zap.Duration("eta", eta))
 				return nil
 			}
-			return r.verifyDevices(cfg, remaining[0], remaining[1], cfg.ManifestPath, logger)
+			err = r.verifyDevices(cfg, remaining[0], remaining[1], cfg.ManifestPath, logger)
+			if cfg.Output == "json" || cfg.Output == "yaml" {
+				out := struct {
+					Verified bool   `json:"verified" yaml:"verified"`
+					Error    string `json:"error,omitempty" yaml:"error,omitempty"`
+				}{Verified: err == nil}
+				if err != nil {
+					out.Error = err.Error()
+				}
+				switch cfg.Output {
+				case "json":
+					enc := json.NewEncoder(os.Stdout)
+					enc.SetIndent("", "  ")
+					if encErr := enc.Encode(out); encErr != nil {
+						return fmt.Errorf("encode json: %w", encErr)
+					}
+				case "yaml":
+					enc := yaml.NewEncoder(os.Stdout)
+					enc.SetIndent(2)
+					if encErr := enc.Encode(out); encErr != nil {
+						return fmt.Errorf("encode yaml: %w", encErr)
+					}
+					if closeErr := enc.Close(); closeErr != nil {
+						return fmt.Errorf("close yaml encoder: %w", closeErr)
+					}
+				}
+			}
+			return err
 		},
 	}
 	cmd.SetArgs(args)
