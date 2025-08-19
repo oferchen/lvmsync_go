@@ -1,11 +1,13 @@
 package escalate
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -69,7 +71,14 @@ func TestSelfPath(t *testing.T) {
 	}
 }
 
-func TestIsRoot(t *testing.T) {
+func TestIsRoot_RealGeteuid(t *testing.T) {
+	want := os.Geteuid() == 0
+	if got := IsRoot(Options{}); got != want {
+		t.Fatalf("IsRoot() = %v, want %v", got, want)
+	}
+}
+
+func TestIsRoot_MockedGeteuid(t *testing.T) {
 	if !IsRoot(Options{Geteuid: func() int { return 0 }}) {
 		t.Fatal("expected root")
 	}
@@ -482,6 +491,62 @@ func TestEnsureRootOrReexec_SanitizeEnvDropsDisallowed(t *testing.T) {
 	}
 	if !strings.Contains(joined, "TERM=dumb") {
 		t.Fatalf("TERM missing: %v", got.env)
+	}
+}
+
+func TestEnsureRootOrReexec_DefaultRunnerPreservesEnv(t *testing.T) {
+	dir := t.TempDir()
+	envFile := filepath.Join(dir, "env.txt")
+	script := filepath.Join(dir, "sudo.sh")
+	scriptContent := fmt.Sprintf("#!/bin/sh\n/bin/cat /proc/self/environ > %s\n", envFile)
+	if err := os.WriteFile(script, []byte(scriptContent), 0o700); err != nil {
+		t.Fatalf("write script: %v", err)
+	}
+	t.Setenv("LD_PRELOAD", "/tmp/x.so")
+	reexeced, err := EnsureRootOrReexec(Options{
+		Geteuid:  func() int { return 1000 },
+		LookPath: func(string) (string, error) { return script, nil },
+	}, zap.NewNop())
+	if err != nil || !reexeced {
+		t.Fatalf("unexpected result: %v %v", reexeced, err)
+	}
+	data, err := os.ReadFile(envFile)
+	if err != nil {
+		t.Fatalf("read env: %v", err)
+	}
+	if !bytes.Contains(data, []byte("LD_PRELOAD=/tmp/x.so")) {
+		t.Fatalf("environment sanitized unexpectedly: %q", data)
+	}
+}
+
+func TestEnsureRootOrReexec_DefaultRunnerSanitizeEnv(t *testing.T) {
+	dir := t.TempDir()
+	envFile := filepath.Join(dir, "env.txt")
+	script := filepath.Join(dir, "sudo.sh")
+	scriptContent := fmt.Sprintf("#!/bin/sh\n/bin/cat /proc/self/environ > %s\n", envFile)
+	if err := os.WriteFile(script, []byte(scriptContent), 0o700); err != nil {
+		t.Fatalf("write script: %v", err)
+	}
+	t.Setenv("LD_PRELOAD", "/tmp/x.so")
+	t.Setenv("TERM", "dumb")
+	t.Setenv("PATH", "/usr/local/bin")
+	reexeced, err := EnsureRootOrReexec(Options{
+		Geteuid:     func() int { return 1000 },
+		LookPath:    func(string) (string, error) { return script, nil },
+		SanitizeEnv: true,
+	}, zap.NewNop())
+	if err != nil || !reexeced {
+		t.Fatalf("unexpected result: %v %v", reexeced, err)
+	}
+	data, err := os.ReadFile(envFile)
+	if err != nil {
+		t.Fatalf("read env: %v", err)
+	}
+	if bytes.Contains(data, []byte("LD_PRELOAD=")) || bytes.Contains(data, []byte("PATH=")) {
+		t.Fatalf("environment not sanitized: %q", data)
+	}
+	if !bytes.Contains(data, []byte("TERM=dumb")) {
+		t.Fatalf("TERM missing: %q", data)
 	}
 }
 
