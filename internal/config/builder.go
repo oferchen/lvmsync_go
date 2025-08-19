@@ -47,6 +47,17 @@ func (b *ConfigBuilder) Build(fs *pflag.FlagSet, args []string) (*Config, []stri
 		fs.SetOutput(io.Discard)
 	}
 	registerFlags(b.FlagSets, fs)
+
+	// Track which configuration keys are bound to flags. Viper will accept
+	// environment variables or YAML keys even when a flag binding is
+	// missing, leading to silent ignores. Collect all flag names so we can
+	// warn about any keys that are present but unbound.
+	bound := make(map[string]struct{})
+	fs.VisitAll(func(f *pflag.Flag) {
+		name := strings.ReplaceAll(f.Name, "_", "-")
+		bound[name] = struct{}{}
+	})
+
 	if err := fs.Parse(args); err != nil {
 		return nil, nil, nil, err
 	}
@@ -67,6 +78,22 @@ func (b *ConfigBuilder) Build(fs *pflag.FlagSet, args []string) (*Config, []stri
 	cfg, err := vb.Build()
 	if err != nil {
 		return nil, nil, warns, err
+	}
+
+	// Emit warnings for any keys present in Viper that aren't bound to a
+	// known flag. These may originate from environment variables or YAML
+	// configuration intended for other commands.
+	unused := make(map[string]struct{})
+	for k := range v.AllSettings() {
+		norm := strings.ReplaceAll(k, "_", "-")
+		if _, ok := bound[norm]; ok {
+			continue
+		}
+		if _, seen := unused[norm]; seen {
+			continue
+		}
+		unused[norm] = struct{}{}
+		warns = append(warns, fmt.Sprintf("unknown configuration key %q", norm))
 	}
 	if resumeVerify {
 		cfg.ResumeVerify = true
