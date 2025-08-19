@@ -24,6 +24,16 @@ lvmsync run --resume=statefile /dev/vg0/snap0 /dev/vg0/target
 4. Delete the state file when the transfer finishes.
 5. If the command fails, rerun with the same `--resume` file after fixing the issue.
 
+### `--resume=verify`
+
+```sh
+lvmsync run --resume=verify /dev/vg0/snap0 /dev/vg0/target
+```
+
+Reloads the write-ahead log and rechecks previously written ranges against the manifest
+before copying remaining data. This detects corrupted or tampered WAL entries before
+continuing.
+
 ### `--verify-only`
 
 ```sh
@@ -74,6 +84,13 @@ lvmsync run --create-dest-lv /dev/vg0/src /dev/vg0/dest
 
 Exit code `60` indicates a verification mismatch and leaves the destination untouched.
 
+## WAL Crash Safety
+
+WAL updates are written to a temporary file and `fsync`ed before atomically
+renaming to the final path. The parent directory is then `fsync`ed to persist the
+rename. After a crash LVMSync validates the WAL header and replays only fully
+committed ranges.
+
 ## Exit Codes and Recovery
 
 | Constant | Code | Meaning | Recovery Step |
@@ -107,7 +124,7 @@ lvmsync run /dev/vg0/missing /dev/vg0/target || echo "precondition failed with e
 
 ## Troubleshooting
 
-- Compare source and destination identities; the device identity tuple `(device_id, fs_uuid, size_bytes, major:minor)` must match the resume file.
+- Compare source and destination identities; the device identity tuple `(size_bytes, kernel_uuid, gpt_uuid, fs_uuid, major, minor, manifest_epoch)` must match the resume file.
 - Confirm the destination is not mounted read-write. Use `--force` only when intentionally overwriting.
 - Rerun with `--resume` after resolving issues to avoid re-copying completed blocks.
 - Review logs for detailed errors and ensure all configuration values follow the expected flag > environment variable > config file precedence.
