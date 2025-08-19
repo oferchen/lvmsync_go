@@ -47,11 +47,11 @@ type Runner struct {
 	detectDevice   func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, privilege.Escalator, *zap.Logger, *device.Runner) (device.Device, error)
 	sumFile        func(string, string) ([32]byte, error)
 	streamToRemote func(context.Context, *config.Config, io.WriteCloser, string, string, string, *zap.Logger) error
+	probeDest      func(context.Context, *config.Config, string, *zap.Logger) (device.DeviceIdentity, error)
 	createLV       func(context.Context, string, string, uint64, *zap.Logger) error
 	parseLVPath    func(string) (string, string, error)
 	getVolumeSize  func(string, *lvm.FDCache, *zap.Logger) (uint64, error)
 	newFDC         func(*zap.Logger) (*lvm.FDCache, error)
-	probeDest      func(context.Context, *config.Config, string, *zap.Logger) (device.DeviceIdentity, error)
 }
 
 var (
@@ -353,10 +353,11 @@ func (r *Runner) Run(ctx context.Context, cfg *config.Config, source, dest strin
 
 // RunLocalDump dumps changes to a local destination device and returns the detected destination type.
 func (r *Runner) RunLocalDump(ctx context.Context, cfg *config.Config, snapshotDevice, originDevice, dest string, logger *zap.Logger) (string, error) {
-	destType := cfg.DestType
-	devCtx := device.WithForce(context.Background(), cfg.Force)
-	devCtx = device.WithAllowOverwrite(devCtx, cfg.AllowOverwrite)
-	devRunner := device.NewRunner()
+       destType := cfg.DestType
+       devCtx := device.WithForce(context.Background(), cfg.Force)
+       devCtx = device.WithAllowOverwrite(devCtx, cfg.AllowOverwrite)
+       devCtx = device.WithYesIKnow(devCtx, cfg.YesIKnow)
+       devRunner := device.NewRunner()
 	if cfg.DryRun {
 		return destType, r.ExecuteDump(ctx, cfg, snapshotDevice, originDevice, io.Discard, logger)
 	}

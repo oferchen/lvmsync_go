@@ -48,7 +48,7 @@ func TestBlockWriterSyncInterval(t *testing.T) {
 		calls++
 		return nil
 	}}
-	bw, err := newBlockWriterWithDeps(cfg, f, nil, false, checksum, zap.NewNop(), nil, deps)
+	bw, err := newBlockWriterWithDeps(cfg, f, nil, false, checksum, zap.NewNop(), nil, nil, deps)
 	if err != nil {
 		t.Fatalf("newBlockWriter: %v", err)
 	}
@@ -77,7 +77,7 @@ func TestBlockWriterMACVerification(t *testing.T) {
 	}
 	defer f.Close()
 
-	bw, err := newBlockWriter(cfg, f, nil, true, checksum, zap.NewNop(), nil)
+	bw, err := newBlockWriter(cfg, f, nil, true, checksum, zap.NewNop(), nil, nil)
 	if err != nil {
 		t.Fatalf("newBlockWriter: %v", err)
 	}
@@ -113,7 +113,7 @@ func TestBlockWriterCRCValidation(t *testing.T) {
 	}
 	defer f.Close()
 
-	bw, err := newBlockWriter(cfg, f, nil, false, nil, zap.NewNop(), nil)
+	bw, err := newBlockWriter(cfg, f, nil, false, nil, zap.NewNop(), nil, nil)
 	if err != nil {
 		t.Fatalf("newBlockWriter: %v", err)
 	}

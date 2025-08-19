@@ -8,6 +8,7 @@ type ctxKey int
 const (
 	forceKey ctxKey = iota
 	allowOverwriteKey
+	yesIKnowKey
 )
 
 // WithForce returns a context that carries the --force flag state.
@@ -29,6 +30,18 @@ func WithAllowOverwrite(ctx context.Context, allow bool) context.Context {
 
 func allowOverwriteFromContext(ctx context.Context) bool {
 	if v, ok := ctx.Value(allowOverwriteKey).(bool); ok {
+		return v
+	}
+	return false
+}
+
+// WithYesIKnow returns a context that carries the --yes-i-know flag state.
+func WithYesIKnow(ctx context.Context, yes bool) context.Context {
+	return context.WithValue(ctx, yesIKnowKey, yes)
+}
+
+func yesIKnowFromContext(ctx context.Context) bool {
+	if v, ok := ctx.Value(yesIKnowKey).(bool); ok {
 		return v
 	}
 	return false

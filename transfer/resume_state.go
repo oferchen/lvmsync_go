@@ -14,6 +14,8 @@ import (
 	"lvmsync_go/internal/config"
 )
 
+func resumeWALPath(path string) string { return path + ".wal" }
+
 // resumeState persists transfer checkpoints allowing interrupted transfers to resume.
 type resumeChunkState struct {
 	Offset uint64 `json:"offset"`
@@ -65,7 +67,7 @@ func writeResumeState(cfg *config.Config, logger *zap.Logger, path string, chunk
 		return
 	}
 
-	walPath := path + ".wal"
+	walPath := resumeWALPath(path)
 	tmpPath := walPath + ".tmp"
 
 	f, err := os.OpenFile(tmpPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
@@ -129,7 +131,7 @@ func finalizeResumeState(cfg *config.Config, rt *resumeTracker, logger *zap.Logg
 	if err := os.Remove(cfg.ResumeState); err != nil && !os.IsNotExist(err) {
 		logger.Warn("Failed to remove resume state", zap.Error(err))
 	}
-	if err := os.Remove(cfg.ResumeState + ".wal"); err != nil && !os.IsNotExist(err) {
+	if err := os.Remove(resumeWALPath(cfg.ResumeState)); err != nil && !os.IsNotExist(err) {
 		logger.Warn("Failed to remove resume WAL", zap.Error(err))
 	}
 	rt.bytes = 0
@@ -145,7 +147,7 @@ func readResumeState(cfg *config.Config, logger *zap.Logger, size uint64, device
 		return resumeCheckpoint{}
 	}
 
-	if cp, ok := loadResumeState(cfg.ResumeState+".wal", cfg, size, deviceID, epoch, digest, logger); ok {
+	if cp, ok := loadResumeState(resumeWALPath(cfg.ResumeState), cfg, size, deviceID, epoch, digest, logger); ok {
 		return cp
 	}
 	if cp, ok := loadResumeState(cfg.ResumeState, cfg, size, deviceID, epoch, digest, logger); ok {

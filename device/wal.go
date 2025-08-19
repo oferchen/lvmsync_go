@@ -560,11 +560,22 @@ func (w *WAL) Append(r Range) error {
 		return err
 	}
 	w.f = nf
+	w.ranges = append(w.ranges, r)
 	return syncDirFunc(filepath.Dir(name))
 }
 
 // Ranges returns the ranges recorded in the WAL.
 func (w *WAL) Ranges() []Range { return append([]Range(nil), w.ranges...) }
+
+// Has reports whether the provided range is fully contained in the WAL.
+func (w *WAL) Has(start, end uint64) bool {
+	for _, r := range w.ranges {
+		if start >= r.Start && end <= r.End {
+			return true
+		}
+	}
+	return false
+}
 
 func (w *WAL) Close() error {
 	if w.f == nil {

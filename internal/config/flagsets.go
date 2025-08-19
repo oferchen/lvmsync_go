@@ -54,12 +54,12 @@ func initGeneralFlags(cfg *Config) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("General Options", pflag.ExitOnError)
 	fs.String("config", "", "Path to config YAML file")
 	fs.Bool("stdout", cfg.StdoutMode, "Write change dump to STDOUT")
-	fs.Bool("yes-i-know", cfg.YesIKnow, "Confirm writing binary data to STDOUT")
+	fs.Bool("yes-i-know", cfg.YesIKnow, "Confirm destructive write operations in non-interactive sessions")
 	fs.Bool("dry-run", cfg.DryRun, "Print actions without executing")
 	fs.Bool("probe-only", cfg.ProbeOnly, "Output size_bytes, kernel_uuid, gpt_uuid, fs_uuid, major, minor, and manifest_epoch without writing")
 	fs.Bool("plan", cfg.Plan, "Print configuration plan as JSON and exit")
 	fs.Bool("force", cfg.Force, "Override safety checks for offline raw access or filesystem freeze")
-	fs.Bool("allow-overwrite", cfg.AllowOverwrite, "Skip interactive confirmation when using --force")
+	fs.Bool("allow-overwrite", cfg.AllowOverwrite, "Allow overwriting existing data; requires --yes-i-know for non-interactive sessions")
 	fs.Bool("discard", cfg.Discard, "Issue BLKDISCARD before writing blocks")
 	fs.Bool("offline", cfg.Offline, "Assume source raw device is offline")
 	fs.Bool("sanitize-env", cfg.SanitizeEnv, "Drop PATH, LANG, and unsafe variables before privilege escalation")
@@ -165,8 +165,6 @@ func initLVMFlags(cfg *Config) *pflag.FlagSet {
 	fs.String("volume-group", cfg.VolumeGroup, "LVM volume group")
 	fs.String("target-volume-group", cfg.TargetVolumeGroup, "Target LVM volume group")
 	fs.StringSlice("target-vgs", cfg.TargetVGCandidates, "Candidate target VGs for volume selection")
-
-	fs.Bool("create-dest-lv", cfg.CreateDestLV, "Create destination logical volume if missing")
 
 	fs.Bool("create-dest-lv", cfg.CreateDestLV, "Create destination logical volume when missing")
 

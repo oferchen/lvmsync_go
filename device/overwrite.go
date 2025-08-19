@@ -9,14 +9,16 @@ import (
 )
 
 // confirmOverwrite ensures destructive operations are allowed. It requires
-// --force and either --allow-overwrite or an interactive confirmation on a TTY.
-// stdin and stderr are used for prompting, and isTerminal reports whether the
-// stdin file descriptor is a TTY.
+// --force and either an interactive confirmation on a TTY or the combination of
+// --allow-overwrite and --yes-i-know. stdin and stderr are used for prompting,
+// and isTerminal reports whether the stdin file descriptor is a TTY.
 func confirmOverwrite(ctx context.Context, stdin io.Reader, stderr io.Writer, isTerminal func(int) bool) error {
 	if !forceFromContext(ctx) {
 		return fmt.Errorf("--force required for write operations")
 	}
-	if allowOverwriteFromContext(ctx) {
+	allow := allowOverwriteFromContext(ctx)
+	yesIKnow := yesIKnowFromContext(ctx)
+	if allow && yesIKnow {
 		return nil
 	}
 	type fdProvider interface{ Fd() uintptr }
@@ -32,5 +34,8 @@ func confirmOverwrite(ctx context.Context, stdin io.Reader, stderr io.Writer, is
 		}
 		return nil
 	}
-	return fmt.Errorf("--allow-overwrite required for non-interactive write operations")
+	if !allow {
+		return fmt.Errorf("--allow-overwrite required for non-interactive write operations")
+	}
+	return fmt.Errorf("--yes-i-know required for non-interactive write operations")
 }
