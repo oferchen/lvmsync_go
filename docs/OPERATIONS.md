@@ -23,6 +23,17 @@ lvmsync run --resume=statefile /dev/vg0/snap0 /dev/vg0/target
 4. Delete the state file when the transfer finishes.
 5. If the command fails, rerun with the same `--resume` file after fixing the issue.
 
+### Crash Recovery
+
+1. Start transfers with `--resume statefile` so checkpoints persist.
+2. If the process is interrupted (for example, by `SIGKILL`), invoke the same
+   command with `--resume statefile` to continue copying remaining blocks.
+3. LVMSync validates the device identity tuple `(device_id, size_bytes,
+   major:minor)` against the resume file. Mismatches abort with a precondition
+   failure to prevent accidental overwrites.
+4. After a successful resume the state file is removed; optionally run
+   `lvmsync verify` to confirm both devices match.
+
 ### `--verify-only`
 
 ```sh
