@@ -186,6 +186,14 @@ func (i *Index) readHeader() error {
 	return nil
 }
 
+func (i *Index) validateSize() error {
+	expected := uint64(HeaderSize) + i.hdr.ChunkCount*uint64(entrySize)
+	if uint64(len(i.data)) != expected {
+		return fmt.Errorf("manifest: unexpected file size: got %d, want %d", len(i.data), expected)
+	}
+	return nil
+}
+
 // Close flushes the mmap and closes the underlying file.
 func (i *Index) Close() error {
 	var err error
@@ -283,6 +291,10 @@ func Open(path string, opts ...IndexOption) (*Index, error) {
 		idx.Close()
 		return nil, err
 	}
+	if err := idx.validateSize(); err != nil {
+		idx.Close()
+		return nil, err
+	}
 	idx.buildTables()
 	return idx, nil
 }
@@ -321,6 +333,10 @@ func Upgrade(path string, opts ...IndexOption) (*Index, error) {
 			idx.Close()
 			return nil, fmt.Errorf("manifest: unsupported version %d", idx.hdr.Version)
 		}
+	}
+	if err := idx.validateSize(); err != nil {
+		idx.Close()
+		return nil, err
 	}
 	idx.buildTables()
 	return idx, nil
