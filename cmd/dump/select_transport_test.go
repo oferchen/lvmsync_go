@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"lvmsync_go/internal/config"
+	_ "lvmsync_go/transport/rsyncwire"
 	_ "lvmsync_go/transport/ssh"
 
 	"go.uber.org/zap/zaptest"
@@ -43,5 +44,27 @@ func TestSelectTransportOrder(t *testing.T) {
 	}
 	if tr == nil || tr.Name() != "ssh" {
 		t.Fatalf("expected ssh transport, got %v", tr)
+	}
+}
+
+func TestSelectTransportRsyncRequiresAllowInsecure(t *testing.T) {
+	cfg := &config.Config{Transport: "rsync"}
+	logger := zaptest.NewLogger(t)
+	defer logger.Sync()
+	if _, err := SelectTransport(cfg, logger); err == nil || !strings.Contains(err.Error(), "unsupported transport") {
+		t.Fatalf("expected unsupported transport error, got %v", err)
+	}
+}
+
+func TestSelectTransportRsyncAllowInsecure(t *testing.T) {
+	cfg := &config.Config{Transport: "rsync", AllowInsecure: true}
+	logger := zaptest.NewLogger(t)
+	defer logger.Sync()
+	tr, err := SelectTransport(cfg, logger)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if tr == nil || tr.Name() != "rsync" {
+		t.Fatalf("expected rsync transport, got %v", tr)
 	}
 }
