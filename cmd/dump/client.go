@@ -332,8 +332,9 @@ func (r *Runner) Run(ctx context.Context, cfg *config.Config, source, dest strin
 	}
 	snapshotDevice := snapDev.Path()
 	originDevice := dev.Path()
+	lvm.RegisterSnapshot(snapshotDevice, logger)
+	defer lvm.CleanupSnapshot(ctx, snapshotDevice, logger)
 	defer func() {
-		snapDev.Cleanup(ctx)
 		snapDev.Close()
 		if snapDev != dev {
 			dev.Cleanup(ctx)
@@ -398,6 +399,19 @@ func (r *Runner) RunLocalDump(ctx context.Context, cfg *config.Config, snapshotD
 					return destType, err
 				}
 				if err := r.createLV(ctx, vg, lv, size, logger); err != nil {
+					return destType, err
+				}
+			} else {
+				cache, err := lvm.NewDeviceFDCache(logger)
+				if err != nil {
+					return destType, err
+				}
+				defer cache.Close()
+				size, err := lvm.GetVolumeSize(snapshotDevice, cache, logger)
+				if err != nil {
+					return destType, err
+				}
+				if err := devRunner.CreateLV(devCtx, dest, size, cfg.LVMEscalation); err != nil {
 					return destType, err
 				}
 			}
