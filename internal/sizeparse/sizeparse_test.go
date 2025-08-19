@@ -15,6 +15,8 @@ func TestParse(t *testing.T) {
 		{"50%", 50, true, false},
 		{"bad", 0, false, true},
 		{"10XB", 0, false, true},
+		{"-1G", 0, false, true},
+		{"-10%", 0, true, true},
 	}
 	for _, tt := range tests {
 		got, pct, err := Parse(tt.input)

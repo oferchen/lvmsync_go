@@ -21,13 +21,16 @@ func Parse(input string) (float64, bool, error) {
 		if err != nil {
 			return 0, true, fmt.Errorf("invalid percentage value %q", input)
 		}
+		if f < 0 {
+			return 0, true, fmt.Errorf("negative percentage value %q", input)
+		}
 		return f, true, nil
 	}
 	s = strings.ReplaceAll(s, " ", "")
 	idx := 0
 	for ; idx < len(s); idx++ {
 		r := rune(s[idx])
-		if !unicode.IsDigit(r) && r != '.' {
+		if !unicode.IsDigit(r) && r != '.' && !(idx == 0 && r == '-') {
 			break
 		}
 	}
@@ -36,6 +39,9 @@ func Parse(input string) (float64, bool, error) {
 	f, err := strconv.ParseFloat(numStr, 64)
 	if err != nil {
 		return 0, false, fmt.Errorf("invalid size %q", input)
+	}
+	if f < 0 {
+		return 0, false, fmt.Errorf("negative size %q", input)
 	}
 	switch unit {
 	case "", "B":
