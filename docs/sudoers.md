@@ -1,43 +1,28 @@
-# sudoers Entries
+## `sudoers` Entries
 
 LVMSync requires elevated privileges for a small set of operations. The
-following examples show least-privilege `sudoers` rules for each command.
-Adjust paths to match your distribution and test on non-production systems
-before enabling them in production.
-
-## LVM administration
-
-Permit only the LVM utilities needed by LVMSync:
+following rules use `Cmnd_Alias` to keep entries concise while limiting access
+to only the necessary commands. Adjust paths to match your distribution and
+test on non-production systems before enabling them in production.
 
 ```sudoers
-# Allow LVMSync to run LVM commands without a password
-lvmsync ALL=(root) NOPASSWD: \
+Cmnd_Alias LVMSYNC_LVM = \
     /sbin/lvm, \
     /sbin/lvcreate, \
     /sbin/lvremove, \
     /sbin/lvs, \
     /sbin/pvs, \
     /sbin/vgs
-```
 
-## Device helper
-
-The helper performs privileged device operations such as opening block
-devices, writing data and issuing discards:
-
-```sudoers
-lvmsync ALL=(root) NOPASSWD: \
+Cmnd_Alias LVMSYNC_HELPER = \
     /usr/local/bin/lvmsync-helper open, \
     /usr/local/bin/lvmsync-helper write, \
     /usr/local/bin/lvmsync-helper discard
-```
 
-## blkdiscard fallback
+Cmnd_Alias LVMSYNC_BLKDISCARD = /usr/sbin/blkdiscard
 
-Enable direct `blkdiscard` when the helper is unavailable:
-
-```sudoers
-lvmsync ALL=(root) NOPASSWD: /usr/sbin/blkdiscard
+# Allow the "lvmsync" user to run the aliases without a password
+lvmsync ALL=(root) NOPASSWD: LVMSYNC_LVM, LVMSYNC_HELPER, LVMSYNC_BLKDISCARD
 ```
 
 Test each entry carefully to ensure no additional privileges are granted.
