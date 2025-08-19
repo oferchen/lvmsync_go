@@ -1,5 +1,5 @@
 .RECIPEPREFIX := >
-.PHONY: build test lint verify bench bench-lan bench-wan vet staticcheck test-race integration release
+.PHONY: build test lint verify bench bench-lan bench-wan vet staticcheck test-race integration release docs-check
 
 build:
 > @mkdir -p bin
@@ -22,6 +22,9 @@ verify:
 > go build ./...
 > go test -coverprofile=coverage.out ./...
 > golangci-lint run
+
+docs-check:
+> go test ./docs
 
 test-race:
 > go test -race ./...

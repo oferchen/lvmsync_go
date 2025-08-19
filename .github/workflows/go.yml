@@ -122,26 +122,29 @@ jobs:
         if: github.event_name == 'pull_request'
         run: make test-race
 
-      - name: Integration tests
-        if: github.event_name == 'pull_request'
-        run: make integration
-        
-      - name: Build, test, and lint
-        run: make verify
+        - name: Integration tests
+          if: github.event_name == 'pull_request'
+          run: make integration
 
-      - name: Verify prune candidates
-        run: |
-          go run ./cmd/reachmap > .prune_candidates.txt
-          test ! -s .prune_candidates.txt
+        - name: Build, test, and lint
+          run: make verify
 
-      - name: Verify gaps resolved
-        run: |
-          jq -e 'map(select(.type | contains("(resolved)") | not)) | length == 0' reports/machine/gaps.json
+        - name: Verify prune candidates
+          run: |
+            go run ./cmd/reachmap > .prune_candidates.txt
+            test ! -s .prune_candidates.txt
 
-      - name: Show coverage
-        run: go tool cover -func=coverage.out | tail -n 1
+        - name: Verify gaps resolved
+          run: |
+            jq -e 'map(select(.type | contains("(resolved)") | not)) | length == 0' reports/machine/gaps.json
 
-      - name: Enforce coverage threshold
-        run: |
-          pct=$(go tool cover -func=coverage.out | tail -n 1 | awk '{print $3}' | tr -d '%')
-          awk -v p="$pct" 'BEGIN { if (p < 50) { printf("coverage %.2f%% is below 50%%\n", p); exit 1 } }'
+        - name: Docs check
+          run: make docs-check
+
+        - name: Show coverage
+          run: go tool cover -func=coverage.out | tail -n 1
+
+        - name: Enforce coverage threshold
+          run: |
+            pct=$(go tool cover -func=coverage.out | tail -n 1 | awk '{print $3}' | tr -d '%')
+            awk -v p="$pct" 'BEGIN { if (p < 50) { printf("coverage %.2f%% is below 50%%\n", p); exit 1 } }'
