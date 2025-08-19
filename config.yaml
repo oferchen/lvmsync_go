@@ -66,6 +66,8 @@ skip_disk_check: false
 # Snapshot size as an absolute value (e.g. "20G")
 # or as a percentage (e.g. "20%")
 snapshot_size: "20%"
+# Create destination logical volume if missing
+create_dest_lv: false
 # Source volume group. Derived from the source path when empty
 volume_group: ""
 # Volume group name of the target LVM volume

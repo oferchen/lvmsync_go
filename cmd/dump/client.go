@@ -21,6 +21,7 @@ import (
 	digestpkg "lvmsync_go/internal/digest"
 	"lvmsync_go/internal/privilege"
 	"lvmsync_go/internal/rsyncwire"
+	"lvmsync_go/lvm"
 	"lvmsync_go/remote"
 	"lvmsync_go/transfer"
 	"lvmsync_go/transport"
@@ -46,6 +47,11 @@ type Runner struct {
 	detectDevice   func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, privilege.Escalator, *zap.Logger, *device.Runner) (device.Device, error)
 	sumFile        func(string, string) ([32]byte, error)
 	streamToRemote func(context.Context, *config.Config, io.WriteCloser, string, string, string, *zap.Logger) error
+	probeDest      func(context.Context, *config.Config, string, *zap.Logger) (uint64, string, uint64, error)
+	createLV       func(context.Context, string, string, uint64, *zap.Logger) error
+	parseLVPath    func(string) (string, string, error)
+	getVolumeSize  func(string, *lvm.FDCache, *zap.Logger) (uint64, error)
+	newFDC         func(*zap.Logger) (*lvm.FDCache, error)
 	probeDest      func(context.Context, *config.Config, string, *zap.Logger) (device.DeviceIdentity, error)
 }
 
@@ -89,6 +95,10 @@ func NewRunner() *Runner {
 		sumFile:        sumFile,
 		streamToRemote: streamToRemote,
 		probeDest:      probeDestination,
+		createLV:       lvm.CreateLogicalVolume,
+		parseLVPath:    lvm.ParseLVPath,
+		getVolumeSize:  lvm.GetVolumeSize,
+		newFDC:         lvm.NewDeviceFDCache,
 	}
 }
 
@@ -129,6 +139,18 @@ func NewRunnerWithDeps(deps *Runner) *Runner {
 	}
 	if deps.probeDest != nil {
 		r.probeDest = deps.probeDest
+	}
+	if deps.createLV != nil {
+		r.createLV = deps.createLV
+	}
+	if deps.parseLVPath != nil {
+		r.parseLVPath = deps.parseLVPath
+	}
+	if deps.getVolumeSize != nil {
+		r.getVolumeSize = deps.getVolumeSize
+	}
+	if deps.newFDC != nil {
+		r.newFDC = deps.newFDC
 	}
 	return r
 }
@@ -352,6 +374,26 @@ func (r *Runner) RunLocalDump(ctx context.Context, cfg *config.Config, snapshotD
 				destType = "file"
 			}
 			dev.Close()
+		}
+	}
+	if cfg.CreateDestLV {
+		if _, err := os.Stat(dest); errors.Is(err, os.ErrNotExist) {
+			vg, lv, err := r.parseLVPath(dest)
+			if err != nil {
+				return destType, err
+			}
+			cache, err := r.newFDC(logger)
+			if err != nil {
+				return destType, err
+			}
+			defer cache.Close()
+			size, err := r.getVolumeSize(originDevice, cache, logger)
+			if err != nil {
+				return destType, err
+			}
+			if err := r.createLV(ctx, vg, lv, size, logger); err != nil {
+				return destType, err
+			}
 		}
 	}
 	destFile, err := r.openFile(dest, os.O_RDWR, 0)

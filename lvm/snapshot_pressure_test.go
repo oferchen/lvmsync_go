@@ -29,6 +29,10 @@ func (b *pressureBackend) ListVolumeGroups(context.Context, []string) ([]lvm.Vol
 	return nil, nil
 }
 
+func (b *pressureBackend) CreateLogicalVolume(context.Context, string, string, uint64) error {
+	return nil
+}
+
 func TestSnapshotPressureAbortCleanup(t *testing.T) {
 	cfg, err := config.DefaultConfig()
 	if err != nil {

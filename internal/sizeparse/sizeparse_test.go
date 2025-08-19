@@ -143,6 +143,7 @@ func TestParse(t *testing.T) {
 			t.Fatalf("Parse(%q) = %d want %d", tc.in, got, tc.want)
 		}
 	}
+
 }
 
 func TestParseOverflowAndNegative(t *testing.T) {

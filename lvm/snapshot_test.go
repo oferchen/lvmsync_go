@@ -42,6 +42,10 @@ func (f *mockBackend) ListVolumeGroups(context.Context, []string) ([]VolumeGroup
 	return nil, nil
 }
 
+func (f *mockBackend) CreateLogicalVolume(context.Context, string, string, uint64) error {
+	return nil
+}
+
 func TestCreateAndRemoveSnapshot(t *testing.T) {
 	orig := checkPrivs
 	checkPrivs = func() error { return nil }
