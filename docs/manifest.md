@@ -122,7 +122,7 @@ The `manifest` package exposes a [`GC`](../manifest/index.go) helper that
 rewrites the manifest, dropping orphaned or duplicate entries before updating
 the header MAC. Once written to a temporary file, [`fsyncRename`](../manifest/index.go)
 flushes the directory and atomically swaps the new file into place so crashes
-never leave a partial manifest behind.
+never leave a partial manifest behind. After any crash either the previous manifest or the fully rewritten one will be present, with unswapped temporary files left alongside the original. Garbage collection writes to this temporary file and will leave the previous manifest untouched if interrupted before the final rename.
 
 ## Resume Tokens
 
