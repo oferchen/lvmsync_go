@@ -139,6 +139,9 @@ func TestRunLVMFailure(t *testing.T) {
 }
 
 func TestCreateLV(t *testing.T) {
+	if err := lvm.VerifyEscalationCommand(""); err != nil {
+		t.Skipf("requires root or --lvm-escalation: %v", err)
+	}
 	ctx := WithForce(context.Background(), true)
 	ctx = WithAllowOverwrite(ctx, true)
 	ctx = WithYesIKnow(ctx, true)
@@ -168,6 +171,9 @@ func TestCreateLV(t *testing.T) {
 }
 
 func TestCreateLVRequiresForce(t *testing.T) {
+	if err := lvm.VerifyEscalationCommand(""); err != nil {
+		t.Skipf("requires root or --lvm-escalation: %v", err)
+	}
 	cmd := cmdFunc(func(ctx context.Context, n string, a ...string) *exec.Cmd {
 		return exec.CommandContext(ctx, "true")
 	})
@@ -178,6 +184,9 @@ func TestCreateLVRequiresForce(t *testing.T) {
 }
 
 func TestCreateLVRunLVMError(t *testing.T) {
+	if err := lvm.VerifyEscalationCommand(""); err != nil {
+		t.Skipf("requires root or --lvm-escalation: %v", err)
+	}
 	ctx := WithForce(context.Background(), true)
 	ctx = WithAllowOverwrite(ctx, true)
 	ctx = WithYesIKnow(ctx, true)
