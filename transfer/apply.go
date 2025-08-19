@@ -66,8 +66,8 @@ func (t *Transfer) processDumpDataCore(ctx context.Context, cfg *config.Config, 
 	}
 	defer common.CloseWithErr(destFile, &err, "close destination device")
 
+	var walRanges []Range
 	if cfg.ResumeState != "" {
-		var walRanges []Range
 		t.wal, walRanges, err = OpenWAL(cfg.ResumeState+".wal", size, id, epoch)
 		if err != nil {
 			return err
@@ -81,7 +81,7 @@ func (t *Transfer) processDumpDataCore(ctx context.Context, cfg *config.Config, 
 
 	startTime := time.Now()
 	checksum := GetChecksumStrategy(cfg.ChecksumAlgorithm)
-	bw, err := newBlockWriter(cfg, destFile, dedup, verify, checksum, t.Logger, t.wal)
+	bw, err := newBlockWriter(cfg, destFile, dedup, verify, checksum, t.Logger, t.wal, walRanges)
 	var totalBytes int64
 	totalBytes, err = bw.write(reader)
 	if err != nil {
