@@ -30,6 +30,7 @@ type Config struct {
 	DestType                 string        `mapstructure:"dest-type"`
 	ConfigFile               string        `mapstructure:"config"`
 	StdoutMode               bool          `mapstructure:"stdout"`
+	YesIKnow                 bool          `mapstructure:"yes_i_know"`
 	DryRun                   bool          `mapstructure:"dry_run"`
 	ProbeOnly                bool          `mapstructure:"probe_only"`
 	Force                    bool          `mapstructure:"force"`
@@ -171,6 +172,7 @@ func DefaultConfig() (*Config, error) {
 	return &Config{
 		Mode:                     "default",
 		StdoutMode:               false,
+		YesIKnow:                 false,
 		DryRun:                   false,
 		ProbeOnly:                false,
 		Force:                    false,
