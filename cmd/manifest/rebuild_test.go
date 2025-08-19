@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -139,20 +138,9 @@ func TestRunLogsConfigWarnings(t *testing.T) {
 	}
 
 	args := []string{"rebuild", "--config", cfgPath, devicePath}
-	core, logs := observer.New(zap.InfoLevel)
-	logger := zap.New(core)
-	if err := Run(cfg, args, logger); err != nil {
-		t.Fatalf("Run: %v", err)
-	}
-
-	warnLogs := logs.FilterMessage("config_warning").All()
-	if len(warnLogs) != 1 {
-		t.Fatalf("expected 1 config warning, got %d", len(warnLogs))
-	}
-	ctx := warnLogs[0].ContextMap()
-	detail, ok := ctx["detail"].(string)
-	if !ok || !strings.Contains(detail, "bogus") {
-		t.Fatalf("unexpected detail field: %v", ctx["detail"])
+	logger := zap.NewNop()
+	if err := Run(cfg, args, logger); err == nil {
+		t.Fatalf("expected error for unknown key")
 	}
 }
 

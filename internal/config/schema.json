@@ -1,0 +1,341 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "properties": {
+    "allow_insecure": {
+      "type": "boolean"
+    },
+    "allow_overwrite": {
+      "type": "boolean"
+    },
+    "bloom_entries": {
+      "type": "integer"
+    },
+    "bloom_fp_rate": {
+      "type": "number"
+    },
+    "bloom_mbits": {
+      "type": "integer"
+    },
+    "ca_cert": {
+      "type": "string"
+    },
+    "cdc_avg": {
+      "type": "integer"
+    },
+    "cdc_max": {
+      "type": "integer"
+    },
+    "cdc_min": {
+      "type": "integer"
+    },
+    "checkpoint_bytes": {
+      "type": "string"
+    },
+    "checkpoint_interval": {
+      "type": "string"
+    },
+    "chunk_seed": {
+      "type": "integer"
+    },
+    "client_cert": {
+      "type": "string"
+    },
+    "client_key": {
+      "type": "string"
+    },
+    "compress": {
+      "enum": [
+        "none",
+        "lz4",
+        "zstd",
+        "auto"
+      ],
+      "type": "string"
+    },
+    "compress_concurrency": {
+      "type": "integer"
+    },
+    "compress_threshold": {
+      "type": "number"
+    },
+    "concurrency": {
+      "type": "integer"
+    },
+    "config": {
+      "type": "string"
+    },
+    "dedup": {
+      "enum": [
+        "fixed",
+        "cdc",
+        "hybrid"
+      ],
+      "type": "string"
+    },
+    "dedup_state_file": {
+      "type": "string"
+    },
+    "dedup_strategy": {
+      "enum": [
+        "none",
+        "auto",
+        "checksum",
+        "rolling_hash",
+        "bloom"
+      ],
+      "type": "string"
+    },
+    "delta": {
+      "type": "string"
+    },
+    "dest-type": {
+      "enum": [
+        "auto",
+        "file",
+        "raw",
+        "lvm"
+      ],
+      "type": "string"
+    },
+    "device_uuid": {
+      "type": "string"
+    },
+    "digest": {
+      "enum": [
+        "sha256",
+        "blake3",
+        "auto"
+      ],
+      "type": "string"
+    },
+    "discard": {
+      "type": "boolean"
+    },
+    "dry_run": {
+      "type": "boolean"
+    },
+    "first_block_digest": {
+      "type": "string"
+    },
+    "force": {
+      "type": "boolean"
+    },
+    "freeze-timeout": {
+      "type": "string"
+    },
+    "fs-freeze-command": {
+      "type": "string"
+    },
+    "fs-thaw-command": {
+      "type": "string"
+    },
+    "intra_dedup": {
+      "type": "boolean"
+    },
+    "known_hosts": {
+      "type": "string"
+    },
+    "lvm_escalation": {
+      "type": "string"
+    },
+    "lvm_timeout": {
+      "type": "string"
+    },
+    "lvmsync_path": {
+      "type": "string"
+    },
+    "lz4_level": {
+      "enum": [
+        "fast",
+        "hc"
+      ],
+      "type": "string"
+    },
+    "manifest_allow_mounted": {
+      "type": "boolean"
+    },
+    "manifest_path": {
+      "type": "string"
+    },
+    "manifest_progress_interval": {
+      "type": "string"
+    },
+    "manifest_timeout": {
+      "type": "string"
+    },
+    "max_retries": {
+      "type": "integer"
+    },
+    "mode": {
+      "enum": [
+        "default",
+        "throughput"
+      ],
+      "type": "string"
+    },
+    "numa_node": {
+      "type": "integer"
+    },
+    "numa_pin": {
+      "type": "boolean"
+    },
+    "odirect": {
+      "type": "boolean"
+    },
+    "offline": {
+      "type": "boolean"
+    },
+    "output": {
+      "enum": [
+        "text",
+        "json"
+      ],
+      "type": "string"
+    },
+    "parallel": {
+      "type": "integer"
+    },
+    "plan": {
+      "type": "boolean"
+    },
+    "probe_only": {
+      "type": "boolean"
+    },
+    "progress": {
+      "type": "boolean"
+    },
+    "remote_post_script": {
+      "type": "string"
+    },
+    "remote_pre_script": {
+      "type": "string"
+    },
+    "resume": {
+      "type": "string"
+    },
+    "resume_token": {
+      "type": "string"
+    },
+    "retry_delay": {
+      "type": "string"
+    },
+    "sig_cache_max": {
+      "type": "integer"
+    },
+    "sig_cache_ttl": {
+      "type": "string"
+    },
+    "skip_disk_check": {
+      "type": "boolean"
+    },
+    "skip_snapshot_creation": {
+      "type": "boolean"
+    },
+    "snapshot_size": {
+      "type": "string"
+    },
+    "source-type": {
+      "enum": [
+        "auto",
+        "file",
+        "raw",
+        "lvm"
+      ],
+      "type": "string"
+    },
+    "speed": {
+      "type": "string"
+    },
+    "ssh_host": {
+      "type": "string"
+    },
+    "ssh_host_key": {
+      "type": "string"
+    },
+    "ssh_host_key_path": {
+      "type": "string"
+    },
+    "ssh_keepalive": {
+      "type": "string"
+    },
+    "ssh_key": {
+      "type": "string"
+    },
+    "ssh_password": {
+      "type": "string"
+    },
+    "ssh_port": {
+      "type": "integer"
+    },
+    "ssh_timeout": {
+      "type": "string"
+    },
+    "ssh_user": {
+      "type": "string"
+    },
+    "stdout": {
+      "type": "boolean"
+    },
+    "strict_host_key_checking": {
+      "type": "boolean"
+    },
+    "sync_interval": {
+      "type": "string"
+    },
+    "target_vgs": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "target_volume_group": {
+      "type": "string"
+    },
+    "tcp_lowat": {
+      "type": "integer"
+    },
+    "tcp_parallel": {
+      "type": "integer"
+    },
+    "tcp_port": {
+      "type": "integer"
+    },
+    "thaw-timeout": {
+      "type": "string"
+    },
+    "transport": {
+      "type": "string"
+    },
+    "verbose": {
+      "type": "integer"
+    },
+    "verify": {
+      "enum": [
+        "full",
+        "sampled",
+        "none"
+      ],
+      "type": "string"
+    },
+    "verify_checksum": {
+      "type": "boolean"
+    },
+    "verify_only": {
+      "type": "boolean"
+    },
+    "volume_group": {
+      "type": "string"
+    },
+    "yes_i_know": {
+      "type": "boolean"
+    },
+    "zerocopy": {
+      "type": "boolean"
+    },
+    "zstd_level": {
+      "type": "integer"
+    }
+  },
+  "type": "object"
+}
