@@ -4,7 +4,7 @@
 # - Docker pushes remain conditional on SKIP_DOCKER_PUSH.
 # - Multi-arch images + manifests; GoReleaser passes BIN/BUILD_PATH build args.
 
-project_name: &name bpm
+project_name: &name lvmsync
 
 builds:
   - id: *name
@@ -12,6 +12,9 @@ builds:
     env: [CGO_ENABLED=1]
     goos: [linux]
     goarch: [amd64, arm64]
+    flags: ["-trimpath"]
+    ldflags:
+      - "-s -w -X main.version={{.Version}}"
 
 archives:
   - id: default
@@ -31,10 +34,10 @@ sboms:
     artifacts: archive
 
 dockers:
-  # Build per-arch images from Dockerfile (multi-stage Alpine)
-  - id: bpm-amd64
+  # Build per-arch distroless images
+  - id: lvmsync-amd64
     use: buildx
-    dockerfile: Dockerfile
+    dockerfile: Dockerfile.distroless
     platforms: ["linux/amd64"]
     image_templates:
       - docker.io/oferchen/{{ .ProjectName }}:{{ .Tag }}-amd64
@@ -48,9 +51,9 @@ dockers:
       - "--build-arg=BIN={{ .ProjectName }}"
       - "--build-arg=BUILD_PATH=."
 
-  - id: bpm-arm64
+  - id: lvmsync-arm64
     use: buildx
-    dockerfile: Dockerfile
+    dockerfile: Dockerfile.distroless
     platforms: ["linux/arm64"]
     image_templates:
       - docker.io/oferchen/{{ .ProjectName }}:{{ .Tag }}-arm64v8
