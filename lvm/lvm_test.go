@@ -46,7 +46,7 @@ func TestParseSnapshotSize(t *testing.T) {
 		wantErr bool
 	}{
 		{"percent", "50%", 512 * 1024, false},
-		{"absolute", "1M", 1000000, false},
+		{"absolute", "1M", 1 << 20, false},
 		{"invalidPercent", "150%", 0, true},
 		{"invalidValue", "abc", 0, true},
 		{"negative", "-1", 0, true},

@@ -40,18 +40,18 @@ func Parse(input string) (float64, bool, error) {
 	switch unit {
 	case "", "B":
 		return f, false, nil
-	case "K", "KB":
-		return f * 1e3, false, nil
-	case "M", "MB":
-		return f * 1e6, false, nil
-	case "G", "GB":
-		return f * 1e9, false, nil
-	case "T", "TB":
-		return f * 1e12, false, nil
-	case "P", "PB":
-		return f * 1e15, false, nil
-	case "E", "EB":
-		return f * 1e18, false, nil
+	case "K", "KB", "KIB":
+		return f * (1 << 10), false, nil
+	case "M", "MB", "MIB":
+		return f * (1 << 20), false, nil
+	case "G", "GB", "GIB":
+		return f * (1 << 30), false, nil
+	case "T", "TB", "TIB":
+		return f * (1 << 40), false, nil
+	case "P", "PB", "PIB":
+		return f * (1 << 50), false, nil
+	case "E", "EB", "EIB":
+		return f * (1 << 60), false, nil
 	default:
 		return 0, false, fmt.Errorf("unknown size suffix %q", unit)
 	}
