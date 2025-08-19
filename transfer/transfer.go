@@ -282,7 +282,7 @@ func (t *Transfer) verifyDestination(ctx context.Context, cfg *config.Config, de
 		manID := strings.TrimRight(string(hdr.DeviceID[:]), "\x00")
 		if id != manID {
 			t.Logger.Error("device_id_mismatch", zap.String("expected_resource_id", manID), zap.String("resource_id", id))
-			return 0, "", 0, fmt.Errorf("destination device id %s does not match manifest %s", id, manID)
+			return 0, "", 0, fmt.Errorf("precondition: destination device id %s does not match manifest %s", id, manID)
 		}
 		size, err = t.Info.SizeBytes(ctx, destPath)
 		if err != nil {
@@ -290,7 +290,7 @@ func (t *Transfer) verifyDestination(ctx context.Context, cfg *config.Config, de
 		}
 		if size != hdr.SizeBytes {
 			t.Logger.Error("device_size_mismatch", zap.Uint64("expected_size_bytes", hdr.SizeBytes), zap.Uint64("size_bytes", size))
-			return 0, "", 0, fmt.Errorf("destination device size %d does not match manifest %d", size, hdr.SizeBytes)
+			return 0, "", 0, fmt.Errorf("precondition: destination device size %d does not match manifest %d", size, hdr.SizeBytes)
 		}
 		dig, err := t.Info.FirstBlockDigest(ctx, destPath, firstBlockDigestSize)
 		if err != nil {
@@ -308,7 +308,7 @@ func (t *Transfer) verifyDestination(ctx context.Context, cfg *config.Config, de
 			if _, err := os.Stat(cfg.ResumeState); err == nil {
 				chk := readResumeState(cfg, t.Logger, hdr.SizeBytes, manID, hdr.Epoch, hdr.FirstBlockDigest)
 				if chk == (resumeCheckpoint{}) {
-					return 0, "", 0, fmt.Errorf("resume state does not match destination metadata")
+					return 0, "", 0, fmt.Errorf("precondition: resume state does not match destination metadata")
 				}
 			}
 		}
@@ -328,12 +328,12 @@ func (t *Transfer) verifyDestination(ctx context.Context, cfg *config.Config, de
 				}
 				chk := readResumeState(cfg, t.Logger, size, id, 0, [32]byte{})
 				if chk == (resumeCheckpoint{}) {
-					return 0, "", 0, fmt.Errorf("resume state does not match destination metadata")
+					return 0, "", 0, fmt.Errorf("precondition: resume state does not match destination metadata")
 				}
 			}
 			if cfg.DeviceUUID != "" && id != cfg.DeviceUUID {
 				t.Logger.Error("device_id_mismatch", zap.String("expected_resource_id", cfg.DeviceUUID), zap.String("resource_id", id))
-				return 0, "", 0, fmt.Errorf("destination device uuid %s does not match expected %s", id, cfg.DeviceUUID)
+				return 0, "", 0, fmt.Errorf("precondition: destination device uuid %s does not match expected %s", id, cfg.DeviceUUID)
 			}
 			t.Logger.Info("destination_validated", zap.String("resource_id", id), zap.Uint64("size_bytes", size))
 		}
