@@ -78,7 +78,8 @@ func newBlockWriterWithDeps(cfg *config.Config, dest *os.File, dedup Deduplicati
 }
 
 // write consumes block records from reader and writes them to the destination
-// file. It applies sparse punching for zero ranges, performs optional
+// file. It punches sparse holes for zero ranges when cfg.Sparse != "never",
+// performs optional
 // checksum verification, and issues fdatasync calls after each configured
 // interval. It returns the total number of bytes written.
 func (bw *blockWriter) write(reader *bufio.Reader) (int64, error) {

@@ -72,6 +72,9 @@ func (b *builder) applyDefaults(conf *Config) error {
 	if !isSet(b.v, "manifest-allow-mounted") {
 		conf.ManifestAllowMounted = b.defaults.ManifestAllowMounted
 	}
+	if conf.Sparse == "" {
+		conf.Sparse = b.defaults.Sparse
+	}
 
 	if conf.LVMEscalation == "" {
 		conf.LVMEscalation = b.defaults.LVMEscalation
