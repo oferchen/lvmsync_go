@@ -90,6 +90,16 @@ lvmsync run --create-dest-lv /dev/vg0/src /dev/vg0/dest
 
 Exit code `60` indicates a verification mismatch and leaves the destination untouched.
 
+### Safe Overwrite Test
+
+The integration test `integration/safe_overwrite.sh` exercises this sequence:
+
+1. `lvmsync run --probe-only /dev/vg0/snap0 /dev/vg0/target` exits `0` without writing.
+2. `lvmsync run --verify-only /dev/vg0/snap0 /dev/vg0/target` exits `60` when blocks differ and leaves data unchanged.
+3. `lvmsync run /dev/vg0/snap0 /dev/vg0/target` performs the actual copy.
+
+The test confirms the probe and verify steps do not modify the destination logical volume.
+
 ## WAL Crash Safety
 
 WAL updates are written to a temporary file and `fsync`ed before atomically
