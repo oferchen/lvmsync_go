@@ -468,7 +468,7 @@ Recent refactors added several configuration options:
 - `--block-size` selects the transfer block size. Use `auto` to match the destination's physical sector size.
 - `--sync-interval` sets how many bytes are written between `fdatasync` calls. Accepts size suffixes like `64KB` or `1GB`; invalid values cause startup errors.
 - `--odirect` uses O_DIRECT with block-size aligned buffers.
-- `--numa-pin` pins worker goroutines to CPUs local to the source device's NUMA node.
+- `--numa-pin` pins worker goroutines to CPUs local to the source device's NUMA node. If `/sys` lacks NUMA details, LVMSync logs a warning and continues without pinning. Use `--numa-node` to override.
 - `--numa-node` pins worker goroutines to the specified NUMA node.
 
 ### Device types
@@ -615,8 +615,8 @@ Flags override environment variables, which override `config.yaml` values.
 | `--concurrency` | `LVMSYNC_TRANSPORT_CONCURRENCY` | `concurrency` | Stream concurrency (0 to autotune based on BDP) |
 | `--zerocopy` | `LVMSYNC_ZEROCOPY` | `zerocopy` | Enable zero-copy transfers |
 | `--odirect` | `LVMSYNC_ODIRECT` | `odirect` | Use O_DIRECT for device I/O when possible |
-| `--numa-pin` | `LVMSYNC_NUMA_PIN` | `numa_pin` | Pin worker goroutines to device NUMA node |
-| `--numa-node` | `LVMSYNC_NUMA_NODE` | `numa_node` | Pin worker goroutines to specified NUMA node |
+| `--numa-pin` | `LVMSYNC_NUMA_PIN` | `numa_pin` | Pin worker goroutines to device NUMA node; logs a warning and continues if NUMA data is missing |
+| `--numa-node` | `LVMSYNC_NUMA_NODE` | `numa_node` | Pin worker goroutines to specified NUMA node, overriding automatic detection |
 | `--max-retries` | `LVMSYNC_MAX_RETRIES` | `max_retries` | Maximum number of retries per block |
 | `--retry-delay` | `LVMSYNC_RETRY_DELAY` | `retry_delay` | Initial delay between retries |
 | `--resume` | `LVMSYNC_RESUME` | `resume` | Path to resume state file (verification runs unless `--verify=none`) |

@@ -7,7 +7,11 @@ import (
 	"reflect"
 	"testing"
 
+	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 	"golang.org/x/sys/unix"
+
+	"lvmsync_go/internal/config"
 )
 
 func TestParseCPUList(t *testing.T) {
@@ -109,5 +113,20 @@ func TestPinCurrentThreadToNodeReal(t *testing.T) {
 			t.Skipf("numa unsupported: %v", err)
 		}
 		t.Logf("pin failed: %v", err)
+	}
+}
+
+func TestPinWorkerToDeviceMissingNUMAInfo(t *testing.T) {
+	cfg := &config.Config{NumaPin: true, NumaNode: -1}
+	tmp, err := os.CreateTemp(t.TempDir(), "dev")
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	core, logs := observer.New(zap.WarnLevel)
+	logger := zap.New(core)
+	unlock := pinWorkerToDevice(cfg, tmp, logger)
+	unlock()
+	if logs.FilterMessage("numa pin failed").Len() != 1 {
+		t.Fatalf("expected numa pin warning, got %d", logs.FilterMessage("numa pin failed").Len())
 	}
 }
