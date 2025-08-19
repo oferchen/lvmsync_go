@@ -2,13 +2,16 @@ package device
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/zeebo/blake3"
+	"go.uber.org/zap"
 )
 
 const (
@@ -71,6 +74,10 @@ type walFile interface {
 	Name() string
 }
 
+// ErrWALMetadataMismatch indicates the WAL header identity does not match the
+// provided device identity.
+var ErrWALMetadataMismatch = errors.New("wal metadata mismatch")
+
 type WAL struct {
 	f      walFile
 	header walHeader
@@ -125,9 +132,10 @@ func walHeaderMACV0(h *walHeaderV0) [32]byte {
 	return blake3.Sum256(buf[:])
 }
 
-// OpenWAL opens or creates a WAL at path for the given device identity.
+// OpenWAL opens or creates a WAL at path for the given device identity. The
+// logger must be non-nil and is used to report metadata mismatches.
 // It verifies metadata on existing WALs and loads recorded ranges.
-func OpenWAL(path string, id DeviceIdentity) (*WAL, error) {
+func OpenWAL(path string, id DeviceIdentity, logger *zap.Logger) (*WAL, error) {
 	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0o600)
 	if err != nil {
 		return nil, err
@@ -209,7 +217,34 @@ func OpenWAL(path string, id DeviceIdentity) (*WAL, error) {
 			string(hdr.GPT[:len(id.GPTUUID)]) != id.GPTUUID ||
 			string(hdr.FS[:len(id.FSUUID)]) != id.FSUUID {
 			f.Close()
-			return nil, fmt.Errorf("wal: metadata mismatch")
+			hdrID := DeviceIdentity{
+				SizeBytes:     hdr.Size,
+				KernelUUID:    strings.TrimRight(string(hdr.Kernel[:]), "\x00"),
+				GPTUUID:       strings.TrimRight(string(hdr.GPT[:]), "\x00"),
+				FSUUID:        strings.TrimRight(string(hdr.FS[:]), "\x00"),
+				Major:         hdr.Major,
+				Minor:         hdr.Minor,
+				ManifestEpoch: hdr.Epoch,
+			}
+			err := fmt.Errorf("precondition: %w", ErrWALMetadataMismatch)
+			logger.Error("wal metadata mismatch",
+				zap.Uint64("header_size_bytes", hdrID.SizeBytes),
+				zap.Uint64("header_manifest_epoch", hdrID.ManifestEpoch),
+				zap.Uint32("header_major", hdrID.Major),
+				zap.Uint32("header_minor", hdrID.Minor),
+				zap.String("header_kernel_uuid", hdrID.KernelUUID),
+				zap.String("header_gpt_uuid", hdrID.GPTUUID),
+				zap.String("header_fs_uuid", hdrID.FSUUID),
+				zap.Uint64("identity_size_bytes", id.SizeBytes),
+				zap.Uint64("identity_manifest_epoch", id.ManifestEpoch),
+				zap.Uint32("identity_major", id.Major),
+				zap.Uint32("identity_minor", id.Minor),
+				zap.String("identity_kernel_uuid", id.KernelUUID),
+				zap.String("identity_gpt_uuid", id.GPTUUID),
+				zap.String("identity_fs_uuid", id.FSUUID),
+				zap.Error(err),
+			)
+			return nil, err
 		}
 		w.header = hdr
 		off := int64(walHeaderSize)
