@@ -1,10 +1,1 @@
-[
-  {
-    "type": "test",
-    "component": "escalate",
-    "evidence": "EnsureRootOrReexec lacks root-level test of sudo allow list",
-    "impact": "Regressions could slip past CI",
-    "fix": "Add integration test executing sudo under root to verify allow list",
-    "priority": "medium"
-  }
-]
+[]
