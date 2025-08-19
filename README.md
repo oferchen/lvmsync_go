@@ -27,10 +27,10 @@ For snapshot cleanup, resuming transfers, and verify-only rollback procedures, s
 - **Remote Execution via SSH**: Replicates data over SSH with support for pre/post-scripts.
 - **Resume Support**: Ability to resume interrupted transfers with verification enabled by default (use `--verify=none` to skip).
 - **Crash-Safe WAL**: Records committed ranges in a write-ahead log so interrupted runs can recover. See [WAL documentation](docs/wal.md) for layout and replay details.
-- **Probe and Verification Modes**: `--probe-only` validates devices and privileges without writing, while `--verify-only` scans both sides and reports mismatches.
+ - **Probe and Verification Modes**: `--probe-only` validates devices and privileges without writing and prints `size_bytes device_id manifest_epoch` to stdout, while `--verify-only` scans both sides and reports mismatches.
 - **Dry-run Estimates**: `--dry-run` samples the manifest to project bytes and ETA without transferring data.
 - **Planning**: `--plan` prints resolved configuration, transport order, estimated bytes, and compression decisions as JSON without transferring data.
-- **Device Identity Tuple**: Each run records `(device_id, fs_uuid, size_bytes, major:minor)` to prevent writing to the wrong destination.
+ - **Device Identity Tuple**: Each run records `(device_id, fs_uuid, size_bytes, major:minor, manifest_epoch)` to prevent writing to the wrong destination.
 - **Handshake Timeouts**: Transport connections apply context deadlines during handshakes and clear them once negotiation succeeds.
 - **Sparse Destination Optimization**: Detects runs of zero bytes and punches holes when the filesystem supports it. Use `--sparse=never` to always write zeros instead.
 - **Aligned I/O Buffers and NUMA Pinning**: `--odirect` allocates block-size aligned slabs from a `sync.Pool` and can pin worker goroutines to a device's NUMA node (`--numa-pin`) or an explicit node (`--numa-node`).
@@ -53,7 +53,14 @@ For snapshot cleanup, resuming transfers, and verify-only rollback procedures, s
 
 ### Resume, verification, and safe overwrite flows
 
-Transfers store the device identity tuple `(device_id, fs_uuid, size_bytes, major:minor)` and compare it against the destination before writing. Mismatches abort the run to avoid accidental overwrites. Use `--force` to bypass this check when intentionally overwriting.
+Transfers store the device identity tuple `(device_id, fs_uuid, size_bytes, major:minor, manifest_epoch)` and compare it against the destination before writing. Mismatches abort the run and LVMSync refuses to resume when the tuple differs. Use `--force` to bypass this check when intentionally overwriting.
+
+Example `--probe-only` output showing `size_bytes device_id manifest_epoch`:
+
+```sh
+lvmsync run --probe-only /dev/vg0/snap0 /dev/vg0/target
+# 10737418240 12345678-9abc-def0-1234-56789abcdef0 1700000000
+```
 
 - `--resume=statefile` continues an interrupted run (verification runs unless `--verify=none`).
 - `--verify-only` reads both devices and reports mismatches without writing data.
@@ -691,7 +698,7 @@ Flags override environment variables, which override `config.yaml` values.
 | `--dry-run` | `LVMSYNC_DRY_RUN` | `dry_run` | Log estimated transfer bytes without sending data; uses manifest sampling when available |
 | `--plan` | `LVMSYNC_PLAN` | `plan` | Print configuration plan as JSON and exit |
 | `--verify-only` | `LVMSYNC_VERIFY_ONLY` | `verify_only` | Read source and destination and report mismatches without writing data |
-| `--probe-only` | `LVMSYNC_PROBE_ONLY` | `probe_only` | Validate devices and privileges and log estimates without transferring data |
+| `--probe-only` | `LVMSYNC_PROBE_ONLY` | `probe_only` | Validate devices and privileges and print `size_bytes device_id manifest_epoch` without transferring data |
 | `--sparse` | `LVMSYNC_SPARSE` | `sparse` | Sparse file handling: `auto` punches holes, `never` writes zero blocks |
 | `--transport` | `LVMSYNC_TRANSPORT_TRANSPORT` | `transport` | Ordered transports to try (e.g., `ssh,tcp+tls,h2,quic`) |
 | `--tcp-port` | `LVMSYNC_TRANSPORT_TCP_PORT` | `tcp_port` | TCP+TLS port |

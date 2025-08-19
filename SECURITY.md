@@ -8,10 +8,21 @@ The controller orchestrates replication, validates parameters, and interacts wit
 
 ## Probe and verify modes
 
-Read-only operations can run without elevated privileges.  
-`--probe-only` checks device metadata, validates privileges, and emits dry-run estimates.  
-`--verify-only` reads source and destination devices and reports mismatches.  
+Read-only operations can run without elevated privileges.
+`--probe-only` checks device metadata, validates privileges, and prints `size_bytes device_id manifest_epoch` so operators can capture the identity tuple before writing.
+`--verify-only` reads source and destination devices and reports mismatches.
 Both commands exit `0` on success, return `60` for verification failures, and `10` when required capabilities are missing.
+
+Example `--probe-only` output:
+
+```sh
+lvmsync run --probe-only /dev/vg0/snap0 /dev/vg0/target
+# 10737418240 12345678-9abc-def0-1234-56789abcdef0 1700000000
+```
+
+## Device identity enforcement
+
+Each transfer records `(device_id, fs_uuid, size_bytes, major:minor, manifest_epoch)` and compares it with the destination and any resume state before writing. LVMSync refuses to resume when this tuple differs, preventing accidental or malicious overwrites.
 
 ## Required sudoers entries
 
