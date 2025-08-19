@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 
@@ -40,8 +41,20 @@ type walHeaderV0 struct {
 // OpenWAL scans for the last complete entry and truncates any partially written
 // tail. Close fsyncs the file and its parent directory to guarantee that the
 // final state of the WAL is persistent.
+type walFile interface {
+	io.ReaderAt
+	io.Writer
+	io.WriterAt
+	io.Seeker
+	Sync() error
+	Truncate(int64) error
+	Close() error
+	Stat() (fs.FileInfo, error)
+	Name() string
+}
+
 type WAL struct {
-	f      *os.File
+	f      walFile
 	header walHeader
 }
 
@@ -89,9 +102,12 @@ func OpenWAL(path string, size uint64, deviceID string, epoch uint64) (*WAL, []R
 		binary.LittleEndian.PutUint64(buf[16:24], w.header.Epoch)
 		copy(buf[24:88], w.header.DeviceID[:])
 		copy(buf[88:120], w.header.MAC[:])
-		if _, err := f.WriteAt(buf[:], 0); err != nil {
+		if n, err := f.WriteAt(buf[:], 0); err != nil {
 			f.Close()
 			return nil, nil, err
+		} else if n != len(buf) {
+			f.Close()
+			return nil, nil, fmt.Errorf("wal: short write: wrote %d of %d bytes", n, len(buf))
 		}
 		if _, err := f.Seek(int64(walHeaderSize), 0); err != nil {
 			f.Close()
@@ -201,14 +217,20 @@ func OpenWAL(path string, size uint64, deviceID string, epoch uint64) (*WAL, []R
 		binary.LittleEndian.PutUint64(buf[16:24], hdr.Epoch)
 		copy(buf[24:88], hdr.DeviceID[:])
 		copy(buf[88:120], hdr.MAC[:])
-		if _, err := f.WriteAt(buf[:], 0); err != nil {
+		if n, err := f.WriteAt(buf[:], 0); err != nil {
 			f.Close()
 			return nil, nil, err
+		} else if n != len(buf) {
+			f.Close()
+			return nil, nil, fmt.Errorf("wal: short write: wrote %d of %d bytes", n, len(buf))
 		}
 		if len(data) > 0 {
-			if _, err := f.WriteAt(data, walHeaderSize); err != nil {
+			if n, err := f.WriteAt(data, walHeaderSize); err != nil {
 				f.Close()
 				return nil, nil, err
+			} else if n != len(data) {
+				f.Close()
+				return nil, nil, fmt.Errorf("wal: short write: wrote %d of %d bytes", n, len(data))
 			}
 		}
 		if err := f.Truncate(int64(walHeaderSize + len(data))); err != nil {
@@ -236,8 +258,12 @@ func (w *WAL) Append(r Range) error {
 	var buf [16]byte
 	binary.LittleEndian.PutUint64(buf[0:8], r.Start)
 	binary.LittleEndian.PutUint64(buf[8:16], r.End)
-	if _, err := w.f.Write(buf[:]); err != nil {
+	n, err := w.f.Write(buf[:])
+	if err != nil {
 		return err
+	}
+	if n != len(buf) {
+		return fmt.Errorf("wal: short write: wrote %d of %d bytes", n, len(buf))
 	}
 	return w.f.Sync()
 }
