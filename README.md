@@ -1387,6 +1387,7 @@ compressed sample ratio is greater than or equal to `--compress-threshold`, the
 chunk is sent uncompressed. In `auto` mode, chunks smaller than 256 KiB use LZ4,
 and larger ones select Zstd (levels 1–3) when AVX2 or NEON is available;
 otherwise LZ4.
+The compression threshold is tunable via `--compress-threshold` (`LVMSYNC_COMPRESSION_COMPRESS_THRESHOLD` or `compress_threshold`), where values near 1 favor compression and lower values skip high-entropy data.
 Levels can be tuned with `--zstd-level` (1-5) or `--lz4-level` (`fast` or `hc`).
 
 CLI:
