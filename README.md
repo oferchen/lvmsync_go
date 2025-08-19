@@ -620,6 +620,7 @@ Flags override environment variables, which override `config.yaml` values.
 |------|----------------------|------------|-------------|
 | `--config` | `LVMSYNC_CONFIG` | `config` | Path to config YAML file |
 | `--stdout` | `LVMSYNC_STDOUT` | `stdout` | Write change dump to STDOUT (prompts when TTY, requires `--yes-i-know` otherwise) |
+| `--strict-config` | `LVMSYNC_STRICT_CONFIG` | `strict-config` | Treat configuration warnings as errors |
 | `--yes-i-know` | `LVMSYNC_YES_I_KNOW` | `yes_i_know` | Confirm destructive write operations in non-interactive sessions |
 | `--source-type` | `LVMSYNC_SOURCE_TYPE` | `source-type` | Source device type: `auto`, `file`, `raw`, or `lvm` |
 | `--dest-type` | `LVMSYNC_DEST_TYPE` | `dest-type` | Destination device type: `auto`, `file`, `raw`, or `lvm` |

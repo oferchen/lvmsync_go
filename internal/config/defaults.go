@@ -36,6 +36,7 @@ type Config struct {
 	Plan                     bool          `mapstructure:"plan"`
 	Force                    bool          `mapstructure:"force"`
 	AllowOverwrite           bool          `mapstructure:"allow_overwrite"`
+	StrictConfig             bool          `mapstructure:"strict_config"`
 	Discard                  bool          `mapstructure:"discard"`
 	Offline                  bool          `mapstructure:"offline"`
 	Sparse                   string        `mapstructure:"sparse"`
@@ -182,6 +183,7 @@ func DefaultConfig() (*Config, error) {
 		Plan:                     false,
 		Force:                    false,
 		AllowOverwrite:           false,
+		StrictConfig:             false,
 		Offline:                  false,
 		Sparse:                   Auto,
 		FSFreezeCommand:          "",

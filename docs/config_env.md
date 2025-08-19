@@ -75,6 +75,7 @@
 | LVMSYNC_SSH_TIMEOUT | `--ssh-timeout` | `ssh-timeout` | SSH connection timeout |
 | LVMSYNC_SSH_USER | `--ssh-user` | `ssh-user` | SSH username |
 | LVMSYNC_STDOUT | `--stdout` | `stdout` | Write change dump to STDOUT |
+| LVMSYNC_STRICT_CONFIG | `--strict-config` | `strict-config` | Treat configuration warnings as errors |
 | LVMSYNC_STRICT_HOST_KEY_CHECKING | `--strict-host-key-checking` | `strict-host-key-checking` | Require host keys to be present in known_hosts |
 | LVMSYNC_SYNC_INTERVAL | `--sync-interval` | `sync-interval` | Bytes between fdatasync calls |
 | LVMSYNC_TARGET_VGS | `--target-vgs` | `target-vgs` | Candidate target VGs for volume selection |
