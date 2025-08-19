@@ -8,6 +8,7 @@
 - [Operations](OPERATIONS.md) – snapshot flow, resume and verify sequences, and exit codes.
 - [Privilege Escalation](privilege_escalation.md) – configuring LVM privilege escalation.
 - [Daemon](daemon.md) – module configuration, ACLs, and listener options.
+- [FlagSets](flagsets.md) – registering and binding grouped CLI flags.
 - Configuration precedence – flags override environment variables, which in
   turn override `config.yaml`. Unknown YAML keys emit warnings and invalid
   overrides are rejected.

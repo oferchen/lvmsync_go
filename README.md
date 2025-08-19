@@ -334,7 +334,8 @@ Logger.Warn("Zero-copy transfer failed",
 ## Configuration
 
 LVMSync uses [`pflag`](https://github.com/spf13/pflag) and [`viper`](https://github.com/spf13/viper) to accept options from
-flags, environment variables, and a YAML file. The CLI exposes subcommands using `cobra`, with `run` handling transfers,
+flags, environment variables, and a YAML file. Flag groups are organized into dedicated
+[FlagSets](docs/flagsets.md) that are registered with the root command and bound to Viper. The CLI exposes subcommands using `cobra`, with `run` handling transfers,
 `manifest rebuild` regenerating manifests, and `verify` checking source and destination data. Source and destination paths
 for `run` and `verify` are provided as positional arguments after any flags:
 
