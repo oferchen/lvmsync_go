@@ -41,6 +41,20 @@ Before writing to a destination logical volume, LVMSync verifies that it is not
 mounted read-write. The command aborts unless `--force` is used, preventing
 concurrent filesystem modifications from corrupting the copy.
 
+## Destination Volume Creation
+
+Enable `--create-dest-lv` (or `LVMSYNC_CREATE_DEST_LV`) to automatically create
+the destination logical volume when it does not exist. The new volume matches
+the source snapshot size. This operation prompts for confirmation unless
+`--allow-overwrite` is provided alongside `--force`:
+
+```sh
+lvmsync run --create-dest-lv --force /dev/vg0/origin /dev/vg1/target
+```
+
+Accidentally creating a volume in the wrong group can destroy data; verify the
+destination path and available space before using this option.
+
 ## Environment Example
 
 Configuration can also come from environment variables. This example creates a

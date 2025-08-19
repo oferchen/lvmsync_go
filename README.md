@@ -685,6 +685,7 @@ Flags override environment variables, which override `config.yaml` values.
 | `--volume-group` | `LVMSYNC_VOLUME_GROUP` | `volume_group` | Source volume group; derived from the source device path when empty |
 | `--target-volume-group` | `LVMSYNC_TARGET_VOLUME_GROUP` | `target_volume_group` | Volume group name of the target LVM volume |
 | `--target-vgs` | `LVMSYNC_TARGET_VGS` | `target_vgs` | Candidate target volume groups for auto-selection |
+| `--create-dest-lv` | `LVMSYNC_CREATE_DEST_LV` | `create_dest_lv` | Create destination logical volume when missing (requires `--force` or confirmation) |
 | `--force` | `LVMSYNC_FORCE` | `force` | Override safety checks and proceed on mounted destination |
 | `--allow-overwrite` | `LVMSYNC_ALLOW_OVERWRITE` | `allow_overwrite` | Skip interactive confirmation when using `--force` |
 | `--discard` | `LVMSYNC_DISCARD` | `discard` | Issue BLKDISCARD before writing blocks |

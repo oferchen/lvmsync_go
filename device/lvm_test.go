@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -134,6 +135,56 @@ func TestRunLVMFailure(t *testing.T) {
 	runner := NewDeviceRunner(cmd)
 	if err := runner.runLVM(ctx, "", "lvremove", "-f", "/dev/vg0/snap"); err == nil {
 		t.Fatalf("expected error from runLVM")
+	}
+}
+
+func TestCreateLV(t *testing.T) {
+	ctx := WithForce(context.Background(), true)
+	ctx = WithAllowOverwrite(ctx, true)
+	var name string
+	var args []string
+	cmd := cmdFunc(func(ctx context.Context, n string, a ...string) *exec.Cmd {
+		name = n
+		args = append([]string(nil), a...)
+		return exec.CommandContext(ctx, "true")
+	})
+	runner := NewDeviceRunner(cmd)
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "vg0"), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	path := filepath.Join(dir, "vg0", "new")
+	if err := os.WriteFile(path, nil, 0o644); err != nil {
+		t.Fatalf("touch: %v", err)
+	}
+	if err := runner.CreateLV(ctx, path, 1024, ""); err != nil {
+		t.Fatalf("CreateLV: %v", err)
+	}
+	want := []string{"-n", "new", "-L", "1024B", "vg0"}
+	if name != "lvcreate" || !reflect.DeepEqual(args, want) {
+		t.Fatalf("unexpected command %s %v", name, args)
+	}
+}
+
+func TestCreateLVRequiresForce(t *testing.T) {
+	cmd := cmdFunc(func(ctx context.Context, n string, a ...string) *exec.Cmd {
+		return exec.CommandContext(ctx, "true")
+	})
+	runner := NewDeviceRunner(cmd)
+	if err := runner.CreateLV(context.Background(), "/dev/vg0/new", 1024, ""); err == nil || !strings.Contains(err.Error(), "--force") {
+		t.Fatalf("expected force error, got %v", err)
+	}
+}
+
+func TestCreateLVRunLVMError(t *testing.T) {
+	ctx := WithForce(context.Background(), true)
+	ctx = WithAllowOverwrite(ctx, true)
+	cmd := cmdFunc(func(ctx context.Context, n string, a ...string) *exec.Cmd {
+		return exec.CommandContext(ctx, "false")
+	})
+	runner := NewDeviceRunner(cmd)
+	if err := runner.CreateLV(ctx, "/dev/vg0/new", 1024, ""); err == nil {
+		t.Fatalf("expected error")
 	}
 }
 

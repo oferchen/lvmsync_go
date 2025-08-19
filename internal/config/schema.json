@@ -65,6 +65,9 @@
     "config": {
       "type": "string"
     },
+    "create_dest_lv": {
+      "type": "boolean"
+    },
     "dedup": {
       "enum": [
         "fixed",

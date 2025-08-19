@@ -218,6 +218,23 @@ func (r *Runner) runLVM(ctx context.Context, escalation, cmdName string, args ..
 	return nil
 }
 
+// CreateLV creates a new logical volume at path with the given size in bytes.
+// The caller must provide ctx carrying --force and --allow-overwrite settings.
+func (r *Runner) CreateLV(ctx context.Context, path string, size uint64, escalation string) error {
+	if err := confirmOverwrite(ctx, os.Stdin, os.Stderr, term.IsTerminal); err != nil {
+		return err
+	}
+	vg, lv, err := lvm.ParseLVPath(path)
+	if err != nil {
+		return err
+	}
+	if size == 0 {
+		return fmt.Errorf("invalid size 0")
+	}
+	sizeStr := fmt.Sprintf("%dB", size)
+	return r.runLVM(ctx, escalation, "lvcreate", "-n", lv, "-L", sizeStr, vg)
+}
+
 // Snapshot creates, activates, and opens an LVM snapshot of the device using
 // the provided snapshotSize (e.g., "1G" or "20%").
 func (d *LVMDevice) Snapshot(ctx context.Context, snapshotSize string) (Device, error) {

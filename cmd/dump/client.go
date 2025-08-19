@@ -21,6 +21,7 @@ import (
 	digestpkg "lvmsync_go/internal/digest"
 	"lvmsync_go/internal/privilege"
 	"lvmsync_go/internal/rsyncwire"
+	"lvmsync_go/lvm"
 	"lvmsync_go/remote"
 	"lvmsync_go/transfer"
 	"lvmsync_go/transport"
@@ -332,13 +333,14 @@ func (r *Runner) Run(ctx context.Context, cfg *config.Config, source, dest strin
 // RunLocalDump dumps changes to a local destination device and returns the detected destination type.
 func (r *Runner) RunLocalDump(ctx context.Context, cfg *config.Config, snapshotDevice, originDevice, dest string, logger *zap.Logger) (string, error) {
 	destType := cfg.DestType
+	devCtx := device.WithForce(context.Background(), cfg.Force)
+	devCtx = device.WithAllowOverwrite(devCtx, cfg.AllowOverwrite)
+	devRunner := device.NewRunner()
 	if cfg.DryRun {
 		return destType, r.ExecuteDump(ctx, cfg, snapshotDevice, originDevice, io.Discard, logger)
 	}
 	if destType == "auto" {
-		ctx := device.WithForce(context.Background(), cfg.Force)
-		ctx = device.WithAllowOverwrite(ctx, cfg.AllowOverwrite)
-		if dev, err := device.Detect(ctx, dest, true, destType, "", "", cfg.LVMEscalation, cfg.FreezeTimeout, cfg.ThawTimeout, privilege.New(ctx), logger, device.NewRunner()); err == nil {
+		if dev, err := device.Detect(devCtx, dest, true, destType, "", "", cfg.LVMEscalation, cfg.FreezeTimeout, cfg.ThawTimeout, privilege.New(devCtx), logger, devRunner); err == nil {
 			switch dev.(type) {
 			case *device.RawDevice:
 				if !cfg.SkipSnapshotCreation {
@@ -352,6 +354,26 @@ func (r *Runner) RunLocalDump(ctx context.Context, cfg *config.Config, snapshotD
 				destType = "file"
 			}
 			dev.Close()
+		}
+	}
+	if cfg.CreateDestLV {
+		exists, err := lvm.VolumeExists(devCtx, dest)
+		if err != nil {
+			return destType, err
+		}
+		if !exists {
+			cache, err := lvm.NewDeviceFDCache(logger)
+			if err != nil {
+				return destType, err
+			}
+			defer cache.Close()
+			size, err := lvm.GetVolumeSize(snapshotDevice, cache, logger)
+			if err != nil {
+				return destType, err
+			}
+			if err := devRunner.CreateLV(devCtx, dest, size, cfg.LVMEscalation); err != nil {
+				return destType, err
+			}
 		}
 	}
 	destFile, err := r.openFile(dest, os.O_RDWR, 0)
