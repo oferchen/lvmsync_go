@@ -65,6 +65,19 @@ func Parse(input string) (uint64, bool, error) {
 		mult.SetInt64(1e15)
 	case "E", "EB":
 		mult.SetInt64(1e18)
+		return f, false, nil
+	case "K", "KB", "KIB":
+		return f * (1 << 10), false, nil
+	case "M", "MB", "MIB":
+		return f * (1 << 20), false, nil
+	case "G", "GB", "GIB":
+		return f * (1 << 30), false, nil
+	case "T", "TB", "TIB":
+		return f * (1 << 40), false, nil
+	case "P", "PB", "PIB":
+		return f * (1 << 50), false, nil
+	case "E", "EB", "EIB":
+		return f * (1 << 60), false, nil
 	default:
 		return 0, false, fmt.Errorf("unknown size suffix %q", unit)
 	}
