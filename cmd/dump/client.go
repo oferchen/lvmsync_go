@@ -676,5 +676,5 @@ func SelectTransport(cfg *config.Config, logger *zap.Logger) (transport.Interfac
 		logger.Info("selected transport", zap.String("transport", name))
 		return tr, nil
 	}
-	return nil, fmt.Errorf("no supported transports: %s", cfg.Transport)
+	return nil, fmt.Errorf("unsupported transport: %s", cfg.Transport)
 }

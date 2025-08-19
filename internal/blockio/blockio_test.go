@@ -33,7 +33,7 @@ func TestWriteMisalignedFallback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("tempfile: %v", err)
 	}
-	f, err := Open(tmp.Name(), true, false)
+	f, err := Open(tmp.Name(), false, false)
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
@@ -169,6 +169,33 @@ func TestWriteAtMisalignedOffsetStrict(t *testing.T) {
 	fi, _ := tmp.Stat()
 	if fi.Size() != 0 {
 		t.Fatalf("expected no data written")
+	}
+}
+
+func TestReadMisalignedStrict(t *testing.T) {
+	tmp, err := os.CreateTemp(t.TempDir(), "blk")
+	if err != nil {
+		t.Fatalf("tempfile: %v", err)
+	}
+	f0, err := Open(tmp.Name(), false, false)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	bs := f0.Logical()
+	f0.Close()
+	data := bytes.Repeat([]byte{0x9}, 2*bs)
+	if err := os.WriteFile(tmp.Name(), data, 0600); err != nil {
+		t.Fatalf("writefile: %v", err)
+	}
+	f, err := Open(tmp.Name(), true, true)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer f.Close()
+	f.direct = true
+	buf := make([]byte, f.Logical()-1)
+	if _, err := f.Read(buf); err == nil {
+		t.Fatalf("expected error for misaligned read")
 	}
 }
 

@@ -30,7 +30,7 @@ For details on running with minimal privileges and sudoers examples, see [SECURI
 - **Device Identity Tuple**: Each run records `(device_id, size_bytes, major:minor)` to prevent writing to the wrong destination.
 - **Handshake Timeouts**: Transport connections apply context deadlines during handshakes and clear them once negotiation succeeds.
 - **Sparse Destination Optimization**: Detects runs of zero bytes and punches holes when the filesystem supports it.
-- **Aligned I/O Buffers and NUMA Pinning**: `--odirect` allocates block-size aligned slabs from a `sync.Pool` and can pin worker goroutines to the device's NUMA node.
+- **Aligned I/O Buffers and NUMA Pinning**: `--odirect` allocates block-size aligned slabs from a `sync.Pool` and can pin worker goroutines to a device's NUMA node (`--numa-pin`) or an explicit node (`--numa-node`).
 - **LVM Snapshot Management**:
   - Automatic snapshot creation and removal.
   - Configurable snapshot size (absolute or percentage-based) via `--snapshot-size`,
@@ -111,7 +111,7 @@ no additional coordination.
 ## Transport Options
 
 LVMSync negotiates transports in the order provided by `--transport` (default
-`quic,h2,tcp+tls,ssh`). All transports require TLS 1.3 with mutual
+`ssh,tcp+tls,h2,quic`). All transports require TLS 1.3 with mutual
 authentication or SSH host key verification unless `--allow-insecure` is set.
 See [docs/transports.md](docs/transports.md) for details.
 
@@ -127,7 +127,7 @@ See [docs/transports.md](docs/transports.md) for details.
 Select multiple transports and a custom port:
 
 ```sh
-lvmsync run --transport quic,h2,tcp+tls,ssh --tcp-port 9443 /dev/vg0/source /dev/vg0/backup
+lvmsync run --transport ssh,tcp+tls,h2,quic --tcp-port 9443 /dev/vg0/source /dev/vg0/backup
 ```
 
 Force SSH only:
@@ -150,7 +150,7 @@ func main() {
     defer logger.Sync()
 
     transport := pflag.NewFlagSet("transport", pflag.ExitOnError)
-    transport.String("transport", "quic,h2,tcp+tls,ssh", "ordered transports")
+    transport.String("transport", "ssh,tcp+tls,h2,quic", "ordered transports")
     transport.Int("tcp-port", 9443, "TCP listener port")
 
     v := viper.New()
@@ -468,6 +468,7 @@ Recent refactors added several configuration options:
 - `--sync-interval` sets how many bytes are written between `fdatasync` calls. Accepts size suffixes like `64KB` or `1GB`; invalid values cause startup errors.
 - `--odirect` uses O_DIRECT with block-size aligned buffers.
 - `--numa-pin` pins worker goroutines to CPUs local to the source device's NUMA node.
+- `--numa-node` pins worker goroutines to the specified NUMA node.
 
 ### Device types
 
@@ -559,6 +560,14 @@ parallel: 4
 running `LVMSYNC_PARALLEL=8 lvmsync run --parallel 16` results in `parallel=16`
 because flags override environment variables, which override the config file.
 
+For a boolean option:
+
+```yaml
+dry_run: true
+```
+
+running `LVMSYNC_DRY_RUN=true lvmsync run --dry-run=false src dst` performs a real transfer because the `--dry-run` flag overrides both the environment variable and the config file.
+
 A similar hierarchy applies to duration values:
 
 ```yaml
@@ -605,6 +614,7 @@ Flags override environment variables, which override `config.yaml` values.
 | `--zerocopy` | `LVMSYNC_ZEROCOPY` | `zerocopy` | Enable zero-copy transfers |
 | `--odirect` | `LVMSYNC_ODIRECT` | `odirect` | Use O_DIRECT for device I/O when possible |
 | `--numa-pin` | `LVMSYNC_NUMA_PIN` | `numa_pin` | Pin worker goroutines to device NUMA node |
+| `--numa-node` | `LVMSYNC_NUMA_NODE` | `numa_node` | Pin worker goroutines to specified NUMA node |
 | `--max-retries` | `LVMSYNC_MAX_RETRIES` | `max_retries` | Maximum number of retries per block |
 | `--retry-delay` | `LVMSYNC_RETRY_DELAY` | `retry_delay` | Initial delay between retries |
 | `--resume` | `LVMSYNC_RESUME` | `resume` | Path to resume state file (verification runs unless `--verify=none`) |
@@ -657,6 +667,7 @@ Flags override environment variables, which override `config.yaml` values.
 | `--skip-disk-check` | `LVMSYNC_SKIP_DISK_CHECK` | `skip_disk_check` | Skip disk space check before snapshot creation |
 | `--snapshot-size` | `LVMSYNC_SNAPSHOT_SIZE` | `snapshot_size` | Snapshot size (e.g., `20G` or `20%`) |
 | `--lvm-escalation` | `LVMSYNC_LVM_ESCALATION` | `lvm_escalation` | Command used to escalate privileges for LVM commands; parsed with shell-style quoting and validated at startup |
+| `--sanitize-env` | `LVMSYNC_SANITIZE_ENV` | `sanitize_env` | Drop dangerous variables like `LD_PRELOAD` and enforce a safe `PATH` during escalation |
 | `--lvm-timeout` | `LVMSYNC_LVM_TIMEOUT` | `lvm_timeout` | Timeout for LVM operations and privilege checks |
 | `--sig-cache-ttl` | `LVMSYNC_LVM_SIG_CACHE_TTL` | `sig-cache-ttl` | TTL for cached LVM signatures |
 | `--sig-cache-max` | `LVMSYNC_LVM_SIG_CACHE_MAX` | `sig-cache-max` | Maximum cached LVM signatures |
@@ -668,7 +679,7 @@ Flags override environment variables, which override `config.yaml` values.
 | `--dry-run` | `LVMSYNC_DRY_RUN` | `dry_run` | Log estimated transfer bytes without sending data; uses manifest sampling when available |
 | `--verify-only` | `LVMSYNC_VERIFY_ONLY` | `verify_only` | Read source and destination and report mismatches without writing data |
 | `--probe-only` | `LVMSYNC_PROBE_ONLY` | `probe_only` | Validate devices and privileges and log estimates without transferring data |
-| `--transport` | `LVMSYNC_TRANSPORT_TRANSPORT` | `transport` | Ordered transports to try (e.g., `quic,h2,tcp+tls,ssh`) |
+| `--transport` | `LVMSYNC_TRANSPORT_TRANSPORT` | `transport` | Ordered transports to try (e.g., `ssh,tcp+tls,h2,quic`) |
 | `--tcp-port` | `LVMSYNC_TRANSPORT_TCP_PORT` | `tcp_port` | TCP+TLS port |
 | `--tcp-parallel` | `LVMSYNC_TRANSPORT_TCP_PARALLEL` | `tcp_parallel` | Number of parallel TCP connections |
 | `--tcp-lowat` | `LVMSYNC_TRANSPORT_TCP_LOWAT` | `tcp_lowat` | TCP_NOTSENT_LOWAT in bytes |
@@ -767,7 +778,7 @@ lvmsync run --config config.yaml /dev/vg0/snap0 /mnt/backup
 ## Transport Registry
 
 Transport selection is controlled by the `--transport` flag, which accepts a comma-separated ordered list of
-transports to attempt (for example `quic,h2,tcp+tls,ssh`). The `quic` transport runs over TLS 1.3 with mutual
+transports to attempt (for example `ssh,tcp+tls,h2,quic`). The `quic` transport runs over TLS 1.3 with mutual
 authentication, negotiates the `lvmsync` ALPN, and exposes both bidirectional streams and datagrams. The `h2`
 transport also requires TLS 1.3 with client certificates and negotiates the `h2` ALPN. Provide certificates via
 `--server-cert`, `--server-key`, `--client-cert`, `--client-key`, and `--ca-cert`. TLS transports require a trusted CA certificate and refuse
@@ -781,7 +792,7 @@ configure transport behavior.
 
 | Flag | Environment variable | Description | mTLS |
 |------|----------------------|-------------|------||
-| `--transport` | `LVMSYNC_TRANSPORT_TRANSPORT` | Ordered transports to try (e.g., `quic,h2,tcp+tls,ssh`) |
+| `--transport` | `LVMSYNC_TRANSPORT_TRANSPORT` | Ordered transports to try (e.g., `ssh,tcp+tls,h2,quic`) |
 | `--concurrency` | `LVMSYNC_TRANSPORT_CONCURRENCY` | Stream concurrency (0 to autotune based on BDP) |
 | `--tcp-port` | `LVMSYNC_TRANSPORT_TCP_PORT` | TCP+TLS port |
 | `--h2-port` | `LVMSYNC_H2_PORT` | HTTP/2 port |
@@ -800,7 +811,7 @@ configure transport behavior.
 **Multiple transports**
 
 ```sh
-lvmsync run --transport quic,h2,tcp+tls,ssh --tcp-port 9443 /dev/vg0/snap0 /mnt/backup
+lvmsync run --transport ssh,tcp+tls,h2,quic --tcp-port 9443 /dev/vg0/snap0 /mnt/backup
 ```
 
 **QUIC**
@@ -903,7 +914,7 @@ Two presets are available via `--mode`: `default` and `throughput`. Any other va
 
 `--mode throughput` applies a set of options tuned for high-bandwidth links:
 
-- transport order `quic,h2,tcp+tls,ssh`
+- transport order `ssh,tcp+tls,h2,quic`
 - concurrency `8`
 - deduplication mode `hybrid`
 - compression `auto`
@@ -995,7 +1006,7 @@ make test    # run tests
 ### Basic Syntax
 
 ```sh
-lvmsync run [--dry-run] [--transport quic,h2,tcp+tls,ssh] <snapshot|lvm device> <destination>
+lvmsync run [--dry-run] [--transport ssh,tcp+tls,h2,quic] <snapshot|lvm device> <destination>
 ```
 
 The tool supports both local and remote transfers. Use `--dry-run` to print planned actions without executing and `--transport` to provide an ordered list of transports to try.
@@ -1083,7 +1094,7 @@ Flags are parsed via Viper, so the same settings can be provided through
 | `--fs-thaw-command`  | Command to thaw filesystem after reading raw source; path must be absolute and arguments use shell-style quoting | `""` |
 | `--freeze-timeout`   | Timeout for filesystem freeze command | `10s` |
 | `--thaw-timeout`     | Timeout for filesystem thaw command | `10s` |
-| `--transport`       | Ordered transports to try (e.g., `quic,h2,tcp+tls,ssh`) | `""`      |
+| `--transport`       | Ordered transports to try (e.g., `ssh,tcp+tls,h2,quic`) | `""`      |
 
 #### SSH Options
 
@@ -1213,10 +1224,29 @@ lvmsync run /dev/vg0/snap0 user@remote:/dev/vg0/data
 
 #### Using Compression
 
-Estimate a sample of each chunk and compress only when it's worthwhile:
+Estimate a sample of each chunk and compress only when it's worthwhile.
+
+CLI:
 
 ```sh
 lvmsync run --compress auto --zstd-level 2 --compress-threshold 0.85 /dev/vg0/snap0 /dev/vg0/data
+```
+
+Environment:
+
+```sh
+LVMSYNC_COMPRESSION_COMPRESS=auto \
+LVMSYNC_COMPRESSION_ZSTD_LEVEL=2 \
+LVMSYNC_COMPRESSION_COMPRESS_THRESHOLD=0.85 \
+lvmsync run /dev/vg0/snap0 /dev/vg0/data
+```
+
+YAML:
+
+```yaml
+compress: auto
+zstd_level: 2
+compress_threshold: 0.85
 ```
 
 #### Rate Limiting
@@ -1387,6 +1417,7 @@ compressed sample ratio is greater than or equal to `--compress-threshold`, the
 chunk is sent uncompressed. In `auto` mode, chunks smaller than 256 KiB use LZ4,
 and larger ones select Zstd (levels 1–3) when AVX2 or NEON is available;
 otherwise LZ4.
+The compression threshold is tunable via `--compress-threshold` (`LVMSYNC_COMPRESSION_COMPRESS_THRESHOLD` or `compress_threshold`), where values near 1 favor compression and lower values skip high-entropy data.
 Levels can be tuned with `--zstd-level` (1-5) or `--lz4-level` (`fast` or `hc`).
 
 CLI:

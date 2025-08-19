@@ -18,6 +18,8 @@ copies can be verified.
 
 - `lvmsync manifest rebuild <device>` verifies an existing manifest and
   regenerates it when digests or metadata are stale.
+- `lvmsync manifest compact <path>` rewrites the manifest using a temporary file
+  and `fsync` before atomically swapping it into place.
 - `lvmsync verify <source> <dest>` compares a destination against the manifest
   for the source. Override the manifest path with `--manifest-path` if needed.
 

@@ -48,3 +48,24 @@ func TestAllowInsecureRequiresFlagOrEnv(t *testing.T) {
 		t.Fatalf("expected error")
 	}
 }
+
+func TestAllowInsecureFlagWarns(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("default: %v", err)
+	}
+	b := NewBuilder(defaults)
+	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	cfg, _, warns, err := b.Build(fs, []string{"--allow-insecure"})
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	if !cfg.AllowInsecure {
+		t.Fatalf("expected AllowInsecure to be true")
+	}
+	want := "allow_insecure enabled; security checks disabled"
+	if len(warns) != 1 || warns[0] != want {
+		t.Fatalf("warnings=%v", warns)
+	}
+}

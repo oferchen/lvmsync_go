@@ -59,7 +59,7 @@ func (b *ConfigBuilder) Build(fs *pflag.FlagSet, args []string) (*Config, []stri
 			f.Changed = false
 		}
 	}
-	v, warns, err := buildViper(b.FlagSets)
+	v, warns, allowInsecureYAML, err := buildViper(b.FlagSets)
 	if err != nil {
 		return nil, nil, warns, err
 	}
@@ -83,6 +83,9 @@ func (b *ConfigBuilder) Build(fs *pflag.FlagSet, args []string) (*Config, []stri
 		if !envSet && !flagSet {
 			return nil, nil, warns, fmt.Errorf("allow_insecure requires --allow-insecure flag or LVMSYNC_ALLOW_INSECURE environment variable")
 		}
+		warns = append(warns, "allow_insecure enabled; security checks disabled")
+	} else if allowInsecureYAML {
+		return nil, nil, warns, fmt.Errorf("allow_insecure requires --allow-insecure flag or LVMSYNC_ALLOW_INSECURE environment variable")
 	}
 	return cfg, fs.Args(), warns, nil
 }

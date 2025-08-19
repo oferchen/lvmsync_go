@@ -3,7 +3,9 @@ package remote
 import (
 	"context"
 	"errors"
+	"net"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -56,6 +58,29 @@ func TestNewSSHClientNoAuth(t *testing.T) {
 	_, err := NewSSHClient(ctx, "localhost", "root", "", 22, knownHosts, true, time.Second, time.Second, 0, zap.NewNop())
 	if err == nil || !strings.Contains(err.Error(), "no SSH authentication methods configured") {
 		t.Fatalf("expected error for missing auth methods, got %v", err)
+	}
+}
+
+func TestNewSSHClientHostKeyVerification(t *testing.T) {
+	server := remotetest.NewMockSSHServer(t, func(string) int { return 0 })
+	defer server.Close()
+	host, portStr, err := net.SplitHostPort(server.Addr)
+	if err != nil {
+		t.Fatalf("SplitHostPort: %v", err)
+	}
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		t.Fatalf("Atoi: %v", err)
+	}
+	keyPath := remotetest.CreateTempKey(t)
+	knownHosts := remotetest.CreateEmptyKnownHosts(t)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if _, err := NewSSHClient(ctx, host, "test", keyPath, port, knownHosts, true, time.Second, time.Second, 0, zap.NewNop()); err == nil {
+		t.Fatalf("expected host key verification error")
+	}
+	if _, err := NewSSHClient(ctx, host, "test", keyPath, port, knownHosts, false, time.Second, time.Second, 0, zap.NewNop()); err != nil {
+		t.Fatalf("insecure NewSSHClient: %v", err)
 	}
 }
 

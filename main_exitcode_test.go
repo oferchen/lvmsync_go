@@ -19,6 +19,7 @@ func TestRunnerExitCodes(t *testing.T) {
 		runErr error
 		want   int
 	}{
+		{"success", "linux", nil, nil, exitcode.OK},
 		{"platform", "darwin", nil, nil, exitcode.ErrPlatform},
 		{"capability", "linux", errors.New("privilege check failed: missing"), nil, exitcode.ErrCapability},
 		{"config", "linux", errors.New("config invalid"), nil, exitcode.ErrConfig},

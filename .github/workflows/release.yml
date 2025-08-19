@@ -96,6 +96,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GOLANGCI_LINT_TOKEN }}
           SKIP_DOCKER_PUSH: ${{ env.SKIP_DOCKER_PUSH }}
 
+      - name: Verify release artifacts
+        run: |
+          ls dist/*checksums.txt
+          ls dist/*.sbom.json
+
       - name: Build distroless image
         run: |
           docker buildx build \

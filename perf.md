@@ -14,6 +14,14 @@ Benchmarks were recorded from commit `e3591daaed6e9cc31b249961ce8a45d6816f6873`.
 - NVMe SSD storage
 - 10 GbE NICs
 
+Example host details can be captured with:
+
+```sh
+uname -srvmo
+lscpu | head
+lsblk -d -o name,rota,size,model
+```
+
 ## Dataset Generation
 
 The following steps create the reproducible 10 GiB dataset used for all tests:
@@ -30,6 +38,11 @@ The following steps create the reproducible 10 GiB dataset used for all tests:
    ```
 
 The snapshot `/dev/vg0/snap0` is used as the source and `/dev/vg0/bench_dst` as the destination in the benchmarks below.
+
+## Performance Guidance
+
+- Align O_DIRECT reads and writes to the device's logical and physical block sizes. Misaligned operations fall back to buffered I/O or return errors.
+- Pin worker goroutines to the device's NUMA node (`--numa-pin`) or a specific node (`--numa-node`) to improve locality on multisocket systems.
 
 ## Test Flags
 
@@ -164,11 +177,14 @@ $ scripts/bench_wan.sh /dev/vg0/snap0 user@wan:/dev/vg0/vol0
 ## Reproducing
 Benchmark runs are reproducible when the dataset, hardware, and commit hash are recorded.
 
-1. Generate the dataset using the steps above.
-2. Build the binary: `go build ./...`.
-3. Capture the commit: `git rev-parse HEAD`.
-4. Use the helper scripts to iterate through transport and compression combinations:
-   - `scripts/bench_lan.sh`
-   - `scripts/bench_wan.sh`
-5. Each script prints throughput and CPU usage via `/usr/bin/time -f '%e %P'`.
-6. Save the script output together with the commit hash for comparison across runs.
+```sh
+git clone https://github.com/.../lvmsync_go.git
+cd lvmsync_go
+go build ./...
+git rev-parse HEAD
+scripts/bench_lan.sh /dev/vg0/snap0 /mnt/backup/vol0
+scripts/bench_wan.sh /dev/vg0/snap0 user@wan:/dev/vg0/vol0 IFACE=eth0
+```
+
+Each script prints throughput and CPU usage via `/usr/bin/time -f '%e %P'`. Save
+the script output together with the commit hash for comparison across runs.
