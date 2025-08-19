@@ -104,7 +104,7 @@ func TestIterateBlocksSkipsSparseRegions(t *testing.T) {
 				t.Fatalf("read block: %v", err)
 			}
 		}
-		if _, err := processBlock(cfg, dest, nil, nil, false, nil, off, crc, nil, block, size, zap.NewNop()); err != nil {
+		if _, err := processBlock(cfg, dest, nil, nil, false, nil, off, crc, nil, block, size, zap.NewNop(), nil); err != nil {
 			t.Fatalf("processBlock: %v", err)
 		}
 	}
