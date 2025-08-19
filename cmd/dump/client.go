@@ -46,7 +46,7 @@ type Runner struct {
 	detectDevice   func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, privilege.Escalator, *zap.Logger, *device.Runner) (device.Device, error)
 	sumFile        func(string, string) ([32]byte, error)
 	streamToRemote func(context.Context, *config.Config, io.WriteCloser, string, string, string, *zap.Logger) error
-	probeDest      func(context.Context, *config.Config, string, *zap.Logger) (uint64, string, uint64, error)
+	probeDest      func(context.Context, *config.Config, string, *zap.Logger) (device.DeviceIdentity, error)
 }
 
 var (
@@ -72,7 +72,7 @@ var (
 	dumpChangesWithDeduplication = func(ctx context.Context, t *transfer.Transfer, cfg *config.Config, snap, origin string, out io.Writer, d transfer.DeduplicationStrategy) error {
 		return t.DumpChangesWithDeduplication(ctx, cfg, snap, origin, out, d)
 	}
-	probeDestination = func(ctx context.Context, cfg *config.Config, dest string, logger *zap.Logger) (uint64, string, uint64, error) {
+	probeDestination = func(ctx context.Context, cfg *config.Config, dest string, logger *zap.Logger) (device.DeviceIdentity, error) {
 		return realProbeDestination(ctx, cfg, dest, logger)
 	}
 )
@@ -254,11 +254,11 @@ func (r *Runner) ExecuteDump(ctx context.Context, cfg *config.Config, snapshotDe
 func (r *Runner) Run(ctx context.Context, cfg *config.Config, source, dest string, logger *zap.Logger) (string, error) {
 	defer rootcmd.SyncLogger(logger)
 	if cfg.ProbeOnly {
-		size, id, epoch, err := r.probeDest(ctx, cfg, dest, logger)
+		id, err := r.probeDest(ctx, cfg, dest, logger)
 		if err != nil {
 			return cfg.DestType, err
 		}
-		fmt.Fprintf(os.Stdout, "%d %s %d\n", size, id, epoch)
+		fmt.Fprintf(os.Stdout, "%d %s %s %s %d %d %d\n", id.SizeBytes, id.KernelUUID, id.GPTUUID, id.FSUUID, id.Major, id.Minor, id.ManifestEpoch)
 		return cfg.DestType, nil
 	}
 	dev, err := r.detectDevice(
