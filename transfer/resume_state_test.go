@@ -24,7 +24,7 @@ func TestSaveAndReadResumeState(t *testing.T) {
 		DedupMode:         "fixed",
 		CheckpointBytes:   4,
 	}
-	rt := &resumeTracker{sizeBytes: 100, deviceID: "id", epoch: 1}
+	rt := &resumeTracker{sizeBytes: 100, deviceID: "fsuuid", epoch: 1}
 	digest := blake3.Sum256([]byte("data"))
 	cfg.FirstBlockDigest = hex.EncodeToString(digest[:])
 	saveResumeState(cfg, rt, 0, digest, 4, zap.NewNop())
@@ -32,7 +32,7 @@ func TestSaveAndReadResumeState(t *testing.T) {
 	if _, err := os.Stat(wal); err != nil {
 		t.Fatalf("expected resume wal file: %v", err)
 	}
-	cp := readResumeState(cfg, zap.NewNop(), 100, "id", 1, digest)
+	cp := readResumeState(cfg, zap.NewNop(), 100, "fsuuid", 1, digest)
 	rc := cp.chunk("fixed")
 	if rc.Offset != 0 || rc.Length != 4 || hex.EncodeToString(rc.Chunk[:]) != hex.EncodeToString(digest[:]) {
 		t.Fatalf("unexpected checkpoint: %+v", rc)
@@ -93,10 +93,10 @@ func TestResumeStateWALRecovery(t *testing.T) {
 	}
 
 	cfg := &config.Config{Transport: "ssh", Compress: "none", ChecksumAlgorithm: "blake3", ResumeState: path, DedupMode: "fixed", CheckpointBytes: 1, FirstBlockDigest: hex.EncodeToString(digest[:])}
-	rt := &resumeTracker{sizeBytes: 100, deviceID: "id", epoch: 1}
+	rt := &resumeTracker{sizeBytes: 100, deviceID: "fsuuid", epoch: 1}
 	saveResumeState(cfg, rt, 0, digest, 4, zap.NewNop())
 
-	cp := readResumeState(cfg, zap.NewNop(), 100, "id", 1, digest)
+	cp := readResumeState(cfg, zap.NewNop(), 100, "fsuuid", 1, digest)
 	rc := cp.chunk("fixed")
 	if rc.Offset != 0 {
 		t.Fatalf("expected wal offset 0, got %d", rc.Offset)
@@ -148,24 +148,24 @@ func TestReadResumeStateSizeMismatch(t *testing.T) {
 	path := filepath.Join(dir, "resume.json")
 	dig := blake3.Sum256([]byte("data"))
 	cfg := &config.Config{Transport: "ssh", Compress: "none", ChecksumAlgorithm: "blake3", ResumeState: path, DedupMode: "fixed", CheckpointBytes: 4, FirstBlockDigest: hex.EncodeToString(dig[:])}
-	rt := &resumeTracker{sizeBytes: 100, deviceID: "id", epoch: 1}
+	rt := &resumeTracker{sizeBytes: 100, deviceID: "fsuuid", epoch: 1}
 	saveResumeState(cfg, rt, 0, dig, 4, zap.NewNop())
-	cp := readResumeState(cfg, zap.NewNop(), 200, "id", 1, dig)
+	cp := readResumeState(cfg, zap.NewNop(), 200, "fsuuid", 1, dig)
 	if cp != (resumeCheckpoint{}) {
 		t.Fatalf("expected empty checkpoint on size mismatch")
 	}
 }
 
-func TestReadResumeStateDeviceIDMismatch(t *testing.T) {
+func TestReadResumeStateFSUUIDMismatch(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "resume.json")
 	dig := blake3.Sum256([]byte("data"))
 	cfg := &config.Config{Transport: "ssh", Compress: "none", ChecksumAlgorithm: "blake3", ResumeState: path, DedupMode: "fixed", CheckpointBytes: 4, FirstBlockDigest: hex.EncodeToString(dig[:])}
-	rt := &resumeTracker{sizeBytes: 100, deviceID: "id", epoch: 1}
+	rt := &resumeTracker{sizeBytes: 100, deviceID: "fsuuid", epoch: 1}
 	saveResumeState(cfg, rt, 0, dig, 4, zap.NewNop())
 	cp := readResumeState(cfg, zap.NewNop(), 100, "other", 1, dig)
 	if cp != (resumeCheckpoint{}) {
-		t.Fatalf("expected empty checkpoint on device id mismatch")
+		t.Fatalf("expected empty checkpoint on fs uuid mismatch")
 	}
 }
 
@@ -174,9 +174,9 @@ func TestReadResumeStateEpochMismatch(t *testing.T) {
 	path := filepath.Join(dir, "resume.json")
 	dig := blake3.Sum256([]byte("data"))
 	cfg := &config.Config{Transport: "ssh", Compress: "none", ChecksumAlgorithm: "blake3", ResumeState: path, DedupMode: "fixed", CheckpointBytes: 4, FirstBlockDigest: hex.EncodeToString(dig[:])}
-	rt := &resumeTracker{sizeBytes: 100, deviceID: "id", epoch: 1}
+	rt := &resumeTracker{sizeBytes: 100, deviceID: "fsuuid", epoch: 1}
 	saveResumeState(cfg, rt, 0, dig, 4, zap.NewNop())
-	cp := readResumeState(cfg, zap.NewNop(), 100, "id", 2, dig)
+	cp := readResumeState(cfg, zap.NewNop(), 100, "fsuuid", 2, dig)
 	if cp != (resumeCheckpoint{}) {
 		t.Fatalf("expected empty checkpoint on epoch mismatch")
 	}

@@ -192,7 +192,9 @@ func (d *RawDevice) Identity() (DeviceIdentity, error) {
 	if err != nil {
 		return DeviceIdentity{}, err
 	}
-	id.KernelUUID = strings.TrimSpace(string(out))
+	uuid := strings.TrimSpace(string(out))
+	id.KernelUUID = uuid
+	id.FSUUID = uuid
 	if out, err = exec.Command("blkid", "-o", "value", "-s", "PTUUID", d.Path()).Output(); err == nil {
 		id.GPTUUID = strings.TrimSpace(string(out))
 	}

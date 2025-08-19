@@ -12,6 +12,7 @@ type walHeader struct {
 	Size   uint64
 	Kernel [64]byte
 	GPT    [64]byte
+	FS     [64]byte
 	MAC    [32]byte
 }
 
@@ -22,10 +23,11 @@ type WAL struct {
 }
 
 func walHeaderMAC(h *walHeader) [32]byte {
-	var buf [8 + 64 + 64]byte
+	var buf [8 + 64 + 64 + 64]byte
 	binary.LittleEndian.PutUint64(buf[0:8], h.Size)
 	copy(buf[8:72], h.Kernel[:])
-	copy(buf[72:], h.GPT[:])
+	copy(buf[72:136], h.GPT[:])
+	copy(buf[136:], h.FS[:])
 	return blake3.Sum256(buf[:])
 }
 
@@ -47,12 +49,14 @@ func OpenWAL(path string, id DeviceIdentity) (*WAL, error) {
 		hdr.Size = id.SizeBytes
 		copy(hdr.Kernel[:], []byte(id.KernelUUID))
 		copy(hdr.GPT[:], []byte(id.GPTUUID))
+		copy(hdr.FS[:], []byte(id.FSUUID))
 		hdr.MAC = walHeaderMAC(&hdr)
-		var buf [8 + 64 + 64 + 32]byte
+		var buf [8 + 64 + 64 + 64 + 32]byte
 		binary.LittleEndian.PutUint64(buf[0:8], hdr.Size)
 		copy(buf[8:72], hdr.Kernel[:])
 		copy(buf[72:136], hdr.GPT[:])
-		copy(buf[136:], hdr.MAC[:])
+		copy(buf[136:200], hdr.FS[:])
+		copy(buf[200:], hdr.MAC[:])
 		if _, err := f.Write(buf[:]); err != nil {
 			f.Close()
 			return nil, err
@@ -64,7 +68,7 @@ func OpenWAL(path string, id DeviceIdentity) (*WAL, error) {
 		w.header = hdr
 		return w, nil
 	}
-	var buf [8 + 64 + 64 + 32]byte
+	var buf [8 + 64 + 64 + 64 + 32]byte
 	if _, err := f.ReadAt(buf[:], 0); err != nil {
 		f.Close()
 		return nil, err
@@ -73,14 +77,16 @@ func OpenWAL(path string, id DeviceIdentity) (*WAL, error) {
 	hdr.Size = binary.LittleEndian.Uint64(buf[0:8])
 	copy(hdr.Kernel[:], buf[8:72])
 	copy(hdr.GPT[:], buf[72:136])
-	copy(hdr.MAC[:], buf[136:])
+	copy(hdr.FS[:], buf[136:200])
+	copy(hdr.MAC[:], buf[200:])
 	if mac := walHeaderMAC(&hdr); mac != hdr.MAC {
 		f.Close()
 		return nil, fmt.Errorf("wal: header mac mismatch")
 	}
 	if hdr.Size != id.SizeBytes ||
 		string(hdr.Kernel[:len(id.KernelUUID)]) != id.KernelUUID ||
-		string(hdr.GPT[:len(id.GPTUUID)]) != id.GPTUUID {
+		string(hdr.GPT[:len(id.GPTUUID)]) != id.GPTUUID ||
+		string(hdr.FS[:len(id.FSUUID)]) != id.FSUUID {
 		f.Close()
 		return nil, fmt.Errorf("wal: metadata mismatch")
 	}

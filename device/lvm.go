@@ -112,6 +112,10 @@ func (d *LVMDevice) Identity() (DeviceIdentity, error) {
 		return DeviceIdentity{}, err
 	}
 	id.KernelUUID = strings.TrimSpace(string(out))
+	if out, err = exec.Command("blkid", "-o", "value", "-s", "UUID", d.Path()).Output(); err != nil {
+		return DeviceIdentity{}, err
+	}
+	id.FSUUID = strings.TrimSpace(string(out))
 	if out, err = exec.Command("blkid", "-o", "value", "-s", "PTUUID", d.Path()).Output(); err == nil {
 		id.GPTUUID = strings.TrimSpace(string(out))
 	}
