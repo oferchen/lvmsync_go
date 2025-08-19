@@ -26,12 +26,15 @@ archives:
 
 checksum:
   name_template: '{{ .ProjectName }}-{{ .Version }}-checksums.txt'
+  algorithm: sha256
 
 sboms:
   - id: binary
     artifacts: binary
+    name_template: '{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}.sbom'
   - id: archive
     artifacts: archive
+    name_template: '{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}.sbom'
 
 dockers:
   # Build multi-arch image from distroless Dockerfile
