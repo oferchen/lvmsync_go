@@ -48,6 +48,33 @@ func createTestFile(t testing.TB, size int) string {
 	return f.Name()
 }
 
+// newStubRunner returns a Runner with a no-op rebuild function.
+func newStubRunner() *Runner {
+	return NewRunnerWithDeps(func(ctx context.Context, device, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error {
+		return nil
+	})
+}
+
+func createManifest(t testing.TB, file string) {
+	t.Helper()
+	data, err := os.ReadFile(file)
+	if err != nil {
+		t.Fatalf("read source: %v", err)
+	}
+	man := file + ".manifest"
+	idx, err := manifestpkg.Create(man, "dev", uint64(len(data)), 0, 0, 0, uint32(len(data)), 0, 0, 0, 0)
+	if err != nil {
+		t.Fatalf("manifest create: %v", err)
+	}
+	digest := blake3.Sum256(data)
+	if err := idx.Set(0, uint32(len(data)), 0, 0, digest); err != nil {
+		t.Fatalf("manifest set: %v", err)
+	}
+	if err := idx.Close(); err != nil {
+		t.Fatalf("manifest close: %v", err)
+	}
+}
+
 func TestRunSyncsLogger(t *testing.T) {
 	src := t.TempDir() + "/src"
 	if err := os.WriteFile(src, []byte("data"), 0o600); err != nil {
@@ -56,7 +83,8 @@ func TestRunSyncsLogger(t *testing.T) {
 	var syncs int
 	core, logs := observer.New(zap.InfoLevel)
 	logger := zap.New(syncTrackerCore{Core: core, syncs: &syncs})
-	if err := Run([]string{"--dry-run", src, "dst"}, logger); err != nil {
+	r := newStubRunner()
+	if err := r.Run([]string{"--dry-run", src, "dst"}, logger); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 	if syncs != 1 {
@@ -95,7 +123,8 @@ func TestRunFlagOverridesEnvAndYAML(t *testing.T) {
 		t.Fatalf("write config: %v", err)
 	}
 	t.Setenv("LVMSYNC_DRY_RUN", "true")
-	err = Run([]string{"--config", cfgFile, "--dry-run=false", src, dst}, zap.NewNop())
+	r := newStubRunner()
+	err = r.Run([]string{"--config", cfgFile, "--dry-run=false", src, dst}, zap.NewNop())
 	if err == nil {
 		t.Fatalf("expected verification error")
 	}
@@ -171,7 +200,8 @@ func TestRunNilLoggerPanics(t *testing.T) {
 			t.Fatalf("expected panic")
 		}
 	}()
-	_ = Run([]string{"--dry-run", "src", "dst"}, nil)
+	r := newStubRunner()
+	_ = r.Run([]string{"--dry-run", "src", "dst"}, nil)
 }
 
 func TestVerifyDevicesRebuildsManifest(t *testing.T) {
@@ -209,16 +239,18 @@ func TestVerifyDevicesRebuildsManifest(t *testing.T) {
 func TestRunOutputsJSON(t *testing.T) {
 	src := createTestFile(t, 1024)
 	dst := createTestFile(t, 1024)
+	createManifest(t, src)
 	var buf bytes.Buffer
 	oldStdout := os.Stdout
-	r, w, _ := os.Pipe()
+	pr, w, _ := os.Pipe()
 	os.Stdout = w
 	done := make(chan struct{})
 	go func() {
-		io.Copy(&buf, r)
+		io.Copy(&buf, pr)
 		close(done)
 	}()
-	if err := Run([]string{"--output", "json", src, dst}, zap.NewNop()); err != nil {
+	r := newStubRunner()
+	if err := r.Run([]string{"--output", "json", src, dst}, zap.NewNop()); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 	w.Close()
@@ -238,16 +270,18 @@ func TestRunOutputsJSON(t *testing.T) {
 func TestRunOutputsYAML(t *testing.T) {
 	src := createTestFile(t, 1024)
 	dst := createTestFile(t, 1024)
+	createManifest(t, src)
 	var buf bytes.Buffer
 	oldStdout := os.Stdout
-	r, w, _ := os.Pipe()
+	pr, w, _ := os.Pipe()
 	os.Stdout = w
 	done := make(chan struct{})
 	go func() {
-		io.Copy(&buf, r)
+		io.Copy(&buf, pr)
 		close(done)
 	}()
-	if err := Run([]string{"--output", "yaml", src, dst}, zap.NewNop()); err != nil {
+	r := newStubRunner()
+	if err := r.Run([]string{"--output", "yaml", src, dst}, zap.NewNop()); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 	w.Close()
