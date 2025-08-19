@@ -162,6 +162,8 @@ Transfers rely on a manifest that tracks chunk offsets and digests:
 2. `lvmsync run <source> <destination>` streams blocks, skipping chunks already recorded in the manifest.
 3. `lvmsync verify <source> <destination>` compares the destination with the manifest and logs any mismatches.
 
+[Garbage Collection & Atomic Commit](docs/manifest.md#garbage-collection--atomic-commit)
+describes how obsolete entries are pruned and rewritten safely.
 
 authentication. Provide certificate files with `--server-cert`, `--server-key`,
 `--client-cert`, `--client-key`, and `--ca-cert`. Insecure mode disables
