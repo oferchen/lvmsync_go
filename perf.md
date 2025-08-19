@@ -188,3 +188,42 @@ scripts/bench_wan.sh /dev/vg0/snap0 user@wan:/dev/vg0/vol0 IFACE=eth0
 
 Each script prints throughput and CPU usage via `/usr/bin/time -f '%e %P'`. Save
 the script output together with the commit hash for comparison across runs.
+
+## Smoke Benchmark
+
+Benchmarks were recorded from commit `69a57b8` using an 8 MiB dataset.
+
+### Environment
+
+- `uname -srvmo`: `Linux 6.12.13 #1 SMP Thu Mar 13 11:34:50 UTC 2025 x86_64 GNU/Linux`
+- `lscpu | head -n 5`:
+
+  ```
+  Architecture:                         x86_64
+  CPU op-mode(s):                       32-bit, 64-bit
+  Address sizes:                        46 bits physical, 57 bits virtual
+  Byte Order:                           Little Endian
+  CPU(s):                               5
+  ```
+
+### Steps
+
+1. Build the binary: `go build -o lvmsync .`
+2. Create dataset: `dd if=/dev/urandom of=$SRC bs=1M count=8`
+3. Run throughput tests:
+
+   ```sh
+   ./lvmsync run --mode throughput --dedup none  --compress none $SRC $DST
+   ./lvmsync run --mode throughput --dedup none  --compress zstd $SRC $DST
+   ./lvmsync run --mode throughput --dedup fixed --compress none $SRC $DST
+   ./lvmsync run --mode throughput --dedup fixed --compress zstd $SRC $DST
+   ```
+
+### Results
+
+| Compression | Dedup | Throughput (MB/s) |
+|-------------|-------|------------------:|
+| none        | none  | 103.46 |
+| zstd        | none  | 134.95 |
+| none        | fixed | 134.38 |
+| zstd        | fixed | 137.92 |

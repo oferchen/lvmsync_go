@@ -26,6 +26,13 @@ Verify escalation availability:
 lvmsync --check-escalation
 ```
 
+## Environment Sanitization
+
+By default LVMSync re-executes itself with the current `PATH` and `LANG`
+values. Enable the `--sanitize-env` flag (or `LVMSYNC_SANITIZE_ENV=1`) to drop
+both variables, providing a minimal environment to the helper process.
+
+
 
 Roles are read from the certificate's `OrganizationalUnit` field and must
 include `replicator` to invoke replication RPCs such as `StartSync`, `Cancel`,

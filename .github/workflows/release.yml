@@ -91,7 +91,7 @@ jobs:
             | tar -xz -C /usr/local/bin goreleaser
 
       - name: Run GoReleaser
-        run: make release
+        run: goreleaser release --clean --timeout=90m
         env:
           GITHUB_TOKEN: ${{ secrets.GOLANGCI_LINT_TOKEN }}
           SKIP_DOCKER_PUSH: ${{ env.SKIP_DOCKER_PUSH }}

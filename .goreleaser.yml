@@ -4,7 +4,7 @@
 #   distroless for runtime.
 # - Docker pushes remain conditional and only happen on tag releases.
 
-project_name: &name bpm
+project_name: &name lvmsync
 
 builds:
   - id: *name
@@ -12,6 +12,9 @@ builds:
     env: [CGO_ENABLED=1]
     goos: [linux]
     goarch: [amd64, arm64]
+    flags: ["-trimpath"]
+    ldflags:
+      - "-s -w -X main.version={{.Version}}"
 
 archives:
   - id: default
@@ -36,6 +39,12 @@ dockers:
     use: buildx
     dockerfile: Dockerfile.distroless
     platforms: ["linux/amd64", "linux/arm64"]
+
+  # Build per-arch distroless images
+  - id: lvmsync-amd64
+    use: buildx
+    dockerfile: Dockerfile.distroless
+    platforms: ["linux/amd64"]
     image_templates:
       - docker.io/oferchen/{{ .ProjectName }}:{{ .Tag }}
       - ghcr.io/oferchen/{{ .ProjectName }}:{{ .Tag }}
@@ -47,4 +56,33 @@ dockers:
       - "--label=org.opencontainers.image.version={{ .Version }}"
       - "--build-arg=BIN={{ .ProjectName }}"
       - "--build-arg=GIT_SHA={{ .FullCommit }}"
+      - "--build-arg=BUILD_PATH=."
+
+  - id: lvmsync-arm64
+    use: buildx
+    dockerfile: Dockerfile.distroless
+    platforms: ["linux/arm64"]
+    image_templates:
+      - docker.io/oferchen/{{ .ProjectName }}:{{ .Tag }}-arm64v8
+      - ghcr.io/oferchen/{{ .ProjectName }}:{{ .Tag }}-arm64v8
+    skip_push: '{{ eq (env "SKIP_DOCKER_PUSH") "true" }}'
+    build_flag_templates:
+      - "--pull"
+      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
+      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--build-arg=BIN={{ .ProjectName }}"
+      - "--build-arg=BUILD_PATH=."
+
+docker_manifests:
+  - name_template: "docker.io/oferchen/{{ .ProjectName }}:{{ .Tag }}"
+    image_templates:
+      - "docker.io/oferchen/{{ .ProjectName }}:{{ .Tag }}-amd64"
+      - "docker.io/oferchen/{{ .ProjectName }}:{{ .Tag }}-arm64v8"
+    skip_push: '{{ eq (env "SKIP_DOCKER_PUSH") "true" }}'
+  - name_template: "ghcr.io/oferchen/{{ .ProjectName }}:{{ .Tag }}"
+    image_templates:
+      - "ghcr.io/oferchen/{{ .ProjectName }}:{{ .Tag }}-amd64"
+      - "ghcr.io/oferchen/{{ .ProjectName }}:{{ .Tag }}-arm64v8"
+    skip_push: '{{ eq (env "SKIP_DOCKER_PUSH") "true" }}'
   

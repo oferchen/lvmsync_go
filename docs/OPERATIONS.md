@@ -2,6 +2,13 @@
 
 This guide covers snapshot lifecycle management, resume options, verification modes, and expected exit codes for recovery.
 
+## STDOUT mode confirmation
+
+`--stdout` streams raw binary data to standard output. When `lvmsync` detects
+an interactive TTY on stdin, it prompts for confirmation before proceeding. In
+non-interactive sessions the `--yes-i-know` flag (or `LVMSYNC_YES_I_KNOW`)
+must be supplied to bypass the prompt.
+
 ## Snapshot Creation and Cleanup Flow
 
 1. `lvmsync run` validates the source and destination.
@@ -22,6 +29,17 @@ lvmsync run --resume=statefile /dev/vg0/snap0 /dev/vg0/target
 3. Copy remaining blocks, persisting checkpoints.
 4. Delete the state file when the transfer finishes.
 5. If the command fails, rerun with the same `--resume` file after fixing the issue.
+
+### Crash Recovery
+
+1. Start transfers with `--resume statefile` so checkpoints persist.
+2. If the process is interrupted (for example, by `SIGKILL`), invoke the same
+   command with `--resume statefile` to continue copying remaining blocks.
+3. LVMSync validates the device identity tuple `(device_id, size_bytes,
+   major:minor)` against the resume file. Mismatches abort with a precondition
+   failure to prevent accidental overwrites.
+4. After a successful resume the state file is removed; optionally run
+   `lvmsync verify` to confirm both devices match.
 
 ### `--verify-only`
 
