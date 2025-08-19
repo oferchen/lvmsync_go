@@ -19,7 +19,6 @@ func Parse(input string) (uint64, bool, error) {
 	if s == "" {
 		return 0, false, fmt.Errorf("empty size")
 	}
-	s = strings.ToUpper(s)
 
 	if strings.HasSuffix(s, "%") {
 		num := strings.TrimSpace(strings.TrimSuffix(s, "%"))
@@ -37,16 +36,17 @@ func Parse(input string) (uint64, bool, error) {
 		return i.Uint64(), true, nil
 	}
 
-	s = strings.ReplaceAll(s, " ", "")
-	idx := 0
-	for ; idx < len(s); idx++ {
-		r := rune(s[idx])
-		if !unicode.IsDigit(r) && r != '.' && !(idx == 0 && r == '-') {
+	s = strings.ReplaceAll(strings.ToUpper(s), " ", "")
+
+	numEnd := len(s)
+	for i, r := range s {
+		if !unicode.IsDigit(r) && r != '.' && !(i == 0 && r == '-') {
+			numEnd = i
 			break
 		}
 	}
-	numStr := s[:idx]
-	unit := s[idx:]
+	numStr := s[:numEnd]
+	unit := s[numEnd:]
 
 	r := new(big.Rat)
 	if _, ok := r.SetString(numStr); !ok {
