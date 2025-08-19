@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -139,6 +140,9 @@ func (r *Runner) verifyDevices(cfg *config.Config, src, dst, manifestPath string
 				hybridFixed = uint32(cfg.BlockSize)
 			}
 			if err := r.Rebuild(ctx, src, manifestPath, logger, cfg.ManifestProgressInterval, cfg.ManifestAllowMounted, uint32(cfg.CDCMin), uint32(cfg.CDCAvg), uint32(cfg.CDCMax), hybridFixed); err != nil {
+				if errors.Is(err, context.DeadlineExceeded) {
+					return err
+				}
 				return fmt.Errorf("rebuild manifest: %w", err)
 			}
 		} else {
