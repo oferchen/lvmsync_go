@@ -116,31 +116,21 @@ jobs:
           echo "|-------------|-------------------|---------|" >> "$GITHUB_STEP_SUMMARY"
           tail -n2 reports/bench_smoke.csv | awk -F, '{printf "| %s | %s | %s |\n", $2, $3, $4}' >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Go test
-        run: go test -coverprofile=coverage.out ./...
-
-      - name: golangci-lint
-        if: github.event_name == 'pull_request'
-        run: golangci-lint run --config=.golangci.yml
-
       - name: Go vet
-        if: github.event_name == 'pull_request'
-        run: make vet
+        run: go vet ./...
 
       - name: Staticcheck
-        if: github.event_name == 'pull_request'
-        run: make staticcheck
+        run: staticcheck ./...
 
-      - name: Race detector
-        if: github.event_name == 'pull_request'
-        run: make test-race
+      - name: golangci-lint
+        run: golangci-lint run
+
+      - name: Go test
+        run: go test -race -coverprofile=coverage.out ./...
 
       - name: Integration tests
         if: github.event_name == 'pull_request' && matrix.arch == 'amd64'
         run: make integration
-
-      - name: Build, test, and lint
-        run: make verify
 
       - name: Verify prune candidates
         run: |
