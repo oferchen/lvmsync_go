@@ -286,7 +286,7 @@ func (b *builder) parseBlockSize() (int, string, error) {
 	return int(val), raw, nil
 }
 
-func buildViper(flagSets *FlagSets) (*viper.Viper, []string, bool, error) {
+func buildViper(flagSets *FlagSets) (*viper.Viper, []string, bool, map[string]any, error) {
 	v := viper.New()
 	v.SetConfigName("config")
 	v.SetConfigType("yaml")
@@ -297,7 +297,7 @@ func buildViper(flagSets *FlagSets) (*viper.Viper, []string, bool, error) {
 	var envErr error
 	for _, fs := range flagSets.All() {
 		if err := v.BindPFlags(fs); err != nil {
-			return nil, nil, false, err
+			return nil, nil, false, nil, err
 		}
 		fs.VisitAll(func(f *pflag.Flag) {
 			if envErr == nil {
@@ -310,37 +310,34 @@ func buildViper(flagSets *FlagSets) (*viper.Viper, []string, bool, error) {
 		})
 	}
 	if envErr != nil {
-		return nil, nil, false, envErr
+		return nil, nil, false, nil, envErr
 	}
 
 	if err := bindTransportEnv(flagSets.Transport, v); err != nil {
-		return nil, nil, false, err
+		return nil, nil, false, nil, err
 	}
 	if err := bindDedupEnv(flagSets.Dedup, v); err != nil {
-		return nil, nil, false, err
+		return nil, nil, false, nil, err
 	}
 	if err := bindCompressionEnv(flagSets.Compression, v); err != nil {
-		return nil, nil, false, err
+		return nil, nil, false, nil, err
 	}
 	if err := bindLVMEnv(flagSets.LVM, v); err != nil {
-		return nil, nil, false, err
+		return nil, nil, false, nil, err
 	}
 	var warnings []string
 	allowInsecureYAML := false
+	var raw map[string]any
 	if cfgFile := v.GetString("config"); cfgFile != "" {
 		data, err := os.ReadFile(cfgFile)
 		if err != nil {
-			return nil, nil, false, fmt.Errorf("error reading config file %q: %w", cfgFile, err)
+			return nil, nil, false, nil, fmt.Errorf("error reading config file %q: %w", cfgFile, err)
 		}
 		v.SetConfigFile(cfgFile)
 		if err := v.ReadConfig(bytes.NewReader(data)); err != nil {
-			return nil, nil, false, fmt.Errorf("error reading config file %q: %w", cfgFile, err)
+			return nil, nil, false, nil, fmt.Errorf("error reading config file %q: %w", cfgFile, err)
 		}
-		var raw map[string]any
 		if err := yaml.Unmarshal(data, &raw); err == nil {
-			if err := validateSchema(raw); err != nil {
-				return nil, nil, false, err
-			}
 			if v, ok := raw["allow_insecure"].(bool); ok && v {
 				allowInsecureYAML = true
 			}
@@ -366,7 +363,7 @@ func buildViper(flagSets *FlagSets) (*viper.Viper, []string, bool, error) {
 			}
 		}
 	}
-	return v, warnings, allowInsecureYAML, nil
+	return v, warnings, allowInsecureYAML, raw, nil
 }
 
 func knownConfigKeys() map[string]struct{} {
