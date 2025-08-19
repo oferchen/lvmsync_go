@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -299,6 +300,33 @@ func TestEnsureRootOrReexec_DropsDisallowedFlags(t *testing.T) {
 	}
 }
 
+func TestEnsureRootOrReexec_InvokesSudoWithAllowlistedArgs(t *testing.T) {
+	var got execCall
+	reexeced, err := EnsureRootOrReexec(Options{
+		Geteuid:            func() int { return 1000 },
+		LookPath:           func(string) (string, error) { return "/usr/bin/sudo", nil },
+		Args:               []string{"/bin/prog", "--mode=apply", "--drop-back=false", "--unsafe=1"},
+		AllowedPassthrough: map[string]bool{"--mode": true, "--drop-back": true},
+		ExecRunner:         fakeRunner(&got, nil),
+	}, zap.NewNop())
+	if err != nil || !reexeced {
+		t.Fatalf("unexpected result: %v %v", reexeced, err)
+	}
+	if got.name != "/usr/bin/sudo" {
+		t.Fatalf("expected sudo path, got %q", got.name)
+	}
+	if len(got.args) < 3 || got.args[0] != "-n" || got.args[1] != "--" {
+		t.Fatalf("args malformed: %v", got.args)
+	}
+	joined := strings.Join(got.args, " ")
+	if strings.Contains(joined, "--unsafe=1") {
+		t.Fatalf("disallowed arg forwarded: %v", got.args)
+	}
+	if !strings.Contains(joined, "--mode=apply") || !strings.Contains(joined, "--drop-back=false") {
+		t.Fatalf("allowed args missing: %v", got.args)
+	}
+}
+
 func TestEnsureRootOrReexec_SanitizedEnv(t *testing.T) {
 	var got execCall
 	t.Setenv("LD_PRELOAD", "/tmp/x.so")
@@ -359,6 +387,43 @@ func TestEnsureRootOrReexec_EnvPassthrough(t *testing.T) {
 	}
 	if len(got.env) != 2 || got.env[0] != "LD_PRELOAD=/x" || got.env[1] != "LANG=C" {
 		t.Fatalf("env not forwarded: %v", got.env)
+	}
+}
+
+func TestEnsureRootOrReexec_SanitizeEnvTrue(t *testing.T) {
+	var got execCall
+	env := []string{"LD_PRELOAD=/tmp/x.so", "LANG=C", "TERM=dumb"}
+	reexeced, err := EnsureRootOrReexec(Options{
+		Geteuid:     func() int { return 1000 },
+		LookPath:    func(string) (string, error) { return "/usr/bin/sudo", nil },
+		SanitizeEnv: true,
+		Environ:     func() []string { return env },
+		ExecRunner:  fakeRunner(&got, nil),
+	}, zap.NewNop())
+	if err != nil || !reexeced {
+		t.Fatalf("unexpected result: %v %v", reexeced, err)
+	}
+	want := sanitizedChildEnv(env)
+	if !reflect.DeepEqual(got.env, want) {
+		t.Fatalf("env = %v, want %v", got.env, want)
+	}
+}
+
+func TestEnsureRootOrReexec_SanitizeEnvFalse(t *testing.T) {
+	var got execCall
+	env := []string{"LD_PRELOAD=/tmp/x.so", "LANG=C"}
+	reexeced, err := EnsureRootOrReexec(Options{
+		Geteuid:     func() int { return 1000 },
+		LookPath:    func(string) (string, error) { return "/usr/bin/sudo", nil },
+		SanitizeEnv: false,
+		Environ:     func() []string { return env },
+		ExecRunner:  fakeRunner(&got, nil),
+	}, zap.NewNop())
+	if err != nil || !reexeced {
+		t.Fatalf("unexpected result: %v %v", reexeced, err)
+	}
+	if !reflect.DeepEqual(got.env, env) {
+		t.Fatalf("env = %v, want %v", got.env, env)
 	}
 }
 
