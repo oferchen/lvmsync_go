@@ -453,6 +453,29 @@ func (i *Index) Entry(idx uint64) (offset uint64, length, flags uint32, xxh uint
 // ChunkCount returns the number of chunks tracked by the manifest.
 func (i *Index) ChunkCount() uint64 { return i.hdr.ChunkCount }
 
+// Chunk describes a CDC chunk recorded in the manifest.
+type Chunk struct {
+	Offset uint64
+	Length uint32
+	Digest [32]byte
+}
+
+// CDCChunks returns all CDC chunks stored in the manifest.
+func (i *Index) CDCChunks() []Chunk {
+	out := make([]Chunk, 0, i.hdr.ChunkCount)
+	for idx := uint64(0); idx < i.hdr.ChunkCount; idx++ {
+		offset, length, flags, _, digest, err := i.Entry(idx)
+		if err != nil {
+			continue
+		}
+		if flags&FlagCDC == 0 || length == 0 {
+			continue
+		}
+		out = append(out, Chunk{Offset: offset, Length: length, Digest: digest})
+	}
+	return out
+}
+
 // Rebuild creates a manifest index for device at output path.
 // DeviceID is determined via the configured DeviceInfoProvider. The device is read sequentially using blockSize-sized chunks.
 // Progress is logged at the provided interval; set interval to 0 to log every chunk.
