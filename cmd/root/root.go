@@ -272,6 +272,9 @@ func (r *Runner) Run(cfg *config.Config, args []string, logger *zap.Logger) erro
 	if handled || err != nil {
 		return err
 	}
+	if cfg.Plan {
+		return emitPlan(cfg, args, logger)
+	}
 
 	ctx, cleanup, snapshotPath, destPath, sigErrCh, monitorErrCh, err := r.prepareClient(cfg, args, logger)
 	if err != nil {
