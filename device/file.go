@@ -63,7 +63,7 @@ func (d *FileDevice) SizeBytes() uint64 { return d.size }
 func (d *FileDevice) BlockSize() uint64 { return d.blockSize }
 
 // Identity returns size information for the file.
-func (d *FileDevice) Identity() (DeviceIdentity, error) {
+func (d *FileDevice) Identity(context.Context) (DeviceIdentity, error) {
 	return DeviceIdentity{SizeBytes: d.SizeBytes()}, nil
 }
 

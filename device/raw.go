@@ -16,7 +16,6 @@ import (
 	"golang.org/x/sys/unix"
 	"golang.org/x/term"
 
-	"lvmsync_go/escalate"
 	"lvmsync_go/internal/privilege"
 	"lvmsync_go/remote"
 )
@@ -83,12 +82,8 @@ func prepareFreeze(
 }
 
 // openDevice ensures the path is a block device and opens it for reading and writing.
-func openDevice(path string, logger *zap.Logger) (*os.File, error) {
-	if reexeced, err := escalate.EnsureRootOrReexec(escalate.Options{}, logger); err != nil {
-		return nil, err
-	} else if reexeced {
-		return nil, fmt.Errorf("re-exec requested for root")
-	}
+// Callers must ensure the necessary privilege before invoking this function.
+func openDevice(path string) (*os.File, error) {
 	info, err := os.Stat(path)
 	if err != nil {
 		return nil, err
@@ -158,7 +153,7 @@ func OpenRaw(
 			}
 		}()
 	}
-	f, err := openDevice(path, logger)
+	f, err := openDevice(path)
 	if err != nil {
 		return nil, err
 	}
@@ -183,7 +178,18 @@ func (d *RawDevice) SizeBytes() uint64 { return d.size }
 func (d *RawDevice) BlockSize() uint64 { return d.blockSize }
 
 // Identity gathers size, kernel uuid and GPT information for the device.
-func (d *RawDevice) Identity() (DeviceIdentity, error) {
+func (d *RawDevice) Identity(ctx context.Context) (DeviceIdentity, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if _, ok := ctx.Deadline(); !ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, identityTimeout)
+		defer cancel()
+	}
+	if blkidPath == "" {
+		return DeviceIdentity{}, fmt.Errorf("blkid not found")
+	}
 	var st unix.Stat_t
 	if err := unix.Stat(d.Path(), &st); err != nil {
 		return DeviceIdentity{}, err
@@ -193,14 +199,14 @@ func (d *RawDevice) Identity() (DeviceIdentity, error) {
 		Major:     uint32(unix.Major(uint64(st.Rdev))),
 		Minor:     uint32(unix.Minor(uint64(st.Rdev))),
 	}
-	out, err := exec.Command("blkid", "-o", "value", "-s", "UUID", d.Path()).Output()
+	out, err := exec.CommandContext(ctx, blkidPath, "-o", "value", "-s", "UUID", d.Path()).Output()
 	if err != nil {
 		return DeviceIdentity{}, err
 	}
 	uuid := strings.TrimSpace(string(out))
 	id.KernelUUID = uuid
 	id.FSUUID = uuid
-	if out, err = exec.Command("blkid", "-o", "value", "-s", "PTUUID", d.Path()).Output(); err == nil {
+	if out, err = exec.CommandContext(ctx, blkidPath, "-o", "value", "-s", "PTUUID", d.Path()).Output(); err == nil {
 		id.GPTUUID = strings.TrimSpace(string(out))
 	}
 	return id, nil

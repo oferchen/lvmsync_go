@@ -35,9 +35,11 @@ func (m *mockDevice) BlockSize() uint64                                       { 
 func (m *mockDevice) Close() error                                            { return nil }
 func (m *mockDevice) Snapshot(context.Context, string) (device.Device, error) { return m, nil }
 func (m *mockDevice) Cleanup(context.Context) error                           { return nil }
-func (m *mockDevice) Identity() (device.DeviceIdentity, error)                { return device.DeviceIdentity{}, nil }
-func (m *mockDevice) AppendWAL(device.Range) error                            { return nil }
-func (m *mockDevice) RecoverWAL(func(device.Range) error) error               { return nil }
+func (m *mockDevice) Identity(context.Context) (device.DeviceIdentity, error) {
+	return device.DeviceIdentity{}, nil
+}
+func (m *mockDevice) AppendWAL(device.Range) error              { return nil }
+func (m *mockDevice) RecoverWAL(func(device.Range) error) error { return nil }
 
 func minimalStream(t *testing.T) []byte {
 	t.Helper()

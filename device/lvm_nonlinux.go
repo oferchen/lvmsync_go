@@ -34,7 +34,7 @@ func (r *Runner) OpenLVM(context.Context, string, *lvm.FDCache, string, *zap.Log
 func (d *LVMDevice) Path() string      { return "" }
 func (d *LVMDevice) SizeBytes() uint64 { return 0 }
 func (d *LVMDevice) BlockSize() uint64 { return 0 }
-func (d *LVMDevice) Identity() (DeviceIdentity, error) {
+func (d *LVMDevice) Identity(context.Context) (DeviceIdentity, error) {
 	return DeviceIdentity{}, fmt.Errorf("unsupported")
 }
 func (d *LVMDevice) AppendWAL(r Range) error               { return nil }

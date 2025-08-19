@@ -32,7 +32,7 @@ func (m *mockDevice) BlockSize() uint64                                       { 
 func (m *mockDevice) Close() error                                            { return nil }
 func (m *mockDevice) Snapshot(context.Context, string) (device.Device, error) { return m, nil }
 func (m *mockDevice) Cleanup(context.Context) error                           { return nil }
-func (m *mockDevice) Identity() (device.DeviceIdentity, error) {
+func (m *mockDevice) Identity(context.Context) (device.DeviceIdentity, error) {
 	return device.DeviceIdentity{SizeBytes: m.size}, nil
 }
 func (m *mockDevice) AppendWAL(r device.Range) error               { return nil }

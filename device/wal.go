@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path/filepath"
 
 	"github.com/zeebo/blake3"
 )
@@ -61,6 +62,10 @@ type WAL struct {
 	header walHeader
 	ranges []Range
 }
+
+// syncDirFunc flushes a directory to stable storage. It is a variable to allow tests
+// to stub the implementation.
+var syncDirFunc = syncDir
 
 func walHeaderMAC(h *walHeader) [32]byte {
 	var buf [8 + 8 + 4 + 4 + 64 + 64 + 64]byte
@@ -133,6 +138,10 @@ func OpenWAL(path string, id DeviceIdentity) (*WAL, error) {
 			return nil, fmt.Errorf("wal: short write: wrote %d of %d bytes", n, len(buf))
 		}
 		if err := f.Sync(); err != nil {
+			f.Close()
+			return nil, err
+		}
+		if err := syncDirFunc(filepath.Dir(path)); err != nil {
 			f.Close()
 			return nil, err
 		}
@@ -384,8 +393,37 @@ func (w *WAL) Append(r Range) error {
 func (w *WAL) Ranges() []Range { return append([]Range(nil), w.ranges...) }
 
 func (w *WAL) Close() error {
-	if w.f != nil {
-		return w.f.Close()
+	if w.f == nil {
+		return nil
 	}
-	return nil
+	if err := w.f.Sync(); err != nil {
+		w.f.Close()
+		return err
+	}
+	name := w.f.Name()
+	if err := w.f.Close(); err != nil {
+		return err
+	}
+	w.f = nil
+	return syncDirFunc(filepath.Dir(name))
+}
+
+// SetSyncDirFunc overrides the directory sync implementation. It returns a restore function.
+func SetSyncDirFunc(fn func(string) error) func() {
+	orig := syncDirFunc
+	if fn == nil {
+		syncDirFunc = syncDir
+	} else {
+		syncDirFunc = fn
+	}
+	return func() { syncDirFunc = orig }
+}
+
+func syncDir(path string) error {
+	d, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer d.Close()
+	return d.Sync()
 }
