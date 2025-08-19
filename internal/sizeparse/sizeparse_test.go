@@ -1,11 +1,15 @@
 package sizeparse
 
-import "testing"
+import (
+	"math"
+	"strconv"
+	"testing"
+)
 
 func TestParse(t *testing.T) {
 	tests := []struct {
 		input   string
-		want    float64
+		want    uint64
 		percent bool
 		wantErr bool
 	}{
@@ -17,6 +21,12 @@ func TestParse(t *testing.T) {
 		{"50%", 50, true, false},
 		{"bad", 0, false, true},
 		{"10XB", 0, false, true},
+		{strconv.FormatUint(math.MaxUint64, 10), math.MaxUint64, false, false},
+		{strconv.FormatUint(math.MaxUint64, 10) + "B", math.MaxUint64, false, false},
+		{"18.446744073709551615E", math.MaxUint64, false, false},
+		{"18446744073709551616", 0, false, true},
+		{"18446744073709551616B", 0, false, true},
+		{"18446744073709551615K", 0, false, true},
 	}
 	for _, tt := range tests {
 		got, pct, err := Parse(tt.input)

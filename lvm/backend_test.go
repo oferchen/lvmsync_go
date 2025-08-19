@@ -42,7 +42,7 @@ func TestBackend(t *testing.T) {
 	if err != nil || len(vgs) != 1 || vgs[0].Name != "vg1" || vgs[0].Free != 2048 {
 		t.Fatalf("unexpected filtered result: %#v err %v", vgs, err)
 	}
-	wantCreate := fmt.Sprintf("create:%s:%s:%d:ro", "/dev/vg0/origin", "snap", uint64(1<<30))
+	wantCreate := fmt.Sprintf("create:%s:%s:%d:ro", "/dev/vg0/origin", "snap", uint64(1000000000))
 	wantRemove := "remove:/dev/vg0/snap"
 	if len(mc.calls) != 2 || mc.calls[0] != wantCreate || mc.calls[1] != wantRemove {
 		t.Fatalf("calls = %v, want [%s %s]", mc.calls, wantCreate, wantRemove)
