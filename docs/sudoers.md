@@ -1,6 +1,14 @@
 ## `sudoers` Entries
 
 LVMSync requires elevated privileges for a small set of operations. The
+following examples show least-privilege `sudoers` rules for each command.
+See [../SECURITY.md](../SECURITY.md) for the overall model, assumptions, and
+risks. Adjust paths to match your distribution and test on non-production
+systems before enabling them in production.
+
+## LVM administration
+
+Permit only the LVM utilities needed by LVMSync:
 following rules use `Cmnd_Alias` to keep entries concise while limiting access
 to only the necessary commands. Adjust paths to match your distribution and
 test on non-production systems before enabling them in production.
