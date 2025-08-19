@@ -91,4 +91,44 @@ lvmsync run /dev/vg0/missing /dev/vg0/target || echo "precondition failed with e
 - Confirm the destination is not mounted read-write. Use `--force` only when intentionally overwriting.
 - Rerun with `--resume` after resolving issues to avoid re-copying completed blocks.
 - Review logs for detailed errors and ensure all configuration values follow the expected flag > environment variable > config file precedence.
+ 
+## Failure Drills
+
+Practice recovery steps regularly so operators are prepared for common failure
+scenarios.
+
+### Snapshot Full
+
+1. Create a small snapshot and start a transfer:
+   ```sh
+   lvcreate -L1G -s -n snap_full /dev/vg0/src
+   lvmsync run /dev/vg0/snap_full /dev/vg0/dst &
+   ```
+2. Write more than 1 GiB to the source to exhaust the snapshot:
+   ```sh
+   dd if=/dev/zero of=/dev/vg0/src bs=1M count=2048
+   ```
+3. LVMSync exits with a device error. Remove the snapshot, create a larger one,
+   and resume with the same command line.
+
+### Identity Mismatch
+
+1. Begin a transfer and capture the resume state file.
+2. Modify the destination (e.g., recreate the LV) and rerun with `--resume`:
+   ```sh
+   lvremove -y /dev/vg0/dst
+   lvcreate -L10G -n dst /dev/vg0
+   lvmsync run --resume state /dev/vg0/snap0 /dev/vg0/dst || echo "mismatch"
+   ```
+3. LVMSync reports a precondition failure due to the changed identity. Fix the
+   destination and restart without `--resume` or regenerate the state.
+
+### TLS Failure
+
+1. Run a remote transfer with an invalid certificate or hostname:
+   ```sh
+   lvmsync run --remote https://badhost /dev/vg0/snap0 user@host:/dev/vg0/dst
+   ```
+2. The TLS handshake fails with `exitcode.ErrRuntime`. Verify certificates and
+   trust stores, then retry the transfer.
 
