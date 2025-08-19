@@ -2,19 +2,59 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 
+	"go.uber.org/zap"
+	rootcmd "lvmsync_go/cmd/root"
 	cfg "lvmsync_go/internal/config"
 )
 
-func main() {
-	if err := run(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+type runner struct {
+	run        func() error
+	syncLogger func(*zap.Logger)
+	exit       func(int)
+	newLogger  func() *zap.Logger
+}
+
+func newRunner() *runner {
+	return &runner{
+		run:        run,
+		syncLogger: rootcmd.SyncLogger,
+		exit:       os.Exit,
+		newLogger:  func() *zap.Logger { return zap.NewExample() },
 	}
 }
+
+func newRunnerWithDeps(runFunc func() error, syncFunc func(*zap.Logger), exitFunc func(int), loggerFunc func() *zap.Logger) *runner {
+	r := newRunner()
+	if runFunc != nil {
+		r.run = runFunc
+	}
+	if syncFunc != nil {
+		r.syncLogger = syncFunc
+	}
+	if exitFunc != nil {
+		r.exit = exitFunc
+	}
+	if loggerFunc != nil {
+		r.newLogger = loggerFunc
+	}
+	return r
+}
+
+func (r *runner) Run() {
+	logger := r.newLogger()
+	defer r.syncLogger(logger)
+	if err := r.run(); err != nil {
+		logger.Error("run_failed", zap.Error(err))
+		r.exit(1)
+		return
+	}
+	r.exit(0)
+}
+
+func main() { newRunner().Run() }
 
 func run() error {
 	defaults, err := cfg.DefaultConfig()
