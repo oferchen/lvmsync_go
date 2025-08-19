@@ -43,11 +43,11 @@ func TestProcessBlockIntraDedup(t *testing.T) {
 	defer os.Remove(f.Name())
 	data := []byte("data")
 	crc := crc32c(data)
-	written, err := processBlock(cfg, f, nil, cache, false, nil, 0, crc, nil, data, uint32(len(data)), zap.NewNop(), nil)
+	written, _, err := processBlock(cfg, f, nil, cache, false, nil, 0, crc, nil, data, uint32(len(data)), zap.NewNop(), nil)
 	if err != nil || !written {
 		t.Fatalf("first write %v %v", written, err)
 	}
-	written, err = processBlock(cfg, f, nil, cache, false, nil, uint64(len(data)), crc, nil, data, uint32(len(data)), zap.NewNop(), nil)
+	written, _, err = processBlock(cfg, f, nil, cache, false, nil, uint64(len(data)), crc, nil, data, uint32(len(data)), zap.NewNop(), nil)
 	if err != nil {
 		t.Fatalf("second write err %v", err)
 	}
