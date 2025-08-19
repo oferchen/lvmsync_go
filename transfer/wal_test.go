@@ -83,7 +83,7 @@ func TestWALPartialWrite(t *testing.T) {
 		t.Fatalf("open file: %v", err)
 	}
 	// Append half of an entry to simulate a crash during write.
-	if _, err := f.Seek(8+8+64+32, 0); err != nil {
+	if _, err := f.Seek(walHeaderSize, 0); err != nil {
 		t.Fatalf("seek: %v", err)
 	}
 	var buf [8]byte
@@ -107,7 +107,7 @@ func TestWALPartialWrite(t *testing.T) {
 	if err != nil {
 		t.Fatalf("stat: %v", err)
 	}
-	if want := int64(8 + 8 + 64 + 32); st.Size() != want {
+	if want := int64(walHeaderSize); st.Size() != want {
 		t.Fatalf("expected size %d, got %d", want, st.Size())
 	}
 }
