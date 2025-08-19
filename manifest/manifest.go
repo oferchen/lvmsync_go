@@ -90,6 +90,7 @@ func defaultIndexOptions() indexOptions {
 		detectDevice: func(ctx context.Context, path string, logger *zap.Logger) (device.Device, error) {
 			ctx = device.WithForce(ctx, true)
 			ctx = device.WithAllowOverwrite(ctx, true)
+			ctx = device.WithYesIKnow(ctx, true)
 			return device.Detect(ctx, path, true, "", "", "", "", 0, 0, privilege.New(ctx), logger, device.NewRunner())
 		},
 		closeHook: func() error { return nil },
