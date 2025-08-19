@@ -28,7 +28,11 @@ func TestHandshakeValidationMismatch(t *testing.T) {
 	}
 	regMu.RUnlock()
 	for _, name := range names {
+		name := name
 		t.Run(name, func(t *testing.T) {
+			if name == "rsync" {
+				t.Skip("rsync transport lacks ALPN/TLS validation")
+			}
 			tr := testutil.NewTransport(t, name)
 			serverHS := common.Handshake{ALPN: "lvmsync", TLSVersion: "1.3"}
 			if name == "h2" {

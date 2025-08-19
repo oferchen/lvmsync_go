@@ -117,7 +117,7 @@ lvmsync /dev/vg0/snap0 /mnt/backup
 Example usage selecting transports and ports:
 
 ```sh
-lvmsync --transport quic,h2,tcp+tls,ssh --tcp-port 9443
+lvmsync --transport ssh,tcp+tls,h2,quic --tcp-port 9443
 ```
 
 BDP-based autotuning keeps roughly one to two times the bandwidth–delay product
@@ -132,7 +132,7 @@ in flight. Override the autotuned value with `--concurrency`.
 
 The `throughput` preset favors maximal transfer rates:
 
-- transport order `quic,h2,tcp+tls,ssh`
+- transport order `ssh,tcp+tls,h2,quic`
 - concurrency `8`
 - hybrid dedup with 2 MiB fixed chunks and CDC range 256 KiB–8 MiB
 - compression `auto`
