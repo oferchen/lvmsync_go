@@ -71,6 +71,7 @@ func initGeneralFlags(cfg *Config) *pflag.FlagSet {
 	fs.Bool("zerocopy", cfg.ZeroCopy, "Enable zero-copy transfers")
 	fs.Bool("odirect", cfg.ODirect, "Use O_DIRECT for device I/O when possible")
 	fs.Bool("numa-pin", cfg.NumaPin, "Pin worker goroutines to device NUMA node")
+	fs.Int("numa-node", cfg.NumaNode, "NUMA node to pin worker goroutines")
 	fs.Int("max-retries", cfg.MaxRetries, "Maximum number of retries per block")
 	fs.Duration("retry-delay", cfg.RetryDelay, "Initial delay between retries")
 	fs.String("resume", cfg.ResumeState, "Path to resume state file")

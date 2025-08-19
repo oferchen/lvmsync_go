@@ -57,6 +57,9 @@ func (b *builder) applyDefaults(conf *Config) error {
 	if !isSet(b.v, "numa-pin") {
 		conf.NumaPin = b.defaults.NumaPin
 	}
+	if !isSet(b.v, "numa-node") {
+		conf.NumaNode = b.defaults.NumaNode
+	}
 	if conf.Transport == "" {
 		conf.Transport = b.defaults.Transport
 	}
