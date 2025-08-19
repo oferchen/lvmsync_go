@@ -25,3 +25,18 @@ Loopback and LVM integration tests currently run only on `amd64` hardware. The
 CI workflow skips these checks on other architectures, so maintainers working on
 `arm64` or similar platforms can still run unit tests but should verify
 integration behavior on `amd64` when possible.
+
+## Linting
+
+Go code is formatted and linted with dedicated tooling rather than the
+GitHub Super Linter. Run the following before submitting changes:
+
+```sh
+gofmt -w .
+goimports -w .
+golangci-lint run
+go vet ./...
+staticcheck ./...
+```
+
+These commands are enforced in CI via the Go workflows.
