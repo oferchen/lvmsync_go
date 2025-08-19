@@ -17,7 +17,7 @@ OUT_DIR=$(dirname "$0")/..
 OUT_FILE="$OUT_DIR/reports/bench_smoke.csv"
 mkdir -p "$(dirname "$OUT_FILE")"
 if [ ! -f "$OUT_FILE" ]; then
-    echo "commit,compression,throughput_MBps" >"$OUT_FILE"
+    echo "commit,compression,throughput_MBps,cpu_pct" >"$OUT_FILE"
 fi
 
 SRC=$(mktemp)
@@ -27,13 +27,15 @@ dd if=/dev/urandom of="$SRC" bs=1M count="$SIZE_MB" status=none
 for COMP in none zstd; do
     DST=$(mktemp)
     start=$(date +%s%N)
-    ./lvmsync run --mode throughput --compress "$COMP" "$SRC" "$DST" >/dev/null 2>&1
+    /usr/bin/time -f "%U %S" -o time.txt ./lvmsync run --mode throughput --compress "$COMP" "$SRC" "$DST" >/dev/null 2>&1
     end=$(date +%s%N)
-    rm -f "$DST"
+    read user sys < time.txt
+    rm -f "$DST" time.txt
 
     elapsed_ns=$((end - start))
     throughput=$(awk -v b="$BYTES" -v ns="$elapsed_ns" 'BEGIN { print (b/1048576)/(ns/1e9) }')
-    printf '%s,%s,%.2f\n' "$COMMIT" "$COMP" "$throughput" >>"$OUT_FILE"
+    cpu_pct=$(awk -v u="$user" -v s="$sys" -v ns="$elapsed_ns" 'BEGIN { print 100*(u+s)/(ns/1e9) }')
+    printf '%s,%s,%.2f,%.2f\n' "$COMMIT" "$COMP" "$throughput" "$cpu_pct" >>"$OUT_FILE"
     awk -v t="$throughput" -v min="$MIN_MBPS" 'BEGIN { if (t < min) exit 1 }'
 done
 
