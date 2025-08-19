@@ -49,7 +49,7 @@ func TestRunDefaultOutputPath(t *testing.T) {
 	r := NewRunnerWithDeps(func(ctx context.Context, dev, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error {
 		opts = append(opts, manifestpkg.WithDeviceInfo(info))
 		return manifestpkg.Rebuild(ctx, dev, output, logger, interval, allow, cdcMin, cdcAvg, cdcMax, hybrid, opts...)
-	}, nil)
+	}, nil, nil)
 	if err := r.Run(cfg, []string{"rebuild", devicePath}, logger); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -94,7 +94,7 @@ func TestRunManifestPathFlag(t *testing.T) {
 	r := NewRunnerWithDeps(func(ctx context.Context, dev, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error {
 		opts = append(opts, manifestpkg.WithDeviceInfo(info))
 		return manifestpkg.Rebuild(ctx, dev, output, logger, interval, allow, cdcMin, cdcAvg, cdcMax, hybrid, opts...)
-	}, nil)
+	}, nil, nil)
 	if err := r.Run(cfg, args, logger); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -169,6 +169,7 @@ func TestRunMissingArgs(t *testing.T) {
 		{"missing subcommand", []string{}},
 		{"missing device", []string{"rebuild"}},
 		{"gc missing path", []string{"gc"}},
+		{"compact missing path", []string{"compact"}},
 	}
 
 	for _, tc := range cases {
@@ -208,10 +209,10 @@ func TestRunAppliesManifestTimeout(t *testing.T) {
 	}
 	cfg.ManifestTimeout = 2 * time.Second
 	var captured context.Context
-	r := NewRunnerWithDeps(func(ctx context.Context, device, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error {
+	r := NewRunnerWithDeps(func(ctx context.Context, _, _ string, _ *zap.Logger, _ time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error {
 		captured = ctx
 		return nil
-	}, nil)
+	}, nil, nil)
 	if err := r.Run(cfg, []string{"rebuild", "/dev/test"}, zap.NewNop()); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -227,10 +228,10 @@ func TestRunZeroManifestTimeoutUsesBackground(t *testing.T) {
 	}
 	cfg.ManifestTimeout = 0
 	var captured context.Context
-	r := NewRunnerWithDeps(func(ctx context.Context, device, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error {
+	r := NewRunnerWithDeps(func(ctx context.Context, _, _ string, _ *zap.Logger, _ time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error {
 		captured = ctx
 		return nil
-	}, nil)
+	}, nil, nil)
 	if err := r.Run(cfg, []string{"rebuild", "/dev/test"}, zap.NewNop()); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -252,10 +253,10 @@ func TestRunContextNoDeadline(t *testing.T) {
 	}
 	cfg.ManifestTimeout = 0
 	var captured context.Context
-	r := NewRunnerWithDeps(func(ctx context.Context, device, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error {
+	r := NewRunnerWithDeps(func(ctx context.Context, _, _ string, _ *zap.Logger, _ time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error {
 		captured = ctx
 		return nil
-	}, nil)
+	}, nil, nil)
 	if err := r.Run(cfg, []string{"rebuild", "/dev/test"}, zap.NewNop()); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -307,7 +308,7 @@ func TestRunWritesVersion(t *testing.T) {
 	r := NewRunnerWithDeps(func(ctx context.Context, dev, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error {
 		opts = append(opts, manifestpkg.WithDeviceInfo(info))
 		return manifestpkg.Rebuild(ctx, dev, output, logger, interval, allow, cdcMin, cdcAvg, cdcMax, hybrid, opts...)
-	}, nil)
+	}, nil, nil)
 	if err := r.Run(cfg, []string{"rebuild", devicePath}, zap.NewNop()); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
