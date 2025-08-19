@@ -23,7 +23,7 @@ func TestWALCrashRecovery(t *testing.T) {
 		if err != nil {
 			t.Fatalf("open file: %v", err)
 		}
-		if _, err := f.Seek(8+8+64+32, 0); err != nil {
+		if _, err := f.Seek(walHeaderSize, 0); err != nil {
 			t.Fatalf("seek: %v", err)
 		}
 		var buf [8]byte
@@ -63,7 +63,7 @@ func TestWALCrashRecovery(t *testing.T) {
 		if err := w.f.Close(); err != nil {
 			t.Fatalf("close: %v", err)
 		}
-		if err := os.Truncate(path, 8+8+64+32+16); err != nil {
+		if err := os.Truncate(path, walHeaderSize+16); err != nil {
 			t.Fatalf("truncate: %v", err)
 		}
 		w2, ranges, err := OpenWAL(path, 128, "dev", 1)
