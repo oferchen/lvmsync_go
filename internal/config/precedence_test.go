@@ -307,8 +307,6 @@ func TestSanitizeEnvEnvOverridesYAML(t *testing.T) {
 	if err != nil {
 		t.Fatalf("build: %v", err)
 	}
-	if cfg.SanitizeEnv {
-		t.Fatalf("SanitizeEnv=%v want false", cfg.SanitizeEnv)
 	if !cfg.SanitizeEnv {
 		t.Fatalf("SanitizeEnv=%v want true", cfg.SanitizeEnv)
 	}
