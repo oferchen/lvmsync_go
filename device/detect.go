@@ -35,7 +35,10 @@ func detectLVMDevice(ctx context.Context, path, lvmEscalation string, runner *Ru
 		logger.Error("detect_device_failed", zap.String("path", path), zap.String("device_type", TypeLVM), zap.Error(err))
 		return nil, err
 	}
-	cache := lvm.NewDeviceFDCache(logger)
+	cache, err := lvm.NewDeviceFDCache(logger)
+	if err != nil {
+		return nil, err
+	}
 	defer cache.Close()
 	dev, err := runner.OpenLVM(ctx, path, cache, lvmEscalation, logger)
 	if err != nil {

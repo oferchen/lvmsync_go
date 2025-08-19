@@ -151,11 +151,8 @@ func TestExitCodeMapping(t *testing.T) {
 	}
 }
 
-func TestRunNilLoggerPanics(t *testing.T) {
-	defer func() {
-		if recover() == nil {
-			t.Fatalf("expected panic")
-		}
-	}()
-	run([]string{}, nil)
+func TestRunNilLoggerError(t *testing.T) {
+	if err := run([]string{}, nil); err == nil {
+		t.Fatalf("expected error")
+	}
 }

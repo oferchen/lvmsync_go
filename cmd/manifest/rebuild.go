@@ -42,7 +42,7 @@ func init() {
 // Run executes manifest subcommands.
 func (r *Runner) Run(cfg *config.Config, args []string, logger *zap.Logger) error {
 	if logger == nil {
-		panic("nil logger")
+		return fmt.Errorf("nil logger")
 	}
 	defer rootcmd.SyncLogger(logger)
 	if len(args) == 0 {

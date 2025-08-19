@@ -30,7 +30,10 @@ func TestOpenLVM(t *testing.T) {
 	t.Cleanup(restoreDir)
 	loop, cleanup := setupLoop(t, 1<<20)
 	defer cleanup()
-	cache := lvm.NewDeviceFDCache(zap.NewNop())
+	cache, err := lvm.NewDeviceFDCache(zap.NewNop())
+	if err != nil {
+		t.Fatalf("NewDeviceFDCache: %v", err)
+	}
 	defer cache.Close()
 	runner := NewRunner()
 	dev, err := runner.OpenLVM(context.Background(), loop, cache, "", zap.NewNop())
@@ -52,7 +55,10 @@ func TestOpenLVMNonBlockDevice(t *testing.T) {
 		t.Fatalf("temp file: %v", err)
 	}
 	f.Close()
-	cache := lvm.NewDeviceFDCache(zap.NewNop())
+	cache, err := lvm.NewDeviceFDCache(zap.NewNop())
+	if err != nil {
+		t.Fatalf("NewDeviceFDCache: %v", err)
+	}
 	defer cache.Close()
 	runner := NewRunner()
 	if _, err := runner.OpenLVM(context.Background(), f.Name(), cache, "", zap.NewNop()); err == nil {
@@ -61,7 +67,10 @@ func TestOpenLVMNonBlockDevice(t *testing.T) {
 }
 
 func TestOpenLVMChecks(t *testing.T) {
-	cache := lvm.NewDeviceFDCache(zap.NewNop())
+	cache, err := lvm.NewDeviceFDCache(zap.NewNop())
+	if err != nil {
+		t.Fatalf("NewDeviceFDCache: %v", err)
+	}
 	defer cache.Close()
 	runner := NewRunnerWithDeps(func(context.Context, string) (bool, error) { return false, nil }, lvm.AutoExtendEnabled, lvm.DiscardEnabled, defaultIsMountedRW, lock.Acquire, nil)
 	if _, err := runner.OpenLVM(context.Background(), "/dev/missing", cache, "", zap.NewNop()); err == nil {

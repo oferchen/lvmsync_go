@@ -183,7 +183,9 @@ func GetVolumeSize(volumePath string, cache *FDCache, logger *zap.Logger) (uint6
 	if cache == nil {
 		return 0, fmt.Errorf("fd cache is nil")
 	}
-	cache.SetLogger(logger)
+	if err := cache.SetLogger(logger); err != nil {
+		return 0, err
+	}
 	fd, err := cache.getFD(volumePath)
 	if err != nil {
 		return 0, err

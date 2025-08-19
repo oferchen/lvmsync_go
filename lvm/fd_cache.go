@@ -27,32 +27,33 @@ type FDCache struct {
 }
 
 // NewFDCache returns an initialized file descriptor cache with the given capacity.
-func NewFDCache(size int, logger *zap.Logger) *FDCache {
+func NewFDCache(size int, logger *zap.Logger) (*FDCache, error) {
 	if size <= 0 {
 		size = fdCacheSize
 	}
 	if logger == nil {
-		panic("nil logger")
+		return nil, fmt.Errorf("nil logger")
 	}
 	return &FDCache{
 		fds:    make(map[string]*list.Element, size),
 		order:  list.New(),
 		size:   size,
 		logger: logger,
-	}
+	}, nil
 }
 
 // NewDeviceFDCache returns an FDCache preconfigured for device descriptor caching.
-func NewDeviceFDCache(logger *zap.Logger) *FDCache {
+func NewDeviceFDCache(logger *zap.Logger) (*FDCache, error) {
 	return NewFDCache(fdCacheSize, logger)
 }
 
 // SetLogger updates the logger used by the cache.
-func (c *FDCache) SetLogger(logger *zap.Logger) {
+func (c *FDCache) SetLogger(logger *zap.Logger) error {
 	if logger == nil {
-		panic("nil logger")
+		return fmt.Errorf("nil logger")
 	}
 	c.logger = logger
+	return nil
 }
 
 // getFD retrieves an open file descriptor for the specified device path.
