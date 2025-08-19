@@ -337,6 +337,9 @@ func buildViper(flagSets *FlagSets) (*viper.Viper, []string, bool, error) {
 		}
 		var raw map[string]any
 		if err := yaml.Unmarshal(data, &raw); err == nil {
+			if err := validateSchema(raw); err != nil {
+				return nil, nil, false, err
+			}
 			if v, ok := raw["allow_insecure"].(bool); ok && v {
 				allowInsecureYAML = true
 			}

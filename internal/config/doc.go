@@ -1,0 +1,30 @@
+package config
+
+import (
+	"fmt"
+	"sort"
+	"strings"
+
+	"github.com/spf13/pflag"
+)
+
+// EnvDoc returns a markdown table mapping environment variables,
+// flags, and YAML keys for all available configuration options.
+func EnvDoc(fs *FlagSets) string {
+	type row struct{ env, flag, yaml, usage string }
+	var rows []row
+	for _, set := range fs.All() {
+		set.VisitAll(func(f *pflag.Flag) {
+			env := "LVMSYNC_" + strings.ToUpper(strings.ReplaceAll(f.Name, "-", "_"))
+			rows = append(rows, row{env, "--" + f.Name, f.Name, f.Usage})
+		})
+	}
+	sort.Slice(rows, func(i, j int) bool { return rows[i].flag < rows[j].flag })
+	var b strings.Builder
+	fmt.Fprintln(&b, "| ENV | Flag | YAML | Description |")
+	fmt.Fprintln(&b, "| --- | ---- | ---- | ----------- |")
+	for _, r := range rows {
+		fmt.Fprintf(&b, "| %s | `%s` | `%s` | %s |\n", r.env, r.flag, r.yaml, strings.ReplaceAll(r.usage, "|", "\\|"))
+	}
+	return b.String()
+}
