@@ -34,3 +34,18 @@ lvmsync ALL=(root) NOPASSWD: LVMSYNC_LVM, LVMSYNC_HELPER, LVMSYNC_BLKDISCARD
 ```
 
 Test each entry carefully to ensure no additional privileges are granted.
+
+## Auditing
+
+Monitor the journal or syslog to verify only expected commands run with elevated privileges:
+
+```sh
+# systemd journal examples
+journalctl _COMM=sudo --since -1h
+journalctl -t lvmsync-helper
+
+# syslog-based systems
+grep lvmsync-helper /var/log/auth.log
+```
+
+Review these logs regularly to confirm the helper and LVM commands execute as intended.
