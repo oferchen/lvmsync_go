@@ -2,8 +2,9 @@
 
 LVMSync requires elevated privileges for a small set of operations. The
 following examples show least-privilege `sudoers` rules for each command.
-Adjust paths to match your distribution and test on non-production systems
-before enabling them in production.
+See [../SECURITY.md](../SECURITY.md) for the overall model, assumptions, and
+risks. Adjust paths to match your distribution and test on non-production
+systems before enabling them in production.
 
 ## LVM administration
 

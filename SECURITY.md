@@ -13,18 +13,22 @@ Read-only operations can run without elevated privileges.
 `--verify-only` reads source and destination devices and reports mismatches.  
 Both commands exit `0` on success, return `60` for verification failures, and `10` when required capabilities are missing.
 
-## Example sudoers configuration
+## Required sudoers entries
 
-Tight `sudoers` rules limit what the helper may execute. See [docs/sudoers.md](docs/sudoers.md) for command-specific entries:
+Tight `sudoers` rules limit what the helper may execute. LVMSync assumes the
+controlling user can invoke **only** the following commands via `sudo`; any
+broadly scoped or wildcard entries break the least-privilege model and may give
+the user full root access. See [docs/sudoers.md](docs/sudoers.md) for
+command-specific guidance:
 
 ```sudoers
 # Allow LVM administration commands
 lvmsync ALL=(root) NOPASSWD: /sbin/lvm, /sbin/lvcreate, /sbin/lvremove, /sbin/lvs, /sbin/pvs, /sbin/vgs
 
 # Permit opening devices and issuing writes or discards through the helper
-lvmsync ALL=(root) NOPASSWD: \
-    /usr/local/bin/lvmsync-helper open, \
-    /usr/local/bin/lvmsync-helper write, \
+lvmsync ALL=(root) NOPASSWD: \\
+    /usr/local/bin/lvmsync-helper open, \\
+    /usr/local/bin/lvmsync-helper write, \\
     /usr/local/bin/lvmsync-helper discard
 
 # Enable direct blkdiscard when the helper is unavailable
@@ -32,6 +36,15 @@ lvmsync ALL=(root) NOPASSWD: /usr/sbin/blkdiscard
 ```
 
 Adjust paths to match your distribution.
+
+## Least-privilege assumptions and risks
+
+The project assumes a dedicated `lvmsync` account with the above narrowly
+scoped rules. Granting broader access—such as allowing `lvmsync-helper` with
+arbitrary arguments or permitting `lvm` without explicit subcommands—lets an
+attacker escalate to full root control. Because the helper can read and write
+raw block devices, a compromised account or misconfigured rule could lead to
+complete destruction or disclosure of data across the entire disk.
 
 ## Environment sanitization
 
@@ -43,7 +56,9 @@ disabled by default to avoid surprising behavior in mixed environments.
 
 ## Risks of raw-device writes
 
-Granting raw-device access lets the helper overwrite any block on the target. A misconfigured path or bug could destroy unrelated data. LVMSync mitigates this risk by:
+Granting raw-device access lets the helper overwrite any block on the target.
+A misconfigured `sudoers` rule or path could destroy unrelated data or allow
+full-disk compromise. LVMSync mitigates this risk by:
 
 * Requiring explicit device paths; globbing and symlinks are rejected.
 * Verifying device size and LVM signatures before writing.
