@@ -191,6 +191,8 @@ func TestParallelEnvOverridesYAML(t *testing.T) {
 		t.Fatalf("Parallel=%d want %d", cfg.Parallel, 8)
 	}
 }
+
+// Test compress_threshold precedence: flag > env var > YAML.
 func TestCompressThresholdFlagOverridesEnvAndYAML(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	defaults, err := DefaultConfig()

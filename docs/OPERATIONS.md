@@ -2,6 +2,13 @@
 
 This guide covers snapshot lifecycle management, resume options, verification modes, and expected exit codes for recovery.
 
+## STDOUT mode confirmation
+
+`--stdout` streams raw binary data to standard output. When `lvmsync` detects
+an interactive TTY on stdin, it prompts for confirmation before proceeding. In
+non-interactive sessions the `--yes-i-know` flag (or `LVMSYNC_YES_I_KNOW`)
+must be supplied to bypass the prompt.
+
 ## Snapshot Creation and Cleanup Flow
 
 1. `lvmsync run` validates the source and destination.
