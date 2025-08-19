@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/zeebo/blake3"
 )
@@ -15,6 +16,15 @@ type walHeader struct {
 	MAC      [32]byte
 }
 
+// WAL is a write-ahead log of device ranges. Each 16-byte entry records a
+// committed range and is fsynced before returning from Append. Callers must
+// append entries in monotonically increasing order.
+//
+// On first creation the header is written and both the file and its parent
+// directory are fsynced to ensure durability. When reopened after a crash,
+// OpenWAL scans for the last complete entry and truncates any partially written
+// tail. Close fsyncs the file and its parent directory to guarantee that the
+// final state of the WAL is persistent.
 type WAL struct {
 	f      *os.File
 	header walHeader
@@ -28,6 +38,10 @@ func walHeaderMAC(h *walHeader) [32]byte {
 	return blake3.Sum256(buf[:])
 }
 
+// OpenWAL opens or creates the WAL at path. It validates the metadata and
+// returns any fully committed ranges. If a crash left a partially written
+// entry, the WAL is truncated to the last complete record and positioned for
+// further appends.
 func OpenWAL(path string, size uint64, deviceID string, epoch uint64) (*WAL, []Range, error) {
 	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0o600)
 	if err != nil {
@@ -58,6 +72,11 @@ func OpenWAL(path string, size uint64, deviceID string, epoch uint64) (*WAL, []R
 			return nil, nil, err
 		}
 		if err := f.Sync(); err != nil {
+			f.Close()
+			return nil, nil, err
+		}
+		// Ensure the new WAL is durably linked from the parent directory.
+		if err := syncDir(filepath.Dir(path)); err != nil {
 			f.Close()
 			return nil, nil, err
 		}
@@ -95,9 +114,19 @@ func OpenWAL(path string, size uint64, deviceID string, epoch uint64) (*WAL, []R
 		ranges = append(ranges, Range{Start: start, End: end})
 		off += 16
 	}
+	// Truncate any partially written tail and seek to the end for future appends.
+	if err := f.Truncate(off); err != nil {
+		f.Close()
+		return nil, nil, err
+	}
+	if _, err := f.Seek(off, 0); err != nil {
+		f.Close()
+		return nil, nil, err
+	}
 	return w, ranges, nil
 }
 
+// Append records the range and fsyncs the WAL before returning.
 func (w *WAL) Append(r Range) error {
 	var buf [16]byte
 	binary.LittleEndian.PutUint64(buf[0:8], r.Start)
@@ -108,6 +137,7 @@ func (w *WAL) Append(r Range) error {
 	return w.f.Sync()
 }
 
+// Sync flushes the WAL to stable storage.
 func (w *WAL) Sync() error {
 	if w.f != nil {
 		return w.f.Sync()
@@ -115,9 +145,29 @@ func (w *WAL) Sync() error {
 	return nil
 }
 
+// Close flushes the WAL and fsyncs its parent directory.
 func (w *WAL) Close() error {
-	if w.f != nil {
-		return w.f.Close()
+	if w.f == nil {
+		return nil
 	}
-	return nil
+	// Flush file contents first.
+	if err := w.f.Sync(); err != nil {
+		w.f.Close()
+		return err
+	}
+	name := w.f.Name()
+	if err := w.f.Close(); err != nil {
+		return err
+	}
+	w.f = nil
+	return syncDir(filepath.Dir(name))
+}
+
+func syncDir(path string) error {
+	d, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer d.Close()
+	return d.Sync()
 }

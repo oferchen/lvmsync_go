@@ -1,6 +1,7 @@
 package transfer
 
 import (
+	"encoding/binary"
 	"os"
 	"path/filepath"
 	"testing"
@@ -46,5 +47,67 @@ func TestWALRecovery(t *testing.T) {
 	w.Close()
 	if _, err := os.Stat(path); err != nil {
 		t.Fatalf("stat wal: %v", err)
+	}
+}
+
+func TestWALTruncatedHeader(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "wal")
+	w, _, err := OpenWAL(path, 100, "dev", 1)
+	if err != nil {
+		t.Fatalf("open wal: %v", err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+	if err := os.Truncate(path, 10); err != nil {
+		t.Fatalf("truncate: %v", err)
+	}
+	if _, _, err := OpenWAL(path, 100, "dev", 1); err == nil {
+		t.Fatalf("expected truncated header error")
+	}
+}
+
+func TestWALPartialWrite(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "wal")
+	w, _, err := OpenWAL(path, 100, "dev", 1)
+	if err != nil {
+		t.Fatalf("open wal: %v", err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+	f, err := os.OpenFile(path, os.O_WRONLY, 0)
+	if err != nil {
+		t.Fatalf("open file: %v", err)
+	}
+	// Append half of an entry to simulate a crash during write.
+	if _, err := f.Seek(8+8+64+32, 0); err != nil {
+		t.Fatalf("seek: %v", err)
+	}
+	var buf [8]byte
+	binary.LittleEndian.PutUint64(buf[:], 5)
+	if _, err := f.Write(buf[:]); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatalf("close file: %v", err)
+	}
+	w2, ranges, err := OpenWAL(path, 100, "dev", 1)
+	if err != nil {
+		t.Fatalf("reopen wal: %v", err)
+	}
+	if len(ranges) != 0 {
+		t.Fatalf("expected empty ranges, got %#v", ranges)
+	}
+	w2.Close()
+	// Verify the partial entry was truncated.
+	st, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat: %v", err)
+	}
+	if want := int64(8 + 8 + 64 + 32); st.Size() != want {
+		t.Fatalf("expected size %d, got %d", want, st.Size())
 	}
 }
