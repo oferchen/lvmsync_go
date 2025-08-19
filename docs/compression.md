@@ -32,6 +32,33 @@ Zstd enables long‑distance matching to reference data up to several megabytes 
 
 The `golang.org/x/sys/cpu` package detects SIMD extensions at runtime. LVMSync uses this information to choose the fastest implementation and to decide when Zstd is viable.
 
+## Frame Format and Resumability
+
+Each chunk is written as an independent frame so transfers can restart at chunk boundaries. The frame layout is:
+
+| Offset | Length | Field     | Description                                                           |
+|-------:|-------:|-----------|-----------------------------------------------------------------------|
+| 0      | 8      | offset    | Byte position within the source device                                |
+| 8      | 4      | length    | Uncompressed chunk size; `0` denotes a sparse range                   |
+| 12     | 4      | crc32c    | CRC32C of the uncompressed data                                       |
+| 16     | n      | checksum  | Optional BLAKE3/SHA‑256 digest when `--verify-checksum` is enabled    |
+| 16+n   | m      | payload   | Compressed chunk data (omitted for sparse ranges)                     |
+
+The `offset` field doubles as a resume marker. LVMSync records the last completed frame in the resume state so interrupted transfers can skip transmitted chunks without recompressing them.
+
+### Resume Example
+
+An aborted transfer can continue from the next frame boundary:
+
+```sh
+# Initial run interrupted after the first frame
+lvmsync run --block-size=1M --resume state.json /dev/vg0/snap0 /dev/vgd/dest
+# Resume sends only the remaining frames
+lvmsync run --block-size=1M --resume state.json /dev/vg0/snap0 /dev/vgd/dest
+```
+
+Frames are self‑contained and carry their own checksums. When resuming, LVMSync verifies previously written frames and continues with subsequent ones without recompressing earlier data.
+
 ## Throughput Comparison
 
 Integration tests stream a gzip-compressed block and a zero-filled block through the compressor. The pre-compressed block was sent unmodified, achieving ~5.3 MB/s, while the zero-filled block compressed to ~49.7 MB/s.
