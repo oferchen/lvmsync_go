@@ -1,6 +1,7 @@
 package transfer
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -62,4 +63,82 @@ func TestResumeValidation(t *testing.T) {
 	if rc := chk.chunk("fixed"); rc != (resumeChunk{}) {
 		t.Fatalf("expected empty checkpoint, got %#v", rc)
 	}
+}
+
+// TestWALHeaderCorruption ensures corrupted headers fail to open.
+func TestWALHeaderCorruption(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "wal")
+	w, _, err := OpenWAL(path, 128, "dev", 1)
+	if err != nil {
+		t.Fatalf("open wal: %v", err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+	f, err := os.OpenFile(path, os.O_RDWR, 0)
+	if err != nil {
+		t.Fatalf("open file: %v", err)
+	}
+	if _, err := f.WriteAt([]byte{0xff}, 0); err != nil {
+		t.Fatalf("corrupt header: %v", err)
+	}
+	f.Close()
+	if _, _, err := OpenWAL(path, 128, "dev", 1); err == nil {
+		t.Fatalf("expected header corruption error")
+	}
+}
+
+// TestWALDeviceIDCorruption ensures tampered device IDs are detected.
+func TestWALDeviceIDCorruption(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "wal")
+	w, _, err := OpenWAL(path, 128, "dev", 1)
+	if err != nil {
+		t.Fatalf("open wal: %v", err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+	f, err := os.OpenFile(path, os.O_RDWR, 0)
+	if err != nil {
+		t.Fatalf("open file: %v", err)
+	}
+	if _, err := f.WriteAt([]byte("bad"), 16); err != nil {
+		t.Fatalf("corrupt device id: %v", err)
+	}
+	f.Close()
+	if _, _, err := OpenWAL(path, 128, "dev", 1); err == nil {
+		t.Fatalf("expected device id corruption error")
+	}
+}
+
+// TestWALDetectsUnsyncedEntry simulates power loss before fsync.
+func TestWALDetectsUnsyncedEntry(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "wal")
+	w, _, err := OpenWAL(path, 128, "dev", 1)
+	if err != nil {
+		t.Fatalf("open wal: %v", err)
+	}
+	if err := w.Append(Range{Start: 0, End: 64}); err != nil {
+		t.Fatalf("append: %v", err)
+	}
+	// Write a partial entry without syncing to simulate a crash before fsync.
+	var buf [8]byte
+	binary.LittleEndian.PutUint64(buf[:], 64)
+	if _, err := w.f.Write(buf[:]); err != nil {
+		t.Fatalf("partial write: %v", err)
+	}
+	if err := w.f.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+	w2, ranges, err := OpenWAL(path, 128, "dev", 1)
+	if err != nil {
+		t.Fatalf("reopen wal: %v", err)
+	}
+	if len(ranges) != 1 || ranges[0].Start != 0 || ranges[0].End != 64 {
+		t.Fatalf("unexpected ranges %#v", ranges)
+	}
+	w2.Close()
 }
