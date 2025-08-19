@@ -26,12 +26,12 @@ func TestSchemaValidationUnknownType(t *testing.T) {
 
 func TestEnvDocUpToDate(t *testing.T) {
 	defaults, _ := DefaultConfig()
-	doc := EnvDoc(NewFlagSets(defaults))
-	data, err := os.ReadFile(filepath.Join("..", "..", "docs", "env.md"))
+	doc := EnvDocHeader + EnvDoc(NewFlagSets(defaults))
+	data, err := os.ReadFile(filepath.Join("..", "..", "docs", "config_env.md"))
 	if err != nil {
-		t.Fatalf("read env.md: %v", err)
+		t.Fatalf("read config_env.md: %v", err)
 	}
 	if doc != string(data) {
-		t.Fatalf("docs/env.md is out of date; run go run ./cmd/configdoc")
+		t.Fatalf("docs/config_env.md is out of date; run go generate ./internal/config")
 	}
 }
