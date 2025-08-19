@@ -185,7 +185,10 @@ func (r *Runner) createSnapshotIfNeeded(ctx context.Context, cfg *config.Config,
 // It returns the snapshot path, an optional monitor error channel,
 // a cleanup function, and any error encountered.
 func (r *Runner) PrepareSnapshot(ctx context.Context, cfg *config.Config, originalVolume string, logger *zap.Logger) (string, chan error, func(), error) {
-	cache := lvm.NewDeviceFDCache(logger)
+	cache, err := lvm.NewDeviceFDCache(logger)
+	if err != nil {
+		return "", nil, nil, err
+	}
 	defer cache.Close()
 
 	snapshotBytes, err := r.calculateSnapshotSize(cfg, originalVolume, cache, logger)

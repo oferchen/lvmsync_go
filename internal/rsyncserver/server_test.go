@@ -100,14 +100,12 @@ func TestHandleApplyDelta(t *testing.T) {
 	}
 }
 
-func TestNewNilLoggerPanics(t *testing.T) {
+func TestNewNilLoggerDefaults(t *testing.T) {
 	dev := &memDevice{}
-	defer func() {
-		if recover() == nil {
-			t.Fatalf("expected panic")
-		}
-	}()
-	New(dev, nil, nil, "", "")
+	srv := New(dev, nil, nil, "", "")
+	if srv.logger == nil {
+		t.Fatalf("expected non-nil logger")
+	}
 }
 
 func TestHandleShortWrite(t *testing.T) {

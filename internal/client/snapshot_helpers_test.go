@@ -17,7 +17,10 @@ func TestCalculateSnapshotSize(t *testing.T) {
 		cfg := &config.Config{SnapshotSize: "1024"}
 		r := NewRunnerWithDeps(func(string, string, *lvm.FDCache, *zap.Logger) (uint64, error) { return 1024, nil }, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 
-		cache := lvm.NewDeviceFDCache(zap.NewNop())
+		cache, err := lvm.NewDeviceFDCache(zap.NewNop())
+		if err != nil {
+			t.Fatalf("NewDeviceFDCache: %v", err)
+		}
 		defer cache.Close()
 		size, err := r.calculateSnapshotSize(cfg, "/dev/vg/lv", cache, zap.NewNop())
 		if err != nil {
@@ -32,7 +35,10 @@ func TestCalculateSnapshotSize(t *testing.T) {
 		cfg := &config.Config{SnapshotSize: "bad"}
 		r := NewRunnerWithDeps(func(string, string, *lvm.FDCache, *zap.Logger) (uint64, error) { return 0, errors.New("bad") }, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 
-		cache := lvm.NewDeviceFDCache(zap.NewNop())
+		cache, err := lvm.NewDeviceFDCache(zap.NewNop())
+		if err != nil {
+			t.Fatalf("NewDeviceFDCache: %v", err)
+		}
 		defer cache.Close()
 		if _, err := r.calculateSnapshotSize(cfg, "/dev/vg/lv", cache, zap.NewNop()); err == nil {
 			t.Fatalf("expected error for invalid size")
@@ -42,7 +48,10 @@ func TestCalculateSnapshotSize(t *testing.T) {
 
 func TestEnsureVolumeGroups(t *testing.T) {
 	logger := zap.NewNop()
-	cache := lvm.NewDeviceFDCache(logger)
+	cache, err := lvm.NewDeviceFDCache(logger)
+	if err != nil {
+		t.Fatalf("NewDeviceFDCache: %v", err)
+	}
 	defer cache.Close()
 
 	t.Run("sets missing volume group", func(t *testing.T) {
