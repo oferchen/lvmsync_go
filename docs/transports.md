@@ -117,3 +117,12 @@ lvmsyncd --listen quic://:12000 --server-cert cert.pem --server-key key.pem --cl
 - Optional agent auth with `--ssh-agent`/`LVMSYNC_SSH_AGENT` using `SSH_AUTH_SOCK`
 - Listeners require a persistent host key via `--ssh-host-key-path` unless `--allow-insecure` is enabled
 - Flags: `--ssh-user`, `--ssh-password`, `--ssh-key`, `--ssh-host-key`, `--ssh-host-key-path`, `--ssh-agent`, `--allow-insecure`
+
+## RSYNC
+
+- Uses the rsync daemon protocol for wire compatibility
+- Plain TCP; no encryption or authentication
+- Interoperates with upstream `rsyncd` implementations (e.g., OpenRSYNC on macOS 15)
+- Known issue: macOS 15 ships OpenRSYNC 0.6 which may abort large transfers; verify with upstream rsync if issues arise
+- Security: traffic is unencrypted and unauthenticated. Run only on trusted networks or within secure tunnels
+- Flags: `--transport rsync` selects this transport
