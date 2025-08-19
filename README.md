@@ -1501,19 +1501,18 @@ Invalid configurations will cause the tool to abort with a clear error message.
 
 ## Exit Codes
 
-
-| Constant | Code | Meaning |
-|----------|------|---------|
-| [`exitcode.OK`](internal/exitcode/exitcode.go) | `0`  | Success |
-| [`exitcode.ErrCapability`](internal/exitcode/exitcode.go) | `10` | Privilege or capability check failed |
-| [`exitcode.ErrDevice`](internal/exitcode/exitcode.go) | `20` | Device error |
-| [`exitcode.ErrPlatform`](internal/exitcode/exitcode.go) | `30` | Unsupported platform |
-| [`exitcode.ErrConfig`](internal/exitcode/exitcode.go) | `40` | Configuration error |
-| [`exitcode.ErrRuntime`](internal/exitcode/exitcode.go) | `50` | Runtime failure |
-| [`exitcode.ErrVerify`](internal/exitcode/exitcode.go) | `60` | Verification mismatch |
-| [`exitcode.ErrPartial`](internal/exitcode/exitcode.go) | `70` | Partial transfer |
-| [`exitcode.ErrPrecondition`](internal/exitcode/exitcode.go) | `80` | Precondition failed |
-| [`exitcode.ErrResumable`](internal/exitcode/exitcode.go) | `90` | Resumable exit |
+| Constant | Code | Meaning | Recovery Step |
+|----------|------|---------|---------------|
+| [`exitcode.OK`](internal/exitcode/exitcode.go) | `0`  | Success | None |
+| [`exitcode.ErrCapability`](internal/exitcode/exitcode.go) | `10` | Privilege or capability check failed | Run as root or adjust `--lvm-escalation`. |
+| [`exitcode.ErrDevice`](internal/exitcode/exitcode.go) | `20` | Device error | Verify device paths and snapshot health. |
+| [`exitcode.ErrPlatform`](internal/exitcode/exitcode.go) | `30` | Unsupported platform | Run on a supported Linux platform. |
+| [`exitcode.ErrConfig`](internal/exitcode/exitcode.go) | `40` | Configuration error | Review flags, environment variables, and `config.yaml`. |
+| [`exitcode.ErrRuntime`](internal/exitcode/exitcode.go) | `50` | Runtime failure | Inspect logs, fix the issue, and rerun using `--resume` when applicable. |
+| [`exitcode.ErrVerify`](internal/exitcode/exitcode.go) | `60` | Verification mismatch | Investigate mismatched data before retrying. |
+| [`exitcode.ErrPartial`](internal/exitcode/exitcode.go) | `70` | Partial transfer | Address the error and resume with `--resume`. |
+| [`exitcode.ErrPrecondition`](internal/exitcode/exitcode.go) | `80` | Precondition failed | Fix prerequisites and retry. |
+| [`exitcode.ErrResumable`](internal/exitcode/exitcode.go) | `90` | Resumable exit | Resume with `--resume` after resolving the issue. |
 
 Exit code definitions live in [internal/exitcode](internal/exitcode/exitcode.go), and handling resides in [cmd/root/root.go](cmd/root/root.go).
 
