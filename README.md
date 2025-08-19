@@ -674,7 +674,7 @@ Flags override environment variables, which override `config.yaml` values.
 | `--lz4-level` | `LVMSYNC_COMPRESSION_LZ4_LEVEL` | `lz4_level` | LZ4 compression level: `fast` or `hc` |
 | `--compress-concurrency` | `LVMSYNC_COMPRESSION_COMPRESS_CONCURRENCY` | `compress_concurrency` | Compression concurrency (0 to use `GOMAXPROCS`) |
 | `--compress-threshold` | `LVMSYNC_COMPRESSION_COMPRESS_THRESHOLD` | `compress_threshold` | Skip compression when estimated ratio exceeds this value |
-| `--skip-snapshot-creation` | `LVMSYNC_SKIP_SNAPSHOT_CREATION` | `skip_snapshot_creation` | Skip automatic snapshot creation |
+| `--skip-snapshot-creation` | `LVMSYNC_SKIP_SNAPSHOT_CREATION` | `skip_snapshot_creation` | Skip automatic snapshot creation (requires `--force`) |
 | `--skip-disk-check` | `LVMSYNC_SKIP_DISK_CHECK` | `skip_disk_check` | Skip disk space check before snapshot creation |
 | `--snapshot-size` | `LVMSYNC_SNAPSHOT_SIZE` | `snapshot_size` | Snapshot size (e.g., `20G` or `20%`) |
 | `--lvm-escalation` | `LVMSYNC_LVM_ESCALATION` | `lvm_escalation` | Command used to escalate privileges for LVM commands; parsed with shell-style quoting and validated at startup |

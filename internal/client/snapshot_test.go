@@ -20,6 +20,7 @@ func TestPrepareSkipSnapshot(t *testing.T) {
 		t.Fatalf("DefaultConfig error: %v", err)
 	}
 	cfg.SkipSnapshotCreation = true
+	cfg.Force = true
 	cfg.SkipDiskCheck = true
 	cfg.VolumeGroup = "vg"
 	cfg.TargetVolumeGroup = "vg2"
@@ -38,6 +39,24 @@ func TestPrepareSkipSnapshot(t *testing.T) {
 		t.Fatalf("expected nil monitor channel")
 	}
 	cleanup()
+}
+
+func TestPrepareSkipSnapshotRequiresForce(t *testing.T) {
+	cfg, err := config.DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig error: %v", err)
+	}
+	cfg.SkipSnapshotCreation = true
+	cfg.SkipDiskCheck = true
+	cfg.VolumeGroup = "vg"
+	cfg.TargetVolumeGroup = "vg2"
+
+	r := client.NewRunnerWithDeps(func(string, string, *lvm.FDCache, *zap.Logger) (uint64, error) { return 1, nil }, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+
+	logger := zap.NewNop()
+	if _, _, _, err := r.PrepareSnapshot(context.Background(), cfg, "/dev/vg/orig", logger); err == nil {
+		t.Fatalf("expected error when skipping snapshot without force")
+	}
 }
 
 func TestPrepareSnapshotCreatesSnapshot(t *testing.T) {
