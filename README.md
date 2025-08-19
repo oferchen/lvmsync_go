@@ -559,6 +559,14 @@ parallel: 4
 running `LVMSYNC_PARALLEL=8 lvmsync run --parallel 16` results in `parallel=16`
 because flags override environment variables, which override the config file.
 
+For a boolean option:
+
+```yaml
+dry_run: true
+```
+
+running `LVMSYNC_DRY_RUN=true lvmsync run --dry-run=false src dst` performs a real transfer because the `--dry-run` flag overrides both the environment variable and the config file.
+
 A similar hierarchy applies to duration values:
 
 ```yaml
