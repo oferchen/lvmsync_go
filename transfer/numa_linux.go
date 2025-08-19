@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"syscall"
 
 	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
@@ -15,21 +16,37 @@ import (
 	"lvmsync_go/internal/config"
 )
 
+type numaOps interface {
+	ReadFile(string) ([]byte, error)
+	SchedSetaffinity(int, *unix.CPUSet) error
+}
+
+type osNumaOps struct{}
+
+func (osNumaOps) ReadFile(p string) ([]byte, error) { return os.ReadFile(p) }
+func (osNumaOps) SchedSetaffinity(pid int, mask *unix.CPUSet) error {
+	return unix.SchedSetaffinity(pid, mask)
+}
+
 // pinCurrentThreadToDevice pins the current OS thread to CPUs local to the
 // NUMA node of the provided device file.
 func pinCurrentThreadToDevice(f *os.File) error {
+	return pinCurrentThreadToDeviceWithOps(f, osNumaOps{})
+}
+
+func pinCurrentThreadToDeviceWithOps(f *os.File, ops numaOps) error {
 	st, err := f.Stat()
 	if err != nil {
 		return fmt.Errorf("stat device: %w", err)
 	}
-	sys, ok := st.Sys().(*unix.Stat_t)
+	sys, ok := st.Sys().(*syscall.Stat_t)
 	if !ok {
 		return fmt.Errorf("unexpected stat type")
 	}
 	major := unix.Major(uint64(sys.Rdev))
 	minor := unix.Minor(uint64(sys.Rdev))
 	nodePath := fmt.Sprintf("/sys/dev/block/%d:%d/numa_node", major, minor)
-	b, err := os.ReadFile(nodePath)
+	b, err := ops.ReadFile(nodePath)
 	if err != nil {
 		return err
 	}
@@ -38,7 +55,7 @@ func pinCurrentThreadToDevice(f *os.File) error {
 		return fmt.Errorf("invalid numa node")
 	}
 	cpuListPath := fmt.Sprintf("/sys/devices/system/node/node%d/cpulist", node)
-	cpulist, err := os.ReadFile(cpuListPath)
+	cpulist, err := ops.ReadFile(cpuListPath)
 	if err != nil {
 		return err
 	}
@@ -50,15 +67,19 @@ func pinCurrentThreadToDevice(f *os.File) error {
 	for _, cpu := range cpus {
 		mask.Set(cpu)
 	}
-	if err := unix.SchedSetaffinity(0, &mask); err != nil {
+	if err := ops.SchedSetaffinity(0, &mask); err != nil {
 		return fmt.Errorf("set affinity: %w", err)
 	}
 	return nil
 }
 
 func pinCurrentThreadToNode(node int) error {
+	return pinCurrentThreadToNodeWithOps(node, osNumaOps{})
+}
+
+func pinCurrentThreadToNodeWithOps(node int, ops numaOps) error {
 	cpuListPath := fmt.Sprintf("/sys/devices/system/node/node%d/cpulist", node)
-	cpulist, err := os.ReadFile(cpuListPath)
+	cpulist, err := ops.ReadFile(cpuListPath)
 	if err != nil {
 		return err
 	}
@@ -70,7 +91,7 @@ func pinCurrentThreadToNode(node int) error {
 	for _, cpu := range cpus {
 		mask.Set(cpu)
 	}
-	if err := unix.SchedSetaffinity(0, &mask); err != nil {
+	if err := ops.SchedSetaffinity(0, &mask); err != nil {
 		return fmt.Errorf("set affinity: %w", err)
 	}
 	return nil
