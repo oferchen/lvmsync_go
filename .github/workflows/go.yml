@@ -18,16 +18,20 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on:
+      os: ubuntu-latest
+      architecture: ${{ matrix.arch }}
     strategy:
       matrix:
         go-version: [ "${{ vars.GO_VERSION || '1.24' }}" ]
+        arch: [amd64, arm64]
     permissions:
       contents: write
     env:
       GO111MODULE: "on"
       CGO_ENABLED: "1"
       CGO_CFLAGS: "-I/usr/include"
+      GOARCH: ${{ matrix.arch }}
 
     steps:
       - name: Checkout repository
@@ -40,6 +44,7 @@ jobs:
         with:
           go-version: ${{ matrix.go-version }}
           cache: true
+          architecture: ${{ matrix.arch }}
 
       - name: Cache Go modules
         uses: actions/cache@v4
@@ -47,9 +52,9 @@ jobs:
           path: |
             ~/go/pkg/mod
             ~/.cache/go-build
-          key: ${{ runner.os }}-go-${{ matrix.go-version }}-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-${{ matrix.arch }}-go-${{ matrix.go-version }}-${{ hashFiles('**/go.sum') }}
           restore-keys: |
-            ${{ runner.os }}-go-${{ matrix.go-version }}-
+            ${{ runner.os }}-${{ matrix.arch }}-go-${{ matrix.go-version }}-
 
       - name: Auto-fix gofmt/goimports
         run: |
@@ -103,6 +108,14 @@ jobs:
       - name: Benchmark smoke test
         run: scripts/bench_smoke.sh
 
+      - name: Post benchmark results
+        if: always()
+        run: |
+          echo "### Benchmark smoke test" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Compression | Throughput (MB/s) | CPU (%) |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|-------------|-------------------|---------|" >> "$GITHUB_STEP_SUMMARY"
+          tail -n2 reports/bench_smoke.csv | awk -F, '{printf "| %s | %s | %s |\n", $2, $3, $4}' >> "$GITHUB_STEP_SUMMARY"
+
       - name: Go test
         run: go test -coverprofile=coverage.out ./...
 
@@ -122,29 +135,29 @@ jobs:
         if: github.event_name == 'pull_request'
         run: make test-race
 
-        - name: Integration tests
-          if: github.event_name == 'pull_request'
-          run: make integration
+      - name: Integration tests
+        if: github.event_name == 'pull_request' && matrix.arch == 'amd64'
+        run: make integration
 
-        - name: Build, test, and lint
-          run: make verify
+      - name: Build, test, and lint
+        run: make verify
 
-        - name: Verify prune candidates
-          run: |
-            go run ./cmd/reachmap > .prune_candidates.txt
-            test ! -s .prune_candidates.txt
+      - name: Verify prune candidates
+        run: |
+          go run ./cmd/reachmap > .prune_candidates.txt
+          test ! -s .prune_candidates.txt
 
-        - name: Verify gaps resolved
-          run: |
-            jq -e 'map(select(.type | contains("(resolved)") | not)) | length == 0' reports/machine/gaps.json
+      - name: Verify gaps resolved
+        run: |
+          jq -e 'map(select(.type | contains("(resolved)") | not)) | length == 0' reports/machine/gaps.json
 
-        - name: Docs check
-          run: make docs-check
+      - name: Docs check
+        run: make docs-check
 
-        - name: Show coverage
-          run: go tool cover -func=coverage.out | tail -n 1
+      - name: Show coverage
+        run: go tool cover -func=coverage.out | tail -n 1
 
-        - name: Enforce coverage threshold
-          run: |
-            pct=$(go tool cover -func=coverage.out | tail -n 1 | awk '{print $3}' | tr -d '%')
-            awk -v p="$pct" 'BEGIN { if (p < 50) { printf("coverage %.2f%% is below 50%%\n", p); exit 1 } }'
+      - name: Enforce coverage threshold
+        run: |
+          pct=$(go tool cover -func=coverage.out | tail -n 1 | awk '{print $3}' | tr -d '%')
+          awk -v p="$pct" 'BEGIN { if (p < 50) { printf("coverage %.2f%% is below 50%%\n", p); exit 1 } }'

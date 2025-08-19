@@ -65,6 +65,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - compressiondetect: choose zstd when AVX2 or NEON is available.
 - transfer: sample 8 KiB per chunk and log compression decisions.
 - config: warn on unused or unknown keys in YAML config files.
+- ci: build and smoke-test distroless release image.
 
 ### Fixed
 - lvm: parse `--lvm-escalation` using shell-style quoting and reject unsafe formats
