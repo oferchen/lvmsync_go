@@ -1224,10 +1224,29 @@ lvmsync run /dev/vg0/snap0 user@remote:/dev/vg0/data
 
 #### Using Compression
 
-Estimate a sample of each chunk and compress only when it's worthwhile:
+Estimate a sample of each chunk and compress only when it's worthwhile.
+
+CLI:
 
 ```sh
 lvmsync run --compress auto --zstd-level 2 --compress-threshold 0.85 /dev/vg0/snap0 /dev/vg0/data
+```
+
+Environment:
+
+```sh
+LVMSYNC_COMPRESSION_COMPRESS=auto \
+LVMSYNC_COMPRESSION_ZSTD_LEVEL=2 \
+LVMSYNC_COMPRESSION_COMPRESS_THRESHOLD=0.85 \
+lvmsync run /dev/vg0/snap0 /dev/vg0/data
+```
+
+YAML:
+
+```yaml
+compress: auto
+zstd_level: 2
+compress_threshold: 0.85
 ```
 
 #### Rate Limiting
