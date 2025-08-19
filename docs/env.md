@@ -17,7 +17,11 @@
 | LVMSYNC_COMPRESS_THRESHOLD | `--compress-threshold` | `compress-threshold` | Skip compression when estimated ratio exceeds this value |
 | LVMSYNC_CONCURRENCY | `--concurrency` | `concurrency` | Number of concurrent connections |
 | LVMSYNC_CONFIG | `--config` | `config` | Path to config YAML file |
+
+| LVMSYNC_CREATE_DEST_LV | `--create-dest-lv` | `create-dest-lv` | Create destination logical volume if missing |
+
 | LVMSYNC_CREATE_DEST_LV | `--create-dest-lv` | `create-dest-lv` | Create destination logical volume when missing |
+
 | LVMSYNC_DEDUP | `--dedup` | `dedup` | Deduplication mode: [fixed cdc hybrid] |
 | LVMSYNC_DEDUP_STATE_FILE | `--dedup-state-file` | `dedup-state-file` | Path to deduplication state file |
 | LVMSYNC_DEDUP_STRATEGY | `--dedup-strategy` | `dedup-strategy` | Deduplication strategy: [none auto checksum rolling_hash bloom] |
