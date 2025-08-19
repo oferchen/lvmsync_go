@@ -170,6 +170,7 @@ func initTransportFlags(cfg *Config) *pflag.FlagSet {
 	fs.Int("tcp-port", cfg.TCPPort, "TCP port")
 	fs.Int("tcp-parallel", cfg.TCPParallel, "Number of parallel TCP connections per worker")
 	fs.Int("tcp-lowat", cfg.TCPNotSentLowAt, "TCP_NOTSENT_LOWAT threshold in bytes")
+	fs.Bool("allow-insecure", cfg.AllowInsecure, "allow insecure connections (disable TLS and host key verification)")
 	return fs
 }
 

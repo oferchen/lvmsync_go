@@ -781,6 +781,21 @@ func TestTCPTLSClientAuthInsecure(t *testing.T) {
 	}
 }
 
+func TestTCPTLSTLSVersion(t *testing.T) {
+	cert, root := generateSelfSignedCert(t)
+	trIface, err := New(transport.Config{Logger: zap.NewNop(), Roots: root, ClientCert: cert, ServerCert: cert})
+	if err != nil {
+		t.Fatalf("new transport: %v", err)
+	}
+	tr := trIface.(*Transport)
+	if tr.serverConf.MinVersion != tls.VersionTLS13 || tr.serverConf.MaxVersion != tls.VersionTLS13 {
+		t.Fatalf("unexpected server TLS versions: %v %v", tr.serverConf.MinVersion, tr.serverConf.MaxVersion)
+	}
+	if tr.clientConf.MinVersion != tls.VersionTLS13 || tr.clientConf.MaxVersion != tls.VersionTLS13 {
+		t.Fatalf("unexpected client TLS versions: %v %v", tr.clientConf.MinVersion, tr.clientConf.MaxVersion)
+	}
+}
+
 func TestTCPTLSListenCloseErrorWarn(t *testing.T) {
 	cert, root := generateSelfSignedCert(t)
 	core, obs := observer.New(zap.WarnLevel)
