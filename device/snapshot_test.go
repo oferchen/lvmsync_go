@@ -87,8 +87,8 @@ func TestSnapshotLifecycle(t *testing.T) {
 	}
 
 	want := []string{
-		"doas -n lvcreate -s -n snap -L 2G /dev/vg0/origin",
-		"doas -n lvchange -ay /dev/vg0/snap",
+		"doas -n lvcreate -s -n snap -L 2G -pr /dev/vg0/origin",
+		"doas -n lvchange -ay -pr /dev/vg0/snap",
 		"doas -n lvremove -f /dev/vg0/snap",
 	}
 	if !reflect.DeepEqual(cmds, want) {

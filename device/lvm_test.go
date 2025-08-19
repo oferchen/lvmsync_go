@@ -200,3 +200,41 @@ func TestConfirmOverwriteNonTTYLVM(t *testing.T) {
 		t.Fatalf("expected allow-overwrite error, got %v", err)
 	}
 }
+
+func TestSnapshotReadOnly(t *testing.T) {
+	if os.Geteuid() != 0 {
+		t.Skip("root required")
+	}
+	ctx := WithForce(context.Background(), true)
+	ctx = WithAllowOverwrite(ctx, true)
+	var cmds []string
+	cmd := cmdFunc(func(ctx context.Context, name string, args ...string) *exec.Cmd {
+		cmds = append(cmds, name+" "+strings.Join(args, " "))
+		return exec.CommandContext(ctx, "true")
+	})
+
+	origName := generateSnapshot
+	generateSnapshot = func() string { return "snap" }
+	defer func() { generateSnapshot = origName }()
+
+	runner := NewDeviceRunner(cmd)
+	runner.openLVMOverride = func(ctx context.Context, p string, _ *lvm.FDCache, _ string, _ *zap.Logger) (*LVMDevice, error) {
+		return &LVMDevice{path: p, cleanupPath: p, escalation: "doas -n", logger: zap.NewNop(), runner: runner}, nil
+	}
+
+	origEuid := geteuid
+	geteuid = func() int { return 1 }
+	defer func() { geteuid = origEuid }()
+
+	lvd := &LVMDevice{path: "/dev/vg0/origin", escalation: "doas -n", logger: zap.NewNop(), runner: runner}
+	snap, err := lvd.Snapshot(ctx, "1G")
+	if err != nil {
+		t.Fatalf("Snapshot: %v", err)
+	}
+	if err := snap.Cleanup(ctx); err != nil {
+		t.Fatalf("cleanup: %v", err)
+	}
+	if len(cmds) < 2 || !strings.Contains(cmds[0], "-pr") || !strings.Contains(cmds[1], "-pr") {
+		t.Fatalf("commands = %v, expected -pr flags", cmds)
+	}
+}
