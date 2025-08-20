@@ -101,7 +101,7 @@ func TestHandleApplyDelta(t *testing.T) {
 	if err := cl.SendDelta(context.Background(), 0, data); err != nil {
 		t.Fatalf("SendDelta: %v", err)
 	}
-	if err := cl.SendDigest(digest.SHA256, srv.expect); err != nil {
+	if err := cl.SendDigest(context.Background(), digest.SHA256, srv.expect); err != nil {
 		t.Fatalf("SendDigest: %v", err)
 	}
 	c1.Close()

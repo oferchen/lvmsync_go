@@ -8,6 +8,7 @@ import (
 	"os"
 	"sync"
 	"testing"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -124,18 +125,40 @@ func TestDumpChangesRsyncDelta(t *testing.T) {
 	copy(dev.buf, originData)
 	srv := rsyncserver.New(dev, zap.NewNop(), nil, "", "")
 
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
 	c1, c2 := net.Pipe()
 	cc := &countingConn{Conn: c1}
-	errCh := make(chan error, 1)
-	go func() { errCh <- srv.Handle(context.Background(), rsyncwire.NewStream(c2, rsyncMaxFrame)) }()
+	var wg sync.WaitGroup
+	serverReady := make(chan struct{})
+	var srvErr, clientErr error
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		close(serverReady)
+		srvErr = srv.Handle(ctx, rsyncwire.NewStream(c2, rsyncMaxFrame))
+	}()
 
 	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, nil)
-	if err := tr.DumpChangesSequential(context.Background(), cfg, snapPath, origPath, cc); err != nil {
-		t.Fatalf("DumpChangesSequential: %v", err)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		defer c1.Close()
+		<-serverReady
+		clientErr = tr.DumpChangesSequential(ctx, cfg, snapPath, origPath, cc)
+	}()
+
+	wg.Wait()
+	if err := ctx.Err(); err != nil {
+		t.Fatalf("context: %v", err)
 	}
-	c1.Close()
-	if err := <-errCh; err != nil {
-		t.Fatalf("Handle: %v", err)
+	if clientErr != nil {
+		t.Fatalf("DumpChangesSequential: %v", clientErr)
+	}
+	if srvErr != nil {
+		t.Fatalf("Handle: %v", srvErr)
 	}
 	if !bytes.Equal(dev.buf, snapshotData) {
 		t.Fatalf("device mismatch")
@@ -177,18 +200,40 @@ func TestRsyncDeltaCDCShift(t *testing.T) {
 	copy(dev.buf, originData)
 	srv := rsyncserver.New(dev, zap.NewNop(), nil, "", "")
 
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
 	c1, c2 := net.Pipe()
 	cc := &countingConn{Conn: c1}
-	errCh := make(chan error, 1)
-	go func() { errCh <- srv.Handle(context.Background(), rsyncwire.NewStream(c2, rsyncMaxFrame)) }()
+	var wg sync.WaitGroup
+	serverReady := make(chan struct{})
+	var srvErr, clientErr error
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		close(serverReady)
+		srvErr = srv.Handle(ctx, rsyncwire.NewStream(c2, rsyncMaxFrame))
+	}()
 
 	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, nil)
-	if err := tr.DumpChangesSequential(context.Background(), cfg, snapPath, origPath, cc); err != nil {
-		t.Fatalf("DumpChangesSequential: %v", err)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		defer c1.Close()
+		<-serverReady
+		clientErr = tr.DumpChangesSequential(ctx, cfg, snapPath, origPath, cc)
+	}()
+
+	wg.Wait()
+	if err := ctx.Err(); err != nil {
+		t.Fatalf("context: %v", err)
 	}
-	c1.Close()
-	if err := <-errCh; err != nil {
-		t.Fatalf("Handle: %v", err)
+	if clientErr != nil {
+		t.Fatalf("DumpChangesSequential: %v", clientErr)
+	}
+	if srvErr != nil {
+		t.Fatalf("Handle: %v", srvErr)
 	}
 	if !bytes.Equal(dev.buf, snapshotData) {
 		t.Fatalf("device mismatch")
@@ -231,18 +276,40 @@ func TestRsyncDeltaCDCMutate(t *testing.T) {
 	copy(dev.buf, originData)
 	srv := rsyncserver.New(dev, zap.NewNop(), nil, "", "")
 
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
 	c1, c2 := net.Pipe()
 	cc := &countingConn{Conn: c1}
-	errCh := make(chan error, 1)
-	go func() { errCh <- srv.Handle(context.Background(), rsyncwire.NewStream(c2, rsyncMaxFrame)) }()
+	var wg sync.WaitGroup
+	serverReady := make(chan struct{})
+	var srvErr, clientErr error
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		close(serverReady)
+		srvErr = srv.Handle(ctx, rsyncwire.NewStream(c2, rsyncMaxFrame))
+	}()
 
 	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, nil)
-	if err := tr.DumpChangesSequential(context.Background(), cfg, snapPath, origPath, cc); err != nil {
-		t.Fatalf("DumpChangesSequential: %v", err)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		defer c1.Close()
+		<-serverReady
+		clientErr = tr.DumpChangesSequential(ctx, cfg, snapPath, origPath, cc)
+	}()
+
+	wg.Wait()
+	if err := ctx.Err(); err != nil {
+		t.Fatalf("context: %v", err)
 	}
-	c1.Close()
-	if err := <-errCh; err != nil {
-		t.Fatalf("Handle: %v", err)
+	if clientErr != nil {
+		t.Fatalf("DumpChangesSequential: %v", clientErr)
+	}
+	if srvErr != nil {
+		t.Fatalf("Handle: %v", srvErr)
 	}
 	if !bytes.Equal(dev.buf, snapshotData) {
 		t.Fatalf("device mismatch")
