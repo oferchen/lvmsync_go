@@ -1546,6 +1546,18 @@ Invalid configurations will cause the tool to abort with a clear error message.
 
 LVMSync signals success and failure with structured exit codes. Refer to the [operations guide](docs/OPERATIONS.md#exit-codes) for the complete list and recommended recovery steps.
 
+| Code | Meaning | Recovery Step |
+|------|---------|---------------|
+| `0`  | Success | None |
+| `10` | Privilege or capability check failed | Run as root or adjust `--lvm-escalation`. |
+| `20` | Device error | Verify device paths and snapshot health. |
+| `25` | Snapshot exhausted | Extend the snapshot or reduce source writes before resuming. |
+| `30` | Unsupported platform | Run on a supported Linux platform. |
+| `40` | Configuration error | Review flags, environment variables, and `config.yaml`. |
+| `50` | Runtime failure | Inspect logs and fix the issue. |
+| `60` | Verification mismatch | Investigate mismatched data before retrying. |
+| `70` | Partial transfer | Address the error and resume with `--resume`. |
+
 ## Credits
 
 LVMSync is written in Go by Ofer Chen, inspired by [mpalmer/lvmsync](https://github.com/mpalmer/lvmsync).
