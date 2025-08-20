@@ -13,15 +13,12 @@ import (
 	"golang.org/x/sys/unix"
 
 	"lvmsync_go/internal/config"
-	_ "lvmsync_go/transfer"
+	transfer "lvmsync_go/transfer"
 	_ "unsafe"
 )
 
 //go:linkname writeZeroBlock lvmsync_go/transfer.writeZeroBlock
-func writeZeroBlock(cfg *config.Config, dest *os.File, offset uint64, logger *zap.Logger) error
-
-//go:linkname punchHoleFunc lvmsync_go/transfer.punchHoleFunc
-var punchHoleFunc func(*os.File, uint64, int) error
+func writeZeroBlock(cfg *config.Config, dest *os.File, offset uint64, logger *zap.Logger, deps *transfer.Deps) error
 
 //go:linkname punchHoleDisabled lvmsync_go/transfer.punchHoleDisabled
 var punchHoleDisabled atomic.Bool
@@ -40,7 +37,7 @@ func TestWriteElisionFallocateSupported(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 
-	if err := writeZeroBlock(cfg, f, uint64(cfg.BlockSize), zap.NewNop()); err != nil {
+	if err := writeZeroBlock(cfg, f, uint64(cfg.BlockSize), zap.NewNop(), transfer.DefaultDeps); err != nil {
 		t.Fatalf("writeZeroBlock: %v", err)
 	}
 
@@ -63,27 +60,24 @@ func TestWriteElisionFallocateUnsupported(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 
-	orig := punchHoleFunc
 	var calls int
-	punchHoleFunc = func(*os.File, uint64, int) error {
+	deps := *transfer.DefaultDeps
+	deps.PunchHole = func(*os.File, uint64, int) error {
 		calls++
 		return unix.ENOTSUP
 	}
 	punchHoleDisabled.Store(false)
-	defer func() {
-		punchHoleFunc = orig
-		punchHoleDisabled.Store(false)
-	}()
+	defer punchHoleDisabled.Store(false)
 
-	if err := writeZeroBlock(cfg, f, uint64(cfg.BlockSize), zap.NewNop()); err != nil {
+	if err := writeZeroBlock(cfg, f, uint64(cfg.BlockSize), zap.NewNop(), &deps); err != nil {
 		t.Fatalf("writeZeroBlock: %v", err)
 	}
-	if err := writeZeroBlock(cfg, f, 0, zap.NewNop()); err != nil {
+	if err := writeZeroBlock(cfg, f, 0, zap.NewNop(), &deps); err != nil {
 		t.Fatalf("writeZeroBlock: %v", err)
 	}
 
 	if calls != 1 {
-		t.Fatalf("expected punchHoleFunc called once, got %d", calls)
+		t.Fatalf("expected PunchHole called once, got %d", calls)
 	}
 
 	buf := make([]byte, cfg.BlockSize)

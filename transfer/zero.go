@@ -21,9 +21,6 @@ var zeroBufCache sync.Map // map[int][]byte
 // zeroHashCache stores BLAKE3 hashes of zero-filled buffers keyed by size.
 var zeroHashCache sync.Map // map[int][32]byte
 
-// punchHoleFunc allows tests to stub punchHole behavior.
-var punchHoleFunc = punchHole
-
 // punchHoleDisabled marks whether punchHole should be skipped after ENOTSUP.
 var punchHoleDisabled atomic.Bool
 
@@ -55,9 +52,12 @@ func isAllZero(b []byte) bool {
 // cfg.Sparse is "never". If the filesystem does not support hole punching it
 // falls back to writing a zero filled buffer. The buffer respects the O_DIRECT
 // setting by using aligned allocations when necessary.
-func writeZeroBlock(cfg *config.Config, dest *os.File, offset uint64, logger *zap.Logger) error {
+func writeZeroBlock(cfg *config.Config, dest *os.File, offset uint64, logger *zap.Logger, deps *Deps) error {
+	if deps == nil {
+		deps = DefaultDeps
+	}
 	if cfg.Sparse != "never" && !punchHoleDisabled.Load() {
-		if err := punchHoleFunc(dest, offset, cfg.BlockSize); err == nil {
+		if err := deps.PunchHole(dest, offset, cfg.BlockSize); err == nil {
 			return nil
 		} else if errors.Is(err, unix.ENOTSUP) {
 			if punchHoleDisabled.CompareAndSwap(false, true) {
@@ -82,12 +82,15 @@ func writeZeroBlock(cfg *config.Config, dest *os.File, offset uint64, logger *za
 // writeZeroRange attempts to punch a sparse hole spanning length bytes starting
 // at offset. When hole punching is unsupported, it falls back to writing zeros
 // for the entire range using a reusable buffer.
-func writeZeroRange(cfg *config.Config, dest *os.File, offset uint64, length uint64, logger *zap.Logger) error {
+func writeZeroRange(cfg *config.Config, dest *os.File, offset uint64, length uint64, logger *zap.Logger, deps *Deps) error {
 	if length == 0 {
 		return nil
 	}
+	if deps == nil {
+		deps = DefaultDeps
+	}
 	if cfg.Sparse != "never" && !punchHoleDisabled.Load() {
-		if err := punchHoleFunc(dest, offset, int(length)); err == nil {
+		if err := deps.PunchHole(dest, offset, int(length)); err == nil {
 			return nil
 		} else if errors.Is(err, unix.ENOTSUP) {
 			if punchHoleDisabled.CompareAndSwap(false, true) {

@@ -160,7 +160,7 @@ func (bw *blockWriter) write(reader *bufio.Reader) (int64, error) {
 					}
 					bw.applied = append(bw.applied, r)
 				}
-				if err := writeZeroRange(bw.cfg, bw.dest, zeroStart, zeroLen, bw.logger); err != nil {
+				if err := writeZeroRange(bw.cfg, bw.dest, zeroStart, zeroLen, bw.logger, bw.deps); err != nil {
 					return total, err
 				}
 				holes = append(holes, Range{Start: zeroStart, End: zeroStart + zeroLen})
@@ -186,7 +186,7 @@ func (bw *blockWriter) write(reader *bufio.Reader) (int64, error) {
 				}
 				bw.applied = append(bw.applied, r)
 			}
-			if err := writeZeroRange(bw.cfg, bw.dest, zeroStart, zeroLen, bw.logger); err != nil {
+			if err := writeZeroRange(bw.cfg, bw.dest, zeroStart, zeroLen, bw.logger, bw.deps); err != nil {
 				return total, err
 			}
 			holes = append(holes, Range{Start: zeroStart, End: zeroStart + zeroLen})
@@ -222,7 +222,7 @@ func (bw *blockWriter) write(reader *bufio.Reader) (int64, error) {
 				return total, err
 			}
 		}
-		if err := writeZeroRange(bw.cfg, bw.dest, zeroStart, zeroLen, bw.logger); err != nil {
+		if err := writeZeroRange(bw.cfg, bw.dest, zeroStart, zeroLen, bw.logger, bw.deps); err != nil {
 			return total, err
 		}
 		holes = append(holes, Range{Start: zeroStart, End: zeroStart + zeroLen})

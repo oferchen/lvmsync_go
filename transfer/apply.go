@@ -68,7 +68,7 @@ func (t *Transfer) processDumpDataCore(ctx context.Context, cfg *config.Config, 
 
 	var walRanges []Range
 	if cfg.ResumeState != "" {
-		t.wal, walRanges, err = OpenWAL(cfg.ResumeState+".wal", size, id, epoch)
+		t.wal, walRanges, err = OpenWAL(cfg.ResumeState+".wal", size, id, epoch, nil)
 		if err != nil {
 			return err
 		}

@@ -30,15 +30,9 @@ func (f *usageBackend) CreateLogicalVolume(context.Context, string, string, uint
 }
 
 func TestGetSnapshotUsage(t *testing.T) {
-	orig := checkPrivs
-	checkPrivs = func() error { return nil }
-	t.Cleanup(func() { checkPrivs = orig })
-
 	fb := &usageBackend{usage: 75.5}
-	restore := SetBackend(fb)
-	t.Cleanup(restore)
-
-	usage, err := GetSnapshotUsage(context.Background(), "/dev/vg0/snap", zap.NewNop())
+	r := NewRunnerWithDeps(nil, func() error { return nil }, nil, fb, "")
+	usage, err := r.GetSnapshotUsage(context.Background(), "/dev/vg0/snap", zap.NewNop())
 	if err != nil {
 		t.Fatalf("GetSnapshotUsage failed: %v", err)
 	}
@@ -48,30 +42,21 @@ func TestGetSnapshotUsage(t *testing.T) {
 }
 
 func TestMonitorSnapshot(t *testing.T) {
-	orig := checkPrivs
-	checkPrivs = func() error { return nil }
-	t.Cleanup(func() { checkPrivs = orig })
-
 	fb := &usageBackend{usage: 90}
-	restore := SetBackend(fb)
-	t.Cleanup(restore)
-
-	err := MonitorSnapshot(context.Background(), "/dev/vg0/snap", 80, 10*time.Millisecond, zap.NewNop())
+	r := NewRunnerWithDeps(nil, func() error { return nil }, nil, fb, "")
+	err := r.MonitorSnapshot(context.Background(), "/dev/vg0/snap", 80, 10*time.Millisecond, zap.NewNop())
 	if err == nil {
 		t.Fatalf("MonitorSnapshot expected error, got nil")
 	}
 }
 
 func TestCheckDiskSpace(t *testing.T) {
-	orig := statfsFunc
-	statfsFunc = func(_ string, stat *unix.Statfs_t) error {
+	r := NewRunnerWithDeps(func(_ string, stat *unix.Statfs_t) error {
 		stat.Bavail = 100
 		stat.Bsize = 4096
 		return nil
-	}
-	defer func() { statfsFunc = orig }()
-
-	available, err := CheckDiskSpace("/mnt", zap.NewNop())
+	}, nil, nil, nil, "")
+	available, err := r.CheckDiskSpace("/mnt", zap.NewNop())
 	if err != nil {
 		t.Fatalf("CheckDiskSpace failed: %v", err)
 	}

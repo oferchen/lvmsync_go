@@ -90,31 +90,28 @@ func TestPunchHoleENOTSUPDisables(t *testing.T) {
 	}
 	defer f.Close()
 
-	orig := punchHoleFunc
 	var calls int
-	punchHoleFunc = func(_ *os.File, _ uint64, _ int) error {
+	deps := *DefaultDeps
+	deps.PunchHole = func(_ *os.File, _ uint64, _ int) error {
 		calls++
 		return unix.ENOTSUP
 	}
 	punchHoleDisabled.Store(false)
-	defer func() {
-		punchHoleFunc = orig
-		punchHoleDisabled.Store(false)
-	}()
+	defer punchHoleDisabled.Store(false)
 
 	cfg := &config.Config{BlockSize: 4096}
 	core, obs := observer.New(zap.WarnLevel)
 	logger := zap.New(core)
 
-	if err := writeZeroBlock(cfg, f, 0, logger); err != nil {
+	if err := writeZeroBlock(cfg, f, 0, logger, &deps); err != nil {
 		t.Fatalf("writeZeroBlock: %v", err)
 	}
-	if err := writeZeroBlock(cfg, f, uint64(cfg.BlockSize), logger); err != nil {
+	if err := writeZeroBlock(cfg, f, uint64(cfg.BlockSize), logger, &deps); err != nil {
 		t.Fatalf("writeZeroBlock: %v", err)
 	}
 
 	if calls != 1 {
-		t.Fatalf("expected punchHoleFunc called once, got %d", calls)
+		t.Fatalf("expected PunchHole called once, got %d", calls)
 	}
 	if obs.Len() != 1 {
 		t.Fatalf("expected one warning, got %d", obs.Len())

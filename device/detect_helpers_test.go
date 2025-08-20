@@ -109,21 +109,20 @@ func TestDetectLVMDeviceEscalationError(t *testing.T) {
 }
 
 func TestDetectRawDeviceSuccess(t *testing.T) {
-	orig := openRawFunc
-	openRawFunc = func(ctx context.Context, path string, offline bool, freezePath string, freezeArgs []string, thawPath string, thawArgs []string, freezeTimeout, thawTimeout time.Duration, esc privilege.Escalator, logger *zap.Logger, runner *Runner) (*RawDevice, error) {
+	runner := NewRunner()
+	runner.openRawOverride = func(ctx context.Context, path string, offline bool, freezePath string, freezeArgs []string, thawPath string, thawArgs []string, freezeTimeout, thawTimeout time.Duration, esc privilege.Escalator, logger *zap.Logger) (*RawDevice, error) {
 		f, err := os.CreateTemp(t.TempDir(), "raw")
 		if err != nil {
 			return nil, err
 		}
 		return &RawDevice{f: f, logger: logger}, nil
 	}
-	defer func() { openRawFunc = orig }()
 	core, logs := observer.New(zap.InfoLevel)
 	logger := zap.New(core)
 	ctx := WithForce(context.Background(), true)
 	ctx = WithAllowOverwrite(ctx, true)
 	ctx = WithYesIKnow(ctx, true)
-	dev, err := detectRawDevice(ctx, "/dev/test", true, "", "", 0, 0, fakeEsc{}, logger, NewRunner())
+	dev, err := detectRawDevice(ctx, "/dev/test", true, "", "", 0, 0, fakeEsc{}, logger, runner)
 	if err != nil {
 		t.Fatalf("detect: %v", err)
 	}
@@ -153,24 +152,23 @@ func TestDetectRawDeviceError(t *testing.T) {
 }
 
 func TestDetectRawDeviceFreezeParseError(t *testing.T) {
-	orig := openRawFunc
+	runner := NewRunner()
 	called := false
-	openRawFunc = func(ctx context.Context, path string, offline bool, freezePath string, freezeArgs []string, thawPath string, thawArgs []string, freezeTimeout, thawTimeout time.Duration, esc privilege.Escalator, logger *zap.Logger, runner *Runner) (*RawDevice, error) {
+	runner.openRawOverride = func(ctx context.Context, path string, offline bool, freezePath string, freezeArgs []string, thawPath string, thawArgs []string, freezeTimeout, thawTimeout time.Duration, esc privilege.Escalator, logger *zap.Logger) (*RawDevice, error) {
 		called = true
 		return nil, nil
 	}
-	defer func() { openRawFunc = orig }()
 	core, logs := observer.New(zap.ErrorLevel)
 	logger := zap.New(core)
 	ctx := WithForce(context.Background(), true)
 	ctx = WithAllowOverwrite(ctx, true)
 	ctx = WithYesIKnow(ctx, true)
-	_, err := detectRawDevice(ctx, "/dev/test", true, "/bin/echo \"unterminated", "", 0, 0, fakeEsc{}, logger, NewRunner())
+	_, err := detectRawDevice(ctx, "/dev/test", true, "/bin/echo \"unterminated", "", 0, 0, fakeEsc{}, logger, runner)
 	if err == nil || !strings.Contains(err.Error(), "invalid freeze command") {
 		t.Fatalf("expected freeze parse error, got %v", err)
 	}
 	if called {
-		t.Fatalf("openRawFunc should not be called on parse error")
+		t.Fatalf("OpenRaw should not be called on parse error")
 	}
 	entries := logs.FilterMessage("detect_device_failed").All()
 	if len(entries) != 1 {
@@ -182,24 +180,23 @@ func TestDetectRawDeviceFreezeParseError(t *testing.T) {
 }
 
 func TestDetectRawDeviceThawParseError(t *testing.T) {
-	orig := openRawFunc
+	runner := NewRunner()
 	called := false
-	openRawFunc = func(ctx context.Context, path string, offline bool, freezePath string, freezeArgs []string, thawPath string, thawArgs []string, freezeTimeout, thawTimeout time.Duration, esc privilege.Escalator, logger *zap.Logger, runner *Runner) (*RawDevice, error) {
+	runner.openRawOverride = func(ctx context.Context, path string, offline bool, freezePath string, freezeArgs []string, thawPath string, thawArgs []string, freezeTimeout, thawTimeout time.Duration, esc privilege.Escalator, logger *zap.Logger) (*RawDevice, error) {
 		called = true
 		return nil, nil
 	}
-	defer func() { openRawFunc = orig }()
 	core, logs := observer.New(zap.ErrorLevel)
 	logger := zap.New(core)
 	ctx := WithForce(context.Background(), true)
 	ctx = WithAllowOverwrite(ctx, true)
 	ctx = WithYesIKnow(ctx, true)
-	_, err := detectRawDevice(ctx, "/dev/test", true, "", "/bin/echo \"unterminated", 0, 0, fakeEsc{}, logger, NewRunner())
+	_, err := detectRawDevice(ctx, "/dev/test", true, "", "/bin/echo \"unterminated", 0, 0, fakeEsc{}, logger, runner)
 	if err == nil || !strings.Contains(err.Error(), "invalid thaw command") {
 		t.Fatalf("expected thaw parse error, got %v", err)
 	}
 	if called {
-		t.Fatalf("openRawFunc should not be called on parse error")
+		t.Fatalf("OpenRaw should not be called on parse error")
 	}
 	entries := logs.FilterMessage("detect_device_failed").All()
 	if len(entries) != 1 {

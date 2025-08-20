@@ -16,7 +16,7 @@ import (
 func TestWALCommitFsync(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "wal")
-	w, _, err := OpenWAL(path, 128, "dev", 1)
+	w, _, err := OpenWAL(path, 128, "dev", 1, nil)
 	if err != nil {
 		t.Fatalf("open wal: %v", err)
 	}
@@ -27,7 +27,7 @@ func TestWALCommitFsync(t *testing.T) {
 	if err := w.f.Close(); err != nil {
 		t.Fatalf("close: %v", err)
 	}
-	w2, ranges, err := OpenWAL(path, 128, "dev", 1)
+	w2, ranges, err := OpenWAL(path, 128, "dev", 1, nil)
 	if err != nil {
 		t.Fatalf("reopen wal: %v", err)
 	}
@@ -69,7 +69,7 @@ func TestResumeValidation(t *testing.T) {
 func TestWALHeaderCorruption(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "wal")
-	w, _, err := OpenWAL(path, 128, "dev", 1)
+	w, _, err := OpenWAL(path, 128, "dev", 1, nil)
 	if err != nil {
 		t.Fatalf("open wal: %v", err)
 	}
@@ -84,7 +84,7 @@ func TestWALHeaderCorruption(t *testing.T) {
 		t.Fatalf("corrupt header: %v", err)
 	}
 	f.Close()
-	if _, _, err := OpenWAL(path, 128, "dev", 1); err == nil {
+	if _, _, err := OpenWAL(path, 128, "dev", 1, nil); err == nil {
 		t.Fatalf("expected header corruption error")
 	}
 }
@@ -93,7 +93,7 @@ func TestWALHeaderCorruption(t *testing.T) {
 func TestWALDeviceIDCorruption(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "wal")
-	w, _, err := OpenWAL(path, 128, "dev", 1)
+	w, _, err := OpenWAL(path, 128, "dev", 1, nil)
 	if err != nil {
 		t.Fatalf("open wal: %v", err)
 	}
@@ -108,7 +108,7 @@ func TestWALDeviceIDCorruption(t *testing.T) {
 		t.Fatalf("corrupt device id: %v", err)
 	}
 	f.Close()
-	if _, _, err := OpenWAL(path, 128, "dev", 1); err == nil {
+	if _, _, err := OpenWAL(path, 128, "dev", 1, nil); err == nil {
 		t.Fatalf("expected device id corruption error")
 	}
 }
@@ -117,7 +117,7 @@ func TestWALDeviceIDCorruption(t *testing.T) {
 func TestWALDetectsUnsyncedEntry(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "wal")
-	w, _, err := OpenWAL(path, 128, "dev", 1)
+	w, _, err := OpenWAL(path, 128, "dev", 1, nil)
 	if err != nil {
 		t.Fatalf("open wal: %v", err)
 	}
@@ -133,7 +133,7 @@ func TestWALDetectsUnsyncedEntry(t *testing.T) {
 	if err := w.f.Close(); err != nil {
 		t.Fatalf("close: %v", err)
 	}
-	w2, ranges, err := OpenWAL(path, 128, "dev", 1)
+	w2, ranges, err := OpenWAL(path, 128, "dev", 1, nil)
 	if err != nil {
 		t.Fatalf("reopen wal: %v", err)
 	}

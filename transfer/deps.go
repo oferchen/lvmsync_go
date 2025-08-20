@@ -11,6 +11,7 @@ type Deps struct {
 	CreateStateFile    func(string) (io.WriteCloser, error)
 	DetectBestStrategy func() string
 	FdatasyncFile      func(*os.File) error
+	PunchHole          func(*os.File, uint64, int) error
 }
 
 func defaultCreateStateFile(name string) (io.WriteCloser, error) {
@@ -37,4 +38,5 @@ var DefaultDeps = &Deps{
 	CreateStateFile:    defaultCreateStateFile,
 	DetectBestStrategy: detectBestStrategy,
 	FdatasyncFile:      fdatasync,
+	PunchHole:          punchHole,
 }

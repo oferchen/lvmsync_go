@@ -148,7 +148,7 @@ func TestResumeMidTransfer(t *testing.T) {
 	}
 
 	// Ensure WAL contains two sequential entries.
-	w, ranges, err := OpenWAL(walPath, uint64(2*blockSize), "uuid", 0)
+	w, ranges, err := OpenWAL(walPath, uint64(2*blockSize), "uuid", 0, nil)
 	if err != nil {
 		t.Fatalf("open wal: %v", err)
 	}

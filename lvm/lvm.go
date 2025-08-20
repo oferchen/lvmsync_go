@@ -21,11 +21,54 @@ const (
 	BLKGETSIZE64 = 0x80081272
 )
 
-var statfsFunc = unix.Statfs
+// Runner bundles dependencies for LVM operations.
+type Runner struct {
+	statfs         func(string, *unix.Statfs_t) error
+	checkPrivs     func() error
+	ioctlGetUint64 func(int, uint) (uint64, error)
+	backend        lvmBackend
+	sysBlockPath   string
+}
 
-var checkPrivs = checkRootPrivileges
+// NewRunner returns a Runner using production dependencies.
+func NewRunner() *Runner {
+	return &Runner{
+		statfs:         unix.Statfs,
+		checkPrivs:     checkRootPrivileges,
+		ioctlGetUint64: ioctlGetUint64,
+		backend:        newLVMBackend(),
+		sysBlockPath:   "/sys/block",
+	}
+}
 
-var ioctlGetUint64Func = ioctlGetUint64
+// NewRunnerWithDeps constructs a Runner with custom dependencies.
+func NewRunnerWithDeps(
+	statfs func(string, *unix.Statfs_t) error,
+	checkPrivs func() error,
+	ioctlGetUint64 func(int, uint) (uint64, error),
+	backend lvmBackend,
+	sysBlockPath string,
+) *Runner {
+	r := NewRunner()
+	if statfs != nil {
+		r.statfs = statfs
+	}
+	if checkPrivs != nil {
+		r.checkPrivs = checkPrivs
+	}
+	if ioctlGetUint64 != nil {
+		r.ioctlGetUint64 = ioctlGetUint64
+	}
+	if backend != nil {
+		r.backend = backend
+	}
+	if sysBlockPath != "" {
+		r.sysBlockPath = sysBlockPath
+	}
+	return r
+}
+
+var defaultRunner = NewRunner()
 
 func checkRootPrivileges() error {
 	if os.Geteuid() != 0 {
@@ -34,114 +77,88 @@ func checkRootPrivileges() error {
 	return nil
 }
 
-// SetPrivilegeChecker overrides the default privilege check function. It
-// returns a restore function to reset the original behavior.
-func SetPrivilegeChecker(fn func() error) func() {
-	orig := checkPrivs
-	if fn == nil {
-		checkPrivs = checkRootPrivileges
-	} else {
-		checkPrivs = fn
-	}
-	return func() { checkPrivs = orig }
-}
-
-// backend is used to execute LVM operations. It can be overridden for tests.
-var backend = newLVMBackend()
-
-// SetBackend overrides the LVM backend. It returns a restore function to reset the original behavior.
-func SetBackend(b lvmBackend) func() {
-	orig := backend
-	if b == nil {
-		backend = newLVMBackend()
-	} else {
-		backend = b
-	}
-	return func() { backend = orig }
-}
-
 func CreateSnapshot(ctx context.Context, lvPath, snapshotName, size string, logger *zap.Logger) error {
-	if err := checkPrivs(); err != nil {
+	return defaultRunner.CreateSnapshot(ctx, lvPath, snapshotName, size, logger)
+}
+
+func (r *Runner) CreateSnapshot(ctx context.Context, lvPath, snapshotName, size string, logger *zap.Logger) error {
+	if err := r.checkPrivs(); err != nil {
 		return err
 	}
-
 	if lvPath == "" || snapshotName == "" || size == "" {
 		return fmt.Errorf("invalid parameters: lvPath, snapshotName, and size must be non-empty")
 	}
-
-	if err := backend.CreateSnapshot(ctx, lvPath, snapshotName, size); err != nil {
+	if err := r.backend.CreateSnapshot(ctx, lvPath, snapshotName, size); err != nil {
 		return fmt.Errorf("failed to create snapshot [%s] for LV %s with size %s: %w",
 			snapshotName, lvPath, size, err)
 	}
-
 	logger.Info("snapshot created successfully",
 		zap.String("lv_path", lvPath),
 		zap.String("snapshot_name", snapshotName),
 		zap.String("size", size))
-
 	return nil
 }
 
 func RemoveSnapshot(ctx context.Context, snapshotPath string, logger *zap.Logger) error {
-	if err := checkPrivs(); err != nil {
+	return defaultRunner.RemoveSnapshot(ctx, snapshotPath, logger)
+}
+
+func (r *Runner) RemoveSnapshot(ctx context.Context, snapshotPath string, logger *zap.Logger) error {
+	if err := r.checkPrivs(); err != nil {
 		return err
 	}
-
 	if snapshotPath == "" {
 		return fmt.Errorf("invalid parameter: snapshotPath must be non-empty")
 	}
-
-	if err := backend.RemoveSnapshot(ctx, snapshotPath); err != nil {
+	if err := r.backend.RemoveSnapshot(ctx, snapshotPath); err != nil {
 		return fmt.Errorf("failed to remove snapshot [%s]: %w", snapshotPath, err)
 	}
-
 	logger.Info("snapshot removed successfully",
 		zap.String("snapshot_path", snapshotPath))
-
 	return nil
 }
 
 func GetSnapshotUsage(ctx context.Context, snapshotPath string, logger *zap.Logger) (float64, error) {
-	if err := checkPrivs(); err != nil {
+	return defaultRunner.GetSnapshotUsage(ctx, snapshotPath, logger)
+}
+
+func (r *Runner) GetSnapshotUsage(ctx context.Context, snapshotPath string, logger *zap.Logger) (float64, error) {
+	if err := r.checkPrivs(); err != nil {
 		return 0, err
 	}
-
 	if snapshotPath == "" {
 		return 0, fmt.Errorf("invalid parameter: snapshotPath must be non-empty")
 	}
-
-	usage, err := backend.GetSnapshotUsage(ctx, snapshotPath)
+	usage, err := r.backend.GetSnapshotUsage(ctx, snapshotPath)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get snapshot usage for %s: %w", snapshotPath, err)
 	}
-
 	logger.Info("snapshot usage retrieved",
 		zap.String("snapshot", snapshotPath),
 		zap.Float64("usage_percent", usage))
-
 	return usage, nil
 }
 
 func MonitorSnapshot(ctx context.Context, snapshotPath string, threshold float64, interval time.Duration, logger *zap.Logger) error {
-	if err := checkPrivs(); err != nil {
+	return defaultRunner.MonitorSnapshot(ctx, snapshotPath, threshold, interval, logger)
+}
+
+func (r *Runner) MonitorSnapshot(ctx context.Context, snapshotPath string, threshold float64, interval time.Duration, logger *zap.Logger) error {
+	if err := r.checkPrivs(); err != nil {
 		return err
 	}
-
 	if snapshotPath == "" {
 		return fmt.Errorf("invalid parameter: snapshotPath must be non-empty")
 	}
-
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
-
 	for {
 		select {
 		case <-ticker.C:
-			usage, err := GetSnapshotUsage(ctx, snapshotPath, logger)
+			usage, err := r.GetSnapshotUsage(ctx, snapshotPath, logger)
 			if err != nil {
 				return err
 			}
-
 			if usage >= threshold {
 				logger.Error("snapshot exhausted",
 					zap.String("snapshot", snapshotPath),
@@ -157,20 +174,21 @@ func MonitorSnapshot(ctx context.Context, snapshotPath string, threshold float64
 }
 
 func CheckDiskSpace(mountPoint string, logger *zap.Logger) (uint64, error) {
+	return defaultRunner.CheckDiskSpace(mountPoint, logger)
+}
+
+func (r *Runner) CheckDiskSpace(mountPoint string, logger *zap.Logger) (uint64, error) {
 	var stat unix.Statfs_t
-	if err := statfsFunc(mountPoint, &stat); err != nil {
+	if err := r.statfs(mountPoint, &stat); err != nil {
 		return 0, fmt.Errorf("failed to get disk stats for %q: %w", mountPoint, err)
 	}
-
 	if stat.Bsize < 0 {
 		return 0, fmt.Errorf("negative block size for %q: %d", mountPoint, stat.Bsize)
 	}
-
 	available := stat.Bavail * uint64(stat.Bsize)
 	logger.Debug("disk space check",
 		zap.String("mount_point", mountPoint),
 		zap.Uint64("available_bytes", available))
-
 	return available, nil
 }
 
@@ -184,6 +202,10 @@ func ioctlGetUint64(fd int, req uint) (uint64, error) {
 }
 
 func GetVolumeSize(volumePath string, cache *FDCache, logger *zap.Logger) (uint64, error) {
+	return defaultRunner.GetVolumeSize(volumePath, cache, logger)
+}
+
+func (r *Runner) GetVolumeSize(volumePath string, cache *FDCache, logger *zap.Logger) (uint64, error) {
 	if cache == nil {
 		return 0, fmt.Errorf("fd cache is nil")
 	}
@@ -194,8 +216,7 @@ func GetVolumeSize(volumePath string, cache *FDCache, logger *zap.Logger) (uint6
 	if err != nil {
 		return 0, err
 	}
-
-	size, err := ioctlGetUint64Func(fd, BLKGETSIZE64)
+	size, err := r.ioctlGetUint64(fd, BLKGETSIZE64)
 	if err != nil {
 		if err == unix.ENOTTY {
 			info, statErr := os.Stat(volumePath)
@@ -211,19 +232,14 @@ func GetVolumeSize(volumePath string, cache *FDCache, logger *zap.Logger) (uint6
 			return 0, fmt.Errorf("ioctl BLKGETSIZE64 failed on %q: %w", volumePath, err)
 		}
 	}
-
 	logger.Debug("volume size retrieved",
 		zap.String("volume_path", volumePath),
 		zap.Uint64("size_bytes", size))
-
 	return size, nil
 }
 
-var sysBlockPath = "/sys/block"
-
-func SetSysBlockPath(path string) {
-	sysBlockPath = path
-}
+// SetSysBlockPath overrides the sysfs base path.
+func (r *Runner) SetSysBlockPath(path string) { r.sysBlockPath = path }
 
 type VolumeAttributes struct {
 	Major     int
@@ -277,16 +293,16 @@ func readBoolAttr(sysfsPath, name string, logger *zap.Logger) (bool, error) {
 }
 
 func GetVolumeAttributes(volumePath string, logger *zap.Logger) (*VolumeAttributes, error) {
-	devName := filepath.Base(volumePath)
-	sysfsPath := filepath.Join(sysBlockPath, devName)
+	return defaultRunner.GetVolumeAttributes(volumePath, logger)
+}
 
+func (r *Runner) GetVolumeAttributes(volumePath string, logger *zap.Logger) (*VolumeAttributes, error) {
+	devName := filepath.Base(volumePath)
+	sysfsPath := filepath.Join(r.sysBlockPath, devName)
 	if _, err := os.Stat(sysfsPath); err != nil {
 		return nil, fmt.Errorf("device %s not found in sysfs: %w", devName, err)
 	}
-
 	attrs := &VolumeAttributes{}
-
-	// dev: major:minor
 	if data, err := os.ReadFile(filepath.Join(sysfsPath, "dev")); err == nil {
 		parts := strings.Split(strings.TrimSpace(string(data)), ":")
 		if len(parts) == 2 {
@@ -305,60 +321,49 @@ func GetVolumeAttributes(volumePath string, logger *zap.Logger) (*VolumeAttribut
 			zap.String("attribute", "dev"),
 			zap.Error(err))
 	}
-
-	// size
 	if size, err := readUintAttr(sysfsPath, "size", logger); err == nil {
 		attrs.Size = size
 	}
-
-	// read-only flag
 	if ro, err := readBoolAttr(sysfsPath, "ro", logger); err == nil {
 		attrs.ReadOnly = ro
 	}
-
-	// removable flag
 	if removable, err := readBoolAttr(sysfsPath, "removable", logger); err == nil {
 		attrs.Removable = removable
 	}
-
 	return attrs, nil
 }
 
 func ParseSnapshotSize(sizeStr, volumePath string, cache *FDCache, logger *zap.Logger) (uint64, error) {
-	sizeStr = strings.TrimSpace(sizeStr)
+	return defaultRunner.ParseSnapshotSize(sizeStr, volumePath, cache, logger)
+}
 
+func (r *Runner) ParseSnapshotSize(sizeStr, volumePath string, cache *FDCache, logger *zap.Logger) (uint64, error) {
+	sizeStr = strings.TrimSpace(sizeStr)
 	val, isPercent, err := sizeparse.Parse(sizeStr)
 	if err != nil {
 		return 0, fmt.Errorf("failed to parse snapshot size %q: %w", sizeStr, err)
 	}
-
 	if isPercent {
 		if val == 0 || val > 100 {
 			return 0, fmt.Errorf("percentage must be between 0 and 100, got %v", val)
 		}
-
-		volSize, err := GetVolumeSize(volumePath, cache, logger)
+		volSize, err := r.GetVolumeSize(volumePath, cache, logger)
 		if err != nil {
 			return 0, fmt.Errorf("failed to get volume size for %q: %w", volumePath, err)
 		}
-
 		res := float64(volSize) * (float64(val) / 100.0)
 		parsedSize := uint64(res)
 		if float64(parsedSize) != res {
 			return 0, fmt.Errorf("snapshot size %q overflows uint64", sizeStr)
 		}
-
 		logger.Debug("parsed snapshot size from percentage",
 			zap.String("input", sizeStr),
 			zap.Uint64("calculated_bytes", parsedSize))
-
 		return parsedSize, nil
 	}
-
 	logger.Debug("parsed snapshot size",
 		zap.String("input", sizeStr),
 		zap.Uint64("bytes", val))
-
 	return val, nil
 }
 
@@ -381,11 +386,14 @@ func GetVolumeGroupName(lvPath string) (string, error) {
 }
 
 func GetVolumeGroupFreeSpace(ctx context.Context, vgName string) (uint64, error) {
-	if err := checkPrivs(); err != nil {
+	return defaultRunner.GetVolumeGroupFreeSpace(ctx, vgName)
+}
+
+func (r *Runner) GetVolumeGroupFreeSpace(ctx context.Context, vgName string) (uint64, error) {
+	if err := r.checkPrivs(); err != nil {
 		return 0, err
 	}
-
-	size, err := backend.GetVolumeGroupFreeSpace(ctx, vgName)
+	size, err := r.backend.GetVolumeGroupFreeSpace(ctx, vgName)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get free space for VG %s: %w", vgName, err)
 	}
@@ -400,11 +408,14 @@ type VolumeGroup struct {
 
 // ListVolumeGroups returns information about all available volume groups.
 func ListVolumeGroups(ctx context.Context) ([]VolumeGroup, error) {
-	if err := checkPrivs(); err != nil {
+	return defaultRunner.ListVolumeGroups(ctx)
+}
+
+func (r *Runner) ListVolumeGroups(ctx context.Context) ([]VolumeGroup, error) {
+	if err := r.checkPrivs(); err != nil {
 		return nil, err
 	}
-
-	vgs, err := backend.ListVolumeGroups(ctx, nil)
+	vgs, err := r.backend.ListVolumeGroups(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list volume groups: %w", err)
 	}
@@ -419,13 +430,17 @@ type VolumeGroupSelector func([]VolumeGroup) (VolumeGroup, error)
 // selector strategy. If candidates is non-empty, only those volume groups are
 // considered.
 func SelectVolumeGroup(ctx context.Context, candidates []string, selector VolumeGroupSelector) (VolumeGroup, error) {
+	return defaultRunner.SelectVolumeGroup(ctx, candidates, selector)
+}
+
+func (r *Runner) SelectVolumeGroup(ctx context.Context, candidates []string, selector VolumeGroupSelector) (VolumeGroup, error) {
 	if selector == nil {
 		return VolumeGroup{}, fmt.Errorf("selector must not be nil")
 	}
-	if err := checkPrivs(); err != nil {
+	if err := r.checkPrivs(); err != nil {
 		return VolumeGroup{}, err
 	}
-	vgs, err := backend.ListVolumeGroups(ctx, candidates)
+	vgs, err := r.backend.ListVolumeGroups(ctx, candidates)
 	if err != nil {
 		return VolumeGroup{}, err
 	}
@@ -478,9 +493,13 @@ func ByFreeSpaceFit(required uint64) VolumeGroupSelector {
 // that has at least the required amount of free space. If required is zero it
 // behaves like SelectVolumeGroup with ByFreeSpace.
 func SelectVolumeGroupForSize(ctx context.Context, candidates []string, required uint64) (VolumeGroup, error) {
+	return defaultRunner.SelectVolumeGroupForSize(ctx, candidates, required)
+}
+
+func (r *Runner) SelectVolumeGroupForSize(ctx context.Context, candidates []string, required uint64) (VolumeGroup, error) {
 	selector := ByFreeSpace
 	if required > 0 {
 		selector = ByFreeSpaceFit(required)
 	}
-	return SelectVolumeGroup(ctx, candidates, selector)
+	return r.SelectVolumeGroup(ctx, candidates, selector)
 }

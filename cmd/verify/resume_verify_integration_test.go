@@ -83,7 +83,7 @@ func TestResumeVerifySuccess(t *testing.T) {
 		t.Fatalf("manifest close: %v", err)
 	}
 	resume := filepath.Join(dir, "resume.state")
-	w, _, err := transfer.OpenWAL(resume+".wal", uint64(len(data)), "uuid", 0)
+	w, _, err := transfer.OpenWAL(resume+".wal", uint64(len(data)), "uuid", 0, nil)
 	if err != nil {
 		t.Fatalf("open wal: %v", err)
 	}
@@ -153,7 +153,7 @@ func TestResumeVerifyMismatch(t *testing.T) {
 		t.Fatalf("manifest close: %v", err)
 	}
 	resume := filepath.Join(dir, "resume.state")
-	w, _, err := transfer.OpenWAL(resume+".wal", uint64(len(data)), "uuid", 0)
+	w, _, err := transfer.OpenWAL(resume+".wal", uint64(len(data)), "uuid", 0, nil)
 	if err != nil {
 		t.Fatalf("open wal: %v", err)
 	}

@@ -15,9 +15,6 @@ import (
 	"lvmsync_go/lvm"
 )
 
-// openRawFunc allows tests to stub OpenRaw.
-var openRawFunc = OpenRaw
-
 func verifyPartition(ctx context.Context, dev Device) error {
 	gpt, mbr := partitionSignaturesFromContext(ctx)
 	if gpt == "" && mbr == "" {
@@ -109,7 +106,7 @@ func detectRawDevice(
 			thawArgs = parts[1:]
 		}
 	}
-	dev, err := openRawFunc(ctx, path, offline, freezePath, freezeArgs, thawPath, thawArgs, freezeTimeout, thawTimeout, esc, logger, runner)
+	dev, err := runner.OpenRaw(ctx, path, offline, freezePath, freezeArgs, thawPath, thawArgs, freezeTimeout, thawTimeout, esc, logger)
 	if err != nil {
 		logger.Error("detect_device_failed", zap.String("path", path), zap.String("device_type", TypeRaw), zap.Error(err))
 		return nil, err
