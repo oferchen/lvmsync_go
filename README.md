@@ -123,7 +123,8 @@ no additional coordination.
 ## Transport Options
 
 LVMSync negotiates transports in the order provided by `--transport` (default
-`ssh,tcp+tls,h2,quic`). All transports require TLS 1.3 with mutual
+`ssh,tcp+tls,h2,quic`). If a transport fails to connect, the next transport is
+tried and each attempt is logged. All transports require TLS 1.3 with mutual
 authentication or SSH host key verification unless `--allow-insecure` is set.
 The `rsync` transport is plaintext and refuses to initialize unless
 `--allow-insecure` acknowledges the lack of encryption. Enabling this transport
