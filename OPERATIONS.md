@@ -226,3 +226,13 @@ scenarios.
 2. The TLS handshake fails with `exitcode.ErrRuntime`. Verify certificates and
    trust stores, then retry the transfer.
 
+## Symptom Reference
+
+| Symptom/log excerpt | Exit code | Recommended operator action |
+|---------------------|-----------|------------------------------|
+| `privilege check failed` | [10](internal/exitcode/exitcode.go) | Run as root or adjust `--lvm-escalation`. |
+| `snapshot overflow exit 20` | [20](internal/exitcode/exitcode.go) | Grow or recreate the snapshot, then resume. |
+| `verify failed with exit 60` | [60](internal/exitcode/exitcode.go) | Investigate mismatched blocks before retrying. |
+| `precondition failed with exit 80` | [80](internal/exitcode/exitcode.go) | Ensure device identities match or regenerate the state file. |
+| `resumable exit 90` | [90](internal/exitcode/exitcode.go) | Retry with `--resume` after fixing the issue. |
+
