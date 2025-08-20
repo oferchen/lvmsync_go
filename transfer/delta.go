@@ -47,10 +47,10 @@ func (t *Transfer) streamRsyncDelta(ctx context.Context, cfg *config.Config, sna
 	if err != nil {
 		return fmt.Errorf("stat origin: %w", err)
 	}
-	if err := cl.SendIdentity(device.DeviceIdentity{SizeBytes: uint64(info.Size())}); err != nil {
+	if err := cl.SendIdentity(ctx, device.DeviceIdentity{SizeBytes: uint64(info.Size())}); err != nil {
 		return fmt.Errorf("send identity: %w", err)
 	}
-	if _, err := cl.SendSignatures(orig); err != nil {
+	if _, err := cl.SendSignatures(ctx, orig); err != nil {
 		return fmt.Errorf("send signatures: %w", err)
 	}
 	if _, err := orig.Seek(0, io.SeekStart); err != nil {
@@ -91,7 +91,7 @@ func (t *Transfer) streamRsyncDelta(ctx context.Context, cfg *config.Config, sna
 			}
 			sum := blake3.Sum256(c.Data[:c.Length])
 			if _, ok := digests[sum]; !ok {
-				if err := cl.SendDelta(off, c.Data[:c.Length]); err != nil {
+				if err := cl.SendDelta(ctx, off, c.Data[:c.Length]); err != nil {
 					return fmt.Errorf("send delta: %w", err)
 				}
 			}
@@ -123,7 +123,7 @@ func (t *Transfer) streamRsyncDelta(ctx context.Context, cfg *config.Config, sna
 						for i < n && bufSnap[i] != bufOrig[i] {
 							i++
 						}
-						if err := cl.SendDelta(off+int64(start), bufSnap[start:i]); err != nil {
+						if err := cl.SendDelta(ctx, off+int64(start), bufSnap[start:i]); err != nil {
 							return fmt.Errorf("send delta: %w", err)
 						}
 					} else {
@@ -148,7 +148,7 @@ func (t *Transfer) streamRsyncDelta(ctx context.Context, cfg *config.Config, sna
 	if err != nil {
 		return fmt.Errorf("compute digest: %w", err)
 	}
-	if err := cl.SendDigest(cfg.ChecksumAlgorithm, sum); err != nil {
+	if err := cl.SendDigest(ctx, cfg.ChecksumAlgorithm, sum); err != nil {
 		return fmt.Errorf("send digest: %w", err)
 	}
 

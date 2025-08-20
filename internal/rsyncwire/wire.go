@@ -5,11 +5,14 @@ package rsyncwire
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"fmt"
 	"hash/crc32"
 	"io"
 	"math"
+	"net"
+	"time"
 
 	"github.com/gokrazy/rsync"
 	"github.com/mmcloughlin/md4"
@@ -33,32 +36,52 @@ func NewStream(rw io.ReadWriter, max uint32) *Stream { return &Stream{rw: rw, ma
 
 // Send writes a single frame to the underlying stream, prefixing the
 // payload with its length and CRC32C checksum. It retries short writes so the
-// header and payload are fully written unless an error occurs.
-func (s *Stream) Send(p []byte) error {
+// header and payload are fully written unless an error occurs. The write
+// respects context cancellation and deadlines.
+func (s *Stream) Send(ctx context.Context, p []byte) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if uint32(len(p)) > s.max {
 		return fmt.Errorf("frame %d exceeds max %d", len(p), s.max)
 	}
 	var hdr [8]byte
 	binary.BigEndian.PutUint32(hdr[0:4], uint32(len(p)))
 	binary.BigEndian.PutUint32(hdr[4:8], crc32.Checksum(p, crcTable))
-	if err := writeFull(s.rw, hdr[:]); err != nil {
+
+	if err := withDeadline(ctx, s.rw); err != nil {
+		return err
+	}
+	if err := writeFull(ctx, s.rw, hdr[:]); err != nil {
 		return err
 	}
 	if len(p) > 0 {
-		if err := writeFull(s.rw, p); err != nil {
+		if err := writeFull(ctx, s.rw, p); err != nil {
 			return err
 		}
 	}
-	return nil
+	return ctx.Err()
 }
 
-func writeFull(w io.Writer, buf []byte) error {
+func writeFull(ctx context.Context, w io.Writer, buf []byte) error {
 	for len(buf) > 0 {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		n, err := w.Write(buf)
 		if n > 0 {
 			buf = buf[n:]
 		}
 		if err != nil {
+			if ctxErr := ctx.Err(); ctxErr != nil {
+				return ctxErr
+			}
+			if ne, ok := err.(net.Error); ok && ne.Timeout() {
+				if ctxErr := ctx.Err(); ctxErr != nil {
+					return ctxErr
+				}
+				return context.DeadlineExceeded
+			}
 			return err
 		}
 		if n == 0 {
@@ -69,10 +92,17 @@ func writeFull(w io.Writer, buf []byte) error {
 }
 
 // Recv reads the next frame from the stream, verifying the CRC32C value.
-// It returns io.EOF when the underlying stream is exhausted.
-func (s *Stream) Recv() ([]byte, error) {
+// It returns io.EOF when the underlying stream is exhausted. The read respects
+// context cancellation and deadlines.
+func (s *Stream) Recv(ctx context.Context) ([]byte, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if err := withDeadline(ctx, s.rw); err != nil {
+		return nil, err
+	}
 	var hdr [8]byte
-	if _, err := io.ReadFull(s.rw, hdr[:]); err != nil {
+	if err := readFull(ctx, s.rw, hdr[:]); err != nil {
 		return nil, err
 	}
 	n := binary.BigEndian.Uint32(hdr[0:4])
@@ -81,13 +111,73 @@ func (s *Stream) Recv() ([]byte, error) {
 	}
 	expected := binary.BigEndian.Uint32(hdr[4:8])
 	buf := make([]byte, n)
-	if _, err := io.ReadFull(s.rw, buf); err != nil {
+	if err := readFull(ctx, s.rw, buf); err != nil {
 		return nil, err
 	}
 	if crc32.Checksum(buf, crcTable) != expected {
 		return nil, fmt.Errorf("crc32c mismatch")
 	}
-	return buf, nil
+	return buf, ctx.Err()
+}
+
+func readFull(ctx context.Context, r io.Reader, buf []byte) error {
+	for len(buf) > 0 {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		n, err := r.Read(buf)
+		if n > 0 {
+			buf = buf[n:]
+		}
+		if err != nil {
+			if err == io.EOF && len(buf) == 0 {
+				return nil
+			}
+			if ctxErr := ctx.Err(); ctxErr != nil {
+				return ctxErr
+			}
+			if ne, ok := err.(net.Error); ok && ne.Timeout() {
+				if ctxErr := ctx.Err(); ctxErr != nil {
+					return ctxErr
+				}
+				return context.DeadlineExceeded
+			}
+			if err == io.EOF {
+				return io.ErrUnexpectedEOF
+			}
+			return err
+		}
+	}
+	return nil
+}
+
+// withDeadline applies the context deadline to conn if it supports deadlines
+// and ensures it is cleared when the context completes. For contexts without a
+// deadline it sets a deadline when the context is cancelled.
+func withDeadline(ctx context.Context, rw io.ReadWriter) error {
+	conn, ok := rw.(net.Conn)
+	if !ok {
+		return nil
+	}
+	if dl, ok := ctx.Deadline(); ok {
+		if err := conn.SetDeadline(dl); err != nil {
+			return err
+		}
+		if done := ctx.Done(); done != nil {
+			go func() {
+				<-done
+				_ = conn.SetDeadline(time.Time{})
+			}()
+		}
+		return nil
+	}
+	if done := ctx.Done(); done != nil {
+		go func() {
+			<-done
+			_ = conn.SetDeadline(time.Now())
+		}()
+	}
+	return nil
 }
 
 // Client transmits rsync signatures and deltas over a Stream.
@@ -99,18 +189,18 @@ type Client struct {
 func NewClient(stream *Stream) *Client { return &Client{stream: stream} }
 
 // SendIdentity transmits a device identity frame prefixed with 'I'.
-func (c *Client) SendIdentity(id device.DeviceIdentity) error {
+func (c *Client) SendIdentity(ctx context.Context, id device.DeviceIdentity) error {
 	var buf bytes.Buffer
 	buf.WriteByte('I')
 	fmt.Fprintf(&buf, "%d %s %s %s %s %d %d %d", id.SizeBytes, id.KernelUUID, id.GPTUUID, id.MBRSignature, id.FSUUID, id.Major, id.Minor, id.ManifestEpoch)
-	return c.stream.Send(buf.Bytes())
+	return c.stream.Send(ctx, buf.Bytes())
 }
 
 // SendSignatures reads from r incrementally, computes rsync signatures block
 // by block and sends them as a single frame prefixed with 'S'. It returns the
 // generated SumHead. The reader must be seekable so the total length can be
 // determined without buffering the entire input.
-func (c *Client) SendSignatures(r io.Reader) (rsync.SumHead, error) {
+func (c *Client) SendSignatures(ctx context.Context, r io.Reader) (rsync.SumHead, error) {
 	seeker, ok := r.(io.Seeker)
 	if !ok {
 		return rsync.SumHead{}, fmt.Errorf("SendSignatures requires seekable reader")
@@ -141,6 +231,9 @@ func (c *Client) SendSignatures(r io.Reader) (rsync.SumHead, error) {
 	block := make([]byte, head.BlockLength)
 	offset := int64(0)
 	for i := int32(0); i < head.ChecksumCount; i++ {
+		if err := ctx.Err(); err != nil {
+			return rsync.SumHead{}, err
+		}
 		blen := int(head.BlockLength)
 		if i == head.ChecksumCount-1 && head.RemainderLength != 0 {
 			blen = int(head.RemainderLength)
@@ -166,7 +259,7 @@ func (c *Client) SendSignatures(r io.Reader) (rsync.SumHead, error) {
 	}
 
 	payload := append([]byte{'S'}, buf.Bytes()...)
-	if err := c.stream.Send(payload); err != nil {
+	if err := c.stream.Send(ctx, payload); err != nil {
 		return rsync.SumHead{}, err
 	}
 	return head, nil
@@ -174,18 +267,18 @@ func (c *Client) SendSignatures(r io.Reader) (rsync.SumHead, error) {
 
 // SendDelta sends a delta frame indicating data to be written at the provided
 // offset. The frame is prefixed with 'D'.
-func (c *Client) SendDelta(offset int64, data []byte) error {
+func (c *Client) SendDelta(ctx context.Context, offset int64, data []byte) error {
 	var buf bytes.Buffer
 	buf.WriteByte('D')
 	binary.Write(&buf, binary.BigEndian, uint64(offset))
 	buf.Write(data)
-	return c.stream.Send(buf.Bytes())
+	return c.stream.Send(ctx, buf.Bytes())
 }
 
 // SendDigest transmits a digest frame prefixed with 'G'. The frame contains the
 // length of the algorithm name followed by the UTF-8 algorithm string and the
 // 32-byte digest sum.
-func (c *Client) SendDigest(alg string, sum [32]byte) error {
+func (c *Client) SendDigest(ctx context.Context, alg string, sum [32]byte) error {
 	if len(alg) > 255 {
 		return fmt.Errorf("algorithm name too long")
 	}
@@ -194,7 +287,7 @@ func (c *Client) SendDigest(alg string, sum [32]byte) error {
 	buf.WriteByte(byte(len(alg)))
 	buf.WriteString(alg)
 	buf.Write(sum[:])
-	return c.stream.Send(buf.Bytes())
+	return c.stream.Send(ctx, buf.Bytes())
 }
 
 // sumSizesSqroot mirrors rsync's block size and count calculation.

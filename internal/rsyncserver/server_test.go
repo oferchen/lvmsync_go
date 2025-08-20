@@ -94,10 +94,10 @@ func TestHandleApplyDelta(t *testing.T) {
 	go func() { errCh <- srv.Handle(ctx, rsyncwire.NewStream(c2, maxFrame)) }()
 
 	cl := rsyncwire.NewClient(rsyncwire.NewStream(c1, maxFrame))
-	if err := cl.SendIdentity(device.DeviceIdentity{SizeBytes: uint64(len(dev.buf))}); err != nil {
+	if err := cl.SendIdentity(context.Background(), device.DeviceIdentity{SizeBytes: uint64(len(dev.buf))}); err != nil {
 		t.Fatalf("SendIdentity: %v", err)
 	}
-	if err := cl.SendDelta(0, data); err != nil {
+	if err := cl.SendDelta(context.Background(), 0, data); err != nil {
 		t.Fatalf("SendDelta: %v", err)
 	}
 	c1.Close()
@@ -124,10 +124,10 @@ func TestHandleShortWrite(t *testing.T) {
 	go func() { errCh <- srv.Handle(ctx, rsyncwire.NewStream(c2, maxFrame)) }()
 
 	cl := rsyncwire.NewClient(rsyncwire.NewStream(c1, maxFrame))
-	if err := cl.SendIdentity(device.DeviceIdentity{SizeBytes: uint64(len(dev.buf))}); err != nil {
+	if err := cl.SendIdentity(context.Background(), device.DeviceIdentity{SizeBytes: uint64(len(dev.buf))}); err != nil {
 		t.Fatalf("SendIdentity: %v", err)
 	}
-	if err := cl.SendDelta(0, []byte("hi")); err != nil {
+	if err := cl.SendDelta(context.Background(), 0, []byte("hi")); err != nil {
 		t.Fatalf("SendDelta: %v", err)
 	}
 	c1.Close()
@@ -158,7 +158,7 @@ func TestHandleRejectsOversizedSignatures(t *testing.T) {
 	buf.WriteByte(0)
 	binary.Write(&buf, binary.LittleEndian, int32(0))
 	buf.WriteByte(0)
-	if err := rsyncwire.NewStream(c1, maxFrame).Send(buf.Bytes()); err != nil {
+	if err := rsyncwire.NewStream(c1, maxFrame).Send(context.Background(), buf.Bytes()); err != nil {
 		t.Fatalf("Send: %v", err)
 	}
 	c1.Close()
@@ -193,7 +193,7 @@ func TestHandleCacheHit(t *testing.T) {
 	buf.WriteByte(byte(len(digest.SHA256)))
 	buf.WriteString(digest.SHA256)
 	buf.Write(dgst[:])
-	if err := rsyncwire.NewStream(c1, maxFrame).Send(buf.Bytes()); err != nil {
+	if err := rsyncwire.NewStream(c1, maxFrame).Send(context.Background(), buf.Bytes()); err != nil {
 		t.Fatalf("Send: %v", err)
 	}
 	c1.Close()
@@ -228,14 +228,14 @@ func TestHandleCacheMissUpdates(t *testing.T) {
 	gbuf.WriteByte(byte(len(digest.SHA256)))
 	gbuf.WriteString(digest.SHA256)
 	gbuf.Write(dgst[:])
-	if err := stream.Send(gbuf.Bytes()); err != nil {
+	if err := stream.Send(context.Background(), gbuf.Bytes()); err != nil {
 		t.Fatalf("Send digest: %v", err)
 	}
 	cl := rsyncwire.NewClient(stream)
-	if err := cl.SendIdentity(device.DeviceIdentity{SizeBytes: uint64(len(dev.buf))}); err != nil {
+	if err := cl.SendIdentity(context.Background(), device.DeviceIdentity{SizeBytes: uint64(len(dev.buf))}); err != nil {
 		t.Fatalf("SendIdentity: %v", err)
 	}
-	if err := cl.SendDelta(0, data); err != nil {
+	if err := cl.SendDelta(context.Background(), 0, data); err != nil {
 		t.Fatalf("SendDelta: %v", err)
 	}
 	c1.Close()
@@ -278,7 +278,7 @@ func TestHandleCacheTTLExpiry(t *testing.T) {
 	buf.WriteByte(byte(len(digest.SHA256)))
 	buf.WriteString(digest.SHA256)
 	buf.Write(dgst[:])
-	if err := rsyncwire.NewStream(c1, maxFrame).Send(buf.Bytes()); err != nil {
+	if err := rsyncwire.NewStream(c1, maxFrame).Send(context.Background(), buf.Bytes()); err != nil {
 		t.Fatalf("Send: %v", err)
 	}
 	c1.Close()
@@ -310,7 +310,7 @@ func TestHandleCacheLRUEviction(t *testing.T) {
 		buf.WriteByte(byte(len(digest.SHA256)))
 		buf.WriteString(digest.SHA256)
 		buf.Write(dgst[:])
-		if err := rsyncwire.NewStream(c1, maxFrame).Send(buf.Bytes()); err != nil {
+		if err := rsyncwire.NewStream(c1, maxFrame).Send(context.Background(), buf.Bytes()); err != nil {
 			t.Fatalf("Send: %v", err)
 		}
 		c1.Close()
@@ -346,7 +346,7 @@ func TestHandleDeltaOffsetOverflow(t *testing.T) {
 	buf.WriteByte('D')
 	binary.Write(&buf, binary.BigEndian, uint64(math.MaxInt64)+1)
 	buf.WriteByte(0x1)
-	if err := stream.Send(buf.Bytes()); err != nil {
+	if err := stream.Send(context.Background(), buf.Bytes()); err != nil {
 		t.Fatalf("Send: %v", err)
 	}
 	c1.Close()
@@ -383,10 +383,10 @@ func TestHandleDeltaOutOfBounds(t *testing.T) {
 	go func() { errCh <- srv.Handle(ctx, rsyncwire.NewStream(c2, maxFrame)) }()
 
 	cl := rsyncwire.NewClient(rsyncwire.NewStream(c1, maxFrame))
-	if err := cl.SendIdentity(device.DeviceIdentity{SizeBytes: uint64(len(dev.buf))}); err != nil {
+	if err := cl.SendIdentity(context.Background(), device.DeviceIdentity{SizeBytes: uint64(len(dev.buf))}); err != nil {
 		t.Fatalf("SendIdentity: %v", err)
 	}
-	if err := cl.SendDelta(9, []byte("ab")); err != nil {
+	if err := cl.SendDelta(context.Background(), 9, []byte("ab")); err != nil {
 		t.Fatalf("SendDelta: %v", err)
 	}
 	c1.Close()
@@ -424,7 +424,7 @@ func TestHandleUnknownFrameType(t *testing.T) {
 	errCh := make(chan error, 1)
 	go func() { errCh <- srv.Handle(ctx, rsyncwire.NewStream(c2, maxFrame)) }()
 
-	if err := rsyncwire.NewStream(c1, maxFrame).Send([]byte{'X'}); err != nil {
+	if err := rsyncwire.NewStream(c1, maxFrame).Send(context.Background(), []byte{'X'}); err != nil {
 		t.Fatalf("Send: %v", err)
 	}
 	c1.Close()
@@ -447,18 +447,18 @@ func TestHandleDigestMismatch(t *testing.T) {
 	go func() { errCh <- srv.Handle(ctx, rsyncwire.NewStream(c2, maxFrame)) }()
 
 	cl := rsyncwire.NewClient(rsyncwire.NewStream(c1, maxFrame))
-	if err := cl.SendIdentity(device.DeviceIdentity{SizeBytes: uint64(len(dev.buf))}); err != nil {
+	if err := cl.SendIdentity(context.Background(), device.DeviceIdentity{SizeBytes: uint64(len(dev.buf))}); err != nil {
 		t.Fatalf("SendIdentity: %v", err)
 	}
 	data := []byte("hi")
-	if err := cl.SendDelta(0, data); err != nil {
+	if err := cl.SendDelta(context.Background(), 0, data); err != nil {
 		t.Fatalf("SendDelta: %v", err)
 	}
 	bad, err := digest.SumReader(bytes.NewReader([]byte("ho")), digest.SHA256)
 	if err != nil {
 		t.Fatalf("digest: %v", err)
 	}
-	if err := cl.SendDigest(digest.SHA256, bad); err != nil {
+	if err := cl.SendDigest(context.Background(), digest.SHA256, bad); err != nil {
 		t.Fatalf("SendDigest: %v", err)
 	}
 	c1.Close()
@@ -498,7 +498,7 @@ func TestHandleMissingIdentity(t *testing.T) {
 	go func() { errCh <- srv.Handle(ctx, rsyncwire.NewStream(c2, maxFrame)) }()
 
 	cl := rsyncwire.NewClient(rsyncwire.NewStream(c1, maxFrame))
-	if err := cl.SendDelta(0, []byte("a")); err != nil {
+	if err := cl.SendDelta(context.Background(), 0, []byte("a")); err != nil {
 		t.Fatalf("SendDelta: %v", err)
 	}
 	c1.Close()
@@ -520,7 +520,7 @@ func TestHandleIdentityMismatch(t *testing.T) {
 
 	cl := rsyncwire.NewClient(rsyncwire.NewStream(c1, maxFrame))
 	// Send mismatched identity (size 2 instead of 1).
-	if err := cl.SendIdentity(device.DeviceIdentity{SizeBytes: 2}); err != nil {
+	if err := cl.SendIdentity(context.Background(), device.DeviceIdentity{SizeBytes: 2}); err != nil {
 		t.Fatalf("SendIdentity: %v", err)
 	}
 	c1.Close()

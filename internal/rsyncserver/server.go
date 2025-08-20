@@ -63,7 +63,7 @@ func (s *Server) Handle(ctx context.Context, stream *rsyncwire.Stream) error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		frame, err := stream.Recv()
+		frame, err := stream.Recv(ctx)
 		if err == io.EOF {
 			if err := s.dev.Sync(); err != nil {
 				return err

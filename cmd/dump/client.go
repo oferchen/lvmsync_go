@@ -512,7 +512,7 @@ func (r *Runner) StreamToRemote(ctx context.Context, cfg *config.Config, remoteS
 
 	rw := writeOnlyReadWriter{remoteStdin}
 	cl := rsyncwire.NewClient(rsyncwire.NewStream(rw, maxFrame))
-	if err := cl.SendDigest(alg, sum); err != nil {
+	if err := cl.SendDigest(ctx, alg, sum); err != nil {
 		remoteStdin.Close()
 		return fmt.Errorf("send digest: %w", err)
 	}
@@ -543,11 +543,11 @@ func (r *Runner) streamRsyncDelta(ctx context.Context, cfg *config.Config, remot
 		remoteStdin.Close()
 		return fmt.Errorf("stat origin: %w", err)
 	}
-	if err := cl.SendIdentity(device.DeviceIdentity{SizeBytes: uint64(info.Size())}); err != nil {
+	if err := cl.SendIdentity(ctx, device.DeviceIdentity{SizeBytes: uint64(info.Size())}); err != nil {
 		remoteStdin.Close()
 		return fmt.Errorf("send identity: %w", err)
 	}
-	if _, err := cl.SendSignatures(orig); err != nil {
+	if _, err := cl.SendSignatures(ctx, orig); err != nil {
 		remoteStdin.Close()
 		return fmt.Errorf("send signatures: %w", err)
 	}
@@ -575,7 +575,7 @@ func (r *Runner) streamRsyncDelta(ctx context.Context, cfg *config.Config, remot
 					for i < n && bufSnap[i] != bufOrig[i] {
 						i++
 					}
-					if err := cl.SendDelta(off+int64(start), bufSnap[start:i]); err != nil {
+					if err := cl.SendDelta(ctx, off+int64(start), bufSnap[start:i]); err != nil {
 						remoteStdin.Close()
 						return fmt.Errorf("send delta: %w", err)
 					}
@@ -603,7 +603,7 @@ func (r *Runner) streamRsyncDelta(ctx context.Context, cfg *config.Config, remot
 		remoteStdin.Close()
 		return fmt.Errorf("compute digest: %w", err)
 	}
-	if err := cl.SendDigest(alg, sum); err != nil {
+	if err := cl.SendDigest(ctx, alg, sum); err != nil {
 		remoteStdin.Close()
 		return fmt.Errorf("send digest: %w", err)
 	}

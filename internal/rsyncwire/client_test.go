@@ -33,7 +33,7 @@ func TestClientSendSignatures(t *testing.T) {
 	headExpect := sumSizesSqroot(int64(len(data)))
 	errCh := make(chan error, 1)
 	go func() {
-		frame, err := srv.Recv()
+		frame, err := srv.Recv(context.Background())
 		if err != nil {
 			errCh <- err
 			return
@@ -88,7 +88,7 @@ func TestClientSendSignatures(t *testing.T) {
 		errCh <- nil
 	}()
 
-	if _, err := client.SendSignatures(bytes.NewReader(data)); err != nil {
+	if _, err := client.SendSignatures(context.Background(), bytes.NewReader(data)); err != nil {
 		t.Fatalf("SendSignatures: %v", err)
 	}
 	select {
@@ -113,6 +113,23 @@ func TestClientSendIdentity(t *testing.T) {
 	defer cancel()
 
 	id := device.DeviceIdentity{SizeBytes: 1, KernelUUID: "k"}
+	if err := client.SendIdentity(context.Background(), id); err != nil {
+		t.Fatalf("SendIdentity: %v", err)
+	}
+	frame, err := srv.Recv(context.Background())
+	if err != nil {
+		t.Fatalf("Recv: %v", err)
+	}
+	if frame[0] != 'I' {
+		t.Fatalf("unexpected frame type %q", frame[0])
+	}
+	var got device.DeviceIdentity
+	if _, err := fmt.Fscan(bytes.NewReader(frame[1:]), &got.SizeBytes, &got.KernelUUID, &got.GPTUUID, &got.MBRSignature, &got.FSUUID, &got.Major, &got.Minor, &got.ManifestEpoch); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if got != id {
+		t.Fatalf("identity mismatch: %+v != %+v", got, id)
+
 
 	errCh := make(chan error, 1)
 	go func() {
@@ -165,7 +182,7 @@ func TestClientSendSignaturesLargeInput(t *testing.T) {
 	// Consume the frame so the client can write without blocking.
 	errCh := make(chan error, 1)
 	go func() {
-		_, err := srv.Recv()
+		_, err := srv.Recv(context.Background())
 		errCh <- err
 	}()
 
@@ -178,7 +195,7 @@ func TestClientSendSignaturesLargeInput(t *testing.T) {
 	runtime.GC()
 	var m1 runtime.MemStats
 	runtime.ReadMemStats(&m1)
-	if _, err := client.SendSignatures(r); err != nil {
+	if _, err := client.SendSignatures(context.Background(), r); err != nil {
 		t.Fatalf("SendSignatures: %v", err)
 	}
 	runtime.GC()
@@ -225,7 +242,7 @@ func TestStreamBadCRC(t *testing.T) {
 		}
 		errCh <- c1.Close()
 	}()
-	if _, err := s.Recv(); err == nil {
+	if _, err := s.Recv(context.Background()); err == nil {
 		t.Fatalf("expected CRC error")
 	}
 	select {
