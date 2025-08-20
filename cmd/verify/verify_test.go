@@ -96,6 +96,35 @@ func TestRunSyncsLogger(t *testing.T) {
        }
 }
 
+func TestRunLogsConfigurationWarning(t *testing.T) {
+	src := t.TempDir() + "/src"
+	if err := os.WriteFile(src, []byte("data"), 0o600); err != nil {
+		t.Fatalf("write src: %v", err)
+	}
+	dst := t.TempDir() + "/dst"
+	if err := os.WriteFile(dst, []byte("data"), 0o600); err != nil {
+		t.Fatalf("write dst: %v", err)
+	}
+	t.Setenv("LVMSYNC_SSH_HOST", "example")
+	r := newStubRunner()
+	core, obs := observer.New(zap.WarnLevel)
+	logger := zap.New(core)
+	if err := r.Run([]string{"--dry-run", src, dst}, logger); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	entries := obs.FilterMessage("configuration_warning").All()
+	if len(entries) != 1 {
+		t.Fatalf("expected configuration warning, got %d", len(entries))
+	}
+	ctx := entries[0].ContextMap()
+	if v, ok := ctx["config_key"].(string); !ok || v != "ssh-host" {
+		t.Fatalf("unexpected config_key: %v", ctx["config_key"])
+	}
+	if v, ok := ctx["reason"].(string); !ok || v != "unknown_config_key" {
+		t.Fatalf("unexpected reason: %v", ctx["reason"])
+	}
+}
+
 func TestRunFlagOverridesEnvAndYAML(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	src := t.TempDir() + "/src"
