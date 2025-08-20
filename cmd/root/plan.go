@@ -37,6 +37,22 @@ const (
 	maxAutoZstdLv = 3
 )
 
+func redactConfig(cfg *config.Config) *config.Config {
+	if cfg == nil {
+		return nil
+	}
+	rc := *cfg
+	rc.SSHPassword = ""
+	rc.SSHKeyPath = ""
+	rc.SSHHostKey = ""
+	rc.SSHHostKeyPath = ""
+	rc.KnownHosts = ""
+	rc.ClientCert = ""
+	rc.ClientKey = ""
+	rc.CACert = ""
+	return &rc
+}
+
 func emitPlan(cfg *config.Config, args []string, logger *zap.Logger) error {
 	if len(args) < 1 {
 		return fmt.Errorf("missing source argument")
@@ -46,7 +62,7 @@ func emitPlan(cfg *config.Config, args []string, logger *zap.Logger) error {
 		return err
 	}
 	po := planOutput{
-		Config:         cfg,
+		Config:         redactConfig(cfg),
 		TransportOrder: splitList(cfg.Transport),
 		EstimatedBytes: est,
 		Compression:    buildCompressionPlan(cfg),
