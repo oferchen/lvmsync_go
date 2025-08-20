@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/spf13/pflag"
@@ -16,7 +17,8 @@ import (
 // control which options are available.
 //
 // Build returns the populated Config, remaining CLI arguments, any warnings for
-// unknown YAML keys, and an error if parsing or validation fails.
+// unknown YAML keys, and an error if parsing or validation fails. The warnings
+// slice is sorted for stable output.
 //
 // Example:
 //
@@ -41,6 +43,7 @@ func NewBuilder(defaults *Config) *ConfigBuilder {
 }
 
 // Build parses the provided args using fs and returns the resulting Config.
+// Warnings are returned in sorted order for deterministic output.
 func (b *ConfigBuilder) Build(fs *pflag.FlagSet, args []string) (*Config, []string, []string, error) {
 	if fs == nil {
 		fs = pflag.NewFlagSet(os.Args[0], pflag.ContinueOnError)
@@ -120,6 +123,7 @@ func (b *ConfigBuilder) Build(fs *pflag.FlagSet, args []string) (*Config, []stri
 	} else if allowInsecureYAML {
 		return nil, nil, warns, fmt.Errorf("allow_insecure requires --allow-insecure flag or LVMSYNC_ALLOW_INSECURE environment variable")
 	}
+	sort.Strings(warns)
 	if strict && len(warns) > 0 {
 		return nil, nil, warns, fmt.Errorf("%s", strings.Join(warns, "; "))
 	}
