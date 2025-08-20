@@ -35,6 +35,7 @@ type Config struct {
 	ProbeOnly                bool          `mapstructure:"probe_only"`
 	Plan                     bool          `mapstructure:"plan"`
 	Force                    bool          `mapstructure:"force"`
+	ForceOffline             bool          `mapstructure:"force_offline"`
 	AllowOverwrite           bool          `mapstructure:"allow_overwrite"`
 	StrictConfig             bool          `mapstructure:"strict_config"`
 	Discard                  bool          `mapstructure:"discard"`
@@ -182,6 +183,7 @@ func DefaultConfig() (*Config, error) {
 		ProbeOnly:                false,
 		Plan:                     false,
 		Force:                    false,
+		ForceOffline:             false,
 		AllowOverwrite:           false,
 		StrictConfig:             false,
 		Offline:                  false,
