@@ -160,6 +160,7 @@ func initLVMFlags(cfg *Config) *pflag.FlagSet {
 	fs.Bool("skip-snapshot-creation", cfg.SkipSnapshotCreation, "Skip snapshot creation")
 	fs.Bool("skip-disk-check", cfg.SkipDiskCheck, "Skip disk space check")
 	fs.String("snapshot-size", cfg.SnapshotSize, "Snapshot size (bytes or percentage)")
+	fs.Float64("snapshot-max-usage", cfg.SnapshotMaxUsage, "Maximum allowed snapshot usage percent before aborting")
 	fs.String("lvm-escalation", cfg.LVMEscalation, "Command to use for privilege escalation")
 	fs.Duration("lvm-timeout", cfg.LVMTimeout, "Timeout for LVM commands and privilege checks")
 	fs.Duration("sig-cache-ttl", cfg.SigCacheTTL, "TTL for LVM signature cache entries")

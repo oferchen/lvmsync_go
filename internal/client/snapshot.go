@@ -162,7 +162,7 @@ func (r *Runner) createSnapshotIfNeeded(ctx context.Context, cfg *config.Config,
 	mon := r.monitorSnapshot
 	go func() {
 		defer close(monitorErrCh)
-		if err := mon(monitorCtx, snapshotPath, 80.0, 10*time.Second, logger); err != nil && err != context.Canceled {
+		if err := mon(monitorCtx, snapshotPath, cfg.SnapshotMaxUsage, 10*time.Second, logger); err != nil && err != context.Canceled {
 			logger.Error("Snapshot monitor error", zap.Error(err))
 			select {
 			case monitorErrCh <- err:

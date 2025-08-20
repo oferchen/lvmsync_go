@@ -23,6 +23,7 @@ import (
 	"lvmsync_go/device"
 	hashutil "lvmsync_go/hash"
 	"lvmsync_go/internal/config"
+	"lvmsync_go/lvm"
 	manifestpkg "lvmsync_go/manifest"
 )
 
@@ -131,6 +132,16 @@ func (t *Transfer) dumpChangesCore(ctx context.Context, cfg *config.Config, snap
 			zap.String("compression", algo),
 		)
 		return nil
+	}
+
+	if cfg.SnapshotMaxUsage > 0 && strings.HasPrefix(snapshot, "/dev/") {
+		usage, err := lvm.GetSnapshotUsage(ctx, snapshot, t.Logger)
+		if err != nil {
+			return err
+		}
+		if usage >= cfg.SnapshotMaxUsage {
+			return fmt.Errorf("snapshot exhausted: usage %.2f%% >= threshold %.2f%%", usage, cfg.SnapshotMaxUsage)
+		}
 	}
 
 	ranges, err := prepareRanges(ctx, cfg, snapshot, source, t.Logger)

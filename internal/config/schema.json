@@ -241,6 +241,9 @@
     "skip_snapshot_creation": {
       "type": "boolean"
     },
+    "snapshot_max_usage": {
+      "type": "number"
+    },
     "snapshot_size": {
       "type": "string"
     },

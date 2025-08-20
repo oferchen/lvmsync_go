@@ -39,6 +39,7 @@ For snapshot cleanup, resuming transfers, and verify-only rollback procedures, s
   - Automatic snapshot creation and removal.
   - Configurable snapshot size (absolute or percentage-based) via `--snapshot-size`,
     `LVMSYNC_SNAPSHOT_SIZE`, or the `snapshot_size` config key.
+  - Configurable snapshot usage threshold via `--snapshot-max-usage`.
   - Configurable volume group for constructing the snapshot device path.
   - Auto-selection of target volume groups with sufficient free space.
   - Automatic privilege escalation (defaulting to `sudo -n`).
@@ -689,6 +690,7 @@ Flags override environment variables, which override `config.yaml` values.
 | `--skip-snapshot-creation` | `LVMSYNC_SKIP_SNAPSHOT_CREATION` | `skip_snapshot_creation` | Skip automatic snapshot creation (requires `--force`) |
 | `--skip-disk-check` | `LVMSYNC_SKIP_DISK_CHECK` | `skip_disk_check` | Skip disk space check before snapshot creation |
 | `--snapshot-size` | `LVMSYNC_SNAPSHOT_SIZE` | `snapshot_size` | Snapshot size (e.g., `20G` or `20%`) |
+| `--snapshot-max-usage` | `LVMSYNC_SNAPSHOT_MAX_USAGE` | `snapshot_max_usage` | Maximum allowed snapshot usage percent before aborting |
 | `--lvm-escalation` | `LVMSYNC_LVM_ESCALATION` | `lvm_escalation` | Command used to escalate privileges for LVM commands; parsed with shell-style quoting and validated at startup |
 | `--sanitize-env` | `LVMSYNC_SANITIZE_ENV` | `sanitize_env` | Drop dangerous variables like `LD_PRELOAD` and remove `PATH`/`LANG` during escalation (disabled by default) |
 | `--lvm-timeout` | `LVMSYNC_LVM_TIMEOUT` | `lvm_timeout` | Timeout for LVM operations and privilege checks |
@@ -1210,6 +1212,7 @@ timeouts or cancellations are reported separately.
 | `--skip-snapshot-creation` | Skip automatic snapshot creation | `false` |
 | `--skip-disk-check` | Skip disk space check before snapshot creation | `false` |
 | `--snapshot-size` | Snapshot size as an absolute value (e.g., "20G") or as a percentage (e.g., "20%") | "20%" |
+| `--snapshot-max-usage` | Maximum allowed snapshot usage percent before aborting | `80` |
 | `--volume-group` | Source volume group. Derived from the source device path when empty | "" |
 | `--target-volume-group` | Volume group name of the target LVM volume | "" |
 | `--target-vgs` | Candidate target volume groups for auto-selection | [] |
@@ -1316,7 +1319,7 @@ In this example, LVMSync will:
 - Validate that the volume group `vg_data` exists.
 - Create a snapshot of `/dev/vg_data/original` sized at 25% of the original volume.
   - Automatically re-exec with `sudo -n` if not running as root.
-- Monitor snapshot usage (failing fast if usage exceeds 80%).
+- Monitor snapshot usage (failing fast if usage exceeds 80% by default; configurable via `--snapshot-max-usage`).
 - Perform the block-level transfer.
 - Remove the snapshot upon completion.
 - Clean up gracefully if interrupted.
