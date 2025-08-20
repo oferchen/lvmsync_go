@@ -20,6 +20,10 @@ dedup_strategy: "none"
 dedup_state_file: "~/.lvmsync_dedup"  # Path to deduplication state file
 # Enable intra-run deduplication to skip repeating chunks
 intra_dedup: false
+# FastCDC chunk sizing (used with dedup modes "cdc" or "hybrid")
+cdc_min: 262144      # Minimum chunk size in bytes
+cdc_avg: 1048576     # Target average chunk size in bytes
+cdc_max: 4194304     # Maximum chunk size in bytes
 # Estimated number of entries for bloom filter
 bloom_entries: 1000000
 bloom_fp_rate: 0.01  # False positive rate for bloom filter
