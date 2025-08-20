@@ -56,7 +56,7 @@ func TestValidateCmd(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			err := validateCmd(tc.path, tc.args)
+			err := ValidateCmd(tc.path, tc.args)
 			if tc.wantErr == "" {
 				if err != nil {
 					t.Fatalf("unexpected error: %v", err)
