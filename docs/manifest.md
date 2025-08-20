@@ -179,6 +179,8 @@ Example scripts in this repository:
 - [fsfreeze-freeze.sh](fsfreeze-freeze.sh)
 - [fsfreeze-thaw.sh](fsfreeze-thaw.sh)
 
+Integration tests run these hooks on both ext4 and XFS loopback filesystems.
+
 Use them together:
 
 ```sh

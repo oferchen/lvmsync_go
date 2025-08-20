@@ -29,7 +29,7 @@ docs-check:
 test-race:
 > go test -race ./...
 
-integration:
+integration: integration/offline_enforcement.sh
 > go test -tags=integration ./...
 
 release:
