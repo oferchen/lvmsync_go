@@ -60,13 +60,12 @@ complete destruction or disclosure of data across the entire disk.
 
 ## Environment sanitization
 
-By default the helper drops `PATH`, `LANG`, and dangerous variables such as
-`LD_PRELOAD` or `GCONV_PATH`, running with a minimal whitelisted environment.
-Disable this behavior with `--sanitize-env=false` or `LVMSYNC_SANITIZE_ENV=false`
-to forward the full environment. Because `PATH` is removed during escalation,
-`sudoers` entries must specify absolute command paths. After each privileged
-command the helper clears any ambient capability sets to minimise the time
-elevated rights remain active.
+The helper forwards the invoking environment unchanged. Supply
+`--sanitize-env` or set `LVMSYNC_SANITIZE_ENV=1` to drop `PATH`, `LANG`, and
+dangerous variables such as `LD_PRELOAD` or `GCONV_PATH`. When sanitization is
+enabled, `sudoers` entries must specify absolute command paths. After each
+privileged command the helper clears any ambient capability sets to minimise
+the time elevated rights remain active.
 
 ## Logging hygiene
 

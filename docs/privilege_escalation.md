@@ -28,11 +28,11 @@ lvmsync --check-escalation
 
 ## Environment Sanitization
 
-LVMSync drops `PATH`, `LANG`, and unsafe variables like `LD_PRELOAD` by default
-before invoking `sudo`. Disable this behavior with `--sanitize-env=false` or
-`LVMSYNC_SANITIZE_ENV=0` to forward the entire environment. The helper also
-clears any ambient capability sets after each privileged command to limit the
-window of elevated rights.
+LVMSync forwards the invoking environment unchanged. Use `--sanitize-env` or
+`LVMSYNC_SANITIZE_ENV=1` to drop `PATH`, `LANG`, and unsafe variables like
+`LD_PRELOAD` before invoking `sudo`. The helper also clears any ambient
+capability sets after each privileged command to limit the window of elevated
+rights.
 
 
 
