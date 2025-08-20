@@ -113,10 +113,10 @@ func TestClientSendIdentity(t *testing.T) {
 	defer cancel()
 
 	id := device.DeviceIdentity{SizeBytes: 1, KernelUUID: "k"}
-	if err := client.SendIdentity(context.Background(), id); err != nil {
+	if err := client.SendIdentity(ctx, id); err != nil {
 		t.Fatalf("SendIdentity: %v", err)
 	}
-	frame, err := srv.Recv(context.Background())
+	frame, err := srv.Recv(ctx)
 	if err != nil {
 		t.Fatalf("Recv: %v", err)
 	}
@@ -129,42 +129,6 @@ func TestClientSendIdentity(t *testing.T) {
 	}
 	if got != id {
 		t.Fatalf("identity mismatch: %+v != %+v", got, id)
-
-
-	errCh := make(chan error, 1)
-	go func() {
-		frame, err := srv.Recv()
-		if err != nil {
-			errCh <- fmt.Errorf("Recv: %w", err)
-			return
-		}
-		if frame[0] != 'I' {
-			errCh <- fmt.Errorf("unexpected frame type %q", frame[0])
-			return
-		}
-		var got device.DeviceIdentity
-		if _, err := fmt.Fscan(bytes.NewReader(frame[1:]), &got.SizeBytes, &got.KernelUUID, &got.GPTUUID, &got.MBRSignature, &got.FSUUID, &got.Major, &got.Minor, &got.ManifestEpoch); err != nil {
-			errCh <- fmt.Errorf("parse: %w", err)
-			return
-		}
-		if got != id {
-			errCh <- fmt.Errorf("identity mismatch: %+v != %+v", got, id)
-			return
-		}
-		errCh <- nil
-	}()
-
-	if err := client.SendIdentity(id); err != nil {
-		t.Fatalf("SendIdentity: %v", err)
-	}
-
-	select {
-	case err := <-errCh:
-		if err != nil {
-			t.Fatalf("verify: %v", err)
-		}
-	case <-ctx.Done():
-		t.Fatal("timeout waiting for Recv")
 	}
 }
 
