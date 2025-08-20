@@ -3,6 +3,7 @@ package dedup
 import (
 	"bytes"
 	"io"
+	"math/rand"
 	"reflect"
 	"testing"
 )
@@ -108,6 +109,34 @@ func TestChunkerSeedAffectsBoundaries(t *testing.T) {
 	}
 	if reflect.DeepEqual(chunks1, chunks2) {
 		t.Fatalf("expected different chunk boundaries with different seeds")
+	}
+}
+
+func TestFastCDCDeterministic(t *testing.T) {
+	rng := rand.New(rand.NewSource(42))
+	const seed = 12345
+	for i := 0; i < 5; i++ {
+		size := rng.Intn(8192)
+		data := make([]byte, size)
+		if _, err := rng.Read(data); err != nil {
+			t.Fatalf("random data: %v", err)
+		}
+		chunks1, err := FastCDC(bytes.NewReader(data), 64, 128, 256, seed)
+		if err != nil {
+			t.Fatalf("fastcdc run1: %v", err)
+		}
+		chunks2, err := FastCDC(bytes.NewReader(data), 64, 128, 256, seed)
+		if err != nil {
+			t.Fatalf("fastcdc run2: %v", err)
+		}
+		if len(chunks1) != len(chunks2) {
+			t.Fatalf("chunk count mismatch: %d vs %d", len(chunks1), len(chunks2))
+		}
+		for j := range chunks1 {
+			if chunks1[j].Offset != chunks2[j].Offset || chunks1[j].Length != chunks2[j].Length {
+				t.Fatalf("chunk %d mismatch: %v vs %v", j, chunks1[j], chunks2[j])
+			}
+		}
 	}
 }
 
