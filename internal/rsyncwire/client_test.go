@@ -2,12 +2,14 @@ package rsyncwire
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"fmt"
 	"io"
 	"net"
 	"runtime"
 	"testing"
+	"time"
 
 	"github.com/gokrazy/rsync"
 
@@ -24,9 +26,12 @@ func TestClientSendSignatures(t *testing.T) {
 	client := NewClient(NewStream(c1, maxFrame))
 	srv := NewStream(c2, maxFrame)
 
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
 	data := []byte("testdata")
 	headExpect := sumSizesSqroot(int64(len(data)))
-	errCh := make(chan error)
+	errCh := make(chan error, 1)
 	go func() {
 		frame, err := srv.Recv()
 		if err != nil {
@@ -86,8 +91,13 @@ func TestClientSendSignatures(t *testing.T) {
 	if _, err := client.SendSignatures(bytes.NewReader(data)); err != nil {
 		t.Fatalf("SendSignatures: %v", err)
 	}
-	if err := <-errCh; err != nil {
-		t.Fatalf("verify: %v", err)
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Fatalf("verify: %v", err)
+		}
+	case <-ctx.Done():
+		t.Fatal("timeout waiting for Recv")
 	}
 }
 
@@ -98,23 +108,46 @@ func TestClientSendIdentity(t *testing.T) {
 
 	client := NewClient(NewStream(c1, maxFrame))
 	srv := NewStream(c2, maxFrame)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
 	id := device.DeviceIdentity{SizeBytes: 1, KernelUUID: "k"}
+
+	errCh := make(chan error, 1)
+	go func() {
+		frame, err := srv.Recv()
+		if err != nil {
+			errCh <- fmt.Errorf("Recv: %w", err)
+			return
+		}
+		if frame[0] != 'I' {
+			errCh <- fmt.Errorf("unexpected frame type %q", frame[0])
+			return
+		}
+		var got device.DeviceIdentity
+		if _, err := fmt.Fscan(bytes.NewReader(frame[1:]), &got.SizeBytes, &got.KernelUUID, &got.GPTUUID, &got.MBRSignature, &got.FSUUID, &got.Major, &got.Minor, &got.ManifestEpoch); err != nil {
+			errCh <- fmt.Errorf("parse: %w", err)
+			return
+		}
+		if got != id {
+			errCh <- fmt.Errorf("identity mismatch: %+v != %+v", got, id)
+			return
+		}
+		errCh <- nil
+	}()
+
 	if err := client.SendIdentity(id); err != nil {
 		t.Fatalf("SendIdentity: %v", err)
 	}
-	frame, err := srv.Recv()
-	if err != nil {
-		t.Fatalf("Recv: %v", err)
-	}
-	if frame[0] != 'I' {
-		t.Fatalf("unexpected frame type %q", frame[0])
-	}
-	var got device.DeviceIdentity
-	if _, err := fmt.Fscan(bytes.NewReader(frame[1:]), &got.SizeBytes, &got.KernelUUID, &got.GPTUUID, &got.MBRSignature, &got.FSUUID, &got.Major, &got.Minor, &got.ManifestEpoch); err != nil {
-		t.Fatalf("parse: %v", err)
-	}
-	if got != id {
-		t.Fatalf("identity mismatch: %+v != %+v", got, id)
+
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Fatalf("verify: %v", err)
+		}
+	case <-ctx.Done():
+		t.Fatal("timeout waiting for Recv")
 	}
 }
 
@@ -125,6 +158,9 @@ func TestClientSendSignaturesLargeInput(t *testing.T) {
 
 	client := NewClient(NewStream(c1, maxFrame))
 	srv := NewStream(c2, maxFrame)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
 
 	// Consume the frame so the client can write without blocking.
 	errCh := make(chan error, 1)
@@ -148,8 +184,14 @@ func TestClientSendSignaturesLargeInput(t *testing.T) {
 	runtime.GC()
 	var m2 runtime.MemStats
 	runtime.ReadMemStats(&m2)
-	if err := <-errCh; err != nil {
-		t.Fatalf("recv: %v", err)
+
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Fatalf("recv: %v", err)
+		}
+	case <-ctx.Done():
+		t.Fatal("timeout waiting for Recv")
 	}
 
 	// Expect substantially less additional memory than the input size.
@@ -162,6 +204,9 @@ func TestStreamBadCRC(t *testing.T) {
 	c1, c2 := net.Pipe()
 	defer c1.Close()
 	defer c2.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
 
 	s := NewStream(c2, maxFrame)
 	payload := []byte("bad")
@@ -183,7 +228,12 @@ func TestStreamBadCRC(t *testing.T) {
 	if _, err := s.Recv(); err == nil {
 		t.Fatalf("expected CRC error")
 	}
-	if err := <-errCh; err != nil {
-		t.Fatalf("write: %v", err)
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Fatalf("write: %v", err)
+		}
+	case <-ctx.Done():
+		t.Fatal("timeout waiting for writer")
 	}
 }
