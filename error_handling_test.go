@@ -42,9 +42,9 @@ func TestSyncLoggerLogsError(t *testing.T) {
 	if len(logs) != 1 {
 		t.Fatalf("expected one log entry, got %d", len(logs))
 	}
-       if logs[0].Message != "logger_sync_error" {
-               t.Fatalf("unexpected log message %q", logs[0].Message)
-       }
+	if logs[0].Message != "logger_sync_error" {
+		t.Fatalf("unexpected log message %q", logs[0].Message)
+	}
 	errStr, ok := logs[0].ContextMap()["error"].(string)
 	if !ok || errStr != syncErr.Error() {
 		t.Fatalf("expected error %q in log, got %v", syncErr.Error(), logs[0].ContextMap()["error"])

@@ -109,9 +109,9 @@ func RegisterVerify(fn func([]string, *zap.Logger) error) {
 
 // SyncLogger flushes buffered log entries and logs if syncing fails.
 func SyncLogger(logger *zap.Logger) {
-       if err := logger.Sync(); err != nil {
-               logger.Error("logger_sync_error", zap.Error(err))
-       }
+	if err := logger.Sync(); err != nil {
+		logger.Error("logger_sync_error", zap.Error(err))
+	}
 }
 
 // ConfigureWithEscalator loads configuration, ensures privileges via the provided

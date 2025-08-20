@@ -55,25 +55,25 @@ func TestRunnerExitCodes(t *testing.T) {
 }
 
 func TestExitCodeValues(t *testing.T) {
-        cases := []struct {
-                name string
-                code int
-                want int
-        }{
-                {"OK", exitcode.OK, 0},
-                {"ErrCapability", exitcode.ErrCapability, 10},
-                {"ErrDevice", exitcode.ErrDevice, 20},
-                {"ErrPlatform", exitcode.ErrPlatform, 30},
-                {"ErrConfig", exitcode.ErrConfig, 40},
-                {"ErrRuntime", exitcode.ErrRuntime, 50},
-                {"ErrVerify", exitcode.ErrVerify, 60},
-                {"ErrPartial", exitcode.ErrPartial, 70},
-                {"ErrPrecondition", exitcode.ErrPrecondition, 80},
-                {"ErrResumable", exitcode.ErrResumable, 90},
-        }
-        for _, tt := range cases {
-                if tt.code != tt.want {
-                        t.Errorf("exitcode.%s = %d, want %d", tt.name, tt.code, tt.want)
-                }
-        }
+	cases := []struct {
+		name string
+		code int
+		want int
+	}{
+		{"OK", exitcode.OK, 0},
+		{"ErrCapability", exitcode.ErrCapability, 10},
+		{"ErrDevice", exitcode.ErrDevice, 20},
+		{"ErrPlatform", exitcode.ErrPlatform, 30},
+		{"ErrConfig", exitcode.ErrConfig, 40},
+		{"ErrRuntime", exitcode.ErrRuntime, 50},
+		{"ErrVerify", exitcode.ErrVerify, 60},
+		{"ErrPartial", exitcode.ErrPartial, 70},
+		{"ErrPrecondition", exitcode.ErrPrecondition, 80},
+		{"ErrResumable", exitcode.ErrResumable, 90},
+	}
+	for _, tt := range cases {
+		if tt.code != tt.want {
+			t.Errorf("exitcode.%s = %d, want %d", tt.name, tt.code, tt.want)
+		}
+	}
 }

@@ -53,7 +53,7 @@ func TestMainLogsStructuredError(t *testing.T) {
 		t.Fatalf("expected one log entry, got %d", len(entries))
 	}
 
-       syncEntries := logs.FilterMessage("logger_sync_error").All()
+	syncEntries := logs.FilterMessage("logger_sync_error").All()
 	if len(syncEntries) != 1 {
 		t.Fatalf("expected logger sync error entry, got %d", len(syncEntries))
 	}
@@ -95,7 +95,7 @@ func TestMainLogsConfigError(t *testing.T) {
 		t.Fatalf("expected one log entry, got %d", len(entries))
 	}
 
-       syncEntries := logs.FilterMessage("logger_sync_error").All()
+	syncEntries := logs.FilterMessage("logger_sync_error").All()
 	if len(syncEntries) != 1 {
 		t.Fatalf("expected logger sync error entry, got %d", len(syncEntries))
 	}
@@ -135,7 +135,7 @@ func TestMainErrorsOnNonLinux(t *testing.T) {
 		t.Fatalf("expected one log entry, got %d", len(entries))
 	}
 
-       syncEntries := logs.FilterMessage("logger_sync_error").All()
+	syncEntries := logs.FilterMessage("logger_sync_error").All()
 	if len(syncEntries) != 1 {
 		t.Fatalf("expected logger sync error entry, got %d", len(syncEntries))
 	}

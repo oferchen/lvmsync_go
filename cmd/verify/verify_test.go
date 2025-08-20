@@ -91,9 +91,9 @@ func TestRunSyncsLogger(t *testing.T) {
 	if syncs != 1 {
 		t.Fatalf("expected logger.Sync called once, got %d", syncs)
 	}
-       if logs.FilterMessage("logger_sync_error").Len() != 1 {
-               t.Fatalf("expected sync error log")
-       }
+	if logs.FilterMessage("logger_sync_error").Len() != 1 {
+		t.Fatalf("expected sync error log")
+	}
 }
 
 func TestRunLogsConfigurationWarning(t *testing.T) {
