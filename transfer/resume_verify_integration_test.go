@@ -65,10 +65,10 @@ func TestResumeVerifyMismatch(t *testing.T) {
 		BlockSize:         blockSize,
 		ManifestPath:      man,
 		ResumeState:       resume,
-		ResumeVerify:      true,
-		Compress:          "none",
-		ChecksumAlgorithm: "sha256",
-		MaxRetries:        1,
+               VerifyLevel:       "inline",
+               Compress:          "none",
+               ChecksumAlgorithm: "sha256",
+               MaxRetries:        1,
 	}
 	err = tr.ProcessDumpData(context.Background(), cfg, bytes.NewReader(minimalStream(t)), dest)
 	if err == nil {

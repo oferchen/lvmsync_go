@@ -87,7 +87,7 @@
 | LVMSYNC_THAW_TIMEOUT | `--thaw-timeout` | `thaw-timeout` | Timeout for filesystem thaw command |
 | LVMSYNC_TRANSPORT | `--transport` | `transport` | Transport modes (comma-separated) |
 | LVMSYNC_VERBOSE | `--verbose` | `verbose` | Verbosity level |
-| LVMSYNC_VERIFY | `--verify` | `verify` | Verification level: full, sampled, or none |
+| LVMSYNC_VERIFY | `--verify` | `verify` | Verification level: inline, post, or none |
 | LVMSYNC_VERIFY_CHECKSUM | `--verify-checksum` | `verify-checksum` | Enable checksum verification |
 | LVMSYNC_VERIFY_ONLY | `--verify-only` | `verify-only` | Verify destination without writing data |
 | LVMSYNC_VOLUME_GROUP | `--volume-group` | `volume-group` | LVM volume group |

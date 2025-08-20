@@ -160,31 +160,31 @@ func TestRunFlagOverridesEnvAndYAML(t *testing.T) {
 	}
 }
 
-func TestVerifyFullAllocations(t *testing.T) {
+func TestVerifyInlineAllocations(t *testing.T) {
 	blockSize := 1024
 	size := blockSize * 4
 	src := createTestFile(t, size)
 	dst := createTestFile(t, size)
 	cfg := &config.Config{BlockSize: blockSize}
 	allocs := testing.AllocsPerRun(10, func() {
-		if err := verifyFull(cfg, src, dst, zap.NewNop()); err != nil {
-			t.Fatalf("verifyFull: %v", err)
-		}
+               if err := verifyInline(cfg, src, dst, zap.NewNop()); err != nil {
+                       t.Fatalf("verifyInline: %v", err)
+               }
 	})
 	if allocs >= 15 {
 		t.Fatalf("expected fewer allocations, got %f", allocs)
 	}
 }
 
-func TestVerifyFullSHA256(t *testing.T) {
+func TestVerifyInlineSHA256(t *testing.T) {
 	blockSize := 1024
 	size := blockSize * 2
 	src := createTestFile(t, size)
 	dst := createTestFile(t, size)
 	cfg := &config.Config{BlockSize: blockSize, ChecksumAlgorithm: "sha256"}
-	if err := verifyFull(cfg, src, dst, zap.NewNop()); err != nil {
-		t.Fatalf("verifyFull: %v", err)
-	}
+       if err := verifyInline(cfg, src, dst, zap.NewNop()); err != nil {
+               t.Fatalf("verifyInline: %v", err)
+       }
 }
 
 func TestVerifyWithManifestAllocations(t *testing.T) {
