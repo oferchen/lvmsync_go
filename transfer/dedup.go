@@ -65,6 +65,8 @@ type BloomFilterDedup struct {
 	strategy  ChecksumStrategy
 	logger    *zap.Logger
 	deps      *Deps
+	lookups   uint64
+	misses    uint64
 }
 
 // RollingHashDedup computes a rolling hash for block comparison.
@@ -329,9 +331,13 @@ func (r *RollingHashDedup) loadState() error {
 func (b *BloomFilterDedup) ShouldTransfer(_ int64, data []byte) bool {
 	// offset is ignored because the Bloom filter only tracks data hashes.
 	sum := b.strategy.Compute(data)
-	b.mu.RLock()
+	b.mu.Lock()
+	b.lookups++
 	ok := !b.filter.Test(sum)
-	b.mu.RUnlock()
+	if ok {
+		b.misses++
+	}
+	b.mu.Unlock()
 	return ok
 }
 
@@ -345,6 +351,17 @@ func (b *BloomFilterDedup) RecordTransfer(_ int64, data []byte) {
 func (b *BloomFilterDedup) SaveState() error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	if b.logger != nil {
+		var observed float64
+		if b.lookups > 0 {
+			observed = float64(b.lookups-b.misses) / float64(b.lookups)
+		}
+		b.logger.Info("dedup_bloom_stats",
+			zap.Uint("entries", uint(b.filter.ApproximatedSize())),
+			zap.Float64("configured_fp_rate", b.fpRate),
+			zap.Float64("observed_fp_rate", observed),
+		)
+	}
 	return saveStateFile(b.deps, b.logger, b.stateFile, func(file io.Writer) error {
 		_, err := b.filter.WriteTo(file)
 		return err

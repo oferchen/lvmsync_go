@@ -1445,6 +1445,7 @@ dedup_state_file: ~/.lvmsync_state
 ```
 
 LVMSync automatically reloads this state file on startup. Delete it to reset deduplication: `rm ~/.lvmsync_dedup`.
+When saving Bloom filter state, LVMSync logs `dedup_bloom_stats` with `entries`, `configured_fp_rate`, and `observed_fp_rate`.
 
 #### Compression
 
