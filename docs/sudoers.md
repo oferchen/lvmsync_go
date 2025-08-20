@@ -29,9 +29,17 @@ Cmnd_Alias LVMSYNC_HELPER = \
 
 Cmnd_Alias LVMSYNC_BLKDISCARD = /usr/sbin/blkdiscard
 
-# Allow the "lvmsync" user to run the aliases without a password
-lvmsync ALL=(root) NOPASSWD: LVMSYNC_LVM, LVMSYNC_HELPER, LVMSYNC_BLKDISCARD
+# Allow the "lvmsync" user to run the aliases without a password and block
+# shell escapes and environment injection
+lvmsync ALL=(root) NOPASSWD:NOEXEC,SETENV=!setenv: LVMSYNC_LVM, LVMSYNC_HELPER, LVMSYNC_BLKDISCARD
+# Older sudo versions may require the following syntax instead:
+# lvmsync ALL=(root) NOPASSWD:NOEXEC,!setenv: LVMSYNC_LVM, LVMSYNC_HELPER, LVMSYNC_BLKDISCARD
 ```
+
+`NOEXEC` prevents privileged commands from launching other binaries through
+shell escapes, while `!setenv` blocks attackers from altering the execution
+environment. These restrictions help contain compromised helpers and reduce
+privilege-escalation risks.
 
 Test each entry carefully to ensure no additional privileges are granted.
 
