@@ -124,6 +124,9 @@
     "force": {
       "type": "boolean"
     },
+    "force_offline": {
+      "type": "boolean"
+    },
     "freeze-timeout": {
       "type": "string"
     },

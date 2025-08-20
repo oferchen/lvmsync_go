@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/pflag"
@@ -252,6 +253,31 @@ func (r *Runner) prepareClient(cfg *config.Config, args []string, logger *zap.Lo
 	destPath := ""
 	if !cfg.StdoutMode {
 		destPath = args[1]
+	}
+	if destPath != "" && !cfg.StdoutMode && !strings.Contains(destPath, ":") {
+		resolved, err := filepath.EvalSymlinks(destPath)
+		if err == nil {
+			if info, err := os.Stat(resolved); err == nil && info.Mode()&os.ModeDevice != 0 && info.Mode()&os.ModeCharDevice == 0 {
+				if !cfg.ForceOffline {
+					cancel()
+					signal.Stop(signals)
+					return nil, nil, "", "", nil, nil, fmt.Errorf("direct device writes require --force-offline")
+				}
+				if term.IsTerminal(int(os.Stdin.Fd())) {
+					fmt.Fprint(os.Stderr, "Direct device writes may destroy data. Type 'double-confirm' to continue: ")
+					resp, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+					if strings.TrimSpace(resp) != "double-confirm" {
+						cancel()
+						signal.Stop(signals)
+						return nil, nil, "", "", nil, nil, fmt.Errorf("direct device write cancelled")
+					}
+				} else if !cfg.YesIKnow {
+					cancel()
+					signal.Stop(signals)
+					return nil, nil, "", "", nil, nil, fmt.Errorf("direct device writes require --yes-i-know flag when not run interactively")
+				}
+			}
+		}
 	}
 
 	snapPath, monitorErrCh, snapCleanup, err := r.prepareSnapshotFn(ctx, cfg, originalVolume, logger)

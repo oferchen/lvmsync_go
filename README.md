@@ -698,6 +698,7 @@ Flags override environment variables, which override `config.yaml` values.
 | `--target-vgs` | `LVMSYNC_TARGET_VGS` | `target_vgs` | Candidate target volume groups for auto-selection |
 | `--create-dest-lv` | `LVMSYNC_CREATE_DEST_LV` | `create_dest_lv` | Create destination logical volume when missing (requires `--force` or confirmation) |
 | `--force` | `LVMSYNC_FORCE` | `force` | Override safety checks and proceed on mounted destination |
+| `--force-offline` | `LVMSYNC_FORCE_OFFLINE` | `force_offline` | Allow direct device writes; prompts for `double-confirm` when interactive (requires `--yes-i-know` otherwise) |
 | `--allow-overwrite` | `LVMSYNC_ALLOW_OVERWRITE` | `allow_overwrite` | Allow overwriting existing data; requires `--yes-i-know` for non-interactive sessions |
 | `--discard` | `LVMSYNC_DISCARD` | `discard` | Issue BLKDISCARD before writing blocks |
 | `--dry-run` | `LVMSYNC_DRY_RUN` | `dry_run` | Log estimated transfer bytes without sending data; uses manifest sampling when available |
