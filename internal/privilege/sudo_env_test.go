@@ -1,10 +1,12 @@
 package privilege
 
 import (
-	"context"
-	"os/exec"
-	"strings"
-	"testing"
+        "context"
+        "os/exec"
+        "strings"
+        "testing"
+
+        "go.uber.org/zap"
 )
 
 // dummy commander to avoid executing real commands
@@ -48,7 +50,7 @@ func TestCommandAppliesSanitizedEnv(t *testing.T) {
 	t.Setenv("LC_ALL", "C")
 	t.Setenv("TERM", "xterm")
 	t.Setenv("LD_PRELOAD", "evil.so")
-	esc := &sudoEscalator{sanitizeEnv: true, runner: &Runner{Cmd: commanderFunc(noopCmd)}}
+        esc := &sudoEscalator{sanitizeEnv: true, runner: &Runner{Cmd: commanderFunc(noopCmd), Logger: zap.NewNop()}}
 	cmd := esc.Command(context.Background(), "true")
 	for _, kv := range cmd.Env {
 		if strings.HasPrefix(kv, "PATH=") || strings.HasPrefix(kv, "LANG=") || strings.HasPrefix(kv, "LD_PRELOAD=") {
