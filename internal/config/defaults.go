@@ -83,13 +83,14 @@ type Config struct {
 	CompressThreshold        float64       `mapstructure:"compress_threshold"` // skip compression when estimated ratio exceeds this value
 	Speed                    string        `mapstructure:"speed"`
 	SpeedLimit               int           `mapstructure:"-"`
-       VerifyChecksum           bool          `mapstructure:"verify_checksum"`
-       VerifyLevel              string        `mapstructure:"verify"` // inline, post, or none
-       ChecksumAlgorithm        string        `mapstructure:"digest"`
+	VerifyChecksum           bool          `mapstructure:"verify_checksum"`
+	VerifyLevel              string        `mapstructure:"verify"` // inline, post, or none
+	ChecksumAlgorithm        string        `mapstructure:"digest"`
 	Verbose                  int           `mapstructure:"verbose"`
 	SkipSnapshotCreation     bool          `mapstructure:"skip_snapshot_creation"`
 	SkipDiskCheck            bool          `mapstructure:"skip_disk_check"`
 	SnapshotSize             string        `mapstructure:"snapshot_size"`
+	SnapshotMaxUsage         float64       `mapstructure:"snapshot_max_usage"`
 	VolumeGroup              string        `mapstructure:"volume_group"`
 	TargetVolumeGroup        string        `mapstructure:"target_volume_group"`
 	TargetVGCandidates       []string      `mapstructure:"target_vgs"`
@@ -233,6 +234,7 @@ func DefaultConfig() (*Config, error) {
 		SkipSnapshotCreation:     false,
 		SkipDiskCheck:            false,
 		SnapshotSize:             "20%",
+		SnapshotMaxUsage:         80.0,
 		SourceType:               "auto",
 		DestType:                 "auto",
 		VolumeGroup:              "",

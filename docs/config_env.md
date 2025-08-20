@@ -63,6 +63,7 @@
 | LVMSYNC_SIG_CACHE_TTL | `--sig-cache-ttl` | `sig-cache-ttl` | TTL for LVM signature cache entries |
 | LVMSYNC_SKIP_DISK_CHECK | `--skip-disk-check` | `skip-disk-check` | Skip disk space check |
 | LVMSYNC_SKIP_SNAPSHOT_CREATION | `--skip-snapshot-creation` | `skip-snapshot-creation` | Skip snapshot creation |
+| LVMSYNC_SNAPSHOT_MAX_USAGE | `--snapshot-max-usage` | `snapshot-max-usage` | Maximum allowed snapshot usage percent before aborting |
 | LVMSYNC_SNAPSHOT_SIZE | `--snapshot-size` | `snapshot-size` | Snapshot size (bytes or percentage) |
 | LVMSYNC_SOURCE_TYPE | `--source-type` | `source-type` | Source device type (auto,file,raw,lvm) |
 | LVMSYNC_SPARSE | `--sparse` | `sparse` | Sparse file handling: auto or never |
