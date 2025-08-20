@@ -147,6 +147,11 @@ func Detect(
 		logger.Error("device_detect_failed", zap.String("path", path), zap.String("device_type", "symlink"), zap.Error(err))
 		return nil, err
 	}
+	if !filepath.IsAbs(resolved) {
+		err := fmt.Errorf("precondition: path must be absolute: %s", path)
+		logger.Error("device_detect_failed", zap.String("path", path), zap.String("device_type", "relative"), zap.Error(err))
+		return nil, err
+	}
 	info, err := os.Stat(resolved)
 	if err != nil {
 		logger.Error("device_detect_failed", zap.String("path", resolved), zap.String("device_type", "stat"), zap.Error(err))
