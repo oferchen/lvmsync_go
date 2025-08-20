@@ -13,6 +13,8 @@ import (
 
 	"github.com/gokrazy/rsync"
 	"github.com/mmcloughlin/md4"
+
+	"lvmsync_go/device"
 )
 
 var crcTable = crc32.MakeTable(crc32.Castagnoli)
@@ -95,6 +97,14 @@ type Client struct {
 
 // NewClient constructs a Client using the provided Stream.
 func NewClient(stream *Stream) *Client { return &Client{stream: stream} }
+
+// SendIdentity transmits a device identity frame prefixed with 'I'.
+func (c *Client) SendIdentity(id device.DeviceIdentity) error {
+	var buf bytes.Buffer
+	buf.WriteByte('I')
+	fmt.Fprintf(&buf, "%d %s %s %s %s %d %d %d", id.SizeBytes, id.KernelUUID, id.GPTUUID, id.MBRSignature, id.FSUUID, id.Major, id.Minor, id.ManifestEpoch)
+	return c.stream.Send(buf.Bytes())
+}
 
 // SendSignatures reads from r incrementally, computes rsync signatures block
 // by block and sends them as a single frame prefixed with 'S'. It returns the

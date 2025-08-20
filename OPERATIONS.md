@@ -141,6 +141,10 @@ lvmsync run /dev/vg0/missing /dev/vg0/target || echo "precondition failed with e
 
 Partition-table changes between runs also trigger this error when GPT or MBR signatures differ.
 
+When using the `rsync` transport, the client sends the destination device identity
+before writing. If the server's identity differs, the transfer aborts with
+[`exitcode.ErrPrecondition`](internal/exitcode/exitcode.go) (`80`).
+
 ## Troubleshooting
 
 - Compare source and destination identities; the device identity tuple `(size_bytes, kernel_uuid, gpt_uuid, mbr_signature, fs_uuid, major, minor, manifest_epoch)` must match the resume file. LVMSync refuses to resume when the tuple differs.

@@ -61,6 +61,10 @@ func (m *rsyncserverMemDevice) Size() int64 { return int64(len(m.buf)) }
 
 func (m *rsyncserverMemDevice) Sync() error { return nil }
 
+func (m *rsyncserverMemDevice) Identity(context.Context) (device.DeviceIdentity, error) {
+	return device.DeviceIdentity{SizeBytes: uint64(len(m.buf))}, nil
+}
+
 type rdMockDevice struct {
 	path      string
 	size      uint64

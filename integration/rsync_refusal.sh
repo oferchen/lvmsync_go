@@ -13,10 +13,12 @@ go build -o "$BIN" .
 SRC="$TMPDIR/src.img"
 DST_NEG="$TMPDIR/dst_neg.img"
 DST_POS="$TMPDIR/dst_pos.img"
+DST_MIS="$TMPDIR/dst_mis.img"
 
 dd if=/dev/zero of="$SRC" bs=1M count=1
 cp "$SRC" "$DST_NEG"
 cp "$SRC" "$DST_POS"
+cp "$SRC" "$DST_MIS"
 
 # Scenario A: rsync transport without allow-insecure should fail
 set +e
@@ -39,6 +41,24 @@ fi
 if ! grep -q "plaintext_connection" "$TMPDIR/pos.log"; then
   echo "missing plaintext warning"
   cat "$TMPDIR/pos.log"
+  exit 1
+fi
+
+# Scenario C: destination identity mismatch triggers precondition
+cp "$SRC" "$DST_MIS"
+set +e
+(sleep 0.1; truncate -s 0 "$DST_MIS") &
+"$BIN" --transport=rsync --allow-insecure --force --allow-overwrite --yes-i-know "$SRC" "$DST_MIS" >"$TMPDIR/mis.log" 2>&1
+STATUS=$?
+set -e
+if [ "$STATUS" -ne 80 ]; then
+  echo "expected precondition failure"
+  cat "$TMPDIR/mis.log"
+  exit 1
+fi
+if ! grep -q precondition "$TMPDIR/mis.log"; then
+  echo "missing precondition message"
+  cat "$TMPDIR/mis.log"
   exit 1
 fi
 

@@ -10,6 +10,8 @@ import (
 	"testing"
 
 	"github.com/gokrazy/rsync"
+
+	"lvmsync_go/device"
 )
 
 const maxFrame = 1 << 20
@@ -86,6 +88,33 @@ func TestClientSendSignatures(t *testing.T) {
 	}
 	if err := <-errCh; err != nil {
 		t.Fatalf("verify: %v", err)
+	}
+}
+
+func TestClientSendIdentity(t *testing.T) {
+	c1, c2 := net.Pipe()
+	defer c1.Close()
+	defer c2.Close()
+
+	client := NewClient(NewStream(c1, maxFrame))
+	srv := NewStream(c2, maxFrame)
+	id := device.DeviceIdentity{SizeBytes: 1, KernelUUID: "k"}
+	if err := client.SendIdentity(id); err != nil {
+		t.Fatalf("SendIdentity: %v", err)
+	}
+	frame, err := srv.Recv()
+	if err != nil {
+		t.Fatalf("Recv: %v", err)
+	}
+	if frame[0] != 'I' {
+		t.Fatalf("unexpected frame type %q", frame[0])
+	}
+	var got device.DeviceIdentity
+	if _, err := fmt.Fscan(bytes.NewReader(frame[1:]), &got.SizeBytes, &got.KernelUUID, &got.GPTUUID, &got.MBRSignature, &got.FSUUID, &got.Major, &got.Minor, &got.ManifestEpoch); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if got != id {
+		t.Fatalf("identity mismatch: %+v != %+v", got, id)
 	}
 }
 

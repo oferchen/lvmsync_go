@@ -17,6 +17,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 
+	"lvmsync_go/device"
 	"lvmsync_go/internal/digest"
 	"lvmsync_go/internal/rsyncwire"
 	"lvmsync_go/internal/signaturecache"
@@ -28,6 +29,7 @@ type memDevice struct {
 	buf   []byte
 	sync  bool
 	short bool
+	id    device.DeviceIdentity
 }
 
 func (m *memDevice) WriteAt(p []byte, off int64) (int, error) {
@@ -60,6 +62,13 @@ func (m *memDevice) Size() int64 { return int64(len(m.buf)) }
 
 func (m *memDevice) Sync() error { m.sync = true; return nil }
 
+func (m *memDevice) Identity(context.Context) (device.DeviceIdentity, error) {
+	if (m.id != device.DeviceIdentity{}) {
+		return m.id, nil
+	}
+	return device.DeviceIdentity{SizeBytes: uint64(len(m.buf))}, nil
+}
+
 func newServer(t *testing.T, dev *memDevice, data []byte) *Server {
 	t.Helper()
 	srv := New(dev, zap.NewNop(), nil, "", "")
@@ -85,6 +94,9 @@ func TestHandleApplyDelta(t *testing.T) {
 	go func() { errCh <- srv.Handle(ctx, rsyncwire.NewStream(c2, maxFrame)) }()
 
 	cl := rsyncwire.NewClient(rsyncwire.NewStream(c1, maxFrame))
+	if err := cl.SendIdentity(device.DeviceIdentity{SizeBytes: uint64(len(dev.buf))}); err != nil {
+		t.Fatalf("SendIdentity: %v", err)
+	}
 	if err := cl.SendDelta(0, data); err != nil {
 		t.Fatalf("SendDelta: %v", err)
 	}
@@ -112,6 +124,9 @@ func TestHandleShortWrite(t *testing.T) {
 	go func() { errCh <- srv.Handle(ctx, rsyncwire.NewStream(c2, maxFrame)) }()
 
 	cl := rsyncwire.NewClient(rsyncwire.NewStream(c1, maxFrame))
+	if err := cl.SendIdentity(device.DeviceIdentity{SizeBytes: uint64(len(dev.buf))}); err != nil {
+		t.Fatalf("SendIdentity: %v", err)
+	}
 	if err := cl.SendDelta(0, []byte("hi")); err != nil {
 		t.Fatalf("SendDelta: %v", err)
 	}
@@ -216,7 +231,11 @@ func TestHandleCacheMissUpdates(t *testing.T) {
 	if err := stream.Send(gbuf.Bytes()); err != nil {
 		t.Fatalf("Send digest: %v", err)
 	}
-	if err := rsyncwire.NewClient(stream).SendDelta(0, data); err != nil {
+	cl := rsyncwire.NewClient(stream)
+	if err := cl.SendIdentity(device.DeviceIdentity{SizeBytes: uint64(len(dev.buf))}); err != nil {
+		t.Fatalf("SendIdentity: %v", err)
+	}
+	if err := cl.SendDelta(0, data); err != nil {
 		t.Fatalf("SendDelta: %v", err)
 	}
 	c1.Close()
@@ -364,6 +383,9 @@ func TestHandleDeltaOutOfBounds(t *testing.T) {
 	go func() { errCh <- srv.Handle(ctx, rsyncwire.NewStream(c2, maxFrame)) }()
 
 	cl := rsyncwire.NewClient(rsyncwire.NewStream(c1, maxFrame))
+	if err := cl.SendIdentity(device.DeviceIdentity{SizeBytes: uint64(len(dev.buf))}); err != nil {
+		t.Fatalf("SendIdentity: %v", err)
+	}
 	if err := cl.SendDelta(9, []byte("ab")); err != nil {
 		t.Fatalf("SendDelta: %v", err)
 	}
@@ -425,6 +447,9 @@ func TestHandleDigestMismatch(t *testing.T) {
 	go func() { errCh <- srv.Handle(ctx, rsyncwire.NewStream(c2, maxFrame)) }()
 
 	cl := rsyncwire.NewClient(rsyncwire.NewStream(c1, maxFrame))
+	if err := cl.SendIdentity(device.DeviceIdentity{SizeBytes: uint64(len(dev.buf))}); err != nil {
+		t.Fatalf("SendIdentity: %v", err)
+	}
 	data := []byte("hi")
 	if err := cl.SendDelta(0, data); err != nil {
 		t.Fatalf("SendDelta: %v", err)
@@ -458,5 +483,48 @@ func TestHandleDigestMismatch(t *testing.T) {
 	}
 	if v, ok := ctxMap["actual_digest"].(string); !ok || v != fmt.Sprintf("%x", actual) {
 		t.Fatalf("unexpected actual_digest %v", ctxMap["actual_digest"])
+	}
+}
+
+func TestHandleMissingIdentity(t *testing.T) {
+	c1, c2 := net.Pipe()
+	defer c1.Close()
+	defer c2.Close()
+
+	dev := &memDevice{buf: make([]byte, 1)}
+	srv := New(dev, zap.NewNop(), nil, "", "")
+	ctx := context.Background()
+	errCh := make(chan error, 1)
+	go func() { errCh <- srv.Handle(ctx, rsyncwire.NewStream(c2, maxFrame)) }()
+
+	cl := rsyncwire.NewClient(rsyncwire.NewStream(c1, maxFrame))
+	if err := cl.SendDelta(0, []byte("a")); err != nil {
+		t.Fatalf("SendDelta: %v", err)
+	}
+	c1.Close()
+	if err := <-errCh; err == nil || !strings.Contains(err.Error(), "precondition") {
+		t.Fatalf("expected precondition error, got %v", err)
+	}
+}
+
+func TestHandleIdentityMismatch(t *testing.T) {
+	c1, c2 := net.Pipe()
+	defer c1.Close()
+	defer c2.Close()
+
+	dev := &memDevice{buf: make([]byte, 1)}
+	srv := New(dev, zap.NewNop(), nil, "", "")
+	ctx := context.Background()
+	errCh := make(chan error, 1)
+	go func() { errCh <- srv.Handle(ctx, rsyncwire.NewStream(c2, maxFrame)) }()
+
+	cl := rsyncwire.NewClient(rsyncwire.NewStream(c1, maxFrame))
+	// Send mismatched identity (size 2 instead of 1).
+	if err := cl.SendIdentity(device.DeviceIdentity{SizeBytes: 2}); err != nil {
+		t.Fatalf("SendIdentity: %v", err)
+	}
+	c1.Close()
+	if err := <-errCh; err == nil || !strings.Contains(err.Error(), "precondition") {
+		t.Fatalf("expected precondition error, got %v", err)
 	}
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/gokrazy/rsync"
 	"go.uber.org/zap"
 
+	"lvmsync_go/device"
 	"lvmsync_go/internal/digest"
 	"lvmsync_go/internal/rsyncwire"
 	"lvmsync_go/internal/signaturecache"
@@ -25,6 +26,7 @@ type Device interface {
 	io.WriterAt
 	Sync() error
 	Size() int64
+	Identity(context.Context) (device.DeviceIdentity, error)
 }
 
 // Server applies incoming deltas to the Device.
@@ -56,6 +58,7 @@ func New(dev Device, logger *zap.Logger, cache *signaturecache.Cache, vg, lv str
 // Handle consumes frames from the Stream until EOF, applying any delta frames to
 // the Device. On graceful EOF the Device is fsynced.
 func (s *Server) Handle(ctx context.Context, stream *rsyncwire.Stream) error {
+	var idOK bool
 	for {
 		if err := ctx.Err(); err != nil {
 			return err
@@ -81,7 +84,24 @@ func (s *Server) Handle(ctx context.Context, stream *rsyncwire.Stream) error {
 			}
 			s.sigHead = &head
 			continue
+		case 'I':
+			var id device.DeviceIdentity
+			if _, err := fmt.Fscan(bytes.NewReader(frame[1:]), &id.SizeBytes, &id.KernelUUID, &id.GPTUUID, &id.MBRSignature, &id.FSUUID, &id.Major, &id.Minor, &id.ManifestEpoch); err != nil {
+				return err
+			}
+			local, err := s.dev.Identity(ctx)
+			if err != nil {
+				return err
+			}
+			if local != id {
+				return fmt.Errorf("precondition: device identity mismatch")
+			}
+			idOK = true
+			continue
 		case 'D':
+			if !idOK {
+				return fmt.Errorf("precondition: missing identity")
+			}
 			if len(frame) < 9 {
 				return fmt.Errorf("delta frame too short")
 			}

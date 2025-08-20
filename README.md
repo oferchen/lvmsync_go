@@ -129,8 +129,9 @@ tried and each attempt is logged. All transports require TLS 1.3 with mutual
 authentication or SSH host key verification unless `--allow-insecure` is set.
 The `rsync` transport is plaintext and refuses to initialize unless
 `--allow-insecure` acknowledges the lack of encryption. Enabling this transport
-logs a warning noting the plaintext connection. See
-[docs/transports.md](docs/transports.md) for details.
+logs a warning noting the plaintext connection. The client sends the destination
+device identity and the server refuses to write if it differs, returning a
+precondition failure. See [docs/transports.md](docs/transports.md) for details.
 
 | Transport | Security defaults | Notes |
 |-----------|------------------|-------|
@@ -138,7 +139,7 @@ logs a warning noting the plaintext connection. See
 | `h2`      | TLS 1.3                | HTTP/2 streams |
 | `tcp+tls` | TLS 1.3                | Plain TCP wrapped in TLS |
 | `ssh`     | Host key verification  | Uses OpenSSH-style authentication |
-| `rsync`   | Plaintext, requires `--allow-insecure` | rsync wire protocol |
+| `rsync`   | Plaintext, requires `--allow-insecure` | rsync wire protocol, enforces destination identity |
 
 ### Examples
 
