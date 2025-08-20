@@ -3,11 +3,16 @@ package privilege
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"strconv"
 	"testing"
 	"time"
+
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 type cmdFunc func(context.Context, string, ...string) *exec.Cmd
@@ -23,7 +28,7 @@ func fakeLookPath(err error) func(string) (string, error) {
 
 func TestEnsureWithCaps(t *testing.T) {
 	HasCaps = func() bool { return true }
-	esc := New(context.Background()).(*sudoEscalator)
+	esc := New(context.Background(), zap.NewNop()).(*sudoEscalator)
 	if esc.useSudo {
 		t.Fatalf("expected capabilities to be used")
 	}
@@ -37,7 +42,7 @@ func TestEnsureWithSudo(t *testing.T) {
 	r := &Runner{Cmd: cmdFunc(func(ctx context.Context, name string, args ...string) *exec.Cmd {
 		return fakeSudo(0)(name, args...)
 	}), LookPath: fakeLookPath(nil)}
-	esc := NewWithRunner(context.Background(), r).(*sudoEscalator)
+	esc := NewWithRunner(context.Background(), r, zap.NewNop()).(*sudoEscalator)
 	if !esc.useSudo {
 		t.Fatalf("expected sudo usage")
 	}
@@ -48,7 +53,7 @@ func TestEnsureWithSudo(t *testing.T) {
 
 func TestEnsureNoSudo(t *testing.T) {
 	HasCaps = func() bool { return false }
-	esc := NewWithRunner(context.Background(), &Runner{LookPath: fakeLookPath(errors.New("missing"))}).(*sudoEscalator)
+	esc := NewWithRunner(context.Background(), &Runner{LookPath: fakeLookPath(errors.New("missing"))}, zap.NewNop()).(*sudoEscalator)
 	if err := esc.Ensure(context.Background()); err == nil {
 		t.Fatalf("expected error")
 	}
@@ -56,16 +61,34 @@ func TestEnsureNoSudo(t *testing.T) {
 
 func TestCommand(t *testing.T) {
 	HasCaps = func() bool { return false }
-	esc := New(context.Background())
+	esc := New(context.Background(), zap.NewNop())
 	cmd := esc.Command(context.Background(), "echo", "hi")
 	if cmd.Args[0] != "sudo" {
 		t.Fatalf("expected sudo prefix")
 	}
 	HasCaps = func() bool { return true }
-	esc = New(context.Background())
+	esc = New(context.Background(), zap.NewNop())
 	cmd = esc.Command(context.Background(), "echo", "hi")
 	if cmd.Args[0] == "sudo" {
 		t.Fatalf("unexpected sudo prefix")
+	}
+}
+
+func TestCommandLogs(t *testing.T) {
+	core, logs := observer.New(zapcore.DebugLevel)
+	logger := zap.New(core)
+	esc := New(context.Background(), logger)
+	esc.Command(context.Background(), "cmd", "--password=foo", "--token", "bar")
+	entries := logs.All()
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 log entry, got %d", len(entries))
+	}
+	fields := entries[0].ContextMap()
+	if fields["command"] != "cmd" {
+		t.Fatalf("command = %v", fields["command"])
+	}
+	if fmt.Sprint(fields["args"]) != "[--password=[REDACTED] --token [REDACTED]]" {
+		t.Fatalf("args = %v", fields["args"])
 	}
 }
 
@@ -74,7 +97,7 @@ func TestEnsureSudoFailure(t *testing.T) {
 	r := &Runner{Cmd: cmdFunc(func(ctx context.Context, name string, args ...string) *exec.Cmd {
 		return fakeSudo(1)(name, args...)
 	}), LookPath: fakeLookPath(nil)}
-	esc := NewWithRunner(context.Background(), r).(*sudoEscalator)
+	esc := NewWithRunner(context.Background(), r, zap.NewNop()).(*sudoEscalator)
 	if err := esc.Ensure(context.Background()); err == nil {
 		t.Fatalf("expected error")
 	}
@@ -105,7 +128,7 @@ func TestSudoSuccess(t *testing.T) {
 	HasCaps = func() bool { return false }
 	esc := NewWithRunner(context.Background(), &Runner{Cmd: cmdFunc(func(ctx context.Context, name string, args ...string) *exec.Cmd {
 		return fakeSudo(0)(name, args...)
-	})})
+	})}, zap.NewNop())
 	cmd := esc.Command(context.Background(), "echo")
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -117,7 +140,7 @@ func TestSudoPermissionDenied(t *testing.T) {
 	HasCaps = func() bool { return false }
 	esc := NewWithRunner(context.Background(), &Runner{Cmd: cmdFunc(func(ctx context.Context, name string, args ...string) *exec.Cmd {
 		return fakeSudo(1)(name, args...)
-	})})
+	})}, zap.NewNop())
 	cmd := esc.Command(context.Background(), "echo")
 	err := cmd.Run()
 	if err == nil {
@@ -133,7 +156,7 @@ func TestSudoCommandNotFound(t *testing.T) {
 	HasCaps = func() bool { return false }
 	esc := NewWithRunner(context.Background(), &Runner{Cmd: cmdFunc(func(ctx context.Context, name string, args ...string) *exec.Cmd {
 		return fakeSudo(127)(name, args...)
-	})})
+	})}, zap.NewNop())
 	cmd := esc.Command(context.Background(), "echo")
 	err := cmd.Run()
 	if err == nil {
@@ -165,7 +188,7 @@ func TestEnsureContextCanceled(t *testing.T) {
 	r := &Runner{Cmd: cmdFunc(func(ctx context.Context, name string, args ...string) *exec.Cmd {
 		return exec.CommandContext(ctx, "sleep", "10")
 	}), LookPath: fakeLookPath(nil)}
-	esc := NewWithRunner(context.Background(), r)
+	esc := NewWithRunner(context.Background(), r, zap.NewNop())
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 	defer cancel()
 	err := esc.Ensure(ctx)
@@ -177,7 +200,7 @@ func TestEnsureContextCanceled(t *testing.T) {
 func TestCommandContextCanceled(t *testing.T) {
 	esc := &sudoEscalator{useSudo: false, runner: &Runner{Cmd: cmdFunc(func(ctx context.Context, name string, args ...string) *exec.Cmd {
 		return exec.CommandContext(ctx, "sleep", "10")
-	})}}
+	}), Logger: zap.NewNop()}}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 	defer cancel()
 	cmd := esc.Command(ctx, "sleep", "10")
@@ -195,7 +218,7 @@ func TestEnsureDefaultTimeout(t *testing.T) {
 	r := &Runner{Cmd: cmdFunc(func(ctx context.Context, name string, args ...string) *exec.Cmd {
 		return exec.CommandContext(ctx, "sleep", "10")
 	}), LookPath: fakeLookPath(nil)}
-	esc := NewWithRunner(context.Background(), r)
+	esc := NewWithRunner(context.Background(), r, zap.NewNop())
 	err := esc.Ensure(context.Background())
 	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("expected deadline exceeded, got %v", err)
@@ -208,7 +231,7 @@ func TestCommandDefaultTimeout(t *testing.T) {
 	defer func() { escalationTimeout = orig }()
 	esc := &sudoEscalator{useSudo: false, runner: &Runner{Cmd: cmdFunc(func(ctx context.Context, name string, args ...string) *exec.Cmd {
 		return exec.CommandContext(ctx, "sleep", "10")
-	})}}
+	}), Logger: zap.NewNop()}}
 	cmd := esc.Command(context.Background(), "sleep", "10")
 	err := cmd.Run()
 	if !errors.Is(err, context.DeadlineExceeded) && err.Error() != "signal: killed" {
