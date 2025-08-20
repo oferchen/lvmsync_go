@@ -146,7 +146,17 @@ func OpenWAL(path string, id DeviceIdentity, logger *zap.Logger) (*WAL, error) {
 		return nil, err
 	}
 	w := &WAL{f: f}
-	if st.Size() == 0 {
+	if st.Size() < walHeaderV0Size {
+		if st.Size() > 0 {
+			if err := f.Truncate(0); err != nil {
+				f.Close()
+				return nil, err
+			}
+			if _, err := f.Seek(0, 0); err != nil {
+				f.Close()
+				return nil, err
+			}
+		}
 		var hdr walHeader
 		hdr.Version = walVersion
 		hdr.Size = id.SizeBytes

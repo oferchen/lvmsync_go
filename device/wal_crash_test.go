@@ -13,6 +13,31 @@ import (
 func TestWALCrashRecovery(t *testing.T) {
 	id := DeviceIdentity{SizeBytes: 128, KernelUUID: "k", GPTUUID: "g", FSUUID: "f", Major: 1, Minor: 2, ManifestEpoch: 1}
 
+	t.Run("partial_header", func(t *testing.T) {
+		dir := t.TempDir()
+		path := filepath.Join(dir, "wal")
+		f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, 0o600)
+		if err != nil {
+			t.Fatalf("create: %v", err)
+		}
+		var buf [8]byte
+		binary.LittleEndian.PutUint64(buf[:], walVersion)
+		if _, err := f.Write(buf[:]); err != nil {
+			t.Fatalf("write: %v", err)
+		}
+		if err := f.Close(); err != nil {
+			t.Fatalf("close: %v", err)
+		}
+		w, err := OpenWAL(path, id, zap.NewNop())
+		if err != nil {
+			t.Fatalf("reopen wal: %v", err)
+		}
+		if len(w.Ranges()) != 0 {
+			t.Fatalf("expected no ranges, got %#v", w.Ranges())
+		}
+		w.Close()
+	})
+
 	t.Run("truncate_mid_entry", func(t *testing.T) {
 		dir := t.TempDir()
 		path := filepath.Join(dir, "wal")
