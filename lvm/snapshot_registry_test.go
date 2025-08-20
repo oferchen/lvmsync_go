@@ -132,11 +132,7 @@ func TestCleanupRegisteredMultiple(t *testing.T) {
 		t.Fatalf("registry not cleared: %v", registry)
 	}
 	registryMu.Unlock()
-
-	"testing"
-
-	"go.uber.org/zap"
-)
+}
 
 func TestRegisterSnapshotNilLoggerPanics(t *testing.T) {
 	defer func() {
