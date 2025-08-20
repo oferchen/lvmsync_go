@@ -5,6 +5,7 @@ package privilege
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -32,7 +33,15 @@ func (s *sudoEscalator) Ensure(ctx context.Context) error {
 		if _, err := s.runner.LookPath("sudo"); err != nil {
 			return fmt.Errorf("sudo not found: %w", err)
 		}
-		if err := s.runner.Cmd.CommandContext(ctx, "sudo", "-n", "true").Run(); err != nil {
+		cmd := s.runner.Cmd.CommandContext(ctx, "sudo", "-n", "true")
+		if s.sanitizeEnv {
+			environ := os.Environ
+			if s.environ != nil {
+				environ = s.environ
+			}
+			cmd.Env = sanitizeEnv(environ())
+		}
+		if err := cmd.Run(); err != nil {
 			if ctxErr := ctx.Err(); ctxErr != nil {
 				return fmt.Errorf("sudo escalation failed: %w", ctxErr)
 			}
@@ -53,9 +62,50 @@ func (s *sudoEscalator) Command(ctx context.Context, name string, args ...string
 	)
 	if s.useSudo {
 		all := append([]string{"-n", name}, args...)
-		return s.runner.Cmd.CommandContext(ctx, "sudo", all...)
+		cmd := s.runner.Cmd.CommandContext(ctx, "sudo", all...)
+		if s.sanitizeEnv {
+			environ := os.Environ
+			if s.environ != nil {
+				environ = s.environ
+			}
+			cmd.Env = sanitizeEnv(environ())
+		}
+		return cmd
 	}
-	return s.runner.Cmd.CommandContext(ctx, name, args...)
+	cmd := s.runner.Cmd.CommandContext(ctx, name, args...)
+	if s.sanitizeEnv {
+		environ := os.Environ
+		if s.environ != nil {
+			environ = s.environ
+		}
+		cmd.Env = sanitizeEnv(environ())
+	}
+	return cmd
+}
+
+// sanitizeEnv drops unsafe variables like PATH, LANG, and anything starting
+// with LD_. Only a small whitelist of locale-related variables is preserved.
+func sanitizeEnv(environ []string) []string {
+	whitelist := map[string]bool{
+		"LC_ALL":   true,
+		"LC_CTYPE": true,
+		"TERM":     true,
+	}
+	out := make([]string, 0, len(environ))
+	for _, kv := range environ {
+		if strings.HasPrefix(kv, "LD_") || strings.HasPrefix(kv, "GCONV_PATH=") {
+			continue
+		}
+		i := strings.IndexByte(kv, '=')
+		if i <= 0 {
+			continue
+		}
+		k := kv[:i]
+		if whitelist[k] {
+			out = append(out, kv)
+		}
+	}
+	return out
 }
 
 func redactArgs(args []string) []string {

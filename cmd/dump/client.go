@@ -305,6 +305,7 @@ func (r *Runner) Run(ctx context.Context, cfg *config.Config, source, dest strin
 		cfg.LVMEscalation,
 		cfg.FreezeTimeout,
 		cfg.ThawTimeout,
+
 		privilege.New(ctx, logger),
 		logger,
 		device.NewRunner(),
