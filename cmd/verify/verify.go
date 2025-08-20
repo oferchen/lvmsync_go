@@ -175,8 +175,8 @@ func (r *Runner) verifyDevices(cfg *config.Config, src, dst, manifestPath string
 		zap.Bool("avx512", cpufeatures.HasAVX512()),
 		zap.Bool("neon", cpufeatures.HasNEON()),
 	)
-	sampled := strings.ToLower(cfg.VerifyLevel) == "sampled"
-	match, srcSum, dstSum, err := digestpkg.VerifyFiles(src, dst, alg, sampled)
+       post := strings.ToLower(cfg.VerifyLevel) == "post"
+       match, srcSum, dstSum, err := digestpkg.VerifyFiles(src, dst, alg, post)
 	if err != nil {
 		return err
 	}
@@ -206,7 +206,7 @@ func digestFunc(cfg *config.Config) func([]byte) [32]byte {
 	return blake3.Sum256
 }
 
-func verifyFull(cfg *config.Config, src, dst string, logger *zap.Logger) error {
+func verifyInline(cfg *config.Config, src, dst string, logger *zap.Logger) error {
 	blockSize := cfg.BlockSize
 	if blockSize == 0 {
 		blockSize = 8 * 1024 * 1024

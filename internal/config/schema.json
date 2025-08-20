@@ -331,8 +331,8 @@
     },
     "verify": {
       "enum": [
-        "full",
-        "sampled",
+        "inline",
+        "post",
         "none"
       ],
       "type": "string"

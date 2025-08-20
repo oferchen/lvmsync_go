@@ -18,8 +18,8 @@ func createBenchFiles(b *testing.B, blockSize, blocks int) (string, string) {
 	return src, dst
 }
 
-// verifyFullAlloc mimics the pre-optimized verification by allocating buffers each iteration.
-func verifyFullAlloc(cfg *config.Config, src, dst string) error {
+// verifyInlineAlloc mimics the pre-optimized verification by allocating buffers each iteration.
+func verifyInlineAlloc(cfg *config.Config, src, dst string) error {
 	blockSize := cfg.BlockSize
 	fSrc, err := os.Open(src)
 	if err != nil {
@@ -47,27 +47,27 @@ func verifyFullAlloc(cfg *config.Config, src, dst string) error {
 	return nil
 }
 
-func BenchmarkVerifyFullAlloc(b *testing.B) {
+func BenchmarkVerifyInlineAlloc(b *testing.B) {
 	blockSize, blocks := 4096, 16
 	src, dst := createBenchFiles(b, blockSize, blocks)
 	cfg := &config.Config{BlockSize: blockSize}
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		if err := verifyFullAlloc(cfg, src, dst); err != nil {
-			b.Fatalf("verifyFullAlloc: %v", err)
-		}
-	}
+               if err := verifyInlineAlloc(cfg, src, dst); err != nil {
+                       b.Fatalf("verifyInlineAlloc: %v", err)
+               }
+       }
 }
 
-func BenchmarkVerifyFull(b *testing.B) {
+func BenchmarkVerifyInline(b *testing.B) {
 	blockSize, blocks := 4096, 16
 	src, dst := createBenchFiles(b, blockSize, blocks)
 	cfg := &config.Config{BlockSize: blockSize}
 	b.ReportAllocs()
 	logger := zap.NewNop()
 	for i := 0; i < b.N; i++ {
-		if err := verifyFull(cfg, src, dst, logger); err != nil {
-			b.Fatalf("verifyFull: %v", err)
-		}
-	}
+               if err := verifyInline(cfg, src, dst, logger); err != nil {
+                       b.Fatalf("verifyInline: %v", err)
+               }
+       }
 }

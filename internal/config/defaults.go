@@ -83,9 +83,9 @@ type Config struct {
 	CompressThreshold        float64       `mapstructure:"compress_threshold"` // skip compression when estimated ratio exceeds this value
 	Speed                    string        `mapstructure:"speed"`
 	SpeedLimit               int           `mapstructure:"-"`
-	VerifyChecksum           bool          `mapstructure:"verify_checksum"`
-	VerifyLevel              string        `mapstructure:"verify"`
-	ChecksumAlgorithm        string        `mapstructure:"digest"`
+       VerifyChecksum           bool          `mapstructure:"verify_checksum"`
+       VerifyLevel              string        `mapstructure:"verify"` // inline, post, or none
+       ChecksumAlgorithm        string        `mapstructure:"digest"`
 	Verbose                  int           `mapstructure:"verbose"`
 	SkipSnapshotCreation     bool          `mapstructure:"skip_snapshot_creation"`
 	SkipDiskCheck            bool          `mapstructure:"skip_disk_check"`

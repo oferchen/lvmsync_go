@@ -647,7 +647,7 @@ Flags override environment variables, which override `config.yaml` values.
 | `--block-size` | `LVMSYNC_BLOCK_SIZE` | `block_size` | Block size for data transfer; specify 'auto' or 0 for automatic detection |
 | `--verbose` | `LVMSYNC_VERBOSE` | `verbose` | Verbosity level |
 | `--verify-checksum` | `LVMSYNC_VERIFY_CHECKSUM` | `verify_checksum` | Enable checksum verification |
-| `--verify` | `LVMSYNC_VERIFY` | `verify` | Verification level: `full`, `sampled`, or `none` |
+| `--verify` | `LVMSYNC_VERIFY` | `verify` | Verification level: `inline`, `post`, or `none` |
 | `--digest` | `LVMSYNC_DIGEST` | `digest` | Digest algorithm: `auto`, `blake3`, or `sha256` (`auto` selects `blake3` when AVX2, AVX-512, or NEON is available, otherwise `sha256`) |
 | `--progress` | `LVMSYNC_PROGRESS` | `progress` | Show progress during transfer |
 | `--output` | `LVMSYNC_OUTPUT` | `output` | Output format: `text`, `json`, or `yaml` |
