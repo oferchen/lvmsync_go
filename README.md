@@ -505,7 +505,7 @@ Override detection with `--source-type` and `--dest-type` when necessary.
 Internally, `device.Detect` delegates to dedicated helpers:
 
 ```go
-dev, err := device.Detect(ctx, "/dev/sdb", true, "auto", "", "", "", 0, 0, privilege.New(ctx), logger, device.NewRunner())
+dev, err := device.Detect(ctx, "/dev/sdb", true, "auto", "", "", "", 0, 0, privilege.New(ctx, logger), logger, device.NewRunner())
 // detectFileDevice, detectLVMDevice, or detectRawDevice is selected based on the path.
 ```
 
@@ -1562,7 +1562,7 @@ can stub command execution:
 ```go
 ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 defer cancel()
-esc := privilege.New(ctx)
+esc := privilege.New(ctx, zap.NewNop())
 if err := esc.Ensure(ctx); err != nil {
     // handle missing capabilities or sudo
 }

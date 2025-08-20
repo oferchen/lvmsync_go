@@ -22,7 +22,7 @@ const firstBlockDigestSize = 1 << 20
 
 func realProbeDestination(ctx context.Context, cfg *config.Config, dest string, logger *zap.Logger) (device.DeviceIdentity, error) {
 	info := device.NewInfo()
-	dev, err := device.Detect(ctx, dest, true, "", "", "", "", 0, 0, privilege.New(ctx), logger, device.NewRunner())
+	dev, err := device.Detect(ctx, dest, true, "", "", "", "", 0, 0, privilege.New(ctx, logger), logger, device.NewRunner())
 	if err != nil {
 		return device.DeviceIdentity{}, err
 	}

@@ -129,7 +129,7 @@ func OpenRaw(
 	runner *Runner,
 ) (_ *RawDevice, err error) {
 	if esc == nil {
-		esc = privilege.New(ctx)
+		esc = privilege.New(ctx, logger)
 	}
 	if err := esc.Ensure(ctx); err != nil {
 		return nil, err
