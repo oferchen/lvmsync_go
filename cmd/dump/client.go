@@ -538,6 +538,15 @@ func (r *Runner) streamRsyncDelta(ctx context.Context, cfg *config.Config, remot
 
 	rw := writeOnlyReadWriter{remoteStdin}
 	cl := rsyncwire.NewClient(rsyncwire.NewStream(rw, maxFrame))
+	info, err := orig.Stat()
+	if err != nil {
+		remoteStdin.Close()
+		return fmt.Errorf("stat origin: %w", err)
+	}
+	if err := cl.SendIdentity(device.DeviceIdentity{SizeBytes: uint64(info.Size())}); err != nil {
+		remoteStdin.Close()
+		return fmt.Errorf("send identity: %w", err)
+	}
 	if _, err := cl.SendSignatures(orig); err != nil {
 		remoteStdin.Close()
 		return fmt.Errorf("send signatures: %w", err)

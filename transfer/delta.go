@@ -11,6 +11,7 @@ import (
 
 	"lvmsync_go/common"
 	"lvmsync_go/dedup"
+	"lvmsync_go/device"
 	"lvmsync_go/internal/config"
 	digestpkg "lvmsync_go/internal/digest"
 	"lvmsync_go/internal/rsyncwire"
@@ -41,6 +42,14 @@ func (t *Transfer) streamRsyncDelta(ctx context.Context, cfg *config.Config, sna
 
 	rw := writeOnlyReadWriter{out}
 	cl := rsyncwire.NewClient(rsyncwire.NewStream(rw, rsyncMaxFrame))
+	// Send destination identity based on the origin size.
+	info, err := orig.Stat()
+	if err != nil {
+		return fmt.Errorf("stat origin: %w", err)
+	}
+	if err := cl.SendIdentity(device.DeviceIdentity{SizeBytes: uint64(info.Size())}); err != nil {
+		return fmt.Errorf("send identity: %w", err)
+	}
 	if _, err := cl.SendSignatures(orig); err != nil {
 		return fmt.Errorf("send signatures: %w", err)
 	}

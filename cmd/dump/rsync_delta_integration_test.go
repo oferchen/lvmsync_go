@@ -10,6 +10,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"lvmsync_go/device"
 	"lvmsync_go/internal/config"
 	digestpkg "lvmsync_go/internal/digest"
 	"lvmsync_go/internal/rsyncserver"
@@ -104,3 +105,7 @@ func (m *rsyncserverMemDevice) ReadAt(p []byte, off int64) (int, error) {
 func (m *rsyncserverMemDevice) Size() int64 { return int64(len(m.buf)) }
 
 func (m *rsyncserverMemDevice) Sync() error { return nil }
+
+func (m *rsyncserverMemDevice) Identity(context.Context) (device.DeviceIdentity, error) {
+	return device.DeviceIdentity{SizeBytes: uint64(len(m.buf))}, nil
+}
