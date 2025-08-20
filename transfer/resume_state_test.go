@@ -65,6 +65,28 @@ func TestReadResumeStateDigestMismatch(t *testing.T) {
 	}
 }
 
+func TestReadResumeStateDedupModeMismatch(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "resume.json")
+	dig := blake3.Sum256([]byte("data"))
+	cfg := &config.Config{
+		Transport:         "ssh",
+		Compress:          "none",
+		ChecksumAlgorithm: "blake3",
+		ResumeState:       path,
+		DedupMode:         "fixed",
+		CheckpointBytes:   4,
+		FirstBlockDigest:  hex.EncodeToString(dig[:]),
+	}
+	rt := &resumeTracker{}
+	saveResumeState(cfg, rt, 0, dig, 4, zap.NewNop())
+	cfg.DedupMode = "cdc"
+	cp := readResumeState(cfg, zap.NewNop(), 0, "", 0, dig)
+	if cp != (resumeCheckpoint{}) {
+		t.Fatalf("expected empty checkpoint on dedup mode mismatch")
+	}
+}
+
 // TestResumeStateWALRecovery verifies that a WAL left behind after a crash is
 // preferred over the stale resume state file.
 func TestResumeStateWALRecovery(t *testing.T) {
