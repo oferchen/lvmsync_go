@@ -5,6 +5,8 @@ import (
 	"context"
 	"errors"
 
+	"go.uber.org/zap"
+
 	"lvmsync_go/internal/privilege"
 	lvmlib "lvmsync_go/lvm"
 )
@@ -54,10 +56,13 @@ type agent struct {
 
 // NewAgent constructs an Agent that delegates LVM operations to the provided
 // lvmAPI and ensures privileges using the given Escalator. When esc is nil,
-// privilege.New(context.Background()) supplies a default implementation.
-func NewAgent(lvm lvmAPI, esc privilege.Escalator) Agent {
+// privilege.New(context.Background(), logger) supplies a default implementation.
+func NewAgent(lvm lvmAPI, esc privilege.Escalator, logger *zap.Logger) Agent {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
 	if esc == nil {
-		esc = privilege.New(context.Background())
+		esc = privilege.New(context.Background(), logger)
 	}
 	return &agent{esc: esc, lvm: lvm}
 }
@@ -65,11 +70,11 @@ func NewAgent(lvm lvmAPI, esc privilege.Escalator) Agent {
 // NewSudoAgent wraps the public LVM API with a privilege-enforcing Agent. The
 // sudoPath and ensureRoot parameters are retained for compatibility but are
 // currently unused.
-func NewSudoAgent(sudoPath string, l lvmlib.API, ensureRoot func() error) Agent { //nolint:revive // sudoPath kept for future use
+func NewSudoAgent(sudoPath string, l lvmlib.API, ensureRoot func() error, logger *zap.Logger) Agent { //nolint:revive // sudoPath kept for future use
 	_ = sudoPath
 	_ = ensureRoot
 	api, _ := l.(lvmAPI)
-	return NewAgent(api, nil)
+	return NewAgent(api, nil, logger)
 }
 
 func (a *agent) Lock(ctx context.Context, volume, requester string) error {

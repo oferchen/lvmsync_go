@@ -91,7 +91,7 @@ func defaultIndexOptions() indexOptions {
 			ctx = device.WithForce(ctx, true)
 			ctx = device.WithAllowOverwrite(ctx, true)
 			ctx = device.WithYesIKnow(ctx, true)
-			return device.Detect(ctx, path, true, "", "", "", "", 0, 0, privilege.New(ctx), logger, device.NewRunner())
+			return device.Detect(ctx, path, true, "", "", "", "", 0, 0, privilege.New(ctx, logger), logger, device.NewRunner())
 		},
 		closeHook: func() error { return nil },
 		info:      device.NewInfo(),

@@ -305,7 +305,8 @@ func (r *Runner) Run(ctx context.Context, cfg *config.Config, source, dest strin
 		cfg.LVMEscalation,
 		cfg.FreezeTimeout,
 		cfg.ThawTimeout,
-		privilege.NewWithSanitize(ctx, cfg.SanitizeEnv),
+
+		privilege.New(ctx, logger),
 		logger,
 		device.NewRunner(),
 	)
@@ -377,7 +378,7 @@ func (r *Runner) RunLocalDump(ctx context.Context, cfg *config.Config, snapshotD
 		return destType, r.ExecuteDump(ctx, cfg, snapshotDevice, originDevice, io.Discard, logger)
 	}
 	if destType == "auto" {
-		if dev, err := device.Detect(devCtx, dest, true, destType, "", "", cfg.LVMEscalation, cfg.FreezeTimeout, cfg.ThawTimeout, privilege.NewWithSanitize(devCtx, cfg.SanitizeEnv), logger, devRunner); err == nil {
+		if dev, err := device.Detect(devCtx, dest, true, destType, "", "", cfg.LVMEscalation, cfg.FreezeTimeout, cfg.ThawTimeout, privilege.New(devCtx, logger), logger, devRunner); err == nil {
 			switch dev.(type) {
 			case *device.RawDevice:
 				if !cfg.SkipSnapshotCreation {

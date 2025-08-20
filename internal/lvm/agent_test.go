@@ -5,6 +5,8 @@ import (
 	"errors"
 	"os/exec"
 	"testing"
+
+	"go.uber.org/zap"
 )
 
 type fakeEsc struct{ err error }
@@ -82,7 +84,7 @@ func (m *mockLVM) IsMounted(_ context.Context, _ string) (bool, error) {
 func TestAgentLock(t *testing.T) {
 	ctx := context.Background()
 	mock := &mockLVM{}
-	a := NewAgent(mock, fakeEsc{})
+	a := NewAgent(mock, fakeEsc{}, zap.NewNop())
 	if err := a.Lock(ctx, "vol", "req"); err != nil {
 		t.Fatalf("lock failed: %v", err)
 	}
@@ -95,7 +97,7 @@ func TestAgentLock(t *testing.T) {
 func TestAgentUnlock(t *testing.T) {
 	ctx := context.Background()
 	mock := &mockLVM{}
-	a := NewAgent(mock, fakeEsc{})
+	a := NewAgent(mock, fakeEsc{}, zap.NewNop())
 	if err := a.Unlock(ctx, "vol", "req"); err != nil {
 		t.Fatalf("unlock failed: %v", err)
 	}
@@ -109,7 +111,7 @@ func TestAgentGetMetadata(t *testing.T) {
 	ctx := context.Background()
 	expected := VolumeMetadata{VolumeName: "vol", SizeBytes: 1, ChunkSize: 2}
 	mock := &mockLVM{md: expected}
-	a := NewAgent(mock, fakeEsc{})
+	a := NewAgent(mock, fakeEsc{}, zap.NewNop())
 	md, err := a.GetMetadata(ctx, "vol")
 	if err != nil {
 		t.Fatalf("get metadata failed: %v", err)
@@ -126,7 +128,7 @@ func TestAgentGetMetadata(t *testing.T) {
 func TestAgentSendMetadata(t *testing.T) {
 	ctx := context.Background()
 	mock := &mockLVM{}
-	a := NewAgent(mock, fakeEsc{})
+	a := NewAgent(mock, fakeEsc{}, zap.NewNop())
 	md := VolumeMetadata{VolumeName: "vol"}
 	if err := a.SendMetadata(ctx, md); err != nil {
 		t.Fatalf("send metadata failed: %v", err)
@@ -143,7 +145,7 @@ func TestAgentSendMetadata(t *testing.T) {
 func TestAgentStartTransferSession(t *testing.T) {
 	ctx := context.Background()
 	mock := &mockLVM{}
-	a := NewAgent(mock, fakeEsc{})
+	a := NewAgent(mock, fakeEsc{}, zap.NewNop())
 	if err := a.StartTransferSession(ctx, "vol", "req"); err != nil {
 		t.Fatalf("start transfer failed: %v", err)
 	}
@@ -156,7 +158,7 @@ func TestAgentStartTransferSession(t *testing.T) {
 func TestAgentFinalizeSync(t *testing.T) {
 	ctx := context.Background()
 	mock := &mockLVM{}
-	a := NewAgent(mock, fakeEsc{})
+	a := NewAgent(mock, fakeEsc{}, zap.NewNop())
 	if err := a.FinalizeSync(ctx, "vol", "req"); err != nil {
 		t.Fatalf("finalize sync failed: %v", err)
 	}
@@ -169,7 +171,7 @@ func TestAgentFinalizeSync(t *testing.T) {
 func TestAgentGetStatus(t *testing.T) {
 	ctx := context.Background()
 	mock := &mockLVM{status: "ok"}
-	a := NewAgent(mock, fakeEsc{})
+	a := NewAgent(mock, fakeEsc{}, zap.NewNop())
 	status, err := a.GetStatus(ctx, "vol", "req")
 	if err != nil {
 		t.Fatalf("get status failed: %v", err)
@@ -186,7 +188,7 @@ func TestAgentGetStatus(t *testing.T) {
 func TestAgentVolumeExists(t *testing.T) {
 	ctx := context.Background()
 	mock := &mockLVM{exists: true}
-	a := NewAgent(mock, fakeEsc{})
+	a := NewAgent(mock, fakeEsc{}, zap.NewNop())
 	ok, err := a.VolumeExists(ctx, "vol")
 	if err != nil || !ok {
 		t.Fatalf("volume exists check failed: %v %v", ok, err)
@@ -200,7 +202,7 @@ func TestAgentVolumeExists(t *testing.T) {
 func TestAgentAutoExtendEnabled(t *testing.T) {
 	ctx := context.Background()
 	mock := &mockLVM{autoExtend: true}
-	a := NewAgent(mock, fakeEsc{})
+	a := NewAgent(mock, fakeEsc{}, zap.NewNop())
 	ok, err := a.AutoExtendEnabled(ctx, "vol")
 	if err != nil || !ok {
 		t.Fatalf("auto extend check failed: %v %v", ok, err)
@@ -214,7 +216,7 @@ func TestAgentAutoExtendEnabled(t *testing.T) {
 func TestAgentDiscardEnabled(t *testing.T) {
 	ctx := context.Background()
 	mock := &mockLVM{discard: true}
-	a := NewAgent(mock, fakeEsc{})
+	a := NewAgent(mock, fakeEsc{}, zap.NewNop())
 	ok, err := a.DiscardEnabled(ctx, "vol")
 	if err != nil || !ok {
 		t.Fatalf("discard check failed: %v %v", ok, err)
@@ -228,7 +230,7 @@ func TestAgentDiscardEnabled(t *testing.T) {
 func TestAgentIsMounted(t *testing.T) {
 	ctx := context.Background()
 	mock := &mockLVM{mounted: true}
-	a := NewAgent(mock, fakeEsc{})
+	a := NewAgent(mock, fakeEsc{}, zap.NewNop())
 	ok, err := a.IsMounted(ctx, "vol")
 	if err != nil || !ok {
 		t.Fatalf("mount check failed: %v %v", ok, err)

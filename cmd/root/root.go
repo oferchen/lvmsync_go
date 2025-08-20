@@ -144,7 +144,7 @@ func ConfigureWithEscalator(esc privilege.Escalator) (*config.Config, []string, 
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.LVMTimeout)
 	defer cancel()
 	if esc == nil {
-		esc = privilege.NewWithSanitize(ctx, cfg.SanitizeEnv)
+		esc = privilege.New(ctx, zap.NewNop())
 	}
 	if err = esc.Ensure(ctx); err != nil {
 		return nil, nil, nil, fmt.Errorf("privilege check failed: %w", err)

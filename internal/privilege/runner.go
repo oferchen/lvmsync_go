@@ -4,6 +4,8 @@ import (
 	"context"
 	"os"
 	"os/exec"
+
+	"go.uber.org/zap"
 )
 
 // Commander abstracts exec.CommandContext for dependency injection.
@@ -21,18 +23,20 @@ func (f commanderFunc) CommandContext(ctx context.Context, name string, args ...
 type Runner struct {
 	Cmd      Commander
 	LookPath func(string) (string, error)
+	Logger   *zap.Logger
 }
 
 // New returns an Escalator with production dependencies.
 // ctx is currently unused but reserved for future use.
-func New(ctx context.Context) Escalator { return newEscalator(ctx, nil, false) }
-
+func New(ctx context.Context, logger *zap.Logger) Escalator {
+	return NewWithRunner(ctx, nil, logger)
+}
 // NewWithRunner constructs an Escalator with the provided Runner.
 // Nil fields default to exec.CommandContext and exec.LookPath.
-func NewWithRunner(ctx context.Context, r *Runner) Escalator {
-	return newEscalator(ctx, r, false)
-}
-
+func NewWithRunner(_ context.Context, r *Runner, logger *zap.Logger) Escalator {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
 // NewWithSanitize constructs an Escalator that optionally sanitizes the
 // environment of executed commands.
 func NewWithSanitize(ctx context.Context, sanitize bool) Escalator {
@@ -55,11 +59,9 @@ func newEscalator(_ context.Context, r *Runner, sanitize bool) Escalator {
 		if r.LookPath != nil {
 			lp = r.LookPath
 		}
+		if r.Logger != nil {
+			logger = r.Logger
+		}
 	}
-	return &sudoEscalator{
-		useSudo:     !HasCaps(),
-		runner:      &Runner{Cmd: cmd, LookPath: lp},
-		sanitizeEnv: sanitize,
-		environ:     os.Environ,
-	}
+	return &sudoEscalator{useSudo: !HasCaps(), runner: &Runner{Cmd: cmd, LookPath: lp, Logger: logger}}
 }

@@ -9,6 +9,8 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 // escalationTimeout limits how long privilege checks and escalated commands may run
@@ -54,6 +56,10 @@ func (s *sudoEscalator) Ensure(ctx context.Context) error {
 // when capabilities are missing.
 func (s *sudoEscalator) Command(ctx context.Context, name string, args ...string) *exec.Cmd {
 	ctx, _ = withTimeout(ctx)
+	s.runner.Logger.Debug("exec_command",
+		zap.String("command", name),
+		zap.Strings("args", redactArgs(args)),
+	)
 	if s.useSudo {
 		all := append([]string{"-n", name}, args...)
 		cmd := s.runner.Cmd.CommandContext(ctx, "sudo", all...)
@@ -97,6 +103,30 @@ func sanitizeEnv(environ []string) []string {
 		k := kv[:i]
 		if whitelist[k] {
 			out = append(out, kv)
+		}
+	}
+	return out
+}
+
+func redactArgs(args []string) []string {
+	out := make([]string, len(args))
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		lower := strings.ToLower(a)
+		if strings.Contains(lower, "password") || strings.Contains(lower, "secret") ||
+			strings.Contains(lower, "token") || strings.Contains(lower, "key") {
+			if strings.Contains(a, "=") {
+				parts := strings.SplitN(a, "=", 2)
+				out[i] = parts[0] + "=[REDACTED]"
+			} else {
+				out[i] = a
+				if i+1 < len(args) {
+					out[i+1] = "[REDACTED]"
+					i++
+				}
+			}
+		} else {
+			out[i] = a
 		}
 	}
 	return out
