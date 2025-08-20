@@ -190,6 +190,9 @@ func (d *RawDevice) Identity(ctx context.Context) (DeviceIdentity, error) {
 	if blkidPath == "" {
 		return DeviceIdentity{}, fmt.Errorf("blkid not found")
 	}
+	if lsblkPath == "" {
+		return DeviceIdentity{}, fmt.Errorf("lsblk not found")
+	}
 	var st unix.Stat_t
 	if err := unix.Stat(d.Path(), &st); err != nil {
 		return DeviceIdentity{}, err
@@ -199,16 +202,22 @@ func (d *RawDevice) Identity(ctx context.Context) (DeviceIdentity, error) {
 		Major:     uint32(unix.Major(uint64(st.Rdev))),
 		Minor:     uint32(unix.Minor(uint64(st.Rdev))),
 	}
-	out, err := exec.CommandContext(ctx, blkidPath, "-o", "value", "-s", "UUID", d.Path()).Output()
+	out, err := exec.CommandContext(ctx, lsblkPath, "--nodeps", "-no", "UUID", d.Path()).Output()
 	if err != nil {
 		if ctx.Err() != nil {
 			return DeviceIdentity{}, ctx.Err()
 		}
 		return DeviceIdentity{}, err
 	}
-	uuid := strings.TrimSpace(string(out))
-	id.KernelUUID = uuid
-	id.FSUUID = uuid
+	id.KernelUUID = strings.TrimSpace(string(out))
+	out, err = exec.CommandContext(ctx, blkidPath, "-o", "value", "-s", "UUID", d.Path()).Output()
+	if err != nil {
+		if ctx.Err() != nil {
+			return DeviceIdentity{}, ctx.Err()
+		}
+		return DeviceIdentity{}, err
+	}
+	id.FSUUID = strings.TrimSpace(string(out))
 	if gpt, mbr, err := readPartitionSignatures(d.Path()); err == nil {
 		id.GPTUUID = gpt
 		id.MBRSignature = mbr
