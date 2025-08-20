@@ -6,7 +6,9 @@ import (
 	"io"
 	"net"
 	"os"
+	"sync"
 	"testing"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -50,21 +52,39 @@ func TestStreamToRemoteRsyncDelta(t *testing.T) {
 		t.Fatalf("write snap: %v", err)
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
 	dev := &rsyncserverMemDevice{buf: make([]byte, len(originData))}
 	copy(dev.buf, originData)
 	srv := rsyncserver.New(dev, zap.NewNop(), nil, "", "")
 
 	c1, c2 := net.Pipe()
 	cc := &countingConn{Conn: c1}
-	errCh := make(chan error, 1)
-	go func() { errCh <- srv.Handle(context.Background(), rsyncwire.NewStream(c2, maxFrame)) }()
 
-	if err := StreamToRemote(context.Background(), cfg, cc, snapPath, origPath, digestpkg.SHA256, zap.NewNop()); err != nil {
-		t.Fatalf("StreamToRemote: %v", err)
+	var wg sync.WaitGroup
+	var srvErr, cliErr error
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		srvErr = srv.Handle(ctx, rsyncwire.NewStream(c2, maxFrame))
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		cliErr = StreamToRemote(ctx, cfg, cc, snapPath, origPath, digestpkg.SHA256, zap.NewNop())
+		c1.Close()
+	}()
+
+	wg.Wait()
+
+	if cliErr != nil {
+		t.Fatalf("StreamToRemote: %v", cliErr)
 	}
-	c1.Close()
-	if err := <-errCh; err != nil {
-		t.Fatalf("Handle: %v", err)
+	if srvErr != nil {
+		t.Fatalf("Handle: %v", srvErr)
 	}
 
 	if !bytes.Equal(dev.buf, snapshotData) {
