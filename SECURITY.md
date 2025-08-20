@@ -39,7 +39,8 @@ Tight `sudoers` rules limit what the helper may execute. LVMSync assumes the
 controlling user can invoke **only** the following commands via `sudo`; any
 broadly scoped or wildcard entries break the least-privilege model and may give
 the user full root access. See [docs/sudoers.md](docs/sudoers.md) for
-command-specific guidance and distribution-specific paths:
+command-specific guidance and distribution-specific paths, and
+[docs/sudoers.d/lvmsync](docs/sudoers.d/lvmsync) for a minimal include file:
 
 ```sudoers
 # Allow LVM administration commands
