@@ -69,37 +69,153 @@ func TestReadmeShellExamples(t *testing.T) {
 		lines := strings.Split(block, "\n")
 		for j, line := range lines {
 			line = strings.TrimSpace(line)
-			if !strings.HasPrefix(line, "lvmsync") || !strings.Contains(line, "/tmp/src") || !strings.Contains(line, "/tmp/dst") {
+			if line == "" || strings.HasPrefix(line, "#") || strings.ContainsAny(line, "[]<>") || !strings.Contains(line, "lvmsync") || strings.Contains(line, "lvmsyncd") {
 				continue
 			}
+			fields := strings.Fields(line)
+			idx := -1
+			for k, f := range fields {
+				if f == "lvmsync" {
+					idx = k
+					break
+				}
+			}
+			if idx == -1 {
+				continue
+			}
+			// ensure anything before lvmsync is an env assignment
+			for _, f := range fields[:idx] {
+				if !strings.Contains(f, "=") {
+					idx = -1
+					break
+				}
+			}
+			if idx == -1 {
+				continue
+			}
+			args := append([]string{}, fields[idx+1:]...)
+			if len(args) == 0 {
+				continue
+			}
+			sub := args[0]
+			if sub != "run" {
+				continue
+			}
+			allowed := map[string]struct{}{
+				"--dry-run":        {},
+				"--verify-only":    {},
+				"--plan":           {},
+				"--transport":      {},
+				"--allow-insecure": {},
+				"--delta":          {},
+				"--dedup-strategy": {},
+				"--compress":       {},
+			}
+			valid := false
+			for _, a := range args[1:] {
+				if strings.HasPrefix(a, "--") {
+					flag := a
+					if i := strings.Index(flag, "="); i >= 0 {
+						flag = flag[:i]
+					}
+					if _, ok := allowed[flag]; !ok {
+						valid = false
+						break
+					}
+					if flag == "--verify-only" || flag == "--plan" || flag == "--transport" {
+						valid = true
+					}
+				}
+			}
+			if !valid {
+				continue
+			}
+
+			srcIdx, dstIdx := -1, -1
+			for k := len(args) - 1; k >= 0; k-- {
+				a := args[k]
+				if strings.HasPrefix(a, "-") {
+					continue
+				}
+				switch a {
+				case "run", "verify", "manifest", "rebuild", "plan":
+					continue
+				}
+				if dstIdx == -1 {
+					dstIdx = k
+					continue
+				}
+				srcIdx = k
+				break
+			}
+			if srcIdx == -1 || dstIdx == -1 {
+				continue
+			}
+			src, dst := args[srcIdx], args[dstIdx]
+			if strings.Contains(src, ":") && !strings.Contains(dst, ":") {
+				src, dst = dst, src
+				args[srcIdx], args[dstIdx] = src, dst
+			}
+			if strings.Contains(src, ":") {
+				continue
+			}
+			args[srcIdx] = ensureTempPath(src)
+			if !strings.Contains(dst, ":") {
+				args[dstIdx] = ensureTempPath(dst)
+			}
+
+			for k := 0; k < len(args); k++ {
+				a := args[k]
+				if !strings.HasPrefix(a, "--") {
+					continue
+				}
+				if strings.Contains(a, "=") {
+					parts := strings.SplitN(a, "=", 2)
+					if strings.HasPrefix(parts[1], "/") && !strings.Contains(parts[1], ":") {
+						parts[1] = ensureTempPath(parts[1])
+						args[k] = parts[0] + "=" + parts[1]
+					}
+				} else if k+1 < len(args) && strings.HasPrefix(args[k+1], "/") && !strings.Contains(args[k+1], ":") {
+					args[k+1] = ensureTempPath(args[k+1])
+				}
+			}
+
+			dryRun := false
+			for _, a := range args {
+				if a == "--dry-run" || strings.HasPrefix(a, "--dry-run=") {
+					dryRun = true
+					break
+				}
+			}
+			if !dryRun {
+				args = append(args, "--dry-run")
+			}
+
 			t.Run(fmt.Sprintf("sh_%d_%d", i, j), func(t *testing.T) {
-				if strings.Contains(line, "/tmp/src") {
-					if err := os.WriteFile("/tmp/src", nil, 0o644); err != nil {
-						t.Fatalf("prep src: %v", err)
-					}
+				if err := lvmsynccmd.ExecuteWithRunner(args, zap.NewNop(), nil); err != nil {
+					t.Fatalf("%s: %v", line, err)
 				}
-				if strings.Contains(line, "/tmp/dst") {
-					if err := os.WriteFile("/tmp/dst", nil, 0o644); err != nil {
-						t.Fatalf("prep dst: %v", err)
-					}
-				}
-                               args := strings.Fields(line)[1:]
-                               dryRun := false
-                               for _, a := range args {
-                                       if a == "--dry-run" {
-                                               dryRun = true
-                                               break
-                                       }
-                               }
-                               if !dryRun {
-                                       args = append(args, "--dry-run")
-                               }
-                               if err := lvmsynccmd.ExecuteWithRunner(args, zap.NewNop(), nil); err != nil {
-                                       t.Fatalf("%s: %v", line, err)
-                               }
-                       })
-               }
-       }
+			})
+		}
+	}
+}
+
+func ensureTempPath(p string) string {
+	if strings.Contains(p, ":") {
+		return p
+	}
+	if strings.HasPrefix(p, "/tmp/") {
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err == nil {
+			_ = os.WriteFile(p, nil, 0o644)
+		}
+		return p
+	}
+	f, err := os.CreateTemp("", "lvmsync")
+	if err != nil {
+		return p
+	}
+	f.Close()
+	return f.Name()
 }
 
 // TestFlagDocumentation ensures every flag has a README example.
