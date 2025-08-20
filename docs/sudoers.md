@@ -30,7 +30,7 @@ Cmnd_Alias LVMSYNC_HELPER = \
     /usr/local/bin/lvmsync-helper write, \
     /usr/local/bin/lvmsync-helper discard
 
-Cmnd_Alias LVMSYNC_BLKDISCARD = /usr/sbin/blkdiscard
+Cmnd_Alias LVMSYNC_BLKDISCARD = /sbin/blkdiscard
 
 # Allow the "lvmsync" user to run the aliases without a password and block
 # shell escapes and environment injection
@@ -60,3 +60,39 @@ grep lvmsync-helper /var/log/auth.log
 ```
 
 Review these logs regularly to confirm the helper and LVM commands execute as intended.
+
+## Distribution-specific paths
+
+### AlmaLinux
+
+AlmaLinux installs LVM utilities and `blkdiscard` under `/usr/sbin`:
+
+```sudoers
+Cmnd_Alias LVMSYNC_LVM = \
+    /usr/sbin/lvm, \
+    /usr/sbin/lvcreate, \
+    /usr/sbin/lvremove, \
+    /usr/sbin/lvs, \
+    /usr/sbin/pvs, \
+    /usr/sbin/vgs
+
+Cmnd_Alias LVMSYNC_BLKDISCARD = /usr/sbin/blkdiscard
+```
+
+### Debian
+
+Debian packages place these binaries in `/sbin`:
+
+```sudoers
+Cmnd_Alias LVMSYNC_LVM = \
+    /sbin/lvm, \
+    /sbin/lvcreate, \
+    /sbin/lvremove, \
+    /sbin/lvs, \
+    /sbin/pvs, \
+    /sbin/vgs
+
+Cmnd_Alias LVMSYNC_BLKDISCARD = /sbin/blkdiscard
+```
+
+`lvmsync-helper` remains at `/usr/local/bin/lvmsync-helper` on both distributions.

@@ -39,7 +39,7 @@ Tight `sudoers` rules limit what the helper may execute. LVMSync assumes the
 controlling user can invoke **only** the following commands via `sudo`; any
 broadly scoped or wildcard entries break the least-privilege model and may give
 the user full root access. See [docs/sudoers.md](docs/sudoers.md) for
-command-specific guidance:
+command-specific guidance and distribution-specific paths:
 
 ```sudoers
 # Allow LVM administration commands
@@ -52,10 +52,12 @@ lvmsync ALL=(root) NOPASSWD: \\
     /usr/local/bin/lvmsync-helper discard
 
 # Enable direct blkdiscard when the helper is unavailable
-lvmsync ALL=(root) NOPASSWD: /usr/sbin/blkdiscard
+lvmsync ALL=(root) NOPASSWD: /sbin/blkdiscard
 ```
 
-Adjust paths to match your distribution.
+Debian packages place `lvm*` and `blkdiscard` under `/sbin`, while AlmaLinux
+uses `/usr/sbin` for the same binaries. Refer to the distribution sections in
+[docs/sudoers.md](docs/sudoers.md) for exact paths.
 
 ## Least-privilege assumptions and risks
 
