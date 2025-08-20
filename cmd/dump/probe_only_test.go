@@ -39,7 +39,7 @@ func TestProbeOnlyNoSideEffects(t *testing.T) {
 			return nil, nil
 		},
 		probeDest: func(context.Context, *config.Config, string, *zap.Logger) (device.DeviceIdentity, error) {
-			return device.DeviceIdentity{SizeBytes: 123, KernelUUID: "k", GPTUUID: "g", FSUUID: "f", Major: 1, Minor: 2, ManifestEpoch: 456}, nil
+			return device.DeviceIdentity{SizeBytes: 123, KernelUUID: "k", GPTUUID: "g", MBRSignature: "", FSUUID: "f", Major: 1, Minor: 2, ManifestEpoch: 456}, nil
 		},
 	})
 
@@ -60,7 +60,7 @@ func TestProbeOnlyNoSideEffects(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadAll: %v", err)
 	}
-	expected := "123 k g f 1 2 456\n"
+	expected := "123 k g  f 1 2 456\n"
 	if string(out) != expected {
 		t.Fatalf("expected %q, got %q", expected, string(out))
 	}

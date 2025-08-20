@@ -15,7 +15,7 @@ lvmsync run --probe-only /dev/vg0/snap0 /dev/vg0/target
 # 10737418240 12345678-9abc-def0-1234-56789abcdef0 9abcdef0-1234-5678-90ab-cdef12345678 0fedcba9-8765-4321-0fed-cba987654321 253 0 1700000000
 ```
 
-Validates device identities and privileges and prints `size_bytes kernel_uuid gpt_uuid fs_uuid major minor manifest_epoch` without writing data.
+Validates device identities and privileges and prints `size_bytes kernel_uuid gpt_uuid mbr_signature fs_uuid major minor manifest_epoch` without writing data.
 
 ### `--resume`
 
@@ -138,9 +138,11 @@ lvmsync run /dev/vg0/missing /dev/vg0/target || echo "precondition failed with e
 # precondition failed with exit 80
 ```
 
+Partition-table changes between runs also trigger this error when GPT or MBR signatures differ.
+
 ## Troubleshooting
 
-- Compare source and destination identities; the device identity tuple `(size_bytes, kernel_uuid, gpt_uuid, fs_uuid, major, minor, manifest_epoch)` must match the resume file. LVMSync refuses to resume when the tuple differs.
+- Compare source and destination identities; the device identity tuple `(size_bytes, kernel_uuid, gpt_uuid, mbr_signature, fs_uuid, major, minor, manifest_epoch)` must match the resume file. LVMSync refuses to resume when the tuple differs.
 - Confirm the destination is not mounted read-write. Use `--force` only when intentionally overwriting.
 - Rerun with `--resume` after resolving issues to avoid re-copying completed blocks.
 - Review logs for detailed errors and ensure all configuration values follow the expected flag > environment variable > config file precedence.

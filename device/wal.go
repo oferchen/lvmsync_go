@@ -231,6 +231,7 @@ func OpenWAL(path string, id DeviceIdentity, logger *zap.Logger) (*WAL, error) {
 				SizeBytes:     hdr.Size,
 				KernelUUID:    strings.TrimRight(string(hdr.Kernel[:]), "\x00"),
 				GPTUUID:       strings.TrimRight(string(hdr.GPT[:]), "\x00"),
+				MBRSignature:  "",
 				FSUUID:        strings.TrimRight(string(hdr.FS[:]), "\x00"),
 				Major:         hdr.Major,
 				Minor:         hdr.Minor,

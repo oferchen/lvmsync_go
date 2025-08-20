@@ -292,7 +292,7 @@ func (r *Runner) Run(ctx context.Context, cfg *config.Config, source, dest strin
 		if err != nil {
 			return cfg.DestType, err
 		}
-		fmt.Fprintf(os.Stdout, "%d %s %s %s %d %d %d\n", id.SizeBytes, id.KernelUUID, id.GPTUUID, id.FSUUID, id.Major, id.Minor, id.ManifestEpoch)
+		fmt.Fprintf(os.Stdout, "%d %s %s %s %s %d %d %d\n", id.SizeBytes, id.KernelUUID, id.GPTUUID, id.MBRSignature, id.FSUUID, id.Major, id.Minor, id.ManifestEpoch)
 		return cfg.DestType, nil
 	}
 	dev, err := r.detectDevice(

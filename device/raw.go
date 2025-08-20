@@ -209,8 +209,9 @@ func (d *RawDevice) Identity(ctx context.Context) (DeviceIdentity, error) {
 	uuid := strings.TrimSpace(string(out))
 	id.KernelUUID = uuid
 	id.FSUUID = uuid
-	if out, err = exec.CommandContext(ctx, blkidPath, "-o", "value", "-s", "PTUUID", d.Path()).Output(); err == nil {
-		id.GPTUUID = strings.TrimSpace(string(out))
+	if gpt, mbr, err := readPartitionSignatures(d.Path()); err == nil {
+		id.GPTUUID = gpt
+		id.MBRSignature = mbr
 	}
 	return id, nil
 }
