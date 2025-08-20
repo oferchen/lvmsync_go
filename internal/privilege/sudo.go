@@ -13,21 +13,25 @@ import (
 	"go.uber.org/zap"
 )
 
-// escalationTimeout limits how long privilege checks and escalated commands may run
-// when the caller does not provide a deadline.
-var escalationTimeout = 5 * time.Second
+// defaultEscalationTimeout limits how long privilege checks and escalated
+// commands may run when the caller does not provide a deadline.
+const defaultEscalationTimeout = 5 * time.Second
 
-func withTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
+func (s *sudoEscalator) withTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
 	if _, ok := ctx.Deadline(); ok {
 		return context.WithCancel(ctx)
 	}
-	return context.WithTimeout(ctx, escalationTimeout)
+	to := s.timeout
+	if to == 0 {
+		to = defaultEscalationTimeout
+	}
+	return context.WithTimeout(ctx, to)
 }
 
 // Ensure verifies that either the required capabilities are present or that
 // sudo is available when escalation is necessary.
 func (s *sudoEscalator) Ensure(ctx context.Context) error {
-	ctx, cancel := withTimeout(ctx)
+	ctx, cancel := s.withTimeout(ctx)
 	defer cancel()
 	if s.useSudo {
 		if _, err := s.runner.LookPath("sudo"); err != nil {
@@ -55,7 +59,7 @@ func (s *sudoEscalator) Ensure(ctx context.Context) error {
 // Command returns an *exec.Cmd that runs the given program. sudo -n is inserted
 // when capabilities are missing.
 func (s *sudoEscalator) Command(ctx context.Context, name string, args ...string) *exec.Cmd {
-	ctx, _ = withTimeout(ctx)
+	ctx, _ = s.withTimeout(ctx)
 	s.runner.Logger.Debug("exec_command",
 		zap.String("command", name),
 		zap.Strings("args", redactArgs(args)),
@@ -109,25 +113,25 @@ func sanitizeEnv(environ []string) []string {
 }
 
 func redactArgs(args []string) []string {
-        out := make([]string, len(args))
-        for i := 0; i < len(args); i++ {
-                a := args[i]
-                lower := strings.ToLower(a)
-                if strings.Contains(lower, "password") || strings.Contains(lower, "secret") ||
-                        strings.Contains(lower, "token") || strings.Contains(lower, "key") {
-                        if strings.Contains(a, "=") {
-                                parts := strings.SplitN(a, "=", 2)
-                                out[i] = parts[0] + "=[REDACTED]"
-                        } else {
-                                out[i] = a
-                                if i+1 < len(args) {
-                                        out[i+1] = "[REDACTED]"
-                                        i++
-                                }
-                        }
-                } else {
-                        out[i] = a
-                }
-        }
-        return out
+	out := make([]string, len(args))
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		lower := strings.ToLower(a)
+		if strings.Contains(lower, "password") || strings.Contains(lower, "secret") ||
+			strings.Contains(lower, "token") || strings.Contains(lower, "key") {
+			if strings.Contains(a, "=") {
+				parts := strings.SplitN(a, "=", 2)
+				out[i] = parts[0] + "=[REDACTED]"
+			} else {
+				out[i] = a
+				if i+1 < len(args) {
+					out[i+1] = "[REDACTED]"
+					i++
+				}
+			}
+		} else {
+			out[i] = a
+		}
+	}
+	return out
 }

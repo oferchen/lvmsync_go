@@ -28,6 +28,7 @@
 package escalate
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -35,6 +36,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
@@ -57,11 +59,12 @@ type Options struct {
 	Environ    func() []string                   // defaults to os.Environ
 	Geteuid    func() int                        // defaults to os.Geteuid
 	LookPath   func(file string) (string, error) // defaults to exec.LookPath
-	ExecRunner func(name string, args, env []string, stdin io.Reader, stdout, stderr io.Writer) error
+	ExecRunner func(context.Context, string, []string, []string, io.Reader, io.Writer, io.Writer) error
 	Stdin      io.Reader     // defaults to nil (no prompting)
 	Stdout     io.Writer     // defaults to os.Stdout
 	Stderr     io.Writer     // defaults to os.Stderr
 	Sys        syscallFacade // defaults to real unix syscalls
+	Timeout    time.Duration // optional timeout for sudo escalation
 }
 
 // IsRoot reports whether the effective UID is 0.
@@ -78,6 +81,8 @@ func IsRoot(opts Options) bool {
 // If already root, returns (false, nil).
 // If not root, re-execs the current binary through `sudo -n` and returns (true, err).
 // When (true, nil) is returned, the caller should exit immediately.
+const defaultTimeout = 5 * time.Second
+
 func EnsureRootOrReexec(opts Options, logger *zap.Logger) (bool, error) {
 	argv := opts.Args
 	if argv == nil {
@@ -138,12 +143,22 @@ func EnsureRootOrReexec(opts Options, logger *zap.Logger) (bool, error) {
 		stderr = os.Stderr
 	}
 
+	timeout := opts.Timeout
+	if timeout <= 0 {
+		timeout = defaultTimeout
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
 	run := opts.ExecRunner
 	if run == nil {
 		run = defaultExecRunner
 	}
 
-	if err := run(sudoPath, args, env, stdin, stdout, stderr); err != nil {
+	if err := run(ctx, sudoPath, args, env, stdin, stdout, stderr); err != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			err = ctxErr
+		}
 		logger.Error("ensure_root_or_reexec", zap.String("action_id", actionID), zap.Strings("argv", argv), zap.String("hostname", host), zap.String("result", "error"), zap.Error(err))
 		return false, fmt.Errorf("sudo escalation failed: %w", err)
 	}
@@ -281,8 +296,8 @@ func (unixFacade) Setgroups(gids []int) error  { return unix.Setgroups(gids) }
 func (unixFacade) Setresgid(r, e, s int) error { return unix.Setresgid(r, e, s) }
 func (unixFacade) Setresuid(r, e, s int) error { return unix.Setresuid(r, e, s) }
 
-func defaultExecRunner(name string, args, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
-	cmd := exec.Command(name, args...)
+func defaultExecRunner(ctx context.Context, name string, args, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
+	cmd := exec.CommandContext(ctx, name, args...)
 	if env != nil {
 		cmd.Env = env
 	}

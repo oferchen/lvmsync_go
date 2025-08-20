@@ -212,12 +212,9 @@ func TestCommandContextCanceled(t *testing.T) {
 
 func TestEnsureDefaultTimeout(t *testing.T) {
 	HasCaps = func() bool { return false }
-	orig := escalationTimeout
-	escalationTimeout = 10 * time.Millisecond
-	defer func() { escalationTimeout = orig }()
 	r := &Runner{Cmd: cmdFunc(func(ctx context.Context, name string, args ...string) *exec.Cmd {
 		return exec.CommandContext(ctx, "sleep", "10")
-	}), LookPath: fakeLookPath(nil)}
+	}), LookPath: fakeLookPath(nil), Timeout: 10 * time.Millisecond}
 	esc := NewWithRunner(context.Background(), r, zap.NewNop())
 	err := esc.Ensure(context.Background())
 	if !errors.Is(err, context.DeadlineExceeded) {
@@ -226,12 +223,9 @@ func TestEnsureDefaultTimeout(t *testing.T) {
 }
 
 func TestCommandDefaultTimeout(t *testing.T) {
-	orig := escalationTimeout
-	escalationTimeout = 10 * time.Millisecond
-	defer func() { escalationTimeout = orig }()
 	esc := &sudoEscalator{useSudo: false, runner: &Runner{Cmd: cmdFunc(func(ctx context.Context, name string, args ...string) *exec.Cmd {
 		return exec.CommandContext(ctx, "sleep", "10")
-	}), Logger: zap.NewNop()}}
+	}), Logger: zap.NewNop()}, timeout: 10 * time.Millisecond}
 	cmd := esc.Command(context.Background(), "sleep", "10")
 	err := cmd.Run()
 	if !errors.Is(err, context.DeadlineExceeded) && err.Error() != "signal: killed" {

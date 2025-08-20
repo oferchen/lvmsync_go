@@ -6,6 +6,9 @@ See [../SECURITY.md](../SECURITY.md) for the overall model, assumptions, and
 risks. Adjust paths to match your distribution and test on non-production
 systems before enabling them in production.
 
+All command paths are validated by LVMSync at startup. Escalation commands
+must be specified explicitly and may not contain pipes or shell redirects.
+
 ## LVM administration
 
 Permit only the LVM utilities needed by LVMSync:
