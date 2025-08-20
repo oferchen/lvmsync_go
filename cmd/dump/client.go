@@ -37,6 +37,19 @@ var ErrRemoteCommand = errors.New("remote command error")
 
 const maxFrame = 1 << 20
 
+func chooseCompression(chunkLen int, compress string) string {
+	if compress != transfer.StrategyAuto && compress != "" {
+		return compress
+	}
+	if chunkLen > 0 && chunkLen < 256*1024 {
+		return "lz4"
+	}
+	if cpufeatures.HasAVX2() || cpufeatures.HasNEON() {
+		return "zstd"
+	}
+	return "lz4"
+}
+
 // Runner manages external interactions for dump operations.
 type Runner struct {
 	dumpSeq        func(context.Context, *transfer.Transfer, *config.Config, string, string, io.Writer) error
@@ -310,10 +323,12 @@ func (r *Runner) Run(ctx context.Context, cfg *config.Config, source, dest strin
 	if cfg.DryRun {
 		size := int64(dev.SizeBytes())
 		durMs, bwBps := transfer.Estimate(size, cfg.SpeedLimit)
+		algo := chooseCompression(cfg.BlockSize, cfg.Compress)
 		logger.Info("dry run",
 			zap.Int64("size_bytes", size),
 			zap.Int64("estimated_duration_ms", durMs),
 			zap.Int64("estimated_bandwidth_bps", bwBps),
+			zap.String("compression", algo),
 		)
 		dev.Cleanup(ctx)
 		dev.Close()
@@ -353,11 +368,11 @@ func (r *Runner) Run(ctx context.Context, cfg *config.Config, source, dest strin
 
 // RunLocalDump dumps changes to a local destination device and returns the detected destination type.
 func (r *Runner) RunLocalDump(ctx context.Context, cfg *config.Config, snapshotDevice, originDevice, dest string, logger *zap.Logger) (string, error) {
-       destType := cfg.DestType
-       devCtx := device.WithForce(context.Background(), cfg.Force)
-       devCtx = device.WithAllowOverwrite(devCtx, cfg.AllowOverwrite)
-       devCtx = device.WithYesIKnow(devCtx, cfg.YesIKnow)
-       devRunner := device.NewRunner()
+	destType := cfg.DestType
+	devCtx := device.WithForce(context.Background(), cfg.Force)
+	devCtx = device.WithAllowOverwrite(devCtx, cfg.AllowOverwrite)
+	devCtx = device.WithYesIKnow(devCtx, cfg.YesIKnow)
+	devRunner := device.NewRunner()
 	if cfg.DryRun {
 		return destType, r.ExecuteDump(ctx, cfg, snapshotDevice, originDevice, io.Discard, logger)
 	}

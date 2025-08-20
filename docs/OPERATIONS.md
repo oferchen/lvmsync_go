@@ -10,6 +10,13 @@ an interactive TTY on stdin, it prompts for confirmation before proceeding. In
 non-interactive sessions the `--yes-i-know` flag (or `LVMSYNC_YES_I_KNOW`)
 must be supplied to bypass the prompt.
 
+## Dry-run and plan output
+
+`--dry-run` and `lvmsync plan` report the estimated transfer parameters
+without copying data. The JSON log entry includes `size_bytes`,
+`estimated_duration_ms`, `estimated_bandwidth_bps`, and `compression`
+showing the selected compression algorithm.
+
 ## Snapshot Creation and Cleanup Flow
 
 1. `lvmsync run` validates the source and destination.

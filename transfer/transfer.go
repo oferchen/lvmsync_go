@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pierrec/lz4/v4"
 	"github.com/zeebo/blake3"
 	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
@@ -118,10 +119,16 @@ func (t *Transfer) dumpChangesCore(ctx context.Context, cfg *config.Config, snap
 			return err
 		}
 		durationMs, bandwidthBps := Estimate(int64(size), cfg.SpeedLimit)
+		lz4Level := int(lz4.Level1)
+		if strings.ToLower(cfg.LZ4Level) == "hc" {
+			lz4Level = int(lz4.Level9)
+		}
+		algo, _ := selectAlgorithm(cfg.BlockSize, cfg.Compress, lz4Level, cfg.ZstdLevel)
 		t.Logger.Info("dry run",
 			zap.Int64("size_bytes", int64(size)),
 			zap.Int64("estimated_duration_ms", durationMs),
 			zap.Int64("estimated_bandwidth_bps", bandwidthBps),
+			zap.String("compression", algo),
 		)
 		return nil
 	}
