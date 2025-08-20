@@ -89,7 +89,8 @@ func TestHandleApplyDelta(t *testing.T) {
 	data := []byte("hello")
 	dev := &memDevice{buf: make([]byte, len(data))}
 	srv := newServer(t, dev, data)
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	errCh := make(chan error, 1)
 	go func() { errCh <- srv.Handle(ctx, rsyncwire.NewStream(c2, maxFrame)) }()
 
@@ -99,6 +100,9 @@ func TestHandleApplyDelta(t *testing.T) {
 	}
 	if err := cl.SendDelta(0, data); err != nil {
 		t.Fatalf("SendDelta: %v", err)
+	}
+	if err := cl.SendDigest(digest.SHA256, srv.expect); err != nil {
+		t.Fatalf("SendDigest: %v", err)
 	}
 	c1.Close()
 	if err := <-errCh; err != nil {
