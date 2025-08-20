@@ -2,6 +2,7 @@ package privilege
 
 import (
 	"context"
+	"os"
 	"os/exec"
 )
 
@@ -24,11 +25,27 @@ type Runner struct {
 
 // New returns an Escalator with production dependencies.
 // ctx is currently unused but reserved for future use.
-func New(ctx context.Context) Escalator { return NewWithRunner(ctx, nil) }
+func New(ctx context.Context) Escalator { return newEscalator(ctx, nil, false) }
 
 // NewWithRunner constructs an Escalator with the provided Runner.
 // Nil fields default to exec.CommandContext and exec.LookPath.
-func NewWithRunner(_ context.Context, r *Runner) Escalator {
+func NewWithRunner(ctx context.Context, r *Runner) Escalator {
+	return newEscalator(ctx, r, false)
+}
+
+// NewWithSanitize constructs an Escalator that optionally sanitizes the
+// environment of executed commands.
+func NewWithSanitize(ctx context.Context, sanitize bool) Escalator {
+	return newEscalator(ctx, nil, sanitize)
+}
+
+// NewWithRunnerAndSanitize constructs an Escalator with the provided Runner
+// and optional environment sanitization.
+func NewWithRunnerAndSanitize(ctx context.Context, r *Runner, sanitize bool) Escalator {
+	return newEscalator(ctx, r, sanitize)
+}
+
+func newEscalator(_ context.Context, r *Runner, sanitize bool) Escalator {
 	cmd := Commander(commanderFunc(exec.CommandContext))
 	lp := exec.LookPath
 	if r != nil {
@@ -39,5 +56,10 @@ func NewWithRunner(_ context.Context, r *Runner) Escalator {
 			lp = r.LookPath
 		}
 	}
-	return &sudoEscalator{useSudo: !HasCaps(), runner: &Runner{Cmd: cmd, LookPath: lp}}
+	return &sudoEscalator{
+		useSudo:     !HasCaps(),
+		runner:      &Runner{Cmd: cmd, LookPath: lp},
+		sanitizeEnv: sanitize,
+		environ:     os.Environ,
+	}
 }
