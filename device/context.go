@@ -9,6 +9,7 @@ const (
 	forceKey ctxKey = iota
 	allowOverwriteKey
 	yesIKnowKey
+	ptSigKey
 )
 
 // WithForce returns a context that carries the --force flag state.
@@ -45,4 +46,17 @@ func yesIKnowFromContext(ctx context.Context) bool {
 		return v
 	}
 	return false
+}
+
+// WithPartitionSignatures returns a context carrying expected partition table
+// signatures. Empty strings skip the comparison.
+func WithPartitionSignatures(ctx context.Context, gpt, mbr string) context.Context {
+	return context.WithValue(ctx, ptSigKey, [2]string{gpt, mbr})
+}
+
+func partitionSignaturesFromContext(ctx context.Context) (string, string) {
+	if v, ok := ctx.Value(ptSigKey).([2]string); ok {
+		return v[0], v[1]
+	}
+	return "", ""
 }

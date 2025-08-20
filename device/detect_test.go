@@ -249,3 +249,65 @@ func TestDetectRawCommandQuoting(t *testing.T) {
 	}
 	dev.Close()
 }
+
+func TestDetectRawPartitionMismatch(t *testing.T) {
+	if os.Geteuid() != 0 {
+		t.Skip("requires root")
+	}
+	loop, cleanup := setupLoop(t, 1<<20)
+	defer cleanup()
+	f, err := os.OpenFile(loop, os.O_WRONLY, 0)
+	if err != nil {
+		t.Fatalf("open loop: %v", err)
+	}
+	var buf [512]byte
+	buf[440] = 0x78
+	buf[441] = 0x56
+	buf[442] = 0x34
+	buf[443] = 0x12
+	buf[510] = 0x55
+	buf[511] = 0xaa
+	if _, err := f.Write(buf[:]); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	f.Close()
+	ctx := WithPartitionSignatures(context.Background(), "deadbeef", "")
+	ctx = WithForce(ctx, true)
+	ctx = WithAllowOverwrite(ctx, true)
+	ctx = WithYesIKnow(ctx, true)
+	if _, err := detectRawDevice(ctx, loop, true, "", "", 0, 0, fakeEsc{}, zap.NewNop(), NewRunner()); err == nil || !strings.Contains(err.Error(), "precondition") {
+		t.Fatalf("expected precondition error, got %v", err)
+	}
+}
+
+func TestDetectRawPartitionMatch(t *testing.T) {
+	if os.Geteuid() != 0 {
+		t.Skip("requires root")
+	}
+	loop, cleanup := setupLoop(t, 1<<20)
+	defer cleanup()
+	f, err := os.OpenFile(loop, os.O_WRONLY, 0)
+	if err != nil {
+		t.Fatalf("open loop: %v", err)
+	}
+	var buf [512]byte
+	buf[440] = 0x78
+	buf[441] = 0x56
+	buf[442] = 0x34
+	buf[443] = 0x12
+	buf[510] = 0x55
+	buf[511] = 0xaa
+	if _, err := f.Write(buf[:]); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	f.Close()
+	ctx := WithPartitionSignatures(context.Background(), "", "12345678")
+	ctx = WithForce(ctx, true)
+	ctx = WithAllowOverwrite(ctx, true)
+	ctx = WithYesIKnow(ctx, true)
+	dev, err := detectRawDevice(ctx, loop, true, "", "", 0, 0, fakeEsc{}, zap.NewNop(), NewRunner())
+	if err != nil {
+		t.Fatalf("detectRawDevice: %v", err)
+	}
+	dev.Close()
+}

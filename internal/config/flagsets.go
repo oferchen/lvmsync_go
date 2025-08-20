@@ -60,6 +60,7 @@ func initGeneralFlags(cfg *Config) *pflag.FlagSet {
 	fs.Bool("probe-only", cfg.ProbeOnly, "Output size_bytes, kernel_uuid, gpt_uuid, fs_uuid, major, minor, and manifest_epoch without writing")
 	fs.Bool("plan", cfg.Plan, "Print configuration plan as JSON and exit")
 	fs.Bool("force", cfg.Force, "Override safety checks for offline raw access or filesystem freeze")
+	fs.Bool("force-offline", cfg.ForceOffline, "Allow direct device writes; prompts for double-confirm")
 	fs.Bool("allow-overwrite", cfg.AllowOverwrite, "Allow overwriting existing data; requires --yes-i-know for non-interactive sessions")
 	fs.Bool("discard", cfg.Discard, "Issue BLKDISCARD before writing blocks")
 	fs.Bool("offline", cfg.Offline, "Assume source raw device is offline")

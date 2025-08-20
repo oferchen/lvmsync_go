@@ -89,15 +89,16 @@ func TestDeviceIdentityFormatParseOrder(t *testing.T) {
 		SizeBytes:     1,
 		KernelUUID:    "k",
 		GPTUUID:       "g",
+		MBRSignature:  "m",
 		FSUUID:        "f",
 		Major:         2,
 		Minor:         3,
 		ManifestEpoch: 4,
 	}
 	var buf bytes.Buffer
-	fmt.Fprintf(&buf, "%d %s %s %s %d %d %d", id.SizeBytes, id.KernelUUID, id.GPTUUID, id.FSUUID, id.Major, id.Minor, id.ManifestEpoch)
+	fmt.Fprintf(&buf, "%d %s %s %s %s %d %d %d", id.SizeBytes, id.KernelUUID, id.GPTUUID, id.MBRSignature, id.FSUUID, id.Major, id.Minor, id.ManifestEpoch)
 	var parsed DeviceIdentity
-	if _, err := fmt.Fscan(&buf, &parsed.SizeBytes, &parsed.KernelUUID, &parsed.GPTUUID, &parsed.FSUUID, &parsed.Major, &parsed.Minor, &parsed.ManifestEpoch); err != nil {
+	if _, err := fmt.Fscan(&buf, &parsed.SizeBytes, &parsed.KernelUUID, &parsed.GPTUUID, &parsed.MBRSignature, &parsed.FSUUID, &parsed.Major, &parsed.Minor, &parsed.ManifestEpoch); err != nil {
 		t.Fatalf("Fscan: %v", err)
 	}
 	if parsed != id {

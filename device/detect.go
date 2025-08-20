@@ -18,6 +18,24 @@ import (
 // openRawFunc allows tests to stub OpenRaw.
 var openRawFunc = OpenRaw
 
+func verifyPartition(ctx context.Context, dev Device) error {
+	gpt, mbr := partitionSignaturesFromContext(ctx)
+	if gpt == "" && mbr == "" {
+		return nil
+	}
+	id, err := dev.Identity(ctx)
+	if err != nil {
+		return err
+	}
+	if gpt != "" && id.GPTUUID != gpt {
+		return fmt.Errorf("precondition: partition table mismatch")
+	}
+	if mbr != "" && id.MBRSignature != mbr {
+		return fmt.Errorf("precondition: partition table mismatch")
+	}
+	return nil
+}
+
 // detectFileDevice opens a regular file as a device.
 func detectFileDevice(path string, logger *zap.Logger) (Device, error) {
 	dev, err := OpenFile(path, logger)
@@ -42,6 +60,11 @@ func detectLVMDevice(ctx context.Context, path, lvmEscalation string, runner *Ru
 	defer cache.Close()
 	dev, err := runner.OpenLVM(ctx, path, cache, lvmEscalation, logger)
 	if err != nil {
+		logger.Error("detect_device_failed", zap.String("path", path), zap.String("device_type", TypeLVM), zap.Error(err))
+		return nil, err
+	}
+	if err := verifyPartition(ctx, dev); err != nil {
+		dev.Close()
 		logger.Error("detect_device_failed", zap.String("path", path), zap.String("device_type", TypeLVM), zap.Error(err))
 		return nil, err
 	}
@@ -88,6 +111,11 @@ func detectRawDevice(
 	}
 	dev, err := openRawFunc(ctx, path, offline, freezePath, freezeArgs, thawPath, thawArgs, freezeTimeout, thawTimeout, esc, logger, runner)
 	if err != nil {
+		logger.Error("detect_device_failed", zap.String("path", path), zap.String("device_type", TypeRaw), zap.Error(err))
+		return nil, err
+	}
+	if err := verifyPartition(ctx, dev); err != nil {
+		dev.Close()
 		logger.Error("detect_device_failed", zap.String("path", path), zap.String("device_type", TypeRaw), zap.Error(err))
 		return nil, err
 	}

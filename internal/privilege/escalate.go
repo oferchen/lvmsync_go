@@ -21,6 +21,8 @@ type Escalator interface {
 // sudoEscalator implements Escalator using Linux capabilities when present
 // and sudo -n as a fallback.
 type sudoEscalator struct {
-	useSudo bool
-	runner  *Runner
+	useSudo     bool
+	runner      *Runner
+	sanitizeEnv bool
+	environ     func() []string
 }

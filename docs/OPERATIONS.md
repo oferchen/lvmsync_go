@@ -10,6 +10,13 @@ an interactive TTY on stdin, it prompts for confirmation before proceeding. In
 non-interactive sessions the `--yes-i-know` flag (or `LVMSYNC_YES_I_KNOW`)
 must be supplied to bypass the prompt.
 
+## Direct device writes
+
+Writing directly to block devices bypasses filesystem safeguards and can
+destroy data. These operations require `--force-offline`. When stdin is a TTY,
+`lvmsync` prompts for the literal text `double-confirm`; non-interactive
+sessions must also provide `--yes-i-know`.
+
 ## Dry-run and plan output
 
 `--dry-run` and `lvmsync plan` report the estimated transfer parameters

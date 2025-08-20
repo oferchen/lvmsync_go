@@ -54,13 +54,13 @@ For snapshot cleanup, resuming transfers, and verify-only rollback procedures, s
 
 ### Resume, verification, and safe overwrite flows
 
-Transfers store the device identity tuple `(size_bytes, kernel_uuid, gpt_uuid, fs_uuid, major, minor, manifest_epoch)` and compare it against the destination before writing. Mismatches abort the run to avoid accidental overwrites. Use `--force` to bypass this check when intentionally overwriting.
+Transfers store the device identity tuple `(size_bytes, kernel_uuid, gpt_uuid, mbr_signature, fs_uuid, major, minor, manifest_epoch)` and compare it against the destination before writing. Partition-table mismatches return a precondition failure to avoid accidental overwrites. Use `--force` to bypass this check when intentionally overwriting.
 
-Example `--probe-only` output showing `size_bytes kernel_uuid gpt_uuid fs_uuid major minor manifest_epoch`:
+Example `--probe-only` output showing `size_bytes kernel_uuid gpt_uuid mbr_signature fs_uuid major minor manifest_epoch`:
 
 ```sh
 lvmsync run --probe-only /dev/vg0/snap0 /dev/vg0/target
-# 10737418240 12345678-9abc-def0-1234-56789abcdef0 9abcdef0-1234-5678-90ab-cdef12345678 0fedcba9-8765-4321-0fed-cba987654321 253 0 1700000000
+# 10737418240 12345678-9abc-def0-1234-56789abcdef0 9abcdef0-1234-5678-90ab-cdef12345678 1a2b3c4d 0fedcba9-8765-4321-0fed-cba987654321 253 0 1700000000
 ```
 
 
@@ -698,6 +698,7 @@ Flags override environment variables, which override `config.yaml` values.
 | `--target-vgs` | `LVMSYNC_TARGET_VGS` | `target_vgs` | Candidate target volume groups for auto-selection |
 | `--create-dest-lv` | `LVMSYNC_CREATE_DEST_LV` | `create_dest_lv` | Create destination logical volume when missing (requires `--force` or confirmation) |
 | `--force` | `LVMSYNC_FORCE` | `force` | Override safety checks and proceed on mounted destination |
+| `--force-offline` | `LVMSYNC_FORCE_OFFLINE` | `force_offline` | Allow direct device writes; prompts for `double-confirm` when interactive (requires `--yes-i-know` otherwise) |
 | `--allow-overwrite` | `LVMSYNC_ALLOW_OVERWRITE` | `allow_overwrite` | Allow overwriting existing data; requires `--yes-i-know` for non-interactive sessions |
 | `--discard` | `LVMSYNC_DISCARD` | `discard` | Issue BLKDISCARD before writing blocks |
 | `--dry-run` | `LVMSYNC_DRY_RUN` | `dry_run` | Log estimated transfer bytes without sending data; uses manifest sampling when available |
