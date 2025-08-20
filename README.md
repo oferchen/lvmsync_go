@@ -29,7 +29,7 @@ For snapshot cleanup, resuming transfers, and verify-only rollback procedures, s
 - **Crash-Safe WAL**: Records committed ranges in a write-ahead log so interrupted runs can recover. See [WAL documentation](docs/wal.md) for layout and replay details.
 - **Probe and Verification Modes**: `--probe-only` validates devices and privileges without writing and prints `size_bytes kernel_uuid gpt_uuid fs_uuid major minor manifest_epoch` to stdout, while `--verify-only` scans both sides and reports mismatches.
  - **Dry-run Estimates**: `--dry-run` samples the manifest to project bytes and ETA without transferring data.
- - **Planning**: `--plan` prints resolved configuration, transport order, estimated bytes, and compression decisions as JSON without transferring data.
+ - **Planning**: `--plan` prints resolved configuration with secrets redacted, transport order, estimated bytes, and compression decisions as JSON without transferring data.
  - **Device Identity Tuple**: Each run records `(size_bytes, kernel_uuid, gpt_uuid, fs_uuid, major, minor, manifest_epoch)` to prevent writing to the wrong destination.
 
 - **Handshake Timeouts**: Transport connections apply context deadlines during handshakes and clear them once negotiation succeeds.
@@ -367,7 +367,7 @@ When run with `--dry-run`, LVMSync loads any manifest at `--manifest-path` and s
 {"level":"info","msg":"dry run","size_bytes":4096,"estimated_tx_bytes":4096,"estimated_duration_ms":2000,"estimated_bandwidth_bps":16000}
 ```
 
-Running with `--plan` emits a JSON document describing the resolved configuration, transport order, estimated transfer bytes, and the compression algorithm selected for each chunk size class.
+Running with `--plan` emits a JSON document describing the resolved configuration (with sensitive fields like SSH passwords and TLS keys redacted), transport order, estimated transfer bytes, and the compression algorithm selected for each chunk size class.
 
 ### Examples
 
