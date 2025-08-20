@@ -280,16 +280,16 @@ func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport
 			return peer, err
 		}
 		if err = common.WriteHandshake(conn, hs); err != nil {
-			clearDeadline(conn)
+			clearDeadline(conn, t.logger)
 			return peer, err
 		}
-		clearDeadline(conn)
+		clearDeadline(conn, t.logger)
 
 		if err = setDeadline(ctx, conn); err != nil {
 			return peer, err
 		}
 		peer, err = common.ReadHandshake(bufio.NewReader(conn))
-		clearDeadline(conn)
+		clearDeadline(conn, t.logger)
 		if err != nil {
 			return peer, err
 		}
@@ -303,7 +303,7 @@ func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport
 			return peer, err
 		}
 		peer, err = common.ReadHandshake(bufio.NewReader(conn))
-		clearDeadline(conn)
+		clearDeadline(conn, t.logger)
 		if err != nil {
 			return peer, err
 		}
@@ -315,10 +315,10 @@ func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport
 			return peer, err
 		}
 		if err = common.WriteHandshake(conn, hs); err != nil {
-			clearDeadline(conn)
+			clearDeadline(conn, t.logger)
 			return peer, err
 		}
-		clearDeadline(conn)
+		clearDeadline(conn, t.logger)
 		return peer, nil
 	default:
 		return peer, fmt.Errorf("invalid role %v", role)
@@ -332,6 +332,8 @@ func setDeadline(ctx context.Context, conn net.Conn) error {
 	return nil
 }
 
-func clearDeadline(conn net.Conn) {
-	_ = conn.SetDeadline(time.Time{})
+func clearDeadline(conn net.Conn, logger *zap.Logger) {
+	if err := conn.SetDeadline(time.Time{}); err != nil {
+		logger.Error("clear_deadline_failed", zap.Error(err))
+	}
 }
