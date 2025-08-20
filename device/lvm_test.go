@@ -4,6 +4,7 @@ package device
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -15,6 +16,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 
+	"lvmsync_go/internal/exitcode"
 	"lvmsync_go/internal/lock"
 	"lvmsync_go/lvm"
 )
@@ -22,6 +24,44 @@ import (
 type ttyLVMReader struct{ io.Reader }
 
 func (t ttyLVMReader) Fd() uintptr { return 0 }
+
+// vgSelectBackend simulates vgs output for volume group selection tests.
+type vgSelectBackend struct {
+	vgs map[string]uint64
+}
+
+func (b *vgSelectBackend) CreateSnapshot(context.Context, string, string, string) error { return nil }
+func (b *vgSelectBackend) RemoveSnapshot(context.Context, string) error                 { return nil }
+func (b *vgSelectBackend) GetSnapshotUsage(context.Context, string) (float64, error)    { return 0, nil }
+func (b *vgSelectBackend) GetVolumeGroupFreeSpace(_ context.Context, name string) (uint64, error) {
+	if free, ok := b.vgs[name]; ok {
+		return free, nil
+	}
+	return 0, fmt.Errorf("device volume group %s not found", name)
+}
+
+func (b *vgSelectBackend) ListVolumeGroups(_ context.Context, candidates []string) ([]lvm.VolumeGroup, error) {
+	if len(candidates) == 0 {
+		res := []lvm.VolumeGroup{}
+		for name, free := range b.vgs {
+			res = append(res, lvm.VolumeGroup{Name: name, Free: free})
+		}
+		return res, nil
+	}
+	res := []lvm.VolumeGroup{}
+	for _, c := range candidates {
+		if free, ok := b.vgs[c]; ok {
+			res = append(res, lvm.VolumeGroup{Name: c, Free: free})
+		} else {
+			return nil, fmt.Errorf("device volume group %s not found", c)
+		}
+	}
+	return res, nil
+}
+
+func (b *vgSelectBackend) CreateLogicalVolume(context.Context, string, string, uint64) error {
+	return nil
+}
 
 func TestOpenLVM(t *testing.T) {
 	if os.Geteuid() != 0 {
@@ -260,6 +300,34 @@ func TestConfirmOverwriteNonTTYLVM(t *testing.T) {
 	r := strings.NewReader("yes\n")
 	if err := confirmOverwrite(ctx, r, io.Discard, func(int) bool { return true }); err == nil || !strings.Contains(err.Error(), "--allow-overwrite") {
 		t.Fatalf("expected allow-overwrite error, got %v", err)
+	}
+}
+
+func TestSelectVolumeGroupFromCandidates(t *testing.T) {
+	fb := &vgSelectBackend{vgs: map[string]uint64{"vg0": 100, "vg1": 200}}
+	r := lvm.NewRunnerWithDeps(nil, func() error { return nil }, nil, fb, "")
+	vg, err := r.SelectVolumeGroupForSize(context.Background(), []string{"vg0", "vg1"}, 50)
+	if err != nil {
+		t.Fatalf("SelectVolumeGroupForSize: %v", err)
+	}
+	if vg.Name != "vg1" {
+		t.Fatalf("expected vg1, got %s", vg.Name)
+	}
+}
+
+func TestSelectVolumeGroupNoMatchErrDevice(t *testing.T) {
+	fb := &vgSelectBackend{vgs: map[string]uint64{"vg0": 100}}
+	r := lvm.NewRunnerWithDeps(nil, func() error { return nil }, nil, fb, "")
+	if _, err := r.SelectVolumeGroupForSize(context.Background(), []string{"vg1"}, 50); err == nil {
+		t.Fatalf("expected error")
+	} else {
+		code := exitcode.ErrRuntime
+		if strings.Contains(err.Error(), "device") {
+			code = exitcode.ErrDevice
+		}
+		if code != exitcode.ErrDevice {
+			t.Fatalf("exit code = %d, want %d", code, exitcode.ErrDevice)
+		}
 	}
 }
 

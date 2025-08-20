@@ -58,6 +58,15 @@ lvmsync run --create-dest-lv --force /dev/vg0/origin /dev/vg1/target
 Accidentally creating a volume in the wrong group can destroy data; verify the
 destination path and available space before using this option.
 
+## Target Volume Group Selection
+
+When `--target-volume-group` is unset, LVMSync can automatically select a
+destination group from a list of candidates provided via `--target-vgs` or the
+`LVMSYNC_TARGET_VGS` environment variable. The runner queries available volume
+groups and chooses the one with sufficient free space, preferring the group
+with the most free bytes. If none of the candidates satisfy the size
+requirement, LVMSync fails with a device error.
+
 ## Environment Example
 
 Configuration can also come from environment variables. This example creates a
