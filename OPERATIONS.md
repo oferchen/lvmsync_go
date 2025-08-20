@@ -114,6 +114,7 @@ committed ranges.
 | [`exitcode.OK`](internal/exitcode/exitcode.go) | `0`  | Success | None |
 | [`exitcode.ErrCapability`](internal/exitcode/exitcode.go) | `10` | Privilege or capability check failed | Run as root or adjust `--lvm-escalation`. |
 | [`exitcode.ErrDevice`](internal/exitcode/exitcode.go) | `20` | Device error | Verify device paths and snapshot health. |
+| [`exitcode.ErrSnapshotExhausted`](internal/exitcode/exitcode.go) | `25` | Snapshot space exhausted | Grow or recreate the snapshot before resuming. |
 | [`exitcode.ErrPlatform`](internal/exitcode/exitcode.go) | `30` | Unsupported platform | Run on a supported Linux platform. |
 | [`exitcode.ErrConfig`](internal/exitcode/exitcode.go) | `40` | Configuration error | Review flags, environment variables, and `config.yaml`. |
 | [`exitcode.ErrRuntime`](internal/exitcode/exitcode.go) | `50` | Runtime failure | Inspect logs, fix the issue, and rerun using `--resume` when applicable. |
