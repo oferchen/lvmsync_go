@@ -24,23 +24,17 @@ func (m *createLVBackend) CreateLogicalVolume(context.Context, string, string, u
 }
 
 func TestCreateLogicalVolume(t *testing.T) {
-	restorePriv := SetPrivilegeChecker(func() error { return nil })
-	t.Cleanup(restorePriv)
 	b := &createLVBackend{}
-	restore := SetBackend(b)
-	t.Cleanup(restore)
-	if err := CreateLogicalVolume(context.Background(), "vg", "lv", 1024, zap.NewNop()); err != nil {
+	r := NewRunnerWithDeps(nil, func() error { return nil }, nil, b, "")
+	if err := r.CreateLogicalVolume(context.Background(), "vg", "lv", 1024, zap.NewNop()); err != nil {
 		t.Fatalf("CreateLogicalVolume error: %v", err)
 	}
 }
 
 func TestCreateLogicalVolumeError(t *testing.T) {
-	restorePriv := SetPrivilegeChecker(func() error { return nil })
-	t.Cleanup(restorePriv)
 	b := &createLVBackend{err: errors.New("fail")}
-	restore := SetBackend(b)
-	t.Cleanup(restore)
-	if err := CreateLogicalVolume(context.Background(), "vg", "lv", 1024, zap.NewNop()); err == nil {
+	r := NewRunnerWithDeps(nil, func() error { return nil }, nil, b, "")
+	if err := r.CreateLogicalVolume(context.Background(), "vg", "lv", 1024, zap.NewNop()); err == nil {
 		t.Fatal("expected error")
 	}
 }

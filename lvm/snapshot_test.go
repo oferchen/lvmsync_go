@@ -47,24 +47,19 @@ func (f *mockBackend) CreateLogicalVolume(context.Context, string, string, uint6
 }
 
 func TestCreateAndRemoveSnapshot(t *testing.T) {
-	orig := checkPrivs
-	checkPrivs = func() error { return nil }
-	t.Cleanup(func() { checkPrivs = orig })
-
 	fb := &mockBackend{}
-	restore := SetBackend(fb)
-	t.Cleanup(restore)
+	r := NewRunnerWithDeps(nil, func() error { return nil }, nil, fb, "")
 
 	lvPath := "/dev/vg0/origin"
 	snapName := "snap"
 	size := "1G"
 
 	logger := zap.NewNop()
-	if err := CreateSnapshot(context.Background(), lvPath, snapName, size, logger); err != nil {
+	if err := r.CreateSnapshot(context.Background(), lvPath, snapName, size, logger); err != nil {
 		t.Fatalf("CreateSnapshot failed: %v", err)
 	}
 	snapPath := "/dev/vg0/" + snapName
-	if err := RemoveSnapshot(context.Background(), snapPath, logger); err != nil {
+	if err := r.RemoveSnapshot(context.Background(), snapPath, logger); err != nil {
 		t.Fatalf("RemoveSnapshot failed: %v", err)
 	}
 
@@ -80,25 +75,17 @@ func TestCreateAndRemoveSnapshot(t *testing.T) {
 }
 
 func TestCreateSnapshotPrivilegeError(t *testing.T) {
-	orig := checkPrivs
 	errPriv := errors.New("privileges required")
-	checkPrivs = func() error { return errPriv }
-	t.Cleanup(func() { checkPrivs = orig })
-
-	err := CreateSnapshot(context.Background(), "/dev/vg0/origin", "snap", "1G", zap.NewNop())
+	r := NewRunnerWithDeps(nil, func() error { return errPriv }, nil, nil, "")
+	err := r.CreateSnapshot(context.Background(), "/dev/vg0/origin", "snap", "1G", zap.NewNop())
 	if !errors.Is(err, errPriv) {
 		t.Fatalf("expected privilege error, got %v", err)
 	}
 }
 
 func TestCreateSnapshotContextCancel(t *testing.T) {
-	orig := checkPrivs
-	checkPrivs = func() error { return nil }
-	t.Cleanup(func() { checkPrivs = orig })
-
 	fb := &mockBackend{}
-	restore := SetBackend(fb)
-	t.Cleanup(restore)
+	r := NewRunnerWithDeps(nil, func() error { return nil }, nil, fb, "")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 	defer cancel()
@@ -107,7 +94,7 @@ func TestCreateSnapshotContextCancel(t *testing.T) {
 	snapName := "snap"
 	size := "1G"
 
-	err := CreateSnapshot(ctx, lvPath, snapName, size, zap.NewNop())
+	err := r.CreateSnapshot(ctx, lvPath, snapName, size, zap.NewNop())
 	if err == nil || !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("expected context deadline exceeded, got %v", err)
 	}

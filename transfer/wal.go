@@ -56,11 +56,18 @@ type walFile interface {
 type WAL struct {
 	f      walFile
 	header walHeader
+	deps   *WALDeps
 }
 
-// syncDirFunc flushes a directory to stable storage. It is a variable to allow tests
-// to stub the implementation.
-var syncDirFunc = syncDir
+// WALDeps bundles filesystem helpers for the WAL.
+type WALDeps struct {
+	syncDir func(string) error
+}
+
+// NewWALDeps returns production dependencies.
+func NewWALDeps() *WALDeps {
+	return &WALDeps{syncDir: syncDir}
+}
 
 func walHeaderMAC(h *walHeader) [32]byte {
 	var buf [8 + 8 + 8 + 64]byte
@@ -83,7 +90,10 @@ func walHeaderMACV0(h *walHeaderV0) [32]byte {
 // returns any fully committed ranges. If a crash left a partially written
 // entry, the WAL is truncated to the last complete record and positioned for
 // further appends.
-func OpenWAL(path string, size uint64, deviceID string, epoch uint64) (*WAL, []Range, error) {
+func OpenWAL(path string, size uint64, deviceID string, epoch uint64, deps *WALDeps) (*WAL, []Range, error) {
+	if deps == nil {
+		deps = NewWALDeps()
+	}
 	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0o600)
 	if err != nil {
 		return nil, nil, err
@@ -93,7 +103,7 @@ func OpenWAL(path string, size uint64, deviceID string, epoch uint64) (*WAL, []R
 		f.Close()
 		return nil, nil, err
 	}
-	w := &WAL{f: f}
+	w := &WAL{f: f, deps: deps}
 	if st.Size() == 0 {
 		w.header.Version = walVersion
 		w.header.Size = size
@@ -121,7 +131,7 @@ func OpenWAL(path string, size uint64, deviceID string, epoch uint64) (*WAL, []R
 			f.Close()
 			return nil, nil, err
 		}
-		if err := syncDirFunc(filepath.Dir(path)); err != nil {
+		if err := deps.syncDir(filepath.Dir(path)); err != nil {
 			f.Close()
 			return nil, nil, err
 		}
@@ -319,7 +329,7 @@ func (w *WAL) Append(r Range) error {
 		return err
 	}
 	w.f = nf
-	return syncDirFunc(filepath.Dir(name))
+	return w.deps.syncDir(filepath.Dir(name))
 }
 
 // Sync flushes the WAL to stable storage.
@@ -345,7 +355,7 @@ func (w *WAL) Close() error {
 		return err
 	}
 	w.f = nil
-	return syncDirFunc(filepath.Dir(name))
+	return w.deps.syncDir(filepath.Dir(name))
 }
 
 func syncDir(path string) error {
@@ -355,15 +365,4 @@ func syncDir(path string) error {
 	}
 	defer d.Close()
 	return d.Sync()
-}
-
-// SetSyncDirFunc overrides the directory sync implementation. It returns a restore function.
-func SetSyncDirFunc(fn func(string) error) func() {
-	orig := syncDirFunc
-	if fn == nil {
-		syncDirFunc = syncDir
-	} else {
-		syncDirFunc = fn
-	}
-	return func() { syncDirFunc = orig }
 }

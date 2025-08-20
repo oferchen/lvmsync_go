@@ -16,7 +16,7 @@ func TestWALIdentityMismatch(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "wal")
 	id := DeviceIdentity{SizeBytes: 100, KernelUUID: "dev", GPTUUID: "gpt", MBRSignature: "", FSUUID: "fs", Major: 1, Minor: 2, ManifestEpoch: 1}
-	w, err := OpenWAL(path, id, zap.NewNop())
+	w, err := OpenWAL(path, id, zap.NewNop(), nil)
 	if err != nil {
 		t.Fatalf("open wal: %v", err)
 	}
@@ -24,27 +24,27 @@ func TestWALIdentityMismatch(t *testing.T) {
 		t.Fatalf("close: %v", err)
 	}
 	badID := DeviceIdentity{SizeBytes: 101, KernelUUID: "dev", GPTUUID: "gpt", MBRSignature: "", FSUUID: "fs", Major: 1, Minor: 2, ManifestEpoch: 1}
-	if _, err := OpenWAL(path, badID, zap.NewNop()); err == nil {
+	if _, err := OpenWAL(path, badID, zap.NewNop(), nil); err == nil {
 		t.Fatalf("expected size mismatch error")
 	}
 	badID = DeviceIdentity{SizeBytes: 100, KernelUUID: "dev2", GPTUUID: "gpt", MBRSignature: "", FSUUID: "fs", Major: 1, Minor: 2, ManifestEpoch: 1}
-	if _, err := OpenWAL(path, badID, zap.NewNop()); err == nil {
+	if _, err := OpenWAL(path, badID, zap.NewNop(), nil); err == nil {
 		t.Fatalf("expected uuid mismatch error")
 	}
 	badID = DeviceIdentity{SizeBytes: 100, KernelUUID: "dev", GPTUUID: "gpt", MBRSignature: "", FSUUID: "fs2", Major: 1, Minor: 2, ManifestEpoch: 1}
-	if _, err := OpenWAL(path, badID, zap.NewNop()); err == nil {
+	if _, err := OpenWAL(path, badID, zap.NewNop(), nil); err == nil {
 		t.Fatalf("expected fs uuid mismatch error")
 	}
 	badID = DeviceIdentity{SizeBytes: 100, KernelUUID: "dev", GPTUUID: "gpt", MBRSignature: "", FSUUID: "fs", Major: 3, Minor: 2, ManifestEpoch: 1}
-	if _, err := OpenWAL(path, badID, zap.NewNop()); err == nil {
+	if _, err := OpenWAL(path, badID, zap.NewNop(), nil); err == nil {
 		t.Fatalf("expected major mismatch error")
 	}
 	badID = DeviceIdentity{SizeBytes: 100, KernelUUID: "dev", GPTUUID: "gpt", MBRSignature: "", FSUUID: "fs", Major: 1, Minor: 4, ManifestEpoch: 1}
-	if _, err := OpenWAL(path, badID, zap.NewNop()); err == nil {
+	if _, err := OpenWAL(path, badID, zap.NewNop(), nil); err == nil {
 		t.Fatalf("expected minor mismatch error")
 	}
 	badID = DeviceIdentity{SizeBytes: 100, KernelUUID: "dev", GPTUUID: "gpt", MBRSignature: "", FSUUID: "fs", Major: 1, Minor: 2, ManifestEpoch: 2}
-	if _, err := OpenWAL(path, badID, zap.NewNop()); err == nil {
+	if _, err := OpenWAL(path, badID, zap.NewNop(), nil); err == nil {
 		t.Fatalf("expected epoch mismatch error")
 	}
 }
@@ -53,7 +53,7 @@ func TestWALIdentityMismatchLogging(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "wal")
 	id := DeviceIdentity{SizeBytes: 100, KernelUUID: "dev", GPTUUID: "gpt", MBRSignature: "", FSUUID: "fs", Major: 1, Minor: 2, ManifestEpoch: 1}
-	w, err := OpenWAL(path, id, zap.NewNop())
+	w, err := OpenWAL(path, id, zap.NewNop(), nil)
 	if err != nil {
 		t.Fatalf("open wal: %v", err)
 	}
@@ -62,7 +62,7 @@ func TestWALIdentityMismatchLogging(t *testing.T) {
 	}
 	badID := DeviceIdentity{SizeBytes: 101, KernelUUID: "dev", GPTUUID: "gpt", MBRSignature: "", FSUUID: "fs", Major: 1, Minor: 2, ManifestEpoch: 1}
 	core, logs := observer.New(zap.ErrorLevel)
-	_, err = OpenWAL(path, badID, zap.New(core))
+	_, err = OpenWAL(path, badID, zap.New(core), nil)
 	if err == nil {
 		t.Fatalf("expected error for identity mismatch")
 	}
@@ -89,7 +89,7 @@ func TestWALRecovery(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "wal")
 	id := DeviceIdentity{SizeBytes: 100, KernelUUID: "dev", GPTUUID: "gpt", MBRSignature: "", FSUUID: "fs", Major: 1, Minor: 2, ManifestEpoch: 1}
-	w, err := OpenWAL(path, id, zap.NewNop())
+	w, err := OpenWAL(path, id, zap.NewNop(), nil)
 	if err != nil {
 		t.Fatalf("open wal: %v", err)
 	}
@@ -97,7 +97,7 @@ func TestWALRecovery(t *testing.T) {
 		t.Fatalf("append: %v", err)
 	}
 	w.Close()
-	w, err = OpenWAL(path, id, zap.NewNop())
+	w, err = OpenWAL(path, id, zap.NewNop(), nil)
 	if err != nil {
 		t.Fatalf("reopen wal: %v", err)
 	}
@@ -112,7 +112,7 @@ func TestWALVersionMismatch(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "wal")
 	id := DeviceIdentity{SizeBytes: 100, KernelUUID: "dev", GPTUUID: "gpt", MBRSignature: "", FSUUID: "fs", Major: 1, Minor: 2, ManifestEpoch: 1}
-	w, err := OpenWAL(path, id, zap.NewNop())
+	w, err := OpenWAL(path, id, zap.NewNop(), nil)
 	if err != nil {
 		t.Fatalf("open wal: %v", err)
 	}
@@ -143,7 +143,7 @@ func TestWALVersionMismatch(t *testing.T) {
 		t.Fatalf("write header: %v", err)
 	}
 	f.Close()
-	if _, err := OpenWAL(path, id, zap.NewNop()); err == nil {
+	if _, err := OpenWAL(path, id, zap.NewNop(), nil); err == nil {
 		t.Fatalf("expected version mismatch error")
 	}
 }
@@ -178,7 +178,7 @@ func TestWALUpgrade(t *testing.T) {
 	}
 	f.Close()
 	id := DeviceIdentity{SizeBytes: 100, KernelUUID: "dev", GPTUUID: "gpt", MBRSignature: "", FSUUID: "fs", Major: 1, Minor: 2, ManifestEpoch: 1}
-	w, err := OpenWAL(path, id, zap.NewNop())
+	w, err := OpenWAL(path, id, zap.NewNop(), nil)
 	if err != nil {
 		t.Fatalf("open wal: %v", err)
 	}
@@ -208,12 +208,11 @@ func TestWALSyncDirCreate(t *testing.T) {
 	id := DeviceIdentity{SizeBytes: 100, KernelUUID: "k", GPTUUID: "g", MBRSignature: "", FSUUID: "f", Major: 1, Minor: 2, ManifestEpoch: 1}
 	stubErr := errors.New("syncdir fail")
 	var calls int
-	restore := SetSyncDirFunc(func(string) error {
+	deps := &WALDeps{syncDir: func(string) error {
 		calls++
 		return stubErr
-	})
-	defer restore()
-	if _, err := OpenWAL(path, id, zap.NewNop()); !errors.Is(err, stubErr) {
+	}}
+	if _, err := OpenWAL(path, id, zap.NewNop(), deps); !errors.Is(err, stubErr) {
 		t.Fatalf("expected %v got %v", stubErr, err)
 	}
 	if calls != 1 {
@@ -225,17 +224,16 @@ func TestWALSyncDirClose(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "wal")
 	id := DeviceIdentity{SizeBytes: 100, KernelUUID: "k", GPTUUID: "g", MBRSignature: "", FSUUID: "f", Major: 1, Minor: 2, ManifestEpoch: 1}
-	w, err := OpenWAL(path, id, zap.NewNop())
+	w, err := OpenWAL(path, id, zap.NewNop(), nil)
 	if err != nil {
 		t.Fatalf("open wal: %v", err)
 	}
 	stubErr := errors.New("syncdir fail")
 	var calls int
-	restore := SetSyncDirFunc(func(string) error {
+	w.deps = &WALDeps{syncDir: func(string) error {
 		calls++
 		return stubErr
-	})
-	defer restore()
+	}}
 	if err := w.Close(); !errors.Is(err, stubErr) {
 		t.Fatalf("expected %v got %v", stubErr, err)
 	}
@@ -248,17 +246,16 @@ func TestWALSyncDirAppend(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "wal")
 	id := DeviceIdentity{SizeBytes: 100, KernelUUID: "k", GPTUUID: "g", MBRSignature: "", FSUUID: "f", Major: 1, Minor: 2}
-	w, err := OpenWAL(path, id, zap.NewNop())
+	w, err := OpenWAL(path, id, zap.NewNop(), nil)
 	if err != nil {
 		t.Fatalf("open wal: %v", err)
 	}
 	stubErr := errors.New("syncdir fail")
 	var calls int
-	restore := SetSyncDirFunc(func(string) error {
+	w.deps = &WALDeps{syncDir: func(string) error {
 		calls++
 		return stubErr
-	})
-	defer restore()
+	}}
 	if err := w.Append(Range{Start: 0, End: 1}); !errors.Is(err, stubErr) {
 		t.Fatalf("expected %v got %v", stubErr, err)
 	}

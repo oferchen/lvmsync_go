@@ -44,8 +44,9 @@ func TestSnapshotPressureAbortCleanup(t *testing.T) {
 	cfg.SnapshotSize = "1G"
 
 	removed := false
+	lRunner := lvm.NewRunnerWithDeps(nil, func() error { return nil }, nil, &pressureBackend{usage: 90}, "")
 	monitor := func(ctx context.Context, path string, threshold float64, _ time.Duration, logger *zap.Logger) error {
-		return lvm.MonitorSnapshot(ctx, path, threshold, 10*time.Millisecond, logger)
+		return lRunner.MonitorSnapshot(ctx, path, threshold, 10*time.Millisecond, logger)
 	}
 	r := client.NewRunnerWithDeps(
 		func(string, string, *lvm.FDCache, *zap.Logger) (uint64, error) { return 1024, nil },
@@ -56,11 +57,6 @@ func TestSnapshotPressureAbortCleanup(t *testing.T) {
 		func(context.Context, string, *zap.Logger) error { removed = true; return nil },
 		nil,
 	)
-
-	restoreBackend := lvm.SetBackend(&pressureBackend{usage: 90})
-	t.Cleanup(restoreBackend)
-	restorePriv := lvm.SetPrivilegeChecker(func() error { return nil })
-	t.Cleanup(restorePriv)
 
 	logger := zap.NewNop()
 	snap, monitorCh, cleanup, err := r.PrepareSnapshot(context.Background(), cfg, "/dev/vg/origin", logger)

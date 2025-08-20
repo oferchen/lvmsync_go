@@ -10,7 +10,7 @@ import (
 func TestWALVersionMismatch(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "wal")
-	w, _, err := OpenWAL(path, 100, "dev", 1)
+	w, _, err := OpenWAL(path, 100, "dev", 1, nil)
 	if err != nil {
 		t.Fatalf("open wal: %v", err)
 	}
@@ -37,7 +37,7 @@ func TestWALVersionMismatch(t *testing.T) {
 		t.Fatalf("write header: %v", err)
 	}
 	f.Close()
-	if _, _, err := OpenWAL(path, 100, "dev", 1); err == nil {
+	if _, _, err := OpenWAL(path, 100, "dev", 1, nil); err == nil {
 		t.Fatalf("expected version mismatch error")
 	}
 }
@@ -69,7 +69,7 @@ func TestWALUpgrade(t *testing.T) {
 		t.Fatalf("write entry: %v", err)
 	}
 	f.Close()
-	w, ranges, err := OpenWAL(path, 100, "dev", 1)
+	w, ranges, err := OpenWAL(path, 100, "dev", 1, nil)
 	if err != nil {
 		t.Fatalf("open wal: %v", err)
 	}

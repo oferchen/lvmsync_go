@@ -39,19 +39,19 @@ func TestBlockWriterCoalescesZeroBlocks(t *testing.T) {
 	stream.Write(hdr)
 	stream.Write(data)
 
-	bw, err := newBlockWriter(cfg, dest, nil, false, nil, zap.NewNop(), nil, nil)
-	if err != nil {
-		t.Fatalf("newBlockWriter: %v", err)
-	}
-	orig := punchHoleFunc
+	deps := *DefaultDeps
+	orig := deps.PunchHole
 	var calls int
 	var length int
-	punchHoleFunc = func(f *os.File, off uint64, l int) error {
+	deps.PunchHole = func(f *os.File, off uint64, l int) error {
 		calls++
 		length = l
 		return orig(f, off, l)
 	}
-	defer func() { punchHoleFunc = orig }()
+	bw, err := newBlockWriterWithDeps(cfg, dest, nil, false, nil, zap.NewNop(), nil, nil, &deps)
+	if err != nil {
+		t.Fatalf("newBlockWriter: %v", err)
+	}
 
 	if _, err := bw.write(bufio.NewReader(bytes.NewReader(stream.Bytes()))); err != nil {
 		t.Fatalf("write: %v", err)

@@ -120,18 +120,13 @@ func TestGetVolumeSizeIoctlLarge(t *testing.T) {
 	}
 
 	fiveGiB := uint64(5) * 1024 * 1024 * 1024
-	orig := ioctlGetUint64Func
-	ioctlGetUint64Func = func(fd int, req uint) (uint64, error) {
-		return fiveGiB, nil
-	}
-	defer func() { ioctlGetUint64Func = orig }()
-
+	runner := NewRunnerWithDeps(nil, nil, func(fd int, req uint) (uint64, error) { return fiveGiB, nil }, nil, "")
 	cache, err := NewDeviceFDCache(zap.NewNop())
 	if err != nil {
 		t.Fatalf("NewDeviceFDCache: %v", err)
 	}
 	defer cache.Close()
-	size, err := GetVolumeSize(tmpFile, cache, zap.NewNop())
+	size, err := runner.GetVolumeSize(tmpFile, cache, zap.NewNop())
 	if err != nil {
 		t.Fatalf("GetVolumeSize failed: %v", err)
 	}
@@ -142,8 +137,8 @@ func TestGetVolumeSizeIoctlLarge(t *testing.T) {
 
 func TestGetVolumeAttributes(t *testing.T) {
 	tmpDir := t.TempDir()
-	SetSysBlockPath(tmpDir)
-	defer SetSysBlockPath("/sys/block")
+	runner := NewRunner()
+	runner.SetSysBlockPath(tmpDir)
 
 	devDir := filepath.Join(tmpDir, "testdev")
 	if err := os.Mkdir(devDir, 0755); err != nil {
@@ -163,7 +158,7 @@ func TestGetVolumeAttributes(t *testing.T) {
 		}
 	}
 
-	got, err := GetVolumeAttributes("/dev/testdev", zap.NewNop())
+	got, err := runner.GetVolumeAttributes("/dev/testdev", zap.NewNop())
 	if err != nil {
 		t.Fatalf("GetVolumeAttributes failed: %v", err)
 	}

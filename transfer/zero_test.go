@@ -54,7 +54,7 @@ func TestWriteZeroBlockPunchesHole(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 
-	if err := writeZeroBlock(cfg, f, uint64(cfg.BlockSize), zap.NewNop()); err != nil {
+	if err := writeZeroBlock(cfg, f, uint64(cfg.BlockSize), zap.NewNop(), DefaultDeps); err != nil {
 		t.Fatalf("writeZeroBlock: %v", err)
 	}
 

@@ -31,7 +31,7 @@ func TestResumeVerifyMismatch(t *testing.T) {
 	man := filepath.Join(dir, "dest.man")
 	buildManifest(t, dest, man, "uuid", uint64(len(data)))
 	resume := filepath.Join(dir, "resume.state")
-	w, _, err := OpenWAL(resume+".wal", uint64(len(data)), "uuid", 0)
+	w, _, err := OpenWAL(resume+".wal", uint64(len(data)), "uuid", 0, nil)
 	if err != nil {
 		t.Fatalf("open wal: %v", err)
 	}

@@ -3,10 +3,12 @@ package device
 import (
 	"context"
 	"os/exec"
+	"time"
 
 	"go.uber.org/zap"
 
 	"lvmsync_go/internal/lock"
+	"lvmsync_go/internal/privilege"
 	"lvmsync_go/lvm"
 )
 
@@ -30,6 +32,7 @@ type Runner struct {
 	isMountedRW       func(context.Context, string) (bool, error)
 	lockAcquire       func(string, string) (*lock.Lock, error)
 	openLVMOverride   func(context.Context, string, *lvm.FDCache, string, *zap.Logger) (*LVMDevice, error)
+	openRawOverride   func(context.Context, string, bool, string, []string, string, []string, time.Duration, time.Duration, privilege.Escalator, *zap.Logger) (*RawDevice, error)
 }
 
 // NewDeviceRunner returns a Runner using production dependencies and the provided Commander.
@@ -84,4 +87,24 @@ func defaultIsMountedRW(ctx context.Context, path string) (bool, error) {
 		defer cancel()
 	}
 	return defaultMountFunc(ctx, path)
+}
+
+// OpenRaw wraps the package-level OpenRaw allowing tests to override the implementation.
+func (r *Runner) OpenRaw(
+	ctx context.Context,
+	path string,
+	offline bool,
+	freezePath string,
+	freezeArgs []string,
+	thawPath string,
+	thawArgs []string,
+	freezeTimeout time.Duration,
+	thawTimeout time.Duration,
+	esc privilege.Escalator,
+	logger *zap.Logger,
+) (*RawDevice, error) {
+	if r.openRawOverride != nil {
+		return r.openRawOverride(ctx, path, offline, freezePath, freezeArgs, thawPath, thawArgs, freezeTimeout, thawTimeout, esc, logger)
+	}
+	return OpenRaw(ctx, path, offline, freezePath, freezeArgs, thawPath, thawArgs, freezeTimeout, thawTimeout, esc, logger, r)
 }

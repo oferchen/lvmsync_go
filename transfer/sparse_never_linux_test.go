@@ -74,7 +74,7 @@ func TestSparseNeverLoopback(t *testing.T) {
 				t.Fatalf("write prefix: %v", err)
 			}
 			cfg := &config.Config{BlockSize: bs, Sparse: "never"}
-			if err := writeZeroBlock(cfg, dest, uint64(bs), zap.NewNop()); err != nil {
+			if err := writeZeroBlock(cfg, dest, uint64(bs), zap.NewNop(), DefaultDeps); err != nil {
 				t.Fatalf("writeZeroBlock: %v", err)
 			}
 			off, err := unix.Seek(int(dest.Fd()), int64(bs), unix.SEEK_DATA)

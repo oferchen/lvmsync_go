@@ -11,18 +11,18 @@ import (
 func TestWALMismatch(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "wal")
-	w, _, err := OpenWAL(path, 100, "dev", 1)
+	w, _, err := OpenWAL(path, 100, "dev", 1, nil)
 	if err != nil {
 		t.Fatalf("open wal: %v", err)
 	}
 	w.Close()
-	if _, _, err := OpenWAL(path, 101, "dev", 1); err == nil {
+	if _, _, err := OpenWAL(path, 101, "dev", 1, nil); err == nil {
 		t.Fatalf("expected size mismatch error")
 	}
-	if _, _, err := OpenWAL(path, 100, "dev2", 1); err == nil {
+	if _, _, err := OpenWAL(path, 100, "dev2", 1, nil); err == nil {
 		t.Fatalf("expected device mismatch error")
 	}
-	if _, _, err := OpenWAL(path, 100, "dev", 2); err == nil {
+	if _, _, err := OpenWAL(path, 100, "dev", 2, nil); err == nil {
 		t.Fatalf("expected epoch mismatch error")
 	}
 }
@@ -30,7 +30,7 @@ func TestWALMismatch(t *testing.T) {
 func TestWALRecovery(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "wal")
-	w, _, err := OpenWAL(path, 100, "dev", 1)
+	w, _, err := OpenWAL(path, 100, "dev", 1, nil)
 	if err != nil {
 		t.Fatalf("open wal: %v", err)
 	}
@@ -38,7 +38,7 @@ func TestWALRecovery(t *testing.T) {
 		t.Fatalf("append: %v", err)
 	}
 	w.Close()
-	w, ranges, err := OpenWAL(path, 100, "dev", 1)
+	w, ranges, err := OpenWAL(path, 100, "dev", 1, nil)
 	if err != nil {
 		t.Fatalf("reopen wal: %v", err)
 	}
@@ -54,7 +54,7 @@ func TestWALRecovery(t *testing.T) {
 func TestWALTruncatedHeader(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "wal")
-	w, _, err := OpenWAL(path, 100, "dev", 1)
+	w, _, err := OpenWAL(path, 100, "dev", 1, nil)
 	if err != nil {
 		t.Fatalf("open wal: %v", err)
 	}
@@ -64,7 +64,7 @@ func TestWALTruncatedHeader(t *testing.T) {
 	if err := os.Truncate(path, 10); err != nil {
 		t.Fatalf("truncate: %v", err)
 	}
-	if _, _, err := OpenWAL(path, 100, "dev", 1); err == nil {
+	if _, _, err := OpenWAL(path, 100, "dev", 1, nil); err == nil {
 		t.Fatalf("expected truncated header error")
 	}
 }
@@ -72,7 +72,7 @@ func TestWALTruncatedHeader(t *testing.T) {
 func TestWALPartialWrite(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "wal")
-	w, _, err := OpenWAL(path, 100, "dev", 1)
+	w, _, err := OpenWAL(path, 100, "dev", 1, nil)
 	if err != nil {
 		t.Fatalf("open wal: %v", err)
 	}
@@ -95,7 +95,7 @@ func TestWALPartialWrite(t *testing.T) {
 	if err := f.Close(); err != nil {
 		t.Fatalf("close file: %v", err)
 	}
-	w2, ranges, err := OpenWAL(path, 100, "dev", 1)
+	w2, ranges, err := OpenWAL(path, 100, "dev", 1, nil)
 	if err != nil {
 		t.Fatalf("reopen wal: %v", err)
 	}
@@ -116,17 +116,16 @@ func TestWALPartialWrite(t *testing.T) {
 func TestWALSyncDirAppend(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "wal")
-	w, _, err := OpenWAL(path, 100, "dev", 1)
+	w, _, err := OpenWAL(path, 100, "dev", 1, nil)
 	if err != nil {
 		t.Fatalf("open wal: %v", err)
 	}
 	stubErr := errors.New("syncdir fail")
 	var calls int
-	restore := SetSyncDirFunc(func(string) error {
+	w.deps = &WALDeps{syncDir: func(string) error {
 		calls++
 		return stubErr
-	})
-	defer restore()
+	}}
 	if err := w.Append(Range{Start: 0, End: 1}); !errors.Is(err, stubErr) {
 		t.Fatalf("expected %v got %v", stubErr, err)
 	}

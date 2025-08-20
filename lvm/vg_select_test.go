@@ -43,14 +43,9 @@ func (f *vgBackend) ListVolumeGroups(_ context.Context, candidates []string) ([]
 func (f *vgBackend) CreateLogicalVolume(context.Context, string, string, uint64) error { return nil }
 
 func TestSelectVolumeGroup(t *testing.T) {
-	orig := checkPrivs
-	checkPrivs = func() error { return nil }
-	t.Cleanup(func() { checkPrivs = orig })
 	fb := &vgBackend{vgs: []VolumeGroup{{Name: "vg0", Free: 100}, {Name: "vg1", Free: 200}}}
-	restore := SetBackend(fb)
-	defer restore()
-
-	vg, err := SelectVolumeGroup(context.Background(), nil, ByFreeSpace)
+	r := NewRunnerWithDeps(nil, func() error { return nil }, nil, fb, "")
+	vg, err := r.SelectVolumeGroup(context.Background(), nil, ByFreeSpace)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -58,7 +53,7 @@ func TestSelectVolumeGroup(t *testing.T) {
 		t.Fatalf("expected vg1 with 200, got %s with %d", vg.Name, vg.Free)
 	}
 
-	vg, err = SelectVolumeGroup(context.Background(), []string{"vg0"}, ByFreeSpace)
+	vg, err = r.SelectVolumeGroup(context.Background(), []string{"vg0"}, ByFreeSpace)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -66,20 +61,16 @@ func TestSelectVolumeGroup(t *testing.T) {
 		t.Fatalf("expected vg0 with 100, got %s with %d", vg.Name, vg.Free)
 	}
 
-	if _, err := SelectVolumeGroup(context.Background(), []string{"vg2"}, ByFreeSpace); err == nil {
+	if _, err := r.SelectVolumeGroup(context.Background(), []string{"vg2"}, ByFreeSpace); err == nil {
 		t.Fatalf("expected error for unknown vg")
 	}
 }
 
 func TestSelectVolumeGroupQueriesCandidates(t *testing.T) {
-	orig := checkPrivs
-	checkPrivs = func() error { return nil }
-	t.Cleanup(func() { checkPrivs = orig })
 	fb := &vgBackend{vgs: []VolumeGroup{{Name: "vg0", Free: 100}, {Name: "vg1", Free: 200}}}
-	restore := SetBackend(fb)
-	defer restore()
+	r := NewRunnerWithDeps(nil, func() error { return nil }, nil, fb, "")
 
-	if _, err := SelectVolumeGroup(context.Background(), []string{"vg0"}, ByFreeSpace); err != nil {
+	if _, err := r.SelectVolumeGroup(context.Background(), []string{"vg0"}, ByFreeSpace); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if !reflect.DeepEqual(fb.lastArgs, []string{"vg0"}) {
@@ -88,12 +79,8 @@ func TestSelectVolumeGroupQueriesCandidates(t *testing.T) {
 }
 
 func TestSelectVolumeGroupCustomSelector(t *testing.T) {
-	orig := checkPrivs
-	checkPrivs = func() error { return nil }
-	t.Cleanup(func() { checkPrivs = orig })
 	fb := &vgBackend{vgs: []VolumeGroup{{Name: "vg0", Free: 100}, {Name: "vg1", Free: 200}}}
-	restore := SetBackend(fb)
-	defer restore()
+	r := NewRunnerWithDeps(nil, func() error { return nil }, nil, fb, "")
 
 	selector := func(vgs []VolumeGroup) (VolumeGroup, error) {
 		for _, vg := range vgs {
@@ -104,7 +91,7 @@ func TestSelectVolumeGroupCustomSelector(t *testing.T) {
 		return VolumeGroup{}, fmt.Errorf("no suitable volume group")
 	}
 
-	vg, err := SelectVolumeGroup(context.Background(), nil, selector)
+	vg, err := r.SelectVolumeGroup(context.Background(), nil, selector)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -114,14 +101,10 @@ func TestSelectVolumeGroupCustomSelector(t *testing.T) {
 }
 
 func TestSelectVolumeGroupForSize(t *testing.T) {
-	orig := checkPrivs
-	checkPrivs = func() error { return nil }
-	t.Cleanup(func() { checkPrivs = orig })
 	fb := &vgBackend{vgs: []VolumeGroup{{Name: "vg0", Free: 100}, {Name: "vg1", Free: 200}}}
-	restore := SetBackend(fb)
-	defer restore()
+	r := NewRunnerWithDeps(nil, func() error { return nil }, nil, fb, "")
 
-	vg, err := SelectVolumeGroupForSize(context.Background(), nil, 150)
+	vg, err := r.SelectVolumeGroupForSize(context.Background(), nil, 150)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -129,7 +112,7 @@ func TestSelectVolumeGroupForSize(t *testing.T) {
 		t.Fatalf("expected vg1, got %s", vg.Name)
 	}
 
-	if _, err := SelectVolumeGroupForSize(context.Background(), nil, 250); err == nil {
+	if _, err := r.SelectVolumeGroupForSize(context.Background(), nil, 250); err == nil {
 		t.Fatalf("expected error when no vg has enough space")
 	}
 }
