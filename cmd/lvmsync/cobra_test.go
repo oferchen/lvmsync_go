@@ -159,6 +159,28 @@ func TestRunCommandInvalidOutput(t *testing.T) {
 	}
 }
 
+func TestRunCommandLogsWarnings(t *testing.T) {
+	src := t.TempDir() + "/src"
+	if err := os.WriteFile(src, []byte("data"), 0o600); err != nil {
+		t.Fatalf("write src: %v", err)
+	}
+	dst := t.TempDir() + "/dst"
+	r := NewRunnerWithDeps(func(src, dst string, opts RunOptions, logger *zap.Logger) error { return nil }, nil, nil)
+	core, obs := observer.New(zap.WarnLevel)
+	logger := zap.New(core)
+	if err := ExecuteWithRunner([]string{"run", "--allow-insecure", "--dry-run", src, dst}, logger, r); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	entries := obs.FilterMessage("configuration_warning").All()
+	if len(entries) != 1 {
+		t.Fatalf("expected configuration warning, got %d", len(entries))
+	}
+	ctx := entries[0].ContextMap()
+	if v, ok := ctx["reason"].(string); !ok || v != "allow_insecure_enabled" {
+		t.Fatalf("unexpected reason: %v", ctx["reason"])
+	}
+}
+
 func TestRunCommandInvalidConfig(t *testing.T) {
 	called := false
 	r := NewRunnerWithDeps(func(src, dst string, opts RunOptions, logger *zap.Logger) error {

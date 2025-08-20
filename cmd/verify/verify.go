@@ -70,7 +70,18 @@ func (r *Runner) Run(args []string, logger *zap.Logger) error {
 				return err
 			}
 			for _, w := range warns {
-				logger.Warn(w)
+				fields := []zap.Field{zap.String("message", w)}
+				switch {
+				case strings.HasPrefix(w, "unknown configuration key "):
+					key := strings.Trim(strings.TrimPrefix(w, "unknown configuration key "), "\"")
+					fields = append(fields,
+						zap.String("config_key", key),
+						zap.String("reason", "unknown_config_key"),
+					)
+				case strings.Contains(w, "allow_insecure enabled"):
+					fields = append(fields, zap.String("reason", "allow_insecure_enabled"))
+				}
+				logger.Warn("configuration_warning", fields...)
 			}
 			if len(remaining) != 2 {
 				fs.Usage()
