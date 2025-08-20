@@ -329,6 +329,32 @@ func TestOpenRawFreezeTimeoutLogs(t *testing.T) {
 	}
 }
 
+func TestOpenRawFreezeTimeoutErrorLogs(t *testing.T) {
+	core, logs := observer.New(zap.InfoLevel)
+	logger := zap.New(core)
+	helper := helperCommand(t)
+	runner := NewDeviceRunner(cmdFunc(fakeExecCommandContext))
+	ctx := WithForce(context.Background(), true)
+	ctx = WithAllowOverwrite(ctx, true)
+	ctx = WithYesIKnow(ctx, true)
+	_, err := OpenRaw(ctx, "/dev/null", false, helper, []string{"freeze-timeout"}, helper, []string{"thaw-success"}, 50*time.Millisecond, time.Second, fakeEsc{}, logger, runner)
+	if err == nil || !strings.Contains(err.Error(), "signal: killed") {
+		t.Fatalf("expected freeze timeout, got %v", err)
+	}
+	if logs.FilterMessage("fs_freeze_start").Len() != 1 {
+		t.Fatalf("expected fs_freeze_start log")
+	}
+	if logs.FilterMessage("fs_freeze_failed").Len() != 1 {
+		t.Fatalf("expected fs_freeze_failed log")
+	}
+	if logs.FilterMessage("fs_freeze_complete").Len() != 0 {
+		t.Fatalf("unexpected fs_freeze_complete log")
+	}
+	if logs.FilterMessage("fs_thaw_start").Len() != 0 || logs.FilterMessage("fs_thaw_complete").Len() != 0 {
+		t.Fatalf("unexpected fs_thaw_* logs, got %v", logs.All())
+	}
+}
+
 func TestOpenRawThawFailure(t *testing.T) {
 	core, logs := observer.New(zap.InfoLevel)
 	logger := zap.New(core)
@@ -440,6 +466,32 @@ func TestRawDeviceCleanupThawTimeoutLogs(t *testing.T) {
 	}
 	if logs.FilterMessage("fs_thaw_failed").Len() != 1 {
 		t.Fatalf("expected fs_thaw_failed log")
+	}
+}
+
+func TestRawDeviceCleanupThawTimeoutErrorLogs(t *testing.T) {
+	core, logs := observer.New(zap.InfoLevel)
+	logger := zap.New(core)
+	helper := helperCommand(t)
+	d := &RawDevice{
+		freezeIssued: true,
+		thawCmdPath:  helper,
+		thawCmdArgs:  []string{"thaw-timeout"},
+		thawTimeout:  100 * time.Millisecond,
+		logger:       logger,
+		runner:       NewDeviceRunner(cmdFunc(fakeExecCommandContext)),
+	}
+	if err := d.Cleanup(context.Background()); err == nil || !strings.Contains(err.Error(), "killed") {
+		t.Fatalf("expected thaw command to be killed, got %v", err)
+	}
+	if logs.FilterMessage("fs_thaw_start").Len() != 1 {
+		t.Fatalf("expected fs_thaw_start log")
+	}
+	if logs.FilterMessage("fs_thaw_failed").Len() != 1 {
+		t.Fatalf("expected fs_thaw_failed log")
+	}
+	if logs.FilterMessage("fs_thaw_complete").Len() != 0 {
+		t.Fatalf("unexpected fs_thaw_complete log")
 	}
 }
 
