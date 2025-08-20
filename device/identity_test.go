@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -103,5 +105,45 @@ func TestDeviceIdentityFormatParseOrder(t *testing.T) {
 	}
 	if parsed != id {
 		t.Fatalf("round-trip mismatch: got %+v want %+v", parsed, id)
+	}
+}
+
+func createEchoScript(t *testing.T, name, output string) string {
+	t.Helper()
+	dir := t.TempDir()
+	path := filepath.Join(dir, name)
+	script := fmt.Sprintf("#!/bin/sh\necho %s\n", output)
+	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
+		t.Fatalf("write script: %v", err)
+	}
+	return path
+}
+
+func TestRawIdentityKernelAndFSUUID(t *testing.T) {
+	f, err := os.CreateTemp(t.TempDir(), "dev")
+	if err != nil {
+		t.Fatalf("tempfile: %v", err)
+	}
+	defer f.Close()
+	d := &RawDevice{f: f, logger: zap.NewNop()}
+
+	origLSBLK := lsblkPath
+	origBLKID := blkidPath
+	lsblkPath = createEchoScript(t, "lsblk", "kernel")
+	blkidPath = createEchoScript(t, "blkid", "fs")
+	defer func() {
+		lsblkPath = origLSBLK
+		blkidPath = origBLKID
+	}()
+
+	id, err := d.Identity(context.Background())
+	if err != nil {
+		t.Fatalf("Identity: %v", err)
+	}
+	if id.KernelUUID != "kernel" {
+		t.Fatalf("kernel uuid mismatch: %v", id.KernelUUID)
+	}
+	if id.FSUUID != "fs" {
+		t.Fatalf("fs uuid mismatch: %v", id.FSUUID)
 	}
 }
