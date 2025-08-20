@@ -922,9 +922,9 @@ func TestSSHTransportNegotiateTimeoutServer(t *testing.T) {
 	conn.Close()
 }
 
-func TestSSHTransportLoggerOptional(t *testing.T) {
-	if _, err := New(context.Background(), transport.Config{SSHUser: "u", SSHPassword: "p", AllowInsecure: true}); err != nil {
-		t.Fatalf("New: %v", err)
+func TestSSHTransportRequiresLogger(t *testing.T) {
+	if _, err := New(context.Background(), transport.Config{SSHUser: "u", SSHPassword: "p", AllowInsecure: true}); err == nil {
+		t.Fatalf("expected error when logger is nil")
 	}
 }
 
