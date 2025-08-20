@@ -273,3 +273,13 @@ memory-mapped index is sized with `--bloom-mbits`:
 | 5,000,000 | 0.01  | 5.71 | 16.39 |
 | 5,000,000 | 0.001 | 8.57 | 16.45 |
 
+
+## Manifest Bloom Filter Accuracy
+
+`manifest.Index` maintains a 64‑bit Bloom filter for each `1 MiB` range (`bloomRange`).
+`TestBloomFilterFalsePositiveRate` builds a 64 MiB synthetic index, verifies that one
+64‑bit word is allocated per range, and probes random hashes to estimate the
+filter's false‑positive rate. Across 100 000 trials the measured rate is roughly
+0.8 %, safely below the 1 % threshold. Future tuning should keep the rate under
+1 % while minimizing additional memory.
+
