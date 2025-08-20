@@ -11,8 +11,15 @@ import (
 )
 
 func TestNewRequiresUser(t *testing.T) {
-	if _, err := New(context.Background(), transport.Config{SSHPassword: "p"}); err == nil {
+	if _, err := New(context.Background(), transport.Config{Logger: zap.NewNop(), SSHPassword: "p"}); err == nil {
 		t.Fatalf("expected error for missing user")
+	}
+}
+
+func TestNewRequiresLogger(t *testing.T) {
+	cfg := transport.Config{SSHUser: "u", SSHPassword: "p", AllowInsecure: true}
+	if _, err := New(context.Background(), cfg); err == nil {
+		t.Fatalf("expected error when logger is nil")
 	}
 }
 

@@ -29,10 +29,10 @@ type Transport struct {
 }
 
 // New creates a Transport using provided TLS roots, server certificate, and
-// client certificate. Logger is optional; a no-op logger is used when nil.
+// client certificate. Logger must be non-nil.
 func New(cfg transport.Config) (transport.Interface, error) {
 	if cfg.Logger == nil {
-		cfg.Logger = zap.NewNop()
+		return nil, fmt.Errorf("logger is required")
 	}
 	if cfg.Roots == nil && !cfg.AllowInsecure {
 		return nil, fmt.Errorf("tls roots are required unless AllowInsecure is set")

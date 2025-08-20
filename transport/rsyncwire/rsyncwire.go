@@ -23,10 +23,10 @@ type Transport struct {
 	logger *zap.Logger
 }
 
-// New constructs a Transport. Logger may be nil, in which case zap.NewNop() is used.
+// New constructs a Transport. Logger must be non-nil.
 func New(cfg transport.Config) (transport.Interface, error) {
 	if cfg.Logger == nil {
-		cfg.Logger = zap.NewNop()
+		return nil, fmt.Errorf("logger is required")
 	}
 	if !cfg.AllowInsecure {
 		return nil, fmt.Errorf("rsync transport requires AllowInsecure")

@@ -15,6 +15,12 @@ func TestRequiresAllowInsecure(t *testing.T) {
 	}
 }
 
+func TestRequiresLogger(t *testing.T) {
+	if _, err := New(transport.Config{AllowInsecure: true}); err == nil {
+		t.Fatalf("expected error when logger is nil")
+	}
+}
+
 func TestLogsPlaintextWarning(t *testing.T) {
 	core, logs := observer.New(zap.WarnLevel)
 	logger := zap.New(core)

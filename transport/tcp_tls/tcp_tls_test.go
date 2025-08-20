@@ -643,10 +643,10 @@ func TestTCPTLSTransportAllowInsecureWarn(t *testing.T) {
 	}
 }
 
-func TestTCPTLSTransportLoggerOptional(t *testing.T) {
+func TestTCPTLSTransportRequiresLogger(t *testing.T) {
 	cert, root := generateSelfSignedCert(t)
-	if _, err := New(transport.Config{Roots: root, ClientCert: cert, ServerCert: cert}); err != nil {
-		t.Fatalf("New: %v", err)
+	if _, err := New(transport.Config{Roots: root, ClientCert: cert, ServerCert: cert}); err == nil {
+		t.Fatalf("expected error when logger is nil")
 	}
 }
 
