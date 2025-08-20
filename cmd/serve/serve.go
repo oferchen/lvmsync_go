@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 
 	rootcmd "lvmsync_go/cmd/root"
+	"lvmsync_go/internal/logging"
 	_ "lvmsync_go/transport/rsyncwire"
 )
 
@@ -26,7 +27,14 @@ func newRunner() *runner {
 		run:        run,
 		syncLogger: rootcmd.SyncLogger,
 		exit:       os.Exit,
-		newLogger:  func() *zap.Logger { return zap.NewExample() },
+		newLogger: func() *zap.Logger {
+			// Deprecated command, but keep logger consistent across commands.
+			logger, err := logging.NewLogger(nil, "serve")
+			if err != nil {
+				return zap.NewNop()
+			}
+			return logger
+		},
 	}
 }
 
