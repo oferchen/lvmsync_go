@@ -91,6 +91,53 @@ func TestDetectFileSymlink(t *testing.T) {
 	dev.Close()
 }
 
+func TestDetectPathValidation(t *testing.T) {
+	f, err := os.CreateTemp(t.TempDir(), "file")
+	if err != nil {
+		t.Fatalf("temp file: %v", err)
+	}
+	f.Close()
+
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	rel, err := filepath.Rel(wd, f.Name())
+	if err != nil {
+		t.Fatalf("rel: %v", err)
+	}
+
+	cases := []struct {
+		name    string
+		path    string
+		wantErr bool
+	}{
+		{"absolute", f.Name(), false},
+		{"relative", rel, true},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := WithForce(context.Background(), true)
+			ctx = WithAllowOverwrite(ctx, true)
+			ctx = WithYesIKnow(ctx, true)
+			_, err := Detect(ctx, tc.path, true, "", "", "", "", 0, 0, fakeEsc{}, zap.NewNop(), NewRunner())
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("expected error for path %s", tc.path)
+				}
+				if !strings.Contains(err.Error(), "precondition") {
+					t.Fatalf("expected precondition error, got %v", err)
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("detect: %v", err)
+				}
+			}
+		})
+	}
+}
+
 func TestDetectRaw(t *testing.T) {
 	if os.Geteuid() != 0 {
 		t.Skip("requires root")

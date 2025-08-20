@@ -84,6 +84,9 @@ func prepareFreeze(
 // openDevice ensures the path is a block device and opens it for reading and writing.
 // Callers must ensure the necessary privilege before invoking this function.
 func openDevice(path string) (*os.File, error) {
+	if !filepath.IsAbs(path) {
+		return nil, fmt.Errorf("precondition: path must be absolute: %s", path)
+	}
 	info, err := os.Stat(path)
 	if err != nil {
 		return nil, err
