@@ -48,8 +48,8 @@ type Options struct {
 	// ExtraArgs, if set, are appended after the self path (e.g., a subcommand).
 	ExtraArgs []string
 	// SanitizeEnv controls environment sanitization for the re-execed child.
-	// When nil, sanitization is enabled by default. Set to pointer to false to
-	// forward the full environment.
+	// When nil, the full environment is forwarded. Set to pointer to true to
+	// drop PATH, LANG, and other unsafe variables.
 	SanitizeEnv *bool
 
 	// Dependency seams (optional; default to real OS functions):
@@ -114,18 +114,18 @@ func EnsureRootOrReexec(opts Options, logger *zap.Logger) (bool, error) {
 	args = append(args, filterAllowed(argv[1:], opts.AllowedPassthrough)...)
 
 	var env []string
-	sanitize := true
+	sanitize := false
 	if opts.SanitizeEnv != nil {
 		sanitize = *opts.SanitizeEnv
 	}
+	environ := os.Environ
+	if opts.Environ != nil {
+		environ = opts.Environ
+	}
 	if sanitize {
-		environ := os.Environ
-		if opts.Environ != nil {
-			environ = opts.Environ
-		}
 		env = sanitizedChildEnv(environ())
-	} else if opts.Environ != nil {
-		env = opts.Environ()
+	} else {
+		env = environ()
 	}
 
 	stdin := opts.Stdin // nil by default (no TTY password prompts)

@@ -190,7 +190,7 @@ func DefaultConfig() (*Config, error) {
 		FSThawCommand:            "",
 		FreezeTimeout:            10 * time.Second,
 		ThawTimeout:              10 * time.Second,
-		SanitizeEnv:              true,
+		SanitizeEnv:              false,
 		Parallel:                 4,
 		Concurrency:              0,
 		ZeroCopy:                 false,
