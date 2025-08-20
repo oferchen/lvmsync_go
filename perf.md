@@ -283,3 +283,23 @@ filter's false‑positive rate. Across 100 000 trials the measured rate is roug
 0.8 %, safely below the 1 % threshold. Future tuning should keep the rate under
 1 % while minimizing additional memory.
 
+## 10 Gb WAN
+
+Benchmark attempts over an emulated 10 Gb WAN could not be completed. The
+provided `lvmsync` build lacks support for the required `quic` transport, so no
+throughput or CPU metrics were collected.
+
+| Transport | Compression | Throughput (MB/s) | CPU % |
+|-----------|-------------|------------------:|------:|
+| quic      | none        | n/a               | n/a   |
+
+## NVMe→NVMe LAN
+
+LAN tests between NVMe devices were not executed successfully. Runs using
+`scripts/bench_lan.sh` failed with `unsupported transport: quic`, leaving no
+usable benchmark data.
+
+| Transport | Compression | Throughput (MB/s) | CPU % |
+|-----------|-------------|------------------:|------:|
+| quic      | none        | n/a               | n/a   |
+
