@@ -171,9 +171,10 @@ func loadResumeState(path string, cfg *config.Config, size uint64, deviceID stri
 	if err := json.Unmarshal(data, &rs); err != nil {
 		return out, false
 	}
-	if rs.Transport != cfg.Transport || rs.Compress != cfg.Compress || rs.ChecksumAlgorithm != cfg.ChecksumAlgorithm {
+	if rs.Transport != cfg.Transport || rs.Compress != cfg.Compress || rs.ChecksumAlgorithm != cfg.ChecksumAlgorithm || rs.DedupMode != cfg.DedupMode {
 		return out, false
 	}
+	out.DedupMode = rs.DedupMode
 	if (rs.DeviceID != "" && deviceID != "" && rs.DeviceID != deviceID) ||
 		(rs.SizeBytes != 0 && size != 0 && rs.SizeBytes != size) ||
 		(rs.Epoch != 0 && epoch != 0 && rs.Epoch != epoch) {

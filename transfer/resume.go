@@ -19,6 +19,7 @@ type resumeChunks struct {
 // resumeCheckpoint represents the last processed chunk recorded on disk.
 type resumeCheckpoint struct {
 	resumeChunks
+	DedupMode string
 }
 
 // resumeTracker tracks checkpoint progress for an ongoing transfer.
