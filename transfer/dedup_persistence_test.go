@@ -12,6 +12,7 @@ import (
 	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/zeebo/blake3"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 
 	"lvmsync_go/device"
 	manifestpkg "lvmsync_go/manifest"
@@ -38,6 +39,45 @@ func TestBloomFilterDedupPersistence(t *testing.T) {
 
 	if d2.ShouldTransfer(0, data) {
 		t.Fatalf("expected bloom filter to persist state")
+	}
+}
+
+func TestBloomFilterDedupStatsLog(t *testing.T) {
+	stateFile := filepath.Join(t.TempDir(), "state")
+	core, observed := observer.New(zap.InfoLevel)
+	logger := zap.New(core)
+	d := &BloomFilterDedup{
+		filter:    bloom.NewWithEstimates(10, 0.01),
+		stateFile: stateFile,
+		entries:   10,
+		fpRate:    0.01,
+		strategy:  &SHA256Checksum{},
+		logger:    logger,
+		deps:      DefaultDeps,
+	}
+	blocks := [][]byte{[]byte("a"), []byte("b")}
+	for i, b := range blocks {
+		if !d.ShouldTransfer(int64(i), b) {
+			t.Fatalf("first transfer should be allowed")
+		}
+		d.RecordTransfer(int64(i), b)
+	}
+	if err := d.SaveState(); err != nil {
+		t.Fatalf("failed to save state: %v", err)
+	}
+	logs := observed.FilterMessage("dedup_bloom_stats").All()
+	if len(logs) != 1 {
+		t.Fatalf("expected stats log, got %d", len(logs))
+	}
+	fields := logs[0].ContextMap()
+	if entries, ok := fields["entries"].(uint64); !ok || entries != 2 {
+		t.Fatalf("entries: got %v", fields["entries"])
+	}
+	if fp, ok := fields["configured_fp_rate"].(float64); !ok || fp != 0.01 {
+		t.Fatalf("configured_fp_rate: got %v", fields["configured_fp_rate"])
+	}
+	if obs, ok := fields["observed_fp_rate"].(float64); !ok || obs != 0 {
+		t.Fatalf("observed_fp_rate: got %v", fields["observed_fp_rate"])
 	}
 }
 
