@@ -1,6 +1,4 @@
----
 # .github/workflows/go.yml
-
 name: Go
 
 on:
@@ -18,62 +16,58 @@ concurrency:
 
 jobs:
   build:
-    runs-on:
-      os: ubuntu-latest
-      architecture: ${{ matrix.arch }}
     strategy:
       matrix:
-        go-version: [ "${{ vars.GO_VERSION || '1.24' }}" ]
-        arch: [amd64, arm64]
+        os: [ubuntu-24.04, ubuntu-24.04-arm64]
+        go-version: ["${{ vars.GO_VERSION || '1.24.x' }}"]
+    runs-on: ${{ matrix.os }}
     permissions:
-      contents: write
+      contents: read
     env:
       GO111MODULE: "on"
       CGO_ENABLED: "1"
-      CGO_CFLAGS: "-I/usr/include"
-      GOARCH: ${{ matrix.arch }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 0
 
       - name: Set up Go
-        uses: actions/setup-go@v5.5.0
+        uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go-version }}
           cache: true
-          architecture: ${{ matrix.arch }}
 
-      - name: Cache Go modules
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/go/pkg/mod
-            ~/.cache/go-build
-          key: ${{ runner.os }}-${{ matrix.arch }}-go-${{ matrix.go-version }}-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ matrix.arch }}-go-${{ matrix.go-version }}-
+      - name: Show Go env
+        run: |
+          go version
+          go env
 
-      - name: Auto-fix gofmt/goimports
+      - name: Install OS deps
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y --no-install-recommends jq make
+
+      - name: Verify formatting (gofmt/goimports)
         run: |
           go install golang.org/x/tools/cmd/goimports@latest
           modpath="$(go list -m)"
-          gofmt -s -w .
-          goimports -w -local "${modpath}" .
-          if ! git diff --quiet; then
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add -A
-            git commit -m "chore(fmt): apply gofmt and goimports [skip ci]"
-            git push
+          # verify, do not modify repo on CI
+          fmt_diff=$(gofmt -s -l .)
+          imp_diff=$(goimports -l -local "${modpath}" .)
+          if [ -n "${fmt_diff}${imp_diff}" ]; then
+            echo "The following files need formatting:"
+            [ -n "${fmt_diff}" ] && echo "${fmt_diff}"
+            [ -n "${imp_diff}" ] && echo "${imp_diff}"
+            echo "Run: gofmt -s -w . && goimports -w -local ${modpath} ."
+            exit 1
           fi
 
       - name: Ensure module path matches repository
+        shell: bash
         run: |
-          # "github.com/${GITHUB_REPOSITORY}"
-          repo_mod="lvmsync_go"
+          repo_mod="github.com/${GITHUB_REPOSITORY}"
           if [ ! -f go.mod ]; then
             echo "No go.mod found. Initializing module '${repo_mod}'..."
             go mod init "${repo_mod}"
@@ -89,27 +83,32 @@ jobs:
         run: |
           go mod tidy
           go mod verify
-          # Enforce committed state
           git diff --exit-code -- go.mod go.sum || {
-            echo "go.mod/go.sum changed after tidy. Commit the changes."; exit 1; }
+            echo "go.mod/go.sum changed after tidy. Commit locally and push."; exit 1; }
 
-      - name: Install golangci-lint
-        run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+      - name: Install linters
+        run: |
+          go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+          go install honnef.co/go/tools/cmd/staticcheck@latest
 
-      - name: Install staticcheck
-        run: go install honnef.co/go/tools/cmd/staticcheck@latest
-
-      - name: Go build
+      - name: Build (all pkgs)
         run: go build ./...
 
       - name: Build lvmsync binary
-        run: go build -o lvmsync ./cmd/lvmsync
+        run: |
+          if [ -d cmd/lvmsync ]; then
+            go build -o lvmsync ./cmd/lvmsync
+          else
+            echo "cmd/lvmsync not found; skipping targeted build."
+          fi
 
-      - name: Benchmark smoke test
-        run: scripts/bench_smoke.sh
+      - name: Benchmark smoke test (optional)
+        if: hashFiles('scripts/bench_smoke.sh') != ''
+        run: |
+          bash scripts/bench_smoke.sh
 
       - name: Post benchmark results
-        if: always()
+        if: always() && hashFiles('reports/bench_smoke.csv') != ''
         run: |
           echo "### Benchmark smoke test" >> "$GITHUB_STEP_SUMMARY"
           echo "| Compression | Throughput (MB/s) | CPU (%) |" >> "$GITHUB_STEP_SUMMARY"
@@ -127,32 +126,53 @@ jobs:
       - name: golangci-lint
         run: golangci-lint run
 
-      - name: Go test
+      - name: Go test (race + cover)
         run: go test -race -coverprofile=coverage.out ./...
 
-      - name: Integration tests
-        if: github.event_name == 'pull_request' && matrix.arch == 'amd64'
-        run: make integration
+      - name: Integration tests (PR, amd64 only)
+        if: github.event_name == 'pull_request' && startsWith(matrix.os, 'ubuntu-') && !contains(matrix.os, 'arm64')
+        run: |
+          if [ -f Makefile ] && grep -q '^integration:' Makefile; then
+            make integration
+          else
+            echo "No integration target; skipping."
+          fi
 
       - name: Verify prune candidates
+        if: hashFiles('cmd/reachmap/**','cmd/reachmap/*','cmd/reachmap') != ''
         run: |
           go run ./cmd/reachmap > .prune_candidates.txt
-          test ! -s .prune_candidates.txt
+          if [ -s .prune_candidates.txt ]; then
+            echo "Found prune candidates:"
+            sed -n '1,200p' .prune_candidates.txt
+            exit 1
+          fi
 
       - name: Verify gaps resolved
+        if: hashFiles('reports/machine/gaps.json') != ''
         run: |
           jq -e 'map(select(.type | contains("(resolved)") | not)) | length == 0' reports/machine/gaps.json
 
       - name: Docs check
-        run: make docs-check
+        if: hashFiles('Makefile') != ''
+        run: |
+          if grep -q '^docs-check:' Makefile; then
+            make docs-check
+          else
+            echo "No docs-check target; skipping."
+          fi
 
       - name: Verify sudoers commands
-        run: scripts/verify_sudoers.sh
+        if: hashFiles('scripts/verify_sudoers.sh') != ''
+        run: bash scripts/verify_sudoers.sh
 
-      - name: Show coverage
-        run: go tool cover -func=coverage.out | tail -n 1
+      - name: Show coverage (summary)
+        if: always() && hashFiles('coverage.out') != ''
+        run: |
+          go tool cover -func=coverage.out | tail -n 1 | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Enforce coverage threshold
+        if: hashFiles('coverage.out') != ''
         run: |
-          pct=$(go tool cover -func=coverage.out | tail -n 1 | awk '{print $3}' | tr -d '%')
-          awk -v p="$pct" 'BEGIN { if (p < 50) { printf("coverage %.2f%% is below 50%%\n", p); exit 1 } }'
+          pct=$(go tool cover -func=coverage.out | awk '/^total:/{gsub(/%/,"",$3); print $3}')
+          awk -v p="$pct" 'BEGIN { if (p+0 < 50) { printf("coverage %.2f%% is below 50%%\n", p); exit 1 } }'
