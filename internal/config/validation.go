@@ -9,6 +9,7 @@ import (
 
 	"github.com/kballard/go-shellquote"
 
+	"lvmsync_go/device"
 	digest "lvmsync_go/internal/digest"
 	"lvmsync_go/lvm"
 )
@@ -36,22 +37,29 @@ func (c *Config) ValidateWith(geteuid func() int) error {
 	if c.Sparse != "" && c.Sparse != Auto && c.Sparse != "never" {
 		return fmt.Errorf("invalid sparse %q: must be %q or %q", c.Sparse, Auto, "never")
 	}
-	if c.FSFreezeCommand != "" {
-		parts, err := shellquote.Split(c.FSFreezeCommand)
+	if c.FSFreezeCommand != "" || c.FSThawCommand != "" {
+		if c.FSFreezeCommand == "" || c.FSThawCommand == "" {
+			return fmt.Errorf("fs-freeze-command and fs-thaw-command must both be set")
+		}
+		freezeParts, err := shellquote.Split(c.FSFreezeCommand)
 		if err != nil {
 			return fmt.Errorf("invalid fs-freeze-command: %w", err)
 		}
-		if len(parts) == 0 || !filepath.IsAbs(parts[0]) {
-			return fmt.Errorf("fs-freeze-command path %q must be absolute", c.FSFreezeCommand)
-		}
-	}
-	if c.FSThawCommand != "" {
-		parts, err := shellquote.Split(c.FSThawCommand)
+		thawParts, err := shellquote.Split(c.FSThawCommand)
 		if err != nil {
 			return fmt.Errorf("invalid fs-thaw-command: %w", err)
 		}
-		if len(parts) == 0 || !filepath.IsAbs(parts[0]) {
-			return fmt.Errorf("fs-thaw-command path %q must be absolute", c.FSThawCommand)
+		if len(freezeParts) == 0 {
+			return fmt.Errorf("invalid fs-freeze-command: command path is empty")
+		}
+		if len(thawParts) == 0 {
+			return fmt.Errorf("invalid fs-thaw-command: command path is empty")
+		}
+		if err := device.ValidateCmd(freezeParts[0], freezeParts[1:]); err != nil {
+			return fmt.Errorf("invalid fs-freeze-command: %w", err)
+		}
+		if err := device.ValidateCmd(thawParts[0], thawParts[1:]); err != nil {
+			return fmt.Errorf("invalid fs-thaw-command: %w", err)
 		}
 	}
 	if c.SSHKeepAliveInterval <= 0 {

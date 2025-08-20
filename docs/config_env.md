@@ -30,8 +30,8 @@
 | LVMSYNC_DRY_RUN | `--dry-run` | `dry-run` | Print actions without executing |
 | LVMSYNC_FORCE | `--force` | `force` | Override safety checks for offline raw access or filesystem freeze |
 | LVMSYNC_FREEZE_TIMEOUT | `--freeze-timeout` | `freeze-timeout` | Timeout for filesystem freeze command |
-| LVMSYNC_FS_FREEZE_COMMAND | `--fs-freeze-command` | `fs-freeze-command` | Command to freeze filesystem before reading raw source |
-| LVMSYNC_FS_THAW_COMMAND | `--fs-thaw-command` | `fs-thaw-command` | Command to thaw filesystem after reading raw source |
+| LVMSYNC_FS_FREEZE_COMMAND | `--fs-freeze-command` | `fs-freeze-command` | Freeze command (absolute path, validated for NUL bytes, allowed characters, and existence) |
+| LVMSYNC_FS_THAW_COMMAND | `--fs-thaw-command` | `fs-thaw-command` | Thaw command (absolute path, validated for NUL bytes, allowed characters, and existence) |
 | LVMSYNC_INTRA_DEDUP | `--intra-dedup` | `intra-dedup` | Enable intra-run deduplication |
 | LVMSYNC_KNOWN_HOSTS | `--known-hosts` | `known-hosts` | Path to known_hosts file |
 | LVMSYNC_LVM_ESCALATION | `--lvm-escalation` | `lvm-escalation` | Command to use for privilege escalation |

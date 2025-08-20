@@ -58,10 +58,10 @@ func prepareFreeze(
 	if fsFreezeCmdPath == "" || fsThawCmdPath == "" {
 		return false, fmt.Errorf("raw sources require --offline or --fs-freeze-command/--fs-thaw-command")
 	}
-	if err := validateCmd(fsFreezeCmdPath, fsFreezeCmdArgs); err != nil {
+	if err := ValidateCmd(fsFreezeCmdPath, fsFreezeCmdArgs); err != nil {
 		return false, fmt.Errorf("invalid freeze command: %w", err)
 	}
-	if err := validateCmd(fsThawCmdPath, fsThawCmdArgs); err != nil {
+	if err := ValidateCmd(fsThawCmdPath, fsThawCmdArgs); err != nil {
 		return false, fmt.Errorf("invalid thaw command: %w", err)
 	}
 	logger.Info("fs_freeze_start", zap.String("command", fsFreezeCmdPath), zap.Strings("args", fsFreezeCmdArgs))
@@ -256,7 +256,7 @@ func (d *RawDevice) Snapshot(context.Context, string) (Device, error) { return d
 // Cleanup thaws the filesystem if a freeze command was issued.
 func (d *RawDevice) Cleanup(ctx context.Context) error {
 	if d.freezeIssued {
-		if err := validateCmd(d.thawCmdPath, d.thawCmdArgs); err != nil {
+		if err := ValidateCmd(d.thawCmdPath, d.thawCmdArgs); err != nil {
 			d.logger.Error("fs_thaw_failed", zap.Error(err))
 			return fmt.Errorf("invalid thaw command: %w", err)
 		}
@@ -278,8 +278,8 @@ func (d *RawDevice) Cleanup(ctx context.Context) error {
 	return nil
 }
 
-// validateCmd ensures the command path and arguments are suitable for execution.
-func validateCmd(path string, args []string) error {
+// ValidateCmd ensures the command path and arguments are suitable for execution.
+func ValidateCmd(path string, args []string) error {
 	if path == "" {
 		return fmt.Errorf("command path is empty")
 	}
