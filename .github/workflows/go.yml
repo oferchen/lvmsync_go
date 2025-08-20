@@ -129,8 +129,8 @@ jobs:
       - name: Go test (race + cover)
         run: go test -race -coverprofile=coverage.out ./...
 
-      - name: Integration tests (PR, amd64 only)
-        if: github.event_name == 'pull_request' && startsWith(matrix.os, 'ubuntu-') && !contains(matrix.os, 'arm64')
+      - name: Integration tests (PR)
+        if: github.event_name == 'pull_request' && startsWith(matrix.os, 'ubuntu-')
         run: |
           if [ -f Makefile ] && grep -q '^integration:' Makefile; then
             make integration
