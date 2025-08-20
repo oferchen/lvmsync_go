@@ -700,7 +700,7 @@ Flags override environment variables, which override `config.yaml` values.
 | `--force` | `LVMSYNC_FORCE` | `force` | Override safety checks and proceed on mounted destination |
 | `--force-offline` | `LVMSYNC_FORCE_OFFLINE` | `force_offline` | Allow direct device writes; prompts for `double-confirm` when interactive (requires `--yes-i-know` otherwise) |
 | `--allow-overwrite` | `LVMSYNC_ALLOW_OVERWRITE` | `allow_overwrite` | Allow overwriting existing data; requires `--yes-i-know` for non-interactive sessions |
-| `--discard` | `LVMSYNC_DISCARD` | `discard` | Issue BLKDISCARD before writing blocks |
+| `--discard` | `LVMSYNC_DISCARD` | `discard` | Issue BLKDISCARD before writing blocks and verify discarded regions |
 | `--dry-run` | `LVMSYNC_DRY_RUN` | `dry_run` | Log estimated transfer bytes without sending data; uses manifest sampling when available |
 | `--plan` | `LVMSYNC_PLAN` | `plan` | Print configuration plan as JSON and exit |
 | `--verify-only` | `LVMSYNC_VERIFY_ONLY` | `verify_only` | Read source and destination and report mismatches without writing data |

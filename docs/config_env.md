@@ -26,7 +26,7 @@
 | LVMSYNC_DELTA | `--delta` | `delta` | Delta algorithm (none, rsync) to precompute byte-level changes |
 | LVMSYNC_DEST_TYPE | `--dest-type` | `dest-type` | Destination device type (auto,file,raw,lvm) |
 | LVMSYNC_DIGEST | `--digest` | `digest` | Digest algorithm: [sha256 blake3 auto] |
-| LVMSYNC_DISCARD | `--discard` | `discard` | Issue BLKDISCARD before writing blocks |
+| LVMSYNC_DISCARD | `--discard` | `discard` | Issue BLKDISCARD before writing blocks and verify discarded regions |
 | LVMSYNC_DRY_RUN | `--dry-run` | `dry-run` | Print actions without executing |
 | LVMSYNC_FORCE | `--force` | `force` | Override safety checks for offline raw access or filesystem freeze |
 | LVMSYNC_FORCE_OFFLINE | `--force-offline` | `force-offline` | Allow direct device writes; prompts for double-confirm |
