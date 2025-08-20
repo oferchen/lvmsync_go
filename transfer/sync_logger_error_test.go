@@ -36,7 +36,7 @@ func TestDumpChangesLogsSyncError(t *testing.T) {
 	if err := tr.DumpChangesSequential(context.Background(), cfg, snapshot, src, &buf); err != nil {
 		t.Fatalf("DumpChangesSequential failed: %v", err)
 	}
-	logs := observed.FilterMessage("Logger sync error").All()
+       logs := observed.FilterMessage("logger_sync_error").All()
 	if len(logs) != 1 {
 		t.Fatalf("expected sync error log, got %d", len(logs))
 	}
@@ -56,7 +56,7 @@ func TestDumpChangesLogsSyncErrorOnEarlyFailure(t *testing.T) {
 	if err := tr.DumpChangesSequential(context.Background(), cfg, "snapshot", "/nonexistent", &buf); err == nil {
 		t.Fatalf("expected DumpChangesSequential error")
 	}
-	logs := observed.FilterMessage("Logger sync error").All()
+       logs := observed.FilterMessage("logger_sync_error").All()
 	if len(logs) != 1 {
 		t.Fatalf("expected sync error log, got %d", len(logs))
 	}

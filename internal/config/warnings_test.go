@@ -112,6 +112,34 @@ func TestUnboundEnvKeyWarns(t *testing.T) {
 	}
 }
 
+func TestWarningsSorted(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("default: %v", err)
+	}
+	b := NewBuilder(defaults)
+	// Remove SSH flag bindings so multiple keys become unbound.
+	b.FlagSets.SSH = pflag.NewFlagSet("SSH Options", pflag.ExitOnError)
+	dir := t.TempDir()
+	cfgFile := filepath.Join(dir, "cfg.yaml")
+	if err := os.WriteFile(cfgFile, []byte("ssh_host: example\nssh_user: root\n"), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	_, _, warns, err := b.Build(fs, []string{"--config", cfgFile})
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	want := []string{
+		`unknown configuration key "ssh-host"`,
+		`unknown configuration key "ssh-user"`,
+	}
+	if len(warns) != len(want) || warns[0] != want[0] || warns[1] != want[1] {
+		t.Fatalf("warnings=%v", warns)
+	}
+}
+
 func TestStrictConfigYAML(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	defaults, err := DefaultConfig()
