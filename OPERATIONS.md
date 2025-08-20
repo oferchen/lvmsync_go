@@ -73,7 +73,7 @@ lvmsync run --create-dest-lv /dev/vg0/src /dev/vg0/dest
 
    ```sh
    lvmsync run --probe-only /dev/vg0/snap0 /dev/vg0/target
-   # 10737418240 12345678-9abc-def0-1234-56789abcdef0 1700000000
+   # 10737418240 12345678-9abc-def0-1234-56789abcdef0 9abcdef0-1234-5678-90ab-cdef12345678 0fedcba9-8765-4321-0fed-cba987654321 253 0 1700000000
    ```
 
 2. Verify existing blocks:
