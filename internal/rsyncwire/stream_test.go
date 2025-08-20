@@ -2,11 +2,14 @@ package rsyncwire
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
+	"errors"
 	"hash/crc32"
 	"net"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestStreamRecvWithinLimit(t *testing.T) {
@@ -20,12 +23,12 @@ func TestStreamRecvWithinLimit(t *testing.T) {
 
 	payload := []byte("test")
 	go func() {
-		if err := sender.Send(payload); err != nil {
+		if err := sender.Send(context.Background(), payload); err != nil {
 			t.Errorf("Send: %v", err)
 		}
 	}()
 
-	frame, err := recv.Recv()
+	frame, err := recv.Recv(context.Background())
 	if err != nil {
 		t.Fatalf("Recv: %v", err)
 	}
@@ -50,7 +53,7 @@ func TestStreamRecvTooLarge(t *testing.T) {
 		c1.Write(hdr[:])
 	}()
 
-	if _, err := recv.Recv(); err == nil || !strings.Contains(err.Error(), "exceeds max") {
+	if _, err := recv.Recv(context.Background()); err == nil || !strings.Contains(err.Error(), "exceeds max") {
 		t.Fatalf("expected size limit error, got %v", err)
 	}
 }
@@ -60,7 +63,7 @@ func TestStreamSendTooLarge(t *testing.T) {
 	const max = 4
 	s := NewStream(&buf, max)
 	payload := []byte("hello")
-	if err := s.Send(payload); err == nil || !strings.Contains(err.Error(), "exceeds max") {
+	if err := s.Send(context.Background(), payload); err == nil || !strings.Contains(err.Error(), "exceeds max") {
 		t.Fatalf("expected size limit error, got %v", err)
 	}
 	if buf.Len() != 0 {
@@ -88,7 +91,7 @@ func TestStreamSendShortWrites(t *testing.T) {
 	srw := &shortReadWriter{max: limit}
 	s := NewStream(srw, 1<<20)
 	payload := []byte("hello world")
-	if err := s.Send(payload); err != nil {
+	if err := s.Send(context.Background(), payload); err != nil {
 		t.Fatalf("Send: %v", err)
 	}
 	expectedLen := 8 + len(payload)
@@ -109,4 +112,38 @@ func TestStreamSendShortWrites(t *testing.T) {
 	if srw.calls != expectedCalls {
 		t.Fatalf("expected %d writes, got %d", expectedCalls, srw.calls)
 	}
+}
+
+func TestStreamRecvTimeout(t *testing.T) {
+	c1, c2 := net.Pipe()
+	defer c1.Close()
+	defer c2.Close()
+
+	recv := NewStream(c2, 1<<20)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+
+	if _, err := recv.Recv(ctx); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected deadline exceeded, got %v", err)
+	}
+}
+
+func TestStreamSendTimeout(t *testing.T) {
+	c1, c2 := net.Pipe()
+	defer c1.Close()
+	defer c2.Close()
+
+	sender := NewStream(c1, 1<<20)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+
+	errCh := make(chan error, 1)
+	go func() {
+		payload := bytes.Repeat([]byte("a"), 1<<20)
+		errCh <- sender.Send(ctx, payload)
+	}()
+	if err := <-errCh; !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected deadline exceeded, got %v", err)
+	}
+	_ = c2.Close()
 }

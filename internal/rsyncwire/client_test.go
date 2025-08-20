@@ -2,6 +2,7 @@ package rsyncwire
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -28,7 +29,7 @@ func TestClientSendSignatures(t *testing.T) {
 	headExpect := sumSizesSqroot(int64(len(data)))
 	errCh := make(chan error)
 	go func() {
-		frame, err := srv.Recv()
+		frame, err := srv.Recv(context.Background())
 		if err != nil {
 			errCh <- err
 			return
@@ -83,7 +84,7 @@ func TestClientSendSignatures(t *testing.T) {
 		errCh <- nil
 	}()
 
-	if _, err := client.SendSignatures(bytes.NewReader(data)); err != nil {
+	if _, err := client.SendSignatures(context.Background(), bytes.NewReader(data)); err != nil {
 		t.Fatalf("SendSignatures: %v", err)
 	}
 	if err := <-errCh; err != nil {
@@ -99,10 +100,10 @@ func TestClientSendIdentity(t *testing.T) {
 	client := NewClient(NewStream(c1, maxFrame))
 	srv := NewStream(c2, maxFrame)
 	id := device.DeviceIdentity{SizeBytes: 1, KernelUUID: "k"}
-	if err := client.SendIdentity(id); err != nil {
+	if err := client.SendIdentity(context.Background(), id); err != nil {
 		t.Fatalf("SendIdentity: %v", err)
 	}
-	frame, err := srv.Recv()
+	frame, err := srv.Recv(context.Background())
 	if err != nil {
 		t.Fatalf("Recv: %v", err)
 	}
@@ -129,7 +130,7 @@ func TestClientSendSignaturesLargeInput(t *testing.T) {
 	// Consume the frame so the client can write without blocking.
 	errCh := make(chan error, 1)
 	go func() {
-		_, err := srv.Recv()
+		_, err := srv.Recv(context.Background())
 		errCh <- err
 	}()
 
@@ -142,7 +143,7 @@ func TestClientSendSignaturesLargeInput(t *testing.T) {
 	runtime.GC()
 	var m1 runtime.MemStats
 	runtime.ReadMemStats(&m1)
-	if _, err := client.SendSignatures(r); err != nil {
+	if _, err := client.SendSignatures(context.Background(), r); err != nil {
 		t.Fatalf("SendSignatures: %v", err)
 	}
 	runtime.GC()
@@ -180,7 +181,7 @@ func TestStreamBadCRC(t *testing.T) {
 		}
 		errCh <- c1.Close()
 	}()
-	if _, err := s.Recv(); err == nil {
+	if _, err := s.Recv(context.Background()); err == nil {
 		t.Fatalf("expected CRC error")
 	}
 	if err := <-errCh; err != nil {
