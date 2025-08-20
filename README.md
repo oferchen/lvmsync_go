@@ -54,13 +54,13 @@ For snapshot cleanup, resuming transfers, and verify-only rollback procedures, s
 
 ### Resume, verification, and safe overwrite flows
 
-Transfers store the device identity tuple `(size_bytes, kernel_uuid, gpt_uuid, fs_uuid, major, minor, manifest_epoch)` and compare it against the destination before writing. Mismatches abort the run to avoid accidental overwrites. Use `--force` to bypass this check when intentionally overwriting.
+Transfers store the device identity tuple `(size_bytes, kernel_uuid, gpt_uuid, mbr_signature, fs_uuid, major, minor, manifest_epoch)` and compare it against the destination before writing. Partition-table mismatches return a precondition failure to avoid accidental overwrites. Use `--force` to bypass this check when intentionally overwriting.
 
-Example `--probe-only` output showing `size_bytes kernel_uuid gpt_uuid fs_uuid major minor manifest_epoch`:
+Example `--probe-only` output showing `size_bytes kernel_uuid gpt_uuid mbr_signature fs_uuid major minor manifest_epoch`:
 
 ```sh
 lvmsync run --probe-only /dev/vg0/snap0 /dev/vg0/target
-# 10737418240 12345678-9abc-def0-1234-56789abcdef0 9abcdef0-1234-5678-90ab-cdef12345678 0fedcba9-8765-4321-0fed-cba987654321 253 0 1700000000
+# 10737418240 12345678-9abc-def0-1234-56789abcdef0 9abcdef0-1234-5678-90ab-cdef12345678 1a2b3c4d 0fedcba9-8765-4321-0fed-cba987654321 253 0 1700000000
 ```
 
 

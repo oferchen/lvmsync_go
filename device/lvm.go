@@ -144,8 +144,9 @@ func (d *LVMDevice) Identity(ctx context.Context) (DeviceIdentity, error) {
 		return DeviceIdentity{}, err
 	}
 	id.FSUUID = strings.TrimSpace(string(out))
-	if out, err = exec.CommandContext(ctx, blkidPath, "-o", "value", "-s", "PTUUID", d.Path()).Output(); err == nil {
-		id.GPTUUID = strings.TrimSpace(string(out))
+	if gpt, mbr, err := readPartitionSignatures(d.Path()); err == nil {
+		id.GPTUUID = gpt
+		id.MBRSignature = mbr
 	}
 	return id, nil
 }

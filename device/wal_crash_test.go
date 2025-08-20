@@ -11,7 +11,7 @@ import (
 
 // TestWALCrashRecovery simulates crash scenarios and ensures WAL recovery.
 func TestWALCrashRecovery(t *testing.T) {
-	id := DeviceIdentity{SizeBytes: 128, KernelUUID: "k", GPTUUID: "g", FSUUID: "f", Major: 1, Minor: 2, ManifestEpoch: 1}
+	id := DeviceIdentity{SizeBytes: 128, KernelUUID: "k", GPTUUID: "g", MBRSignature: "", FSUUID: "f", Major: 1, Minor: 2, ManifestEpoch: 1}
 
 	t.Run("partial_header", func(t *testing.T) {
 		dir := t.TempDir()
