@@ -131,3 +131,27 @@ func redactArgs(args []string) []string {
 	}
 	return out
 }
+
+func redactArgs(args []string) []string {
+	out := make([]string, len(args))
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		lower := strings.ToLower(a)
+		if strings.Contains(lower, "password") || strings.Contains(lower, "secret") ||
+			strings.Contains(lower, "token") || strings.Contains(lower, "key") {
+			if strings.Contains(a, "=") {
+				parts := strings.SplitN(a, "=", 2)
+				out[i] = parts[0] + "=[REDACTED]"
+			} else {
+				out[i] = a
+				if i+1 < len(args) {
+					out[i+1] = "[REDACTED]"
+					i++
+				}
+			}
+		} else {
+			out[i] = a
+		}
+	}
+	return out
+}

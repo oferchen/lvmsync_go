@@ -31,12 +31,14 @@ type Runner struct {
 func New(ctx context.Context, logger *zap.Logger) Escalator {
 	return NewWithRunner(ctx, nil, logger)
 }
+
 // NewWithRunner constructs an Escalator with the provided Runner.
 // Nil fields default to exec.CommandContext and exec.LookPath.
 func NewWithRunner(_ context.Context, r *Runner, logger *zap.Logger) Escalator {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
+
 // NewWithSanitize constructs an Escalator that optionally sanitizes the
 // environment of executed commands.
 func NewWithSanitize(ctx context.Context, sanitize bool) Escalator {
