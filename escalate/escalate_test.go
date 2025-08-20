@@ -2,6 +2,7 @@ package escalate
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -191,8 +192,8 @@ type execCall struct {
 	env  []string
 }
 
-func fakeRunner(rec *execCall, ret error) func(string, []string, []string, io.Reader, io.Writer, io.Writer) error {
-	return func(name string, args []string, env []string, _ io.Reader, _ io.Writer, _ io.Writer) error {
+func fakeRunner(rec *execCall, ret error) func(context.Context, string, []string, []string, io.Reader, io.Writer, io.Writer) error {
+	return func(_ context.Context, name string, args []string, env []string, _ io.Reader, _ io.Writer, _ io.Writer) error {
 		*rec = execCall{name: name, args: append([]string{}, args...), env: append([]string{}, env...)}
 		return ret
 	}
@@ -283,7 +284,7 @@ func TestEnsureRootOrReexec_RunnerExitCode(t *testing.T) {
 	_, err := EnsureRootOrReexec(Options{
 		Geteuid:  func() int { return 1000 },
 		LookPath: func(string) (string, error) { return "/usr/bin/sudo", nil },
-		ExecRunner: func(string, []string, []string, io.Reader, io.Writer, io.Writer) error {
+		ExecRunner: func(context.Context, string, []string, []string, io.Reader, io.Writer, io.Writer) error {
 			return exec.Command("sh", "-c", "exit 42").Run()
 		},
 	}, zap.NewNop())

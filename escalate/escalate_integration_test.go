@@ -1,11 +1,14 @@
 package escalate
 
 import (
+	"context"
+	"errors"
 	"io"
 	"os"
 	"os/exec"
 	"strings"
 	"testing"
+	"time"
 
 	"go.uber.org/zap"
 )
@@ -26,7 +29,7 @@ func TestEnsureRootOrReexec_NoReexecWhenRoot(t *testing.T) {
 			lookCalled = true
 			return exec.LookPath(s)
 		},
-		ExecRunner: func(string, []string, []string, io.Reader, io.Writer, io.Writer) error {
+		ExecRunner: func(context.Context, string, []string, []string, io.Reader, io.Writer, io.Writer) error {
 			runCalled = true
 			return nil
 		},
@@ -63,6 +66,56 @@ func TestEnsureRootOrReexec_InvalidCommand(t *testing.T) {
 	}, zap.NewNop())
 	if err == nil || !strings.Contains(err.Error(), "sudo escalation failed") {
 		t.Fatalf("expected sudo escalation error, got %v", err)
+	}
+	if reexeced {
+		t.Fatalf("expected reexeced false, got true")
+	}
+}
+
+// TestEnsureRootOrReexec_PipedSleep verifies that piped commands do not hang
+// and respect timeouts.
+func TestEnsureRootOrReexec_PipedSleep(t *testing.T) {
+	if os.Geteuid() != 0 {
+		t.Skip("requires root")
+	}
+	ctxTimeout := 100 * time.Millisecond
+	reexeced, err := EnsureRootOrReexec(Options{
+		Geteuid:  func() int { return 1 },
+		LookPath: func(string) (string, error) { return "/bin/sh", nil },
+		ExecRunner: func(ctx context.Context, _ string, _ []string, _ []string, _ io.Reader, _ io.Writer, _ io.Writer) error {
+			return exec.CommandContext(ctx, "sh", "-c", "sleep 5 | true").Run()
+		},
+		Stdout:  io.Discard,
+		Stderr:  io.Discard,
+		Timeout: ctxTimeout,
+	}, zap.NewNop())
+	if err == nil || !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected deadline exceeded, got %v", err)
+	}
+	if reexeced {
+		t.Fatalf("expected reexeced false, got true")
+	}
+}
+
+// TestEnsureRootOrReexec_SleepTimeout verifies that long-running commands are
+// killed when exceeding the timeout.
+func TestEnsureRootOrReexec_SleepTimeout(t *testing.T) {
+	if os.Geteuid() != 0 {
+		t.Skip("requires root")
+	}
+	ctxTimeout := 100 * time.Millisecond
+	reexeced, err := EnsureRootOrReexec(Options{
+		Geteuid:  func() int { return 1 },
+		LookPath: func(string) (string, error) { return "/bin/sh", nil },
+		ExecRunner: func(ctx context.Context, _ string, _ []string, _ []string, _ io.Reader, _ io.Writer, _ io.Writer) error {
+			return exec.CommandContext(ctx, "sh", "-c", "sleep 5").Run()
+		},
+		Stdout:  io.Discard,
+		Stderr:  io.Discard,
+		Timeout: ctxTimeout,
+	}, zap.NewNop())
+	if err == nil || !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected deadline exceeded, got %v", err)
 	}
 	if reexeced {
 		t.Fatalf("expected reexeced false, got true")

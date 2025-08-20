@@ -6,6 +6,7 @@ package privilege
 import (
 	"context"
 	"os/exec"
+	"time"
 )
 
 // Escalator validates privilege requirements and executes commands with
@@ -25,4 +26,5 @@ type sudoEscalator struct {
 	runner      *Runner
 	sanitizeEnv bool
 	environ     func() []string
+	timeout     time.Duration
 }
