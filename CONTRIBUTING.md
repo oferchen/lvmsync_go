@@ -40,3 +40,13 @@ staticcheck ./...
 ```
 
 These commands are enforced in CI via the Go workflows.
+
+## Sudoers file validation
+
+CI also checks the syntax of the sample sudoers rules:
+
+```sh
+visudo -cf docs/sudoers.d/lvmsync
+```
+
+Run this locally when modifying sudoers entries to ensure they parse correctly.

@@ -1,0 +1,7 @@
+# Minimal sudoers entries for lvmsync helper commands.
+Cmnd_Alias LVMSYNC_HELPER = \
+    /usr/local/bin/lvmsync-helper open, \
+    /usr/local/bin/lvmsync-helper write, \
+    /usr/local/bin/lvmsync-helper discard
+
+lvmsync ALL=(root) NOPASSWD:NOEXEC: LVMSYNC_HELPER

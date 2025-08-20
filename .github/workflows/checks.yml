@@ -96,3 +96,18 @@ jobs:
         run: |
           pct=$(go tool cover -func=coverage.out | tail -n 1 | awk '{print $3}' | tr -d '%')
           awk -v p="$pct" 'BEGIN { if (p < 50) { printf("coverage %.2f%% is below 50%%\n", p); exit 1 } }'
+
+  visudo:
+    runs-on: ubuntu-latest
+    container: debian:stable-slim
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Install sudo
+        run: apt-get update && apt-get install -y sudo
+
+      - name: Validate sudoers file
+        run: visudo -cf docs/sudoers.d/lvmsync
