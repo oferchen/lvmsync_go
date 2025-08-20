@@ -41,9 +41,14 @@ func TestRawIdentityTimeout(t *testing.T) {
 	defer f.Close()
 	d := &RawDevice{f: f, logger: zap.NewNop()}
 	script := createSleepScript(t, "blkid")
-	orig := blkidPath
+	origBLKID := blkidPath
+	origLSBLK := lsblkPath
 	blkidPath = script
-	defer func() { blkidPath = orig }()
+	lsblkPath = script
+	defer func() {
+		blkidPath = origBLKID
+		lsblkPath = origLSBLK
+	}()
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 	if _, err := d.Identity(ctx); err == nil || !(errors.Is(err, context.DeadlineExceeded) || strings.Contains(err.Error(), "signal: killed") || strings.Contains(err.Error(), "exit status")) {
