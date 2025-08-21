@@ -3,8 +3,10 @@ package transfer
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"syscall"
 	"time"
@@ -15,6 +17,7 @@ import (
 	"lvmsync_go/common"
 	"lvmsync_go/internal/blocksize"
 	"lvmsync_go/internal/config"
+	"lvmsync_go/transport"
 )
 
 // detectBlockSize sets cfg.BlockSize by probing source; logger must be non-nil.
@@ -202,4 +205,63 @@ func (t *Transfer) DumpChangesParallel(ctx context.Context, cfg *config.Config, 
 		t.Logger.Info("final checksum", zap.String("final_digest", fmt.Sprintf("%x", finalDigest)))
 	}
 	return nil
+}
+
+// DumpChangesWithReconnect streams changes with automatic reconnection on transient dial failures.
+// logger must be non-nil and cfg.MaxRetries governs retry attempts.
+func (t *Transfer) DumpChangesWithReconnect(ctx context.Context, cfg *config.Config, tr transport.Interface, address, snapshot, source string) error {
+	retries := cfg.MaxRetries
+	if retries < 1 {
+		retries = 1
+	}
+	var lastErr error
+	for attempt := 0; ctx.Err() == nil && attempt < retries; attempt++ {
+		conn, err := tr.Dial(ctx, address)
+		if err != nil {
+			lastErr = err
+			if !isTransient(err) || attempt+1 == retries {
+				break
+			}
+			select {
+			case <-time.After(cfg.RetryDelay):
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+			continue
+		}
+		lastErr = t.DumpChangesParallel(ctx, cfg, snapshot, source, conn)
+		conn.Close()
+		if lastErr == nil {
+			return nil
+		}
+		if !isTransient(lastErr) {
+			break
+		}
+		if attempt+1 < retries {
+			select {
+			case <-time.After(cfg.RetryDelay):
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		}
+	}
+	if lastErr == nil {
+		lastErr = errors.New("retries exhausted")
+	}
+	return lastErr
+}
+
+// isTransient reports whether err is a retryable network error.
+func isTransient(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return false
+	}
+	var ne net.Error
+	if errors.As(err, &ne) {
+		return ne.Timeout() || ne.Temporary()
+	}
+	return true
 }

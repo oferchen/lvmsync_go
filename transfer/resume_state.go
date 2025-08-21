@@ -28,6 +28,7 @@ type resumeState struct {
 	Compress          string           `json:"compress"`
 	ChecksumAlgorithm string           `json:"checksum_algorithm"`
 	DedupMode         string           `json:"dedup_mode"`
+	ResumeToken       string           `json:"resume_token"`
 	Fixed             resumeChunkState `json:"fixed"`
 	CDC               resumeChunkState `json:"cdc"`
 	Hybrid            resumeChunkState `json:"hybrid"`
@@ -53,6 +54,7 @@ func writeResumeState(cfg *config.Config, logger *zap.Logger, path string, chunk
 		Compress:          cfg.Compress,
 		ChecksumAlgorithm: cfg.ChecksumAlgorithm,
 		DedupMode:         cfg.DedupMode,
+		ResumeToken:       cfg.ResumeToken,
 		Fixed:             toState(chunks.Fixed),
 		CDC:               toState(chunks.CDC),
 		Hybrid:            toState(chunks.Hybrid),
@@ -175,6 +177,12 @@ func loadResumeState(path string, cfg *config.Config, size uint64, deviceID stri
 		return out, false
 	}
 	out.DedupMode = rs.DedupMode
+	if rs.ResumeToken != "" && cfg.ResumeToken != "" && rs.ResumeToken != cfg.ResumeToken {
+		return out, false
+	}
+	if cfg.ResumeToken == "" {
+		cfg.ResumeToken = rs.ResumeToken
+	}
 	if (rs.DeviceID != "" && deviceID != "" && rs.DeviceID != deviceID) ||
 		(rs.SizeBytes != 0 && size != 0 && rs.SizeBytes != size) ||
 		(rs.Epoch != 0 && epoch != 0 && rs.Epoch != epoch) {

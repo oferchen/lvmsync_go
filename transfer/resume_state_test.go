@@ -23,6 +23,7 @@ func TestSaveAndReadResumeState(t *testing.T) {
 		ResumeState:       path,
 		DedupMode:         "fixed",
 		CheckpointBytes:   4,
+		ResumeToken:       "tok",
 	}
 	rt := &resumeTracker{sizeBytes: 100, deviceID: "fsuuid", epoch: 1}
 	digest := blake3.Sum256([]byte("data"))
@@ -33,6 +34,9 @@ func TestSaveAndReadResumeState(t *testing.T) {
 		t.Fatalf("expected resume wal file: %v", err)
 	}
 	cp := readResumeState(cfg, zap.NewNop(), 100, "fsuuid", 1, digest)
+	if cfg.ResumeToken != "tok" {
+		t.Fatalf("resume token not persisted: %s", cfg.ResumeToken)
+	}
 	rc := cp.chunk("fixed")
 	if rc.Offset != 0 || rc.Length != 4 || hex.EncodeToString(rc.Chunk[:]) != hex.EncodeToString(digest[:]) {
 		t.Fatalf("unexpected checkpoint: %+v", rc)
