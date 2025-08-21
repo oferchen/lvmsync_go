@@ -52,7 +52,7 @@ lvmsync run --resume=statefile /dev/vg0/snap0 /dev/vg0/target
 2. If the process is interrupted (for example, by `SIGKILL`), invoke the same
    command with `--resume statefile` to continue copying remaining blocks.
 3. LVMSync validates the device identity tuple `(size_bytes, kernel_uuid,
-   gpt_uuid, fs_uuid, major, minor, manifest_epoch)` against the resume file.
+   gpt_uuid, mbr_signature, fs_uuid, major, minor, manifest_epoch)` against the resume file.
    Mismatches abort with a precondition failure to prevent accidental
    overwrites.
 4. After a successful resume the state file is removed; optionally run
