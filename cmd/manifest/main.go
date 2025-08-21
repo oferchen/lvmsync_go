@@ -18,11 +18,12 @@ type Runner struct {
 	Rebuild func(ctx context.Context, device, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error
 	GC      func(path string, opts ...manifestpkg.IndexOption) error
 	Compact func(path string, opts ...manifestpkg.IndexOption) error
+	Open    func(path string, opts ...manifestpkg.IndexOption) (*manifestpkg.Index, error)
 }
 
 // NewRunner returns a Runner with production dependencies.
 func NewRunner() *Runner {
-	return &Runner{Rebuild: manifestpkg.Rebuild, GC: manifestpkg.GC, Compact: manifestpkg.Compact}
+	return &Runner{Rebuild: manifestpkg.Rebuild, GC: manifestpkg.GC, Compact: manifestpkg.Compact, Open: manifestpkg.Open}
 }
 
 // NewRunnerWithDeps creates a Runner with custom rebuild function.
@@ -30,8 +31,9 @@ func NewRunnerWithDeps(
 	rebuild func(ctx context.Context, device, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error,
 	gc func(path string, opts ...manifestpkg.IndexOption) error,
 	compact func(path string, opts ...manifestpkg.IndexOption) error,
+	open func(path string, opts ...manifestpkg.IndexOption) (*manifestpkg.Index, error),
 ) *Runner {
-	return &Runner{Rebuild: rebuild, GC: gc, Compact: compact}
+	return &Runner{Rebuild: rebuild, GC: gc, Compact: compact, Open: open}
 }
 
 func init() {
@@ -45,7 +47,7 @@ func (r *Runner) Run(cfg *config.Config, args []string, logger *zap.Logger) erro
 	if len(args) == 0 {
 		fs := pflag.NewFlagSet("manifest", pflag.ContinueOnError)
 		fs.Usage()
-		return fmt.Errorf("usage: lvmsync manifest <rebuild|gc|compact>")
+		return fmt.Errorf("usage: lvmsync manifest <rebuild|gc|compact|check>")
 	}
 	switch args[0] {
 	case "rebuild":
@@ -129,10 +131,40 @@ func (r *Runner) Run(cfg *config.Config, args []string, logger *zap.Logger) erro
 		}
 		logger.Info("compact complete")
 		return nil
+	case "check":
+		if len(args) != 2 {
+			fs := pflag.NewFlagSet("manifest check", pflag.ContinueOnError)
+			fs.Usage()
+			return fmt.Errorf("usage: lvmsync manifest check <path>")
+		}
+		path := args[1]
+		logger.Info("manifest_check", zap.String("path", path))
+		if cfg.DryRun {
+			logger.Info("dry run - skipping check")
+			return nil
+		}
+		idx, err := r.Open(path)
+		if err != nil {
+			logger.Error("manifest_corrupt", zap.Error(err))
+			return err
+		}
+		for i := uint64(0); i < idx.ChunkCount(); i++ {
+			if _, _, _, _, _, err := idx.Entry(i); err != nil {
+				idx.Close()
+				logger.Error("manifest_corrupt", zap.Error(err))
+				return err
+			}
+		}
+		if err := idx.Close(); err != nil {
+			logger.Error("manifest_check_close_error", zap.Error(err))
+			return err
+		}
+		logger.Info("manifest_ok")
+		return nil
 	default:
 		fs := pflag.NewFlagSet("manifest", pflag.ContinueOnError)
 		fs.Usage()
-		return fmt.Errorf("usage: lvmsync manifest <rebuild|gc|compact>")
+		return fmt.Errorf("usage: lvmsync manifest <rebuild|gc|compact|check>")
 	}
 }
 
