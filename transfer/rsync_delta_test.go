@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 
 	"lvmsync_go/device"
 	"lvmsync_go/internal/config"
@@ -103,6 +104,7 @@ func TestDumpChangesRsyncDelta(t *testing.T) {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
 	cfg.Delta = "rsync"
+	cfg.AllowInsecure = true
 	cfg.Compress = "none"
 	cfg.ChecksumAlgorithm = digestpkg.SHA256
 
@@ -125,6 +127,9 @@ func TestDumpChangesRsyncDelta(t *testing.T) {
 	copy(dev.buf, originData)
 	srv := rsyncserver.New(dev, zap.NewNop(), nil, "", "")
 
+	core, logs := observer.New(zap.WarnLevel)
+	logger := zap.New(core)
+
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
@@ -145,7 +150,7 @@ func TestDumpChangesRsyncDelta(t *testing.T) {
 		}
 	}()
 
-	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, nil)
+	tr := NewTransfer(logger, &sync.WaitGroup{}, nil)
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -184,6 +189,11 @@ func TestDumpChangesRsyncDelta(t *testing.T) {
 	if cc.n >= int64(len(snapshotData)) {
 		t.Fatalf("delta not efficient: sent %d >= %d", cc.n, len(snapshotData))
 	}
+
+	entries := logs.FilterMessage("plaintext_connection").All()
+	if len(entries) == 0 {
+		t.Fatalf("expected plaintext warning")
+	}
 }
 
 func TestRsyncDeltaCDCShift(t *testing.T) {
@@ -192,6 +202,7 @@ func TestRsyncDeltaCDCShift(t *testing.T) {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
 	cfg.Delta = "rsync"
+	cfg.AllowInsecure = true
 	cfg.Compress = "none"
 	cfg.ChecksumAlgorithm = digestpkg.SHA256
 	cfg.CDCMin = 64
@@ -218,6 +229,9 @@ func TestRsyncDeltaCDCShift(t *testing.T) {
 	copy(dev.buf, originData)
 	srv := rsyncserver.New(dev, zap.NewNop(), nil, "", "")
 
+	core, logs := observer.New(zap.WarnLevel)
+	logger := zap.New(core)
+
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
@@ -238,7 +252,7 @@ func TestRsyncDeltaCDCShift(t *testing.T) {
 		}
 	}()
 
-	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, nil)
+	tr := NewTransfer(logger, &sync.WaitGroup{}, nil)
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -277,6 +291,11 @@ func TestRsyncDeltaCDCShift(t *testing.T) {
 	if cc.n >= int64(len(snapshotData)) {
 		t.Fatalf("delta not efficient: sent %d >= %d", cc.n, len(snapshotData))
 	}
+
+	entries := logs.FilterMessage("plaintext_connection").All()
+	if len(entries) == 0 {
+		t.Fatalf("expected plaintext warning")
+	}
 }
 
 func TestRsyncDeltaCDCMutate(t *testing.T) {
@@ -285,6 +304,7 @@ func TestRsyncDeltaCDCMutate(t *testing.T) {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
 	cfg.Delta = "rsync"
+	cfg.AllowInsecure = true
 	cfg.Compress = "none"
 	cfg.ChecksumAlgorithm = digestpkg.SHA256
 	cfg.CDCMin = 64
@@ -312,6 +332,9 @@ func TestRsyncDeltaCDCMutate(t *testing.T) {
 	copy(dev.buf, originData)
 	srv := rsyncserver.New(dev, zap.NewNop(), nil, "", "")
 
+	core, logs := observer.New(zap.WarnLevel)
+	logger := zap.New(core)
+
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
@@ -332,7 +355,7 @@ func TestRsyncDeltaCDCMutate(t *testing.T) {
 		}
 	}()
 
-	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, nil)
+	tr := NewTransfer(logger, &sync.WaitGroup{}, nil)
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -370,6 +393,11 @@ func TestRsyncDeltaCDCMutate(t *testing.T) {
 	}
 	if cc.n >= int64(len(snapshotData))/2 {
 		t.Fatalf("delta not efficient: sent %d >= %d", cc.n, len(snapshotData)/2)
+	}
+
+	entries := logs.FilterMessage("plaintext_connection").All()
+	if len(entries) == 0 {
+		t.Fatalf("expected plaintext warning")
 	}
 }
 
