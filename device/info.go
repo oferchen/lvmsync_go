@@ -224,7 +224,13 @@ func defaultMountFunc(ctx context.Context, path string) (bool, error) {
 	}
 	ch := make(chan result, 1)
 	go func() {
-		infos, err := mountinfo.GetMounts(nil)
+		filter := func(mi *mountinfo.Info) (bool, bool) {
+			if mi.Source == real || mi.Mountpoint == real || mi.Root == real {
+				return false, false
+			}
+			return true, false
+		}
+		infos, err := mountinfo.GetMounts(filter)
 		ch <- result{infos: infos, err: err}
 	}()
 	var infos []*mountinfo.Info
@@ -238,9 +244,6 @@ func defaultMountFunc(ctx context.Context, path string) (bool, error) {
 		infos = r.infos
 	}
 	for _, mi := range infos {
-		if mi.Source != real && mi.Mountpoint != real && mi.Root != real {
-			continue
-		}
 		for _, opt := range strings.Split(mi.Options, ",") {
 			if opt == "rw" {
 				return true, nil

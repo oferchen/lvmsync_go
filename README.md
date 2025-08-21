@@ -1079,7 +1079,7 @@ lvmsync manifest rebuild /dev/vg0/lv0
 Progress logs are emitted every 10s by default; adjust with `--manifest-progress-interval`.
 The command times out after 1m unless overridden with `--manifest-timeout` (0 disables).
 Rebuild refuses to run if the device is mounted read-write; pass `--manifest-allow-mounted` to override.
-Mount detection parses `/proc/self/mountinfo` using `github.com/moby/sys/mountinfo` to correctly handle devices with spaces or special characters.
+Mount detection parses `/proc/self/mountinfo` using `github.com/moby/sys/mountinfo`, correctly handling bind mounts, repeated entries, and devices with spaces or special characters.
 Rebuild fails if the device reports a block size of 0.
 
 Manifests embed a persistent device identifier in a fixed 64-byte field. The
