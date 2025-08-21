@@ -108,6 +108,25 @@ func TestDeviceIdentityFormatParseOrder(t *testing.T) {
 	}
 }
 
+func TestSameIdentityIgnoresMajorMinor(t *testing.T) {
+	a := DeviceIdentity{
+		SizeBytes:     1,
+		KernelUUID:    "k",
+		GPTUUID:       "g",
+		MBRSignature:  "m",
+		FSUUID:        "f",
+		Major:         2,
+		Minor:         3,
+		ManifestEpoch: 4,
+	}
+	b := a
+	b.Major++
+	b.Minor++
+	if !SameIdentity(a, b) {
+		t.Fatalf("expected identities to match: %+v vs %+v", a, b)
+	}
+}
+
 func createEchoScript(t *testing.T, name, output string) string {
 	t.Helper()
 	dir := t.TempDir()
