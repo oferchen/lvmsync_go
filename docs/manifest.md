@@ -20,6 +20,8 @@ copies can be verified.
   regenerates it when digests or metadata are stale.
 - `lvmsync manifest compact <path>` rewrites the manifest using a temporary file
   and `fsync` before atomically swapping it into place.
+- `lvmsync manifest check <path>` validates manifest headers and indexes,
+  reporting corruption.
 - `lvmsync verify <source> <dest>` compares a destination against the manifest
   for the source. Override the manifest path with `--manifest-path` if needed.
 
@@ -147,6 +149,14 @@ lvmsync manifest rebuild /dev/vg0/lv0
 Progress logs are emitted every 10s by default; adjust with
 `--manifest-progress-interval`. The rebuild operation times out after 1m unless
 `--manifest-timeout` is set (0 disables).
+
+### Check
+
+Validate an existing manifest and report corruption:
+
+```sh
+lvmsync manifest check /path/to/device.manifest
+```
 
 ### Verify
 
