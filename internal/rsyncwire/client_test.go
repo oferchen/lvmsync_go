@@ -112,14 +112,31 @@ func TestClientSendIdentity(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	id := device.DeviceIdentity{SizeBytes: 1, KernelUUID: "k"}
+	id := device.DeviceIdentity{SizeBytes: 1, KernelUUID: "k", GPTUUID: "g", MBRSignature: "m", FSUUID: "f", Major: 1, Minor: 2, ManifestEpoch: 3}
+	type recvResult struct {
+		frame []byte
+		err   error
+	}
+	frameCh := make(chan recvResult, 1)
+	go func() {
+		frame, err := srv.Recv(context.Background())
+		frameCh <- recvResult{frame: frame, err: err}
+	}()
+
 	if err := client.SendIdentity(ctx, id); err != nil {
 		t.Fatalf("SendIdentity: %v", err)
 	}
-	frame, err := srv.Recv(ctx)
-	if err != nil {
-		t.Fatalf("Recv: %v", err)
+
+	var res recvResult
+	select {
+	case res = <-frameCh:
+	case <-ctx.Done():
+		t.Fatal("timeout waiting for Recv")
 	}
+	if res.err != nil {
+		t.Fatalf("Recv: %v", res.err)
+	}
+	frame := res.frame
 	if frame[0] != 'I' {
 		t.Fatalf("unexpected frame type %q", frame[0])
 	}
