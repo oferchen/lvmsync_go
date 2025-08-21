@@ -68,17 +68,34 @@ func TestStreamToRemoteRsyncDelta(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		defer c2.Close()
 		srvErr = srv.Handle(ctx, rsyncwire.NewStream(c2, maxFrame))
+		if srvErr != nil {
+			cancel()
+		}
 	}()
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		defer c1.Close()
 		cliErr = StreamToRemote(ctx, cfg, cc, snapPath, origPath, digestpkg.SHA256, zap.NewNop())
-		c1.Close()
+		if cliErr != nil {
+			cancel()
+		}
 	}()
 
-	wg.Wait()
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		wg.Wait()
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("wg.Wait(): timeout")
+	}
 
 	if cliErr != nil {
 		t.Fatalf("StreamToRemote: %v", cliErr)
