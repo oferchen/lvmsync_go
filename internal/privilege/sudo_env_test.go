@@ -10,8 +10,8 @@ import (
 )
 
 // dummy commander to avoid executing real commands
-func noopCmd(ctx context.Context, name string, args ...string) *exec.Cmd {
-	return exec.CommandContext(ctx, "echo")
+func noopCmd(ctx context.Context, _ string, _ ...string) *exec.Cmd {
+       return exec.CommandContext(ctx, "echo")
 }
 
 func TestSanitizeEnv(t *testing.T) {
