@@ -532,3 +532,44 @@ func TestHandleIdentityMismatch(t *testing.T) {
 		t.Fatalf("expected precondition error, got %v", err)
 	}
 }
+
+func TestHandleIdentityIgnoresMajorMinor(t *testing.T) {
+	c1, c2 := net.Pipe()
+	defer c1.Close()
+	defer c2.Close()
+
+	id := device.DeviceIdentity{
+		SizeBytes:     1,
+		KernelUUID:    "k",
+		GPTUUID:       "g",
+		MBRSignature:  "m",
+		FSUUID:        "f",
+		Major:         1,
+		Minor:         1,
+		ManifestEpoch: 2,
+	}
+	dev := &memDevice{buf: make([]byte, int(id.SizeBytes)), id: id}
+	srv := New(dev, zap.NewNop(), nil, "", "")
+	ctx := context.Background()
+	errCh := make(chan error, 1)
+	go func() { errCh <- srv.Handle(ctx, rsyncwire.NewStream(c2, maxFrame)) }()
+
+	cl := rsyncwire.NewClient(rsyncwire.NewStream(c1, maxFrame))
+	remote := id
+	remote.Major++
+	remote.Minor++
+	if err := cl.SendIdentity(context.Background(), remote); err != nil {
+		t.Fatalf("SendIdentity: %v", err)
+	}
+	exp, err := digest.SumReader(bytes.NewReader(dev.buf), digest.SHA256)
+	if err != nil {
+		t.Fatalf("digest: %v", err)
+	}
+	if err := cl.SendDigest(context.Background(), digest.SHA256, exp); err != nil {
+		t.Fatalf("SendDigest: %v", err)
+	}
+	c1.Close()
+	if err := <-errCh; err != nil {
+		t.Fatalf("Handle: %v", err)
+	}
+}

@@ -94,7 +94,7 @@ func (s *Server) Handle(ctx context.Context, stream *rsyncwire.Stream) error {
 			if err != nil {
 				return err
 			}
-			if local != id {
+			if !device.SameIdentity(local, id) {
 				return fmt.Errorf("precondition: device identity mismatch")
 			}
 			idOK = true
