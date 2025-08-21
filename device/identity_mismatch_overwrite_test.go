@@ -36,7 +36,7 @@ func TestIdentityMismatchRequiresOverwriteFlags(t *testing.T) {
 	dev.Close()
 
 	info := NewInfo()
-	if err := verifyIdentity(context.Background(), info, srcLoop, dstLoop); err == nil || !strings.Contains(err.Error(), "size mismatch") {
+	if err := VerifyIdentity(context.Background(), info, srcLoop, dstLoop); err == nil || !strings.Contains(err.Error(), "size mismatch") {
 		t.Fatalf("expected size mismatch error, got %v", err)
 	}
 }

@@ -41,6 +41,7 @@ func TestProbeOnlyNoSideEffects(t *testing.T) {
 		probeDest: func(context.Context, *config.Config, string, *zap.Logger) (device.DeviceIdentity, error) {
 			return device.DeviceIdentity{SizeBytes: 123, KernelUUID: "k", GPTUUID: "g", MBRSignature: "", FSUUID: "f", Major: 1, Minor: 2, ManifestEpoch: 456}, nil
 		},
+		verifyIdentity: func(context.Context, *device.Info, string, string) error { return nil },
 	})
 
 	oldStdout := os.Stdout
@@ -81,6 +82,7 @@ func TestDryRunLogsCompression(t *testing.T) {
 		detectDevice: func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, privilege.Escalator, *zap.Logger, *device.Runner) (device.Device, error) {
 			return &sizedDevice{fakeDevice{path: "/dev/snap"}, 1024}, nil
 		},
+		verifyIdentity: func(context.Context, *device.Info, string, string) error { return nil },
 	})
 
 	if _, err := r.Run(context.Background(), cfg, "/dev/snap", "", logger); err != nil {
