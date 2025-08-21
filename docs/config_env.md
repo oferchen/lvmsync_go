@@ -29,6 +29,7 @@
 | LVMSYNC_DIGEST | `--digest` | `digest` | Digest algorithm: [sha256 blake3 auto] |
 | LVMSYNC_DISCARD | `--discard` | `discard` | Issue BLKDISCARD before writing blocks and verify discarded regions |
 | LVMSYNC_DRY_RUN | `--dry-run` | `dry-run` | Print actions without executing |
+| LVMSYNC_ENABLE_QUIC | `--enable-quic` | `enable-quic` | Enable QUIC transport |
 | LVMSYNC_FORCE | `--force` | `force` | Override safety checks for offline raw access or filesystem freeze |
 | LVMSYNC_FORCE_OFFLINE | `--force-offline` | `force-offline` | Allow direct device writes; prompts for double-confirm |
 | LVMSYNC_FREEZE_TIMEOUT | `--freeze-timeout` | `freeze-timeout` | Timeout for filesystem freeze command |
@@ -96,35 +97,3 @@
 | LVMSYNC_YES_I_KNOW | `--yes-i-know` | `yes-i-know` | Confirm destructive write operations in non-interactive sessions |
 | LVMSYNC_ZEROCOPY | `--zerocopy` | `zerocopy` | Enable zero-copy transfers |
 | LVMSYNC_ZSTD_LEVEL | `--zstd-level` | `zstd-level` | Zstd compression level (1-5) |
-
-## Examples
-
-Configuration values follow flag > environment variable > YAML file precedence. For the `delta` option:
-
-1. Environment variables override YAML:
-
-   `config.yaml`:
-
-   ```yaml
-   delta: none
-   ```
-
-   ```sh
-   LVMSYNC_DELTA=rsync lvmsync --config config.yaml
-   ```
-
-   The effective value is `rsync`.
-
-2. Flags override environment variables and YAML:
-
-   `config.yaml`:
-
-   ```yaml
-   delta: rsync
-   ```
-
-   ```sh
-   LVMSYNC_DELTA=rsync lvmsync --config config.yaml --delta none
-   ```
-
-   The effective value is `none`.
