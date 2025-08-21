@@ -32,7 +32,6 @@ func (c *countingConn) Write(p []byte) (int, error) {
 }
 
 func TestStreamToRemoteRsyncDelta(t *testing.T) {
-	t.Skip("flaky in sandbox environment")
 	cfg, err := config.DefaultConfig()
 	if err != nil {
 		t.Fatalf("DefaultConfig: %v", err)
@@ -105,8 +104,8 @@ func TestStreamToRemoteRsyncDelta(t *testing.T) {
 
 	select {
 	case <-done:
-	case <-time.After(time.Second):
-		t.Fatal("wg.Wait(): timeout")
+	case <-ctx.Done():
+		t.Fatalf("wg.Wait(): %v", ctx.Err())
 	}
 
 	if cliErr != nil {
