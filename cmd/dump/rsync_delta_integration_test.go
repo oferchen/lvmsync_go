@@ -157,5 +157,11 @@ func (m *rsyncserverMemDevice) Size() int64 { return int64(len(m.buf)) }
 func (m *rsyncserverMemDevice) Sync() error { return nil }
 
 func (m *rsyncserverMemDevice) Identity(context.Context) (device.DeviceIdentity, error) {
-	return device.DeviceIdentity{SizeBytes: uint64(len(m.buf))}, nil
+	return device.DeviceIdentity{
+		SizeBytes:    uint64(len(m.buf)),
+		KernelUUID:   "0",
+		GPTUUID:      "0",
+		MBRSignature: "0",
+		FSUUID:       "0",
+	}, nil
 }

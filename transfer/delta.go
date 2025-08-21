@@ -8,12 +8,14 @@ import (
 	"os"
 
 	"github.com/zeebo/blake3"
+	"go.uber.org/zap"
 
 	"lvmsync_go/common"
 	"lvmsync_go/dedup"
 	"lvmsync_go/device"
 	"lvmsync_go/internal/config"
 	digestpkg "lvmsync_go/internal/digest"
+	"lvmsync_go/internal/privilege"
 	"lvmsync_go/internal/rsyncwire"
 	manifestpkg "lvmsync_go/manifest"
 )
@@ -40,14 +42,33 @@ func (t *Transfer) streamRsyncDelta(ctx context.Context, cfg *config.Config, sna
 	}
 	defer common.CloseWithErr(orig, &err, "close origin")
 
+	t.Logger.Warn("plaintext_connection", zap.String("transport", "rsync"), zap.String("docs", "docs/transports.md"))
+
 	rw := writeOnlyReadWriter{out}
 	cl := rsyncwire.NewClient(rsyncwire.NewStream(rw, rsyncMaxFrame))
-	// Send destination identity based on the origin size.
-	info, err := orig.Stat()
+	// Send destination identity to allow early mismatch detection.
+	dev, err := device.Detect(ctx, origin, true, "", "", "", "", 0, 0, privilege.New(ctx, t.Logger), t.Logger, device.NewRunner())
 	if err != nil {
-		return fmt.Errorf("stat origin: %w", err)
+		return fmt.Errorf("detect origin: %w", err)
 	}
-	if err := cl.SendIdentity(ctx, device.DeviceIdentity{SizeBytes: uint64(info.Size())}); err != nil {
+	defer dev.Close()
+	id, err := dev.Identity(ctx)
+	if err != nil {
+		return fmt.Errorf("destination identity: %w", err)
+	}
+	if id.KernelUUID == "" {
+		id.KernelUUID = "0"
+	}
+	if id.GPTUUID == "" {
+		id.GPTUUID = "0"
+	}
+	if id.MBRSignature == "" {
+		id.MBRSignature = "0"
+	}
+	if id.FSUUID == "" {
+		id.FSUUID = "0"
+	}
+	if err := cl.SendIdentity(ctx, id); err != nil {
 		return fmt.Errorf("send identity: %w", err)
 	}
 	if _, err := cl.SendSignatures(ctx, orig); err != nil {

@@ -536,14 +536,34 @@ func (r *Runner) streamRsyncDelta(ctx context.Context, cfg *config.Config, remot
 	}
 	defer common.CloseWithErr(orig, &err, "close origin")
 
+	logger.Warn("plaintext_connection", zap.String("transport", "rsync"), zap.String("docs", "docs/transports.md"))
+
 	rw := writeOnlyReadWriter{remoteStdin}
 	cl := rsyncwire.NewClient(rsyncwire.NewStream(rw, maxFrame))
-	info, err := orig.Stat()
+	dev, err := r.detectDevice(ctx, originDevice, true, "", "", "", "", 0, 0, privilege.New(ctx, logger), logger, device.NewRunner())
 	if err != nil {
 		remoteStdin.Close()
-		return fmt.Errorf("stat origin: %w", err)
+		return fmt.Errorf("detect origin: %w", err)
 	}
-	if err := cl.SendIdentity(ctx, device.DeviceIdentity{SizeBytes: uint64(info.Size())}); err != nil {
+	id, err := dev.Identity(ctx)
+	dev.Close()
+	if err != nil {
+		remoteStdin.Close()
+		return fmt.Errorf("destination identity: %w", err)
+	}
+	if id.KernelUUID == "" {
+		id.KernelUUID = "0"
+	}
+	if id.GPTUUID == "" {
+		id.GPTUUID = "0"
+	}
+	if id.MBRSignature == "" {
+		id.MBRSignature = "0"
+	}
+	if id.FSUUID == "" {
+		id.FSUUID = "0"
+	}
+	if err := cl.SendIdentity(ctx, id); err != nil {
 		remoteStdin.Close()
 		return fmt.Errorf("send identity: %w", err)
 	}
