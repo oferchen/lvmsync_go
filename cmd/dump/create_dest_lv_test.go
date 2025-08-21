@@ -8,6 +8,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"lvmsync_go/device"
 	"lvmsync_go/internal/config"
 	"lvmsync_go/lvm"
 	"lvmsync_go/transfer"
@@ -25,8 +26,9 @@ func TestRunLocalDumpCreatesDestLV(t *testing.T) {
 
 	var createCalled bool
 	r := NewRunnerWithDeps(&Runner{
-		dumpSeq:  func(context.Context, *transfer.Transfer, *config.Config, string, string, io.Writer) error { return nil },
-		openFile: func(string, int, os.FileMode) (*os.File, error) { return os.OpenFile(os.DevNull, os.O_RDWR, 0) },
+		dumpSeq:        func(context.Context, *transfer.Transfer, *config.Config, string, string, io.Writer) error { return nil },
+		openFile:       func(string, int, os.FileMode) (*os.File, error) { return os.OpenFile(os.DevNull, os.O_RDWR, 0) },
+		verifyIdentity: func(context.Context, *device.Info, string, string) error { return nil },
 		createLV: func(_ context.Context, vg, lv string, size uint64, _ *zap.Logger) error {
 			createCalled = true
 			if vg != "vg" || lv != "dest" || size != 1234 {

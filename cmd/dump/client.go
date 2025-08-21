@@ -65,6 +65,7 @@ type Runner struct {
 	parseLVPath    func(string) (string, string, error)
 	getVolumeSize  func(string, *lvm.FDCache, *zap.Logger) (uint64, error)
 	newFDC         func(*zap.Logger) (*lvm.FDCache, error)
+	verifyIdentity func(context.Context, *device.Info, string, string) error
 }
 
 var (
@@ -74,10 +75,12 @@ var (
 	detectDevice   = device.Detect
 	streamToRemote = func(ctx context.Context, cfg *config.Config, remoteStdin io.WriteCloser, snapshotDevice, originDevice, alg string, logger *zap.Logger) error {
 		r := &Runner{
-			dumpSeq:   dumpChangesSequential,
-			dumpPar:   dumpChangesParallel,
-			dumpDedup: dumpChangesWithDeduplication,
-			sumFile:   sumFile,
+			dumpSeq:        dumpChangesSequential,
+			dumpPar:        dumpChangesParallel,
+			dumpDedup:      dumpChangesWithDeduplication,
+			sumFile:        sumFile,
+			openFile:       openFile,
+			verifyIdentity: func(context.Context, *device.Info, string, string) error { return nil },
 		}
 		return r.StreamToRemote(ctx, cfg, remoteStdin, snapshotDevice, originDevice, alg, logger)
 	}
@@ -93,6 +96,7 @@ var (
 	probeDestination = func(ctx context.Context, cfg *config.Config, dest string, logger *zap.Logger) (device.DeviceIdentity, error) {
 		return realProbeDestination(ctx, cfg, dest, logger)
 	}
+	verifyIdentity = device.VerifyIdentity
 )
 
 // NewRunner constructs a Runner with production dependencies.
@@ -111,6 +115,7 @@ func NewRunner() *Runner {
 		parseLVPath:    lvm.ParseLVPath,
 		getVolumeSize:  lvm.GetVolumeSize,
 		newFDC:         lvm.NewDeviceFDCache,
+		verifyIdentity: verifyIdentity,
 	}
 }
 
@@ -163,6 +168,9 @@ func NewRunnerWithDeps(deps *Runner) *Runner {
 	}
 	if deps.newFDC != nil {
 		r.newFDC = deps.newFDC
+	}
+	if deps.verifyIdentity != nil {
+		r.verifyIdentity = deps.verifyIdentity
 	}
 	return r
 }
@@ -431,6 +439,10 @@ func (r *Runner) RunLocalDump(ctx context.Context, cfg *config.Config, snapshotD
 				}
 			}
 		}
+	}
+	info := device.NewInfo()
+	if err := r.verifyIdentity(devCtx, info, snapshotDevice, dest); err != nil {
+		return destType, err
 	}
 	destFile, err := r.openFile(dest, os.O_RDWR, 0)
 	if err != nil {

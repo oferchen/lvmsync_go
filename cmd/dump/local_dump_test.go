@@ -9,6 +9,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"lvmsync_go/device"
 	"lvmsync_go/internal/config"
 	"lvmsync_go/transfer"
 )
@@ -45,7 +46,8 @@ func TestRunLocalDumpSuccess(t *testing.T) {
 	defer func() { dumpChangesSequential = originalDump }()
 
 	originalDestType := cfg.DestType
-	destType, err := RunLocalDump(context.Background(), cfg, "snap", "orig", "/fake/dest", zap.NewNop())
+	r := NewRunnerWithDeps(&Runner{verifyIdentity: func(context.Context, *device.Info, string, string) error { return nil }})
+	destType, err := r.RunLocalDump(context.Background(), cfg, "snap", "orig", "/fake/dest", zap.NewNop())
 	if err != nil {
 		t.Fatalf("runLocalDump returned error: %v", err)
 	}
@@ -83,7 +85,8 @@ func TestRunLocalDumpOpenError(t *testing.T) {
 	defer func() { dumpChangesSequential = originalDump }()
 
 	originalDestType := cfg.DestType
-	if destType, err := RunLocalDump(context.Background(), cfg, "snap", "orig", "/fake/dest", zap.NewNop()); err == nil {
+	r := NewRunnerWithDeps(&Runner{verifyIdentity: func(context.Context, *device.Info, string, string) error { return nil }})
+	if destType, err := r.RunLocalDump(context.Background(), cfg, "snap", "orig", "/fake/dest", zap.NewNop()); err == nil {
 		t.Fatalf("expected error, got nil")
 	} else if destType != originalDestType {
 		t.Fatalf("expected dest type %q, got %q", originalDestType, destType)
