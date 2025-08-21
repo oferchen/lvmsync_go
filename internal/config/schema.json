@@ -29,6 +29,9 @@
     "cdc_min": {
       "type": "integer"
     },
+    "check_partition": {
+      "type": "boolean"
+    },
     "checkpoint_bytes": {
       "type": "string"
     },

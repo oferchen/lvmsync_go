@@ -63,6 +63,7 @@ func initGeneralFlags(cfg *Config) *pflag.FlagSet {
 	fs.Bool("force-offline", cfg.ForceOffline, "Allow direct device writes; prompts for double-confirm")
 	fs.Bool("allow-overwrite", cfg.AllowOverwrite, "Allow overwriting existing data; requires --yes-i-know for non-interactive sessions")
 	fs.Bool("enable-quic", cfg.EnableQUIC, "Enable QUIC transport")
+	fs.Bool("check-partition", cfg.CheckPartition, "Verify partition signatures for source and destination")
 	fs.Bool("discard", cfg.Discard, "Issue BLKDISCARD before writing blocks and verify discarded regions")
 	fs.Bool("offline", cfg.Offline, "Assume source raw device is offline")
 	fs.Bool("sanitize-env", cfg.SanitizeEnv, "Drop PATH, LANG, and unsafe variables before privilege escalation (enable with --sanitize-env)")
