@@ -52,8 +52,11 @@ type Server struct {
 
 // New constructs a Server using the provided Device and logger.
 // The digest algorithm and expected sum are supplied via a later digest frame.
-func New(dev Device, logger *zap.Logger, cache *signaturecache.Cache, vg, lv string) *Server {
-	return &Server{dev: dev, logger: logger, cache: cache, vg: vg, lv: lv}
+func New(dev Device, logger *zap.Logger, cache *signaturecache.Cache, vg, lv string) (*Server, error) {
+	if logger == nil {
+		return nil, errors.New("logger is nil")
+	}
+	return &Server{dev: dev, logger: logger, cache: cache, vg: vg, lv: lv}, nil
 }
 
 // Handle consumes frames from the Stream until EOF, applying any delta frames to
