@@ -27,10 +27,10 @@ For snapshot cleanup, resuming transfers, and verify-only rollback procedures, s
 - **Remote Execution via SSH**: Replicates data over SSH with support for pre/post-scripts.
 - **Resume Support**: Ability to resume interrupted transfers with verification enabled by default (use `--verify=none` to skip).
 - **Crash-Safe WAL**: Records committed ranges in a write-ahead log so interrupted runs can recover. See [WAL documentation](docs/wal.md) for layout and replay details.
-- **Probe and Verification Modes**: `--probe-only` validates devices and privileges without writing and prints `size_bytes kernel_uuid gpt_uuid fs_uuid major minor manifest_epoch` to stdout, while `--verify-only` scans both sides and reports mismatches.
+- **Probe and Verification Modes**: `--probe-only` validates devices and privileges without writing and prints `size_bytes kernel_uuid gpt_uuid mbr_signature fs_uuid major minor manifest_epoch` to stdout, while `--verify-only` scans both sides and reports mismatches.
  - **Dry-run Estimates**: `--dry-run` samples the manifest to project bytes and ETA without transferring data.
  - **Planning**: `--plan` prints resolved configuration with secrets redacted, transport order, estimated bytes, and compression decisions as JSON without transferring data.
- - **Device Identity Tuple**: Each run records `(size_bytes, kernel_uuid, gpt_uuid, fs_uuid, major, minor, manifest_epoch)` to prevent writing to the wrong destination.
+ - **Device Identity Tuple**: Each run records `(size_bytes, kernel_uuid, gpt_uuid, mbr_signature, fs_uuid, major, minor, manifest_epoch)` to prevent writing to the wrong destination.
 
 - **Handshake Timeouts**: Transport connections apply context deadlines during handshakes and clear them once negotiation succeeds.
 - **Sparse Destination Optimization**: Detects runs of zero bytes and punches holes when the filesystem supports it. Use `--sparse=never` to always write zeros instead.
@@ -710,7 +710,7 @@ Flags override environment variables, which override `config.yaml` values.
 | `--enable-quic` | `LVMSYNC_ENABLE_QUIC` | `enable_quic` | Enable QUIC transport registration |
 | `--plan` | `LVMSYNC_PLAN` | `plan` | Print configuration plan as JSON and exit |
 | `--verify-only` | `LVMSYNC_VERIFY_ONLY` | `verify_only` | Read source and destination and report mismatches without writing data |
-| `--probe-only` | `LVMSYNC_PROBE_ONLY` | `probe_only` | Validate devices and privileges and print `size_bytes kernel_uuid gpt_uuid fs_uuid major minor manifest_epoch` without transferring data |
+| `--probe-only` | `LVMSYNC_PROBE_ONLY` | `probe_only` | Validate devices and privileges and print `size_bytes kernel_uuid gpt_uuid mbr_signature fs_uuid major minor manifest_epoch` without transferring data |
 | `--sparse` | `LVMSYNC_SPARSE` | `sparse` | Sparse file handling: `auto` punches holes, `never` writes zero blocks |
 | `--transport` | `LVMSYNC_TRANSPORT_TRANSPORT` | `transport` | Ordered transports to try (e.g., `ssh,tcp+tls,h2,quic`) |
 | `--tcp-port` | `LVMSYNC_TRANSPORT_TCP_PORT` | `tcp_port` | TCP+TLS port |

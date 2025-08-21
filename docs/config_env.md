@@ -54,7 +54,7 @@
 | LVMSYNC_OUTPUT | `--output` | `output` | Output format: text, json, or yaml |
 | LVMSYNC_PARALLEL | `--parallel` | `parallel` | Number of concurrent workers |
 | LVMSYNC_PLAN | `--plan` | `plan` | Print configuration plan as JSON and exit |
-| LVMSYNC_PROBE_ONLY | `--probe-only` | `probe-only` | Output size_bytes, kernel_uuid, gpt_uuid, fs_uuid, major, minor, and manifest_epoch without writing |
+| LVMSYNC_PROBE_ONLY | `--probe-only` | `probe-only` | Output size_bytes, kernel_uuid, gpt_uuid, mbr_signature, fs_uuid, major, minor, and manifest_epoch without writing |
 | LVMSYNC_PROGRESS | `--progress` | `progress` | Show progress during transfer |
 | LVMSYNC_REMOTE_POST_SCRIPT | `--remote-post-script` | `remote-post-script` | Remote script to run after transfer |
 | LVMSYNC_REMOTE_PRE_SCRIPT | `--remote-pre-script` | `remote-pre-script` | Remote script to run before transfer |
