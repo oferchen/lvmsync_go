@@ -48,9 +48,16 @@ func yesIKnowFromContext(ctx context.Context) bool {
 	return false
 }
 
+type partition struct {
+	Start uint64
+	End   uint64
+	Type  string
+}
+
 type partitionSignatures struct {
-	gpt string
-	mbr string
+	gpt    string
+	mbr    string
+	layout []partition
 }
 
 // WithPartitionSignatures returns a context carrying partition table

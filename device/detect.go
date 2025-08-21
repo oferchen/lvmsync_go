@@ -15,12 +15,16 @@ import (
 	"lvmsync_go/lvm"
 )
 
-func verifyPartition(ctx context.Context, dev Device) error {
+func verifyPartition(ctx context.Context, dev Device, runner *Runner, logger *zap.Logger) error {
 	sig := partitionSignaturesFromContext(ctx)
-	if sig == nil || (sig.gpt == "" && sig.mbr == "") {
+	if sig == nil || (sig.gpt == "" && sig.mbr == "" && sig.layout == nil) {
 		return nil
 	}
 	id, err := dev.Identity(ctx)
+	if err != nil {
+		return err
+	}
+	layout, err := readPartitionLayout(ctx, dev.Path(), runner)
 	if err != nil {
 		return err
 	}
@@ -28,6 +32,10 @@ func verifyPartition(ctx context.Context, dev Device) error {
 		return fmt.Errorf("precondition: partition table mismatch")
 	}
 	if sig.mbr != "" && id.MBRSignature != sig.mbr {
+		return fmt.Errorf("precondition: partition table mismatch")
+	}
+	if diffs := diffPartitionLayouts(sig.layout, layout); len(diffs) > 0 {
+		logger.Error("partition_layout_mismatch", zap.Any("diff", diffs))
 		return fmt.Errorf("precondition: partition table mismatch")
 	}
 	return nil
@@ -60,7 +68,7 @@ func detectLVMDevice(ctx context.Context, path, lvmEscalation string, runner *Ru
 		logger.Error("detect_device_failed", zap.String("path", path), zap.String("device_type", TypeLVM), zap.Error(err))
 		return nil, err
 	}
-	if err := verifyPartition(ctx, dev); err != nil {
+	if err := verifyPartition(ctx, dev, runner, logger); err != nil {
 		dev.Close()
 		logger.Error("detect_device_failed", zap.String("path", path), zap.String("device_type", TypeLVM), zap.Error(err))
 		return nil, err
@@ -111,7 +119,7 @@ func detectRawDevice(
 		logger.Error("detect_device_failed", zap.String("path", path), zap.String("device_type", TypeRaw), zap.Error(err))
 		return nil, err
 	}
-	if err := verifyPartition(ctx, dev); err != nil {
+	if err := verifyPartition(ctx, dev, runner, logger); err != nil {
 		dev.Close()
 		logger.Error("detect_device_failed", zap.String("path", path), zap.String("device_type", TypeRaw), zap.Error(err))
 		return nil, err
@@ -160,7 +168,15 @@ func Detect(
 			logger.Error("device_detect_failed", zap.String("path", resolved), zap.String("device_type", "partition"), zap.Error(err))
 			return nil, err
 		}
-		if sig.gpt == "" && sig.mbr == "" {
+		var layout []partition
+		if info.Mode()&os.ModeDevice != 0 && info.Mode()&os.ModeCharDevice == 0 {
+			layout, err = readPartitionLayout(ctx, resolved, runner)
+			if err != nil {
+				logger.Error("device_detect_failed", zap.String("path", resolved), zap.String("device_type", "partition"), zap.Error(err))
+				return nil, err
+			}
+		}
+		if sig.gpt == "" && sig.mbr == "" && sig.layout == nil {
 			if gpt == "" && mbr == "" {
 				err := fmt.Errorf("precondition: partition signatures missing")
 				logger.Error("device_detect_failed", zap.String("path", resolved), zap.String("device_type", "partition"), zap.Error(err))
@@ -168,12 +184,18 @@ func Detect(
 			}
 			sig.gpt = gpt
 			sig.mbr = mbr
+			sig.layout = layout
 		} else {
 			if gpt == "" && mbr == "" ||
 				(sig.gpt != "" && gpt != sig.gpt) ||
 				(sig.mbr != "" && mbr != sig.mbr) {
 				err := fmt.Errorf("precondition: partition table mismatch")
 				logger.Error("device_detect_failed", zap.String("path", resolved), zap.String("device_type", "partition"), zap.Error(err))
+				return nil, err
+			}
+			if diffs := diffPartitionLayouts(sig.layout, layout); len(diffs) > 0 {
+				err := fmt.Errorf("precondition: partition table mismatch")
+				logger.Error("device_detect_failed", zap.String("path", resolved), zap.String("device_type", "partition"), zap.Any("diff", diffs), zap.Error(err))
 				return nil, err
 			}
 		}
