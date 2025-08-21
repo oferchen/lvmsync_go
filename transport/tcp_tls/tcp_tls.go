@@ -10,7 +10,6 @@ import (
 
 	"go.uber.org/zap"
 
-	rootcmd "lvmsync_go/cmd/root"
 	"lvmsync_go/common"
 	"lvmsync_go/internal/logging"
 	"lvmsync_go/transport"
@@ -74,8 +73,7 @@ func New(cfg transport.Config) (transport.Interface, error) {
 }
 
 func init() {
-	logger := zap.NewNop()
-	if err := transport.MustRegister("tcp+tls", func(cfg transport.Config) (transport.Interface, error) {
+	transport.MustRegister("tcp+tls", func(cfg transport.Config) (transport.Interface, error) {
 		tr, err := New(cfg)
 		if err != nil {
 			return nil, err
@@ -84,10 +82,7 @@ func init() {
 			return nil, fmt.Errorf("tcp+tls: nil transport")
 		}
 		return tr, nil
-	}); err != nil {
-		logger.Error("register_failed", zap.String("transport", "tcp+tls"), zap.Error(err))
-		rootcmd.SyncLogger(logger)
-	}
+	})
 }
 
 func (t *Transport) Name() string { return "tcp+tls" }

@@ -28,11 +28,13 @@ func Register(name string, f Factory) error {
 	return nil
 }
 
-// MustRegister adds a transport factory to the registry.
-//
-// It returns an error if the transport is already registered.
-func MustRegister(name string, f Factory) error {
-	return Register(name, f)
+// MustRegister adds a transport factory to the registry and panics if
+// registration fails. This is intended for use in package init functions where
+// duplicate registrations indicate a programming error.
+func MustRegister(name string, f Factory) {
+	if err := Register(name, f); err != nil {
+		panic(err)
+	}
 }
 
 // Get returns a transport from the registry by name.

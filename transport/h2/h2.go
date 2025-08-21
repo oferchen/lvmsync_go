@@ -15,7 +15,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/net/http2"
 
-	rootcmd "lvmsync_go/cmd/root"
 	"lvmsync_go/common"
 	"lvmsync_go/internal/logging"
 	"lvmsync_go/transport"
@@ -102,8 +101,7 @@ func New(cfg transport.Config) (transport.Interface, error) {
 }
 
 func init() {
-	logger := zap.NewNop()
-	if err := transport.MustRegister("h2", func(cfg transport.Config) (transport.Interface, error) {
+	transport.MustRegister("h2", func(cfg transport.Config) (transport.Interface, error) {
 		tr, err := New(cfg)
 		if err != nil {
 			return nil, err
@@ -112,10 +110,7 @@ func init() {
 			return nil, fmt.Errorf("h2: nil transport")
 		}
 		return tr, nil
-	}); err != nil {
-		logger.Error("register_failed", zap.String("transport", "h2"), zap.Error(err))
-		rootcmd.SyncLogger(logger)
-	}
+	})
 }
 
 func (t *Transport) Name() string { return "h2" }
