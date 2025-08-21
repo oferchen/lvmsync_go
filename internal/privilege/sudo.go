@@ -59,11 +59,11 @@ func (s *sudoEscalator) Ensure(ctx context.Context) error {
 // Command returns an *exec.Cmd that runs the given program. sudo -n is inserted
 // when capabilities are missing.
 func (s *sudoEscalator) Command(ctx context.Context, name string, args ...string) *exec.Cmd {
-	ctx, _ = s.withTimeout(ctx)
-	s.runner.Logger.Debug("exec_command",
-		zap.String("command", name),
-		zap.Strings("args", redactArgs(args)),
-	)
+        ctx, _ = s.withTimeout(ctx)
+       s.runner.Logger.Info("exec_command",
+               zap.String("command", name),
+               zap.Strings("args", redactArgs(args)),
+       )
 	if s.useSudo {
 		all := append([]string{"-n", name}, args...)
 		cmd := s.runner.Cmd.CommandContext(ctx, "sudo", all...)
