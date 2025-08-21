@@ -371,7 +371,7 @@ func TestDefaultMountFuncBindMountMountpoint(t *testing.T) {
 	}
 }
 
-func TestDefaultMountFuncDuplicateEntries(t *testing.T) {
+func TestDefaultMountFuncRepeatedDeviceEntries(t *testing.T) {
 	dev, err := os.CreateTemp("", "dev")
 	if err != nil {
 		t.Fatalf("create device: %v", err)
@@ -411,6 +411,46 @@ func TestDefaultMountFuncDuplicateEntries(t *testing.T) {
 	}
 }
 
+func TestDefaultMountFuncRepeatedDeviceEntriesAllRO(t *testing.T) {
+	dev, err := os.CreateTemp("", "dev")
+	if err != nil {
+		t.Fatalf("create device: %v", err)
+	}
+	defer os.Remove(dev.Name())
+	dev.Close()
+
+	dir := t.TempDir()
+	mp := filepath.Join(dir, "mnt")
+	if err := os.Mkdir(mp, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	mounts, err := os.CreateTemp("", "mountinfo")
+	if err != nil {
+		t.Fatalf("create mountinfo: %v", err)
+	}
+	escaped := strings.ReplaceAll(dev.Name(), " ", "\\040")
+	line1 := fmt.Sprintf("42 24 0:0 / %s ro,relatime - ext4 %s rw\n", mp, escaped)
+	line2 := fmt.Sprintf("43 24 0:0 / %s ro,relatime - ext4 %s rw\n", mp, escaped)
+	if _, err := mounts.WriteString(line1 + line2); err != nil {
+		t.Fatalf("write mountinfo: %v", err)
+	}
+	mounts.Close()
+	defer os.Remove(mounts.Name())
+
+	info := NewInfo()
+	prev := info.SetMountFunc(mountFuncFromMountInfoFile(mounts.Name()))
+	defer info.SetMountFunc(prev)
+
+	got, err := info.IsMountedRW(context.Background(), mp)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got {
+		t.Fatalf("expected not mounted read-write")
+	}
+}
+
 func TestDefaultMountFuncError(t *testing.T) {
 	dev, err := os.CreateTemp("", "dev")
 	if err != nil {
@@ -440,14 +480,17 @@ func mountFuncFromMountInfoFile(p string) func(context.Context, string) (bool, e
 			return false, err
 		}
 		defer f.Close()
-		infos, err := mountinfo.GetMountsFromReader(f, nil)
+		filter := func(mi *mountinfo.Info) (bool, bool) {
+			if mi.Source == real || mi.Mountpoint == real || mi.Root == real {
+				return false, false
+			}
+			return true, false
+		}
+		infos, err := mountinfo.GetMountsFromReader(f, filter)
 		if err != nil {
 			return false, err
 		}
 		for _, mi := range infos {
-			if mi.Source != real && mi.Mountpoint != real && mi.Root != real {
-				continue
-			}
 			for _, opt := range strings.Split(mi.Options, ",") {
 				if opt == "rw" {
 					return true, nil
