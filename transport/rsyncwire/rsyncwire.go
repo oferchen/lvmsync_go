@@ -11,7 +11,6 @@ import (
 	"github.com/gokrazy/rsync"
 	"go.uber.org/zap"
 
-	rootcmd "lvmsync_go/cmd/root"
 	"lvmsync_go/common"
 	"lvmsync_go/transport"
 )
@@ -40,8 +39,7 @@ func New(cfg transport.Config) (transport.Interface, error) {
 }
 
 func init() {
-	logger := zap.NewNop()
-	if err := transport.MustRegister("rsync", func(cfg transport.Config) (transport.Interface, error) {
+	transport.MustRegister("rsync", func(cfg transport.Config) (transport.Interface, error) {
 		tr, err := New(cfg)
 		if err != nil {
 			return nil, err
@@ -50,10 +48,7 @@ func init() {
 			return nil, fmt.Errorf("rsync: nil transport")
 		}
 		return tr, nil
-	}); err != nil {
-		logger.Error("register_failed", zap.String("transport", "rsync"), zap.Error(err))
-		rootcmd.SyncLogger(logger)
-	}
+	})
 }
 
 func (t *Transport) Name() string { return "rsync" }

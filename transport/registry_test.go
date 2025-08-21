@@ -8,8 +8,6 @@ import (
 	"testing"
 
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
-	"go.uber.org/zap/zaptest/observer"
 
 	"lvmsync_go/common"
 )
@@ -138,22 +136,12 @@ func TestMustRegisterDuplicate(t *testing.T) {
 		regMu.Unlock()
 	}()
 
-	if err := MustRegister("dup", func(Config) (Interface, error) { return nil, nil }); err != nil {
-		t.Fatalf("first register: %v", err)
-	}
+	MustRegister("dup", func(Config) (Interface, error) { return nil, nil })
 
-	syncLogger := func(l *zap.Logger) { _ = l.Sync() }
-	core, obs := observer.New(zapcore.ErrorLevel)
-	logger := zap.New(core)
-
-	if err := MustRegister("dup", func(Config) (Interface, error) { return nil, nil }); err != nil {
-		logger.Error("register_failed", zap.String("transport", "dup"), zap.Error(err))
-		syncLogger(logger)
-	} else {
-		t.Fatalf("expected duplicate registration error")
-	}
-
-	if obs.FilterMessage("register_failed").Len() != 1 {
-		t.Fatalf("expected register_failed log")
-	}
+	defer func() {
+		if r := recover(); r == nil {
+			t.Fatalf("expected panic on duplicate registration")
+		}
+	}()
+	MustRegister("dup", func(Config) (Interface, error) { return nil, nil })
 }

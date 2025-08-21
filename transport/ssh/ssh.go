@@ -18,7 +18,6 @@ import (
 	"golang.org/x/crypto/ssh/agent"
 	"golang.org/x/crypto/ssh/knownhosts"
 
-	rootcmd "lvmsync_go/cmd/root"
 	"lvmsync_go/common"
 	"lvmsync_go/transport"
 )
@@ -182,8 +181,7 @@ func agentSigners(ctx context.Context, sock string) ([]ssh.Signer, error) {
 }
 
 func init() {
-	logger := zap.NewNop()
-	if err := transport.MustRegister("ssh", func(cfg transport.Config) (transport.Interface, error) {
+	transport.MustRegister("ssh", func(cfg transport.Config) (transport.Interface, error) {
 		tr, err := New(context.Background(), cfg)
 		if err != nil {
 			return nil, err
@@ -192,10 +190,7 @@ func init() {
 			return nil, fmt.Errorf("ssh: nil transport")
 		}
 		return tr, nil
-	}); err != nil {
-		logger.Error("register_failed", zap.String("transport", "ssh"), zap.Error(err))
-		rootcmd.SyncLogger(logger)
-	}
+	})
 }
 
 func (t *Transport) Name() string { return "ssh" }
