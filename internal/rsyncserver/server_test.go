@@ -587,3 +587,35 @@ func TestHandleIdentityIgnoresMajorMinor(t *testing.T) {
 		t.Fatalf("Handle: %v", err)
 	}
 }
+
+func TestHandleIdentityMismatchFields(t *testing.T) {
+	c1, c2 := net.Pipe()
+	defer c1.Close()
+	defer c2.Close()
+
+	id := device.DeviceIdentity{
+		SizeBytes:     1,
+		KernelUUID:    "k",
+		GPTUUID:       "g",
+		MBRSignature:  "m",
+		FSUUID:        "f",
+		Major:         1,
+		Minor:         1,
+		ManifestEpoch: 2,
+	}
+	dev := &memDevice{buf: make([]byte, int(id.SizeBytes)), id: id}
+	srv := New(dev, zap.NewNop(), nil, "", "")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	errCh := make(chan error, 1)
+	go func() { errCh <- srv.Handle(ctx, rsyncwire.NewStream(c2, maxFrame)) }()
+
+	cl := rsyncwire.NewClient(rsyncwire.NewStream(c1, maxFrame))
+	remote := id
+	remote.FSUUID = "other"
+	sendIdentity(t, ctx, cl, remote)
+	c1.Close()
+	if err := waitHandle(t, errCh); err == nil || err.Error() != "precondition: device identity mismatch" {
+		t.Fatalf("expected precondition: device identity mismatch, got %v", err)
+	}
+}
