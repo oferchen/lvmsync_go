@@ -7,6 +7,7 @@ import (
 	"errors"
 	"hash/crc32"
 	"net"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -146,4 +147,59 @@ func TestStreamSendTimeout(t *testing.T) {
 		t.Fatalf("expected deadline exceeded, got %v", err)
 	}
 	_ = c2.Close()
+}
+
+// TestStreamNoGoroutineLeak ensures Send and Recv do not spawn lingering goroutines
+// when contexts are not cancelled.
+func TestStreamNoGoroutineLeak(t *testing.T) {
+	c1, c2 := net.Pipe()
+	defer c1.Close()
+	defer c2.Close()
+
+	sender := NewStream(c1, 1<<20)
+	receiver := NewStream(c2, 1<<20)
+
+	payload := []byte("data")
+	start := runtime.NumGoroutine()
+	for i := 0; i < 100; i++ {
+		sendCtx, _ := context.WithCancel(context.Background())
+		recvCtx, _ := context.WithCancel(context.Background())
+
+		errCh := make(chan error, 1)
+		go func() { errCh <- sender.Send(sendCtx, payload) }()
+		if _, err := receiver.Recv(recvCtx); err != nil {
+			t.Fatalf("Recv: %v", err)
+		}
+		if err := <-errCh; err != nil {
+			t.Fatalf("Send: %v", err)
+		}
+	}
+	// Allow any goroutines to exit and force GC.
+	time.Sleep(50 * time.Millisecond)
+	runtime.GC()
+	after := runtime.NumGoroutine()
+	if diff := after - start; diff > 5 {
+		t.Fatalf("goroutines leaked: before=%d after=%d", start, after)
+	}
+}
+
+func BenchmarkStreamSend(b *testing.B) {
+	c1, c2 := net.Pipe()
+	defer c1.Close()
+	defer c2.Close()
+	sender := NewStream(c1, 1<<20)
+	go func() {
+		buf := make([]byte, 1<<20)
+		for {
+			if _, err := c2.Read(buf); err != nil {
+				return
+			}
+		}
+	}()
+	payload := []byte("benchmark")
+	for i := 0; i < b.N; i++ {
+		if err := sender.Send(context.Background(), payload); err != nil {
+			b.Fatalf("Send: %v", err)
+		}
+	}
 }
