@@ -57,6 +57,12 @@ func emitPlan(cfg *config.Config, args []string, logger *zap.Logger) error {
 	if len(args) < 1 {
 		return fmt.Errorf("missing source argument")
 	}
+	if cfg.AllowInsecure || strings.Contains(cfg.Transport, "rsync") {
+		fmt.Fprintln(os.Stderr, "allow_insecure enabled; security checks disabled")
+		if !cfg.AllowInsecure {
+			return fmt.Errorf("insecure configuration requires --allow-insecure")
+		}
+	}
 	_, est, err := estimateBytes(args[0], cfg)
 	if err != nil {
 		return err
