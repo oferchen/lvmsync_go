@@ -96,3 +96,35 @@
 | LVMSYNC_YES_I_KNOW | `--yes-i-know` | `yes-i-know` | Confirm destructive write operations in non-interactive sessions |
 | LVMSYNC_ZEROCOPY | `--zerocopy` | `zerocopy` | Enable zero-copy transfers |
 | LVMSYNC_ZSTD_LEVEL | `--zstd-level` | `zstd-level` | Zstd compression level (1-5) |
+
+## Examples
+
+Configuration values follow flag > environment variable > YAML file precedence. For the `delta` option:
+
+1. Environment variables override YAML:
+
+   `config.yaml`:
+
+   ```yaml
+   delta: none
+   ```
+
+   ```sh
+   LVMSYNC_DELTA=rsync lvmsync --config config.yaml
+   ```
+
+   The effective value is `rsync`.
+
+2. Flags override environment variables and YAML:
+
+   `config.yaml`:
+
+   ```yaml
+   delta: rsync
+   ```
+
+   ```sh
+   LVMSYNC_DELTA=rsync lvmsync --config config.yaml --delta none
+   ```
+
+   The effective value is `none`.
