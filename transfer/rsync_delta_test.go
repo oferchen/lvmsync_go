@@ -64,7 +64,13 @@ func (m *rsyncserverMemDevice) Size() int64 { return int64(len(m.buf)) }
 func (m *rsyncserverMemDevice) Sync() error { return nil }
 
 func (m *rsyncserverMemDevice) Identity(context.Context) (device.DeviceIdentity, error) {
-	return device.DeviceIdentity{SizeBytes: uint64(len(m.buf))}, nil
+	return device.DeviceIdentity{
+		SizeBytes:    uint64(len(m.buf)),
+		KernelUUID:   "0",
+		GPTUUID:      "0",
+		MBRSignature: "0",
+		FSUUID:       "0",
+	}, nil
 }
 
 type rdMockDevice struct {
@@ -82,7 +88,13 @@ func (m *rdMockDevice) Snapshot(ctx context.Context, snapshotSize string) (devic
 func (m *rdMockDevice) Cleanup(ctx context.Context) error { return nil }
 func (m *rdMockDevice) Close() error                      { return nil }
 func (m *rdMockDevice) Identity(context.Context) (device.DeviceIdentity, error) {
-	return device.DeviceIdentity{}, nil
+	return device.DeviceIdentity{
+		SizeBytes:    m.size,
+		KernelUUID:   "0",
+		GPTUUID:      "0",
+		MBRSignature: "0",
+		FSUUID:       "0",
+	}, nil
 }
 func (m *rdMockDevice) AppendWAL(device.Range) error              { return nil }
 func (m *rdMockDevice) RecoverWAL(func(device.Range) error) error { return nil }
