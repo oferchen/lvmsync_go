@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -64,13 +65,13 @@ func (s *Server) Handle(ctx context.Context, stream *rsyncwire.Stream) error {
 			return err
 		}
 		frame, err := stream.Recv(ctx)
-		if err == io.EOF {
-			if err := s.dev.Sync(); err != nil {
-				return err
-			}
-			return s.verifyDigest()
-		}
 		if err != nil {
+			if errors.Is(err, io.EOF) || (s.alg != "" && errors.Is(err, io.ErrUnexpectedEOF)) {
+				if err := s.dev.Sync(); err != nil {
+					return err
+				}
+				return s.verifyDigest()
+			}
 			return err
 		}
 		if len(frame) == 0 {
