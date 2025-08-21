@@ -540,3 +540,49 @@ func TestNumaPinEnvOverridesYAML(t *testing.T) {
 		t.Fatalf("NumaPin=%v want %v", cfg.NumaPin, false)
 	}
 }
+
+func TestEnableQUICFlagOverridesEnvAndYAML(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("default: %v", err)
+	}
+	b := NewBuilder(defaults)
+	dir := t.TempDir()
+	cfgFile := filepath.Join(dir, "cfg.yaml")
+	if err := os.WriteFile(cfgFile, []byte("enable_quic: true\n"), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	t.Setenv("LVMSYNC_ENABLE_QUIC", "true")
+	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	cfg, _, _, err := b.Build(fs, []string{"--config", cfgFile, "--enable-quic=false"})
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	if cfg.EnableQUIC {
+		t.Fatalf("EnableQUIC=%v want %v", cfg.EnableQUIC, false)
+	}
+}
+
+func TestEnableQUICEnvOverridesYAML(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("default: %v", err)
+	}
+	b := NewBuilder(defaults)
+	dir := t.TempDir()
+	cfgFile := filepath.Join(dir, "cfg.yaml")
+	if err := os.WriteFile(cfgFile, []byte("enable_quic: false\n"), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	t.Setenv("LVMSYNC_ENABLE_QUIC", "true")
+	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	cfg, _, _, err := b.Build(fs, []string{"--config", cfgFile})
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	if !cfg.EnableQUIC {
+		t.Fatalf("EnableQUIC=%v want %v", cfg.EnableQUIC, true)
+	}
+}

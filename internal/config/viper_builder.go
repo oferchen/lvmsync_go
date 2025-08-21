@@ -54,6 +54,9 @@ func (b *builder) applyDefaults(conf *Config) error {
 	if !isSet(b.v, "allow-insecure") {
 		conf.AllowInsecure = b.defaults.AllowInsecure
 	}
+	if !isSet(b.v, "enable-quic") {
+		conf.EnableQUIC = b.defaults.EnableQUIC
+	}
 	if !isSet(b.v, "numa-pin") {
 		conf.NumaPin = b.defaults.NumaPin
 	}

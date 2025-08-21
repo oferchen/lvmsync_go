@@ -707,6 +707,7 @@ Flags override environment variables, which override `config.yaml` values.
 | `--check-partition` | `LVMSYNC_CHECK_PARTITION` | `check_partition` | Verify partition signatures for source and destination |
 | `--discard` | `LVMSYNC_DISCARD` | `discard` | Issue BLKDISCARD before writing blocks and verify discarded regions |
 | `--dry-run` | `LVMSYNC_DRY_RUN` | `dry_run` | Log estimated transfer bytes without sending data; uses manifest sampling when available |
+| `--enable-quic` | `LVMSYNC_ENABLE_QUIC` | `enable_quic` | Enable QUIC transport registration |
 | `--plan` | `LVMSYNC_PLAN` | `plan` | Print configuration plan as JSON and exit |
 | `--verify-only` | `LVMSYNC_VERIFY_ONLY` | `verify_only` | Read source and destination and report mismatches without writing data |
 | `--probe-only` | `LVMSYNC_PROBE_ONLY` | `probe_only` | Validate devices and privileges and print `size_bytes kernel_uuid gpt_uuid fs_uuid major minor manifest_epoch` without transferring data |

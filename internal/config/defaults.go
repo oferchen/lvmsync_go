@@ -124,6 +124,7 @@ type Config struct {
 	ClientKey                string        `mapstructure:"client_key"`
 	CACert                   string        `mapstructure:"ca_cert"`
 	AllowInsecure            bool          `mapstructure:"allow_insecure"`
+	EnableQUIC               bool          `mapstructure:"enable_quic"`
 	Transport                string        `mapstructure:"transport"`
 	TCPPort                  int           `mapstructure:"tcp_port"`
 	TCPParallel              int           `mapstructure:"tcp_parallel"`
@@ -271,6 +272,7 @@ func DefaultConfig() (*Config, error) {
 		ClientKey:                "",
 		CACert:                   "",
 		AllowInsecure:            false,
+		EnableQUIC:               true,
 		Transport:                "ssh,tcp+tls,h2,quic",
 		TCPPort:                  0,
 		TCPParallel:              1,
