@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 
 	"lvmsync_go/device"
 	"lvmsync_go/internal/config"
@@ -36,6 +37,7 @@ func TestStreamToRemoteRsyncDelta(t *testing.T) {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
 	cfg.Delta = "rsync"
+	cfg.AllowInsecure = true
 
 	dir := t.TempDir()
 	origPath := dir + "/orig"
@@ -59,16 +61,21 @@ func TestStreamToRemoteRsyncDelta(t *testing.T) {
 	copy(dev.buf, originData)
 	srv := rsyncserver.New(dev, zap.NewNop(), nil, "", "")
 
+	core, logs := observer.New(zap.WarnLevel)
+	logger := zap.New(core)
+
 	c1, c2 := net.Pipe()
 	cc := &countingConn{Conn: c1}
 
 	var wg sync.WaitGroup
 	var srvErr, cliErr error
+	serverReady := make(chan struct{})
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		defer c2.Close()
+		close(serverReady)
 		srvErr = srv.Handle(ctx, rsyncwire.NewStream(c2, maxFrame))
 		if srvErr != nil {
 			cancel()
@@ -79,7 +86,8 @@ func TestStreamToRemoteRsyncDelta(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		defer c1.Close()
-		cliErr = StreamToRemote(ctx, cfg, cc, snapPath, origPath, digestpkg.SHA256, zap.NewNop())
+		<-serverReady
+		cliErr = StreamToRemote(ctx, cfg, cc, snapPath, origPath, digestpkg.SHA256, logger)
 		if cliErr != nil {
 			cancel()
 		}
@@ -109,6 +117,11 @@ func TestStreamToRemoteRsyncDelta(t *testing.T) {
 	}
 	if cc.n >= int64(len(snapshotData)) {
 		t.Fatalf("delta not efficient: sent %d >= %d", cc.n, len(snapshotData))
+	}
+
+	entries := logs.FilterMessage("plaintext_connection").All()
+	if len(entries) == 0 {
+		t.Fatalf("expected plaintext warning")
 	}
 }
 
