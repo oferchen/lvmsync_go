@@ -1,5 +1,6 @@
 //go:build linux
 
+// Package device provides Linux device utilities.
 package device
 
 import (
@@ -42,10 +43,10 @@ func SetDiscardFunc(fn func(*os.File, uint64, uint64, bool, bool, *zap.Logger) e
 	return func() { discardImpl = orig }
 }
 
-// DiscardRange issues BLKDISCARD for the specified range on f.
+// DiscardRange issues BLKDISCARD for the specified range on f. logger must be non-nil.
 func DiscardRange(f *os.File, offset, length uint64, sanitize, noNewPrivs bool, logger *zap.Logger) error {
 	if logger == nil {
-		panic("nil logger")
+		return fmt.Errorf("logger is nil")
 	}
 	return discardImpl(f, offset, length, sanitize, noNewPrivs, logger)
 }

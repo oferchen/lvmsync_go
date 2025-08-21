@@ -15,7 +15,7 @@ func TestDiscardRangeStubAndRestore(t *testing.T) {
 	if err != nil {
 		t.Fatalf("temp file: %v", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	stubErr := errors.New("stub discard error")
 	calls := 0
@@ -46,16 +46,13 @@ func TestDiscardRangeStubAndRestore(t *testing.T) {
 	}
 }
 
-func TestDiscardRangeNilLoggerPanics(t *testing.T) {
+func TestDiscardRangeNilLogger(t *testing.T) {
 	f, err := os.CreateTemp(t.TempDir(), "discard")
 	if err != nil {
 		t.Fatalf("temp file: %v", err)
 	}
-	defer f.Close()
-	defer func() {
-		if r := recover(); r == nil {
-			t.Fatalf("expected panic")
-		}
-	}()
-	_ = DiscardRange(f, 0, 0, false, false, nil)
+	defer func() { _ = f.Close() }()
+	if err := DiscardRange(f, 0, 0, false, false, nil); err == nil {
+		t.Fatalf("expected error when logger is nil")
+	}
 }
