@@ -6,6 +6,10 @@ This guide outlines exit codes, resume workflows, and common troubleshooting ste
 
 `--strict-config` or `LVMSYNC_STRICT_CONFIG=1` converts configuration warnings into errors, allowing CI pipelines to fail fast when unknown or deprecated settings are present.
 
+## Hardened privilege escalation
+
+`--no-new-privs` or `LVMSYNC_NO_NEW_PRIVS=1` sets `PR_SET_NO_NEW_PRIVS` before invoking `sudo` to prevent the escalated process from gaining additional privileges.
+
 ## Resume and Verification Sequences
 
 ### `--probe-only`

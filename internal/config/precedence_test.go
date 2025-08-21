@@ -354,6 +354,75 @@ func TestSanitizeEnvEnvOverridesYAML(t *testing.T) {
 	}
 }
 
+func TestNoNewPrivsFlagOverridesEnvAndYAML(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("default: %v", err)
+	}
+	b := NewBuilder(defaults)
+	dir := t.TempDir()
+	cfgFile := filepath.Join(dir, "cfg.yaml")
+	if err := os.WriteFile(cfgFile, []byte("no_new_privs: false\n"), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	t.Setenv("LVMSYNC_NO_NEW_PRIVS", "0")
+	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	cfg, _, _, err := b.Build(fs, []string{"--config", cfgFile, "--no-new-privs"})
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	if !cfg.NoNewPrivs {
+		t.Fatalf("NoNewPrivs=%v want true", cfg.NoNewPrivs)
+	}
+}
+
+func TestNoNewPrivsFlagFalseOverridesEnvAndYAML(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("default: %v", err)
+	}
+	b := NewBuilder(defaults)
+	dir := t.TempDir()
+	cfgFile := filepath.Join(dir, "cfg.yaml")
+	if err := os.WriteFile(cfgFile, []byte("no_new_privs: true\n"), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	t.Setenv("LVMSYNC_NO_NEW_PRIVS", "1")
+	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	cfg, _, _, err := b.Build(fs, []string{"--config", cfgFile, "--no-new-privs=false"})
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	if cfg.NoNewPrivs {
+		t.Fatalf("NoNewPrivs=%v want false", cfg.NoNewPrivs)
+	}
+}
+
+func TestNoNewPrivsEnvOverridesYAML(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("default: %v", err)
+	}
+	b := NewBuilder(defaults)
+	dir := t.TempDir()
+	cfgFile := filepath.Join(dir, "cfg.yaml")
+	if err := os.WriteFile(cfgFile, []byte("no_new_privs: false\n"), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	t.Setenv("LVMSYNC_NO_NEW_PRIVS", "1")
+	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	cfg, _, _, err := b.Build(fs, []string{"--config", cfgFile})
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	if !cfg.NoNewPrivs {
+		t.Fatalf("NoNewPrivs=%v want true", cfg.NoNewPrivs)
+	}
+}
+
 func TestSparseFlagOverridesEnvAndYAML(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	defaults, err := DefaultConfig()

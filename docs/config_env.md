@@ -47,6 +47,7 @@
 | LVMSYNC_MANIFEST_TIMEOUT | `--manifest-timeout` | `manifest-timeout` | Timeout for manifest rebuild (0 to disable) |
 | LVMSYNC_MAX_RETRIES | `--max-retries` | `max-retries` | Maximum number of retries per block |
 | LVMSYNC_MODE | `--mode` | `mode` | Preset mode: default or throughput |
+| LVMSYNC_NO_NEW_PRIVS | `--no-new-privs` | `no-new-privs` | Set PR_SET_NO_NEW_PRIVS before privilege escalation |
 | LVMSYNC_NUMA_NODE | `--numa-node` | `numa-node` | NUMA node to pin worker goroutines |
 | LVMSYNC_NUMA_PIN | `--numa-pin` | `numa-pin` | Pin worker goroutines to device NUMA node |
 | LVMSYNC_ODIRECT | `--odirect` | `odirect` | Use O_DIRECT for device I/O when possible |

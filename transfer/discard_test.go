@@ -18,10 +18,10 @@ func TestProcessBlockDiscard(t *testing.T) {
 	}
 	defer f.Close()
 	called := false
-	restore := device.SetDiscardFunc(func(_ *os.File, off, length uint64, sanitize bool, _ *zap.Logger) error {
+	restore := device.SetDiscardFunc(func(_ *os.File, off, length uint64, sanitize, noNewPrivs bool, _ *zap.Logger) error {
 		called = true
-		if off != 0 || length != 4 || sanitize {
-			t.Errorf("unexpected params: off=%d len=%d sanitize=%v", off, length, sanitize)
+		if off != 0 || length != 4 || sanitize || noNewPrivs {
+			t.Errorf("unexpected params: off=%d len=%d sanitize=%v noNewPrivs=%v", off, length, sanitize, noNewPrivs)
 		}
 		return nil
 	})
@@ -44,7 +44,7 @@ func TestProcessBlockDiscardDisabled(t *testing.T) {
 	}
 	defer f.Close()
 	called := false
-	restore := device.SetDiscardFunc(func(_ *os.File, off, length uint64, sanitize bool, _ *zap.Logger) error {
+	restore := device.SetDiscardFunc(func(_ *os.File, off, length uint64, sanitize, noNewPrivs bool, _ *zap.Logger) error {
 		called = true
 		return nil
 	})
