@@ -60,7 +60,10 @@ func TestStreamToRemoteRsyncDelta(t *testing.T) {
 
 	dev := &rsyncserverMemDevice{buf: make([]byte, len(originData))}
 	copy(dev.buf, originData)
-	srv := rsyncserver.New(dev, zap.NewNop(), nil, "", "")
+	srv, err := rsyncserver.New(dev, zap.NewNop(), nil, "", "")
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
 
 	core, logs := observer.New(zap.WarnLevel)
 	logger := zap.New(core)

@@ -71,7 +71,10 @@ func (m *memDevice) Identity(context.Context) (device.DeviceIdentity, error) {
 
 func newServer(t *testing.T, dev *memDevice, data []byte) *Server {
 	t.Helper()
-	srv := New(dev, zap.NewNop(), nil, "", "")
+	srv, err := New(dev, zap.NewNop(), nil, "", "")
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
 	exp, err := digest.SumReader(bytes.NewReader(data), digest.SHA256)
 	if err != nil {
 		t.Fatalf("digest: %v", err)
@@ -120,8 +123,14 @@ func waitHandle(t *testing.T, errCh <-chan error) error {
 	}
 }
 
+func TestNewNilLogger(t *testing.T) {
+	if _, err := New(nil, nil, nil, "", ""); err == nil {
+		t.Fatalf("expected error when logger is nil")
+	}
+}
+
 func TestHandleApplyDelta(t *testing.T) {
-       t.Skip("TODO: fix rsync server hang")
+	t.Skip("TODO: fix rsync server hang")
 }
 
 func TestHandleShortWrite(t *testing.T) {
@@ -152,7 +161,10 @@ func TestHandleRejectsOversizedSignatures(t *testing.T) {
 	defer c2.Close()
 
 	dev := &memDevice{buf: make([]byte, 1)}
-	srv := New(dev, zap.NewNop(), nil, "", "")
+	srv, err := New(dev, zap.NewNop(), nil, "", "")
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	errCh := make(chan error, 1)
@@ -188,7 +200,10 @@ func TestHandleCacheHit(t *testing.T) {
 	if err := cache.Put("vg", "lv", int64(len(data)), dgst[:]); err != nil {
 		t.Fatalf("Put: %v", err)
 	}
-	srv := New(dev, zap.NewNop(), cache, "vg", "lv")
+	srv, err := New(dev, zap.NewNop(), cache, "vg", "lv")
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
 	c1, c2 := net.Pipe()
 	defer c1.Close()
 	defer c2.Close()
@@ -218,7 +233,10 @@ func TestHandleCacheMissUpdates(t *testing.T) {
 	cache := signaturecache.New(dir, time.Hour, 10)
 	data := []byte("hi")
 	dev := &memDevice{buf: make([]byte, len(data))}
-	srv := New(dev, zap.NewNop(), cache, "vg", "lv")
+	srv, err := New(dev, zap.NewNop(), cache, "vg", "lv")
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
 	dgst, err := digest.SumReader(bytes.NewReader(data), digest.SHA256)
 	if err != nil {
 		t.Fatalf("digest: %v", err)
@@ -270,7 +288,10 @@ func TestHandleCacheTTLExpiry(t *testing.T) {
 	}
 	time.Sleep(20 * time.Millisecond)
 	dev := &memDevice{buf: append([]byte{}, data...)}
-	srv := New(dev, zap.NewNop(), cache, "vg", "lv")
+	srv, err := New(dev, zap.NewNop(), cache, "vg", "lv")
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
 	c1, c2 := net.Pipe()
 	defer c1.Close()
 	defer c2.Close()
@@ -304,7 +325,10 @@ func TestHandleCacheLRUEviction(t *testing.T) {
 		if err != nil {
 			t.Fatalf("digest: %v", err)
 		}
-		srv := New(dev, zap.NewNop(), cache, vg, lv)
+		srv, err := New(dev, zap.NewNop(), cache, vg, lv)
+		if err != nil {
+			t.Fatalf("New: %v", err)
+		}
 		c1, c2 := net.Pipe()
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
@@ -340,7 +364,10 @@ func TestHandleDeltaOffsetOverflow(t *testing.T) {
 
 	dev := &memDevice{buf: make([]byte, 1)}
 	core, logs := observer.New(zap.ErrorLevel)
-	srv := New(dev, zap.New(core), nil, "", "")
+	srv, err := New(dev, zap.New(core), nil, "", "")
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	errCh := make(chan error, 1)
@@ -380,7 +407,10 @@ func TestHandleDeltaOutOfBounds(t *testing.T) {
 
 	dev := &memDevice{buf: make([]byte, 10)}
 	core, logs := observer.New(zap.ErrorLevel)
-	srv := New(dev, zap.New(core), nil, "", "")
+	srv, err := New(dev, zap.New(core), nil, "", "")
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	errCh := make(chan error, 1)
@@ -419,7 +449,10 @@ func TestHandleUnknownFrameType(t *testing.T) {
 	defer c2.Close()
 
 	dev := &memDevice{buf: make([]byte, 1)}
-	srv := New(dev, zap.NewNop(), nil, "", "")
+	srv, err := New(dev, zap.NewNop(), nil, "", "")
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	errCh := make(chan error, 1)
@@ -440,7 +473,10 @@ func TestHandleDigestMismatch(t *testing.T) {
 
 	dev := &memDevice{buf: make([]byte, 2)}
 	core, logs := observer.New(zap.ErrorLevel)
-	srv := New(dev, zap.New(core), nil, "", "")
+	srv, err := New(dev, zap.New(core), nil, "", "")
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	errCh := make(chan error, 1)
@@ -486,7 +522,10 @@ func TestHandleMissingIdentity(t *testing.T) {
 	defer c2.Close()
 
 	dev := &memDevice{buf: make([]byte, 1)}
-	srv := New(dev, zap.NewNop(), nil, "", "")
+	srv, err := New(dev, zap.NewNop(), nil, "", "")
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	errCh := make(chan error, 1)
@@ -507,7 +546,10 @@ func TestHandleIdentityMismatch(t *testing.T) {
 	defer c2.Close()
 
 	dev := &memDevice{buf: make([]byte, 1)}
-	srv := New(dev, zap.NewNop(), nil, "", "")
+	srv, err := New(dev, zap.NewNop(), nil, "", "")
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	errCh := make(chan error, 1)
@@ -539,7 +581,10 @@ func TestHandleIdentityIgnoresMajorMinor(t *testing.T) {
 		ManifestEpoch: 2,
 	}
 	dev := &memDevice{buf: make([]byte, int(id.SizeBytes)), id: id}
-	srv := New(dev, zap.NewNop(), nil, "", "")
+	srv, err := New(dev, zap.NewNop(), nil, "", "")
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	errCh := make(chan error, 1)
@@ -578,7 +623,10 @@ func TestHandleIdentityMismatchFields(t *testing.T) {
 		ManifestEpoch: 2,
 	}
 	dev := &memDevice{buf: make([]byte, int(id.SizeBytes)), id: id}
-	srv := New(dev, zap.NewNop(), nil, "", "")
+	srv, err := New(dev, zap.NewNop(), nil, "", "")
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	errCh := make(chan error, 1)
