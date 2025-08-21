@@ -35,7 +35,7 @@ func TestDiscardLoopDevice(t *testing.T) {
 	}
 
 	hadCaps := privilege.RealHasCaps()
-	if err := DiscardRange(f, 0, uint64(len(data)), true, zap.NewNop()); err != nil {
+	if err := DiscardRange(f, 0, uint64(len(data)), true, false, zap.NewNop()); err != nil {
 		t.Fatalf("discard: %v", err)
 	}
 

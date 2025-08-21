@@ -47,6 +47,7 @@ type Config struct {
 	FreezeTimeout            time.Duration `mapstructure:"freeze-timeout"`
 	ThawTimeout              time.Duration `mapstructure:"thaw-timeout"`
 	SanitizeEnv              bool          `mapstructure:"sanitize_env"`
+	NoNewPrivs               bool          `mapstructure:"no_new_privs"`
 	Mode                     string        `mapstructure:"mode"`
 	Parallel                 int           `mapstructure:"parallel"`
 	Concurrency              int           `mapstructure:"concurrency"`
@@ -197,6 +198,7 @@ func DefaultConfig() (*Config, error) {
 		FreezeTimeout:            10 * time.Second,
 		ThawTimeout:              10 * time.Second,
 		SanitizeEnv:              false,
+		NoNewPrivs:               false,
 		Parallel:                 4,
 		Concurrency:              0,
 		ZeroCopy:                 false,

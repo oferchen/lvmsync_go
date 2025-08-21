@@ -48,7 +48,9 @@ LVMSync forwards the invoking environment to escalated commands by default.
 The `sudoers` examples above already block environment injection with
 `!setenv`, but inherited variables remain untouched. Operators who need to
 drop potentially unsafe variables must pass `--sanitize-env` or set
-`LVMSYNC_SANITIZE_ENV=1` to enable explicit sanitization.
+`LVMSYNC_SANITIZE_ENV=1` to enable explicit sanitization. Combine with
+`--no-new-privs` or `LVMSYNC_NO_NEW_PRIVS=1` to prevent escalated commands from
+gaining additional privileges.
 
 Test each entry carefully to ensure no additional privileges are granted.
 

@@ -16,6 +16,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
+	"golang.org/x/sys/unix"
 )
 
 func boolPtr(b bool) *bool { return &b }
@@ -618,5 +619,60 @@ func TestEnsureRootOrReexec_Logs(t *testing.T) {
 	second := entries[1].ContextMap()
 	if second["result"] != "already_root" {
 		t.Fatalf("result = %v", second["result"])
+	}
+}
+
+func TestEnsureRootOrReexec_NoNewPrivs(t *testing.T) {
+	var gotCall execCall
+	prctlCalled := false
+	opts := Options{
+		Geteuid: func() int { return 1000 },
+		LookPath: func(s string) (string, error) {
+			if s == "sudo" {
+				return "/usr/bin/sudo", nil
+			}
+			return "", errors.New("not found")
+		},
+		ExecRunner: fakeRunner(&gotCall, nil),
+		NoNewPrivs: true,
+		Prctl: func(option int, arg2, arg3, arg4, arg5 uintptr) error {
+			if option != unix.PR_SET_NO_NEW_PRIVS || arg2 != 1 {
+				t.Fatalf("unexpected prctl args: %d %d", option, arg2)
+			}
+			prctlCalled = true
+			return nil
+		},
+	}
+	reexeced, err := EnsureRootOrReexec(opts, zap.NewNop())
+	if err != nil || !reexeced {
+		t.Fatalf("unexpected result: %v %v", reexeced, err)
+	}
+	if !prctlCalled {
+		t.Fatal("prctl not called")
+	}
+	if gotCall.name != "/usr/bin/sudo" {
+		t.Fatalf("runner not invoked: %+v", gotCall)
+	}
+}
+
+func TestEnsureRootOrReexec_NoNewPrivsError(t *testing.T) {
+	var gotCall execCall
+	boom := errors.New("prctl failed")
+	opts := Options{
+		Geteuid:    func() int { return 1000 },
+		LookPath:   func(s string) (string, error) { return "/usr/bin/sudo", nil },
+		ExecRunner: fakeRunner(&gotCall, nil),
+		NoNewPrivs: true,
+		Prctl:      func(int, uintptr, uintptr, uintptr, uintptr) error { return boom },
+	}
+	reexeced, err := EnsureRootOrReexec(opts, zap.NewNop())
+	if err == nil || !errors.Is(err, boom) {
+		t.Fatalf("expected prctl error, got %v", err)
+	}
+	if reexeced {
+		t.Fatalf("reexeced=%v want false", reexeced)
+	}
+	if gotCall.name != "" {
+		t.Fatalf("runner invoked despite prctl error: %+v", gotCall)
 	}
 }

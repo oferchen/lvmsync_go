@@ -34,6 +34,8 @@ LVMSync forwards the invoking environment unchanged. Use `--sanitize-env` or
 capability sets after each privileged command to limit the window of elevated
 rights.
 
+For additional hardening, pass `--no-new-privs` or set `LVMSYNC_NO_NEW_PRIVS=1` to call `prctl(PR_SET_NO_NEW_PRIVS)` before `sudo` execution. This prevents escalated commands from gaining further privileges.
+
 
 
 Roles are read from the certificate's `OrganizationalUnit` field and must

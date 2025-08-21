@@ -53,6 +53,8 @@ type Options struct {
 	// When nil, the full environment is forwarded. Set to pointer to true to
 	// drop PATH, LANG, and other unsafe variables.
 	SanitizeEnv *bool
+	// NoNewPrivs sets PR_SET_NO_NEW_PRIVS before invoking sudo when true.
+	NoNewPrivs bool
 
 	// Dependency seams (optional; default to real OS functions):
 	Args       []string                          // defaults to os.Args
@@ -60,6 +62,7 @@ type Options struct {
 	Geteuid    func() int                        // defaults to os.Geteuid
 	LookPath   func(file string) (string, error) // defaults to exec.LookPath
 	ExecRunner func(context.Context, string, []string, []string, io.Reader, io.Writer, io.Writer) error
+	Prctl      func(int, uintptr, uintptr, uintptr, uintptr) error
 	Stdin      io.Reader     // defaults to nil (no prompting)
 	Stdout     io.Writer     // defaults to os.Stdout
 	Stderr     io.Writer     // defaults to os.Stderr
@@ -141,6 +144,17 @@ func EnsureRootOrReexec(opts Options, logger *zap.Logger) (bool, error) {
 	stderr := opts.Stderr
 	if stderr == nil {
 		stderr = os.Stderr
+	}
+
+	if opts.NoNewPrivs {
+		prctl := opts.Prctl
+		if prctl == nil {
+			prctl = unix.Prctl
+		}
+		if err := prctl(unix.PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0); err != nil {
+			logger.Error("ensure_root_or_reexec", zap.String("action_id", actionID), zap.Strings("argv", argv), zap.String("hostname", host), zap.String("result", "error"), zap.Error(err))
+			return false, fmt.Errorf("set no_new_privs: %w", err)
+		}
 	}
 
 	timeout := opts.Timeout

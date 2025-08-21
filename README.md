@@ -694,6 +694,7 @@ Flags override environment variables, which override `config.yaml` values.
 | `--snapshot-max-usage` | `LVMSYNC_SNAPSHOT_MAX_USAGE` | `snapshot_max_usage` | Maximum allowed snapshot usage percent before aborting |
 | `--lvm-escalation` | `LVMSYNC_LVM_ESCALATION` | `lvm_escalation` | Command used to escalate privileges for LVM commands; parsed with shell-style quoting and validated at startup |
 | `--sanitize-env` | `LVMSYNC_SANITIZE_ENV` | `sanitize_env` | Drop dangerous variables like `LD_PRELOAD` and remove `PATH`/`LANG` during escalation (disabled by default) |
+| `--no-new-privs` | `LVMSYNC_NO_NEW_PRIVS` | `no_new_privs` | Set `PR_SET_NO_NEW_PRIVS` before invoking `sudo` |
 | `--lvm-timeout` | `LVMSYNC_LVM_TIMEOUT` | `lvm_timeout` | Timeout for LVM operations and privilege checks |
 | `--sig-cache-ttl` | `LVMSYNC_LVM_SIG_CACHE_TTL` | `sig-cache-ttl` | TTL for cached LVM signatures |
 | `--sig-cache-max` | `LVMSYNC_LVM_SIG_CACHE_MAX` | `sig-cache-max` | Maximum cached LVM signatures |
