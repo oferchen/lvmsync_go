@@ -16,18 +16,18 @@ import (
 )
 
 func verifyPartition(ctx context.Context, dev Device) error {
-	gpt, mbr := partitionSignaturesFromContext(ctx)
-	if gpt == "" && mbr == "" {
+	sig := partitionSignaturesFromContext(ctx)
+	if sig == nil || (sig.gpt == "" && sig.mbr == "") {
 		return nil
 	}
 	id, err := dev.Identity(ctx)
 	if err != nil {
 		return err
 	}
-	if gpt != "" && id.GPTUUID != gpt {
+	if sig.gpt != "" && id.GPTUUID != sig.gpt {
 		return fmt.Errorf("precondition: partition table mismatch")
 	}
-	if mbr != "" && id.MBRSignature != mbr {
+	if sig.mbr != "" && id.MBRSignature != sig.mbr {
 		return fmt.Errorf("precondition: partition table mismatch")
 	}
 	return nil
@@ -153,6 +153,30 @@ func Detect(
 	if err != nil {
 		logger.Error("device_detect_failed", zap.String("path", resolved), zap.String("device_type", "stat"), zap.Error(err))
 		return nil, err
+	}
+	if sig := partitionSignaturesFromContext(ctx); sig != nil {
+		gpt, mbr, err := readPartitionSignatures(resolved)
+		if err != nil {
+			logger.Error("device_detect_failed", zap.String("path", resolved), zap.String("device_type", "partition"), zap.Error(err))
+			return nil, err
+		}
+		if sig.gpt == "" && sig.mbr == "" {
+			if gpt == "" && mbr == "" {
+				err := fmt.Errorf("precondition: partition signatures missing")
+				logger.Error("device_detect_failed", zap.String("path", resolved), zap.String("device_type", "partition"), zap.Error(err))
+				return nil, err
+			}
+			sig.gpt = gpt
+			sig.mbr = mbr
+		} else {
+			if gpt == "" && mbr == "" ||
+				(sig.gpt != "" && gpt != sig.gpt) ||
+				(sig.mbr != "" && mbr != sig.mbr) {
+				err := fmt.Errorf("precondition: partition table mismatch")
+				logger.Error("device_detect_failed", zap.String("path", resolved), zap.String("device_type", "partition"), zap.Error(err))
+				return nil, err
+			}
+		}
 	}
 	if explicitType != "" && explicitType != TypeAuto {
 		switch explicitType {

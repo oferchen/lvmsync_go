@@ -11,6 +11,7 @@
 | LVMSYNC_CDC_AVG | `--cdc-avg` | `cdc-avg` | Average chunk size for CDC |
 | LVMSYNC_CDC_MAX | `--cdc-max` | `cdc-max` | Maximum chunk size for CDC |
 | LVMSYNC_CDC_MIN | `--cdc-min` | `cdc-min` | Minimum chunk size for CDC |
+| LVMSYNC_CHECK_PARTITION | `--check-partition` | `check-partition` | Verify partition signatures for source and destination |
 | LVMSYNC_CHECKPOINT_BYTES | `--checkpoint-bytes` | `checkpoint-bytes` | Bytes between resume checkpoints |
 | LVMSYNC_CHECKPOINT_INTERVAL | `--checkpoint-interval` | `checkpoint-interval` | Duration between checkpoints |
 | LVMSYNC_CHUNK_SEED | `--chunk-seed` | `chunk-seed` | Seed for chunking |

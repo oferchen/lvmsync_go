@@ -2,6 +2,7 @@ package device
 
 import (
 	"context"
+	"encoding/binary"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -358,3 +359,67 @@ func TestDetectRawPartitionMatch(t *testing.T) {
 	}
 	dev.Close()
 }
+
+func TestDetectPartitionComparison(t *testing.T) {
+	cases := []struct {
+		name    string
+		sig1    uint32
+		sig2    *uint32
+		wantErr bool
+	}{
+		{name: "match", sig1: 0x12345678, sig2: ptr(uint32(0x12345678)), wantErr: false},
+		{name: "mismatch", sig1: 0x12345678, sig2: ptr(uint32(0x87654321)), wantErr: true},
+		{name: "missing", sig1: 0x12345678, sig2: nil, wantErr: true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			f1 := createMBRFile(t, &tc.sig1)
+			var f2 string
+			if tc.sig2 != nil {
+				f2 = createMBRFile(t, tc.sig2)
+			} else {
+				f2 = createMBRFile(t, nil)
+			}
+			ctx := WithPartitionSignatures(context.Background(), "", "")
+			ctx = WithForce(ctx, true)
+			ctx = WithAllowOverwrite(ctx, true)
+			ctx = WithYesIKnow(ctx, true)
+			dev, err := Detect(ctx, f1, true, "", "", "", "", 0, 0, fakeEsc{}, zap.NewNop(), NewRunner())
+			if err != nil {
+				t.Fatalf("detect src: %v", err)
+			}
+			dev.Close()
+			_, err = Detect(ctx, f2, true, "", "", "", "", 0, 0, fakeEsc{}, zap.NewNop(), NewRunner())
+			if tc.wantErr {
+				if err == nil || !strings.Contains(err.Error(), "precondition") {
+					t.Fatalf("expected precondition error, got %v", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("detect dst: %v", err)
+			}
+		})
+	}
+}
+
+func createMBRFile(t *testing.T, sig *uint32) string {
+	t.Helper()
+	f, err := os.CreateTemp(t.TempDir(), "mbr")
+	if err != nil {
+		t.Fatalf("temp file: %v", err)
+	}
+	var buf [512]byte
+	if sig != nil {
+		binary.LittleEndian.PutUint32(buf[440:444], *sig)
+		buf[510] = 0x55
+		buf[511] = 0xaa
+	}
+	if _, err := f.Write(buf[:]); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	f.Close()
+	return f.Name()
+}
+
+func ptr[T any](v T) *T { return &v }

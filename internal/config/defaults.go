@@ -37,6 +37,7 @@ type Config struct {
 	Force                    bool          `mapstructure:"force"`
 	ForceOffline             bool          `mapstructure:"force_offline"`
 	AllowOverwrite           bool          `mapstructure:"allow_overwrite"`
+	CheckPartition           bool          `mapstructure:"check_partition"`
 	StrictConfig             bool          `mapstructure:"strict_config"`
 	Discard                  bool          `mapstructure:"discard"`
 	Offline                  bool          `mapstructure:"offline"`
@@ -186,6 +187,7 @@ func DefaultConfig() (*Config, error) {
 		Force:                    false,
 		ForceOffline:             false,
 		AllowOverwrite:           false,
+		CheckPartition:           false,
 		StrictConfig:             false,
 		Offline:                  false,
 		Sparse:                   Auto,
