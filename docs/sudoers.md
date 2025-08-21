@@ -44,6 +44,12 @@ shell escapes, while `!setenv` blocks attackers from altering the execution
 environment. These restrictions help contain compromised helpers and reduce
 privilege-escalation risks.
 
+LVMSync forwards the invoking environment to escalated commands by default.
+The `sudoers` examples above already block environment injection with
+`!setenv`, but inherited variables remain untouched. Operators who need to
+drop potentially unsafe variables must pass `--sanitize-env` or set
+`LVMSYNC_SANITIZE_ENV=1` to enable explicit sanitization.
+
 Test each entry carefully to ensure no additional privileges are granted.
 
 ## Auditing
