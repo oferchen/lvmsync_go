@@ -49,9 +49,11 @@ func (s *Stream) Send(ctx context.Context, p []byte) error {
 	binary.BigEndian.PutUint32(hdr[0:4], uint32(len(p)))
 	binary.BigEndian.PutUint32(hdr[4:8], crc32.Checksum(p, crcTable))
 
-	if err := withDeadline(ctx, s.rw); err != nil {
+	reset, err := withWriteDeadline(ctx, s.rw)
+	if err != nil {
 		return err
 	}
+	defer reset()
 	if err := writeFull(ctx, s.rw, hdr[:]); err != nil {
 		return err
 	}
@@ -98,9 +100,11 @@ func (s *Stream) Recv(ctx context.Context) ([]byte, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	if err := withDeadline(ctx, s.rw); err != nil {
+	reset, err := withReadDeadline(ctx, s.rw)
+	if err != nil {
 		return nil, err
 	}
+	defer reset()
 	var hdr [8]byte
 	if err := readFull(ctx, s.rw, hdr[:]); err != nil {
 		return nil, err
@@ -151,33 +155,42 @@ func readFull(ctx context.Context, r io.Reader, buf []byte) error {
 	return nil
 }
 
-// withDeadline applies the context deadline to conn if it supports deadlines
-// and ensures it is cleared when the context completes. For contexts without a
-// deadline it sets a deadline when the context is cancelled.
-func withDeadline(ctx context.Context, rw io.ReadWriter) error {
-	conn, ok := rw.(net.Conn)
+// withReadDeadline applies the context deadline to conn if it supports read deadlines.
+// It returns a function that clears the deadline after the operation completes.
+func withReadDeadline(ctx context.Context, r io.Reader) (func(), error) {
+	conn, ok := r.(interface{ SetReadDeadline(time.Time) error })
 	if !ok {
-		return nil
+		return func() {}, nil
 	}
-	if dl, ok := ctx.Deadline(); ok {
-		if err := conn.SetDeadline(dl); err != nil {
-			return err
-		}
-		if done := ctx.Done(); done != nil {
-			go func() {
-				<-done
-				_ = conn.SetDeadline(time.Time{})
-			}()
-		}
-		return nil
+	dl, ok := ctx.Deadline()
+	if !ok {
+		return func() {}, nil
 	}
-	if done := ctx.Done(); done != nil {
-		go func() {
-			<-done
-			_ = conn.SetDeadline(time.Now())
-		}()
+	if err := conn.SetReadDeadline(dl); err != nil {
+		return nil, err
 	}
-	return nil
+	return func() {
+		_ = conn.SetReadDeadline(time.Time{})
+	}, nil
+}
+
+// withWriteDeadline applies the context deadline to conn if it supports write deadlines.
+// It returns a function that clears the deadline after the operation completes.
+func withWriteDeadline(ctx context.Context, w io.Writer) (func(), error) {
+	conn, ok := w.(interface{ SetWriteDeadline(time.Time) error })
+	if !ok {
+		return func() {}, nil
+	}
+	dl, ok := ctx.Deadline()
+	if !ok {
+		return func() {}, nil
+	}
+	if err := conn.SetWriteDeadline(dl); err != nil {
+		return nil, err
+	}
+	return func() {
+		_ = conn.SetWriteDeadline(time.Time{})
+	}, nil
 }
 
 // Client transmits rsync signatures and deltas over a Stream.
