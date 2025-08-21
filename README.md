@@ -27,7 +27,7 @@ For snapshot cleanup, resuming transfers, and verify-only rollback procedures, s
 - **Remote Execution via SSH**: Replicates data over SSH with support for pre/post-scripts.
 - **Resume Support**: Ability to resume interrupted transfers with verification enabled by default (use `--verify=none` to skip).
 - **Crash-Safe WAL**: Records committed ranges in a write-ahead log so interrupted runs can recover. See [WAL documentation](docs/wal.md) for layout and replay details.
-- **Probe and Verification Modes**: `--probe-only` validates devices and privileges without writing and prints `size_bytes kernel_uuid gpt_uuid mbr_signature fs_uuid major minor manifest_epoch` to stdout, while `--verify-only` scans both sides and reports mismatches.
+ - **Probe and Verification Modes**: `--probe-only` validates devices and privileges without writing and prints `size_bytes kernel_uuid gpt_uuid mbr_signature fs_uuid major minor manifest_epoch` to stdout, while `--verify-only` scans both sides and reports mismatches.
  - **Dry-run Estimates**: `--dry-run` samples the manifest to project bytes and ETA without transferring data.
  - **Planning**: `--plan` prints resolved configuration with secrets redacted, transport order, estimated bytes, and compression decisions as JSON without transferring data.
  - **Device Identity Tuple**: Each run records `(size_bytes, kernel_uuid, gpt_uuid, mbr_signature, fs_uuid, major, minor, manifest_epoch)` to prevent writing to the wrong destination.
