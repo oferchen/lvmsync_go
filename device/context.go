@@ -48,15 +48,21 @@ func yesIKnowFromContext(ctx context.Context) bool {
 	return false
 }
 
-// WithPartitionSignatures returns a context carrying expected partition table
-// signatures. Empty strings skip the comparison.
-func WithPartitionSignatures(ctx context.Context, gpt, mbr string) context.Context {
-	return context.WithValue(ctx, ptSigKey, [2]string{gpt, mbr})
+type partitionSignatures struct {
+	gpt string
+	mbr string
 }
 
-func partitionSignaturesFromContext(ctx context.Context) (string, string) {
-	if v, ok := ctx.Value(ptSigKey).([2]string); ok {
-		return v[0], v[1]
+// WithPartitionSignatures returns a context carrying partition table
+// signatures. Empty strings enable comparison while deferring the actual
+// values to the first device detection.
+func WithPartitionSignatures(ctx context.Context, gpt, mbr string) context.Context {
+	return context.WithValue(ctx, ptSigKey, &partitionSignatures{gpt: gpt, mbr: mbr})
+}
+
+func partitionSignaturesFromContext(ctx context.Context) *partitionSignatures {
+	if v, ok := ctx.Value(ptSigKey).(*partitionSignatures); ok {
+		return v
 	}
-	return "", ""
+	return nil
 }
