@@ -118,6 +118,9 @@
     "dry_run": {
       "type": "boolean"
     },
+    "enable_quic": {
+      "type": "boolean"
+    },
     "first_block_digest": {
       "type": "string"
     },

@@ -6,6 +6,8 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net"
+	"os"
+	"strconv"
 	"time"
 
 	"go.uber.org/multierr"
@@ -90,6 +92,15 @@ func New(cfg transport.Config) (transport.Interface, error) {
 }
 
 func init() {
+	enabled := true
+	if v := os.Getenv("LVMSYNC_ENABLE_QUIC"); v != "" {
+		if b, err := strconv.ParseBool(v); err == nil {
+			enabled = b
+		}
+	}
+	if !enabled {
+		return
+	}
 	logger := zap.NewNop()
 	if err := transport.MustRegister("quic", func(cfg transport.Config) (transport.Interface, error) {
 		tr, err := New(cfg)

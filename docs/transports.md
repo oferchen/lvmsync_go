@@ -85,6 +85,7 @@ Listeners enforce these defaults:
 - Bidirectional streams and datagram support
 - BBR congestion control
 - Rejects 0-RTT packets
+- Enabled by default; disable registration with `--enable-quic=false` or `LVMSYNC_ENABLE_QUIC=false`
 - Flags: `--server-cert`, `--server-key`, `--client-cert`, `--client-key`, `--ca-cert`, `--allow-insecure`
 
 Example:
