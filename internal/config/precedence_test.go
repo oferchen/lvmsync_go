@@ -701,3 +701,95 @@ func TestEnableQUICEnvOverridesYAML(t *testing.T) {
 		t.Fatalf("EnableQUIC=%v want %v", cfg.EnableQUIC, true)
 	}
 }
+
+func TestDedupStrategyFlagOverridesEnvAndYAML(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("default: %v", err)
+	}
+	b := NewBuilder(defaults)
+	dir := t.TempDir()
+	cfgFile := filepath.Join(dir, "cfg.yaml")
+	if err := os.WriteFile(cfgFile, []byte("dedup_strategy: checksum\n"), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	t.Setenv("LVMSYNC_DEDUP_STRATEGY", "bloom")
+	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	cfg, _, _, err := b.Build(fs, []string{"--config", cfgFile, "--dedup-strategy", "auto"})
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	if cfg.DedupStrategy != "auto" {
+		t.Fatalf("DedupStrategy=%q want %q", cfg.DedupStrategy, "auto")
+	}
+}
+
+func TestDedupStrategyEnvOverridesYAML(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("default: %v", err)
+	}
+	b := NewBuilder(defaults)
+	dir := t.TempDir()
+	cfgFile := filepath.Join(dir, "cfg.yaml")
+	if err := os.WriteFile(cfgFile, []byte("dedup_strategy: checksum\n"), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	t.Setenv("LVMSYNC_DEDUP_STRATEGY", "bloom")
+	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	cfg, _, _, err := b.Build(fs, []string{"--config", cfgFile})
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	if cfg.DedupStrategy != "bloom" {
+		t.Fatalf("DedupStrategy=%q want %q", cfg.DedupStrategy, "bloom")
+	}
+}
+
+func TestTransportFlagOverridesEnvAndYAML(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("default: %v", err)
+	}
+	b := NewBuilder(defaults)
+	dir := t.TempDir()
+	cfgFile := filepath.Join(dir, "cfg.yaml")
+	if err := os.WriteFile(cfgFile, []byte("transport: tcp+tls\n"), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	t.Setenv("LVMSYNC_TRANSPORT_TRANSPORT", "ssh")
+	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	cfg, _, _, err := b.Build(fs, []string{"--config", cfgFile, "--transport", "h2"})
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	if cfg.Transport != "h2" {
+		t.Fatalf("Transport=%q want %q", cfg.Transport, "h2")
+	}
+}
+
+func TestTransportEnvOverridesYAML(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("default: %v", err)
+	}
+	b := NewBuilder(defaults)
+	dir := t.TempDir()
+	cfgFile := filepath.Join(dir, "cfg.yaml")
+	if err := os.WriteFile(cfgFile, []byte("transport: tcp+tls\n"), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	t.Setenv("LVMSYNC_TRANSPORT_TRANSPORT", "ssh")
+	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	cfg, _, _, err := b.Build(fs, []string{"--config", cfgFile})
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	if cfg.Transport != "ssh" {
+		t.Fatalf("Transport=%q want %q", cfg.Transport, "ssh")
+	}
+}
