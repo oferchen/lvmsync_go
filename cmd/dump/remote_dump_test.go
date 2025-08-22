@@ -55,38 +55,35 @@ func TestRunRemoteDump(t *testing.T) {
 	cfg.LVMSyncPath = "lvmsync"
 	cfg.Parallel = 1
 
-	origDump := dumpChangesSequential
-	origSum := sumFile
 	origAVX2, origAVX512, origNEON, origAESNI := digestpkg.HasAVX2, digestpkg.HasAVX512, digestpkg.HasNEON, digestpkg.HasAESNI
-	origStream := streamToRemote
 	digestpkg.HasAVX2 = func() bool { return false }
 	digestpkg.HasAVX512 = func() bool { return false }
 	digestpkg.HasNEON = func() bool { return false }
 	digestpkg.HasAESNI = func() bool { return false }
-	sumFile = func(string, string) ([32]byte, error) { return [32]byte{}, nil }
-	streamToRemote = func(_ context.Context, _ *config.Config, _ io.WriteCloser, snap, origin, alg string, _ *zap.Logger) error {
-		if snap != "snap" || origin != "origin" || alg != digestpkg.SHA256 {
-			t.Fatalf("unexpected params: %s %s %s", snap, origin, alg)
-		}
-		return nil
-	}
-	dumpChangesSequential = func(_ context.Context, _ *transfer.Transfer, c *config.Config, snap, origin string, out io.Writer) error {
-		if snap != "snap" || origin != "origin" {
-			t.Fatalf("unexpected devices: %s %s", snap, origin)
-		}
-		return nil
-	}
 	defer func() {
-		dumpChangesSequential = origDump
-		sumFile = origSum
 		digestpkg.HasAVX2, digestpkg.HasAVX512, digestpkg.HasNEON, digestpkg.HasAESNI = origAVX2, origAVX512, origNEON, origAESNI
-		streamToRemote = origStream
 	}()
+
+	r := NewRunnerWithDeps(&Runner{
+		sumFile: func(string, string) ([32]byte, error) { return [32]byte{}, nil },
+		streamToRemote: func(_ context.Context, _ *config.Config, _ io.WriteCloser, snap, origin, alg string, _ *zap.Logger) error {
+			if snap != "snap" || origin != "origin" || alg != digestpkg.SHA256 {
+				t.Fatalf("unexpected params: %s %s %s", snap, origin, alg)
+			}
+			return nil
+		},
+		dumpSeq: func(_ context.Context, _ *transfer.Transfer, c *config.Config, snap, origin string, out io.Writer) error {
+			if snap != "snap" || origin != "origin" {
+				t.Fatalf("unexpected devices: %s %s", snap, origin)
+			}
+			return nil
+		},
+	})
 
 	dest := host + ":/dev/null"
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	if err := RunRemoteDump(ctx, cfg, "snap", "origin", dest, zap.NewNop()); err != nil {
+	if err := r.RunRemoteDump(ctx, cfg, "snap", "origin", dest, zap.NewNop()); err != nil {
 		t.Fatalf("runRemoteDump returned error: %v", err)
 	}
 
@@ -133,35 +130,32 @@ func TestRunRemoteDumpError(t *testing.T) {
 	cfg.LVMSyncPath = "lvmsync"
 	cfg.Parallel = 1
 
-	origDump := dumpChangesSequential
-	origSum := sumFile
 	origAVX2, origAVX512, origNEON, origAESNI := digestpkg.HasAVX2, digestpkg.HasAVX512, digestpkg.HasNEON, digestpkg.HasAESNI
-	origStream := streamToRemote
 	digestpkg.HasAVX2 = func() bool { return false }
 	digestpkg.HasAVX512 = func() bool { return false }
 	digestpkg.HasNEON = func() bool { return false }
 	digestpkg.HasAESNI = func() bool { return false }
-	sumFile = func(string, string) ([32]byte, error) { return [32]byte{}, nil }
-	streamToRemote = func(_ context.Context, _ *config.Config, _ io.WriteCloser, snap, origin, alg string, _ *zap.Logger) error {
-		if snap != "snap" || origin != "origin" || alg != digestpkg.SHA256 {
-			t.Fatalf("unexpected params: %s %s %s", snap, origin, alg)
-		}
-		return nil
-	}
-	dumpChangesSequential = func(_ context.Context, _ *transfer.Transfer, c *config.Config, snap, origin string, out io.Writer) error {
-		return nil
-	}
 	defer func() {
-		dumpChangesSequential = origDump
-		sumFile = origSum
 		digestpkg.HasAVX2, digestpkg.HasAVX512, digestpkg.HasNEON, digestpkg.HasAESNI = origAVX2, origAVX512, origNEON, origAESNI
-		streamToRemote = origStream
 	}()
+
+	r := NewRunnerWithDeps(&Runner{
+		sumFile: func(string, string) ([32]byte, error) { return [32]byte{}, nil },
+		streamToRemote: func(_ context.Context, _ *config.Config, _ io.WriteCloser, snap, origin, alg string, _ *zap.Logger) error {
+			if snap != "snap" || origin != "origin" || alg != digestpkg.SHA256 {
+				t.Fatalf("unexpected params: %s %s %s", snap, origin, alg)
+			}
+			return nil
+		},
+		dumpSeq: func(_ context.Context, _ *transfer.Transfer, c *config.Config, snap, origin string, out io.Writer) error {
+			return nil
+		},
+	})
 
 	dest := host + ":/dev/null"
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	err = RunRemoteDump(ctx, cfg, "snap", "origin", dest, zap.NewNop())
+	err = r.RunRemoteDump(ctx, cfg, "snap", "origin", dest, zap.NewNop())
 	if err == nil || !errors.Is(err, ErrRemoteCommand) {
 		t.Fatalf("expected remote command error, got %v", err)
 	}
@@ -207,26 +201,20 @@ func TestRunRemoteDumpTimeout(t *testing.T) {
 	cfg.Parallel = 1
 	cfg.SSHTimeout = 20 * time.Millisecond
 
-	origDump := dumpChangesSequential
-	origSum := sumFile
-	origStream := streamToRemote
-	sumFile = func(string, string) ([32]byte, error) { return [32]byte{}, nil }
-	streamToRemote = func(_ context.Context, _ *config.Config, _ io.WriteCloser, snap, origin, alg string, _ *zap.Logger) error {
-		return nil
-	}
-	dumpChangesSequential = func(_ context.Context, _ *transfer.Transfer, c *config.Config, snap, origin string, out io.Writer) error {
-		return nil
-	}
-	defer func() {
-		dumpChangesSequential = origDump
-		sumFile = origSum
-		streamToRemote = origStream
-	}()
+	r := NewRunnerWithDeps(&Runner{
+		sumFile: func(string, string) ([32]byte, error) { return [32]byte{}, nil },
+		streamToRemote: func(_ context.Context, _ *config.Config, _ io.WriteCloser, snap, origin, alg string, _ *zap.Logger) error {
+			return nil
+		},
+		dumpSeq: func(_ context.Context, _ *transfer.Transfer, c *config.Config, snap, origin string, out io.Writer) error {
+			return nil
+		},
+	})
 
 	dest := host + ":/dev/null"
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	err = RunRemoteDump(ctx, cfg, "snap", "origin", dest, zap.NewNop())
+	err = r.RunRemoteDump(ctx, cfg, "snap", "origin", dest, zap.NewNop())
 	if err == nil || !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("expected context deadline exceeded, got %v", err)
 	}
@@ -293,21 +281,15 @@ func TestRunRemoteDumpLogsDigestSelection(t *testing.T) {
 	cfg.Parallel = 1
 	cfg.ChecksumAlgorithm = digestpkg.SHA256
 
-	origDump := dumpChangesSequential
-	origSum := sumFile
-	origStream := streamToRemote
-	sumFile = func(string, string) ([32]byte, error) { return [32]byte{}, nil }
-	streamToRemote = func(_ context.Context, _ *config.Config, _ io.WriteCloser, snap, origin, alg string, _ *zap.Logger) error {
-		return nil
-	}
-	dumpChangesSequential = func(_ context.Context, _ *transfer.Transfer, c *config.Config, snap, origin string, out io.Writer) error {
-		return nil
-	}
-	defer func() {
-		dumpChangesSequential = origDump
-		sumFile = origSum
-		streamToRemote = origStream
-	}()
+	r := NewRunnerWithDeps(&Runner{
+		sumFile: func(string, string) ([32]byte, error) { return [32]byte{}, nil },
+		streamToRemote: func(_ context.Context, _ *config.Config, _ io.WriteCloser, snap, origin, alg string, _ *zap.Logger) error {
+			return nil
+		},
+		dumpSeq: func(_ context.Context, _ *transfer.Transfer, c *config.Config, snap, origin string, out io.Writer) error {
+			return nil
+		},
+	})
 
 	dest := host + ":/dev/null"
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -316,7 +298,7 @@ func TestRunRemoteDumpLogsDigestSelection(t *testing.T) {
 	core, observed := observer.New(zap.InfoLevel)
 	logger := zap.New(core)
 
-	if err := RunRemoteDump(ctx, cfg, "snap", "origin", dest, logger); err != nil {
+	if err := r.RunRemoteDump(ctx, cfg, "snap", "origin", dest, logger); err != nil {
 		t.Fatalf("RunRemoteDump returned error: %v", err)
 	}
 

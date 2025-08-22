@@ -69,21 +69,6 @@ type Runner struct {
 }
 
 var (
-	openFile       = os.OpenFile
-	sumFile        = digestpkg.SumFile
-	newSSHClient   = remote.NewSSHClient
-	detectDevice   = device.Detect
-	streamToRemote = func(ctx context.Context, cfg *config.Config, remoteStdin io.WriteCloser, snapshotDevice, originDevice, alg string, logger *zap.Logger) error {
-		r := &Runner{
-			dumpSeq:        dumpChangesSequential,
-			dumpPar:        dumpChangesParallel,
-			dumpDedup:      dumpChangesWithDeduplication,
-			sumFile:        sumFile,
-			openFile:       openFile,
-			verifyIdentity: func(context.Context, *device.Info, string, string) error { return nil },
-		}
-		return r.StreamToRemote(ctx, cfg, remoteStdin, snapshotDevice, originDevice, alg, logger)
-	}
 	dumpChangesSequential = func(ctx context.Context, t *transfer.Transfer, cfg *config.Config, snap, origin string, out io.Writer) error {
 		return t.DumpChangesSequential(ctx, cfg, snap, origin, out)
 	}
@@ -96,27 +81,27 @@ var (
 	probeDestination = func(ctx context.Context, cfg *config.Config, dest string, logger *zap.Logger) (device.DeviceIdentity, error) {
 		return realProbeDestination(ctx, cfg, dest, logger)
 	}
-	verifyIdentity = device.VerifyIdentity
 )
 
 // NewRunner constructs a Runner with production dependencies.
 func NewRunner() *Runner {
-	return &Runner{
+	r := &Runner{
 		dumpSeq:        dumpChangesSequential,
 		dumpPar:        dumpChangesParallel,
 		dumpDedup:      dumpChangesWithDeduplication,
-		newSSHClient:   newSSHClient,
-		openFile:       openFile,
-		detectDevice:   detectDevice,
-		sumFile:        sumFile,
-		streamToRemote: streamToRemote,
+		newSSHClient:   remote.NewSSHClient,
+		openFile:       os.OpenFile,
+		detectDevice:   device.Detect,
+		sumFile:        digestpkg.SumFile,
 		probeDest:      probeDestination,
 		createLV:       lvm.CreateLogicalVolume,
 		parseLVPath:    lvm.ParseLVPath,
 		getVolumeSize:  lvm.GetVolumeSize,
 		newFDC:         lvm.NewDeviceFDCache,
-		verifyIdentity: verifyIdentity,
+		verifyIdentity: device.VerifyIdentity,
 	}
+	r.streamToRemote = r.StreamToRemote
+	return r
 }
 
 // ExecuteDump is a convenience wrapper using a default Runner.
