@@ -5,10 +5,10 @@ import (
 	"io"
 	"os"
 	"reflect"
-	"strings"
 	"testing"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 
 	"lvmsync_go/internal/config"
 )
@@ -40,19 +40,18 @@ func TestEmitPlanAllowInsecureWarns(t *testing.T) {
 	}
 	cfg := &config.Config{AllowInsecure: true}
 	rOut, wOut, _ := os.Pipe()
-	rErr, wErr, _ := os.Pipe()
-	stdout, stderr := os.Stdout, os.Stderr
-	os.Stdout, os.Stderr = wOut, wErr
-	defer func() { os.Stdout, os.Stderr = stdout, stderr }()
-	if e := emitPlan(cfg, []string{f.Name()}, zap.NewNop()); e != nil {
+	stdout := os.Stdout
+	os.Stdout = wOut
+	obs, logs := observer.New(zap.WarnLevel)
+	logger := zap.New(obs)
+	if e := emitPlan(cfg, []string{f.Name()}, logger); e != nil {
 		t.Fatalf("emitPlan: %v", e)
 	}
 	wOut.Close()
-	wErr.Close()
+	os.Stdout = stdout
 	outBytes, _ := io.ReadAll(rOut)
-	errBytes, _ := io.ReadAll(rErr)
-	if !strings.Contains(string(errBytes), "allow_insecure enabled") {
-		t.Fatalf("missing warning: %q", errBytes)
+	if logs.Len() == 0 {
+		t.Fatalf("missing warning")
 	}
 	if len(outBytes) == 0 {
 		t.Fatalf("expected plan output")
@@ -66,22 +65,72 @@ func TestEmitPlanRsyncRequiresAllowInsecure(t *testing.T) {
 	}
 	cfg := &config.Config{Transport: "rsync"}
 	rOut, wOut, _ := os.Pipe()
-	rErr, wErr, _ := os.Pipe()
-	stdout, stderr := os.Stdout, os.Stderr
-	os.Stdout, os.Stderr = wOut, wErr
-	defer func() { os.Stdout, os.Stderr = stdout, stderr }()
-	if e := emitPlan(cfg, []string{f.Name()}, zap.NewNop()); e == nil {
+	stdout := os.Stdout
+	os.Stdout = wOut
+	obs, logs := observer.New(zap.WarnLevel)
+	logger := zap.New(obs)
+	if e := emitPlan(cfg, []string{f.Name()}, logger); e == nil {
 		t.Fatalf("expected error")
 	}
 	wOut.Close()
-	wErr.Close()
+	os.Stdout = stdout
 	outBytes, _ := io.ReadAll(rOut)
-	errBytes, _ := io.ReadAll(rErr)
-	if !strings.Contains(string(errBytes), "allow_insecure enabled") {
-		t.Fatalf("missing warning: %q", errBytes)
+	if logs.Len() == 0 {
+		t.Fatalf("missing warning")
 	}
 	if len(outBytes) != 0 {
 		t.Fatalf("unexpected plan output: %q", outBytes)
+	}
+}
+
+func TestEmitPlanRsyncExactMatch(t *testing.T) {
+	f, err := os.CreateTemp(t.TempDir(), "src")
+	if err != nil {
+		t.Fatalf("tempfile: %v", err)
+	}
+	cases := []struct {
+		name      string
+		transport string
+		warn      bool
+		wantErr   bool
+	}{
+		{name: "exact", transport: "rsync", warn: true, wantErr: true},
+		{name: "prefix", transport: "rsyncssh", warn: false, wantErr: false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := &config.Config{Transport: tc.transport}
+			rOut, wOut, _ := os.Pipe()
+			stdout := os.Stdout
+			os.Stdout = wOut
+			obs, logs := observer.New(zap.WarnLevel)
+			logger := zap.New(obs)
+			err := emitPlan(cfg, []string{f.Name()}, logger)
+			wOut.Close()
+			os.Stdout = stdout
+			outBytes, _ := io.ReadAll(rOut)
+			if tc.wantErr && err == nil {
+				t.Fatalf("expected error")
+			}
+			if !tc.wantErr && err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if tc.warn && logs.Len() == 0 {
+				t.Fatalf("missing warning")
+			}
+			if !tc.warn && logs.Len() != 0 {
+				t.Fatalf("unexpected warning: %v", logs.All())
+			}
+			if tc.wantErr {
+				if len(outBytes) != 0 {
+					t.Fatalf("unexpected plan output: %q", outBytes)
+				}
+			} else {
+				if len(outBytes) == 0 {
+					t.Fatalf("expected plan output")
+				}
+			}
+		})
 	}
 }
 
