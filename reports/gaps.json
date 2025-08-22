@@ -1,11 +1,1 @@
-[
-  {
-    "type": "testing",
-    "component": "configuration precedence",
-    "evidence": "AGENTS.md TODO: Expand coverage for configuration precedence across flags, environment variables, and config files",
-    "impact": "Configuration precedence behavior unverified; user options may not apply as expected",
-    "fix": "Add tests covering configuration precedence across flags, environment variables, and config files",
-    "priority": "P2",
-    "status": "open"
-  }
-]
+[]
