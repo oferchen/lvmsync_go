@@ -61,6 +61,12 @@ func VerifyIdentity(ctx context.Context, info *Info, src, dest string) (err erro
 	if err != nil {
 		return err
 	}
+	if idA.GPTUUID != idB.GPTUUID && !allow {
+		return fmt.Errorf("gpt uuid mismatch")
+	}
+	if idA.MBRSignature != idB.MBRSignature && !allow {
+		return fmt.Errorf("mbr signature mismatch")
+	}
 	if idA.ManifestEpoch != idB.ManifestEpoch && !allow {
 		return fmt.Errorf("manifest epoch mismatch")
 	}
