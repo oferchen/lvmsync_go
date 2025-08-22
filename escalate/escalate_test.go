@@ -42,7 +42,7 @@ func TestSanitizedChildEnv(t *testing.T) {
 		"FOO=BAR",
 		"TERM=xterm-256color",
 	}
-	out := sanitizedChildEnv(in)
+	out, removed := sanitizedChildEnv(in)
 	joined := strings.Join(out, "\n")
 	if strings.Contains(joined, "LD_PRELOAD=") || strings.Contains(joined, "GCONV_PATH=") {
 		t.Fatalf("disallowed vars leaked: %v", out)
@@ -52,6 +52,10 @@ func TestSanitizedChildEnv(t *testing.T) {
 	}
 	if len(out) != 1 || out[0] != "TERM=xterm-256color" {
 		t.Fatalf("unexpected sanitized env: %v", out)
+	}
+	wantRemoved := []string{"LD_PRELOAD", "GCONV_PATH", "PATH", "LANG", "FOO"}
+	if !reflect.DeepEqual(removed, wantRemoved) {
+		t.Fatalf("removed = %v, want %v", removed, wantRemoved)
 	}
 }
 
@@ -117,8 +121,8 @@ func (m *mockSys) Setresuid(r, e, s int) error {
 
 func TestDropToInvokerIfSudo_NoEnv(t *testing.T) {
 	m := &mockSys{}
-	os.Unsetenv("SUDO_UID")
-	os.Unsetenv("SUDO_GID")
+	t.Setenv("SUDO_UID", "")
+	t.Setenv("SUDO_GID", "")
 
 	if err := DropToInvokerIfSudo(Options{Sys: m}, zap.NewNop()); err != nil {
 		t.Fatalf("expected no-op nil err, got %v", err)
@@ -421,7 +425,7 @@ func TestEnsureRootOrReexec_SanitizeEnvTrue(t *testing.T) {
 	if err != nil || !reexeced {
 		t.Fatalf("unexpected result: %v %v", reexeced, err)
 	}
-	want := sanitizedChildEnv(env)
+	want, _ := sanitizedChildEnv(env)
 	if !reflect.DeepEqual(got.env, want) {
 		t.Fatalf("env = %v, want %v", got.env, want)
 	}
@@ -499,6 +503,47 @@ func TestEnsureRootOrReexec_SanitizeEnvDropsDisallowed(t *testing.T) {
 	}
 	if !strings.Contains(joined, "TERM=dumb") {
 		t.Fatalf("TERM missing: %v", got.env)
+	}
+}
+
+func TestEnsureRootOrReexec_SanitizeEnvLogsRemovedVars(t *testing.T) {
+	var got execCall
+	env := []string{"LD_PRELOAD=/tmp/x.so", "GCONV_PATH=/bad", "PATH=/usr/local/bin", "LANG=C", "TERM=dumb"}
+	core, logs := observer.New(zapcore.InfoLevel)
+	logger := zap.New(core)
+	reexeced, err := EnsureRootOrReexec(Options{
+		Geteuid:     func() int { return 1000 },
+		LookPath:    func(string) (string, error) { return "/usr/bin/sudo", nil },
+		SanitizeEnv: boolPtr(true),
+		Environ:     func() []string { return env },
+		ExecRunner:  fakeRunner(&got, nil),
+	}, logger)
+	if err != nil || !reexeced {
+		t.Fatalf("unexpected result: %v %v", reexeced, err)
+	}
+	entries := logs.All()
+	if len(entries) < 3 {
+		t.Fatalf("expected at least 3 log entries, got %d", len(entries))
+	}
+	sanitized := entries[1].ContextMap()
+	if sanitized["result"] != "env_sanitized" {
+		t.Fatalf("result = %v", sanitized["result"])
+	}
+	var removed []string
+	switch v := sanitized["removed_env_keys"].(type) {
+	case []string:
+		removed = v
+	case []interface{}:
+		removed = make([]string, len(v))
+		for i, val := range v {
+			removed[i] = fmt.Sprint(val)
+		}
+	default:
+		t.Fatalf("removed_env_keys type = %T", sanitized["removed_env_keys"])
+	}
+	want := []string{"LD_PRELOAD", "GCONV_PATH", "PATH", "LANG"}
+	if !reflect.DeepEqual(removed, want) {
+		t.Fatalf("removed_env_keys = %v, want %v", removed, want)
 	}
 }
 
