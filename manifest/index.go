@@ -14,6 +14,12 @@ func openTemp(path string, total int64) (f *os.File, data []byte, tmpPath string
 	if dir == "" {
 		dir = "."
 	}
+	// Remove any stale temporary files from previous crashes.
+	if matches, _ := filepath.Glob(filepath.Join(dir, base+".tmp-*")); len(matches) > 0 {
+		for _, m := range matches {
+			os.Remove(m)
+		}
+	}
 	f, err = os.CreateTemp(dir, base+".tmp-*")
 	if err != nil {
 		return nil, nil, "", err
