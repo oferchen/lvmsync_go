@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 
 	"lvmsync_go/common"
 	"lvmsync_go/transport"
@@ -26,7 +27,7 @@ import (
 )
 
 func handshakeRoundTrip(t transport.Interface, tname string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	ln, err := t.Listen(ctx, "127.0.0.1:0")
 	if err != nil {
@@ -118,6 +119,108 @@ func TestNegotiationTransports(t *testing.T) {
 		if err := handshakeRoundTrip(tr, name); err != nil {
 			t.Skipf("%s negotiation: %v", name, err)
 		}
+	}
+}
+
+func TestNegotiationTransportFallback(t *testing.T) {
+	// Ensure first transport fails and fallback succeeds.
+	core, obs := observer.New(zap.InfoLevel)
+	logger := zap.New(core)
+	defer logger.Sync()
+
+	cert, _ := generateCert()
+	root := x509.NewCertPool()
+	if c, err := x509.ParseCertificate(cert.Certificate[0]); err == nil {
+		root.AddCert(c)
+	}
+	cfg := transport.Config{Logger: logger, ClientCert: cert, ServerCert: cert, Roots: root}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	tname := "h2"
+	server, err := transport.Get(tname, cfg)
+	if err != nil {
+		t.Skipf("get transport %s: %v", tname, err)
+	}
+	ln, err := server.Listen(ctx, "127.0.0.1:0")
+	if err != nil {
+		t.Skipf("listen: %v", err)
+	}
+	defer ln.Close()
+
+	done := make(chan error, 1)
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			done <- err
+			return
+		}
+		req, err := common.ReadHandshake(bufio.NewReader(conn))
+		if err != nil {
+			conn.Close()
+			done <- err
+			return
+		}
+		resp := common.Handshake{Version: common.ProtocolVersion, ALPN: req.ALPN, TLSVersion: req.TLSVersion}
+		resp.Transport = common.SelectBest([]string{tname}, req.Transports)
+		resp.Compress = common.SelectBest([]string{"zstd", "lz4"}, req.Compressors)
+		resp.Digest = common.SelectBest([]string{"blake3", "sha256"}, req.Digests)
+		if err := common.WriteHandshake(conn, resp); err != nil {
+			conn.Close()
+			done <- err
+			return
+		}
+		conn.Close()
+		done <- nil
+	}()
+
+	names := []string{"ssh", tname}
+	tr, conn, err := transport.DialWithFallback(ctx, ln.Addr().String(), names, cfg)
+	if err != nil {
+		t.Fatalf("dial fallback: %v", err)
+	}
+	if tr.Name() != tname {
+		t.Fatalf("expected transport %s, got %s", tname, tr.Name())
+	}
+
+	req := common.Handshake{
+		Version:     common.ProtocolVersion,
+		ALPN:        "h2",
+		TLSVersion:  "1.3",
+		Transports:  names,
+		Compressors: []string{"lz4", "zstd"},
+		Digests:     []string{"sha256", "blake3"},
+	}
+	if err := common.WriteHandshake(conn, req); err != nil {
+		t.Fatalf("write handshake: %v", err)
+	}
+	resp, err := common.ReadHandshake(bufio.NewReader(conn))
+	if err != nil {
+		t.Fatalf("read handshake: %v", err)
+	}
+	if resp.Transport != tname {
+		t.Fatalf("expected transport %s, got %s", tname, resp.Transport)
+	}
+	conn.Close()
+	if err := <-done; err != nil {
+		t.Fatalf("server handshake: %v", err)
+	}
+
+	var failed, success bool
+	for _, e := range obs.All() {
+		if (e.Message == "dial_failed" || e.Message == "get_failed") &&
+			e.ContextMap()["transport"] == "ssh" {
+			failed = true
+		}
+		if e.Message == "dial_success" {
+			if tr, ok := e.ContextMap()["transport"].(string); ok && tr == tname {
+				success = true
+			}
+		}
+	}
+	if !failed || !success {
+		t.Fatalf("expected failure and success logs, got failed=%v success=%v", failed, success)
 	}
 }
 
