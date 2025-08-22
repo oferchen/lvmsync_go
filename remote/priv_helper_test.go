@@ -3,6 +3,7 @@ package remote
 import (
 	"context"
 	"crypto/sha256"
+	"errors"
 	"io"
 	"os"
 	"strings"
@@ -131,5 +132,22 @@ func TestPrivilegedHelperShortWrite(t *testing.T) {
 	}
 	if ack {
 		t.Fatalf("expected NACK for short write")
+
+type shortWriteCloser struct{}
+
+func (shortWriteCloser) Write(p []byte) (int, error) {
+	if len(p) == 0 {
+		return 0, nil
+	}
+	return len(p) - 1, nil
+}
+
+func (shortWriteCloser) Close() error { return nil }
+
+func TestPrivHelperSendShortWrite(t *testing.T) {
+	c := &PrivHelperClient{stdin: shortWriteCloser{}, logger: zap.NewNop()}
+	err := c.Send(0, []byte("data"))
+	if !errors.Is(err, io.ErrShortWrite) {
+		t.Fatalf("expected io.ErrShortWrite, got %v", err)
 	}
 }

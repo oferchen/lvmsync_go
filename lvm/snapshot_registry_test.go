@@ -134,13 +134,24 @@ func TestCleanupRegisteredMultiple(t *testing.T) {
 	registryMu.Unlock()
 }
 
-func TestRegisterSnapshotNilLoggerPanics(t *testing.T) {
-	defer func() {
-		if r := recover(); r == nil {
-			t.Fatalf("expected panic")
-		}
-	}()
+func TestRegisterSnapshotNilLoggerDefaults(t *testing.T) {
+	registryMu.Lock()
+	registry = make(map[string]*zap.Logger)
+	registryMu.Unlock()
+
 	RegisterSnapshot("/dev/test", nil)
+
+	registryMu.Lock()
+	l, ok := registry["/dev/test"]
+	registry = make(map[string]*zap.Logger)
+	registryMu.Unlock()
+
+	if !ok {
+		t.Fatalf("snapshot not registered")
+	}
+	if l == nil {
+		t.Fatalf("logger not defaulted")
+	}
 }
 
 func TestRegisterSnapshotAddsSnapshot(t *testing.T) {
@@ -160,13 +171,20 @@ func TestRegisterSnapshotAddsSnapshot(t *testing.T) {
 	}
 }
 
-func TestCleanupSnapshotNilLoggerPanics(t *testing.T) {
-	defer func() {
-		if r := recover(); r == nil {
-			t.Fatalf("expected panic")
-		}
-	}()
+func TestCleanupSnapshotNilLoggerDefaults(t *testing.T) {
+	var got *zap.Logger
+	old := removeSnap
+	removeSnap = func(ctx context.Context, path string, logger *zap.Logger) error {
+		got = logger
+		return nil
+	}
+	defer func() { removeSnap = old }()
+
 	CleanupSnapshot(context.Background(), "/dev/test", nil)
+
+	if got == nil {
+		t.Fatalf("logger not defaulted")
+	}
 }
 
 func TestCleanupSnapshotCallsRemove(t *testing.T) {
