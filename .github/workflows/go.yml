@@ -129,6 +129,9 @@ jobs:
       - name: Go test (race + cover)
         run: go test -race -coverprofile=coverage.out ./...
 
+      - name: Root tests
+        run: sudo make test-root
+
       - name: Integration tests (PR)
         if: github.event_name == 'pull_request' && startsWith(matrix.os, 'ubuntu-')
         run: |
