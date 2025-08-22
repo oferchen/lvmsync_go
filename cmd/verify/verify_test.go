@@ -19,7 +19,9 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 	"gopkg.in/yaml.v3"
 
+	"lvmsync_go/device"
 	"lvmsync_go/internal/config"
+	privilege "lvmsync_go/internal/privilege"
 	manifestpkg "lvmsync_go/manifest"
 )
 
