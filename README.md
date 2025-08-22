@@ -573,6 +573,12 @@ export LVMSYNC_PARALLEL=8
 export LVMSYNC_SSH_USER=backup
 ```
 
+For example, if `config.yaml` sets `dedup_strategy: bloom` and the environment
+specifies `LVMSYNC_DEDUP_STRATEGY=checksum`, running
+`lvmsync --dedup-strategy auto` resolves to `auto`. Likewise,
+`--transport quic` overrides `LVMSYNC_TRANSPORT_TRANSPORT=ssh` and the
+`transport` key in `config.yaml`.
+
 With a `config.yaml` containing:
 
 ```yaml
