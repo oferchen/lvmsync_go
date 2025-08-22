@@ -15,6 +15,7 @@ import (
 
 	rootcmd "lvmsync_go/cmd/root"
 	"lvmsync_go/common"
+	"lvmsync_go/device"
 	"lvmsync_go/internal/blocksize"
 	"lvmsync_go/internal/config"
 	"lvmsync_go/transport"
@@ -186,7 +187,7 @@ func (t *Transfer) DumpChangesParallel(ctx context.Context, cfg *config.Config, 
 		return err
 	}
 	cfg.FirstBlockDigest = hex.EncodeToString(digest[:])
-	checkpoint := readResumeState(cfg, t.Logger, 0, cfg.DeviceUUID, 0, digest)
+	checkpoint := readResumeState(cfg, t.Logger, device.DeviceIdentity{FSUUID: cfg.DeviceUUID}, digest)
 	resumeStart := findResumeIndex(ctx, cfg, srcFile, ranges, checkpoint, t.Logger)
 	results := t.startParallelWorkers(ctx, cfg, srcFile, ranges, resumeStart, t.Logger)
 

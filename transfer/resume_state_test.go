@@ -10,6 +10,7 @@ import (
 	"github.com/zeebo/blake3"
 	"go.uber.org/zap"
 
+	"lvmsync_go/device"
 	"lvmsync_go/internal/config"
 )
 
@@ -33,7 +34,7 @@ func TestSaveAndReadResumeState(t *testing.T) {
 	if _, err := os.Stat(wal); err != nil {
 		t.Fatalf("expected resume wal file: %v", err)
 	}
-	cp := readResumeState(cfg, zap.NewNop(), 100, "fsuuid", 1, digest)
+	cp := readResumeState(cfg, zap.NewNop(), device.DeviceIdentity{SizeBytes: 100, FSUUID: "fsuuid", ManifestEpoch: 1}, digest)
 	if cfg.ResumeToken != "tok" {
 		t.Fatalf("resume token not persisted: %s", cfg.ResumeToken)
 	}
@@ -63,7 +64,7 @@ func TestReadResumeStateDigestMismatch(t *testing.T) {
 	rt := &resumeTracker{}
 	saveResumeState(cfg, rt, 0, good, 4, zap.NewNop())
 	bad := blake3.Sum256([]byte("other"))
-	cp := readResumeState(cfg, zap.NewNop(), 0, cfg.DeviceUUID, 0, bad)
+	cp := readResumeState(cfg, zap.NewNop(), device.DeviceIdentity{FSUUID: cfg.DeviceUUID}, bad)
 	if cp != (resumeCheckpoint{}) {
 		t.Fatalf("expected empty checkpoint on digest mismatch")
 	}
@@ -85,7 +86,7 @@ func TestReadResumeStateDedupModeMismatch(t *testing.T) {
 	rt := &resumeTracker{}
 	saveResumeState(cfg, rt, 0, dig, 4, zap.NewNop())
 	cfg.DedupMode = "cdc"
-	cp := readResumeState(cfg, zap.NewNop(), 0, "", 0, dig)
+	cp := readResumeState(cfg, zap.NewNop(), device.DeviceIdentity{}, dig)
 	if cp != (resumeCheckpoint{}) {
 		t.Fatalf("expected empty checkpoint on dedup mode mismatch")
 	}
@@ -122,7 +123,7 @@ func TestResumeStateWALRecovery(t *testing.T) {
 	rt := &resumeTracker{sizeBytes: 100, deviceID: "fsuuid", epoch: 1}
 	saveResumeState(cfg, rt, 0, digest, 4, zap.NewNop())
 
-	cp := readResumeState(cfg, zap.NewNop(), 100, "fsuuid", 1, digest)
+	cp := readResumeState(cfg, zap.NewNop(), device.DeviceIdentity{SizeBytes: 100, FSUUID: "fsuuid", ManifestEpoch: 1}, digest)
 	rc := cp.chunk("fixed")
 	if rc.Offset != 0 {
 		t.Fatalf("expected wal offset 0, got %d", rc.Offset)
@@ -162,7 +163,7 @@ func TestResumeStateCorruptWALIgnored(t *testing.T) {
 	}
 
 	cfg := &config.Config{Transport: "ssh", Compress: "none", ChecksumAlgorithm: "blake3", ResumeState: path, DedupMode: "fixed", FirstBlockDigest: hex.EncodeToString(digest[:])}
-	cp := readResumeState(cfg, zap.NewNop(), 0, "", 0, digest)
+	cp := readResumeState(cfg, zap.NewNop(), device.DeviceIdentity{}, digest)
 	rc := cp.chunk("fixed")
 	if rc.Offset != 12 {
 		t.Fatalf("expected offset 12 from resume state, got %d", rc.Offset)
@@ -176,7 +177,7 @@ func TestReadResumeStateSizeMismatch(t *testing.T) {
 	cfg := &config.Config{Transport: "ssh", Compress: "none", ChecksumAlgorithm: "blake3", ResumeState: path, DedupMode: "fixed", CheckpointBytes: 4, FirstBlockDigest: hex.EncodeToString(dig[:])}
 	rt := &resumeTracker{sizeBytes: 100, deviceID: "fsuuid", epoch: 1}
 	saveResumeState(cfg, rt, 0, dig, 4, zap.NewNop())
-	cp := readResumeState(cfg, zap.NewNop(), 200, "fsuuid", 1, dig)
+	cp := readResumeState(cfg, zap.NewNop(), device.DeviceIdentity{SizeBytes: 200, FSUUID: "fsuuid", ManifestEpoch: 1}, dig)
 	if cp != (resumeCheckpoint{}) {
 		t.Fatalf("expected empty checkpoint on size mismatch")
 	}
@@ -189,7 +190,7 @@ func TestReadResumeStateFSUUIDMismatch(t *testing.T) {
 	cfg := &config.Config{Transport: "ssh", Compress: "none", ChecksumAlgorithm: "blake3", ResumeState: path, DedupMode: "fixed", CheckpointBytes: 4, FirstBlockDigest: hex.EncodeToString(dig[:])}
 	rt := &resumeTracker{sizeBytes: 100, deviceID: "fsuuid", epoch: 1}
 	saveResumeState(cfg, rt, 0, dig, 4, zap.NewNop())
-	cp := readResumeState(cfg, zap.NewNop(), 100, "other", 1, dig)
+	cp := readResumeState(cfg, zap.NewNop(), device.DeviceIdentity{SizeBytes: 100, FSUUID: "other", ManifestEpoch: 1}, dig)
 	if cp != (resumeCheckpoint{}) {
 		t.Fatalf("expected empty checkpoint on fs uuid mismatch")
 	}
@@ -202,7 +203,7 @@ func TestReadResumeStateEpochMismatch(t *testing.T) {
 	cfg := &config.Config{Transport: "ssh", Compress: "none", ChecksumAlgorithm: "blake3", ResumeState: path, DedupMode: "fixed", CheckpointBytes: 4, FirstBlockDigest: hex.EncodeToString(dig[:])}
 	rt := &resumeTracker{sizeBytes: 100, deviceID: "fsuuid", epoch: 1}
 	saveResumeState(cfg, rt, 0, dig, 4, zap.NewNop())
-	cp := readResumeState(cfg, zap.NewNop(), 100, "fsuuid", 2, dig)
+	cp := readResumeState(cfg, zap.NewNop(), device.DeviceIdentity{SizeBytes: 100, FSUUID: "fsuuid", ManifestEpoch: 2}, dig)
 	if cp != (resumeCheckpoint{}) {
 		t.Fatalf("expected empty checkpoint on epoch mismatch")
 	}

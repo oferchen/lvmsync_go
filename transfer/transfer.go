@@ -140,10 +140,10 @@ func (t *Transfer) dumpChangesCore(ctx context.Context, cfg *config.Config, snap
 		if err != nil {
 			return err
 		}
-               if usage >= cfg.SnapshotMaxUsage {
-                       return fmt.Errorf("snapshot exhausted: usage %.2f%% >= threshold %.2f%%: %w", usage, cfg.SnapshotMaxUsage, exitcode.ErrSnapshotExhausted)
-               }
-       }
+		if usage >= cfg.SnapshotMaxUsage {
+			return fmt.Errorf("snapshot exhausted: usage %.2f%% >= threshold %.2f%%: %w", usage, cfg.SnapshotMaxUsage, exitcode.ErrSnapshotExhausted)
+		}
+	}
 
 	ranges, err := prepareRanges(ctx, cfg, snapshot, source, t.Logger)
 	if err != nil {
@@ -174,7 +174,7 @@ func (t *Transfer) dumpChangesCore(ctx context.Context, cfg *config.Config, snap
 	}
 	defer cleanupPipe()
 
-	checkpoint := readResumeState(cfg, t.Logger, 0, cfg.DeviceUUID, 0, digest)
+	checkpoint := readResumeState(cfg, t.Logger, device.DeviceIdentity{FSUUID: cfg.DeviceUUID}, digest)
 	startIdx := findResumeIndex(ctx, cfg, srcFile, ranges, checkpoint, t.Logger)
 	if startIdx > 0 {
 		ranges = ranges[startIdx:]
@@ -340,7 +340,7 @@ func (t *Transfer) verifyDestination(ctx context.Context, cfg *config.Config, de
 		}
 		if cfg.ResumeState != "" {
 			if _, err := os.Stat(cfg.ResumeState); err == nil {
-				chk := readResumeState(cfg, t.Logger, hdr.SizeBytes, manID, hdr.Epoch, hdr.FirstBlockDigest)
+				chk := readResumeState(cfg, t.Logger, device.DeviceIdentity{SizeBytes: hdr.SizeBytes, FSUUID: manID, ManifestEpoch: hdr.Epoch}, hdr.FirstBlockDigest)
 				if chk == (resumeCheckpoint{}) {
 					return 0, "", 0, fmt.Errorf("precondition: resume state does not match destination metadata: %w", exitcode.ErrPrecondition)
 				}
@@ -360,7 +360,7 @@ func (t *Transfer) verifyDestination(ctx context.Context, cfg *config.Config, de
 				if err != nil {
 					return 0, "", 0, fmt.Errorf("read destination size: %w", err)
 				}
-				chk := readResumeState(cfg, t.Logger, size, id, 0, [32]byte{})
+				chk := readResumeState(cfg, t.Logger, device.DeviceIdentity{SizeBytes: size, FSUUID: id}, [32]byte{})
 				if chk == (resumeCheckpoint{}) {
 					return 0, "", 0, fmt.Errorf("precondition: resume state does not match destination metadata: %w", exitcode.ErrPrecondition)
 				}

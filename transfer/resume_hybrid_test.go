@@ -12,6 +12,7 @@ import (
 	"github.com/zeebo/blake3"
 	"go.uber.org/zap"
 
+	"lvmsync_go/device"
 	"lvmsync_go/internal/config"
 )
 
@@ -24,7 +25,7 @@ func TestResumeHybridOffset(t *testing.T) {
 	digest := blake3.Sum256([]byte("chunk"))
 	writeResumeState(cfg, logger, state, resumeChunks{Hybrid: resumeChunk{Chunk: digest, Offset: 80, Length: 40}}, 0, "", 0)
 
-	chk := readResumeState(cfg, logger, 0, cfg.DeviceUUID, 0, [32]byte{})
+	chk := readResumeState(cfg, logger, device.DeviceIdentity{FSUUID: cfg.DeviceUUID}, [32]byte{})
 	ranges := []Range{{Start: 0, End: 99}, {Start: 100, End: 199}}
 	idx := findResumeIndex(context.Background(), cfg, nil, ranges, chk, logger)
 	if idx != 1 {
