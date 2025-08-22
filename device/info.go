@@ -6,6 +6,7 @@ import (
 	"io"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -237,20 +238,40 @@ func defaultMountFunc(ctx context.Context, path string) (bool, error) {
 		}
 		infos = r.infos
 	}
-	var matches []*mountinfo.Info
+	matches := map[string]*mountinfo.Info{}
 	for _, mi := range infos {
 		if mi.Source == real || mi.Mountpoint == real || mi.Root == real {
-			matches = append(matches, mi)
-		}
-	}
-	for _, mi := range matches {
-		for _, opt := range strings.Split(mi.Options, ",") {
-			if opt == "rw" {
-				return true, nil
+			if existing, ok := matches[mi.Root]; ok {
+				if !hasRW(existing.Options) && hasRW(mi.Options) {
+					matches[mi.Root] = mi
+				}
+			} else {
+				matches[mi.Root] = mi
 			}
 		}
 	}
+	dedup := make([]*mountinfo.Info, 0, len(matches))
+	for _, mi := range matches {
+		dedup = append(dedup, mi)
+	}
+	sort.Slice(dedup, func(i, j int) bool {
+		return len(dedup[i].Root) > len(dedup[j].Root)
+	})
+	for _, mi := range dedup {
+		if hasRW(mi.Options) {
+			return true, nil
+		}
+	}
 	return false, nil
+}
+
+func hasRW(opts string) bool {
+	for _, opt := range strings.Split(opts, ",") {
+		if opt == "rw" {
+			return true
+		}
+	}
+	return false
 }
 
 func defaultFirstBlockDigest(ctx context.Context, path string, size uint64) ([32]byte, error) {
