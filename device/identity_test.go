@@ -18,6 +18,8 @@ import (
 type identityStub struct {
 	size  uint64
 	epoch uint64
+	gpt   string
+	mbr   string
 }
 
 func (s *identityStub) Path() string                                     { return "" }
@@ -27,7 +29,7 @@ func (s *identityStub) Snapshot(context.Context, string) (Device, error) { retur
 func (s *identityStub) Cleanup(context.Context) error                    { return nil }
 func (s *identityStub) Close() error                                     { return nil }
 func (s *identityStub) Identity(context.Context) (DeviceIdentity, error) {
-	return DeviceIdentity{SizeBytes: s.size, ManifestEpoch: s.epoch}, nil
+	return DeviceIdentity{SizeBytes: s.size, GPTUUID: s.gpt, MBRSignature: s.mbr, ManifestEpoch: s.epoch}, nil
 }
 func (s *identityStub) AppendWAL(r Range) error               { return nil }
 func (s *identityStub) RecoverWAL(fn func(Range) error) error { return nil }
@@ -74,6 +76,34 @@ func TestIdentityFSUUIDMismatch(t *testing.T) {
 	defer info.SetDetectFunc(prev)
 	if err := VerifyIdentity(context.Background(), info, "/dev/src", "/dev/dest"); err == nil || !strings.Contains(err.Error(), "uuid mismatch") {
 		t.Fatalf("expected fs uuid mismatch error, got %v", err)
+	}
+}
+
+func TestIdentityGPTUUIDMismatch(t *testing.T) {
+	info := NewInfoWithDeps(func(context.Context, string) (string, error) { return "id", nil }, nil, nil, nil, nil)
+	prev := info.SetDetectFunc(func(_ context.Context, path string, _ bool, _, _, _, _ string, _ time.Duration, _ time.Duration, _ privilege.Escalator, _ *zap.Logger, _ *Runner) (Device, error) {
+		if strings.Contains(path, "src") {
+			return &identityStub{size: 1, epoch: 1, gpt: "gpt1", mbr: "m"}, nil
+		}
+		return &identityStub{size: 1, epoch: 1, gpt: "gpt2", mbr: "m"}, nil
+	})
+	defer info.SetDetectFunc(prev)
+	if err := VerifyIdentity(context.Background(), info, "/dev/src", "/dev/dest"); err == nil || !strings.Contains(err.Error(), "gpt uuid mismatch") {
+		t.Fatalf("expected gpt uuid mismatch error, got %v", err)
+	}
+}
+
+func TestIdentityMBRSignatureMismatch(t *testing.T) {
+	info := NewInfoWithDeps(func(context.Context, string) (string, error) { return "id", nil }, nil, nil, nil, nil)
+	prev := info.SetDetectFunc(func(_ context.Context, path string, _ bool, _, _, _, _ string, _ time.Duration, _ time.Duration, _ privilege.Escalator, _ *zap.Logger, _ *Runner) (Device, error) {
+		if strings.Contains(path, "src") {
+			return &identityStub{size: 1, epoch: 1, gpt: "g", mbr: "m1"}, nil
+		}
+		return &identityStub{size: 1, epoch: 1, gpt: "g", mbr: "m2"}, nil
+	})
+	defer info.SetDetectFunc(prev)
+	if err := VerifyIdentity(context.Background(), info, "/dev/src", "/dev/dest"); err == nil || !strings.Contains(err.Error(), "mbr signature mismatch") {
+		t.Fatalf("expected mbr signature mismatch error, got %v", err)
 	}
 }
 
