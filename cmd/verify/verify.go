@@ -18,9 +18,11 @@ import (
 	"gopkg.in/yaml.v3"
 
 	rootcmd "lvmsync_go/cmd/root"
+	"lvmsync_go/device"
 	"lvmsync_go/internal/config"
 	cpufeatures "lvmsync_go/internal/cpufeatures"
 	digestpkg "lvmsync_go/internal/digest"
+	"lvmsync_go/internal/privilege"
 	manifestpkg "lvmsync_go/manifest"
 	"lvmsync_go/transfer"
 )
@@ -269,6 +271,30 @@ func verifyWithManifest(cfg *config.Config, devicePath, manifestPath string, log
 		return fmt.Errorf("open manifest: %w", err)
 	}
 	defer idx.Close()
+
+	hdr := idx.Header()
+	ctx := context.Background()
+	dev, err := device.Detect(ctx, devicePath, true, "", "", "", "", 0, 0, privilege.New(ctx, logger), logger, device.NewRunner())
+	if err != nil {
+		return fmt.Errorf("detect device: %w", err)
+	}
+	defer dev.Close()
+	id, err := dev.Identity(ctx)
+	if err != nil {
+		return fmt.Errorf("device identity: %w", err)
+	}
+	manID := id
+	manID.SizeBytes = hdr.SizeBytes
+	manID.Major = hdr.Major
+	manID.Minor = hdr.Minor
+	manID.ManifestEpoch = hdr.Epoch
+	if devID := strings.TrimRight(string(hdr.DeviceID[:]), "\x00"); devID != "" {
+		manID.FSUUID = devID
+	}
+	if !device.SameIdentity(manID, id) {
+		return fmt.Errorf("precondition: device identity mismatch")
+	}
+
 	fSrc, err := os.Open(devicePath)
 	if err != nil {
 		return fmt.Errorf("open device: %w", err)
