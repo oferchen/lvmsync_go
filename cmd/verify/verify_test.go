@@ -517,42 +517,49 @@ func TestVerifyWithManifestIdentityMismatch(t *testing.T) {
 	}
 }
 
-type detectStub struct{ path string }
-
-func (d *detectStub) Path() string                                            { return d.path }
-func (d *detectStub) SizeBytes() uint64                                       { return 0 }
-func (d *detectStub) BlockSize() uint64                                       { return 4096 }
-func (d *detectStub) Snapshot(context.Context, string) (device.Device, error) { return d, nil }
-func (d *detectStub) Cleanup(context.Context) error                           { return nil }
-func (d *detectStub) Close() error                                            { return nil }
-func (d *detectStub) Identity(context.Context) (device.DeviceIdentity, error) {
-	return device.DeviceIdentity{}, nil
+type mockFile struct {
+	logical int
+	direct  bool
+	closes  *int
 }
-func (d *detectStub) AppendWAL(device.Range) error              { return nil }
-func (d *detectStub) RecoverWAL(func(device.Range) error) error { return nil }
 
-func TestVerifyDevicesDetectsWithEscalator(t *testing.T) {
-	src := createTestFile(t, 512)
-	dst := createTestFile(t, 512)
-	createManifest(t, src)
-	var calls int
-	var escUsed []bool
-	patch := monkey.Patch(device.Detect, func(ctx context.Context, p string, offline bool, explicitType, fsFreezeCmd, fsThawCmd, lvmEscalation string, freezeTimeout, thawTimeout time.Duration, esc privilege.Escalator, logger *zap.Logger, runner *device.Runner) (device.Device, error) {
-		calls++
-		escUsed = append(escUsed, esc != nil)
-		return &detectStub{path: p}, nil
-	})
-	defer patch.Unpatch()
-	cfg := &config.Config{SkipSnapshotCreation: true}
-	if err := newStubRunner().verifyDevices(cfg, src, dst, "", zap.NewNop()); err != nil {
-		t.Fatalf("verifyDevices: %v", err)
-	}
-	if calls != 2 {
-		t.Fatalf("expected 2 detect calls, got %d", calls)
-	}
-	for i, used := range escUsed {
-		if !used {
-			t.Fatalf("call %d missing escalator", i)
+func (m *mockFile) Close() error                            { *m.closes++; return nil }
+func (m *mockFile) Logical() int                            { return m.logical }
+func (m *mockFile) Direct() bool                            { return m.direct }
+func (m *mockFile) ReadAt(p []byte, off int64) (int, error) { return len(p), nil }
+
+func TestVerifyWithManifestClosesOnce(t *testing.T) {
+	var c1, c2 int
+	f1 := &mockFile{logical: 4096, direct: true, closes: &c1}
+	f2 := &mockFile{logical: 4096, direct: false, closes: &c2}
+	open := func(string, bool, bool) (blockReader, error) {
+		if c1 == 0 {
+			return f1, nil
 		}
+		return f2, nil
+	}
+	dir := t.TempDir()
+	manifestPath := filepath.Join(dir, "manifest")
+	blockSize := uint32(4096)
+	idx, err := manifestpkg.Create(manifestPath, "", 4097, 0, 0, 0, blockSize, 0, 0, 0, 0)
+	if err != nil {
+		t.Fatalf("manifest create: %v", err)
+	}
+	digest := blake3.Sum256(make([]byte, blockSize))
+	if err := idx.Set(1, blockSize, 0, 0, digest); err != nil {
+		t.Fatalf("manifest set: %v", err)
+	}
+	if err := idx.Close(); err != nil {
+		t.Fatalf("manifest close: %v", err)
+	}
+	cfg := &config.Config{Parallel: 1, ODirect: true, BlockSize: int(blockSize)}
+	if err := verifyWithManifestOpen(open, cfg, "src", manifestPath, zap.NewNop()); err != nil {
+		t.Fatalf("verifyWithManifestOpen: %v", err)
+	}
+	if c1 != 1 {
+		t.Fatalf("expected first file closed once, got %d", c1)
+	}
+	if c2 != 1 {
+		t.Fatalf("expected reopened file closed once, got %d", c2)
 	}
 }

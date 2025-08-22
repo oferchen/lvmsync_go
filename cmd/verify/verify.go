@@ -318,27 +318,29 @@ func verifyInline(cfg *config.Config, src, dst string, logger *zap.Logger) error
 	return nil
 }
 
+type blockReader interface {
+	Close() error
+	Logical() int
+	Direct() bool
+	ReadAt([]byte, int64) (int, error)
+}
+
 func verifyWithManifest(cfg *config.Config, devicePath, manifestPath string, logger *zap.Logger) error {
+	return verifyWithManifestOpen(func(path string, direct, strict bool) (blockReader, error) {
+		return blockio.Open(path, direct, strict)
+	}, cfg, devicePath, manifestPath, logger)
+}
+
+func verifyWithManifestOpen(open func(string, bool, bool) (blockReader, error), cfg *config.Config, devicePath, manifestPath string, logger *zap.Logger) error {
 	idx, err := manifestpkg.Open(manifestPath)
 	if err != nil {
 		return fmt.Errorf("open manifest: %w", err)
 	}
 	defer idx.Close()
-
-	var st unix.Stat_t
-	if err := unix.Stat(devicePath, &st); err != nil {
-		return fmt.Errorf("stat source: %w", err)
-	}
-	hdr := idx.Header()
-	if hdr.Major != uint32(unix.Major(uint64(st.Rdev))) || hdr.Minor != uint32(unix.Minor(uint64(st.Rdev))) {
-		return fmt.Errorf("precondition: device identity mismatch")
-	}
-
-	fSrc, err := blockio.Open(devicePath, cfg.ODirect, false)
+	fSrc, err := open(devicePath, cfg.ODirect, false)
 	if err != nil {
 		return fmt.Errorf("open device: %w", err)
 	}
-	defer fSrc.Close()
 
 	workers := cfg.Parallel
 	if workers < 1 {
@@ -369,12 +371,12 @@ func verifyWithManifest(cfg *config.Config, devicePath, manifestPath string, log
 		if err := fSrc.Close(); err != nil {
 			return fmt.Errorf("close device: %w", err)
 		}
-		fSrc, err = blockio.Open(devicePath, false, false)
+		fSrc, err = open(devicePath, false, false)
 		if err != nil {
 			return fmt.Errorf("open device: %w", err)
 		}
-		defer fSrc.Close()
 	}
+	defer fSrc.Close()
 	tasks := make(chan job, workers)
 	errCh := make(chan error, 1)
 	var mismatches int64
