@@ -29,7 +29,7 @@ func confirmOverwrite(ctx context.Context, stdin io.Reader, stderr io.Writer, is
 		if err != nil {
 			return fmt.Errorf("confirmation failed: %w", err)
 		}
-		if strings.TrimSpace(resp) != "yes" {
+		if !strings.EqualFold(strings.TrimSpace(resp), "yes") {
 			return fmt.Errorf("operation cancelled")
 		}
 		return nil
