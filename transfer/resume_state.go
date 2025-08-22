@@ -11,6 +11,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"lvmsync_go/device"
 	"lvmsync_go/internal/config"
 )
 
@@ -144,15 +145,15 @@ func finalizeResumeState(cfg *config.Config, rt *resumeTracker, logger *zap.Logg
 	rt.epoch = 0
 }
 
-func readResumeState(cfg *config.Config, logger *zap.Logger, size uint64, deviceID string, epoch uint64, digest [32]byte) resumeCheckpoint {
+func readResumeState(cfg *config.Config, logger *zap.Logger, id device.DeviceIdentity, digest [32]byte) resumeCheckpoint {
 	if cfg.ResumeState == "" {
 		return resumeCheckpoint{}
 	}
 
-	if cp, ok := loadResumeState(resumeWALPath(cfg.ResumeState), cfg, size, deviceID, epoch, digest, logger); ok {
+	if cp, ok := loadResumeState(resumeWALPath(cfg.ResumeState), cfg, id, digest, logger); ok {
 		return cp
 	}
-	if cp, ok := loadResumeState(cfg.ResumeState, cfg, size, deviceID, epoch, digest, logger); ok {
+	if cp, ok := loadResumeState(cfg.ResumeState, cfg, id, digest, logger); ok {
 		return cp
 	}
 	if strings.ToLower(cfg.VerifyLevel) != "none" {
@@ -163,7 +164,7 @@ func readResumeState(cfg *config.Config, logger *zap.Logger, size uint64, device
 
 // loadResumeState loads and validates a resume state file. It returns the
 // checkpoint and true on success.
-func loadResumeState(path string, cfg *config.Config, size uint64, deviceID string, epoch uint64, digest [32]byte, logger *zap.Logger) (resumeCheckpoint, bool) {
+func loadResumeState(path string, cfg *config.Config, id device.DeviceIdentity, digest [32]byte, logger *zap.Logger) (resumeCheckpoint, bool) {
 	var out resumeCheckpoint
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -183,9 +184,21 @@ func loadResumeState(path string, cfg *config.Config, size uint64, deviceID stri
 	if cfg.ResumeToken == "" {
 		cfg.ResumeToken = rs.ResumeToken
 	}
-	if (rs.DeviceID != "" && deviceID != "" && rs.DeviceID != deviceID) ||
-		(rs.SizeBytes != 0 && size != 0 && rs.SizeBytes != size) ||
-		(rs.Epoch != 0 && epoch != 0 && rs.Epoch != epoch) {
+	storedID := device.DeviceIdentity{SizeBytes: rs.SizeBytes, FSUUID: rs.DeviceID, ManifestEpoch: rs.Epoch}
+	actualID := id
+	if storedID.SizeBytes == 0 || actualID.SizeBytes == 0 {
+		storedID.SizeBytes = 0
+		actualID.SizeBytes = 0
+	}
+	if storedID.FSUUID == "" || actualID.FSUUID == "" {
+		storedID.FSUUID = ""
+		actualID.FSUUID = ""
+	}
+	if storedID.ManifestEpoch == 0 || actualID.ManifestEpoch == 0 {
+		storedID.ManifestEpoch = 0
+		actualID.ManifestEpoch = 0
+	}
+	if !device.SameIdentityStrict(storedID, actualID) {
 		return out, false
 	}
 	if rs.FirstBlockDigest != "" && digest != ([32]byte{}) {

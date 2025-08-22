@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 
+	"lvmsync_go/device"
 	"lvmsync_go/internal/config"
 )
 
@@ -57,7 +58,7 @@ func TestReadResumeDigestLogField(t *testing.T) {
 	chk := resumeChunk{Chunk: digest, Offset: 1024, Length: 2048}
 	writeResumeState(cfg, logger, stateFile, resumeChunks{Fixed: chk}, 0, "", 0)
 
-	val := readResumeState(cfg, logger, 0, cfg.DeviceUUID, 0, [32]byte{}).Fixed
+	val := readResumeState(cfg, logger, device.DeviceIdentity{FSUUID: cfg.DeviceUUID}, [32]byte{}).Fixed
 	if val.Chunk != digest {
 		t.Fatalf("expected digest match")
 	}

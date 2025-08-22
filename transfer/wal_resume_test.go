@@ -9,6 +9,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"lvmsync_go/device"
 	"lvmsync_go/internal/config"
 )
 
@@ -59,7 +60,34 @@ func TestResumeValidation(t *testing.T) {
 		t.Fatalf("write resume: %v", err)
 	}
 	cfg := &config.Config{ResumeState: path, DedupMode: "fixed", Transport: "ssh", Compress: "none", ChecksumAlgorithm: "blake3"}
-	chk := readResumeState(cfg, zap.NewNop(), 2, "dest", 2, [32]byte{})
+	chk := readResumeState(cfg, zap.NewNop(), device.DeviceIdentity{SizeBytes: 2, FSUUID: "dest", ManifestEpoch: 2}, [32]byte{})
+	if rc := chk.chunk("fixed"); rc != (resumeChunk{}) {
+		t.Fatalf("expected empty checkpoint, got %#v", rc)
+	}
+}
+
+// TestResumeDeviceIDMismatch ensures mismatched device IDs invalidate resume state.
+func TestResumeDeviceIDMismatch(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "resume.json")
+	state := resumeState{
+		Transport:         "ssh",
+		Compress:          "none",
+		ChecksumAlgorithm: "blake3",
+		DedupMode:         "fixed",
+		SizeBytes:         2,
+		DeviceID:          "src",
+		Epoch:             2,
+	}
+	data, err := json.Marshal(state)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		t.Fatalf("write resume: %v", err)
+	}
+	cfg := &config.Config{ResumeState: path, DedupMode: "fixed", Transport: "ssh", Compress: "none", ChecksumAlgorithm: "blake3"}
+	chk := readResumeState(cfg, zap.NewNop(), device.DeviceIdentity{SizeBytes: 2, FSUUID: "dest", ManifestEpoch: 2}, [32]byte{})
 	if rc := chk.chunk("fixed"); rc != (resumeChunk{}) {
 		t.Fatalf("expected empty checkpoint, got %#v", rc)
 	}

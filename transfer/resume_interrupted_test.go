@@ -15,6 +15,7 @@ import (
 	"github.com/zeebo/blake3"
 	"go.uber.org/zap"
 
+	"lvmsync_go/device"
 	"lvmsync_go/internal/config"
 )
 
@@ -52,7 +53,7 @@ func runInterrupted(t *testing.T, mode string) {
 		t.Fatalf("expected error")
 	}
 
-	chk := readResumeState(cfg, zap.NewNop(), 0, cfg.DeviceUUID, 0, [32]byte{}).chunk(mode)
+	chk := readResumeState(cfg, zap.NewNop(), device.DeviceIdentity{FSUUID: cfg.DeviceUUID}, [32]byte{}).chunk(mode)
 	if chk.Offset != 0 || chk.Length == 0 || chk.Chunk != digest {
 		t.Fatalf("unexpected checkpoint %+v", chk)
 	}
