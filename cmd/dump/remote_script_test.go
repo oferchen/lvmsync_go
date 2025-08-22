@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"golang.org/x/crypto/ssh"
 
 	"lvmsync_go/device"
 	"lvmsync_go/internal/config"
@@ -128,14 +129,15 @@ func TestRemotePostScriptNotRunIfPreScriptFails(t *testing.T) {
 
 // Test that post script context errors are reported distinctly
 func TestRemotePostScriptContextError(t *testing.T) {
-	server := remotetest.NewMockSSHServer(t, func(cmd string) int {
+	slow := make(chan struct{})
+	server := remotetest.NewMockSSHServerWithChannel(t, func(cmd string, _ ssh.Channel) int {
 		switch {
 		case cmd == "lvmsync --version":
 			return 0
 		case strings.HasPrefix(cmd, "lvmsync --digest"):
 			return 0
 		case cmd == "slow-post":
-			time.Sleep(100 * time.Millisecond)
+			<-slow
 			return 0
 		default:
 			t.Fatalf("unexpected command: %s", cmd)
@@ -160,7 +162,7 @@ func TestRemotePostScriptContextError(t *testing.T) {
 	cfg.RemotePostScript = "slow-post"
 	cfg.SSHUser = "test"
 	cfg.SSHPort = port
-	cfg.SSHTimeout = 50 * time.Millisecond
+	cfg.SSHTimeout = 200 * time.Millisecond
 	cfg.SSHKeyPath = remotetest.CreateTempKey(t)
 	cfg.KnownHosts = remotetest.CreateKnownHostsFile(t, server)
 	cfg.StrictHostKeyCheck = true
@@ -175,6 +177,7 @@ func TestRemotePostScriptContextError(t *testing.T) {
 	}
 	defer func() { detectDevice = origDetect }()
 	_, err = Run(ctx, cfg, "/dev/snap", dest, zap.NewNop())
+	close(slow)
 	if err == nil || !strings.Contains(err.Error(), "remote post-script context error") {
 		t.Fatalf("expected remote post-script context error, got %v", err)
 	}
