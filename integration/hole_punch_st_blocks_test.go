@@ -24,14 +24,7 @@ func runCmd(t *testing.T, cmd *exec.Cmd) string {
 }
 
 func TestHolePunchStBlocks(t *testing.T) {
-	for _, tool := range []string{"losetup", "mkfs.ext4", "mount", "umount"} {
-		if _, err := exec.LookPath(tool); err != nil {
-			t.Skipf("%s not available", tool)
-		}
-	}
-	if os.Geteuid() != 0 {
-		t.Skip("root required")
-	}
+	requireRootAndCommands(t, "mkfs.ext4", "mount", "umount")
 
 	tmpDir := t.TempDir()
 	tmpfsDir := filepath.Join(tmpDir, "tmpfs")

@@ -8,6 +8,7 @@ import (
 )
 
 func TestResumeDedupMismatch(t *testing.T) {
+	requireRootAndCommands(t)
 	cmd := exec.Command("bash", "./integration/resume_dedup_mismatch.sh")
 	cmd.Dir = ".."
 	out, err := cmd.CombinedOutput()

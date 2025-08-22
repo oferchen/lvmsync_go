@@ -8,6 +8,7 @@ import (
 )
 
 func TestDaemonMTLS(t *testing.T) {
+	requireRootAndCommands(t)
 	cmd := exec.Command("bash", "./integration/daemon_mtls.sh")
 	cmd.Dir = ".."
 	out, err := cmd.CombinedOutput()

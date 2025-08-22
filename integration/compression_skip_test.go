@@ -43,6 +43,7 @@ func throughput(data []byte, t *testing.T) (string, float64) {
 }
 
 func TestCompressionSkip(t *testing.T) {
+	requireRootAndCommands(t)
 	pre := generateGzip(t, 64*1024)
 	zeros := bytes.Repeat([]byte{0}, 64*1024)
 

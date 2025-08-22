@@ -1641,6 +1641,10 @@ go tool cover -func=coverage.out
 
 Some privileged tests are skipped when run without root access.
 
+Integration tests manipulate LVM volumes and loop devices. Running them
+requires root privileges and utilities such as `lvremove`, `pvremove`, and
+`losetup`. These tests are skipped when prerequisites are missing.
+
 The workflow enforces a minimum of 50% total coverage.
 
 ## License

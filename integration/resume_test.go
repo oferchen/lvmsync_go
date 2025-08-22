@@ -8,6 +8,7 @@ import (
 )
 
 func TestResumeMidTransfer(t *testing.T) {
+	requireRootAndCommands(t)
 	cmd := exec.Command("bash", "./integration/resume.sh")
 	cmd.Dir = ".."
 	out, err := cmd.CombinedOutput()
