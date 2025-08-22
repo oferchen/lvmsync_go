@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"runtime"
 	"sync/atomic"
 	"syscall"
 	"testing"
@@ -120,5 +121,28 @@ func TestReadBlockWithRetriesContextCancel(t *testing.T) {
 	}
 	if time.Since(start) >= 100*time.Millisecond {
 		t.Fatalf("expected cancellation before backoff elapsed")
+	}
+}
+
+func TestRetryReadNoTimerLeak(t *testing.T) {
+	logger := zap.NewNop()
+	cfg := &config.Config{BlockSize: 4, MaxRetries: 3}
+
+	tmp := newTempFile(t, "block")
+	defer tmp.Close()
+
+	before := runtime.NumGoroutine()
+	for i := 0; i < 10; i++ {
+		ctx, cancel := context.WithCancel(context.Background())
+		go func() {
+			time.Sleep(10 * time.Millisecond)
+			cancel()
+		}()
+		_, _ = retryRead(ctx, cfg, tmp, 0, logger)
+	}
+	time.Sleep(50 * time.Millisecond)
+	after := runtime.NumGoroutine()
+	if after-before > 2 {
+		t.Fatalf("goroutines leaked: before %d after %d", before, after)
 	}
 }
