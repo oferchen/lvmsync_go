@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
@@ -87,19 +88,57 @@ func (c *PrivHelperClient) Send(offset uint64, payload []byte) error {
 }
 
 // RecvAck reads the next acknowledgment from the helper.
-// It returns true for ACK and false for NACK.
-func (c *PrivHelperClient) RecvAck() (bool, error) {
-	var b [1]byte
-	if _, err := io.ReadFull(c.stdout, b[:]); err != nil {
-		return false, err
+// It returns true for ACK and false for NACK. The provided context controls the
+// lifetime of the read and enforces deadlines on the underlying reader when
+// supported. If the context is canceled or its deadline is exceeded before the
+// acknowledgment is received, an error is returned.
+func (c *PrivHelperClient) RecvAck(ctx context.Context) (bool, error) {
+	if ctx == nil {
+		return false, errors.New("nil context")
 	}
-	switch b[0] {
-	case 'A':
-		return true, nil
-	case 'N':
-		return false, nil
-	default:
-		return false, errors.New("invalid ack byte")
+
+	if dl, ok := ctx.Deadline(); ok {
+		if conn, ok := c.stdout.(interface{ SetReadDeadline(time.Time) error }); ok {
+			if err := conn.SetReadDeadline(dl); err != nil {
+				return false, err
+			}
+			defer conn.SetReadDeadline(time.Time{}) //nolint:errcheck
+		}
+	}
+
+	type result struct {
+		b   byte
+		err error
+	}
+	resCh := make(chan result, 1)
+	go func() {
+		var b [1]byte
+		_, err := io.ReadFull(c.stdout, b[:])
+		resCh <- result{b: b[0], err: err}
+	}()
+
+	select {
+	case <-ctx.Done():
+		if conn, ok := c.stdout.(interface{ SetReadDeadline(time.Time) error }); ok {
+			_ = conn.SetReadDeadline(time.Now())
+		}
+		<-resCh // drain goroutine to avoid leak
+		return false, ctx.Err()
+	case r := <-resCh:
+		if r.err != nil {
+			if ctxErr := ctx.Err(); ctxErr != nil {
+				return false, ctxErr
+			}
+			return false, r.err
+		}
+		switch r.b {
+		case 'A':
+			return true, nil
+		case 'N':
+			return false, nil
+		default:
+			return false, errors.New("invalid ack byte")
+		}
 	}
 }
 
