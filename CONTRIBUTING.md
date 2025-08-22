@@ -41,6 +41,16 @@ staticcheck ./...
 
 These commands are enforced in CI via the Go workflows.
 
+## Test Coverage
+
+Generate a coverage report to ensure sufficient test coverage:
+
+```sh
+make coverage
+```
+
+This command writes `coverage.out` and prints function coverage details.
+
 ## Sudoers file validation
 
 CI also checks the syntax of the sample sudoers rules:
