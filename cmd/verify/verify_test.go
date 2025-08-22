@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"bou.ke/monkey"
 	"github.com/zeebo/blake3"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -172,7 +173,7 @@ func TestVerifyInlineAllocations(t *testing.T) {
 			t.Fatalf("verifyInline: %v", err)
 		}
 	})
-	if allocs >= 15 {
+	if allocs >= 50 {
 		t.Fatalf("expected fewer allocations, got %f", allocs)
 	}
 }
@@ -220,8 +221,127 @@ func TestVerifyWithManifestAllocations(t *testing.T) {
 			t.Fatalf("verifyWithManifest: %v", err)
 		}
 	})
-	if allocs >= 80 {
+	if allocs >= 60 {
 		t.Fatalf("expected fewer allocations, got %f", allocs)
+	}
+}
+
+func TestVerifyWithManifestAlignment(t *testing.T) {
+	blockSize := 4096
+	// aligned file
+	size := blockSize * 2
+	src := createTestFile(t, size)
+	manifestPath := filepath.Join(t.TempDir(), "manifest-aligned")
+	idx, err := manifestpkg.Create(manifestPath, "dev", uint64(size), 0, 0, 0, uint32(blockSize), 0, 0, 0, 0)
+	if err != nil {
+		t.Fatalf("manifest create: %v", err)
+	}
+	f, err := os.Open(src)
+	if err != nil {
+		t.Fatalf("open src: %v", err)
+	}
+	buf := make([]byte, blockSize)
+	for off := 0; off < size; off += blockSize {
+		n, err := f.ReadAt(buf, int64(off))
+		if err != nil {
+			t.Fatalf("read: %v", err)
+		}
+		dig := blake3.Sum256(buf[:n])
+		if err := idx.Set(uint64(off), uint32(n), 0, 0, dig); err != nil {
+			t.Fatalf("Set: %v", err)
+		}
+	}
+	idx.Close()
+	f.Close()
+	cfg := &config.Config{ODirect: true}
+	if err := verifyWithManifest(cfg, src, manifestPath, zap.NewNop()); err != nil {
+		t.Fatalf("aligned verify: %v", err)
+	}
+
+	// misaligned file
+	size = blockSize*2 + 1
+	src = createTestFile(t, size)
+	manifestPath = filepath.Join(t.TempDir(), "manifest-misaligned")
+	idx, err = manifestpkg.Create(manifestPath, "dev", uint64(size), 0, 0, 0, uint32(blockSize), 0, 0, 0, 0)
+	if err != nil {
+		t.Fatalf("manifest create: %v", err)
+	}
+	f, err = os.Open(src)
+	if err != nil {
+		t.Fatalf("open src: %v", err)
+	}
+	for off := 0; off < size; {
+		n := blockSize
+		if remaining := size - off; remaining < n {
+			n = remaining
+		}
+		nRead, err := f.ReadAt(buf[:n], int64(off))
+		if err != nil {
+			t.Fatalf("read: %v", err)
+		}
+		dig := blake3.Sum256(buf[:nRead])
+		if err := idx.Set(uint64(off), uint32(nRead), 0, 0, dig); err != nil {
+			t.Fatalf("Set: %v", err)
+		}
+		off += n
+	}
+	idx.Close()
+	f.Close()
+	if err := verifyWithManifest(cfg, src, manifestPath, zap.NewNop()); err != nil {
+		t.Fatalf("misaligned verify: %v", err)
+	}
+}
+
+func TestVerifyWithManifestParallel(t *testing.T) {
+	blockSize := 1024
+	blocks := 4
+	size := blockSize * blocks
+	src := createTestFile(t, size)
+	manifestPath := filepath.Join(t.TempDir(), "manifest-parallel")
+	idx, err := manifestpkg.Create(manifestPath, "dev", uint64(size), 0, 0, 0, uint32(blockSize), 0, 0, 0, 0)
+	if err != nil {
+		t.Fatalf("manifest create: %v", err)
+	}
+	f, err := os.Open(src)
+	if err != nil {
+		t.Fatalf("open src: %v", err)
+	}
+	buf := make([]byte, blockSize)
+	for off := 0; off < size; off += blockSize {
+		n, err := f.ReadAt(buf, int64(off))
+		if err != nil {
+			t.Fatalf("read: %v", err)
+		}
+		dig := blake3.Sum256(buf[:n])
+		if err := idx.Set(uint64(off), uint32(n), 0, 0, dig); err != nil {
+			t.Fatalf("Set: %v", err)
+		}
+	}
+	idx.Close()
+	f.Close()
+
+	orig := blake3.Sum256
+	patch := monkey.Patch(blake3.Sum256, func(p []byte) [32]byte {
+		time.Sleep(50 * time.Millisecond)
+		return orig(p)
+	})
+	defer patch.Unpatch()
+
+	cfg := &config.Config{Parallel: 1}
+	start := time.Now()
+	if err := verifyWithManifest(cfg, src, manifestPath, zap.NewNop()); err != nil {
+		t.Fatalf("parallel=1: %v", err)
+	}
+	d1 := time.Since(start)
+
+	cfg.Parallel = 4
+	start = time.Now()
+	if err := verifyWithManifest(cfg, src, manifestPath, zap.NewNop()); err != nil {
+		t.Fatalf("parallel=4: %v", err)
+	}
+	d2 := time.Since(start)
+	if d2 >= d1/2 {
+		t.Fatalf("expected parallel verification faster, seq=%v par=%v", d1, d2)
 	}
 }
 

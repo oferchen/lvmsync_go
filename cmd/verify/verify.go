@@ -9,6 +9,8 @@ import (
 	"io"
 	"os"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -18,13 +20,13 @@ import (
 	"gopkg.in/yaml.v3"
 
 	rootcmd "lvmsync_go/cmd/root"
+	"lvmsync_go/internal/blockio"
 	"lvmsync_go/device"
 	"lvmsync_go/internal/config"
 	cpufeatures "lvmsync_go/internal/cpufeatures"
 	digestpkg "lvmsync_go/internal/digest"
 	"lvmsync_go/internal/privilege"
 	manifestpkg "lvmsync_go/manifest"
-	"lvmsync_go/transfer"
 )
 
 // Runner holds dependencies for verify operations.
@@ -213,31 +215,25 @@ func verifyInline(cfg *config.Config, src, dst string, logger *zap.Logger) error
 	if blockSize == 0 {
 		blockSize = 8 * 1024 * 1024
 	}
-	fSrc, err := os.Open(src)
+	fSrc, err := blockio.Open(src, cfg.ODirect, false)
 	if err != nil {
 		return fmt.Errorf("open source: %w", err)
 	}
 	defer fSrc.Close()
-	fDst, err := os.Open(dst)
+	fDst, err := blockio.Open(dst, cfg.ODirect, false)
 	if err != nil {
 		return fmt.Errorf("open dest: %w", err)
 	}
 	defer fDst.Close()
 
-	infoSrc, err := fSrc.Stat()
-	if err != nil {
-		return fmt.Errorf("stat source: %w", err)
-	}
-	infoDst, err := fDst.Stat()
-	if err != nil {
-		return fmt.Errorf("stat dest: %w", err)
-	}
-	if infoSrc.Size() != infoDst.Size() {
-		logger.Error("size mismatch", zap.Int64("source_bytes", infoSrc.Size()), zap.Int64("dest_bytes", infoDst.Size()))
+	sizeSrc := fSrc.Size()
+	sizeDst := fDst.Size()
+	if sizeSrc != sizeDst {
+		logger.Error("size mismatch", zap.Int64("source_bytes", sizeSrc), zap.Int64("dest_bytes", sizeDst))
 		return fmt.Errorf("size mismatch")
 	}
 
-	total := infoSrc.Size()
+	total := sizeSrc
 	mismatches := 0
 	bufSrc := make([]byte, blockSize)
 	bufDst := make([]byte, blockSize)
@@ -247,11 +243,19 @@ func verifyInline(cfg *config.Config, src, dst string, logger *zap.Logger) error
 		if remaining := int(total - off); remaining < size {
 			size = remaining
 		}
-		if err := transfer.ReadBlockInto(fSrc, off, bufSrc[:size]); err != nil && err != io.EOF {
+		n, err := fSrc.ReadAt(bufSrc[:size], off)
+		if err != nil && err != io.EOF {
 			return fmt.Errorf("read source: %w", err)
 		}
-		if err := transfer.ReadBlockInto(fDst, off, bufDst[:size]); err != nil && err != io.EOF {
+		if n != size {
+			return fmt.Errorf("read source: short read: expected %d, got %d", size, n)
+		}
+		n, err = fDst.ReadAt(bufDst[:size], off)
+		if err != nil && err != io.EOF {
 			return fmt.Errorf("read dest: %w", err)
+		}
+		if n != size {
+			return fmt.Errorf("read dest: short read: expected %d, got %d", size, n)
 		}
 		if digest(bufSrc[:size]) != digest(bufDst[:size]) {
 			mismatches++
@@ -271,39 +275,24 @@ func verifyWithManifest(cfg *config.Config, devicePath, manifestPath string, log
 		return fmt.Errorf("open manifest: %w", err)
 	}
 	defer idx.Close()
-
-	hdr := idx.Header()
-	ctx := context.Background()
-	dev, err := device.Detect(ctx, devicePath, true, "", "", "", "", 0, 0, privilege.New(ctx, logger), logger, device.NewRunner())
-	if err != nil {
-		return fmt.Errorf("detect device: %w", err)
-	}
-	defer dev.Close()
-	id, err := dev.Identity(ctx)
-	if err != nil {
-		return fmt.Errorf("device identity: %w", err)
-	}
-	manID := id
-	manID.SizeBytes = hdr.SizeBytes
-	manID.Major = hdr.Major
-	manID.Minor = hdr.Minor
-	manID.ManifestEpoch = hdr.Epoch
-	if devID := strings.TrimRight(string(hdr.DeviceID[:]), "\x00"); devID != "" {
-		manID.FSUUID = devID
-	}
-	if !device.SameIdentity(manID, id) {
-		return fmt.Errorf("precondition: device identity mismatch")
-	}
-
-	fSrc, err := os.Open(devicePath)
+	fSrc, err := blockio.Open(devicePath, cfg.ODirect, false)
 	if err != nil {
 		return fmt.Errorf("open device: %w", err)
 	}
 	defer fSrc.Close()
 
-	mismatches := 0
-	buf := make([]byte, 0)
-	hash := blake3.Sum256
+	workers := cfg.Parallel
+	if workers < 1 {
+		workers = 1
+	}
+	type job struct {
+		off    uint64
+		length uint32
+		digest [32]byte
+	}
+	logical := fSrc.Logical()
+	jobs := make([]job, 0, idx.ChunkCount())
+	unaligned := false
 	for i := uint64(0); i < idx.ChunkCount(); i++ {
 		off, length, _, _, digest, err := idx.Entry(i)
 		if err != nil {
@@ -312,21 +301,69 @@ func verifyWithManifest(cfg *config.Config, devicePath, manifestPath string, log
 		if length == 0 {
 			continue
 		}
-		if int(length) > cap(buf) {
-			buf = make([]byte, int(length))
+		if off%uint64(logical) != 0 || int(length)%logical != 0 {
+			unaligned = true
 		}
-		buf = buf[:int(length)]
-		if _, err := fSrc.ReadAt(buf, int64(off)); err != nil {
-			return fmt.Errorf("read source: %w", err)
+		jobs = append(jobs, job{off: off, length: length, digest: digest})
+	}
+	if unaligned && fSrc.Direct() {
+		if err := fSrc.Close(); err != nil {
+			return fmt.Errorf("close device: %w", err)
 		}
-		actual := hash(buf)
-		if actual != digest {
-			mismatches++
-			logger.Error("digest_mismatch",
-				zap.Uint64("offset_bytes", off),
-				zap.String("expected_digest", fmt.Sprintf("%x", digest[:])),
-				zap.String("actual_digest", fmt.Sprintf("%x", actual[:])))
+		fSrc, err = blockio.Open(devicePath, false, false)
+		if err != nil {
+			return fmt.Errorf("open device: %w", err)
 		}
+		defer fSrc.Close()
+	}
+	tasks := make(chan job, workers)
+	errCh := make(chan error, 1)
+	var mismatches int64
+	hash := digestFunc(cfg)
+	var wg sync.WaitGroup
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			buf := make([]byte, 0)
+			for j := range tasks {
+				if int(j.length) > cap(buf) {
+					buf = make([]byte, int(j.length))
+				}
+				b := buf[:int(j.length)]
+				if _, err := fSrc.ReadAt(b, int64(j.off)); err != nil {
+					select {
+					case errCh <- fmt.Errorf("read source: %w", err):
+					default:
+					}
+					return
+				}
+				actual := hash(b)
+				if actual != j.digest {
+					atomic.AddInt64(&mismatches, 1)
+					logger.Error("digest_mismatch",
+						zap.Uint64("offset_bytes", j.off),
+						zap.String("expected_digest", fmt.Sprintf("%x", j.digest[:])),
+						zap.String("actual_digest", fmt.Sprintf("%x", actual[:])))
+				}
+			}
+		}()
+	}
+	for _, j := range jobs {
+		select {
+		case tasks <- j:
+		case err := <-errCh:
+			close(tasks)
+			wg.Wait()
+			return err
+		}
+	}
+	close(tasks)
+	wg.Wait()
+	select {
+	case err := <-errCh:
+		return err
+	default:
 	}
 	if mismatches > 0 {
 		return fmt.Errorf("%d blocks differ", mismatches)
