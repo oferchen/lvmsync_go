@@ -36,6 +36,10 @@ rights.
 
 For additional hardening, pass `--no-new-privs` or set `LVMSYNC_NO_NEW_PRIVS=1` to call `prctl(PR_SET_NO_NEW_PRIVS)` before `sudo` execution. This prevents escalated commands from gaining further privileges.
 
+## Helper request limits
+
+The privileged helper rejects write requests that declare a payload larger than 1 MiB. It discards at most 1 MiB of data before aborting the session to avoid streaming gigabytes of unsolicited input.
+
 
 
 Roles are read from the certificate's `OrganizationalUnit` field and must

@@ -1,8 +1,10 @@
 package remote
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/binary"
 	"errors"
 	"io"
 	"net"
@@ -80,6 +82,8 @@ func TestRecvAckTimeout(t *testing.T) {
 	defer cancel()
 	if _, err := c.RecvAck(ctx); !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("expected deadline exceeded, got %v", err)
+	}
+}
 
 func TestPrivilegedHelperOversizedLength(t *testing.T) {
 	handler := func(cmd string, ch ssh.Channel) int {
@@ -106,12 +110,8 @@ func TestPrivilegedHelperOversizedLength(t *testing.T) {
 	if err := privClient.Send(0, payload); err != nil {
 		t.Fatalf("Send: %v", err)
 	}
-	ack, err := privClient.RecvAck()
-	if err != nil {
-		t.Fatalf("RecvAck: %v", err)
-	}
-	if ack {
-		t.Fatalf("expected NACK for oversized payload")
+	if _, err := privClient.RecvAck(ctx); err == nil {
+		t.Fatalf("expected error for oversized payload")
 	}
 }
 
@@ -137,12 +137,14 @@ func TestPrivilegedHelperShortWrite(t *testing.T) {
 	if err := privClient.Send(0, []byte("hello")); err != nil {
 		t.Fatalf("Send: %v", err)
 	}
-	ack, err := privClient.RecvAck()
+	ack, err := privClient.RecvAck(ctx)
 	if err != nil {
 		t.Fatalf("RecvAck: %v", err)
 	}
 	if ack {
 		t.Fatalf("expected NACK for short write")
+	}
+}
 
 type shortWriteCloser struct{}
 
@@ -161,4 +163,51 @@ func TestPrivHelperSendShortWrite(t *testing.T) {
 	if !errors.Is(err, io.ErrShortWrite) {
 		t.Fatalf("expected io.ErrShortWrite, got %v", err)
 	}
+}
+
+func TestPrivilegedPwriteServerLargeDeclaredLength(t *testing.T) {
+	const large = 2 * 1024 * 1024 * 1024 // 2 GiB
+	header := make([]byte, 8+4+32)
+	binary.BigEndian.PutUint64(header[0:8], 0)
+	binary.BigEndian.PutUint32(header[8:12], uint32(large))
+	cr := &countingReader{limit: maxPayloadLength * 2}
+	reader := io.MultiReader(bytes.NewReader(header), cr)
+	rw := struct {
+		io.Reader
+		io.Writer
+	}{Reader: reader, Writer: io.Discard}
+	var called bool
+	pw := func(fd int, p []byte, off int64) (int, error) {
+		called = true
+		return len(p), nil
+	}
+	err := privilegedPwriteServer(rw, 0, pw)
+	if err == nil {
+		t.Fatalf("expected error for large declared length")
+	}
+	if called {
+		t.Fatalf("pwrite should not be called")
+	}
+	if cr.n > maxPayloadLength {
+		t.Fatalf("read %d bytes, expected at most %d", cr.n, maxPayloadLength)
+	}
+}
+
+type countingReader struct {
+	n     int
+	limit int
+}
+
+func (c *countingReader) Read(p []byte) (int, error) {
+	if c.n >= c.limit {
+		return 0, io.EOF
+	}
+	if len(p) > c.limit-c.n {
+		p = p[:c.limit-c.n]
+	}
+	for i := range p {
+		p[i] = 0
+	}
+	c.n += len(p)
+	return len(p), nil
 }
