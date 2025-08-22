@@ -57,8 +57,16 @@ func emitPlan(cfg *config.Config, args []string, logger *zap.Logger) error {
 	if len(args) < 1 {
 		return fmt.Errorf("missing source argument")
 	}
-	if cfg.AllowInsecure || strings.Contains(cfg.Transport, "rsync") {
-		fmt.Fprintln(os.Stderr, "allow_insecure enabled; security checks disabled")
+	transports := splitList(cfg.Transport)
+	rsyncRequested := false
+	for _, t := range transports {
+		if t == "rsync" {
+			rsyncRequested = true
+			break
+		}
+	}
+	if cfg.AllowInsecure || rsyncRequested {
+		logger.Warn("allow_insecure enabled; security checks disabled", zap.String("reason", "allow_insecure_enabled"))
 		if !cfg.AllowInsecure {
 			return fmt.Errorf("insecure configuration requires --allow-insecure")
 		}
@@ -69,7 +77,7 @@ func emitPlan(cfg *config.Config, args []string, logger *zap.Logger) error {
 	}
 	po := planOutput{
 		Config:         redactConfig(cfg),
-		TransportOrder: splitList(cfg.Transport),
+		TransportOrder: transports,
 		EstimatedBytes: est,
 		Compression:    buildCompressionPlan(cfg),
 	}
