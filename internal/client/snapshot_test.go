@@ -81,7 +81,7 @@ func TestPrepareSnapshotCreatesSnapshot(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		func(ctx context.Context, orig, name, size string, _ *zap.Logger) error {
+		func(_ context.Context, _, _, size string, _ *zap.Logger) error {
 			created = true
 			if size != "1024" {
 				t.Fatalf("unexpected size: %s", size)
@@ -90,7 +90,7 @@ func TestPrepareSnapshotCreatesSnapshot(t *testing.T) {
 		},
 		func(name, vg string, _ *zap.Logger) string { return "/dev/" + vg + "/" + name },
 		func(context.Context, string, float64, time.Duration, *zap.Logger) error { return nil },
-		func(ctx context.Context, path string, _ *zap.Logger) error {
+		func(_ context.Context, path string, _ *zap.Logger) error {
 			removedPath = path
 			return nil
 		},
@@ -121,6 +121,81 @@ func TestPrepareSnapshotCreatesSnapshot(t *testing.T) {
 	}
 }
 
+func TestMonitorSnapshotUsageError(t *testing.T) {
+	t.Parallel()
+	cfg, err := config.DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig error: %v", err)
+	}
+	cfg.SkipDiskCheck = true
+	cfg.VolumeGroup = "vg"
+	cfg.TargetVolumeGroup = "vg2"
+	cfg.SnapshotMaxUsage = 0.5
+
+	usageCh := make(chan float64, 1)
+	done := make(chan struct{})
+	var monCtx context.Context
+
+	r := client.NewRunnerWithDeps(
+		func(string, string, *lvm.FDCache, *zap.Logger) (uint64, error) { return 1024, nil },
+		nil,
+		nil,
+		nil,
+		nil,
+		func(context.Context, string, string, string, *zap.Logger) error { return nil },
+		func(name, vg string, _ *zap.Logger) string { return "/dev/" + vg + "/" + name },
+		func(ctx context.Context, _ string, threshold float64, _ time.Duration, _ *zap.Logger) error {
+			defer close(done)
+			monCtx = ctx
+			usage := <-usageCh
+			if usage > threshold {
+				return errors.New("usage exceeded")
+			}
+			return nil
+		},
+		func(context.Context, string, *zap.Logger) error { return nil },
+		nil,
+	)
+
+	logger := zap.NewNop()
+	_, monitorCh, cleanup, err := r.PrepareSnapshot(context.Background(), cfg, "/dev/vg/orig", logger)
+	if err != nil {
+		t.Fatalf("PrepareSnapshot error: %v", err)
+	}
+
+	usageCh <- cfg.SnapshotMaxUsage + 0.1
+
+	select {
+	case err, ok := <-monitorCh:
+		if !ok {
+			t.Fatalf("monitor channel closed without error")
+		}
+		if err == nil {
+			t.Fatalf("expected error from monitor")
+		}
+	case <-time.After(1 * time.Second):
+		t.Fatalf("timeout waiting for monitor error")
+	}
+
+	if _, ok := <-monitorCh; ok {
+		t.Fatalf("expected closed monitor channel")
+	}
+
+	cleanup()
+
+	select {
+	case <-monCtx.Done():
+	case <-time.After(1 * time.Second):
+		t.Fatalf("monitor context not canceled")
+	}
+
+	select {
+	case <-done:
+	case <-time.After(1 * time.Second):
+		t.Fatalf("monitor goroutine leaked")
+	}
+}
+
 func TestCreateSnapshotCleanupNoPanic(t *testing.T) {
 	cfg, err := config.DefaultConfig()
 	if err != nil {
@@ -139,7 +214,7 @@ func TestCreateSnapshotCleanupNoPanic(t *testing.T) {
 		nil,
 		func(context.Context, string, string, string, *zap.Logger) error { return nil },
 		func(name, vg string, _ *zap.Logger) string { return "/dev/" + vg + "/" + name },
-		func(ctx context.Context, path string, threshold float64, interval time.Duration, _ *zap.Logger) error {
+		func(ctx context.Context, _ string, _ float64, _ time.Duration, _ *zap.Logger) error {
 			ready <- struct{}{}
 			<-ctx.Done()
 			return errors.New("monitor error")
