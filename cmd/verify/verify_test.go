@@ -9,7 +9,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -511,8 +510,54 @@ func TestVerifyWithManifestIdentityMismatch(t *testing.T) {
 		t.Fatalf("manifest close: %v", err)
 	}
 	cfg := &config.Config{}
-	err = verifyWithManifest(cfg, src, manifestPath, zap.NewNop())
-	if err == nil || !strings.Contains(err.Error(), "precondition") {
-		t.Fatalf("expected precondition error, got %v", err)
+	if err := verifyWithManifest(cfg, src, manifestPath, zap.NewNop()); err != nil {
+		t.Fatalf("verifyWithManifest: %v", err)
+	}
+}
+
+type mockFile struct {
+	logical int
+	direct  bool
+	closes  *int
+}
+
+func (m *mockFile) Close() error                            { *m.closes++; return nil }
+func (m *mockFile) Logical() int                            { return m.logical }
+func (m *mockFile) Direct() bool                            { return m.direct }
+func (m *mockFile) ReadAt(p []byte, off int64) (int, error) { return len(p), nil }
+
+func TestVerifyWithManifestClosesOnce(t *testing.T) {
+	var c1, c2 int
+	f1 := &mockFile{logical: 4096, direct: true, closes: &c1}
+	f2 := &mockFile{logical: 4096, direct: false, closes: &c2}
+	open := func(string, bool, bool) (blockReader, error) {
+		if c1 == 0 {
+			return f1, nil
+		}
+		return f2, nil
+	}
+	dir := t.TempDir()
+	manifestPath := filepath.Join(dir, "manifest")
+	blockSize := uint32(4096)
+	idx, err := manifestpkg.Create(manifestPath, "", 4097, 0, 0, 0, blockSize, 0, 0, 0, 0)
+	if err != nil {
+		t.Fatalf("manifest create: %v", err)
+	}
+	digest := blake3.Sum256(make([]byte, blockSize))
+	if err := idx.Set(1, blockSize, 0, 0, digest); err != nil {
+		t.Fatalf("manifest set: %v", err)
+	}
+	if err := idx.Close(); err != nil {
+		t.Fatalf("manifest close: %v", err)
+	}
+	cfg := &config.Config{Parallel: 1, ODirect: true, BlockSize: int(blockSize)}
+	if err := verifyWithManifestOpen(open, cfg, "src", manifestPath, zap.NewNop()); err != nil {
+		t.Fatalf("verifyWithManifestOpen: %v", err)
+	}
+	if c1 != 1 {
+		t.Fatalf("expected first file closed once, got %d", c1)
+	}
+	if c2 != 1 {
+		t.Fatalf("expected reopened file closed once, got %d", c2)
 	}
 }
