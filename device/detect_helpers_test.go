@@ -56,10 +56,10 @@ func TestDetectLVMDeviceSuccess(t *testing.T) {
 	core, logs := observer.New(zap.InfoLevel)
 	logger := zap.New(core)
 	runner := NewRunner()
-	runner.openLVMOverride = func(ctx context.Context, p string, _ *lvm.FDCache, _ string, _ *zap.Logger) (*LVMDevice, error) {
+	runner.openLVMOverride = func(ctx context.Context, p string, _ *lvm.FDCache, _ bool, _ string, _ *zap.Logger) (*LVMDevice, error) {
 		return &LVMDevice{path: p, logger: zap.NewNop(), runner: runner}, nil
 	}
-	dev, err := detectLVMDevice(context.Background(), "/dev/test", "", runner, logger)
+	dev, err := detectLVMDevice(context.Background(), "/dev/test", false, "", runner, logger)
 	if err != nil {
 		t.Fatalf("detect: %v", err)
 	}
@@ -83,10 +83,10 @@ func TestDetectLVMDeviceError(t *testing.T) {
 	restore := lvm.SetEscalationChecker(func(string) error { return nil })
 	defer restore()
 	runner := NewRunner()
-	runner.openLVMOverride = func(context.Context, string, *lvm.FDCache, string, *zap.Logger) (*LVMDevice, error) {
+	runner.openLVMOverride = func(context.Context, string, *lvm.FDCache, bool, string, *zap.Logger) (*LVMDevice, error) {
 		return nil, errors.New("fail")
 	}
-	if _, err := detectLVMDevice(context.Background(), "/dev/test", "", runner, zap.NewNop()); err == nil {
+	if _, err := detectLVMDevice(context.Background(), "/dev/test", false, "", runner, zap.NewNop()); err == nil {
 		t.Fatalf("expected error")
 	}
 }
@@ -96,11 +96,11 @@ func TestDetectLVMDeviceEscalationError(t *testing.T) {
 	defer restore()
 	runner := NewRunner()
 	called := false
-	runner.openLVMOverride = func(context.Context, string, *lvm.FDCache, string, *zap.Logger) (*LVMDevice, error) {
+	runner.openLVMOverride = func(context.Context, string, *lvm.FDCache, bool, string, *zap.Logger) (*LVMDevice, error) {
 		called = true
 		return &LVMDevice{path: "/dev/test", logger: zap.NewNop(), runner: runner}, nil
 	}
-	if _, err := detectLVMDevice(context.Background(), "/dev/test", "sudo -n", runner, zap.NewNop()); err == nil {
+	if _, err := detectLVMDevice(context.Background(), "/dev/test", false, "sudo -n", runner, zap.NewNop()); err == nil {
 		t.Fatalf("expected error")
 	}
 	if called {

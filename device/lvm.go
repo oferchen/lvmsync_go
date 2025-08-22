@@ -15,6 +15,7 @@ import (
 	"golang.org/x/sys/unix"
 	"golang.org/x/term"
 
+	"lvmsync_go/internal/exitcode"
 	"lvmsync_go/internal/lock"
 	"lvmsync_go/lvm"
 )
@@ -34,10 +35,11 @@ type LVMDevice struct {
 }
 
 // OpenLVM opens an LVM logical volume and queries its size and block size.
-// Size information is obtained through the lvm package helpers.
-func (r *Runner) OpenLVM(ctx context.Context, path string, cache *lvm.FDCache, escalation string, logger *zap.Logger) (*LVMDevice, error) {
+// It fails unless the device is a snapshot or offline is true. Size
+// information is obtained through the lvm package helpers.
+func (r *Runner) OpenLVM(ctx context.Context, path string, cache *lvm.FDCache, offline bool, escalation string, logger *zap.Logger) (*LVMDevice, error) {
 	if r.openLVMOverride != nil {
-		return r.openLVMOverride(ctx, path, cache, escalation, logger)
+		return r.openLVMOverride(ctx, path, cache, offline, escalation, logger)
 	}
 	exists, err := r.volumeExists(ctx, path)
 	if err != nil {
@@ -66,6 +68,23 @@ func (r *Runner) OpenLVM(ctx context.Context, path string, cache *lvm.FDCache, e
 	}
 	if mounted {
 		return nil, fmt.Errorf("device %s mounted", path)
+	}
+	if !offline {
+		if lvsErr != nil {
+			return nil, lvsErr
+		}
+		out, err := exec.CommandContext(ctx, lvsPath, "--noheadings", "-o", "lv_attr,lv_role", path).Output()
+		if err != nil {
+			return nil, err
+		}
+		fields := strings.Fields(string(out))
+		if len(fields) != 2 {
+			return nil, fmt.Errorf("unexpected lvs output for %s", path)
+		}
+		attr, typ := fields[0], fields[1]
+		if typ != "snapshot" && !strings.HasPrefix(attr, "s") {
+			return nil, fmt.Errorf("precondition: volume %s is not a snapshot: %w", path, exitcode.ErrPrecondition)
+		}
 	}
 	vg, lv, err := lvm.ParseLVPath(path)
 	if err != nil {
@@ -267,7 +286,7 @@ func (d *LVMDevice) Snapshot(ctx context.Context, snapshotSize string) (Device, 
 		return nil, err
 	}
 	defer cache.Close()
-	snapDev, err := d.runner.OpenLVM(ctx, snapPath, cache, d.escalation, d.logger)
+	snapDev, err := d.runner.OpenLVM(ctx, snapPath, cache, false, d.escalation, d.logger)
 	if err != nil {
 		_ = d.runner.runLVM(ctx, d.escalation, "lvremove", "-f", snapPath)
 		return nil, err
