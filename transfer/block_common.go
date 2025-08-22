@@ -90,6 +90,12 @@ func readWithZeroCopy(ctx context.Context, cfg *config.Config, src *os.File, off
 		}
 	}()
 
+	timer := time.NewTimer(0)
+	if !timer.Stop() {
+		<-timer.C
+	}
+	defer timer.Stop()
+
 	for attempt := 0; attempt < maxRetries; attempt++ {
 		err = ZeroCopyTransfer(src, w, offset, int64(blockSize), pipeFds)
 		if err == nil {
@@ -103,9 +109,13 @@ func readWithZeroCopy(ctx context.Context, cfg *config.Config, src *os.File, off
 			zap.Error(err))
 
 		delay := baseDelay * time.Duration(1<<attempt)
+		timer.Reset(delay)
 		select {
-		case <-time.After(delay):
+		case <-timer.C:
 		case <-ctx.Done():
+			if !timer.Stop() {
+				<-timer.C
+			}
 			if errClose := w.Close(); errClose != nil {
 				logger.Warn("pipe write close", zap.Error(errClose))
 			}
@@ -151,6 +161,13 @@ func retryRead(ctx context.Context, cfg *config.Config, src *os.File, offset int
 	} else {
 		buf = getBlockBuffer(blockSize)
 	}
+
+	timer := time.NewTimer(0)
+	if !timer.Stop() {
+		<-timer.C
+	}
+	defer timer.Stop()
+
 	for attempt := 0; attempt < maxRetries; attempt++ {
 		n, err := src.ReadAt(buf, offset)
 		if err == nil && n == blockSize {
@@ -164,9 +181,13 @@ func retryRead(ctx context.Context, cfg *config.Config, src *os.File, offset int
 			zap.Error(err))
 
 		delay := baseDelay * time.Duration(1<<attempt)
+		timer.Reset(delay)
 		select {
-		case <-time.After(delay):
+		case <-timer.C:
 		case <-ctx.Done():
+			if !timer.Stop() {
+				<-timer.C
+			}
 			if cfg.ODirect {
 				putAlignedBlockBuffer(buf)
 			} else {
