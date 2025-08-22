@@ -113,10 +113,18 @@ func (c *PrivHelperClient) Close() error {
 	return c.session.Close()
 }
 
-// PrivilegedPwriteServer processes (index, payload, hash) messages from r and writes
-// them to the file descriptor fd using pwrite. ACK ("A") is written to w on success
-// and NACK ("N") on failure.
+const maxPayloadLength = 1 << 20 // 1 MiB
+
+type pwriteFunc func(fd int, p []byte, off int64) (int, error)
+
+// PrivilegedPwriteServer processes (index, payload, hash) messages from rw and
+// writes them to the file descriptor fd using pwrite. ACK ("A") is written to rw
+// on success and NACK ("N") on failure.
 func PrivilegedPwriteServer(rw io.ReadWriter, fd int) error {
+	return privilegedPwriteServer(rw, fd, unix.Pwrite)
+}
+
+func privilegedPwriteServer(rw io.ReadWriter, fd int, pwrite pwriteFunc) error {
 	header := make([]byte, 8+4+32) // offset uint64, length uint32, hash [32]byte
 	for {
 		if _, err := io.ReadFull(rw, header); err != nil {
@@ -127,6 +135,15 @@ func PrivilegedPwriteServer(rw io.ReadWriter, fd int) error {
 		}
 		offset := binary.BigEndian.Uint64(header[0:8])
 		length := binary.BigEndian.Uint32(header[8:12])
+		if length > maxPayloadLength {
+			if _, err := io.CopyN(io.Discard, rw, int64(length)); err != nil {
+				return err
+			}
+			if _, err := rw.Write([]byte{'N'}); err != nil {
+				return err
+			}
+			continue
+		}
 		var expHash [32]byte
 		copy(expHash[:], header[12:44])
 		payload := make([]byte, length)
@@ -140,7 +157,8 @@ func PrivilegedPwriteServer(rw io.ReadWriter, fd int) error {
 			}
 			continue
 		}
-		if _, err := unix.Pwrite(fd, payload, int64(offset)); err != nil {
+		n, err := pwrite(fd, payload, int64(offset))
+		if err != nil || n != len(payload) {
 			if _, werr := rw.Write([]byte{'N'}); werr != nil {
 				return werr
 			}
