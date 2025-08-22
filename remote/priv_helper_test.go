@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"io"
+	"net"
 	"os"
 	"strings"
 	"testing"
@@ -16,7 +17,7 @@ import (
 
 func TestPrivilegedHelperACKNACK(t *testing.T) {
 	var tmpPath string
-	handler := func(cmd string, ch ssh.Channel) int {
+	handler := func(_ string, ch ssh.Channel) int {
 		f, err := os.CreateTemp(t.TempDir(), "priv")
 		if err != nil {
 			return 1
@@ -44,11 +45,11 @@ func TestPrivilegedHelperACKNACK(t *testing.T) {
 	if err := privClient.send(5, []byte("world"), badHash); err != nil {
 		t.Fatalf("send: %v", err)
 	}
-	ack, err := privClient.RecvAck()
+	ack, err := privClient.RecvAck(ctx)
 	if err != nil || !ack {
 		t.Fatalf("expected ACK, got %v, err %v", ack, err)
 	}
-	ack, err = privClient.RecvAck()
+	ack, err = privClient.RecvAck(ctx)
 	if err != nil || ack {
 		t.Fatalf("expected NACK, got %v, err %v", ack, err)
 	}
@@ -62,13 +63,23 @@ func TestPrivilegedHelperACKNACK(t *testing.T) {
 }
 
 func TestStartPrivHelperInvalidCommand(t *testing.T) {
-	_, client := newSSHServerClientWithChannel(t, func(cmd string, ch ssh.Channel) int { return 0 })
+	_, client := newSSHServerClientWithChannel(t, func(_ string, _ ssh.Channel) int { return 0 })
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	if _, err := StartPrivHelper(ctx, client, "bad;cmd", zap.NewNop()); err == nil || !strings.Contains(err.Error(), "invalid characters") {
 		t.Fatalf("expected invalid characters error, got %v", err)
 	}
 }
+
+func TestRecvAckTimeout(t *testing.T) {
+	r, w := net.Pipe()
+	defer r.Close() //nolint:errcheck
+	defer w.Close() //nolint:errcheck
+	c := &PrivHelperClient{stdout: r}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+	if _, err := c.RecvAck(ctx); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected deadline exceeded, got %v", err)
 
 func TestPrivilegedHelperOversizedLength(t *testing.T) {
 	handler := func(cmd string, ch ssh.Channel) int {
