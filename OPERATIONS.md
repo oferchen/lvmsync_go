@@ -49,7 +49,8 @@ continuing.
 lvmsync run --verify-only /dev/vg0/snap0 /dev/vg0/target
 ```
 
-Reads both devices and reports mismatches without writing data.
+Reads both devices and reports mismatches without writing data. Exits with
+code `60` when blocks differ.
 
 ## Skipping Snapshot Creation
 
