@@ -196,6 +196,83 @@ func TestMonitorSnapshotUsageError(t *testing.T) {
 	}
 }
 
+func TestSnapshotUsageAbortCleanup(t *testing.T) {
+	t.Parallel()
+	cfg, err := config.DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig error: %v", err)
+	}
+	cfg.SkipDiskCheck = true
+	cfg.VolumeGroup = "vg"
+	cfg.TargetVolumeGroup = "vg2"
+	cfg.SnapshotMaxUsage = 0.5
+
+	usageCh := make(chan float64, 1)
+	var removed bool
+
+	r := client.NewRunnerWithDeps(
+		func(string, string, *lvm.FDCache, *zap.Logger) (uint64, error) { return 1024, nil },
+		nil,
+		nil,
+		nil,
+		nil,
+		func(context.Context, string, string, string, *zap.Logger) error { return nil },
+		func(name, vg string, _ *zap.Logger) string { return "/dev/" + vg + "/" + name },
+		func(ctx context.Context, _ string, threshold float64, _ time.Duration, _ *zap.Logger) error {
+			usage := <-usageCh
+			if usage > threshold {
+				return errors.New("snapshot exhausted")
+			}
+			return nil
+		},
+		func(context.Context, string, *zap.Logger) error {
+			removed = true
+			return nil
+		},
+		func() string { return "snap" },
+	)
+
+	logger := zap.NewNop()
+	snap, monitorCh, cleanup, err := r.PrepareSnapshot(context.Background(), cfg, "/dev/vg/orig", logger)
+	if err != nil {
+		t.Fatalf("PrepareSnapshot error: %v", err)
+	}
+
+	abortCh := make(chan struct{})
+	var walUpdated, manifestUpdated bool
+	runClient := func(ctx context.Context, snapshotPath, destPath string) error {
+		select {
+		case <-abortCh:
+			return nil
+		case <-time.After(50 * time.Millisecond):
+			walUpdated = true
+			manifestUpdated = true
+			return nil
+		}
+	}
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- client.ExecuteClient(context.Background(), runClient, snap, "dest", nil, monitorCh, logger)
+	}()
+
+	usageCh <- cfg.SnapshotMaxUsage + 0.1
+	close(abortCh)
+
+	err = <-errCh
+	if err == nil || !strings.Contains(err.Error(), "snapshot exhausted") {
+		t.Fatalf("expected snapshot exhausted error, got %v", err)
+	}
+
+	cleanup()
+	if !removed {
+		t.Fatalf("snapshot not cleaned up")
+	}
+	if walUpdated || manifestUpdated {
+		t.Fatalf("unexpected WAL or manifest updates after abort")
+	}
+}
+
 func TestCreateSnapshotCleanupNoPanic(t *testing.T) {
 	cfg, err := config.DefaultConfig()
 	if err != nil {
