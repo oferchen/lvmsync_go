@@ -54,7 +54,7 @@ func createTestFile(t testing.TB, size int) string {
 
 // newStubRunner returns a Runner with a no-op rebuild function.
 func newStubRunner() *Runner {
-	return NewRunnerWithDeps(func(ctx context.Context, device, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error {
+	return NewRunnerWithDeps(func(_ context.Context, _ string, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error {
 		return nil
 	})
 }
@@ -367,7 +367,7 @@ func TestVerifyDevicesRebuildsManifest(t *testing.T) {
 		t.Fatalf("write dst: %v", err)
 	}
 	called := false
-	r := NewRunnerWithDeps(func(ctx context.Context, device, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error {
+	r := NewRunnerWithDeps(func(ctx context.Context, _ string, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error {
 		called = true
 		idx, err := manifestpkg.Create(output, "", uint64(len("foo")), 0, 0, 0, 4096, 0, 0, 0, 0)
 		if err != nil {
@@ -380,7 +380,7 @@ func TestVerifyDevicesRebuildsManifest(t *testing.T) {
 		return idx.Close()
 	})
 	cfg := &config.Config{ChecksumAlgorithm: "blake3"}
-	if err := r.verifyDevices(cfg, src, dst, "", zap.NewNop()); err != nil {
+	if err := r.verifyDevices(context.Background(), cfg, src, dst, "", zap.NewNop()); err != nil {
 		t.Fatalf("verifyDevices: %v", err)
 	}
 	if !called {
@@ -398,14 +398,36 @@ func TestVerifyDevicesTimeout(t *testing.T) {
 	if err := os.WriteFile(dst, []byte("foo"), 0o600); err != nil {
 		t.Fatalf("write dst: %v", err)
 	}
-	r := NewRunnerWithDeps(func(ctx context.Context, device, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error {
+	r := NewRunnerWithDeps(func(ctx context.Context, _ string, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error {
 		<-ctx.Done()
 		return ctx.Err()
 	})
 	cfg := &config.Config{ManifestTimeout: time.Millisecond, ChecksumAlgorithm: "blake3"}
-	err := r.verifyDevices(cfg, src, dst, "", zap.NewNop())
+	err := r.verifyDevices(context.Background(), cfg, src, dst, "", zap.NewNop())
 	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("expected timeout error, got %v", err)
+	}
+}
+
+func TestVerifyDevicesContextCancelled(t *testing.T) {
+	r := newStubRunner()
+	ctx, cancel := context.WithCancel(context.Background())
+	called := make(chan struct{})
+	patch := monkey.Patch(device.Detect, func(ctx context.Context, _ string, _ bool, _ string, _ string, _ string, _ string, _ time.Duration, _ time.Duration, _ privilege.Escalator, _ *zap.Logger, _ *device.Runner) (device.Device, error) {
+		close(called)
+		<-ctx.Done()
+		return nil, ctx.Err()
+	})
+	defer patch.Unpatch()
+	cfg := &config.Config{ChecksumAlgorithm: "blake3"}
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- r.verifyDevices(ctx, cfg, "src", "dst", "", zap.NewNop())
+	}()
+	<-called
+	cancel()
+	if err := <-errCh; !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context canceled, got %v", err)
 	}
 }
 

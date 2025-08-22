@@ -1,6 +1,8 @@
+// Package verify contains tests for the verify command.
 package verify
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -21,7 +23,7 @@ func TestDryRunFlagOverridesEnvAndYAML(t *testing.T) {
 	t.Setenv("LVMSYNC_DRY_RUN", "true")
 	r := newStubRunner()
 	called := false
-	patch := monkey.Patch((*Runner).verifyDevices, func(*Runner, *config.Config, string, string, string, *zap.Logger) error {
+	patch := monkey.Patch((*Runner).verifyDevices, func(*Runner, context.Context, *config.Config, string, string, string, *zap.Logger) error {
 		called = true
 		return nil
 	})
@@ -44,7 +46,7 @@ func TestDryRunEnvOverridesYAML(t *testing.T) {
 	t.Setenv("LVMSYNC_DRY_RUN", "true")
 	r := newStubRunner()
 	called := false
-	patch := monkey.Patch((*Runner).verifyDevices, func(*Runner, *config.Config, string, string, string, *zap.Logger) error {
+	patch := monkey.Patch((*Runner).verifyDevices, func(*Runner, context.Context, *config.Config, string, string, string, *zap.Logger) error {
 		called = true
 		return nil
 	})
