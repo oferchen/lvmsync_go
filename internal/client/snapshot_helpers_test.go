@@ -10,6 +10,7 @@ import (
 	"lvmsync_go/lvm"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 func TestCalculateSnapshotSize(t *testing.T) {
@@ -73,6 +74,41 @@ func TestEnsureVolumeGroups(t *testing.T) {
 		}
 		if cfg.VolumeGroup != "existing" {
 			t.Fatalf("volume group changed to %q", cfg.VolumeGroup)
+		}
+	})
+
+	t.Run("selects target volume group", func(t *testing.T) {
+		core, obs := observer.New(zap.InfoLevel)
+		logger := zap.New(core)
+		cache, err := lvm.NewDeviceFDCache(logger)
+		if err != nil {
+			t.Fatalf("NewDeviceFDCache: %v", err)
+		}
+		defer cache.Close()
+		cfg := &config.Config{VolumeGroup: "src", TargetVGCandidates: []string{"cand1", "cand2"}}
+		r := NewRunnerWithDeps(nil, nil,
+			func(string, *lvm.FDCache, *zap.Logger) (uint64, error) { return 100, nil },
+			func(context.Context, []string, uint64) (lvm.VolumeGroup, error) {
+				return lvm.VolumeGroup{Name: "cand2"}, nil
+			},
+			nil, nil, nil, nil, nil, nil)
+		if err := r.ensureVolumeGroups(context.Background(), cfg, "/dev/src/lv", cache, logger); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if cfg.TargetVolumeGroup != "cand2" {
+			t.Fatalf("expected target volume group 'cand2', got %q", cfg.TargetVolumeGroup)
+		}
+		found := false
+		for _, entry := range obs.All() {
+			if entry.Message == "Selected target volume group" {
+				if entry.ContextMap()["target_volume_group"] != "cand2" {
+					t.Fatalf("unexpected log field %v", entry.ContextMap()["target_volume_group"])
+				}
+				found = true
+			}
+		}
+		if !found {
+			t.Fatalf("expected log for selected target volume group")
 		}
 	})
 }
