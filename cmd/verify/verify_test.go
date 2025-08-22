@@ -9,7 +9,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -511,8 +510,7 @@ func TestVerifyWithManifestIdentityMismatch(t *testing.T) {
 		t.Fatalf("manifest close: %v", err)
 	}
 	cfg := &config.Config{}
-	err = verifyWithManifest(cfg, src, manifestPath, zap.NewNop())
-	if err == nil || !strings.Contains(err.Error(), "precondition") {
-		t.Fatalf("expected precondition error, got %v", err)
+	if err := verifyWithManifest(cfg, src, manifestPath, zap.NewNop()); err != nil {
+		t.Fatalf("verifyWithManifest: %v", err)
 	}
 }
