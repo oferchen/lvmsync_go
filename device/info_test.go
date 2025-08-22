@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -177,6 +178,76 @@ func TestDefaultMountFunc(t *testing.T) {
 			line := fmt.Sprintf("42 24 0:0 / /mnt/test %s,relatime - ext4 %s rw\n", tc.opts, escaped)
 			if _, err := mounts.WriteString(line); err != nil {
 				t.Fatalf("write mountinfo: %v", err)
+			}
+			mounts.Close()
+			defer os.Remove(mounts.Name())
+
+			info := NewInfo()
+			prev := info.SetMountFunc(mountFuncFromMountInfoFile(mounts.Name()))
+			defer info.SetMountFunc(prev)
+
+			got, err := info.IsMountedRW(context.Background(), dev.Name())
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tc.want {
+				t.Fatalf("expected %v, got %v", tc.want, got)
+			}
+		})
+	}
+}
+
+func TestDefaultMountFuncMultipleEntries(t *testing.T) {
+	cases := []struct {
+		name  string
+		lines []string
+		want  bool
+	}{
+		{
+			name: "bind mount read-write",
+			lines: []string{
+				"42 24 0:0 / /mnt/a ro,relatime - ext4 %s rw\n",
+				"43 24 0:0 /sub /mnt/b rw,bind - ext4 %s rw\n",
+			},
+			want: true,
+		},
+		{
+			name: "duplicates prefer rw",
+			lines: []string{
+				"42 24 0:0 / /mnt/a ro,relatime - ext4 %s rw\n",
+				"43 24 0:0 / /mnt/a rw,relatime - ext4 %s rw\n",
+			},
+			want: true,
+		},
+		{
+			name: "duplicates all ro",
+			lines: []string{
+				"42 24 0:0 / /mnt/a ro,relatime - ext4 %s rw\n",
+				"43 24 0:0 / /mnt/b ro,relatime - ext4 %s rw\n",
+			},
+			want: false,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dev, err := os.CreateTemp("", "dev")
+			if err != nil {
+				t.Fatalf("create device: %v", err)
+			}
+			dev.Close()
+			defer os.Remove(dev.Name())
+
+			mounts, err := os.CreateTemp("", "mountinfo")
+			if err != nil {
+				t.Fatalf("create mountinfo: %v", err)
+			}
+			escaped := strings.ReplaceAll(dev.Name(), " ", "\\040")
+			for _, tmpl := range tc.lines {
+				line := fmt.Sprintf(tmpl, escaped)
+				if _, err := mounts.WriteString(line); err != nil {
+					t.Fatalf("write mountinfo: %v", err)
+				}
 			}
 			mounts.Close()
 			defer os.Remove(mounts.Name())
@@ -554,13 +625,28 @@ func mountFuncFromMountInfoFile(p string) func(context.Context, string) (bool, e
 		if err != nil {
 			return false, err
 		}
+		matches := map[string]*mountinfo.Info{}
 		for _, mi := range infos {
 			if mi.Source == real || mi.Mountpoint == real || mi.Root == real {
-				for _, opt := range strings.Split(mi.Options, ",") {
-					if opt == "rw" {
-						return true, nil
+				if existing, ok := matches[mi.Root]; ok {
+					if !hasRW(existing.Options) && hasRW(mi.Options) {
+						matches[mi.Root] = mi
 					}
+				} else {
+					matches[mi.Root] = mi
 				}
+			}
+		}
+		dedup := make([]*mountinfo.Info, 0, len(matches))
+		for _, mi := range matches {
+			dedup = append(dedup, mi)
+		}
+		sort.Slice(dedup, func(i, j int) bool {
+			return len(dedup[i].Root) > len(dedup[j].Root)
+		})
+		for _, mi := range dedup {
+			if hasRW(mi.Options) {
+				return true, nil
 			}
 		}
 		return false, nil
