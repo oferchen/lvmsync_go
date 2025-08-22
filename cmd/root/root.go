@@ -15,6 +15,7 @@ import (
 	"golang.org/x/term"
 
 	"lvmsync_go/app"
+	"lvmsync_go/device"
 	clientpkg "lvmsync_go/internal/client"
 	"lvmsync_go/internal/config"
 	"lvmsync_go/internal/exitcode"
@@ -238,6 +239,9 @@ func (r *Runner) prepareClient(cfg *config.Config, args []string, logger *zap.Lo
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
+	if cfg.CheckPartition {
+		ctx = device.WithPartitionSignatures(ctx, "", "")
+	}
 
 	var snapshotPath string
 	signals, sigErrCh := r.setupSignalHandleFn(ctx, cfg, &snapshotPath, logger)

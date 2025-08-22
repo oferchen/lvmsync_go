@@ -377,7 +377,7 @@ func (r *Runner) Run(ctx context.Context, cfg *config.Config, source, dest strin
 // RunLocalDump dumps changes to a local destination device and returns the detected destination type.
 func (r *Runner) RunLocalDump(ctx context.Context, cfg *config.Config, snapshotDevice, originDevice, dest string, logger *zap.Logger) (string, error) {
 	destType := cfg.DestType
-	devCtx := device.WithForce(context.Background(), cfg.Force)
+	devCtx := device.WithForce(ctx, cfg.Force)
 	devCtx = device.WithAllowOverwrite(devCtx, cfg.AllowOverwrite)
 	devCtx = device.WithYesIKnow(devCtx, cfg.YesIKnow)
 	devRunner := device.NewRunner()
@@ -385,7 +385,27 @@ func (r *Runner) RunLocalDump(ctx context.Context, cfg *config.Config, snapshotD
 		return destType, r.ExecuteDump(ctx, cfg, snapshotDevice, originDevice, io.Discard, logger)
 	}
 	if destType == "auto" {
-		if dev, err := device.Detect(devCtx, dest, true, destType, "", "", cfg.LVMEscalation, cfg.FreezeTimeout, cfg.ThawTimeout, privilege.New(devCtx, logger), logger, devRunner); err == nil {
+		dev, err := device.Detect(devCtx, dest, true, destType, "", "", cfg.LVMEscalation, cfg.FreezeTimeout, cfg.ThawTimeout, privilege.New(devCtx, logger), logger, devRunner)
+		if err != nil {
+			if cfg.CheckPartition && strings.Contains(err.Error(), "partition table mismatch") {
+				if !cfg.Force {
+					return destType, fmt.Errorf("precondition: partition table mismatch")
+				}
+				if !cfg.VerifyOnly && strings.ToLower(cfg.VerifyLevel) != "none" {
+					return destType, fmt.Errorf("partition table mismatch: run --verify-only first or set --verify none with --force")
+				}
+				tmpCtx := device.WithForce(context.Background(), cfg.Force)
+				tmpCtx = device.WithAllowOverwrite(tmpCtx, cfg.AllowOverwrite)
+				tmpCtx = device.WithYesIKnow(tmpCtx, cfg.YesIKnow)
+				dev, err = device.Detect(tmpCtx, dest, true, destType, "", "", cfg.LVMEscalation, cfg.FreezeTimeout, cfg.ThawTimeout, privilege.New(tmpCtx, logger), logger, devRunner)
+				if err != nil {
+					dev = nil
+				}
+			} else {
+				dev = nil
+			}
+		}
+		if dev != nil {
 			switch dev.(type) {
 			case *device.RawDevice:
 				if !cfg.SkipSnapshotCreation {
@@ -442,7 +462,16 @@ func (r *Runner) RunLocalDump(ctx context.Context, cfg *config.Config, snapshotD
 	}
 	info := device.NewInfo()
 	if err := r.verifyIdentity(devCtx, info, snapshotDevice, dest); err != nil {
-		return destType, err
+		if cfg.CheckPartition && strings.Contains(err.Error(), "partition table mismatch") {
+			if !cfg.Force {
+				return destType, fmt.Errorf("precondition: partition table mismatch")
+			}
+			if !cfg.VerifyOnly && strings.ToLower(cfg.VerifyLevel) != "none" {
+				return destType, fmt.Errorf("partition table mismatch: run --verify-only first or set --verify none with --force")
+			}
+		} else {
+			return destType, err
+		}
 	}
 	destFile, err := r.openFile(dest, os.O_RDWR, 0)
 	if err != nil {
