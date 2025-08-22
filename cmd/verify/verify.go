@@ -102,7 +102,11 @@ func (r *Runner) Run(args []string, logger *zap.Logger) error {
 				if cfg.SpeedLimit > 0 {
 					eta = time.Duration(size/int64(cfg.SpeedLimit)) * time.Second
 				}
-				logger.Info("dry run", zap.Int64("size_bytes", size), zap.Duration("eta", eta))
+				logger.Info(
+					"dry run",
+					zap.Int64("size_bytes", size),
+					zap.Int64("eta_ms", eta.Milliseconds()),
+				)
 				return nil
 			}
 			err = r.verifyDevices(ctx, cfg, remaining[0], remaining[1], cfg.ManifestPath, logger)
