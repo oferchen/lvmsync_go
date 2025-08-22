@@ -451,6 +451,76 @@ func TestDefaultMountFuncRepeatedDeviceEntriesAllRO(t *testing.T) {
 	}
 }
 
+func TestDefaultMountFuncAggregatesMultipleEntries(t *testing.T) {
+	dev, err := os.CreateTemp("", "dev")
+	if err != nil {
+		t.Fatalf("create device: %v", err)
+	}
+	defer os.Remove(dev.Name())
+	dev.Close()
+
+	mounts, err := os.CreateTemp("", "mountinfo")
+	if err != nil {
+		t.Fatalf("create mountinfo: %v", err)
+	}
+	escaped := strings.ReplaceAll(dev.Name(), " ", "\\040")
+	line1 := fmt.Sprintf("42 24 0:0 / /mnt/a ro,relatime - ext4 %s rw\n", escaped)
+	line2 := fmt.Sprintf("43 24 0:0 / /mnt/b ro,relatime - ext4 %s rw\n", escaped)
+	line3 := fmt.Sprintf("44 24 0:0 / /mnt/c rw,relatime - ext4 %s rw\n", escaped)
+	if _, err := mounts.WriteString(line1 + line2 + line3); err != nil {
+		t.Fatalf("write mountinfo: %v", err)
+	}
+	mounts.Close()
+	defer os.Remove(mounts.Name())
+
+	info := NewInfo()
+	prev := info.SetMountFunc(mountFuncFromMountInfoFile(mounts.Name()))
+	defer info.SetMountFunc(prev)
+
+	got, err := info.IsMountedRW(context.Background(), dev.Name())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !got {
+		t.Fatalf("expected mounted read-write")
+	}
+}
+
+func TestDefaultMountFuncAggregatesBindMounts(t *testing.T) {
+	dev, err := os.CreateTemp("", "dev")
+	if err != nil {
+		t.Fatalf("create device: %v", err)
+	}
+	defer os.Remove(dev.Name())
+	dev.Close()
+
+	mounts, err := os.CreateTemp("", "mountinfo")
+	if err != nil {
+		t.Fatalf("create mountinfo: %v", err)
+	}
+	escaped := strings.ReplaceAll(dev.Name(), " ", "\\040")
+	base := fmt.Sprintf("42 24 0:0 / /mnt/src ro,relatime - ext4 %s ro\n", escaped)
+	bindRO := fmt.Sprintf("43 42 0:0 /mnt/src /mnt/bind-ro ro,relatime - ext4 %s rw\n", escaped)
+	bindRW := fmt.Sprintf("44 42 0:0 /mnt/src /mnt/bind-rw rw,relatime - ext4 %s rw\n", escaped)
+	if _, err := mounts.WriteString(base + bindRO + bindRW); err != nil {
+		t.Fatalf("write mountinfo: %v", err)
+	}
+	mounts.Close()
+	defer os.Remove(mounts.Name())
+
+	info := NewInfo()
+	prev := info.SetMountFunc(mountFuncFromMountInfoFile(mounts.Name()))
+	defer info.SetMountFunc(prev)
+
+	got, err := info.IsMountedRW(context.Background(), dev.Name())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !got {
+		t.Fatalf("expected mounted read-write")
+	}
+}
+
 func TestDefaultMountFuncError(t *testing.T) {
 	dev, err := os.CreateTemp("", "dev")
 	if err != nil {
@@ -480,20 +550,16 @@ func mountFuncFromMountInfoFile(p string) func(context.Context, string) (bool, e
 			return false, err
 		}
 		defer f.Close()
-		filter := func(mi *mountinfo.Info) (bool, bool) {
-			if mi.Source == real || mi.Mountpoint == real || mi.Root == real {
-				return false, false
-			}
-			return true, false
-		}
-		infos, err := mountinfo.GetMountsFromReader(f, filter)
+		infos, err := mountinfo.GetMountsFromReader(f, nil)
 		if err != nil {
 			return false, err
 		}
 		for _, mi := range infos {
-			for _, opt := range strings.Split(mi.Options, ",") {
-				if opt == "rw" {
-					return true, nil
+			if mi.Source == real || mi.Mountpoint == real || mi.Root == real {
+				for _, opt := range strings.Split(mi.Options, ",") {
+					if opt == "rw" {
+						return true, nil
+					}
 				}
 			}
 		}
