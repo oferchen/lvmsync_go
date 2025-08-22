@@ -1,5 +1,5 @@
 .RECIPEPREFIX := >
-.PHONY: deps build test lint verify bench bench-lan bench-wan vet staticcheck test-race integration release docs-check
+.PHONY: deps build test lint verify coverage bench bench-lan bench-wan vet staticcheck test-race integration release docs-check
 
 deps:
 > scripts/check_deps.sh
@@ -10,6 +10,10 @@ build: deps
 
 test:
 > go test -coverprofile=coverage.out ./...
+
+coverage:
+> go test -coverprofile=coverage.out ./...
+> go tool cover -func=coverage.out
 
 lint:
 > golangci-lint run
