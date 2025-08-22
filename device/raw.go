@@ -190,11 +190,11 @@ func (d *RawDevice) Identity(ctx context.Context) (DeviceIdentity, error) {
 		ctx, cancel = context.WithTimeout(ctx, identityTimeout)
 		defer cancel()
 	}
-	if blkidPath == "" {
-		return DeviceIdentity{}, fmt.Errorf("blkid not found")
+	if blkidErr != nil {
+		return DeviceIdentity{}, blkidErr
 	}
-	if lsblkPath == "" {
-		return DeviceIdentity{}, fmt.Errorf("lsblk not found")
+	if lsblkErr != nil {
+		return DeviceIdentity{}, lsblkErr
 	}
 	var st unix.Stat_t
 	if err := unix.Stat(d.Path(), &st); err != nil {
