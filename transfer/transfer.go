@@ -319,7 +319,9 @@ func (t *Transfer) verifyDestination(ctx context.Context, cfg *config.Config, de
 		}
 		major := uint32(unix.Major(uint64(st.Rdev)))
 		minor := uint32(unix.Minor(uint64(st.Rdev)))
-		if major != hdr.Major || minor != hdr.Minor {
+		expectedID := device.DeviceIdentity{SizeBytes: hdr.SizeBytes, Major: hdr.Major, Minor: hdr.Minor}
+		actualID := device.DeviceIdentity{SizeBytes: size, Major: major, Minor: minor}
+		if !device.SameIdentityStrict(expectedID, actualID) {
 			t.Logger.Error("device_number_mismatch", zap.Uint32("expected_major", hdr.Major), zap.Uint32("expected_minor", hdr.Minor), zap.Uint32("major", major), zap.Uint32("minor", minor))
 			return 0, "", 0, fmt.Errorf("precondition: destination device number mismatch")
 		}
