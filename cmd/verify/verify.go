@@ -20,12 +20,10 @@ import (
 	"gopkg.in/yaml.v3"
 
 	rootcmd "lvmsync_go/cmd/root"
-	"lvmsync_go/device"
 	"lvmsync_go/internal/blockio"
 	"lvmsync_go/internal/config"
 	cpufeatures "lvmsync_go/internal/cpufeatures"
 	digestpkg "lvmsync_go/internal/digest"
-	"lvmsync_go/internal/privilege"
 	manifestpkg "lvmsync_go/manifest"
 )
 
@@ -203,11 +201,18 @@ func Run(args []string, logger *zap.Logger) error {
 	return NewRunner().Run(args, logger)
 }
 
-func digestFunc(cfg *config.Config) func([]byte) [32]byte {
-	if strings.ToLower(cfg.ChecksumAlgorithm) == "sha256" {
-		return sha256.Sum256
+// digestFunc returns a 32-byte digest function for the configured algorithm.
+// Supported algorithms are "blake3" and "sha256".
+// An error is returned for any other value.
+func digestFunc(cfg *config.Config) (func([]byte) [32]byte, error) {
+	switch strings.ToLower(cfg.ChecksumAlgorithm) {
+	case "blake3", "":
+		return blake3.Sum256, nil
+	case "sha256":
+		return sha256.Sum256, nil
+	default:
+		return nil, fmt.Errorf("unsupported checksum algorithm %q: must be blake3 or sha256", cfg.ChecksumAlgorithm)
 	}
-	return blake3.Sum256
 }
 
 func verifyInline(cfg *config.Config, src, dst string, logger *zap.Logger) error {
@@ -237,7 +242,10 @@ func verifyInline(cfg *config.Config, src, dst string, logger *zap.Logger) error
 	mismatches := 0
 	bufSrc := make([]byte, blockSize)
 	bufDst := make([]byte, blockSize)
-	digest := digestFunc(cfg)
+	digest, err := digestFunc(cfg)
+	if err != nil {
+		return err
+	}
 	for off := int64(0); off < total; off += int64(blockSize) {
 		size := blockSize
 		if remaining := int(total - off); remaining < size {
@@ -319,7 +327,10 @@ func verifyWithManifest(cfg *config.Config, devicePath, manifestPath string, log
 	tasks := make(chan job, workers)
 	errCh := make(chan error, 1)
 	var mismatches int64
-	hash := digestFunc(cfg)
+	hash, err := digestFunc(cfg)
+	if err != nil {
+		return err
+	}
 	var wg sync.WaitGroup
 	for i := 0; i < workers; i++ {
 		wg.Add(1)
