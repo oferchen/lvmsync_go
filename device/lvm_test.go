@@ -321,12 +321,12 @@ func TestSelectVolumeGroupNoMatchErrDevice(t *testing.T) {
 	if _, err := r.SelectVolumeGroupForSize(context.Background(), []string{"vg1"}, 50); err == nil {
 		t.Fatalf("expected error")
 	} else {
-		code := exitcode.ErrRuntime
+		code := exitcode.Runtime
 		if strings.Contains(err.Error(), "device") {
-			code = exitcode.ErrDevice
+			code = exitcode.Device
 		}
-		if code != exitcode.ErrDevice {
-			t.Fatalf("exit code = %d, want %d", code, exitcode.ErrDevice)
+		if code != exitcode.Device {
+			t.Fatalf("exit code = %d, want %d", code, exitcode.Device)
 		}
 	}
 }

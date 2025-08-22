@@ -23,6 +23,7 @@ import (
 	"lvmsync_go/device"
 	hashutil "lvmsync_go/hash"
 	"lvmsync_go/internal/config"
+	"lvmsync_go/internal/exitcode"
 	"lvmsync_go/lvm"
 	manifestpkg "lvmsync_go/manifest"
 )
@@ -139,10 +140,10 @@ func (t *Transfer) dumpChangesCore(ctx context.Context, cfg *config.Config, snap
 		if err != nil {
 			return err
 		}
-		if usage >= cfg.SnapshotMaxUsage {
-			return fmt.Errorf("snapshot exhausted: usage %.2f%% >= threshold %.2f%%", usage, cfg.SnapshotMaxUsage)
-		}
-	}
+               if usage >= cfg.SnapshotMaxUsage {
+                       return fmt.Errorf("snapshot exhausted: usage %.2f%% >= threshold %.2f%%: %w", usage, cfg.SnapshotMaxUsage, exitcode.ErrSnapshotExhausted)
+               }
+       }
 
 	ranges, err := prepareRanges(ctx, cfg, snapshot, source, t.Logger)
 	if err != nil {
@@ -303,7 +304,7 @@ func (t *Transfer) verifyDestination(ctx context.Context, cfg *config.Config, de
 		manID := strings.TrimRight(string(hdr.DeviceID[:]), "\x00")
 		if id != manID {
 			t.Logger.Error("device_id_mismatch", zap.String("expected_resource_id", manID), zap.String("resource_id", id))
-			return 0, "", 0, fmt.Errorf("precondition: destination device id %s does not match manifest %s", id, manID)
+			return 0, "", 0, fmt.Errorf("precondition: destination device id %s does not match manifest %s: %w", id, manID, exitcode.ErrPrecondition)
 		}
 		size, err = t.Info.SizeBytes(ctx, destPath)
 		if err != nil {
@@ -311,7 +312,7 @@ func (t *Transfer) verifyDestination(ctx context.Context, cfg *config.Config, de
 		}
 		if size != hdr.SizeBytes {
 			t.Logger.Error("device_size_mismatch", zap.Uint64("expected_size_bytes", hdr.SizeBytes), zap.Uint64("size_bytes", size))
-			return 0, "", 0, fmt.Errorf("precondition: destination device size %d does not match manifest %d", size, hdr.SizeBytes)
+			return 0, "", 0, fmt.Errorf("precondition: destination device size %d does not match manifest %d: %w", size, hdr.SizeBytes, exitcode.ErrPrecondition)
 		}
 		var st unix.Stat_t
 		if err := unix.Stat(destPath, &st); err != nil {
@@ -323,7 +324,7 @@ func (t *Transfer) verifyDestination(ctx context.Context, cfg *config.Config, de
 		actualID := device.DeviceIdentity{SizeBytes: size, Major: major, Minor: minor}
 		if !device.SameIdentityStrict(expectedID, actualID) {
 			t.Logger.Error("device_number_mismatch", zap.Uint32("expected_major", hdr.Major), zap.Uint32("expected_minor", hdr.Minor), zap.Uint32("major", major), zap.Uint32("minor", minor))
-			return 0, "", 0, fmt.Errorf("precondition: destination device number mismatch")
+			return 0, "", 0, fmt.Errorf("precondition: destination device number mismatch: %w", exitcode.ErrPrecondition)
 		}
 		dig, err := t.Info.FirstBlockDigest(ctx, destPath, firstBlockDigestSize)
 		if err != nil {
@@ -335,13 +336,13 @@ func (t *Transfer) verifyDestination(ctx context.Context, cfg *config.Config, de
 				zap.String("expected_digest", hex.EncodeToString(hdr.FirstBlockDigest[:])),
 				zap.String("first_block_digest", hex.EncodeToString(dig[:])),
 			)
-			return 0, "", 0, fmt.Errorf("destination device digest mismatch")
+			return 0, "", 0, fmt.Errorf("destination device digest mismatch: %w", exitcode.ErrVerify)
 		}
 		if cfg.ResumeState != "" {
 			if _, err := os.Stat(cfg.ResumeState); err == nil {
 				chk := readResumeState(cfg, t.Logger, hdr.SizeBytes, manID, hdr.Epoch, hdr.FirstBlockDigest)
 				if chk == (resumeCheckpoint{}) {
-					return 0, "", 0, fmt.Errorf("precondition: resume state does not match destination metadata")
+					return 0, "", 0, fmt.Errorf("precondition: resume state does not match destination metadata: %w", exitcode.ErrPrecondition)
 				}
 			}
 		}
@@ -361,12 +362,12 @@ func (t *Transfer) verifyDestination(ctx context.Context, cfg *config.Config, de
 				}
 				chk := readResumeState(cfg, t.Logger, size, id, 0, [32]byte{})
 				if chk == (resumeCheckpoint{}) {
-					return 0, "", 0, fmt.Errorf("precondition: resume state does not match destination metadata")
+					return 0, "", 0, fmt.Errorf("precondition: resume state does not match destination metadata: %w", exitcode.ErrPrecondition)
 				}
 			}
 			if cfg.DeviceUUID != "" && id != cfg.DeviceUUID {
 				t.Logger.Error("device_id_mismatch", zap.String("expected_resource_id", cfg.DeviceUUID), zap.String("resource_id", id))
-				return 0, "", 0, fmt.Errorf("precondition: destination device uuid %s does not match expected %s", id, cfg.DeviceUUID)
+				return 0, "", 0, fmt.Errorf("precondition: destination device uuid %s does not match expected %s: %w", id, cfg.DeviceUUID, exitcode.ErrPrecondition)
 			}
 			t.Logger.Info("destination_validated", zap.String("resource_id", id), zap.Uint64("size_bytes", size))
 		}
@@ -377,7 +378,7 @@ func (t *Transfer) verifyDestination(ctx context.Context, cfg *config.Config, de
 			}
 			if hex.EncodeToString(dig[:]) != cfg.FirstBlockDigest {
 				t.Logger.Error("first_block_digest_mismatch", zap.String("expected_digest", cfg.FirstBlockDigest), zap.String("first_block_digest", hex.EncodeToString(dig[:])))
-				return 0, "", 0, fmt.Errorf("destination device digest mismatch")
+				return 0, "", 0, fmt.Errorf("destination device digest mismatch: %w", exitcode.ErrVerify)
 			}
 		}
 		t.Logger.Info("destination_validated", zap.String("resource_id", id))
@@ -388,7 +389,7 @@ func (t *Transfer) verifyDestination(ctx context.Context, cfg *config.Config, de
 	}
 	if mounted && !cfg.Force {
 		t.Logger.Error("destination_mounted_rw", zap.String("path", destPath))
-		return 0, "", 0, fmt.Errorf("destination device %s is mounted read-write", destPath)
+		return 0, "", 0, fmt.Errorf("destination device %s is mounted read-write: %w", destPath, exitcode.ErrPrecondition)
 	}
 	return size, id, epoch, nil
 }

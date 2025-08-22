@@ -1,7 +1,7 @@
 package main
 
 import (
-	"errors"
+	"fmt"
 	"testing"
 
 	"go.uber.org/zap"
@@ -20,15 +20,15 @@ func TestRunnerExitCodes(t *testing.T) {
 		want   int
 	}{
 		{"success", "linux", nil, nil, exitcode.OK},
-		{"platform", "darwin", nil, nil, exitcode.ErrPlatform},
-		{"capability", "linux", errors.New("privilege check failed: missing"), nil, exitcode.ErrCapability},
-		{"config", "linux", errors.New("config invalid"), nil, exitcode.ErrConfig},
-		{"device", "linux", nil, errors.New("device gone"), exitcode.ErrDevice},
-		{"runtime", "linux", nil, errors.New("boom"), exitcode.ErrRuntime},
-		{"verify", "linux", nil, errors.New("digest mismatch"), exitcode.ErrVerify},
-		{"partial", "linux", nil, errors.New("received signal: interrupt"), exitcode.ErrPartial},
-		{"precondition", "linux", nil, errors.New("precondition not met"), exitcode.ErrPrecondition},
-		{"resumable", "linux", nil, errors.New("resumable: retry"), exitcode.ErrResumable},
+		{"platform", "darwin", nil, nil, exitcode.Platform},
+		{"capability", "linux", fmt.Errorf("privilege: %w", exitcode.ErrCapability), nil, exitcode.Capability},
+		{"config", "linux", fmt.Errorf("config invalid: %w", exitcode.ErrConfig), nil, exitcode.Config},
+		{"device", "linux", nil, fmt.Errorf("device gone: %w", exitcode.ErrDevice), exitcode.Device},
+		{"runtime", "linux", nil, fmt.Errorf("boom: %w", exitcode.ErrRuntime), exitcode.Runtime},
+		{"verify", "linux", nil, fmt.Errorf("digest mismatch: %w", exitcode.ErrVerify), exitcode.Verify},
+		{"partial", "linux", nil, fmt.Errorf("interrupt: %w", exitcode.ErrPartial), exitcode.Partial},
+		{"precondition", "linux", nil, fmt.Errorf("precondition: %w", exitcode.ErrPrecondition), exitcode.Precondition},
+		{"resumable", "linux", nil, fmt.Errorf("resumable: %w", exitcode.ErrResumable), exitcode.Resumable},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -61,15 +61,15 @@ func TestExitCodeValues(t *testing.T) {
 		want int
 	}{
 		{"OK", exitcode.OK, 0},
-		{"ErrCapability", exitcode.ErrCapability, 10},
-		{"ErrDevice", exitcode.ErrDevice, 20},
-		{"ErrPlatform", exitcode.ErrPlatform, 30},
-		{"ErrConfig", exitcode.ErrConfig, 40},
-		{"ErrRuntime", exitcode.ErrRuntime, 50},
-		{"ErrVerify", exitcode.ErrVerify, 60},
-		{"ErrPartial", exitcode.ErrPartial, 70},
-		{"ErrPrecondition", exitcode.ErrPrecondition, 80},
-		{"ErrResumable", exitcode.ErrResumable, 90},
+		{"Capability", exitcode.Capability, 10},
+		{"Device", exitcode.Device, 20},
+		{"Platform", exitcode.Platform, 30},
+		{"Config", exitcode.Config, 40},
+		{"Runtime", exitcode.Runtime, 50},
+		{"Verify", exitcode.Verify, 60},
+		{"Partial", exitcode.Partial, 70},
+		{"Precondition", exitcode.Precondition, 80},
+		{"Resumable", exitcode.Resumable, 90},
 	}
 	for _, tt := range cases {
 		if tt.code != tt.want {

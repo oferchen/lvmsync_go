@@ -63,7 +63,7 @@ func TestVerifyCommandMismatchExitCode(t *testing.T) {
 	if !ok {
 		t.Fatalf("verify: %v", err)
 	}
-	if exitErr.ExitCode() != exitcode.ErrVerify {
-		t.Fatalf("expected exit code %d, got %d", exitcode.ErrVerify, exitErr.ExitCode())
+	if exitErr.ExitCode() != exitcode.Verify {
+		t.Fatalf("expected exit code %d, got %d", exitcode.Verify, exitErr.ExitCode())
 	}
 }

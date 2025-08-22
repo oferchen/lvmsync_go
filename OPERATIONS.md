@@ -123,27 +123,27 @@ committed ranges.
 | Constant | Code | Meaning | Recovery Step |
 |----------|------|---------|---------------|
 | [`exitcode.OK`](internal/exitcode/exitcode.go) | `0`  | Success | None |
-| [`exitcode.ErrCapability`](internal/exitcode/exitcode.go) | `10` | Privilege or capability check failed | Run as root or adjust `--lvm-escalation`. |
-| [`exitcode.ErrDevice`](internal/exitcode/exitcode.go) | `20` | Device error | Verify device paths and snapshot health. |
-| [`exitcode.ErrSnapshotExhausted`](internal/exitcode/exitcode.go) | `25` | Snapshot space exhausted | Grow or recreate the snapshot before resuming. |
-| [`exitcode.ErrPlatform`](internal/exitcode/exitcode.go) | `30` | Unsupported platform | Run on a supported Linux platform. |
-| [`exitcode.ErrConfig`](internal/exitcode/exitcode.go) | `40` | Configuration error | Review flags, environment variables, and `config.yaml`. |
-| [`exitcode.ErrRuntime`](internal/exitcode/exitcode.go) | `50` | Runtime failure | Inspect logs, fix the issue, and rerun using `--resume` when applicable. |
-| [`exitcode.ErrVerify`](internal/exitcode/exitcode.go) | `60` | Verification mismatch | Investigate mismatched data before retrying. |
-| [`exitcode.ErrPartial`](internal/exitcode/exitcode.go) | `70` | Partial transfer | Address the error and resume with `--resume`. |
-| [`exitcode.ErrPrecondition`](internal/exitcode/exitcode.go) | `80` | Precondition failed | Fix prerequisites and retry. |
-| [`exitcode.ErrResumable`](internal/exitcode/exitcode.go) | `90` | Resumable exit | Resume with `--resume` after resolving the issue. |
+| [`exitcode.Capability`](internal/exitcode/exitcode.go) | `10` | Privilege or capability check failed | Run as root or adjust `--lvm-escalation`. |
+| [`exitcode.Device`](internal/exitcode/exitcode.go) | `20` | Device error | Verify device paths and snapshot health. |
+| [`exitcode.SnapshotExhausted`](internal/exitcode/exitcode.go) | `25` | Snapshot space exhausted | Grow or recreate the snapshot before resuming. |
+| [`exitcode.Platform`](internal/exitcode/exitcode.go) | `30` | Unsupported platform | Run on a supported Linux platform. |
+| [`exitcode.Config`](internal/exitcode/exitcode.go) | `40` | Configuration error | Review flags, environment variables, and `config.yaml`. |
+| [`exitcode.Runtime`](internal/exitcode/exitcode.go) | `50` | Runtime failure | Inspect logs, fix the issue, and rerun using `--resume` when applicable. |
+| [`exitcode.Verify`](internal/exitcode/exitcode.go) | `60` | Verification mismatch | Investigate mismatched data before retrying. |
+| [`exitcode.Partial`](internal/exitcode/exitcode.go) | `70` | Partial transfer | Address the error and resume with `--resume`. |
+| [`exitcode.Precondition`](internal/exitcode/exitcode.go) | `80` | Precondition failed | Fix prerequisites and retry. |
+| [`exitcode.Resumable`](internal/exitcode/exitcode.go) | `90` | Resumable exit | Resume with `--resume` after resolving the issue. |
 
 Definitions live in [internal/exitcode](internal/exitcode/exitcode.go).
 
-Verification mismatches exit with [`exitcode.ErrVerify`](internal/exitcode/exitcode.go):
+Verification mismatches exit with [`exitcode.Verify`](internal/exitcode/exitcode.go):
 
 ```sh
 lvmsync run --verify-only /dev/vg0/snap0 /dev/vg0/bad_target || echo "verify failed with exit $?"
 # verify failed with exit 60
 ```
 
-Precondition failures exit with [`exitcode.ErrPrecondition`](internal/exitcode/exitcode.go):
+Precondition failures exit with [`exitcode.Precondition`](internal/exitcode/exitcode.go):
 
 ```sh
 lvmsync run /dev/vg0/missing /dev/vg0/target || echo "precondition failed with exit $?"
@@ -154,7 +154,7 @@ Partition-table changes between runs also trigger this error when GPT or MBR sig
 
 When using the `rsync` transport, the client sends the destination device identity
 before writing. If the server's identity differs, the transfer aborts with
-[`exitcode.ErrPrecondition`](internal/exitcode/exitcode.go) (`80`).
+[`exitcode.Precondition`](internal/exitcode/exitcode.go) (`80`).
 
 ## Troubleshooting
 
@@ -166,7 +166,7 @@ before writing. If the server's identity differs, the transfer aborts with
 ### Snapshot Overflow
 
 Snapshot volumes fill when copy-on-write blocks exceed the allocated snapshot size.
-LVMSync exits with [`exitcode.ErrDevice`](internal/exitcode/exitcode.go) (`20`).
+LVMSync exits with [`exitcode.Device`](internal/exitcode/exitcode.go) (`20`).
 Grow the snapshot or create a larger one, then rerun with the same `--resume` state:
 
 ```sh
@@ -177,7 +177,7 @@ lvmsync run /dev/vg0/snap_full /dev/vg0/dst || echo "snapshot overflow exit $?"
 ### Verify Failure
 
 Verification mismatches stop the transfer with
-[`exitcode.ErrVerify`](internal/exitcode/exitcode.go) (`60`). Inspect the logs to
+[`exitcode.Verify`](internal/exitcode/exitcode.go) (`60`). Inspect the logs to
 identify mismatched blocks before retrying:
 
 ```sh
@@ -188,7 +188,7 @@ lvmsync run --verify-only /dev/vg0/snap0 /dev/vg0/target || echo "verify exit $?
 ### Resume After Interruption
 
 Unexpected interruptions (signals, network loss) exit with
-[`exitcode.ErrResumable`](internal/exitcode/exitcode.go) (`90`). Fix the underlying
+[`exitcode.Resumable`](internal/exitcode/exitcode.go) (`90`). Fix the underlying
 issue and resume the transfer:
 
 ```sh
@@ -198,7 +198,7 @@ lvmsync run --resume state /dev/vg0/snap0 /dev/vg0/target
 ### Identity Tuple Mismatch
 
 If the source or destination no longer matches the resume state, LVMSync exits with
-[`exitcode.ErrPrecondition`](internal/exitcode/exitcode.go) (`80`) and refuses to resume. Recreate the
+[`exitcode.Precondition`](internal/exitcode/exitcode.go) (`80`) and refuses to resume. Recreate the
 destination or regenerate the resume state before restarting.
 
 ## Failure Drills
@@ -238,7 +238,7 @@ scenarios.
    ```sh
    lvmsync run --remote https://badhost /dev/vg0/snap0 user@host:/dev/vg0/dst
    ```
-2. The TLS handshake fails with `exitcode.ErrRuntime`. Verify certificates and
+2. The TLS handshake fails with `exitcode.Runtime`. Verify certificates and
    trust stores, then retry the transfer.
 
 ## Symptom Reference
