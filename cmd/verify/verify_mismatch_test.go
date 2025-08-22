@@ -37,7 +37,7 @@ func TestRunLogsMismatchBlock(t *testing.T) {
 		}
 		return idx.Close()
 	})
-	err := r.Run([]string{src, dst}, logger)
+	err := r.Run([]string{"--digest", "blake3", src, dst}, logger)
 	if err == nil {
 		t.Fatalf("expected error")
 	}

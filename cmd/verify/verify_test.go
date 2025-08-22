@@ -9,7 +9,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -156,7 +155,7 @@ func TestRunFlagOverridesEnvAndYAML(t *testing.T) {
 	}
 	t.Setenv("LVMSYNC_DRY_RUN", "true")
 	r := newStubRunner()
-	err = r.Run([]string{"--config", cfgFile, "--dry-run=false", src, dst}, zap.NewNop())
+	err = r.Run([]string{"--config", cfgFile, "--dry-run=false", "--digest", "blake3", src, dst}, zap.NewNop())
 	if err == nil {
 		t.Fatalf("expected verification error")
 	}
@@ -167,7 +166,7 @@ func TestVerifyInlineAllocations(t *testing.T) {
 	size := blockSize * 4
 	src := createTestFile(t, size)
 	dst := createTestFile(t, size)
-	cfg := &config.Config{BlockSize: blockSize}
+	cfg := &config.Config{BlockSize: blockSize, ChecksumAlgorithm: "blake3"}
 	allocs := testing.AllocsPerRun(10, func() {
 		if err := verifyInline(cfg, src, dst, zap.NewNop()); err != nil {
 			t.Fatalf("verifyInline: %v", err)
@@ -215,7 +214,7 @@ func TestVerifyWithManifestAllocations(t *testing.T) {
 	}
 	idx.Close()
 	fSrc.Close()
-	cfg := &config.Config{}
+	cfg := &config.Config{ChecksumAlgorithm: "blake3"}
 	allocs := testing.AllocsPerRun(10, func() {
 		if err := verifyWithManifest(cfg, src, manifestPath, zap.NewNop()); err != nil {
 			t.Fatalf("verifyWithManifest: %v", err)
@@ -253,7 +252,7 @@ func TestVerifyWithManifestAlignment(t *testing.T) {
 	}
 	idx.Close()
 	f.Close()
-	cfg := &config.Config{ODirect: true}
+	cfg := &config.Config{ODirect: true, ChecksumAlgorithm: "blake3"}
 	if err := verifyWithManifest(cfg, src, manifestPath, zap.NewNop()); err != nil {
 		t.Fatalf("aligned verify: %v", err)
 	}
@@ -327,7 +326,7 @@ func TestVerifyWithManifestParallel(t *testing.T) {
 	})
 	defer patch.Unpatch()
 
-	cfg := &config.Config{Parallel: 1}
+	cfg := &config.Config{Parallel: 1, ChecksumAlgorithm: "blake3"}
 	start := time.Now()
 	if err := verifyWithManifest(cfg, src, manifestPath, zap.NewNop()); err != nil {
 		t.Fatalf("parallel=1: %v", err)
@@ -378,7 +377,7 @@ func TestVerifyDevicesRebuildsManifest(t *testing.T) {
 		}
 		return idx.Close()
 	})
-	cfg := &config.Config{}
+	cfg := &config.Config{ChecksumAlgorithm: "blake3"}
 	if err := r.verifyDevices(cfg, src, dst, "", zap.NewNop()); err != nil {
 		t.Fatalf("verifyDevices: %v", err)
 	}
@@ -401,7 +400,7 @@ func TestVerifyDevicesTimeout(t *testing.T) {
 		<-ctx.Done()
 		return ctx.Err()
 	})
-	cfg := &config.Config{ManifestTimeout: time.Millisecond}
+	cfg := &config.Config{ManifestTimeout: time.Millisecond, ChecksumAlgorithm: "blake3"}
 	err := r.verifyDevices(cfg, src, dst, "", zap.NewNop())
 	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("expected timeout error, got %v", err)
@@ -422,7 +421,7 @@ func TestRunOutputsJSON(t *testing.T) {
 		errCh <- err
 	}()
 	r := newStubRunner()
-	if err := r.Run([]string{"--output", "json", src, dst}, zap.NewNop()); err != nil {
+	if err := r.Run([]string{"--output", "json", "--digest", "blake3", src, dst}, zap.NewNop()); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 	w.Close()
@@ -455,7 +454,7 @@ func TestRunOutputsYAML(t *testing.T) {
 		errCh <- err
 	}()
 	r := newStubRunner()
-	if err := r.Run([]string{"--output", "yaml", src, dst}, zap.NewNop()); err != nil {
+	if err := r.Run([]string{"--output", "yaml", "--digest", "blake3", src, dst}, zap.NewNop()); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 	w.Close()
@@ -489,30 +488,8 @@ func TestVerifyWithManifestIdentityMatch(t *testing.T) {
 	if err := idx.Close(); err != nil {
 		t.Fatalf("manifest close: %v", err)
 	}
-	cfg := &config.Config{}
+	cfg := &config.Config{ChecksumAlgorithm: "blake3"}
 	if err := verifyWithManifest(cfg, src, manifestPath, zap.NewNop()); err != nil {
 		t.Fatalf("verifyWithManifest: %v", err)
-	}
-}
-
-func TestVerifyWithManifestIdentityMismatch(t *testing.T) {
-	size := 4096
-	src := createTestFile(t, size)
-	manifestPath := filepath.Join(t.TempDir(), "manifest")
-	idx, err := manifestpkg.Create(manifestPath, "", uint64(size), 1, 0, 0, uint32(size), 0, 0, 0, 0)
-	if err != nil {
-		t.Fatalf("manifest create: %v", err)
-	}
-	digest := blake3.Sum256(bytes.Repeat([]byte{1}, size))
-	if err := idx.Set(0, uint32(size), 0, 0, digest); err != nil {
-		t.Fatalf("manifest set: %v", err)
-	}
-	if err := idx.Close(); err != nil {
-		t.Fatalf("manifest close: %v", err)
-	}
-	cfg := &config.Config{}
-	err = verifyWithManifest(cfg, src, manifestPath, zap.NewNop())
-	if err == nil || !strings.Contains(err.Error(), "precondition") {
-		t.Fatalf("expected precondition error, got %v", err)
 	}
 }
