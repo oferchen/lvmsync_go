@@ -27,7 +27,7 @@ func TestRunLogsMismatchBlock(t *testing.T) {
 	core, logs := observer.New(zapcore.InfoLevel)
 	logger := zap.New(core)
 	r := NewRunnerWithDeps(func(ctx context.Context, device, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error {
-		idx, err := manifestpkg.Create(output, "dev", 3, 0, 0, 0, 4096, 0, 0, 0, 0)
+		idx, err := manifestpkg.Create(output, "", 3, 0, 0, 0, 4096, 0, 0, 0, 0)
 		if err != nil {
 			return err
 		}
@@ -59,7 +59,7 @@ func TestRunLogsMismatchBlockSHA256(t *testing.T) {
 	core, logs := observer.New(zapcore.InfoLevel)
 	logger := zap.New(core)
 	r := NewRunnerWithDeps(func(ctx context.Context, device, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error {
-		idx, err := manifestpkg.Create(output, "dev", 3, 0, 0, 0, 4096, 0, 0, 0, 0)
+		idx, err := manifestpkg.Create(output, "", 3, 0, 0, 0, 4096, 0, 0, 0, 0)
 		if err != nil {
 			return err
 		}

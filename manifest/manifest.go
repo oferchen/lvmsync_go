@@ -203,6 +203,9 @@ func (i *Index) validateSize() error {
 	return nil
 }
 
+// Header returns the manifest header.
+func (i *Index) Header() Header { return i.hdr }
+
 // Close flushes the mmap and closes the underlying file.
 func (i *Index) Close() error {
 	var err error

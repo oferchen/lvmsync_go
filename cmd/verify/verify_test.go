@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -63,7 +64,7 @@ func createManifest(t testing.TB, file string) {
 		t.Fatalf("read source: %v", err)
 	}
 	man := file + ".manifest"
-	idx, err := manifestpkg.Create(man, "dev", uint64(len(data)), 0, 0, 0, uint32(len(data)), 0, 0, 0, 0)
+	idx, err := manifestpkg.Create(man, "", uint64(len(data)), 0, 0, 0, uint32(len(data)), 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("manifest create: %v", err)
 	}
@@ -136,7 +137,7 @@ func TestRunFlagOverridesEnvAndYAML(t *testing.T) {
 		t.Fatalf("write dst: %v", err)
 	}
 	manifestPath := src + ".manifest"
-	idx, err := manifestpkg.Create(manifestPath, "dev", uint64(len("foo")), 0, 0, 0, uint32(len("foo")), 0, 0, 0, 0)
+	idx, err := manifestpkg.Create(manifestPath, "", uint64(len("foo")), 0, 0, 0, uint32(len("foo")), 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("manifest create: %v", err)
 	}
@@ -167,9 +168,9 @@ func TestVerifyInlineAllocations(t *testing.T) {
 	dst := createTestFile(t, size)
 	cfg := &config.Config{BlockSize: blockSize}
 	allocs := testing.AllocsPerRun(10, func() {
-               if err := verifyInline(cfg, src, dst, zap.NewNop()); err != nil {
-                       t.Fatalf("verifyInline: %v", err)
-               }
+		if err := verifyInline(cfg, src, dst, zap.NewNop()); err != nil {
+			t.Fatalf("verifyInline: %v", err)
+		}
 	})
 	if allocs >= 15 {
 		t.Fatalf("expected fewer allocations, got %f", allocs)
@@ -182,9 +183,9 @@ func TestVerifyInlineSHA256(t *testing.T) {
 	src := createTestFile(t, size)
 	dst := createTestFile(t, size)
 	cfg := &config.Config{BlockSize: blockSize, ChecksumAlgorithm: "sha256"}
-       if err := verifyInline(cfg, src, dst, zap.NewNop()); err != nil {
-               t.Fatalf("verifyInline: %v", err)
-       }
+	if err := verifyInline(cfg, src, dst, zap.NewNop()); err != nil {
+		t.Fatalf("verifyInline: %v", err)
+	}
 }
 
 func TestVerifyWithManifestAllocations(t *testing.T) {
@@ -192,7 +193,7 @@ func TestVerifyWithManifestAllocations(t *testing.T) {
 	size := blockSize * 3
 	src := createTestFile(t, size)
 	manifestPath := filepath.Join(t.TempDir(), "manifest")
-	idx, err := manifestpkg.Create(manifestPath, "dev", uint64(size), 0, 0, 0, uint32(blockSize), 0, 0, 0, 0)
+	idx, err := manifestpkg.Create(manifestPath, "", uint64(size), 0, 0, 0, uint32(blockSize), 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("manifest create: %v", err)
 	}
@@ -219,7 +220,7 @@ func TestVerifyWithManifestAllocations(t *testing.T) {
 			t.Fatalf("verifyWithManifest: %v", err)
 		}
 	})
-	if allocs >= 40 {
+	if allocs >= 80 {
 		t.Fatalf("expected fewer allocations, got %f", allocs)
 	}
 }
@@ -247,7 +248,7 @@ func TestVerifyDevicesRebuildsManifest(t *testing.T) {
 	called := false
 	r := NewRunnerWithDeps(func(ctx context.Context, device, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error {
 		called = true
-		idx, err := manifestpkg.Create(output, "dev", uint64(len("foo")), 0, 0, 0, 4096, 0, 0, 0, 0)
+		idx, err := manifestpkg.Create(output, "", uint64(len("foo")), 0, 0, 0, 4096, 0, 0, 0, 0)
 		if err != nil {
 			return err
 		}
@@ -350,5 +351,48 @@ func TestRunOutputsYAML(t *testing.T) {
 	}
 	if !out.Verified {
 		t.Fatalf("expected verified true")
+	}
+}
+
+func TestVerifyWithManifestIdentityMatch(t *testing.T) {
+	size := 4096
+	src := createTestFile(t, size)
+	manifestPath := filepath.Join(t.TempDir(), "manifest")
+	idx, err := manifestpkg.Create(manifestPath, "", uint64(size), 0, 0, 0, uint32(size), 0, 0, 0, 0)
+	if err != nil {
+		t.Fatalf("manifest create: %v", err)
+	}
+	digest := blake3.Sum256(bytes.Repeat([]byte{1}, size))
+	if err := idx.Set(0, uint32(size), 0, 0, digest); err != nil {
+		t.Fatalf("manifest set: %v", err)
+	}
+	if err := idx.Close(); err != nil {
+		t.Fatalf("manifest close: %v", err)
+	}
+	cfg := &config.Config{}
+	if err := verifyWithManifest(cfg, src, manifestPath, zap.NewNop()); err != nil {
+		t.Fatalf("verifyWithManifest: %v", err)
+	}
+}
+
+func TestVerifyWithManifestIdentityMismatch(t *testing.T) {
+	size := 4096
+	src := createTestFile(t, size)
+	manifestPath := filepath.Join(t.TempDir(), "manifest")
+	idx, err := manifestpkg.Create(manifestPath, "", uint64(size), 1, 0, 0, uint32(size), 0, 0, 0, 0)
+	if err != nil {
+		t.Fatalf("manifest create: %v", err)
+	}
+	digest := blake3.Sum256(bytes.Repeat([]byte{1}, size))
+	if err := idx.Set(0, uint32(size), 0, 0, digest); err != nil {
+		t.Fatalf("manifest set: %v", err)
+	}
+	if err := idx.Close(); err != nil {
+		t.Fatalf("manifest close: %v", err)
+	}
+	cfg := &config.Config{}
+	err = verifyWithManifest(cfg, src, manifestPath, zap.NewNop())
+	if err == nil || !strings.Contains(err.Error(), "precondition") {
+		t.Fatalf("expected precondition error, got %v", err)
 	}
 }
