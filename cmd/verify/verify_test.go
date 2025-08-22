@@ -20,7 +20,9 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 	"gopkg.in/yaml.v3"
 
+	"lvmsync_go/device"
 	"lvmsync_go/internal/config"
+	privilege "lvmsync_go/internal/privilege"
 	manifestpkg "lvmsync_go/manifest"
 )
 
@@ -499,7 +501,7 @@ func TestVerifyWithManifestIdentityMismatch(t *testing.T) {
 	size := 4096
 	src := createTestFile(t, size)
 	manifestPath := filepath.Join(t.TempDir(), "manifest")
-	idx, err := manifestpkg.Create(manifestPath, "", uint64(size), 1, 0, 0, uint32(size), 0, 0, 0, 0)
+	idx, err := manifestpkg.Create(manifestPath, "", uint64(size), 0, 1, 0, uint32(size), 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("manifest create: %v", err)
 	}
@@ -514,5 +516,45 @@ func TestVerifyWithManifestIdentityMismatch(t *testing.T) {
 	err = verifyWithManifest(cfg, src, manifestPath, zap.NewNop())
 	if err == nil || !strings.Contains(err.Error(), "precondition") {
 		t.Fatalf("expected precondition error, got %v", err)
+	}
+}
+
+type detectStub struct{ path string }
+
+func (d *detectStub) Path() string                                            { return d.path }
+func (d *detectStub) SizeBytes() uint64                                       { return 0 }
+func (d *detectStub) BlockSize() uint64                                       { return 4096 }
+func (d *detectStub) Snapshot(context.Context, string) (device.Device, error) { return d, nil }
+func (d *detectStub) Cleanup(context.Context) error                           { return nil }
+func (d *detectStub) Close() error                                            { return nil }
+func (d *detectStub) Identity(context.Context) (device.DeviceIdentity, error) {
+	return device.DeviceIdentity{}, nil
+}
+func (d *detectStub) AppendWAL(device.Range) error              { return nil }
+func (d *detectStub) RecoverWAL(func(device.Range) error) error { return nil }
+
+func TestVerifyDevicesDetectsWithEscalator(t *testing.T) {
+	src := createTestFile(t, 512)
+	dst := createTestFile(t, 512)
+	createManifest(t, src)
+	var calls int
+	var escUsed []bool
+	patch := monkey.Patch(device.Detect, func(ctx context.Context, p string, offline bool, explicitType, fsFreezeCmd, fsThawCmd, lvmEscalation string, freezeTimeout, thawTimeout time.Duration, esc privilege.Escalator, logger *zap.Logger, runner *device.Runner) (device.Device, error) {
+		calls++
+		escUsed = append(escUsed, esc != nil)
+		return &detectStub{path: p}, nil
+	})
+	defer patch.Unpatch()
+	cfg := &config.Config{SkipSnapshotCreation: true}
+	if err := newStubRunner().verifyDevices(cfg, src, dst, "", zap.NewNop()); err != nil {
+		t.Fatalf("verifyDevices: %v", err)
+	}
+	if calls != 2 {
+		t.Fatalf("expected 2 detect calls, got %d", calls)
+	}
+	for i, used := range escUsed {
+		if !used {
+			t.Fatalf("call %d missing escalator", i)
+		}
 	}
 }

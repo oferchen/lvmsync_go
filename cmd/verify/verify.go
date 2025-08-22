@@ -17,6 +17,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/zeebo/blake3"
 	"go.uber.org/zap"
+	"golang.org/x/sys/unix"
 	"gopkg.in/yaml.v3"
 
 	rootcmd "lvmsync_go/cmd/root"
@@ -139,22 +140,62 @@ func (r *Runner) Run(args []string, logger *zap.Logger) error {
 }
 
 func (r *Runner) verifyDevices(cfg *config.Config, src, dst, manifestPath string, logger *zap.Logger) error {
+	ctx := context.Background()
+	esc := privilege.New(ctx, logger)
+	runner := device.NewRunner()
+
+	srcDev, err := device.Detect(ctx, src, cfg.Offline, cfg.SourceType, cfg.FSFreezeCommand, cfg.FSThawCommand, cfg.LVMEscalation, cfg.FreezeTimeout, cfg.ThawTimeout, esc, logger, runner)
+	if err != nil {
+		return err
+	}
+	srcSnap, err := srcDev.Snapshot(ctx, cfg.SnapshotSize)
+	if err != nil {
+		srcDev.Close()
+		return err
+	}
+	srcPath := srcSnap.Path()
+	defer func() {
+		_ = srcSnap.Cleanup(ctx)
+		_ = srcSnap.Close()
+		if srcSnap != srcDev {
+			_ = srcDev.Close()
+		}
+	}()
+
+	dstDev, err := device.Detect(ctx, dst, cfg.Offline, cfg.DestType, cfg.FSFreezeCommand, cfg.FSThawCommand, cfg.LVMEscalation, cfg.FreezeTimeout, cfg.ThawTimeout, esc, logger, runner)
+	if err != nil {
+		return err
+	}
+	dstSnap, err := dstDev.Snapshot(ctx, cfg.SnapshotSize)
+	if err != nil {
+		dstDev.Close()
+		return err
+	}
+	dstPath := dstSnap.Path()
+	defer func() {
+		_ = dstSnap.Cleanup(ctx)
+		_ = dstSnap.Close()
+		if dstSnap != dstDev {
+			_ = dstDev.Close()
+		}
+	}()
+
 	if manifestPath == "" {
-		manifestPath = src + ".manifest"
+		manifestPath = srcPath + ".manifest"
 	}
 	if _, err := os.Stat(manifestPath); err != nil {
 		if os.IsNotExist(err) {
-			ctx := context.Background()
+			mctx := context.Background()
 			if cfg.ManifestTimeout > 0 {
 				var cancel context.CancelFunc
-				ctx, cancel = context.WithTimeout(ctx, cfg.ManifestTimeout)
+				mctx, cancel = context.WithTimeout(mctx, cfg.ManifestTimeout)
 				defer cancel()
 			}
 			hybridFixed := uint32(0)
 			if cfg.DedupMode == "hybrid" {
 				hybridFixed = uint32(cfg.BlockSize)
 			}
-			if err := r.Rebuild(ctx, src, manifestPath, logger, cfg.ManifestProgressInterval, cfg.ManifestAllowMounted, uint32(cfg.CDCMin), uint32(cfg.CDCAvg), uint32(cfg.CDCMax), hybridFixed); err != nil {
+			if err := r.Rebuild(mctx, srcPath, manifestPath, logger, cfg.ManifestProgressInterval, cfg.ManifestAllowMounted, uint32(cfg.CDCMin), uint32(cfg.CDCAvg), uint32(cfg.CDCMax), hybridFixed); err != nil {
 				if errors.Is(err, context.DeadlineExceeded) {
 					return err
 				}
@@ -164,7 +205,7 @@ func (r *Runner) verifyDevices(cfg *config.Config, src, dst, manifestPath string
 			return fmt.Errorf("stat manifest: %w", err)
 		}
 	}
-	if err := verifyWithManifest(cfg, dst, manifestPath, logger); err != nil {
+	if err := verifyWithManifest(cfg, dstPath, manifestPath, logger); err != nil {
 		return err
 	}
 	if strings.ToLower(cfg.VerifyLevel) == "none" {
@@ -180,7 +221,7 @@ func (r *Runner) verifyDevices(cfg *config.Config, src, dst, manifestPath string
 		zap.Bool("neon", cpufeatures.HasNEON()),
 	)
 	post := strings.ToLower(cfg.VerifyLevel) == "post"
-	match, srcSum, dstSum, err := digestpkg.VerifyFiles(src, dst, alg, post)
+	match, srcSum, dstSum, err := digestpkg.VerifyFiles(srcPath, dstPath, alg, post)
 	if err != nil {
 		return err
 	}
@@ -275,6 +316,16 @@ func verifyWithManifest(cfg *config.Config, devicePath, manifestPath string, log
 		return fmt.Errorf("open manifest: %w", err)
 	}
 	defer idx.Close()
+
+	var st unix.Stat_t
+	if err := unix.Stat(devicePath, &st); err != nil {
+		return fmt.Errorf("stat source: %w", err)
+	}
+	hdr := idx.Header()
+	if hdr.Major != uint32(unix.Major(uint64(st.Rdev))) || hdr.Minor != uint32(unix.Minor(uint64(st.Rdev))) {
+		return fmt.Errorf("precondition: device identity mismatch")
+	}
+
 	fSrc, err := blockio.Open(devicePath, cfg.ODirect, false)
 	if err != nil {
 		return fmt.Errorf("open device: %w", err)
