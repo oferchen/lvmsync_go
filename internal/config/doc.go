@@ -20,6 +20,9 @@ func EnvDoc(fs *FlagSets) string {
 	for _, set := range fs.All() {
 		set.VisitAll(func(f *pflag.Flag) {
 			env := "LVMSYNC_" + strings.ToUpper(strings.ReplaceAll(f.Name, "-", "_"))
+			if f.Name == "allow-insecure" {
+				env = "-"
+			}
 			rows = append(rows, row{env, "--" + f.Name, f.Name, f.Usage})
 		})
 	}

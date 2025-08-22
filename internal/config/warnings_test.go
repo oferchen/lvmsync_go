@@ -27,7 +27,7 @@ func TestUnknownKeysProduceError(t *testing.T) {
 	}
 }
 
-func TestAllowInsecureRequiresFlagOrEnv(t *testing.T) {
+func TestAllowInsecureRequiresFlag(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	defaults, err := DefaultConfig()
 	if err != nil {
