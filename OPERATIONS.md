@@ -71,6 +71,13 @@ exist. This is useful for fresh replication targets:
 lvmsync run --create-dest-lv /dev/vg0/src /dev/vg0/dest
 ```
 
+## Plan accuracy
+
+`lvmsync run --plan SRC DST` emits a plan containing `estimated_bytes`.
+Actual transfers may vary slightly due to block alignment and compression
+effects. Estimates are expected to fall within ±5% of the final
+`bytes_transferred` reported at the end of a run.
+
 ## Safe Overwrite Procedure
 
 1. Probe devices and ensure privileges are correct:
