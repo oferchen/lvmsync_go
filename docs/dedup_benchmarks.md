@@ -24,3 +24,21 @@ on patterned and random datasets using Go's testing framework.
 | Hybrid patterned | 145286614 | 7.22 | 1403394 | 225 |
 | Hybrid random | 341517485 | 3.07 | 1459349 | 337 |
 
+## Bloom Filter False Positive Rates
+
+The Bloom filter is configured with 100k inserted digests. Random digests are
+tested for membership without insertion to measure the observed false positive
+rate.
+
+- Command: `go test -run '^$' -bench BloomFalsePositiveRate -benchtime=100000x -benchmem ./dedup`
+
+| Configured FP | Observed FP |
+|--------------:|------------:|
+| 0.1 | 0.1027 |
+| 0.01 | 0.01001 |
+| 0.001 | 0.00093 |
+
+To reduce false positives, lower the configured rate at the cost of additional
+memory. `MaxChunks` estimates the number of unique chunks supported for a given
+false positive rate and available RAM.
+
