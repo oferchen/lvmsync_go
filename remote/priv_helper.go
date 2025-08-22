@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"strings"
 	"time"
 
@@ -139,6 +140,9 @@ func (c *PrivHelperClient) RecvAck(ctx context.Context) (bool, error) {
 		if r.err != nil {
 			if ctxErr := ctx.Err(); ctxErr != nil {
 				return false, ctxErr
+			}
+			if ne, ok := r.err.(net.Error); ok && ne.Timeout() {
+				return false, errors.Join(context.DeadlineExceeded, r.err)
 			}
 			return false, r.err
 		}

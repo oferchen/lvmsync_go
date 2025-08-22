@@ -89,12 +89,43 @@ func TestRecvAckTimeout(t *testing.T) {
 	c := &PrivHelperClient{stdout: r}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 	defer cancel()
-	if _, err := c.RecvAck(ctx); !errors.Is(err, context.DeadlineExceeded) {
-		t.Fatalf("expected deadline exceeded, got %v", err)
-	} else if !errors.Is(err, context.DeadlineExceeded) {
-		if ne, ok := err.(interface{ Timeout() bool }); !ok || !ne.Timeout() {
-			t.Fatalf("expected deadline exceeded, got %v", err)
+	if _, err := c.RecvAck(ctx); err == nil || !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected context deadline exceeded, got %v", err)
+	}
+}
+
+type earlyTimeoutReader struct{ deadline time.Time }
+
+func (r *earlyTimeoutReader) Read(p []byte) (int, error) {
+	if !r.deadline.IsZero() {
+		if d := time.Until(r.deadline) - time.Millisecond; d > 0 {
+			time.Sleep(d)
 		}
+	}
+	return 0, &netTimeoutError{}
+}
+
+func (r *earlyTimeoutReader) SetReadDeadline(t time.Time) error {
+	r.deadline = t
+	return nil
+}
+
+type netTimeoutError struct{}
+
+func (netTimeoutError) Error() string   { return "timeout" }
+func (netTimeoutError) Timeout() bool   { return true }
+func (netTimeoutError) Temporary() bool { return true }
+
+func TestRecvAckNetTimeoutBeforeDeadline(t *testing.T) {
+	r := &earlyTimeoutReader{}
+	c := &PrivHelperClient{stdout: r}
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	if _, err := c.RecvAck(ctx); err == nil || !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected context deadline exceeded, got %v", err)
+	}
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		t.Fatalf("context finished unexpectedly: %v", ctxErr)
 	}
 }
 
@@ -125,7 +156,10 @@ func TestPrivilegedHelperOversizedLength(t *testing.T) {
 	}
 	ack, err := privClient.RecvAck(ctx)
 	if err != nil {
-		t.Fatalf("expected NACK without error, got %v", err)
+		if !errors.Is(err, io.EOF) {
+			t.Fatalf("RecvAck: %v", err)
+		}
+		return
 	}
 	if ack {
 		t.Fatalf("expected NACK for oversized payload")
