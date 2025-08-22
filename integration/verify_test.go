@@ -8,6 +8,7 @@ import (
 )
 
 func TestVerifyOnly(t *testing.T) {
+	requireRootAndCommands(t)
 	cmd := exec.Command("bash", "./integration/verify.sh")
 	cmd.Dir = ".."
 	out, err := cmd.CombinedOutput()

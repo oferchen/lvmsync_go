@@ -8,6 +8,7 @@ import (
 )
 
 func TestLoopbackTransfer(t *testing.T) {
+	requireRootAndCommands(t)
 	cmd := exec.Command("bash", "./integration/loopback.sh")
 	cmd.Dir = ".."
 	out, err := cmd.CombinedOutput()

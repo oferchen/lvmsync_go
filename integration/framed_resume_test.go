@@ -8,6 +8,7 @@ import (
 )
 
 func TestFramedResumeWithCompression(t *testing.T) {
+	requireRootAndCommands(t)
 	cmd := exec.Command("bash", "./integration/framed_resume.sh")
 	cmd.Dir = ".."
 	out, err := cmd.CombinedOutput()

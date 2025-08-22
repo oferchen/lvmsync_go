@@ -13,6 +13,8 @@ import (
 
 // TestRsyncRefusal exercises rsync transport refusal and related warnings.
 func TestRsyncRefusal(t *testing.T) {
+	requireRootAndCommands(t, "lvs")
+
 	tmp := t.TempDir()
 
 	// Build lvmsync binary into the temp directory.
@@ -21,10 +23,6 @@ func TestRsyncRefusal(t *testing.T) {
 	build.Dir = ".."
 	if out, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("build lvmsync: %v\n%s", err, out)
-	}
-
-	if _, err := exec.LookPath("lvs"); err != nil {
-		t.Skip("lvs not available")
 	}
 
 	// Prepare a 1MiB source image and matching destinations.

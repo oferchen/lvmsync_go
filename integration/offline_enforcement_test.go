@@ -8,6 +8,7 @@ import (
 )
 
 func TestOfflineEnforcement(t *testing.T) {
+	requireRootAndCommands(t)
 	cmd := exec.Command("bash", "./integration/offline_enforcement.sh")
 	cmd.Dir = ".."
 	out, err := cmd.CombinedOutput()

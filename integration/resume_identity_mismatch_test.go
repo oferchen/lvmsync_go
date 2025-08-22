@@ -8,6 +8,7 @@ import (
 )
 
 func TestResumeIdentityMismatch(t *testing.T) {
+	requireRootAndCommands(t)
 	cmd := exec.Command("bash", "./integration/resume_identity_mismatch.sh")
 	cmd.Dir = ".."
 	out, err := cmd.CombinedOutput()

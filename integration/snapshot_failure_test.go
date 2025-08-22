@@ -22,14 +22,7 @@ func run(t *testing.T, cmd *exec.Cmd) string {
 }
 
 func TestSnapshotCleanupOnFailure(t *testing.T) {
-	for _, tool := range []string{"losetup", "pvcreate", "vgcreate", "lvcreate", "dd"} {
-		if _, err := exec.LookPath(tool); err != nil {
-			t.Skipf("%s not available", tool)
-		}
-	}
-	if os.Geteuid() != 0 {
-		t.Skip("root required")
-	}
+	requireRootAndCommands(t, "pvcreate", "vgcreate", "lvcreate", "dd", "lvs")
 
 	tmpDir := t.TempDir()
 	bin := filepath.Join(tmpDir, "lvmsync")

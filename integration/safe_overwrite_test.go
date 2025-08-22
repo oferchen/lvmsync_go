@@ -8,6 +8,7 @@ import (
 )
 
 func TestSafeOverwrite(t *testing.T) {
+	requireRootAndCommands(t)
 	cmd := exec.Command("bash", "./integration/safe_overwrite.sh")
 	cmd.Dir = ".."
 	out, err := cmd.CombinedOutput()
