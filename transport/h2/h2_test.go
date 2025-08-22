@@ -11,6 +11,7 @@ import (
 	"math/big"
 	"net"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -104,6 +105,19 @@ func generateSelfSignedCert(t *testing.T) (tls.Certificate, *x509.CertPool) {
 	pool.AddCert(parsed)
 	return cert, pool
 }
+
+type recordingConn struct {
+	net.Conn
+	deadlines []time.Time
+}
+
+func (r *recordingConn) SetDeadline(t time.Time) error {
+	r.deadlines = append(r.deadlines, t)
+	return nil
+}
+
+func (r *recordingConn) SetReadDeadline(_ time.Time) error  { return nil }
+func (r *recordingConn) SetWriteDeadline(_ time.Time) error { return nil }
 
 func TestDialTLS(t *testing.T) {
 	cert, pool := generateSelfSignedCert(t)
@@ -413,6 +427,37 @@ func TestDialClearDeadlineError(t *testing.T) {
 	}
 	if entries[0].Level != zapcore.ErrorLevel {
 		t.Fatalf("expected error level, got %v", entries[0].Level)
+	}
+}
+
+func TestNegotiateClearDeadlineSuccess(t *testing.T) {
+	tr := &Transport{logger: zap.NewNop(), clearDeadline: func(conn net.Conn) error { return conn.SetDeadline(time.Time{}) }}
+	c1, c2 := net.Pipe()
+	client := &recordingConn{Conn: c1}
+	server := &recordingConn{Conn: c2}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	var wg sync.WaitGroup
+	var srvErr error
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		_, srvErr = tr.Negotiate(ctx, server, transport.Server, common.Handshake{})
+	}()
+
+	if _, err := tr.Negotiate(ctx, client, transport.Client, common.Handshake{}); err != nil {
+		t.Fatalf("client negotiate: %v", err)
+	}
+	wg.Wait()
+	if srvErr != nil {
+		t.Fatalf("server negotiate: %v", srvErr)
+	}
+	if len(client.deadlines) == 0 {
+		t.Fatalf("expected deadlines to be set")
+	}
+	if !client.deadlines[len(client.deadlines)-1].IsZero() {
+		t.Fatalf("deadline not cleared")
 	}
 }
 
