@@ -372,11 +372,17 @@ func TestDefaultMountFuncBindMount(t *testing.T) {
 	defer os.Remove(dev.Name())
 	dev.Close()
 
+	link := dev.Name() + "-link"
+	if err := os.Symlink(dev.Name(), link); err != nil {
+		t.Fatalf("symlink: %v", err)
+	}
+	defer os.Remove(link)
+
 	mounts, err := os.CreateTemp("", "mountinfo")
 	if err != nil {
 		t.Fatalf("create mountinfo: %v", err)
 	}
-	escaped := strings.ReplaceAll(dev.Name(), " ", "\\040")
+	escaped := strings.ReplaceAll(link, " ", "\\040")
 	base := fmt.Sprintf("42 24 0:0 / /mnt/src ro,relatime - ext4 %s ro\n", escaped)
 	bind := fmt.Sprintf("43 42 0:0 /mnt/src /mnt/bind rw,relatime - ext4 %s rw\n", escaped)
 	if _, err := mounts.WriteString(base + bind); err != nil {
@@ -522,6 +528,47 @@ func TestDefaultMountFuncRepeatedDeviceEntriesAllRO(t *testing.T) {
 	}
 }
 
+func TestDefaultMountFuncDuplicateSources(t *testing.T) {
+	dev, err := os.CreateTemp("", "dev")
+	if err != nil {
+		t.Fatalf("create device: %v", err)
+	}
+	defer os.Remove(dev.Name())
+	dev.Close()
+
+	link := dev.Name() + "-link"
+	if err := os.Symlink(dev.Name(), link); err != nil {
+		t.Fatalf("symlink: %v", err)
+	}
+	defer os.Remove(link)
+
+	mounts, err := os.CreateTemp("", "mountinfo")
+	if err != nil {
+		t.Fatalf("create mountinfo: %v", err)
+	}
+	escapedLink := strings.ReplaceAll(link, " ", "\\040")
+	escapedDev := strings.ReplaceAll(dev.Name(), " ", "\\040")
+	line1 := fmt.Sprintf("42 24 0:0 / /mnt/a ro,relatime - ext4 %s rw\n", escapedLink)
+	line2 := fmt.Sprintf("43 24 0:0 / /mnt/a rw,relatime - ext4 %s rw\n", escapedDev)
+	if _, err := mounts.WriteString(line1 + line2); err != nil {
+		t.Fatalf("write mountinfo: %v", err)
+	}
+	mounts.Close()
+	defer os.Remove(mounts.Name())
+
+	info := NewInfo()
+	prev := info.SetMountFunc(mountFuncFromMountInfoFile(mounts.Name()))
+	defer info.SetMountFunc(prev)
+
+	got, err := info.IsMountedRW(context.Background(), dev.Name())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !got {
+		t.Fatalf("expected mounted read-write")
+	}
+}
+
 func TestDefaultMountFuncAggregatesMultipleEntries(t *testing.T) {
 	dev, err := os.CreateTemp("", "dev")
 	if err != nil {
@@ -627,13 +674,18 @@ func mountFuncFromMountInfoFile(p string) func(context.Context, string) (bool, e
 		}
 		matches := map[string]*mountinfo.Info{}
 		for _, mi := range infos {
-			if mi.Source == real || mi.Mountpoint == real || mi.Root == real {
-				if existing, ok := matches[mi.Root]; ok {
+			src := mi.Source
+			if resolved, err := filepath.EvalSymlinks(src); err == nil {
+				src = resolved
+			}
+			if src == real || mi.Mountpoint == real || mi.Root == real {
+				key := fmt.Sprintf("%d:%d:%s", mi.Major, mi.Minor, mi.Root)
+				if existing, ok := matches[key]; ok {
 					if !hasRW(existing.Options) && hasRW(mi.Options) {
-						matches[mi.Root] = mi
+						matches[key] = mi
 					}
 				} else {
-					matches[mi.Root] = mi
+					matches[key] = mi
 				}
 			}
 		}
