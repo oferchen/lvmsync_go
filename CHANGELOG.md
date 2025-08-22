@@ -139,6 +139,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - tests: use timeouts and close connections before returning errors in SSH handshake selection test
 - ssh: aggregate channel close errors from client and server connections
 
+## [v0.2.0] - 2025-08-22
+### Added
+- Refactored device detection into dedicated helpers for LVM, raw, and file volumes.
+- Persisted resume checkpoints across dedup modes with configurable intervals.
+
+### Fixed
+- Validates privilege escalation commands and freeze/thaw configuration for raw devices.
+
+### SBOM
+- [Release SBOM](https://github.com/oferchen/lvmsync_go/releases/download/v0.2.0/lvmsync-v0.2.0-linux-amd64.sbom)
+
 ## [v0.1.0] - 2025-02-27
 ### Added
 - Initial release of LVMSync with a pluggable transport registry supporting QUIC, HTTP/2, TCP+TLS, and SSH.
