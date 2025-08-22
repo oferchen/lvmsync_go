@@ -27,7 +27,7 @@ func NewRunnerWithDeps(func(context.Context, string) (bool, error), func(context
 type LVMDevice struct{}
 
 // OpenLVM returns an error on non-Linux systems.
-func (r *Runner) OpenLVM(context.Context, string, *lvm.FDCache, string, *zap.Logger) (*LVMDevice, error) {
+func (r *Runner) OpenLVM(context.Context, string, *lvm.FDCache, bool, string, *zap.Logger) (*LVMDevice, error) {
 	return nil, fmt.Errorf("LVM devices are only supported on Linux")
 }
 

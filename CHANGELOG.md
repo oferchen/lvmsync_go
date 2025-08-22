@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - docs: document snapshot cleanup, resume, and verify-only rollback procedures in docs/danger_rollback.md
 - device: split Detect into detectFileDevice, detectLVMDevice, and detectRawDevice helpers with dedicated tests
 - device: detect LVM, raw, or file devices using blkid metadata
+- device: enforce snapshot requirement for LVM volumes unless --offline is set
 - cmd: manage LVM snapshot lifecycle within dump and apply commands
 - tests: add coverage for adaptive chunk sizing, index option application, TLS version helper, capability checks, and data size overflow; include loop device setup integration test.
 - Log dial and listen lifecycle events with duration_ms and error fields across transports, with tests covering handshake and teardown logs.

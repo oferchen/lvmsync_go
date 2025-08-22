@@ -31,7 +31,7 @@ type Runner struct {
 	discardEnabled    func(context.Context, string) (bool, error)
 	isMountedRW       func(context.Context, string) (bool, error)
 	lockAcquire       func(string, string) (*lock.Lock, error)
-	openLVMOverride   func(context.Context, string, *lvm.FDCache, string, *zap.Logger) (*LVMDevice, error)
+	openLVMOverride   func(context.Context, string, *lvm.FDCache, bool, string, *zap.Logger) (*LVMDevice, error)
 	openRawOverride   func(context.Context, string, bool, string, []string, string, []string, time.Duration, time.Duration, privilege.Escalator, *zap.Logger) (*RawDevice, error)
 }
 

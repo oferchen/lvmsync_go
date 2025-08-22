@@ -242,7 +242,7 @@ func TestDetectLVM(t *testing.T) {
 		return exec.CommandContext(ctx, name, args...)
 	})
 	runner := NewDeviceRunner(cmd)
-	runner.openLVMOverride = func(ctx context.Context, p string, _ *lvm.FDCache, _ string, _ *zap.Logger) (*LVMDevice, error) {
+	runner.openLVMOverride = func(ctx context.Context, p string, _ *lvm.FDCache, _ bool, _ string, _ *zap.Logger) (*LVMDevice, error) {
 		return &LVMDevice{path: p, logger: zap.NewNop(), runner: runner}, nil
 	}
 	ctx := WithForce(context.Background(), true)
