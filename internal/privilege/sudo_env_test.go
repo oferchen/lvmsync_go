@@ -1,17 +1,17 @@
 package privilege
 
 import (
-        "context"
-        "os/exec"
-        "strings"
-        "testing"
+	"context"
+	"os/exec"
+	"strings"
+	"testing"
 
-        "go.uber.org/zap"
+	"go.uber.org/zap"
 )
 
 // dummy commander to avoid executing real commands
 func noopCmd(ctx context.Context, _ string, _ ...string) *exec.Cmd {
-       return exec.CommandContext(ctx, "echo")
+	return exec.CommandContext(ctx, "echo")
 }
 
 func TestSanitizeEnv(t *testing.T) {
@@ -50,7 +50,7 @@ func TestCommandAppliesSanitizedEnv(t *testing.T) {
 	t.Setenv("LC_ALL", "C")
 	t.Setenv("TERM", "xterm")
 	t.Setenv("LD_PRELOAD", "evil.so")
-        esc := &sudoEscalator{sanitizeEnv: true, runner: &Runner{Cmd: commanderFunc(noopCmd), Logger: zap.NewNop()}}
+	esc := &sudoEscalator{sanitizeEnv: true, runner: &Runner{Cmd: commanderFunc(noopCmd), Logger: zap.NewNop()}}
 	cmd := esc.Command(context.Background(), "true")
 	for _, kv := range cmd.Env {
 		if strings.HasPrefix(kv, "PATH=") || strings.HasPrefix(kv, "LANG=") || strings.HasPrefix(kv, "LD_PRELOAD=") {
@@ -59,6 +59,20 @@ func TestCommandAppliesSanitizedEnv(t *testing.T) {
 	}
 	if !contains(cmd.Env, "LC_ALL=C") || !contains(cmd.Env, "TERM=xterm") {
 		t.Fatalf("expected LC_ALL and TERM in env: %v", cmd.Env)
+	}
+}
+
+func TestCommandPreservesEnvWithoutSanitize(t *testing.T) {
+	t.Setenv("PATH", "/usr/bin")
+	t.Setenv("LANG", "en_US.UTF-8")
+	t.Setenv("FOO", "bar")
+	esc := &sudoEscalator{sanitizeEnv: false, runner: &Runner{Cmd: commanderFunc(noopCmd), Logger: zap.NewNop()}}
+	cmd := esc.Command(context.Background(), "true")
+	env := cmd.Environ()
+	for _, want := range []string{"PATH=/usr/bin", "LANG=en_US.UTF-8", "FOO=bar"} {
+		if !contains(env, want) {
+			t.Fatalf("expected %s in env: %v", want, env)
+		}
 	}
 }
 
