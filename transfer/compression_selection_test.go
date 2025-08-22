@@ -85,3 +85,72 @@ func TestCompressChunkThreshold(t *testing.T) {
 		t.Fatalf("data should be unchanged when compression is skipped")
 	}
 }
+
+func TestSelectAlgorithmLZ4ForSmallChunks(t *testing.T) {
+	origAVX2, origNEON := hasAVX2, hasNEON
+	hasAVX2 = func() bool { return true }
+	hasNEON = func() bool { return true }
+	defer func() { hasAVX2, hasNEON = origAVX2, origNEON }()
+
+	algo, lvl := selectAlgorithm(255*1024, StrategyAuto, 0, 0)
+	if algo != compressionLZ4 || lvl != int(lz4.Level1) {
+		t.Fatalf("expected lz4 level1 for small chunk, got %s level %d", algo, lvl)
+	}
+}
+
+func TestSelectAlgorithmZstdForLargeChunksWithSIMD(t *testing.T) {
+	origAVX2, origNEON := hasAVX2, hasNEON
+	defer func() { hasAVX2, hasNEON = origAVX2, origNEON }()
+
+	tests := []struct {
+		name       string
+		avx2, neon bool
+	}{
+		{name: "AVX2", avx2: true, neon: false},
+		{name: "NEON", avx2: false, neon: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			hasAVX2 = func() bool { return tc.avx2 }
+			hasNEON = func() bool { return tc.neon }
+			algo, lvl := selectAlgorithm(512*1024, StrategyAuto, 0, 0)
+			if algo != compressionZSTD || lvl != defaultZstdLv {
+				t.Fatalf("expected zstd level %d, got %s level %d", defaultZstdLv, algo, lvl)
+			}
+		})
+	}
+}
+
+func TestSelectAlgorithmExplicitOverride(t *testing.T) {
+	algo, lvl := selectAlgorithm(64*1024, compressionZSTD, 0, 2)
+	if algo != compressionZSTD || lvl != 2 {
+		t.Fatalf("expected explicit zstd level 2, got %s level %d", algo, lvl)
+	}
+}
+
+func TestCompressionSkipsWhenRatioAtThreshold(t *testing.T) {
+	origAVX2, origNEON := hasAVX2, hasNEON
+	hasAVX2 = func() bool { return false }
+	hasNEON = func() bool { return false }
+	defer func() { hasAVX2, hasNEON = origAVX2, origNEON }()
+
+	data := make([]byte, 64*1024)
+	if _, err := rand.Read(data); err != nil {
+		t.Fatalf("rand read failed: %v", err)
+	}
+	ratio, err := estimateRatio(data, compressionLZ4, int(lz4.Level1), 1)
+	if err != nil {
+		t.Fatalf("ratio estimate failed: %v", err)
+	}
+	out, algo, err := CompressChunk(data, StrategyAuto, 0, 0, 1, ratio, zap.NewNop())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if algo != "none" {
+		t.Fatalf("expected no compression when ratio equals threshold, got %s", algo)
+	}
+	if !bytes.Equal(out, data) {
+		t.Fatalf("data should be unchanged when compression is skipped")
+	}
+}
