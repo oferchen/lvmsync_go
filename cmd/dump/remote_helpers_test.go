@@ -26,17 +26,16 @@ func TestSetupSSHClient(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		dummy := &remote.SSHClient{Logger: zap.NewNop()}
 		called := false
-		newSSHClient = func(ctx context.Context, host, user, keyPath string, port int, knownHostsPath string, verify bool, timeout, keepAliveInterval time.Duration, retries int, logger *zap.Logger) (*remote.SSHClient, error) {
+		r := NewRunnerWithDeps(&Runner{newSSHClient: func(ctx context.Context, host, user, keyPath string, port int, knownHostsPath string, verify bool, timeout, keepAliveInterval time.Duration, retries int, logger *zap.Logger) (*remote.SSHClient, error) {
 			called = true
 			if host != "dest" {
 				t.Fatalf("unexpected host %s", host)
 			}
 			return dummy, nil
-		}
-		defer func() { newSSHClient = remote.NewSSHClient }()
+		}})
 
 		ctx, outerCancel := context.WithTimeout(context.Background(), time.Second)
-		client, cancel, err := SetupSSHClient(ctx, cfg, "dest", zap.NewNop())
+		client, cancel, err := r.SetupSSHClient(ctx, cfg, "dest", zap.NewNop())
 		if err != nil {
 			t.Fatalf("SetupSSHClient returned error: %v", err)
 		}
@@ -51,14 +50,13 @@ func TestSetupSSHClient(t *testing.T) {
 	})
 
 	t.Run("failure", func(t *testing.T) {
-		newSSHClient = func(ctx context.Context, host, user, keyPath string, port int, knownHostsPath string, verify bool, timeout, keepAliveInterval time.Duration, retries int, logger *zap.Logger) (*remote.SSHClient, error) {
+		r := NewRunnerWithDeps(&Runner{newSSHClient: func(ctx context.Context, host, user, keyPath string, port int, knownHostsPath string, verify bool, timeout, keepAliveInterval time.Duration, retries int, logger *zap.Logger) (*remote.SSHClient, error) {
 			return nil, errors.New("fail")
-		}
-		defer func() { newSSHClient = remote.NewSSHClient }()
+		}})
 
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
-		_, _, err := SetupSSHClient(ctx, cfg, "dest", zap.NewNop())
+		_, _, err := r.SetupSSHClient(ctx, cfg, "dest", zap.NewNop())
 		if err == nil || !strings.Contains(err.Error(), "failed to create SSH client") {
 			t.Fatalf("expected wrapped error, got %v", err)
 		}
@@ -151,9 +149,6 @@ func TestStreamToRemote(t *testing.T) {
 	}
 	cfg.Parallel = 1
 
-	orig := dumpChangesSequential
-	t.Cleanup(func() { dumpChangesSequential = orig })
-
 	tests := []struct {
 		name     string
 		dumpErr  error
@@ -171,11 +166,11 @@ func TestStreamToRemote(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			dumpChangesSequential = func(_ context.Context, _ *transfer.Transfer, c *config.Config, snapshot, origin string, out io.Writer) error {
+			r := NewRunnerWithDeps(&Runner{dumpSeq: func(_ context.Context, _ *transfer.Transfer, c *config.Config, snapshot, origin string, out io.Writer) error {
 				return tc.dumpErr
-			}
+			}})
 			remoteStdin := &mockWriteCloser{Writer: io.Discard, closeErr: tc.closeErr}
-			err := StreamToRemote(context.Background(), cfg, remoteStdin, snapFile, "origin", digestpkg.SHA256, zap.NewNop())
+			err := r.StreamToRemote(context.Background(), cfg, remoteStdin, snapFile, "origin", digestpkg.SHA256, zap.NewNop())
 			if tc.dumpErr == nil && tc.closeErr == nil {
 				if err != nil {
 					t.Fatalf("expected nil error, got %v", err)

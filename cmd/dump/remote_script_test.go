@@ -46,23 +46,21 @@ func TestRemotePostScriptRunsOnError(t *testing.T) {
 	cfg.StrictHostKeyCheck = true
 	cfg.LVMSyncPath = "lvmsync"
 
-	original := dumpChangesSequential
-	dumpChangesSequential = func(_ context.Context, _ *transfer.Transfer, c *config.Config, snapshot, source string, out io.Writer) error {
-		return io.ErrUnexpectedEOF
-	}
-	origSum := sumFile
-	sumFile = func(string, string) ([32]byte, error) { return [32]byte{}, nil }
-	defer func() { dumpChangesSequential = original; sumFile = origSum }()
+	r := NewRunnerWithDeps(&Runner{
+		dumpSeq: func(_ context.Context, _ *transfer.Transfer, c *config.Config, snapshot, source string, out io.Writer) error {
+			return io.ErrUnexpectedEOF
+		},
+		sumFile: func(string, string) ([32]byte, error) { return [32]byte{}, nil },
+		detectDevice: func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, privilege.Escalator, *zap.Logger, *device.Runner) (device.Device, error) {
+			return &fakeDevice{path: "/dev/snap"}, nil
+		},
+		verifyIdentity: func(context.Context, *device.Info, string, string) error { return nil },
+	})
 
 	dest := host + ":/dev/null"
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	origDetect := detectDevice
-	detectDevice = func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, privilege.Escalator, *zap.Logger, *device.Runner) (device.Device, error) {
-		return &fakeDevice{path: "/dev/snap"}, nil
-	}
-	defer func() { detectDevice = origDetect }()
-	_, err = Run(ctx, cfg, "/dev/snap", dest, zap.NewNop())
+	_, err = r.Run(ctx, cfg, "/dev/snap", dest, zap.NewNop())
 	if err == nil || !strings.Contains(err.Error(), "dumpChanges") {
 		t.Fatalf("expected dumpChanges error, got %v", err)
 	}
@@ -108,15 +106,16 @@ func TestRemotePostScriptNotRunIfPreScriptFails(t *testing.T) {
 	cfg.StrictHostKeyCheck = true
 	cfg.LVMSyncPath = "lvmsync"
 
+	r := NewRunnerWithDeps(&Runner{
+		detectDevice: func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, privilege.Escalator, *zap.Logger, *device.Runner) (device.Device, error) {
+			return &fakeDevice{path: "/dev/snap"}, nil
+		},
+		verifyIdentity: func(context.Context, *device.Info, string, string) error { return nil },
+	})
 	dest := host + ":/dev/null"
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	origDetect := detectDevice
-	detectDevice = func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, privilege.Escalator, *zap.Logger, *device.Runner) (device.Device, error) {
-		return &fakeDevice{path: "/dev/snap"}, nil
-	}
-	defer func() { detectDevice = origDetect }()
-	_, err = Run(ctx, cfg, "/dev/snap", dest, zap.NewNop())
+	_, err = r.Run(ctx, cfg, "/dev/snap", dest, zap.NewNop())
 	if err == nil {
 		t.Fatalf("expected error from pre-script")
 	}
@@ -168,15 +167,16 @@ func TestRemotePostScriptContextError(t *testing.T) {
 	cfg.StrictHostKeyCheck = true
 	cfg.LVMSyncPath = "lvmsync"
 
+	r := NewRunnerWithDeps(&Runner{
+		detectDevice: func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, privilege.Escalator, *zap.Logger, *device.Runner) (device.Device, error) {
+			return &fakeDevice{path: "/dev/snap"}, nil
+		},
+		verifyIdentity: func(context.Context, *device.Info, string, string) error { return nil },
+	})
 	dest := host + ":/dev/null"
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	origDetect := detectDevice
-	detectDevice = func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, privilege.Escalator, *zap.Logger, *device.Runner) (device.Device, error) {
-		return &fakeDevice{path: "/dev/snap"}, nil
-	}
-	defer func() { detectDevice = origDetect }()
-	_, err = Run(ctx, cfg, "/dev/snap", dest, zap.NewNop())
+	_, err = r.Run(ctx, cfg, "/dev/snap", dest, zap.NewNop())
 	close(slow)
 	if err == nil || !strings.Contains(err.Error(), "remote post-script context error") {
 		t.Fatalf("expected remote post-script context error, got %v", err)

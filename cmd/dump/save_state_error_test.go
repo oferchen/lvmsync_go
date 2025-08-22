@@ -27,23 +27,22 @@ func TestRunLogsSaveStateError(t *testing.T) {
 	cfg.BlockSize = 1024
 	cfg.MaxRetries = 1
 
-	original := dumpChangesWithDeduplication
-	dumpChangesWithDeduplication = func(_ context.Context, _ *transfer.Transfer, c *config.Config, snapshot, source string, out io.Writer, dedup transfer.DeduplicationStrategy) error {
-		return nil
-	}
-	defer func() { dumpChangesWithDeduplication = original }()
-
 	core, observed := observer.New(zap.ErrorLevel)
 	logger := zap.New(core)
 
+	r := NewRunnerWithDeps(&Runner{
+		dumpDedup: func(_ context.Context, _ *transfer.Transfer, c *config.Config, snapshot, source string, out io.Writer, dedup transfer.DeduplicationStrategy) error {
+			return nil
+		},
+		detectDevice: func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, privilege.Escalator, *zap.Logger, *device.Runner) (device.Device, error) {
+			return &fakeDevice{path: "/dev/snap"}, nil
+		},
+		verifyIdentity: func(context.Context, *device.Info, string, string) error { return nil },
+	})
+
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	origDetect := detectDevice
-	detectDevice = func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, privilege.Escalator, *zap.Logger, *device.Runner) (device.Device, error) {
-		return &fakeDevice{path: "/dev/snap"}, nil
-	}
-	defer func() { detectDevice = origDetect }()
-	if _, err := Run(ctx, cfg, "/dev/snap", "", logger); err != nil {
+	if _, err := r.Run(ctx, cfg, "/dev/snap", "", logger); err != nil {
 		t.Fatalf("Run returned error: %v", err)
 	}
 

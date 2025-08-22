@@ -103,14 +103,12 @@ func TestRunSyncsLogger(t *testing.T) {
 	cfg := &config.Config{StdoutMode: true, Parallel: 1, BlockSize: 4096, DedupStrategy: "none"}
 	core := &countingSyncCore{Core: zapcore.NewNopCore()}
 	logger := zap.New(core)
-	origSeq := dumpChangesSequential
-	dumpChangesSequential = func(context.Context, *transfer.Transfer, *config.Config, string, string, io.Writer) error { return nil }
-	defer func() { dumpChangesSequential = origSeq }()
+	r := NewRunnerWithDeps(&Runner{dumpSeq: func(context.Context, *transfer.Transfer, *config.Config, string, string, io.Writer) error { return nil }})
 	snap := filepath.Join(t.TempDir(), "snap")
 	if err := os.WriteFile(snap, []byte("data"), 0o600); err != nil {
 		t.Fatalf("write snap: %v", err)
 	}
-	if _, err := Run(context.Background(), cfg, snap, "", logger); err != nil {
+	if _, err := r.Run(context.Background(), cfg, snap, "", logger); err != nil {
 		t.Fatalf("Run returned error: %v", err)
 	}
 	if core.count != 1 {
