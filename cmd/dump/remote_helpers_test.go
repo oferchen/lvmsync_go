@@ -11,10 +11,10 @@ import (
 
 	"go.uber.org/zap"
 
-	"lvmsync_go/internal/config"
-	digestpkg "lvmsync_go/internal/digest"
-	"lvmsync_go/remote"
-	"lvmsync_go/transfer"
+	"github.com/oferchen/lvmsync_go/internal/config"
+	digestpkg "github.com/oferchen/lvmsync_go/internal/digest"
+	"github.com/oferchen/lvmsync_go/remote"
+	"github.com/oferchen/lvmsync_go/transfer"
 )
 
 func TestSetupSSHClient(t *testing.T) {

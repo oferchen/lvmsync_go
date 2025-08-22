@@ -11,7 +11,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 
-	manifestpkg "lvmsync_go/manifest"
+	manifestpkg "github.com/oferchen/lvmsync_go/manifest"
 )
 
 func TestRunLogsMismatchBlock(t *testing.T) {

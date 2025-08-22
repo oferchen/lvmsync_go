@@ -7,7 +7,7 @@ import (
 
 	"github.com/zeebo/blake3"
 
-	cpufeatures "lvmsync_go/internal/cpufeatures"
+	cpufeatures "github.com/oferchen/lvmsync_go/internal/cpufeatures"
 )
 
 func TestSumXXH3(t *testing.T) {

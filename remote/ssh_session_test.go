@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	remotetest "lvmsync_go/remote/testutil"
+	remotetest "github.com/oferchen/lvmsync_go/remote/testutil"
 
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"

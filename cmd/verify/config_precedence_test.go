@@ -10,7 +10,7 @@ import (
 	"bou.ke/monkey"
 	"go.uber.org/zap"
 
-	"lvmsync_go/internal/config"
+	"github.com/oferchen/lvmsync_go/internal/config"
 )
 
 func TestDryRunFlagOverridesEnvAndYAML(t *testing.T) {

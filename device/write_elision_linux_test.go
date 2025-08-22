@@ -12,15 +12,15 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
 
-	"lvmsync_go/internal/config"
-	transfer "lvmsync_go/transfer"
+	"github.com/oferchen/lvmsync_go/internal/config"
+	transfer "github.com/oferchen/lvmsync_go/transfer"
 	_ "unsafe"
 )
 
-//go:linkname writeZeroBlock lvmsync_go/transfer.writeZeroBlock
+//go:linkname writeZeroBlock github.com/oferchen/lvmsync_go/transfer.writeZeroBlock
 func writeZeroBlock(cfg *config.Config, dest *os.File, offset uint64, logger *zap.Logger, deps *transfer.Deps) error
 
-//go:linkname punchHoleDisabled lvmsync_go/transfer.punchHoleDisabled
+//go:linkname punchHoleDisabled github.com/oferchen/lvmsync_go/transfer.punchHoleDisabled
 var punchHoleDisabled atomic.Bool
 
 func TestWriteElisionFallocateSupported(t *testing.T) {

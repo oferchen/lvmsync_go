@@ -16,8 +16,8 @@ import (
 	"golang.org/x/sys/unix"
 	"golang.org/x/term"
 
-	"lvmsync_go/internal/privilege"
-	"lvmsync_go/remote"
+	"github.com/oferchen/lvmsync_go/internal/privilege"
+	"github.com/oferchen/lvmsync_go/remote"
 )
 
 // RawDevice represents a generic block device opened from /dev.

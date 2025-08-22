@@ -8,8 +8,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"lvmsync_go/common"
-	"lvmsync_go/internal/config"
+	"github.com/oferchen/lvmsync_go/common"
+	"github.com/oferchen/lvmsync_go/internal/config"
 )
 
 func openApplyReader(applyFile string) (io.ReadCloser, error) {

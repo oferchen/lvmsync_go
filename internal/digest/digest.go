@@ -1,6 +1,6 @@
 package digest
 
-import cpufeatures "lvmsync_go/internal/cpufeatures"
+import cpufeatures "github.com/oferchen/lvmsync_go/internal/cpufeatures"
 
 const (
 	// SHA256 represents the SHA-256 digest algorithm.

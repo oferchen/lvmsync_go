@@ -5,7 +5,7 @@ import (
 
 	"github.com/spf13/pflag"
 
-	"lvmsync_go/internal/config"
+	"github.com/oferchen/lvmsync_go/internal/config"
 )
 
 func TestCompressThresholdFlagOverridesDefault(t *testing.T) {

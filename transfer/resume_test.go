@@ -16,8 +16,8 @@ import (
 
 	"github.com/zeebo/blake3"
 
-	"lvmsync_go/common"
-	"lvmsync_go/internal/config"
+	"github.com/oferchen/lvmsync_go/common"
+	"github.com/oferchen/lvmsync_go/internal/config"
 
 	"go.uber.org/zap"
 )

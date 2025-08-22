@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"go.uber.org/zap"
-	"lvmsync_go/device"
+	"github.com/oferchen/lvmsync_go/device"
 )
 
 func TestApplyOptions(t *testing.T) {

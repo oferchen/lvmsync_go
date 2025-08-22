@@ -15,8 +15,8 @@ import (
 	"github.com/bits-and-blooms/bloom/v3"
 	"go.uber.org/zap"
 
-	"lvmsync_go/internal/config"
-	cpufeatures "lvmsync_go/internal/cpufeatures"
+	"github.com/oferchen/lvmsync_go/internal/config"
+	cpufeatures "github.com/oferchen/lvmsync_go/internal/cpufeatures"
 )
 
 // saveStateFile writes dedup state to the provided path; logger may be nil.

@@ -13,9 +13,9 @@ import (
 	"github.com/zeebo/blake3"
 	"go.uber.org/zap"
 
-	"lvmsync_go/device"
-	"lvmsync_go/internal/config"
-	privilege "lvmsync_go/internal/privilege"
+	"github.com/oferchen/lvmsync_go/device"
+	"github.com/oferchen/lvmsync_go/internal/config"
+	privilege "github.com/oferchen/lvmsync_go/internal/privilege"
 )
 
 func TestResumeVerifyMismatch(t *testing.T) {

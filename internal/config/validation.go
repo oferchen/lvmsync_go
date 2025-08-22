@@ -9,9 +9,9 @@ import (
 
 	"github.com/kballard/go-shellquote"
 
-	"lvmsync_go/device"
-	digest "lvmsync_go/internal/digest"
-	"lvmsync_go/lvm"
+	"github.com/oferchen/lvmsync_go/device"
+	digest "github.com/oferchen/lvmsync_go/internal/digest"
+	"github.com/oferchen/lvmsync_go/lvm"
 )
 
 // Validate verifies configuration values using the real OS euid.

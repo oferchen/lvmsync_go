@@ -12,7 +12,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"lvmsync_go/internal/privilege"
+	"github.com/oferchen/lvmsync_go/internal/privilege"
 )
 
 type identityStub struct {

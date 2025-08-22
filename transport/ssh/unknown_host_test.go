@@ -14,7 +14,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"lvmsync_go/transport"
+	"github.com/oferchen/lvmsync_go/transport"
 )
 
 func emptyKnownHosts(t *testing.T) string {

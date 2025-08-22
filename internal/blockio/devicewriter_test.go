@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"lvmsync_go/internal/lvm"
+	"github.com/oferchen/lvmsync_go/internal/lvm"
 )
 
 type mockAgent struct {

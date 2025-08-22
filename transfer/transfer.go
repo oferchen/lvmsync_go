@@ -18,13 +18,13 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
 
-	rootcmd "lvmsync_go/cmd/root"
-	"lvmsync_go/common"
-	"lvmsync_go/device"
-	hashutil "lvmsync_go/hash"
-	"lvmsync_go/internal/config"
-	"lvmsync_go/lvm"
-	manifestpkg "lvmsync_go/manifest"
+	rootcmd "github.com/oferchen/lvmsync_go/cmd/root"
+	"github.com/oferchen/lvmsync_go/common"
+	"github.com/oferchen/lvmsync_go/device"
+	hashutil "github.com/oferchen/lvmsync_go/hash"
+	"github.com/oferchen/lvmsync_go/internal/config"
+	"github.com/oferchen/lvmsync_go/lvm"
+	manifestpkg "github.com/oferchen/lvmsync_go/manifest"
 )
 
 // Transfer encapsulates transfer state shared across operations.

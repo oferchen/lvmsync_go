@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 
 	"go.uber.org/zap"
-	rootcmd "lvmsync_go/cmd/root"
-	cfg "lvmsync_go/internal/config"
+	rootcmd "github.com/oferchen/lvmsync_go/cmd/root"
+	cfg "github.com/oferchen/lvmsync_go/internal/config"
 )
 
 type runner struct {

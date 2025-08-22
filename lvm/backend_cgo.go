@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"lvmsync_go/internal/sizeparse"
-	"lvmsync_go/lvm/cgo"
+	"github.com/oferchen/lvmsync_go/internal/sizeparse"
+	"github.com/oferchen/lvmsync_go/lvm/cgo"
 )
 
 // cgoBackend implements lvmBackend using a cgo.LVM implementation.

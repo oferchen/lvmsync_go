@@ -8,11 +8,11 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 
-	"lvmsync_go/common"
-	"lvmsync_go/transport"
-	"lvmsync_go/transport/testutil"
+	"github.com/oferchen/lvmsync_go/common"
+	"github.com/oferchen/lvmsync_go/transport"
+	"github.com/oferchen/lvmsync_go/transport/testutil"
 
-	_ "lvmsync_go/transport/tcp_tls"
+	_ "github.com/oferchen/lvmsync_go/transport/tcp_tls"
 )
 
 func TestNegotiateFailsWithoutClientCert(t *testing.T) {

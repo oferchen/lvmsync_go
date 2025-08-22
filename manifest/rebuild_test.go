@@ -10,7 +10,7 @@ import (
 	"github.com/zeebo/xxh3"
 	"go.uber.org/zap"
 
-	"lvmsync_go/device"
+	"github.com/oferchen/lvmsync_go/device"
 )
 
 func TestRegenerateMissing(t *testing.T) {

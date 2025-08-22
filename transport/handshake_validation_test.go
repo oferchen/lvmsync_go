@@ -5,19 +5,19 @@ import (
 	"testing"
 	_ "unsafe"
 
-	"lvmsync_go/common"
-	"lvmsync_go/transport"
-	_ "lvmsync_go/transport/h2"
-	_ "lvmsync_go/transport/quic"
-	_ "lvmsync_go/transport/ssh"
-	_ "lvmsync_go/transport/tcp_tls"
-	"lvmsync_go/transport/testutil"
+	"github.com/oferchen/lvmsync_go/common"
+	"github.com/oferchen/lvmsync_go/transport"
+	_ "github.com/oferchen/lvmsync_go/transport/h2"
+	_ "github.com/oferchen/lvmsync_go/transport/quic"
+	_ "github.com/oferchen/lvmsync_go/transport/ssh"
+	_ "github.com/oferchen/lvmsync_go/transport/tcp_tls"
+	"github.com/oferchen/lvmsync_go/transport/testutil"
 )
 
-//go:linkname registry lvmsync_go/transport.registry
+//go:linkname registry github.com/oferchen/lvmsync_go/transport.registry
 var registry map[string]transport.Factory
 
-//go:linkname regMu lvmsync_go/transport.regMu
+//go:linkname regMu github.com/oferchen/lvmsync_go/transport.regMu
 var regMu sync.RWMutex
 
 func TestHandshakeValidationMismatch(t *testing.T) {

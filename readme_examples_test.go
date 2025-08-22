@@ -12,8 +12,8 @@ import (
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
 	"golang.org/x/tools/imports"
-	lvmsynccmd "lvmsync_go/cmd/lvmsync"
-	"lvmsync_go/internal/config"
+	lvmsynccmd "github.com/oferchen/lvmsync_go/cmd/lvmsync"
+	"github.com/oferchen/lvmsync_go/internal/config"
 )
 
 // TestReadmeExamplesCompile ensures that Go code blocks in README.md compile.

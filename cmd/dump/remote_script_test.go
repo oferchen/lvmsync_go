@@ -11,11 +11,11 @@ import (
 
 	"go.uber.org/zap"
 
-	"lvmsync_go/device"
-	"lvmsync_go/internal/config"
-	"lvmsync_go/internal/privilege"
-	remotetest "lvmsync_go/remote/testutil"
-	"lvmsync_go/transfer"
+	"github.com/oferchen/lvmsync_go/device"
+	"github.com/oferchen/lvmsync_go/internal/config"
+	"github.com/oferchen/lvmsync_go/internal/privilege"
+	remotetest "github.com/oferchen/lvmsync_go/remote/testutil"
+	"github.com/oferchen/lvmsync_go/transfer"
 )
 
 // Test that remote post script executes even when dumpChanges fails

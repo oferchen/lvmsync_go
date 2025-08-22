@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"lvmsync_go/common"
+	"github.com/oferchen/lvmsync_go/common"
 )
 
 var mapperDir = "/dev/mapper"

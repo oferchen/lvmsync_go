@@ -7,7 +7,7 @@ import (
 
 	"github.com/zeebo/blake3"
 
-	manifestpkg "lvmsync_go/manifest"
+	manifestpkg "github.com/oferchen/lvmsync_go/manifest"
 )
 
 func TestManifestHeaderMACSize(t *testing.T) {

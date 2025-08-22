@@ -1,6 +1,8 @@
-module lvmsync_go
+module github.com/oferchen/lvmsync_go
 
-go 1.24.3
+go 1.24
+
+toolchain go1.24.3
 
 require (
 	bou.ke/monkey v1.0.2
@@ -33,10 +35,8 @@ require (
 require (
 	github.com/bits-and-blooms/bitset v1.24.0 // indirect
 	github.com/fsnotify/fsnotify v1.8.0 // indirect
-	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
 	github.com/go-viper/mapstructure/v2 v2.2.1 // indirect
-	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/pprof v0.0.0-20210407192527-94a9f03dee38 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/onsi/ginkgo/v2 v2.9.5 // indirect

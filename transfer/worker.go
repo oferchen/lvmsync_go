@@ -13,11 +13,11 @@ import (
 
 	"go.uber.org/zap"
 
-	rootcmd "lvmsync_go/cmd/root"
-	"lvmsync_go/common"
-	"lvmsync_go/internal/blocksize"
-	"lvmsync_go/internal/config"
-	"lvmsync_go/transport"
+	rootcmd "github.com/oferchen/lvmsync_go/cmd/root"
+	"github.com/oferchen/lvmsync_go/common"
+	"github.com/oferchen/lvmsync_go/internal/blocksize"
+	"github.com/oferchen/lvmsync_go/internal/config"
+	"github.com/oferchen/lvmsync_go/transport"
 )
 
 // detectBlockSize sets cfg.BlockSize by probing source; logger must be non-nil.

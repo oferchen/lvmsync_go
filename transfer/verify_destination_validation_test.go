@@ -13,9 +13,9 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
 
-	"lvmsync_go/device"
-	"lvmsync_go/internal/config"
-	manifestpkg "lvmsync_go/manifest"
+	"github.com/oferchen/lvmsync_go/device"
+	"github.com/oferchen/lvmsync_go/internal/config"
+	manifestpkg "github.com/oferchen/lvmsync_go/manifest"
 )
 
 func TestVerifyDestinationManifestDigestError(t *testing.T) {

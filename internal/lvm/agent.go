@@ -7,8 +7,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"lvmsync_go/internal/privilege"
-	lvmlib "lvmsync_go/lvm"
+	"github.com/oferchen/lvmsync_go/internal/privilege"
+	lvmlib "github.com/oferchen/lvmsync_go/lvm"
 )
 
 // VolumeMetadata represents metadata about a logical volume.

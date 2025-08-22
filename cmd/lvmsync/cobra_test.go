@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"lvmsync_go/internal/config"
-	"lvmsync_go/manifest"
+	"github.com/oferchen/lvmsync_go/internal/config"
+	"github.com/oferchen/lvmsync_go/manifest"
 
 	"github.com/zeebo/blake3"
 	"github.com/zeebo/xxh3"

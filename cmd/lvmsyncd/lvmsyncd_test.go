@@ -13,10 +13,10 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 
-	rootcmd "lvmsync_go/cmd/root"
-	"lvmsync_go/common"
-	"lvmsync_go/internal/exitcode"
-	"lvmsync_go/transport"
+	rootcmd "github.com/oferchen/lvmsync_go/cmd/root"
+	"github.com/oferchen/lvmsync_go/common"
+	"github.com/oferchen/lvmsync_go/internal/exitcode"
+	"github.com/oferchen/lvmsync_go/transport"
 )
 
 // mockTransport implements transport.Interface for testing negotiation.

@@ -16,8 +16,8 @@ import (
 	"github.com/gokrazy/rsync"
 	"go.uber.org/zap"
 
-	"lvmsync_go/common"
-	"lvmsync_go/transport"
+	"github.com/oferchen/lvmsync_go/common"
+	"github.com/oferchen/lvmsync_go/transport"
 )
 
 func TestNegotiateWithRsyncDaemon(t *testing.T) {

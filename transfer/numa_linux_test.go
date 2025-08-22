@@ -11,7 +11,7 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 	"golang.org/x/sys/unix"
 
-	"lvmsync_go/internal/config"
+	"github.com/oferchen/lvmsync_go/internal/config"
 )
 
 func TestParseCPUList(t *testing.T) {

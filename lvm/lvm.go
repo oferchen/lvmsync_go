@@ -14,7 +14,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
 
-	"lvmsync_go/internal/sizeparse"
+	"github.com/oferchen/lvmsync_go/internal/sizeparse"
 )
 
 const (

@@ -56,9 +56,9 @@ import (
   "io"
   "os"
 
-  "lvmsync_go/common"
-  "lvmsync_go/transport"
-  _ "lvmsync_go/transport/tcp_tls"
+  "github.com/oferchen/lvmsync_go/common"
+  "github.com/oferchen/lvmsync_go/transport"
+  _ "github.com/oferchen/lvmsync_go/transport/tcp_tls"
   "go.uber.org/zap"
 )
 

@@ -8,9 +8,9 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
-	rootcmd "lvmsync_go/cmd/root"
-	"lvmsync_go/internal/logging"
-	_ "lvmsync_go/transport/rsyncwire"
+	rootcmd "github.com/oferchen/lvmsync_go/cmd/root"
+	"github.com/oferchen/lvmsync_go/internal/logging"
+	_ "github.com/oferchen/lvmsync_go/transport/rsyncwire"
 )
 
 const deprecationMsg = "serve command deprecated; use lvmsyncd instead"

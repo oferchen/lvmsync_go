@@ -6,7 +6,7 @@ import (
 	"io"
 	"testing"
 
-	"lvmsync_go/hash"
+	"github.com/oferchen/lvmsync_go/hash"
 )
 
 func TestHasher(t *testing.T) {

@@ -11,11 +11,11 @@ import (
 	"github.com/zeebo/blake3"
 	"go.uber.org/zap"
 
-	"lvmsync_go/common"
-	"lvmsync_go/device"
-	"lvmsync_go/internal/config"
-	"lvmsync_go/internal/privilege"
-	manifestpkg "lvmsync_go/manifest"
+	"github.com/oferchen/lvmsync_go/common"
+	"github.com/oferchen/lvmsync_go/device"
+	"github.com/oferchen/lvmsync_go/internal/config"
+	"github.com/oferchen/lvmsync_go/internal/privilege"
+	manifestpkg "github.com/oferchen/lvmsync_go/manifest"
 )
 
 const firstBlockDigestSize = 1 << 20

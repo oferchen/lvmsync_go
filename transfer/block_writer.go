@@ -10,8 +10,8 @@ import (
 	"github.com/zeebo/blake3"
 	"go.uber.org/zap"
 
-	"lvmsync_go/internal/config"
-	"lvmsync_go/internal/sizeparse"
+	"github.com/oferchen/lvmsync_go/internal/config"
+	"github.com/oferchen/lvmsync_go/internal/sizeparse"
 )
 
 // blockWriter streams block records to a destination file, optionally

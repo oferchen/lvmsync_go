@@ -14,8 +14,8 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
-	"lvmsync_go/internal/config"
-	"lvmsync_go/transfer"
+	"github.com/oferchen/lvmsync_go/internal/config"
+	"github.com/oferchen/lvmsync_go/transfer"
 )
 
 // readerBlockingOnContext waits for ctx cancellation before returning.

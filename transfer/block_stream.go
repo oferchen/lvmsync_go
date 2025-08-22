@@ -17,10 +17,10 @@ import (
 	"github.com/zeebo/blake3"
 	"go.uber.org/zap"
 
-	hashutil "lvmsync_go/hash"
-	"lvmsync_go/internal/config"
-	digest "lvmsync_go/internal/digest"
-	manifestpkg "lvmsync_go/manifest"
+	hashutil "github.com/oferchen/lvmsync_go/hash"
+	"github.com/oferchen/lvmsync_go/internal/config"
+	digest "github.com/oferchen/lvmsync_go/internal/digest"
+	manifestpkg "github.com/oferchen/lvmsync_go/manifest"
 )
 
 func validateOffsetAndSize(offset uint64, size int) (int64, uint32, error) {

@@ -6,9 +6,9 @@ import (
 
 	"go.uber.org/zap"
 
-	rootcmd "lvmsync_go/cmd/root"
-	"lvmsync_go/internal/config"
-	"lvmsync_go/internal/exitcode"
+	rootcmd "github.com/oferchen/lvmsync_go/cmd/root"
+	"github.com/oferchen/lvmsync_go/internal/config"
+	"github.com/oferchen/lvmsync_go/internal/exitcode"
 )
 
 func TestRunnerExitCodes(t *testing.T) {

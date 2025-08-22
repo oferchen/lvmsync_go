@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"lvmsync_go/internal/exitcode"
+	"github.com/oferchen/lvmsync_go/internal/exitcode"
 )
 
 func setupLoop(t *testing.T, path string) string {

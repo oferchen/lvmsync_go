@@ -4,7 +4,7 @@ import (
 	"context"
 	"net"
 
-	"lvmsync_go/common"
+	"github.com/oferchen/lvmsync_go/common"
 )
 
 // Role identifies which side of the connection is performing negotiation.

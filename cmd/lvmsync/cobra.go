@@ -13,11 +13,11 @@ import (
 	"github.com/zeebo/xxh3"
 	"go.uber.org/zap"
 
-	rootcmd "lvmsync_go/cmd/root"
-	verifycmd "lvmsync_go/cmd/verify"
-	"lvmsync_go/internal/config"
-	"lvmsync_go/manifest"
-	"lvmsync_go/transfer"
+	rootcmd "github.com/oferchen/lvmsync_go/cmd/root"
+	verifycmd "github.com/oferchen/lvmsync_go/cmd/verify"
+	"github.com/oferchen/lvmsync_go/internal/config"
+	"github.com/oferchen/lvmsync_go/manifest"
+	"github.com/oferchen/lvmsync_go/transfer"
 )
 
 // RunOptions collects flags for the run command.

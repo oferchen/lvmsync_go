@@ -11,8 +11,8 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 
-	"lvmsync_go/internal/privilege"
-	"lvmsync_go/lvm"
+	"github.com/oferchen/lvmsync_go/internal/privilege"
+	"github.com/oferchen/lvmsync_go/lvm"
 )
 
 func TestDetectFileDeviceSuccess(t *testing.T) {

@@ -10,7 +10,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"lvmsync_go/lvm"
+	"github.com/oferchen/lvmsync_go/lvm"
 )
 
 func TestSnapshotLifecycle(t *testing.T) {

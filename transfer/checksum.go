@@ -8,7 +8,7 @@ import (
 
 	"github.com/zeebo/blake3"
 
-	digest "lvmsync_go/internal/digest"
+	digest "github.com/oferchen/lvmsync_go/internal/digest"
 )
 
 // ChecksumStrategy defines an interface for computing checksums with a

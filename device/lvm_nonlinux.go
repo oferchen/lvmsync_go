@@ -8,8 +8,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"lvmsync_go/internal/lock"
-	"lvmsync_go/lvm"
+	"github.com/oferchen/lvmsync_go/internal/lock"
+	"github.com/oferchen/lvmsync_go/lvm"
 )
 
 // Runner is a stub on non-Linux platforms.
