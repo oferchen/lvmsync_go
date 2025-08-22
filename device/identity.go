@@ -27,6 +27,19 @@ func SameIdentity(a, b DeviceIdentity) bool {
 		a.ManifestEpoch == b.ManifestEpoch
 }
 
+// SameIdentityStrict reports whether two DeviceIdentity values describe the
+// same device including kernel-assigned Major and Minor numbers.
+func SameIdentityStrict(a, b DeviceIdentity) bool {
+	return a.SizeBytes == b.SizeBytes &&
+		a.KernelUUID == b.KernelUUID &&
+		a.GPTUUID == b.GPTUUID &&
+		a.MBRSignature == b.MBRSignature &&
+		a.FSUUID == b.FSUUID &&
+		a.Major == b.Major &&
+		a.Minor == b.Minor &&
+		a.ManifestEpoch == b.ManifestEpoch
+}
+
 // Range represents a byte range on a device.
 type Range struct {
 	Start uint64

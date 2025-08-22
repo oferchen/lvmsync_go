@@ -113,8 +113,8 @@ func TestDeviceIdentityFormatParseOrder(t *testing.T) {
 	}
 }
 
-func TestSameIdentityIgnoresMajorMinor(t *testing.T) {
-	a := DeviceIdentity{
+func TestSameIdentityStrictDetectsMajorMinorMismatch(t *testing.T) {
+	base := DeviceIdentity{
 		SizeBytes:     1,
 		KernelUUID:    "k",
 		GPTUUID:       "g",
@@ -124,11 +124,17 @@ func TestSameIdentityIgnoresMajorMinor(t *testing.T) {
 		Minor:         3,
 		ManifestEpoch: 4,
 	}
-	b := a
+
+	b := base
 	b.Major++
+	if SameIdentityStrict(base, b) {
+		t.Fatalf("expected major mismatch: %+v vs %+v", base, b)
+	}
+
+	b = base
 	b.Minor++
-	if !SameIdentity(a, b) {
-		t.Fatalf("expected identities to match: %+v vs %+v", a, b)
+	if SameIdentityStrict(base, b) {
+		t.Fatalf("expected minor mismatch: %+v vs %+v", base, b)
 	}
 }
 
