@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 
 	rootcmd "lvmsync_go/cmd/root"
 	"lvmsync_go/common"
@@ -125,6 +126,33 @@ func TestListenerSetup(t *testing.T) {
 	}
 	if len(addrs) != 2 || addrs[0] != ":1111" || addrs[1] != ":2222" {
 		t.Fatalf("listener addresses %v", addrs)
+	}
+}
+
+func TestAllowInsecureLogsWarning(t *testing.T) {
+	if err := transport.Register("mocklog", func(cfg transport.Config) (transport.Interface, error) {
+		return &mockTransport{}, nil
+	}); err != nil && !strings.Contains(err.Error(), "already registered") {
+		t.Fatalf("register: %v", err)
+	}
+	opts := options{
+		listens:       []string{"mocklog://:1234"},
+		allowInsecure: true,
+	}
+	core, logs := observer.New(zap.WarnLevel)
+	logger := zap.New(core)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_ = start(ctx, opts, logger)
+	if logs.FilterMessage("allow_insecure_enabled").Len() != 1 {
+		t.Fatalf("expected allow_insecure_enabled warning")
+	}
+}
+
+func TestStartMissingCerts(t *testing.T) {
+	err := start(context.Background(), options{}, zap.NewNop())
+	if err == nil || !strings.Contains(err.Error(), "server-cert, server-key, client-cert, client-key, and ca-cert are required") {
+		t.Fatalf("expected missing cert error, got %v", err)
 	}
 }
 
