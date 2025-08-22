@@ -167,9 +167,9 @@ func TestVerifyInlineAllocations(t *testing.T) {
 	dst := createTestFile(t, size)
 	cfg := &config.Config{BlockSize: blockSize}
 	allocs := testing.AllocsPerRun(10, func() {
-               if err := verifyInline(cfg, src, dst, zap.NewNop()); err != nil {
-                       t.Fatalf("verifyInline: %v", err)
-               }
+		if err := verifyInline(cfg, src, dst, zap.NewNop()); err != nil {
+			t.Fatalf("verifyInline: %v", err)
+		}
 	})
 	if allocs >= 15 {
 		t.Fatalf("expected fewer allocations, got %f", allocs)
@@ -182,9 +182,19 @@ func TestVerifyInlineSHA256(t *testing.T) {
 	src := createTestFile(t, size)
 	dst := createTestFile(t, size)
 	cfg := &config.Config{BlockSize: blockSize, ChecksumAlgorithm: "sha256"}
-       if err := verifyInline(cfg, src, dst, zap.NewNop()); err != nil {
-               t.Fatalf("verifyInline: %v", err)
-       }
+	if err := verifyInline(cfg, src, dst, zap.NewNop()); err != nil {
+		t.Fatalf("verifyInline: %v", err)
+	}
+}
+
+func TestVerifyWithManifestSHA256(t *testing.T) {
+	size := 1024
+	src := createTestFile(t, size)
+	createManifest(t, src)
+	cfg := &config.Config{ChecksumAlgorithm: "sha256"}
+	if err := verifyWithManifest(cfg, src, src+".manifest", zap.NewNop()); err != nil {
+		t.Fatalf("verifyWithManifest: %v", err)
+	}
 }
 
 func TestVerifyWithManifestAllocations(t *testing.T) {
