@@ -578,6 +578,11 @@ specifies `LVMSYNC_DEDUP_STRATEGY=checksum`, running
 `lvmsync --dedup-strategy auto` resolves to `auto`. Likewise,
 `--transport quic` overrides `LVMSYNC_TRANSPORT_TRANSPORT=ssh` and the
 `transport` key in `config.yaml`.
+For boolean options, the same precedence applies. If `config.yaml`
+specifies `check_partition: true` but `LVMSYNC_CHECK_PARTITION=false` is
+set, `lvmsync --check-partition` enables the check. Omitting the flag
+leaves partition checks disabled because the environment value overrides
+the YAML configuration.
 
 With a `config.yaml` containing:
 
