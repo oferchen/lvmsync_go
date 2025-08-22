@@ -107,3 +107,104 @@ func TestGCCrashMidway(t *testing.T) {
 		t.Fatalf("close3: %v", err)
 	}
 }
+
+// TestGCOrphanedTemp ensures that leftover temporary files from a crash are
+// cleaned up on the next GC run.
+func TestGCOrphanedTemp(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "manifest")
+	idx, err := Create(path, "dev", 8192, 0, 0, 0, 4096, 0, 0, 0, 0)
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	var d1, d2 [32]byte
+	d1[0] = 1
+	d2[0] = 2
+	if err := idx.Set(0, 4096, 0, 1, d1); err != nil {
+		t.Fatalf("set1: %v", err)
+	}
+	if err := idx.Set(4096, 4096, 0, 2, d2); err != nil {
+		t.Fatalf("set2: %v", err)
+	}
+	if err := idx.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+
+	idx2, err := Open(path)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	type entry struct {
+		off    uint64
+		length uint32
+		flags  uint32
+		xxh    uint64
+		digest [32]byte
+	}
+	entries := make([]entry, 0, idx2.hdr.ChunkCount)
+	for i := uint64(0); i < idx2.hdr.ChunkCount; i++ {
+		off, length, flags, xxh, dig, err := idx2.Entry(i)
+		if err != nil {
+			t.Fatalf("entry %d: %v", i, err)
+		}
+		if length == 0 {
+			continue
+		}
+		entries = append(entries, entry{off, length, flags, xxh, dig})
+	}
+	hdr := idx2.hdr
+	if err := idx2.Close(); err != nil {
+		t.Fatalf("close2: %v", err)
+	}
+	deviceID := string(bytes.TrimRight(hdr.DeviceID[:], "\x00"))
+	newIdx, err := Create(path, deviceID, hdr.SizeBytes, hdr.Epoch, hdr.Major, hdr.Minor, hdr.BlockSize, hdr.MinChunkSize, hdr.AvgChunkSize, hdr.MaxChunkSize, hdr.HybridFixedSize)
+	if err != nil {
+		t.Fatalf("Create new: %v", err)
+	}
+	for _, e := range entries {
+		if err := newIdx.Set(e.off, e.length, e.flags, e.xxh, e.digest); err != nil {
+			t.Fatalf("set new: %v", err)
+		}
+	}
+	newIdx.hdr.MAC = headerMAC(&newIdx.hdr)
+	newIdx.writeHeader()
+	if err := unix.Msync(newIdx.data, unix.MS_SYNC); err != nil {
+		t.Fatalf("msync: %v", err)
+	}
+	if err := newIdx.f.Sync(); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	dirFD, err := os.Open(dir)
+	if err != nil {
+		t.Fatalf("open dir: %v", err)
+	}
+	if err := dirFD.Sync(); err != nil {
+		t.Fatalf("dir sync: %v", err)
+	}
+	dirFD.Close()
+	if err := unix.Munmap(newIdx.data); err != nil {
+		t.Fatalf("munmap: %v", err)
+	}
+	if err := newIdx.f.Close(); err != nil {
+		t.Fatalf("close new: %v", err)
+	}
+	// Crash: leave tmp file in place.
+
+	if err := GC(path); err != nil {
+		t.Fatalf("GC after crash: %v", err)
+	}
+	matches, err := filepath.Glob(filepath.Join(dir, "manifest.tmp-*"))
+	if err != nil {
+		t.Fatalf("glob: %v", err)
+	}
+	if len(matches) != 0 {
+		t.Fatalf("orphaned temp files remain: %v", matches)
+	}
+	idx3, err := Open(path)
+	if err != nil {
+		t.Fatalf("reopen: %v", err)
+	}
+	if err := idx3.Close(); err != nil {
+		t.Fatalf("close3: %v", err)
+	}
+}

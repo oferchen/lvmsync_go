@@ -64,3 +64,19 @@ func TestFsyncRename(t *testing.T) {
 		t.Fatalf("rename not applied: %q", data)
 	}
 }
+
+// TestClosePropagatesFsyncRenameError ensures errors from fsyncRename surface
+// through Index.Close.
+func TestClosePropagatesFsyncRenameError(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "manifest")
+	idx, err := Create(path, "dev", 4096, 0, 0, 0, 4096, 0, 0, 0, 0)
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	// Point to a non-existent directory so fsyncRename fails.
+	idx.path = filepath.Join(dir, "missing", "manifest")
+	if err := idx.Close(); err == nil {
+		t.Fatalf("expected fsyncRename error")
+	}
+}
