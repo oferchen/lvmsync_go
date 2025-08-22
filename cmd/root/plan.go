@@ -106,6 +106,21 @@ func estimateBytes(src string, cfg *config.Config) (int64, int64, error) {
 	if samples > 0 && chunks > samples {
 		step = chunks / samples
 	}
+	var maxLen uint32
+	for i := uint64(0); i < samples; i++ {
+		idxPos := i * step
+		if idxPos >= chunks {
+			idxPos = chunks - 1
+		}
+		_, length, _, _, _, err := idx.Entry(idxPos)
+		if err != nil {
+			return 0, 0, fmt.Errorf("manifest entry: %w", err)
+		}
+		if length > maxLen {
+			maxLen = length
+		}
+	}
+	buf := make([]byte, maxLen)
 	changed := 0
 	for i := uint64(0); i < samples; i++ {
 		idxPos := i * step
@@ -116,8 +131,7 @@ func estimateBytes(src string, cfg *config.Config) (int64, int64, error) {
 		if err != nil {
 			return 0, 0, fmt.Errorf("manifest entry: %w", err)
 		}
-		buf := make([]byte, length)
-		n, err := f.ReadAt(buf, int64(off))
+		n, err := f.ReadAt(buf[:length], int64(off))
 		if err != nil && err != io.EOF {
 			return 0, 0, fmt.Errorf("read source: %w", err)
 		}
