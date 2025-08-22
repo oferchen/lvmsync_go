@@ -20,8 +20,8 @@ import (
 	"gopkg.in/yaml.v3"
 
 	rootcmd "lvmsync_go/cmd/root"
-	"lvmsync_go/internal/blockio"
 	"lvmsync_go/device"
+	"lvmsync_go/internal/blockio"
 	"lvmsync_go/internal/config"
 	cpufeatures "lvmsync_go/internal/cpufeatures"
 	digestpkg "lvmsync_go/internal/digest"

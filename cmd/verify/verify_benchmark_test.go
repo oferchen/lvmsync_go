@@ -53,10 +53,10 @@ func BenchmarkVerifyInlineAlloc(b *testing.B) {
 	cfg := &config.Config{BlockSize: blockSize}
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-               if err := verifyInlineAlloc(cfg, src, dst); err != nil {
-                       b.Fatalf("verifyInlineAlloc: %v", err)
-               }
-       }
+		if err := verifyInlineAlloc(cfg, src, dst); err != nil {
+			b.Fatalf("verifyInlineAlloc: %v", err)
+		}
+	}
 }
 
 func BenchmarkVerifyInline(b *testing.B) {
@@ -66,8 +66,8 @@ func BenchmarkVerifyInline(b *testing.B) {
 	b.ReportAllocs()
 	logger := zap.NewNop()
 	for i := 0; i < b.N; i++ {
-               if err := verifyInline(cfg, src, dst, logger); err != nil {
-                       b.Fatalf("verifyInline: %v", err)
-               }
-       }
+		if err := verifyInline(cfg, src, dst, logger); err != nil {
+			b.Fatalf("verifyInline: %v", err)
+		}
+	}
 }

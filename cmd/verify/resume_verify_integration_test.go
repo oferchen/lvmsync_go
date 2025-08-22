@@ -112,7 +112,7 @@ func TestResumeVerifySuccess(t *testing.T) {
 		ResumeState:       resume,
 		Compress:          "none",
 		ChecksumAlgorithm: "sha256",
-               VerifyLevel:       "inline",
+		VerifyLevel:       "inline",
 		MaxRetries:        1,
 	}
 	if err := tr.ProcessDumpData(context.Background(), cfg, bytes.NewReader(minimalStream(t)), dest); err != nil {
@@ -191,7 +191,7 @@ func TestResumeVerifyMismatch(t *testing.T) {
 		ResumeState:       resume,
 		Compress:          "none",
 		ChecksumAlgorithm: "sha256",
-               VerifyLevel:       "inline",
+		VerifyLevel:       "inline",
 		MaxRetries:        1,
 	}
 	err = tr.ProcessDumpData(context.Background(), cfg, bytes.NewReader(minimalStream(t)), dest)
