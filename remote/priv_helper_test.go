@@ -80,5 +80,85 @@ func TestRecvAckTimeout(t *testing.T) {
 	defer cancel()
 	if _, err := c.RecvAck(ctx); !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("expected deadline exceeded, got %v", err)
+
+func TestPrivilegedHelperOversizedLength(t *testing.T) {
+	handler := func(cmd string, ch ssh.Channel) int {
+		f, err := os.CreateTemp(t.TempDir(), "priv")
+		if err != nil {
+			return 1
+		}
+		defer f.Close() //nolint:errcheck
+		if err := PrivilegedPwriteServer(ch, int(f.Fd())); err != nil && err != io.EOF {
+			return 1
+		}
+		return 0
+	}
+	_, client := newSSHServerClientWithChannel(t, handler)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	privClient, err := StartPrivHelper(ctx, client, "privhelper", zap.NewNop())
+	if err != nil {
+		t.Fatalf("StartPrivHelper: %v", err)
+	}
+	defer privClient.Close() //nolint:errcheck
+
+	payload := make([]byte, maxPayloadLength+1)
+	if err := privClient.Send(0, payload); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	ack, err := privClient.RecvAck()
+	if err != nil {
+		t.Fatalf("RecvAck: %v", err)
+	}
+	if ack {
+		t.Fatalf("expected NACK for oversized payload")
+	}
+}
+
+func TestPrivilegedHelperShortWrite(t *testing.T) {
+	handler := func(cmd string, ch ssh.Channel) int {
+		pw := func(fd int, p []byte, off int64) (int, error) {
+			return len(p) - 1, nil
+		}
+		if err := privilegedPwriteServer(ch, 0, pw); err != nil && err != io.EOF {
+			return 1
+		}
+		return 0
+	}
+	_, client := newSSHServerClientWithChannel(t, handler)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	privClient, err := StartPrivHelper(ctx, client, "privhelper", zap.NewNop())
+	if err != nil {
+		t.Fatalf("StartPrivHelper: %v", err)
+	}
+	defer privClient.Close() //nolint:errcheck
+
+	if err := privClient.Send(0, []byte("hello")); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	ack, err := privClient.RecvAck()
+	if err != nil {
+		t.Fatalf("RecvAck: %v", err)
+	}
+	if ack {
+		t.Fatalf("expected NACK for short write")
+
+type shortWriteCloser struct{}
+
+func (shortWriteCloser) Write(p []byte) (int, error) {
+	if len(p) == 0 {
+		return 0, nil
+	}
+	return len(p) - 1, nil
+}
+
+func (shortWriteCloser) Close() error { return nil }
+
+func TestPrivHelperSendShortWrite(t *testing.T) {
+	c := &PrivHelperClient{stdin: shortWriteCloser{}, logger: zap.NewNop()}
+	err := c.Send(0, []byte("data"))
+	if !errors.Is(err, io.ErrShortWrite) {
+		t.Fatalf("expected io.ErrShortWrite, got %v", err)
 	}
 }
