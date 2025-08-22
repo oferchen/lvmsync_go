@@ -175,8 +175,8 @@ func (r *Runner) verifyDevices(cfg *config.Config, src, dst, manifestPath string
 		zap.Bool("avx512", cpufeatures.HasAVX512()),
 		zap.Bool("neon", cpufeatures.HasNEON()),
 	)
-       post := strings.ToLower(cfg.VerifyLevel) == "post"
-       match, srcSum, dstSum, err := digestpkg.VerifyFiles(src, dst, alg, post)
+	post := strings.ToLower(cfg.VerifyLevel) == "post"
+	match, srcSum, dstSum, err := digestpkg.VerifyFiles(src, dst, alg, post)
 	if err != nil {
 		return err
 	}
@@ -277,7 +277,7 @@ func verifyWithManifest(cfg *config.Config, devicePath, manifestPath string, log
 
 	mismatches := 0
 	buf := make([]byte, 0)
-	hash := digestFunc(cfg)
+	hash := blake3.Sum256
 	for i := uint64(0); i < idx.ChunkCount(); i++ {
 		off, length, _, _, digest, err := idx.Entry(i)
 		if err != nil {
