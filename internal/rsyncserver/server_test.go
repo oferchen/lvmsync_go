@@ -135,7 +135,14 @@ func TestHandleApplyDelta(t *testing.T) {
 	defer c2.Close()
 
 	data := []byte("hi")
-	dev := &memDevice{buf: make([]byte, len(data))}
+	id := device.DeviceIdentity{
+		SizeBytes:    uint64(len(data)),
+		KernelUUID:   "kernel",
+		GPTUUID:      "gpt",
+		MBRSignature: "mbr",
+		FSUUID:       "fs",
+	}
+	dev := &memDevice{buf: make([]byte, len(data)), id: id}
 	srv := newServer(t, dev, data)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -143,13 +150,13 @@ func TestHandleApplyDelta(t *testing.T) {
 	go func() { errCh <- srv.Handle(ctx, rsyncwire.NewStream(c2, maxFrame)) }()
 
 	cl := rsyncwire.NewClient(rsyncwire.NewStream(c1, maxFrame))
-	sendIdentity(t, ctx, cl, device.DeviceIdentity{SizeBytes: uint64(len(dev.buf))})
+	sendIdentity(t, ctx, cl, id)
 	sendDelta(t, ctx, cl, 0, data)
 	c1.Close()
-	cancel()
 	if err := waitHandle(t, errCh); err != nil {
 		t.Fatalf("Handle: %v", err)
 	}
+	cancel()
 	if string(dev.buf) != string(data) {
 		t.Fatalf("device %q want %q", dev.buf, data)
 	}
@@ -164,6 +171,14 @@ func TestHandleShortWrite(t *testing.T) {
 	defer c2.Close()
 
 	dev := &memDevice{buf: make([]byte, 2), short: true}
+	id := device.DeviceIdentity{
+		SizeBytes:    uint64(len(dev.buf)),
+		KernelUUID:   "kernel",
+		GPTUUID:      "gpt",
+		MBRSignature: "mbr",
+		FSUUID:       "fs",
+	}
+	dev.id = id
 	srv := newServer(t, dev, []byte("hi"))
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -171,13 +186,13 @@ func TestHandleShortWrite(t *testing.T) {
 	go func() { errCh <- srv.Handle(ctx, rsyncwire.NewStream(c2, maxFrame)) }()
 
 	cl := rsyncwire.NewClient(rsyncwire.NewStream(c1, maxFrame))
-	sendIdentity(t, ctx, cl, device.DeviceIdentity{SizeBytes: uint64(len(dev.buf))})
+	sendIdentity(t, ctx, cl, id)
 	sendDelta(t, ctx, cl, 0, []byte("hi"))
 	c1.Close()
-	cancel()
 	if err := waitHandle(t, errCh); err == nil || !strings.Contains(err.Error(), "short write") {
 		t.Fatalf("expected short write error, got %v", err)
 	}
+	cancel()
 }
 
 func TestHandleRejectsOversizedSignatures(t *testing.T) {
@@ -207,10 +222,10 @@ func TestHandleRejectsOversizedSignatures(t *testing.T) {
 	buf.WriteByte(0)
 	streamSend(t, ctx, rsyncwire.NewStream(c1, maxFrame), buf.Bytes())
 	c1.Close()
-	cancel()
 	if err := waitHandle(t, errCh); err == nil || !strings.Contains(err.Error(), "checksum count") {
 		t.Fatalf("expected checksum count error, got %v", err)
 	}
+	cancel()
 }
 
 func TestHandleCacheHit(t *testing.T) {
@@ -244,10 +259,10 @@ func TestHandleCacheHit(t *testing.T) {
 	buf.Write(dgst[:])
 	streamSend(t, ctx, rsyncwire.NewStream(c1, maxFrame), buf.Bytes())
 	c1.Close()
-	cancel()
 	if err := waitHandle(t, errCh); err != nil {
 		t.Fatalf("Handle: %v", err)
 	}
+	cancel()
 	if dev.sync {
 		t.Fatalf("expected no sync on cache hit")
 	}
@@ -257,7 +272,14 @@ func TestHandleCacheMissUpdates(t *testing.T) {
 	dir := t.TempDir()
 	cache := signaturecache.New(dir, time.Hour, 10)
 	data := []byte("hi")
-	dev := &memDevice{buf: make([]byte, len(data))}
+	id := device.DeviceIdentity{
+		SizeBytes:    uint64(len(data)),
+		KernelUUID:   "kernel",
+		GPTUUID:      "gpt",
+		MBRSignature: "mbr",
+		FSUUID:       "fs",
+	}
+	dev := &memDevice{buf: make([]byte, len(data)), id: id}
 	srv, err := New(dev, zap.NewNop(), cache, "vg", "lv")
 	if err != nil {
 		t.Fatalf("New: %v", err)
@@ -282,13 +304,13 @@ func TestHandleCacheMissUpdates(t *testing.T) {
 	gbuf.Write(dgst[:])
 	streamSend(t, ctx, stream, gbuf.Bytes())
 	cl := rsyncwire.NewClient(stream)
-	sendIdentity(t, ctx, cl, device.DeviceIdentity{SizeBytes: uint64(len(dev.buf))})
+	sendIdentity(t, ctx, cl, id)
 	sendDelta(t, ctx, cl, 0, data)
 	c1.Close()
-	cancel()
 	if err := waitHandle(t, errCh); err != nil {
 		t.Fatalf("Handle: %v", err)
 	}
+	cancel()
 	if string(dev.buf) != string(data) {
 		t.Fatalf("device %q want %q", dev.buf, data)
 	}
@@ -331,10 +353,10 @@ func TestHandleCacheTTLExpiry(t *testing.T) {
 	buf.Write(dgst[:])
 	streamSend(t, ctx, rsyncwire.NewStream(c1, maxFrame), buf.Bytes())
 	c1.Close()
-	cancel()
 	if err := waitHandle(t, errCh); err != nil {
 		t.Fatalf("Handle: %v", err)
 	}
+	cancel()
 	if !dev.sync {
 		t.Fatalf("expected sync after TTL expiry")
 	}
@@ -366,7 +388,6 @@ func TestHandleCacheLRUEviction(t *testing.T) {
 		buf.Write(dgst[:])
 		streamSend(t, ctx, rsyncwire.NewStream(c1, maxFrame), buf.Bytes())
 		c1.Close()
-		cancel()
 		if err := waitHandle(t, errCh); err != nil {
 			t.Fatalf("Handle: %v", err)
 		}
@@ -388,6 +409,14 @@ func TestHandleDeltaOffsetOverflow(t *testing.T) {
 	defer c2.Close()
 
 	dev := &memDevice{buf: make([]byte, 1)}
+	id := device.DeviceIdentity{
+		SizeBytes:    uint64(len(dev.buf)),
+		KernelUUID:   "kernel",
+		GPTUUID:      "gpt",
+		MBRSignature: "mbr",
+		FSUUID:       "fs",
+	}
+	dev.id = id
 	core, logs := observer.New(zap.ErrorLevel)
 	srv, err := New(dev, zap.New(core), nil, "", "")
 	if err != nil {
@@ -399,16 +428,18 @@ func TestHandleDeltaOffsetOverflow(t *testing.T) {
 	go func() { errCh <- srv.Handle(ctx, rsyncwire.NewStream(c2, maxFrame)) }()
 
 	stream := rsyncwire.NewStream(c1, maxFrame)
+	cl := rsyncwire.NewClient(stream)
+	sendIdentity(t, ctx, cl, id)
 	var buf bytes.Buffer
 	buf.WriteByte('D')
 	binary.Write(&buf, binary.BigEndian, uint64(math.MaxInt64)+1)
 	buf.WriteByte(0x1)
 	streamSend(t, ctx, stream, buf.Bytes())
 	c1.Close()
-	cancel()
 	if err := waitHandle(t, errCh); err == nil || !strings.Contains(err.Error(), "delta offset overflows int64") {
 		t.Fatalf("expected overflow error, got %v", err)
 	}
+	cancel()
 	entries := logs.FilterMessage("delta_out_of_bounds").All()
 	if len(entries) != 1 {
 		t.Fatalf("expected log, got %v", logs.All())
@@ -431,6 +462,14 @@ func TestHandleDeltaOutOfBounds(t *testing.T) {
 	defer c2.Close()
 
 	dev := &memDevice{buf: make([]byte, 10)}
+	id := device.DeviceIdentity{
+		SizeBytes:    uint64(len(dev.buf)),
+		KernelUUID:   "kernel",
+		GPTUUID:      "gpt",
+		MBRSignature: "mbr",
+		FSUUID:       "fs",
+	}
+	dev.id = id
 	core, logs := observer.New(zap.ErrorLevel)
 	srv, err := New(dev, zap.New(core), nil, "", "")
 	if err != nil {
@@ -442,13 +481,13 @@ func TestHandleDeltaOutOfBounds(t *testing.T) {
 	go func() { errCh <- srv.Handle(ctx, rsyncwire.NewStream(c2, maxFrame)) }()
 
 	cl := rsyncwire.NewClient(rsyncwire.NewStream(c1, maxFrame))
-	sendIdentity(t, ctx, cl, device.DeviceIdentity{SizeBytes: uint64(len(dev.buf))})
+	sendIdentity(t, ctx, cl, id)
 	sendDelta(t, ctx, cl, 9, []byte("ab"))
 	c1.Close()
-	cancel()
 	if err := waitHandle(t, errCh); err == nil || !strings.Contains(err.Error(), "delta out of bounds") {
 		t.Fatalf("expected out of bounds error, got %v", err)
 	}
+	cancel()
 	entries := logs.FilterMessage("delta_out_of_bounds").All()
 	if len(entries) != 1 {
 		t.Fatalf("expected log, got %v", logs.All())
@@ -485,10 +524,10 @@ func TestHandleUnknownFrameType(t *testing.T) {
 
 	streamSend(t, ctx, rsyncwire.NewStream(c1, maxFrame), []byte{'X'})
 	c1.Close()
-	cancel()
 	if err := waitHandle(t, errCh); err == nil || !strings.Contains(err.Error(), "unknown frame type") {
 		t.Fatalf("expected unknown frame error, got %v", err)
 	}
+	cancel()
 }
 
 func TestHandleDigestMismatch(t *testing.T) {
@@ -497,6 +536,14 @@ func TestHandleDigestMismatch(t *testing.T) {
 	defer c2.Close()
 
 	dev := &memDevice{buf: make([]byte, 2)}
+	id := device.DeviceIdentity{
+		SizeBytes:    uint64(len(dev.buf)),
+		KernelUUID:   "kernel",
+		GPTUUID:      "gpt",
+		MBRSignature: "mbr",
+		FSUUID:       "fs",
+	}
+	dev.id = id
 	core, logs := observer.New(zap.ErrorLevel)
 	srv, err := New(dev, zap.New(core), nil, "", "")
 	if err != nil {
@@ -508,7 +555,7 @@ func TestHandleDigestMismatch(t *testing.T) {
 	go func() { errCh <- srv.Handle(ctx, rsyncwire.NewStream(c2, maxFrame)) }()
 
 	cl := rsyncwire.NewClient(rsyncwire.NewStream(c1, maxFrame))
-	sendIdentity(t, ctx, cl, device.DeviceIdentity{SizeBytes: uint64(len(dev.buf))})
+	sendIdentity(t, ctx, cl, id)
 	data := []byte("hi")
 	sendDelta(t, ctx, cl, 0, data)
 	bad, err := digest.SumReader(bytes.NewReader([]byte("ho")), digest.SHA256)
@@ -517,10 +564,10 @@ func TestHandleDigestMismatch(t *testing.T) {
 	}
 	sendDigest(t, ctx, cl, digest.SHA256, bad)
 	c1.Close()
-	cancel()
 	if err := waitHandle(t, errCh); err == nil || !strings.Contains(err.Error(), "digest mismatch") {
 		t.Fatalf("expected digest mismatch, got %v", err)
 	}
+	cancel()
 	entries := logs.FilterMessage("digest_mismatch").All()
 	if len(entries) != 1 {
 		t.Fatalf("expected digest mismatch log, got %v", logs.All())
@@ -559,10 +606,10 @@ func TestHandleMissingIdentity(t *testing.T) {
 	cl := rsyncwire.NewClient(rsyncwire.NewStream(c1, maxFrame))
 	sendDelta(t, ctx, cl, 0, []byte("a"))
 	c1.Close()
-	cancel()
 	if err := waitHandle(t, errCh); err == nil || !strings.Contains(err.Error(), "precondition") {
 		t.Fatalf("expected precondition error, got %v", err)
 	}
+	cancel()
 }
 
 func TestHandleIdentityMismatch(t *testing.T) {
@@ -570,7 +617,14 @@ func TestHandleIdentityMismatch(t *testing.T) {
 	defer c1.Close()
 	defer c2.Close()
 
-	dev := &memDevice{buf: make([]byte, 1)}
+	id := device.DeviceIdentity{
+		SizeBytes:    1,
+		KernelUUID:   "kernel",
+		GPTUUID:      "gpt",
+		MBRSignature: "mbr",
+		FSUUID:       "fs",
+	}
+	dev := &memDevice{buf: make([]byte, 1), id: id}
 	srv, err := New(dev, zap.NewNop(), nil, "", "")
 	if err != nil {
 		t.Fatalf("New: %v", err)
@@ -582,12 +636,14 @@ func TestHandleIdentityMismatch(t *testing.T) {
 
 	cl := rsyncwire.NewClient(rsyncwire.NewStream(c1, maxFrame))
 	// Send mismatched identity (size 2 instead of 1).
-	sendIdentity(t, ctx, cl, device.DeviceIdentity{SizeBytes: 2})
+	remote := id
+	remote.SizeBytes = 2
+	sendIdentity(t, ctx, cl, remote)
 	c1.Close()
-	cancel()
 	if err := waitHandle(t, errCh); err == nil || !strings.Contains(err.Error(), "precondition") {
 		t.Fatalf("expected precondition error, got %v", err)
 	}
+	cancel()
 }
 
 func TestHandleIdentityIgnoresMajorMinor(t *testing.T) {
@@ -626,10 +682,10 @@ func TestHandleIdentityIgnoresMajorMinor(t *testing.T) {
 	}
 	sendDigest(t, ctx, cl, digest.SHA256, exp)
 	c1.Close()
-	cancel()
 	if err := waitHandle(t, errCh); err != nil {
 		t.Fatalf("Handle: %v", err)
 	}
+	cancel()
 }
 
 func TestHandleIdentityMismatchFields(t *testing.T) {
