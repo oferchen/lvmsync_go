@@ -16,15 +16,21 @@
 //
 // Typical usage:
 //
-//			reexeced, err := escalate.EnsureRootOrReexec(escalate.Options{}, logger)
-//			if err != nil { log.Fatal(err) }
-//			if reexeced { return } // parent should exit after delegating to sudo
+//	logger := zap.NewExample()
+//	defer rootcmd.SyncLogger(logger)
+//	reexeced, err := escalate.EnsureRootOrReexec(escalate.Options{}, logger)
+//	if err != nil {
+//		return err // or logger.Error("ensure_root_or_reexec", zap.Error(err))
+//	}
+//	if reexeced {
+//		return nil // parent should exit after delegating to sudo
+//	}
 //
-//			// ... privileged work ...
-//	             if err := escalate.DropToInvokerIfSudo(escalate.Options{}, logger); err != nil {
-//	                     log.Fatal(err)
-//	             }
-//	             // ... continue unprivileged work ...
+//	// ... privileged work ...
+//	if err := escalate.DropToInvokerIfSudo(escalate.Options{}, logger); err != nil {
+//		return err
+//	}
+//	// ... continue unprivileged work ...
 package escalate
 
 import (
