@@ -493,3 +493,25 @@ func TestVerifyWithManifestIdentityMatch(t *testing.T) {
 		t.Fatalf("verifyWithManifest: %v", err)
 	}
 }
+
+func TestVerifyWithManifestIdentityMismatch(t *testing.T) {
+	size := 4096
+	src := createTestFile(t, size)
+	manifestPath := filepath.Join(t.TempDir(), "manifest")
+	idx, err := manifestpkg.Create(manifestPath, "", uint64(size), 1, 0, 0, uint32(size), 0, 0, 0, 0)
+	if err != nil {
+		t.Fatalf("manifest create: %v", err)
+	}
+	digest := blake3.Sum256(bytes.Repeat([]byte{1}, size))
+	if err := idx.Set(0, uint32(size), 0, 0, digest); err != nil {
+		t.Fatalf("manifest set: %v", err)
+	}
+	if err := idx.Close(); err != nil {
+		t.Fatalf("manifest close: %v", err)
+	}
+	cfg := &config.Config{}
+	if err := verifyWithManifest(cfg, src, manifestPath, zap.NewNop()); err != nil {
+		t.Fatalf("verifyWithManifest: %v", err)
+	}
+}
+
