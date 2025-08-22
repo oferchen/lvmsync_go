@@ -125,7 +125,7 @@ func TestPrivilegedHelperOversizedLength(t *testing.T) {
 	}
 	ack, err := privClient.RecvAck(ctx)
 	if err != nil {
-		t.Fatalf("RecvAck: %v", err)
+		t.Fatalf("expected NACK without error, got %v", err)
 	}
 	if ack {
 		t.Fatalf("expected NACK for oversized payload")
@@ -207,6 +207,31 @@ func TestPrivilegedPwriteServerLargeDeclaredLength(t *testing.T) {
 	}
 	if cr.n > maxPayloadLength {
 		t.Fatalf("read %d bytes, expected at most %d", cr.n, maxPayloadLength)
+	}
+}
+
+func TestPrivilegedPwriteServerOversizedLengthNACK(t *testing.T) {
+	payloadLen := maxPayloadLength + 1
+	header := make([]byte, 8+4+32)
+	binary.BigEndian.PutUint64(header[0:8], 0)
+	binary.BigEndian.PutUint32(header[8:12], uint32(payloadLen))
+	payload := make([]byte, payloadLen)
+	reader := io.MultiReader(bytes.NewReader(header), bytes.NewReader(payload))
+	var out bytes.Buffer
+	rw := struct {
+		io.Reader
+		io.Writer
+	}{Reader: reader, Writer: &out}
+	pw := func(fd int, p []byte, off int64) (int, error) {
+		t.Fatalf("pwrite should not be called")
+		return len(p), nil
+	}
+	err := privilegedPwriteServer(rw, 0, pw)
+	if err == nil {
+		t.Fatalf("expected error for oversized payload")
+	}
+	if out.String() != "N" {
+		t.Fatalf("expected NACK, got %q", out.String())
 	}
 }
 

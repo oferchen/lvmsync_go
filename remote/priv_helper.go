@@ -186,6 +186,9 @@ func privilegedPwriteServer(rw io.ReadWriter, fd int, pwrite pwriteFunc) error {
 		offset := binary.BigEndian.Uint64(header[0:8])
 		length := binary.BigEndian.Uint32(header[8:12])
 		if length > maxPayloadLength {
+			if _, err := rw.Write([]byte{'N'}); err != nil {
+				return err
+			}
 			if _, err := io.CopyN(io.Discard, rw, int64(maxPayloadLength)); err != nil {
 				return err
 			}
