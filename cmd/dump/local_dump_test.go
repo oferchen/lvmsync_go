@@ -95,3 +95,22 @@ func TestRunLocalDumpOpenError(t *testing.T) {
 		t.Fatalf("cfg.DestType was modified: expected %q, got %q", originalDestType, cfg.DestType)
 	}
 }
+
+func TestRunLocalDumpPartitionMismatch(t *testing.T) {
+	cfg, err := config.DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig returned error: %v", err)
+	}
+	cfg.DedupStrategy = "none"
+	cfg.Parallel = 1
+	cfg.CheckPartition = true
+	cfg.DestType = "file"
+
+	r := NewRunnerWithDeps(&Runner{verifyIdentity: func(context.Context, *device.Info, string, string) error {
+		return device.ErrPartitionMismatch
+	}})
+
+	if _, err := r.RunLocalDump(context.Background(), cfg, "snap", "orig", "/fake/dest", zap.NewNop()); err == nil || !errors.Is(err, device.ErrPartitionMismatch) {
+		t.Fatalf("expected partition mismatch error, got %v", err)
+	}
+}

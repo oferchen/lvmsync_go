@@ -387,12 +387,12 @@ func (r *Runner) RunLocalDump(ctx context.Context, cfg *config.Config, snapshotD
 	if destType == "auto" {
 		dev, err := device.Detect(devCtx, dest, true, destType, "", "", cfg.LVMEscalation, cfg.FreezeTimeout, cfg.ThawTimeout, privilege.New(devCtx, logger), logger, devRunner)
 		if err != nil {
-			if cfg.CheckPartition && strings.Contains(err.Error(), "partition table mismatch") {
+			if cfg.CheckPartition && errors.Is(err, device.ErrPartitionMismatch) {
 				if !cfg.Force {
-					return destType, fmt.Errorf("precondition: partition table mismatch")
+					return destType, fmt.Errorf("precondition: %w", device.ErrPartitionMismatch)
 				}
 				if !cfg.VerifyOnly && strings.ToLower(cfg.VerifyLevel) != "none" {
-					return destType, fmt.Errorf("partition table mismatch: run --verify-only first or set --verify none with --force")
+					return destType, fmt.Errorf("partition table mismatch: run --verify-only first or set --verify none with --force: %w", device.ErrPartitionMismatch)
 				}
 				tmpCtx := device.WithForce(context.Background(), cfg.Force)
 				tmpCtx = device.WithAllowOverwrite(tmpCtx, cfg.AllowOverwrite)
@@ -462,12 +462,12 @@ func (r *Runner) RunLocalDump(ctx context.Context, cfg *config.Config, snapshotD
 	}
 	info := device.NewInfo()
 	if err := r.verifyIdentity(devCtx, info, snapshotDevice, dest); err != nil {
-		if cfg.CheckPartition && strings.Contains(err.Error(), "partition table mismatch") {
+		if cfg.CheckPartition && errors.Is(err, device.ErrPartitionMismatch) {
 			if !cfg.Force {
-				return destType, fmt.Errorf("precondition: partition table mismatch")
+				return destType, fmt.Errorf("precondition: %w", device.ErrPartitionMismatch)
 			}
 			if !cfg.VerifyOnly && strings.ToLower(cfg.VerifyLevel) != "none" {
-				return destType, fmt.Errorf("partition table mismatch: run --verify-only first or set --verify none with --force")
+				return destType, fmt.Errorf("partition table mismatch: run --verify-only first or set --verify none with --force: %w", device.ErrPartitionMismatch)
 			}
 		} else {
 			return destType, err
