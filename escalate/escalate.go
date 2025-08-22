@@ -86,12 +86,12 @@ func IsRoot(opts Options) bool {
 	return geteuid() == 0
 }
 
+const defaultTimeout = 5 * time.Second
+
 // EnsureRootOrReexec ensures the process runs as root.
 // If already root, returns (false, nil).
 // If not root, re-execs the current binary through `sudo -n` and returns (true, err).
 // When (true, nil) is returned, the caller should exit immediately.
-const defaultTimeout = 5 * time.Second
-
 func EnsureRootOrReexec(opts Options, logger *zap.Logger) (bool, error) {
 	argv := opts.Args
 	if argv == nil {
@@ -128,6 +128,7 @@ func EnsureRootOrReexec(opts Options, logger *zap.Logger) (bool, error) {
 	args = append(args, filterAllowed(argv[1:], opts.AllowedPassthrough)...)
 
 	var env []string
+	var removed []string
 	sanitize := false
 	if opts.SanitizeEnv != nil {
 		sanitize = *opts.SanitizeEnv
@@ -136,10 +137,14 @@ func EnsureRootOrReexec(opts Options, logger *zap.Logger) (bool, error) {
 	if opts.Environ != nil {
 		environ = opts.Environ
 	}
+	origEnv := environ()
 	if sanitize {
-		env = sanitizedChildEnv(environ())
+		env, removed = sanitizedChildEnv(origEnv)
+		if len(removed) > 0 {
+			logger.Info("ensure_root_or_reexec", zap.String("action_id", actionID), zap.Strings("argv", argv), zap.String("hostname", host), zap.String("result", "env_sanitized"), zap.Strings("removed_env_keys", removed))
+		}
 	} else {
-		env = environ()
+		env = origEnv
 	}
 
 	stdin := opts.Stdin // nil by default (no TTY password prompts)
@@ -236,15 +241,22 @@ func DropToInvokerIfSudo(opts Options, logger *zap.Logger) error {
 
 // ---- Internal helpers (kept small, pure, and fully tested) ----
 
-func sanitizedChildEnv(environ []string) []string {
+// sanitizedChildEnv filters environment variables for child processes,
+// returning the sanitized environment along with the names of variables that
+// were removed.
+func sanitizedChildEnv(environ []string) ([]string, []string) {
 	whitelist := map[string]bool{
 		"LC_ALL":   true,
 		"LC_CTYPE": true,
 		"TERM":     true,
 	}
 	out := make([]string, 0, len(environ))
+	removed := make([]string, 0, len(environ))
 	for _, kv := range environ {
 		if strings.HasPrefix(kv, "LD_") || strings.HasPrefix(kv, "GCONV_PATH=") {
+			if i := strings.IndexByte(kv, '='); i > 0 {
+				removed = append(removed, kv[:i])
+			}
 			continue
 		}
 		i := strings.IndexByte(kv, '=')
@@ -254,9 +266,11 @@ func sanitizedChildEnv(environ []string) []string {
 		k := kv[:i]
 		if whitelist[k] {
 			out = append(out, kv)
+		} else {
+			removed = append(removed, k)
 		}
 	}
-	return out
+	return out, removed
 }
 
 func filterAllowed(argv []string, allow map[string]bool) []string {
