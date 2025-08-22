@@ -17,6 +17,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/zeebo/blake3"
 	"go.uber.org/zap"
+	"golang.org/x/sys/unix"
 	"gopkg.in/yaml.v3"
 
 	rootcmd "lvmsync_go/cmd/root"
@@ -137,22 +138,62 @@ func (r *Runner) Run(args []string, logger *zap.Logger) error {
 }
 
 func (r *Runner) verifyDevices(cfg *config.Config, src, dst, manifestPath string, logger *zap.Logger) error {
+	ctx := context.Background()
+	esc := privilege.New(ctx, logger)
+	runner := device.NewRunner()
+
+	srcDev, err := device.Detect(ctx, src, cfg.Offline, cfg.SourceType, cfg.FSFreezeCommand, cfg.FSThawCommand, cfg.LVMEscalation, cfg.FreezeTimeout, cfg.ThawTimeout, esc, logger, runner)
+	if err != nil {
+		return err
+	}
+	srcSnap, err := srcDev.Snapshot(ctx, cfg.SnapshotSize)
+	if err != nil {
+		srcDev.Close()
+		return err
+	}
+	srcPath := srcSnap.Path()
+	defer func() {
+		_ = srcSnap.Cleanup(ctx)
+		_ = srcSnap.Close()
+		if srcSnap != srcDev {
+			_ = srcDev.Close()
+		}
+	}()
+
+	dstDev, err := device.Detect(ctx, dst, cfg.Offline, cfg.DestType, cfg.FSFreezeCommand, cfg.FSThawCommand, cfg.LVMEscalation, cfg.FreezeTimeout, cfg.ThawTimeout, esc, logger, runner)
+	if err != nil {
+		return err
+	}
+	dstSnap, err := dstDev.Snapshot(ctx, cfg.SnapshotSize)
+	if err != nil {
+		dstDev.Close()
+		return err
+	}
+	dstPath := dstSnap.Path()
+	defer func() {
+		_ = dstSnap.Cleanup(ctx)
+		_ = dstSnap.Close()
+		if dstSnap != dstDev {
+			_ = dstDev.Close()
+		}
+	}()
+
 	if manifestPath == "" {
-		manifestPath = src + ".manifest"
+		manifestPath = srcPath + ".manifest"
 	}
 	if _, err := os.Stat(manifestPath); err != nil {
 		if os.IsNotExist(err) {
-			ctx := context.Background()
+			mctx := context.Background()
 			if cfg.ManifestTimeout > 0 {
 				var cancel context.CancelFunc
-				ctx, cancel = context.WithTimeout(ctx, cfg.ManifestTimeout)
+				mctx, cancel = context.WithTimeout(mctx, cfg.ManifestTimeout)
 				defer cancel()
 			}
 			hybridFixed := uint32(0)
 			if cfg.DedupMode == "hybrid" {
 				hybridFixed = uint32(cfg.BlockSize)
 			}
-			if err := r.Rebuild(ctx, src, manifestPath, logger, cfg.ManifestProgressInterval, cfg.ManifestAllowMounted, uint32(cfg.CDCMin), uint32(cfg.CDCAvg), uint32(cfg.CDCMax), hybridFixed); err != nil {
+			if err := r.Rebuild(mctx, srcPath, manifestPath, logger, cfg.ManifestProgressInterval, cfg.ManifestAllowMounted, uint32(cfg.CDCMin), uint32(cfg.CDCAvg), uint32(cfg.CDCMax), hybridFixed); err != nil {
 				if errors.Is(err, context.DeadlineExceeded) {
 					return err
 				}
@@ -162,7 +203,7 @@ func (r *Runner) verifyDevices(cfg *config.Config, src, dst, manifestPath string
 			return fmt.Errorf("stat manifest: %w", err)
 		}
 	}
-	if err := verifyWithManifest(cfg, dst, manifestPath, logger); err != nil {
+	if err := verifyWithManifest(cfg, dstPath, manifestPath, logger); err != nil {
 		return err
 	}
 	if strings.ToLower(cfg.VerifyLevel) == "none" {
@@ -178,7 +219,7 @@ func (r *Runner) verifyDevices(cfg *config.Config, src, dst, manifestPath string
 		zap.Bool("neon", cpufeatures.HasNEON()),
 	)
 	post := strings.ToLower(cfg.VerifyLevel) == "post"
-	match, srcSum, dstSum, err := digestpkg.VerifyFiles(src, dst, alg, post)
+	match, srcSum, dstSum, err := digestpkg.VerifyFiles(srcPath, dstPath, alg, post)
 	if err != nil {
 		return err
 	}
@@ -201,11 +242,18 @@ func Run(args []string, logger *zap.Logger) error {
 	return NewRunner().Run(args, logger)
 }
 
-func digestFunc(cfg *config.Config) func([]byte) [32]byte {
-	if strings.ToLower(cfg.ChecksumAlgorithm) == "sha256" {
-		return sha256.Sum256
+// digestFunc returns a 32-byte digest function for the configured algorithm.
+// Supported algorithms are "blake3" and "sha256".
+// An error is returned for any other value.
+func digestFunc(cfg *config.Config) (func([]byte) [32]byte, error) {
+	switch strings.ToLower(cfg.ChecksumAlgorithm) {
+	case "blake3", "":
+		return blake3.Sum256, nil
+	case "sha256":
+		return sha256.Sum256, nil
+	default:
+		return nil, fmt.Errorf("unsupported checksum algorithm %q: must be blake3 or sha256", cfg.ChecksumAlgorithm)
 	}
-	return blake3.Sum256
 }
 
 func verifyInline(cfg *config.Config, src, dst string, logger *zap.Logger) error {
@@ -235,7 +283,10 @@ func verifyInline(cfg *config.Config, src, dst string, logger *zap.Logger) error
 	mismatches := 0
 	bufSrc := make([]byte, blockSize)
 	bufDst := make([]byte, blockSize)
-	digest := digestFunc(cfg)
+	digest, err := digestFunc(cfg)
+	if err != nil {
+		return err
+	}
 	for off := int64(0); off < total; off += int64(blockSize) {
 		size := blockSize
 		if remaining := int(total - off); remaining < size {
@@ -329,7 +380,10 @@ func verifyWithManifestOpen(open func(string, bool, bool) (blockReader, error), 
 	tasks := make(chan job, workers)
 	errCh := make(chan error, 1)
 	var mismatches int64
-	hash := digestFunc(cfg)
+	hash, err := digestFunc(cfg)
+	if err != nil {
+		return err
+	}
 	var wg sync.WaitGroup
 	for i := 0; i < workers; i++ {
 		wg.Add(1)

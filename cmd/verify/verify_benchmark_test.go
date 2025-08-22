@@ -50,7 +50,7 @@ func verifyInlineAlloc(cfg *config.Config, src, dst string) error {
 func BenchmarkVerifyInlineAlloc(b *testing.B) {
 	blockSize, blocks := 4096, 16
 	src, dst := createBenchFiles(b, blockSize, blocks)
-	cfg := &config.Config{BlockSize: blockSize}
+	cfg := &config.Config{BlockSize: blockSize, ChecksumAlgorithm: "blake3"}
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		if err := verifyInlineAlloc(cfg, src, dst); err != nil {
@@ -62,7 +62,7 @@ func BenchmarkVerifyInlineAlloc(b *testing.B) {
 func BenchmarkVerifyInline(b *testing.B) {
 	blockSize, blocks := 4096, 16
 	src, dst := createBenchFiles(b, blockSize, blocks)
-	cfg := &config.Config{BlockSize: blockSize}
+	cfg := &config.Config{BlockSize: blockSize, ChecksumAlgorithm: "blake3"}
 	b.ReportAllocs()
 	logger := zap.NewNop()
 	for i := 0; i < b.N; i++ {
