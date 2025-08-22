@@ -80,6 +80,8 @@ func TestRecvAckTimeout(t *testing.T) {
 	defer cancel()
 	if _, err := c.RecvAck(ctx); !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("expected deadline exceeded, got %v", err)
+	}
+}
 
 func TestPrivilegedHelperOversizedLength(t *testing.T) {
 	handler := func(cmd string, ch ssh.Channel) int {
@@ -106,7 +108,7 @@ func TestPrivilegedHelperOversizedLength(t *testing.T) {
 	if err := privClient.Send(0, payload); err != nil {
 		t.Fatalf("Send: %v", err)
 	}
-	ack, err := privClient.RecvAck()
+	ack, err := privClient.RecvAck(ctx)
 	if err != nil {
 		t.Fatalf("RecvAck: %v", err)
 	}
@@ -137,12 +139,14 @@ func TestPrivilegedHelperShortWrite(t *testing.T) {
 	if err := privClient.Send(0, []byte("hello")); err != nil {
 		t.Fatalf("Send: %v", err)
 	}
-	ack, err := privClient.RecvAck()
+	ack, err := privClient.RecvAck(ctx)
 	if err != nil {
 		t.Fatalf("RecvAck: %v", err)
 	}
 	if ack {
 		t.Fatalf("expected NACK for short write")
+	}
+}
 
 type shortWriteCloser struct{}
 
