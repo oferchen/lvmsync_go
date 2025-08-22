@@ -114,11 +114,11 @@ func (d *LVMDevice) Identity(ctx context.Context) (DeviceIdentity, error) {
 		ctx, cancel = context.WithTimeout(ctx, identityTimeout)
 		defer cancel()
 	}
-	if lvsPath == "" {
-		return DeviceIdentity{}, fmt.Errorf("lvs not found")
+	if lvsErr != nil {
+		return DeviceIdentity{}, lvsErr
 	}
-	if blkidPath == "" {
-		return DeviceIdentity{}, fmt.Errorf("blkid not found")
+	if blkidErr != nil {
+		return DeviceIdentity{}, blkidErr
 	}
 	var st unix.Stat_t
 	if err := unix.Stat(d.Path(), &st); err != nil {
