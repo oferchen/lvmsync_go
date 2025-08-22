@@ -1,7 +1,9 @@
 .RECIPEPREFIX := >
-.PHONY: build test lint verify bench bench-lan bench-wan vet staticcheck test-race integration release docs-check
+.PHONY: deps build test lint verify bench bench-lan bench-wan vet staticcheck test-race integration release docs-check
 
-build:
+deps:
+> scripts/check_deps.sh
+build: deps
 > @mkdir -p bin
 > go build -o bin/lvmsync .
 > go build -o bin/lvmsyncd ./cmd/lvmsyncd
@@ -18,7 +20,7 @@ vet:
 staticcheck:
 > staticcheck ./...
 
-verify:
+verify: deps
 > go build ./...
 > go test -coverprofile=coverage.out ./...
 > golangci-lint run

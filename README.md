@@ -1000,6 +1000,7 @@ A final object with `{"event": "complete", "progress_percent": 100}` marks compl
 
 - Go 1.22+
 - Linux only (tested on `amd64` and `arm64` architectures)
+- `pkg-config`
 - LVM2 with development headers providing `liblvm2cmd` (`liblvm2-dev`)
   - A recent LVM2 release providing the modern `liblvm2cmd` API (e.g., 2.03.21+) is required.
 - SSH client & server (for remote transfers)
@@ -1022,7 +1023,15 @@ find them.
 
 ### Build
 
-Clone the repository and build the binary using Go modules with CGO enabled:
+Clone the repository and build the binary using Go modules with CGO enabled. A helper target checks for the
+required native libraries and `pkg-config`:
+
+```sh
+make deps  # verify pkg-config, device-mapper, and LVM2 headers
+```
+The `make build` target runs this check automatically.
+
+Then build the binaries:
 
 ```sh
 git clone https://github.com/oferchen/lvmsync_go.git
