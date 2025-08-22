@@ -19,14 +19,13 @@ var (
 )
 
 // RegisterSnapshot adds the snapshot path to the cleanup registry and installs
-// a signal handler on first use. Callers must provide a non-nil logger;
-// use zap.NewNop() when logging is not desired.
+// a signal handler on first use. If logger is nil, zap.NewNop() is used.
 func RegisterSnapshot(path string, logger *zap.Logger) {
 	if path == "" {
 		return
 	}
 	if logger == nil {
-		panic("nil logger")
+		logger = zap.NewNop()
 	}
 	registryMu.Lock()
 	registry[path] = logger
@@ -75,15 +74,15 @@ func CleanupRegistered(ctx context.Context) {
 	}
 }
 
-// CleanupSnapshot removes a single snapshot, unregistering it first. Callers
-// must supply a non-nil logger (use zap.NewNop() to disable logging). It logs
-// success or failure and ignores empty paths.
+// CleanupSnapshot removes a single snapshot, unregistering it first. If logger
+// is nil, zap.NewNop() is used. It logs success or failure and ignores empty
+// paths.
 func CleanupSnapshot(ctx context.Context, path string, logger *zap.Logger) {
 	if path == "" {
 		return
 	}
 	if logger == nil {
-		panic("nil logger")
+		logger = zap.NewNop()
 	}
 	UnregisterSnapshot(path)
 	if ctx == nil {
