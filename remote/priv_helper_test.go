@@ -73,6 +73,15 @@ func TestStartPrivHelperInvalidCommand(t *testing.T) {
 	}
 }
 
+func TestStartPrivHelperNilLogger(t *testing.T) {
+	_, client := newSSHServerClientWithChannel(t, func(_ string, _ ssh.Channel) int { return 0 })
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if _, err := StartPrivHelper(ctx, client, "privhelper", nil); err == nil || !strings.Contains(err.Error(), "logger is nil") {
+		t.Fatalf("expected nil logger error, got %v", err)
+	}
+}
+
 func TestRecvAckTimeout(t *testing.T) {
 	r, w := net.Pipe()
 	defer r.Close() //nolint:errcheck
@@ -82,6 +91,10 @@ func TestRecvAckTimeout(t *testing.T) {
 	defer cancel()
 	if _, err := c.RecvAck(ctx); !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("expected deadline exceeded, got %v", err)
+	} else if !errors.Is(err, context.DeadlineExceeded) {
+		if ne, ok := err.(interface{ Timeout() bool }); !ok || !ne.Timeout() {
+			t.Fatalf("expected deadline exceeded, got %v", err)
+		}
 	}
 }
 
@@ -110,8 +123,12 @@ func TestPrivilegedHelperOversizedLength(t *testing.T) {
 	if err := privClient.Send(0, payload); err != nil {
 		t.Fatalf("Send: %v", err)
 	}
-	if _, err := privClient.RecvAck(ctx); err == nil {
-		t.Fatalf("expected error for oversized payload")
+	ack, err := privClient.RecvAck(ctx)
+	if err != nil {
+		t.Fatalf("RecvAck: %v", err)
+	}
+	if ack {
+		t.Fatalf("expected NACK for oversized payload")
 	}
 }
 

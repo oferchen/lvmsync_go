@@ -28,8 +28,12 @@ type PrivHelperClient struct {
 // The helper reads (index, payload, hash) messages and performs pwrite operations.
 // The provided context controls the lifetime of the startup; if it is canceled
 // before the remote command begins executing, an error is returned. logger must
-// be non-nil; use zap.NewNop() to disable logging.
+// be non-nil; use zap.NewNop() to disable logging. StartPrivHelper returns an
+// error if logger is nil.
 func StartPrivHelper(ctx context.Context, client *ssh.Client, command string, logger *zap.Logger) (*PrivHelperClient, error) {
+	if logger == nil {
+		return nil, errors.New("logger is nil")
+	}
 	command = strings.TrimSpace(command)
 	if !ValidRemoteCommand(command) {
 		return nil, fmt.Errorf("remote command %s contains invalid characters", command)
