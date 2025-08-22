@@ -25,7 +25,7 @@ import (
 	"lvmsync_go/internal/config"
 	cpufeatures "lvmsync_go/internal/cpufeatures"
 	digestpkg "lvmsync_go/internal/digest"
-	"lvmsync_go/internal/privilege"
+	privilege "lvmsync_go/internal/privilege"
 	manifestpkg "lvmsync_go/manifest"
 )
 
@@ -58,6 +58,7 @@ func (r *Runner) Run(args []string, logger *zap.Logger) error {
 		Short:              "Verify that source and destination contain identical data",
 		DisableFlagParsing: true,
 		RunE: func(cmd *cobra.Command, argv []string) error {
+			ctx := cmd.Context()
 			defaults, err := config.DefaultConfig()
 			if err != nil {
 				return err
@@ -104,7 +105,7 @@ func (r *Runner) Run(args []string, logger *zap.Logger) error {
 				logger.Info("dry run", zap.Int64("size_bytes", size), zap.Duration("eta", eta))
 				return nil
 			}
-			err = r.verifyDevices(cfg, remaining[0], remaining[1], cfg.ManifestPath, logger)
+			err = r.verifyDevices(ctx, cfg, remaining[0], remaining[1], cfg.ManifestPath, logger)
 			if cfg.Output == "json" || cfg.Output == "yaml" {
 				out := struct {
 					Verified bool   `json:"verified" yaml:"verified"`
@@ -138,8 +139,7 @@ func (r *Runner) Run(args []string, logger *zap.Logger) error {
 	return cmd.Execute()
 }
 
-func (r *Runner) verifyDevices(cfg *config.Config, src, dst, manifestPath string, logger *zap.Logger) error {
-	ctx := context.Background()
+func (r *Runner) verifyDevices(ctx context.Context, cfg *config.Config, src, dst, manifestPath string, logger *zap.Logger) error {
 	esc := privilege.New(ctx, logger)
 	runner := device.NewRunner()
 
@@ -184,7 +184,7 @@ func (r *Runner) verifyDevices(cfg *config.Config, src, dst, manifestPath string
 	}
 	if _, err := os.Stat(manifestPath); err != nil {
 		if os.IsNotExist(err) {
-			mctx := context.Background()
+			mctx := ctx
 			if cfg.ManifestTimeout > 0 {
 				var cancel context.CancelFunc
 				mctx, cancel = context.WithTimeout(mctx, cfg.ManifestTimeout)
