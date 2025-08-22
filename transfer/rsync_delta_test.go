@@ -150,43 +150,39 @@ func TestDumpChangesRsyncDelta(t *testing.T) {
 
 	c1, c2 := net.Pipe()
 	cc := &countingConn{Conn: c1}
-	var wg sync.WaitGroup
 	serverReady := make(chan struct{})
-	var srvErr, clientErr error
+	clientDone := make(chan struct{})
+	srvErrCh := make(chan error, 1)
+	clientErrCh := make(chan error, 1)
 
-	wg.Add(1)
 	go func() {
-		defer wg.Done()
-		defer c2.Close()
 		close(serverReady)
-		srvErr = srv.Handle(ctx, rsyncwire.NewStream(c2, rsyncMaxFrame))
-		if srvErr != nil {
-			cancel()
+		srvErrCh <- srv.Handle(ctx, rsyncwire.NewStream(c2, rsyncMaxFrame))
+		select {
+		case <-clientDone:
+		case <-ctx.Done():
 		}
+		c2.Close()
 	}()
 
 	tr := NewTransfer(logger, &sync.WaitGroup{}, nil)
-	wg.Add(1)
 	go func() {
-		defer wg.Done()
-		defer c1.Close()
 		<-serverReady
-		clientErr = tr.DumpChangesSequential(ctx, cfg, snapPath, origPath, cc)
-		if clientErr != nil {
-			cancel()
-		}
+		clientErrCh <- tr.DumpChangesSequential(ctx, cfg, snapPath, origPath, cc)
+		close(clientDone)
+		c1.Close()
 	}()
 
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		wg.Wait()
-	}()
-
+	var srvErr, clientErr error
 	select {
-	case <-done:
+	case srvErr = <-srvErrCh:
 	case <-time.After(time.Second):
-		t.Fatal("wg.Wait(): timeout")
+		t.Fatal("srv.Handle: timeout")
+	}
+	select {
+	case clientErr = <-clientErrCh:
+	case <-time.After(time.Second):
+		t.Fatal("DumpChangesSequential: timeout")
 	}
 
 	if clientErr != nil {
@@ -255,43 +251,39 @@ func TestRsyncDeltaCDCShift(t *testing.T) {
 
 	c1, c2 := net.Pipe()
 	cc := &countingConn{Conn: c1}
-	var wg sync.WaitGroup
 	serverReady := make(chan struct{})
-	var srvErr, clientErr error
+	clientDone := make(chan struct{})
+	srvErrCh := make(chan error, 1)
+	clientErrCh := make(chan error, 1)
 
-	wg.Add(1)
 	go func() {
-		defer wg.Done()
-		defer c2.Close()
 		close(serverReady)
-		srvErr = srv.Handle(ctx, rsyncwire.NewStream(c2, rsyncMaxFrame))
-		if srvErr != nil {
-			cancel()
+		srvErrCh <- srv.Handle(ctx, rsyncwire.NewStream(c2, rsyncMaxFrame))
+		select {
+		case <-clientDone:
+		case <-ctx.Done():
 		}
+		c2.Close()
 	}()
 
 	tr := NewTransfer(logger, &sync.WaitGroup{}, nil)
-	wg.Add(1)
 	go func() {
-		defer wg.Done()
-		defer c1.Close()
 		<-serverReady
-		clientErr = tr.DumpChangesSequential(ctx, cfg, snapPath, origPath, cc)
-		if clientErr != nil {
-			cancel()
-		}
+		clientErrCh <- tr.DumpChangesSequential(ctx, cfg, snapPath, origPath, cc)
+		close(clientDone)
+		c1.Close()
 	}()
 
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		wg.Wait()
-	}()
-
+	var srvErr, clientErr error
 	select {
-	case <-done:
+	case srvErr = <-srvErrCh:
 	case <-time.After(time.Second):
-		t.Fatal("wg.Wait(): timeout")
+		t.Fatal("srv.Handle: timeout")
+	}
+	select {
+	case clientErr = <-clientErrCh:
+	case <-time.After(time.Second):
+		t.Fatal("DumpChangesSequential: timeout")
 	}
 
 	if clientErr != nil {
@@ -361,43 +353,39 @@ func TestRsyncDeltaCDCMutate(t *testing.T) {
 
 	c1, c2 := net.Pipe()
 	cc := &countingConn{Conn: c1}
-	var wg sync.WaitGroup
 	serverReady := make(chan struct{})
-	var srvErr, clientErr error
+	clientDone := make(chan struct{})
+	srvErrCh := make(chan error, 1)
+	clientErrCh := make(chan error, 1)
 
-	wg.Add(1)
 	go func() {
-		defer wg.Done()
-		defer c2.Close()
 		close(serverReady)
-		srvErr = srv.Handle(ctx, rsyncwire.NewStream(c2, rsyncMaxFrame))
-		if srvErr != nil {
-			cancel()
+		srvErrCh <- srv.Handle(ctx, rsyncwire.NewStream(c2, rsyncMaxFrame))
+		select {
+		case <-clientDone:
+		case <-ctx.Done():
 		}
+		c2.Close()
 	}()
 
 	tr := NewTransfer(logger, &sync.WaitGroup{}, nil)
-	wg.Add(1)
 	go func() {
-		defer wg.Done()
-		defer c1.Close()
 		<-serverReady
-		clientErr = tr.DumpChangesSequential(ctx, cfg, snapPath, origPath, cc)
-		if clientErr != nil {
-			cancel()
-		}
+		clientErrCh <- tr.DumpChangesSequential(ctx, cfg, snapPath, origPath, cc)
+		close(clientDone)
+		c1.Close()
 	}()
 
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		wg.Wait()
-	}()
-
+	var srvErr, clientErr error
 	select {
-	case <-done:
+	case srvErr = <-srvErrCh:
 	case <-time.After(time.Second):
-		t.Fatal("wg.Wait(): timeout")
+		t.Fatal("srv.Handle: timeout")
+	}
+	select {
+	case clientErr = <-clientErrCh:
+	case <-time.After(time.Second):
+		t.Fatal("DumpChangesSequential: timeout")
 	}
 
 	if clientErr != nil {
