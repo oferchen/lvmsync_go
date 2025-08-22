@@ -29,14 +29,14 @@ func verifyPartition(ctx context.Context, dev Device, runner *Runner, logger *za
 		return err
 	}
 	if sig.gpt != "" && id.GPTUUID != sig.gpt {
-		return fmt.Errorf("precondition: partition table mismatch")
+		return fmt.Errorf("precondition: %w", ErrPartitionMismatch)
 	}
 	if sig.mbr != "" && id.MBRSignature != sig.mbr {
-		return fmt.Errorf("precondition: partition table mismatch")
+		return fmt.Errorf("precondition: %w", ErrPartitionMismatch)
 	}
 	if diffs := diffPartitionLayouts(sig.layout, layout); len(diffs) > 0 {
 		logger.Error("partition_layout_mismatch", zap.Any("diff", diffs))
-		return fmt.Errorf("precondition: partition table mismatch")
+		return fmt.Errorf("precondition: %w", ErrPartitionMismatch)
 	}
 	return nil
 }
@@ -189,12 +189,12 @@ func Detect(
 			if gpt == "" && mbr == "" ||
 				(sig.gpt != "" && gpt != sig.gpt) ||
 				(sig.mbr != "" && mbr != sig.mbr) {
-				err := fmt.Errorf("precondition: partition table mismatch")
+				err := fmt.Errorf("precondition: %w", ErrPartitionMismatch)
 				logger.Error("device_detect_failed", zap.String("path", resolved), zap.String("device_type", "partition"), zap.Error(err))
 				return nil, err
 			}
 			if diffs := diffPartitionLayouts(sig.layout, layout); len(diffs) > 0 {
-				err := fmt.Errorf("precondition: partition table mismatch")
+				err := fmt.Errorf("precondition: %w", ErrPartitionMismatch)
 				logger.Error("device_detect_failed", zap.String("path", resolved), zap.String("device_type", "partition"), zap.Any("diff", diffs), zap.Error(err))
 				return nil, err
 			}

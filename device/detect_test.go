@@ -3,6 +3,7 @@ package device
 import (
 	"context"
 	"encoding/binary"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -323,8 +324,8 @@ func TestDetectRawPartitionMismatch(t *testing.T) {
 	ctx = WithForce(ctx, true)
 	ctx = WithAllowOverwrite(ctx, true)
 	ctx = WithYesIKnow(ctx, true)
-	if _, err := detectRawDevice(ctx, loop, true, "", "", 0, 0, fakeEsc{}, zap.NewNop(), NewRunner()); err == nil || !strings.Contains(err.Error(), "precondition") {
-		t.Fatalf("expected precondition error, got %v", err)
+	if _, err := detectRawDevice(ctx, loop, true, "", "", 0, 0, fakeEsc{}, zap.NewNop(), NewRunner()); err == nil || !errors.Is(err, ErrPartitionMismatch) {
+		t.Fatalf("expected partition mismatch error, got %v", err)
 	}
 }
 
@@ -391,8 +392,8 @@ func TestDetectPartitionComparison(t *testing.T) {
 			dev.Close()
 			_, err = Detect(ctx, f2, true, "", "", "", "", 0, 0, fakeEsc{}, zap.NewNop(), NewRunner())
 			if tc.wantErr {
-				if err == nil || !strings.Contains(err.Error(), "precondition") {
-					t.Fatalf("expected precondition error, got %v", err)
+				if err == nil || !errors.Is(err, ErrPartitionMismatch) {
+					t.Fatalf("expected partition mismatch error, got %v", err)
 				}
 				return
 			}
