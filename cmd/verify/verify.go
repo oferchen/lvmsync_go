@@ -303,7 +303,7 @@ func verifyWithManifest(cfg *config.Config, devicePath, manifestPath string, log
 
 	mismatches := 0
 	buf := make([]byte, 0)
-	hash := digestFunc(cfg)
+	hash := blake3.Sum256
 	for i := uint64(0); i < idx.ChunkCount(); i++ {
 		off, length, _, _, digest, err := idx.Entry(i)
 		if err != nil {
