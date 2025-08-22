@@ -3,6 +3,7 @@ package remote
 import (
 	"context"
 	"crypto/sha256"
+	"errors"
 	"io"
 	"os"
 	"strings"
@@ -66,5 +67,24 @@ func TestStartPrivHelperInvalidCommand(t *testing.T) {
 	defer cancel()
 	if _, err := StartPrivHelper(ctx, client, "bad;cmd", zap.NewNop()); err == nil || !strings.Contains(err.Error(), "invalid characters") {
 		t.Fatalf("expected invalid characters error, got %v", err)
+	}
+}
+
+type shortWriteCloser struct{}
+
+func (shortWriteCloser) Write(p []byte) (int, error) {
+	if len(p) == 0 {
+		return 0, nil
+	}
+	return len(p) - 1, nil
+}
+
+func (shortWriteCloser) Close() error { return nil }
+
+func TestPrivHelperSendShortWrite(t *testing.T) {
+	c := &PrivHelperClient{stdin: shortWriteCloser{}, logger: zap.NewNop()}
+	err := c.Send(0, []byte("data"))
+	if !errors.Is(err, io.ErrShortWrite) {
+		t.Fatalf("expected io.ErrShortWrite, got %v", err)
 	}
 }

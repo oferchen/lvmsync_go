@@ -75,8 +75,15 @@ func (c *PrivHelperClient) send(offset uint64, payload []byte, hash [32]byte) er
 	}
 	buf.Write(hash[:])
 	buf.Write(payload)
-	_, err := c.stdin.Write(buf.Bytes())
-	return err
+	data := buf.Bytes()
+	n, err := c.stdin.Write(data)
+	if err != nil {
+		return err
+	}
+	if n != len(data) {
+		return io.ErrShortWrite
+	}
+	return nil
 }
 
 // Send queues a write operation at the given offset with the provided payload.
