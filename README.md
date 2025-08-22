@@ -577,6 +577,31 @@ specifies `LVMSYNC_DEDUP_STRATEGY=checksum`, running
 `lvmsync --dedup-strategy auto` resolves to `auto`. Likewise,
 `--transport quic` overrides `LVMSYNC_TRANSPORT_TRANSPORT=ssh` and the
 `transport` key in `config.yaml`.
+
+`--sanitize-env` and filesystem freeze/thaw commands follow the same precedence. With a `config.yaml` containing:
+
+```yaml
+fs-freeze-command: "/usr/sbin/fsfreeze -f '/mnt/yaml dir'"
+fs-thaw-command: "/usr/sbin/fsfreeze -u '/mnt/yaml dir'"
+sanitize_env: false
+```
+
+```sh
+export LVMSYNC_FS_FREEZE_COMMAND="/usr/sbin/fsfreeze -f '/mnt/env dir'"
+export LVMSYNC_FS_THAW_COMMAND="/usr/sbin/fsfreeze -u '/mnt/env dir'"
+export LVMSYNC_SANITIZE_ENV=0
+```
+
+Running:
+
+```sh
+lvmsync --fs-freeze-command "/usr/sbin/fsfreeze -f '/mnt/flag dir'" \
+        --fs-thaw-command "/usr/sbin/fsfreeze -u '/mnt/flag dir'" \
+        --sanitize-env run /dev/sdb /tmp/dump
+```
+
+uses the flag-supplied command paths and enables sanitization.
+
 For boolean options, the same precedence applies. If `config.yaml`
 specifies `check_partition: true` but `LVMSYNC_CHECK_PARTITION=false` is
 set, `lvmsync --check-partition` enables the check. Omitting the flag

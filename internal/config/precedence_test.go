@@ -769,3 +769,60 @@ func TestTransportEnvOverridesYAML(t *testing.T) {
 		t.Fatalf("Transport=%q want %q", cfg.Transport, "ssh")
 	}
 }
+
+func TestFSFreezeCommandFlagOverridesEnvAndYAML(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("default: %v", err)
+	}
+	b := NewBuilder(defaults)
+	dir := t.TempDir()
+	cfgFile := filepath.Join(dir, "cfg.yaml")
+	yaml := "fs-freeze-command: \"/bin/echo yaml freeze\"\nfs-thaw-command: \"/bin/echo yaml thaw\"\n"
+	if err := os.WriteFile(cfgFile, []byte(yaml), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	t.Setenv("LVMSYNC_FS_FREEZE_COMMAND", "/bin/echo 'env freeze'")
+	t.Setenv("LVMSYNC_FS_THAW_COMMAND", "/bin/echo 'env thaw'")
+	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	args := []string{"--config", cfgFile, "--fs-freeze-command", "/bin/echo 'flag freeze'", "--fs-thaw-command", "/bin/echo 'flag thaw'"}
+	cfg, _, _, err := b.Build(fs, args)
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	if cfg.FSFreezeCommand != "/bin/echo 'flag freeze'" {
+		t.Fatalf("FSFreezeCommand=%q want %q", cfg.FSFreezeCommand, "/bin/echo 'flag freeze'")
+	}
+	if cfg.FSThawCommand != "/bin/echo 'flag thaw'" {
+		t.Fatalf("FSThawCommand=%q want %q", cfg.FSThawCommand, "/bin/echo 'flag thaw'")
+	}
+}
+
+func TestFSFreezeCommandEnvOverridesYAML(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	defaults, err := DefaultConfig()
+	if err != nil {
+		t.Fatalf("default: %v", err)
+	}
+	b := NewBuilder(defaults)
+	dir := t.TempDir()
+	cfgFile := filepath.Join(dir, "cfg.yaml")
+	yaml := "fs-freeze-command: \"/bin/echo yaml freeze\"\nfs-thaw-command: \"/bin/echo yaml thaw\"\n"
+	if err := os.WriteFile(cfgFile, []byte(yaml), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	t.Setenv("LVMSYNC_FS_FREEZE_COMMAND", "/bin/echo 'env freeze'")
+	t.Setenv("LVMSYNC_FS_THAW_COMMAND", "/bin/echo 'env thaw'")
+	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	cfg, _, _, err := b.Build(fs, []string{"--config", cfgFile})
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	if cfg.FSFreezeCommand != "/bin/echo 'env freeze'" {
+		t.Fatalf("FSFreezeCommand=%q want %q", cfg.FSFreezeCommand, "/bin/echo 'env freeze'")
+	}
+	if cfg.FSThawCommand != "/bin/echo 'env thaw'" {
+		t.Fatalf("FSThawCommand=%q want %q", cfg.FSThawCommand, "/bin/echo 'env thaw'")
+	}
+}
