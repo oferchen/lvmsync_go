@@ -89,6 +89,9 @@ jobs:
       - name: Go test with race detector
         run: go test -race -coverprofile=coverage.out ./...
 
+      - name: Root tests
+        run: sudo make test-root
+
       - name: Show coverage
         run: go tool cover -func=coverage.out | tail -n 1
 

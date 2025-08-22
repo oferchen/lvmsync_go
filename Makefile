@@ -1,5 +1,5 @@
 .RECIPEPREFIX := >
-.PHONY: deps build test lint verify coverage bench bench-lan bench-wan vet staticcheck test-race integration release docs-check
+.PHONY: deps build test lint verify coverage bench bench-lan bench-wan vet staticcheck test-race integration release docs-check test-root
 
 deps:
 > scripts/check_deps.sh
@@ -10,6 +10,9 @@ build: deps
 
 test:
 > go test -coverprofile=coverage.out ./...
+
+test-root:
+> if [ "$$(id -u)" -eq 0 ]; then go test -tags=root ./escalate ./internal/privilege; else echo "skipping root tests"; fi
 
 coverage:
 > go test -coverprofile=coverage.out ./...
