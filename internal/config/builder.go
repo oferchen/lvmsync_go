@@ -111,17 +111,16 @@ func (b *ConfigBuilder) Build(fs *pflag.FlagSet, args []string) (*Config, []stri
 		}
 	}
 	if cfg.AllowInsecure {
-		_, envSet := os.LookupEnv("LVMSYNC_ALLOW_INSECURE")
 		flagSet := false
 		if f := fs.Lookup("allow-insecure"); f != nil && f.Changed {
 			flagSet = true
 		}
-		if !envSet && !flagSet {
-			return nil, nil, warns, fmt.Errorf("allow_insecure requires --allow-insecure flag or LVMSYNC_ALLOW_INSECURE environment variable")
+		if !flagSet {
+			return nil, nil, warns, fmt.Errorf("allow_insecure requires --allow-insecure flag")
 		}
 		warns = append(warns, "allow_insecure enabled; security checks disabled")
 	} else if allowInsecureYAML {
-		return nil, nil, warns, fmt.Errorf("allow_insecure requires --allow-insecure flag or LVMSYNC_ALLOW_INSECURE environment variable")
+		return nil, nil, warns, fmt.Errorf("allow_insecure requires --allow-insecure flag")
 	}
 	sort.Strings(warns)
 	if strict && len(warns) > 0 {

@@ -56,9 +56,8 @@ explicitly restrict `tls.Config.CipherSuites` to
 these ciphers. TLS transports require an explicit set of trusted CA roots.
 Connections are rejected if no roots are provided unless the transport
 configuration sets `AllowInsecure` and the user explicitly acknowledges the risk
-with the `--allow-insecure` flag or `LVMSYNC_ALLOW_INSECURE` environment
-variable. This disables certificate verification, logs a warning, and should be
-used only in development.
+with the `--allow-insecure` flag. This disables certificate verification, logs a
+warning, and should be used only in development.
 
 ## Examples
 

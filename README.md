@@ -563,8 +563,7 @@ first):
 
 This precedence applies to duration timeouts, filesystem paths, and security
 flags. Unknown keys in `config.yaml` generate warnings, and settings like
-`allow_insecure` must be explicitly acknowledged via flag or environment
-variable.
+`allow_insecure` must be explicitly acknowledged via the flag.
 
 Environment variables use the flag name in uppercase with underscores, e.g.:
 
@@ -732,7 +731,7 @@ Flags override environment variables, which override `config.yaml` values.
 | `--client-cert` | `LVMSYNC_CLIENT_CERT` | `client_cert` | Client TLS certificate file |
 | `--client-key` | `LVMSYNC_CLIENT_KEY` | `client_key` | Client TLS key file |
 | `--ca-cert` | `LVMSYNC_CA_CERT` | `ca_cert` | CA certificate file |
-| `--allow-insecure` | `LVMSYNC_ALLOW_INSECURE` | `allow_insecure` | Allow insecure (no TLS) |
+| `--allow-insecure` | - | `allow_insecure` | Allow insecure (no TLS) |
 
 If `--ssh-key` is empty, lvmsync contacts the SSH agent referenced by `SSH_AUTH_SOCK`. The agent connection uses `--ssh-timeout` as its deadline.
 SSH transport negotiation also derives read and write deadlines from the caller's context; when the context expires, the handshake fails quickly and deadlines are cleared afterward.
@@ -832,9 +831,9 @@ transports to attempt (for example `ssh,tcp+tls,h2,quic`). The `quic` transport 
 authentication, negotiates the `lvmsync` ALPN, and exposes both bidirectional streams and datagrams. The `h2`
 transport also requires TLS 1.3 with client certificates and negotiates the `h2` ALPN. Provide certificates via
 `--server-cert`, `--server-key`, `--client-cert`, `--client-key`, and `--ca-cert`. TLS transports require a trusted CA certificate and refuse
-connections when no roots are provided unless insecure mode is explicitly acknowledged with the `--allow-insecure`
-flag or the `LVMSYNC_ALLOW_INSECURE` environment variable. This bypasses certificate verification and is intended
-for development only; configuration files alone cannot enable it. Client certificates must be supplied explicitly;
+connections when no roots are provided unless insecure mode is explicitly acknowledged with the `--allow-insecure` flag.
+This bypasses certificate verification and is intended for development only; configuration files alone cannot enable it.
+Client certificates must be supplied explicitly;
 transports no longer generate self-signed certificates automatically. The [transport documentation](docs/transports.md) covers each option in depth. The flags below
 configure transport behavior.
 

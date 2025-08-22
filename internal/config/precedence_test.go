@@ -564,7 +564,7 @@ func TestCompressThresholdEnvOverridesYAML(t *testing.T) {
 		t.Fatalf("CompressThreshold=%v want %v", cfg.CompressThreshold, 0.6)
 	}
 }
-func TestAllowInsecureFlagOverridesEnvAndYAML(t *testing.T) {
+func TestAllowInsecureFlagOverridesYAML(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	defaults, err := DefaultConfig()
 	if err != nil {
@@ -576,32 +576,8 @@ func TestAllowInsecureFlagOverridesEnvAndYAML(t *testing.T) {
 	if err := os.WriteFile(cfgFile, []byte("allow_insecure: false\n"), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
-	t.Setenv("LVMSYNC_ALLOW_INSECURE", "true")
 	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
-	cfg, _, _, err := b.Build(fs, []string{"--config", cfgFile, "--allow-insecure=false"})
-	if err != nil {
-		t.Fatalf("build: %v", err)
-	}
-	if cfg.AllowInsecure {
-		t.Fatalf("AllowInsecure=%v want %v", cfg.AllowInsecure, false)
-	}
-}
-
-func TestAllowInsecureEnvOverridesYAML(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
-	defaults, err := DefaultConfig()
-	if err != nil {
-		t.Fatalf("default: %v", err)
-	}
-	b := NewBuilder(defaults)
-	dir := t.TempDir()
-	cfgFile := filepath.Join(dir, "cfg.yaml")
-	if err := os.WriteFile(cfgFile, []byte("allow_insecure: false\n"), 0o644); err != nil {
-		t.Fatalf("write config: %v", err)
-	}
-	t.Setenv("LVMSYNC_ALLOW_INSECURE", "true")
-	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
-	cfg, _, _, err := b.Build(fs, []string{"--config", cfgFile})
+	cfg, _, _, err := b.Build(fs, []string{"--config", cfgFile, "--allow-insecure"})
 	if err != nil {
 		t.Fatalf("build: %v", err)
 	}

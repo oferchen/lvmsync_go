@@ -2,7 +2,7 @@
 
 | ENV | Flag | YAML | Description |
 | --- | ---- | ---- | ----------- |
-| LVMSYNC_ALLOW_INSECURE | `--allow-insecure` | `allow-insecure` | allow insecure connections (disable TLS and host key verification) |
+| - | `--allow-insecure` | `allow-insecure` | allow insecure connections (disable TLS and host key verification) |
 | LVMSYNC_ALLOW_OVERWRITE | `--allow-overwrite` | `allow-overwrite` | Allow overwriting existing data; requires --yes-i-know for non-interactive sessions |
 | LVMSYNC_BLOCK_SIZE | `--block-size` | `block-size` | Block size for data transfer; specify 'auto' or 0 for automatic detection |
 | LVMSYNC_BLOOM_ENTRIES | `--bloom-entries` | `bloom-entries` | Bloom filter entries |
