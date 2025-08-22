@@ -589,6 +589,7 @@ dry_run: true
 ```
 
 running `LVMSYNC_DRY_RUN=true lvmsync run --dry-run=false src dst` performs a real transfer because the `--dry-run` flag overrides both the environment variable and the config file.
+running `LVMSYNC_DRY_RUN=true lvmsync verify --dry-run=false src dst` performs a full verification because the `--dry-run` flag overrides both the environment variable and the config file.
 
 A similar hierarchy applies to duration values:
 
