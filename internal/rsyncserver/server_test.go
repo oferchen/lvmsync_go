@@ -130,7 +130,32 @@ func TestNewNilLogger(t *testing.T) {
 }
 
 func TestHandleApplyDelta(t *testing.T) {
-	t.Skip("TODO: fix rsync server hang")
+	c1, c2 := net.Pipe()
+	defer c1.Close()
+	defer c2.Close()
+
+	data := []byte("hi")
+	dev := &memDevice{buf: make([]byte, len(data))}
+	srv := newServer(t, dev, data)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	errCh := make(chan error, 1)
+	go func() { errCh <- srv.Handle(ctx, rsyncwire.NewStream(c2, maxFrame)) }()
+
+	cl := rsyncwire.NewClient(rsyncwire.NewStream(c1, maxFrame))
+	sendIdentity(t, ctx, cl, device.DeviceIdentity{SizeBytes: uint64(len(dev.buf))})
+	sendDelta(t, ctx, cl, 0, data)
+	c1.Close()
+	cancel()
+	if err := waitHandle(t, errCh); err != nil {
+		t.Fatalf("Handle: %v", err)
+	}
+	if string(dev.buf) != string(data) {
+		t.Fatalf("device %q want %q", dev.buf, data)
+	}
+	if !dev.sync {
+		t.Fatalf("expected sync")
+	}
 }
 
 func TestHandleShortWrite(t *testing.T) {
