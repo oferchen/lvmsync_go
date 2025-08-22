@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"strings"
 	"sync"
@@ -158,22 +159,26 @@ func TestStartMissingCerts(t *testing.T) {
 
 func TestExitCodeMapping(t *testing.T) {
 	tests := []struct {
-		name string
-		err  error
-		code int
+		name    string
+		err     error
+		code    int
+		wantErr error
 	}{
-		{"success", nil, exitcode.OK},
-		{"config", errors.New("parse listen"), exitcode.ErrConfig},
-		{"runtime", errors.New("listen failed"), exitcode.ErrRuntime},
-		{"verify", errors.New("digest mismatch"), exitcode.ErrVerify},
-		{"partial", errors.New("received signal: interrupt"), exitcode.ErrPartial},
-		{"precondition", errors.New("precondition not met"), exitcode.ErrPrecondition},
-		{"resumable", errors.New("resumable: retry later"), exitcode.ErrResumable},
+		{"success", nil, exitcode.OK, nil},
+		{"config", fmt.Errorf("parse listen: %w", exitcode.ErrConfig), exitcode.Config, exitcode.ErrConfig},
+		{"runtime", fmt.Errorf("listen failed: %w", exitcode.ErrRuntime), exitcode.Runtime, exitcode.ErrRuntime},
+		{"verify", fmt.Errorf("digest mismatch: %w", exitcode.ErrVerify), exitcode.Verify, exitcode.ErrVerify},
+		{"partial", fmt.Errorf("received signal: %w", exitcode.ErrPartial), exitcode.Partial, exitcode.ErrPartial},
+		{"precondition", fmt.Errorf("precondition not met: %w", exitcode.ErrPrecondition), exitcode.Precondition, exitcode.ErrPrecondition},
+		{"resumable", fmt.Errorf("resumable: %w", exitcode.ErrResumable), exitcode.Resumable, exitcode.ErrResumable},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if c := rootcmd.ExitCode(tt.err); c != tt.code {
 				t.Fatalf("expected %d, got %d", tt.code, c)
+			}
+			if tt.wantErr != nil && !errors.Is(tt.err, tt.wantErr) {
+				t.Fatalf("expected error %v", tt.wantErr)
 			}
 		})
 	}

@@ -15,6 +15,7 @@ import (
 
 	"lvmsync_go/device"
 	"lvmsync_go/internal/config"
+	"lvmsync_go/internal/exitcode"
 	manifestpkg "lvmsync_go/manifest"
 )
 
@@ -77,8 +78,8 @@ func TestVerifyDestinationFirstBlockDigestMismatch(t *testing.T) {
 		t.Fatalf("write dest: %v", err)
 	}
 	cfg := &config.Config{FirstBlockDigest: strings.Repeat("00", 32)}
-	if _, _, _, err := tr.verifyDestination(context.Background(), cfg, dest); err == nil || !strings.Contains(err.Error(), "digest mismatch") {
-		t.Fatalf("expected digest mismatch, got %v", err)
+	if _, _, _, err := tr.verifyDestination(context.Background(), cfg, dest); err == nil || !errors.Is(err, exitcode.ErrVerify) {
+		t.Fatalf("expected verify error, got %v", err)
 	}
 }
 
@@ -114,7 +115,7 @@ func TestVerifyDestinationDeviceNumberMismatch(t *testing.T) {
 	}
 	f.Close()
 	cfg := &config.Config{ManifestPath: man}
-	if _, _, _, err := tr.verifyDestination(context.Background(), cfg, dest); err == nil || !strings.Contains(err.Error(), "number mismatch") {
-		t.Fatalf("expected device number mismatch, got %v", err)
+	if _, _, _, err := tr.verifyDestination(context.Background(), cfg, dest); err == nil || !errors.Is(err, exitcode.ErrPrecondition) {
+		t.Fatalf("expected precondition error, got %v", err)
 	}
 }

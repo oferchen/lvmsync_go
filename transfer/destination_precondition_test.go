@@ -47,7 +47,10 @@ func TestProcessDumpDataDeviceIDMismatchPrecondition(t *testing.T) {
 			if err == nil {
 				t.Fatalf("expected error for device mismatch")
 			}
-			if rootcmd.ExitCode(err) != exitcode.ErrPrecondition {
+			if !errors.Is(err, exitcode.ErrPrecondition) {
+				t.Fatalf("expected precondition error, got %v", err)
+			}
+			if rootcmd.ExitCode(err) != exitcode.Precondition {
 				t.Fatalf("expected precondition exit code, got %d: %v", rootcmd.ExitCode(err), err)
 			}
 			if logs.FilterMessage("device_id_mismatch").Len() == 0 {
@@ -99,7 +102,10 @@ func TestProcessDumpDataSizeMismatchPrecondition(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected size mismatch error")
 	}
-	if rootcmd.ExitCode(err) != exitcode.ErrPrecondition {
+	if !errors.Is(err, exitcode.ErrPrecondition) {
+		t.Fatalf("expected precondition error, got %v", err)
+	}
+	if rootcmd.ExitCode(err) != exitcode.Precondition {
 		t.Fatalf("expected precondition exit code, got %d: %v", rootcmd.ExitCode(err), err)
 	}
 	if logs.FilterMessage("device_size_mismatch").Len() == 0 {

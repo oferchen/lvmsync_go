@@ -353,25 +353,24 @@ func ExitCode(err error) int {
 	if err == nil {
 		return exitcode.OK
 	}
-	msg := err.Error()
 	switch {
-	case strings.Contains(msg, "privilege check"):
-		return exitcode.ErrCapability
-	case strings.Contains(msg, "parse") || strings.Contains(msg, "missing") || strings.Contains(msg, "required") || strings.Contains(msg, "invalid") || strings.Contains(msg, "config"):
-		return exitcode.ErrConfig
-	case strings.Contains(msg, "precondition"):
-		return exitcode.ErrPrecondition
-	case strings.Contains(msg, "resumable") || strings.Contains(msg, "resume"):
-		return exitcode.ErrResumable
-	case strings.Contains(msg, "snapshot exhausted"):
-		return exitcode.ErrSnapshotExhausted
-	case strings.Contains(msg, "device"):
-		return exitcode.ErrDevice
-	case strings.Contains(msg, "mismatch") || strings.Contains(msg, "blocks differ"):
-		return exitcode.ErrVerify
-	case strings.Contains(msg, "signal") || errors.Is(err, context.Canceled):
-		return exitcode.ErrPartial
+	case errors.Is(err, exitcode.ErrCapability):
+		return exitcode.Capability
+	case errors.Is(err, exitcode.ErrConfig):
+		return exitcode.Config
+	case errors.Is(err, exitcode.ErrPrecondition):
+		return exitcode.Precondition
+	case errors.Is(err, exitcode.ErrResumable):
+		return exitcode.Resumable
+	case errors.Is(err, exitcode.ErrSnapshotExhausted):
+		return exitcode.SnapshotExhausted
+	case errors.Is(err, exitcode.ErrDevice):
+		return exitcode.Device
+	case errors.Is(err, exitcode.ErrVerify):
+		return exitcode.Verify
+	case errors.Is(err, exitcode.ErrPartial) || errors.Is(err, context.Canceled):
+		return exitcode.Partial
 	default:
-		return exitcode.ErrRuntime
+		return exitcode.Runtime
 	}
 }

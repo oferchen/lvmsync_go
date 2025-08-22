@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
 
+	"lvmsync_go/internal/exitcode"
 	"lvmsync_go/internal/sizeparse"
 )
 
@@ -164,7 +165,7 @@ func (r *Runner) MonitorSnapshot(ctx context.Context, snapshotPath string, thres
 					zap.String("snapshot", snapshotPath),
 					zap.Float64("usage_percent", usage),
 					zap.Float64("threshold_percent", threshold))
-				return fmt.Errorf("snapshot exhausted: usage %.2f%% >= threshold %.2f%%", usage, threshold)
+				return fmt.Errorf("snapshot exhausted: usage %.2f%% >= threshold %.2f%%: %w", usage, threshold, exitcode.ErrSnapshotExhausted)
 			}
 		case <-ctx.Done():
 			logger.Info("snapshot monitoring stopped", zap.String("snapshot", snapshotPath))

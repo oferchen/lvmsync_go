@@ -15,6 +15,7 @@ import (
 	"lvmsync_go/common"
 	"lvmsync_go/device"
 	"lvmsync_go/internal/config"
+	"lvmsync_go/internal/exitcode"
 	manifestpkg "lvmsync_go/manifest"
 
 	"go.uber.org/zap"
@@ -62,8 +63,8 @@ func TestProcessDumpDataUUIDMismatch(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected error for uuid mismatch")
 	}
-	if !strings.Contains(err.Error(), "does not match expected") {
-		t.Fatalf("unexpected error: %v", err)
+	if !errors.Is(err, exitcode.ErrPrecondition) {
+		t.Fatalf("expected precondition error, got %v", err)
 	}
 	after, err := os.Stat(dest)
 	if err != nil {
@@ -114,8 +115,8 @@ func TestProcessDumpDataMountedDevice(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected error for mounted device")
 	}
-	if !strings.Contains(err.Error(), "mounted read-write") {
-		t.Fatalf("unexpected error: %v", err)
+	if !errors.Is(err, exitcode.ErrPrecondition) {
+		t.Fatalf("expected precondition error, got %v", err)
 	}
 	after, err := os.Stat(dest)
 	if err != nil {

@@ -6,6 +6,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"lvmsync_go/internal/exitcode"
 	"lvmsync_go/internal/privilege"
 )
 
@@ -26,14 +27,14 @@ func VerifyIdentity(ctx context.Context, info *Info, src, dest string) (err erro
 		return err
 	}
 	if sizeA != sizeB && !allow {
-		return fmt.Errorf("size mismatch")
+		return fmt.Errorf("size mismatch: %w", exitcode.ErrPrecondition)
 	}
 	match, err := info.IDsMatch(ctx, src, dest)
 	if err != nil {
 		return err
 	}
 	if !match && !allow {
-		return fmt.Errorf("uuid mismatch")
+		return fmt.Errorf("uuid mismatch: %w", exitcode.ErrPrecondition)
 	}
 	devA, err := info.detectFunc(ctx, src, true, "", "", "", "", 0, 0, privilege.New(ctx, zap.NewNop()), zap.NewNop(), NewRunner())
 	if err != nil {
@@ -62,13 +63,13 @@ func VerifyIdentity(ctx context.Context, info *Info, src, dest string) (err erro
 		return err
 	}
 	if idA.GPTUUID != idB.GPTUUID && !allow {
-		return fmt.Errorf("gpt uuid mismatch")
+		return fmt.Errorf("gpt uuid mismatch: %w", exitcode.ErrPrecondition)
 	}
 	if idA.MBRSignature != idB.MBRSignature && !allow {
-		return fmt.Errorf("mbr signature mismatch")
+		return fmt.Errorf("mbr signature mismatch: %w", exitcode.ErrPrecondition)
 	}
 	if idA.ManifestEpoch != idB.ManifestEpoch && !allow {
-		return fmt.Errorf("manifest epoch mismatch")
+		return fmt.Errorf("manifest epoch mismatch: %w", exitcode.ErrPrecondition)
 	}
 	return nil
 }
