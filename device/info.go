@@ -240,13 +240,18 @@ func defaultMountFunc(ctx context.Context, path string) (bool, error) {
 	}
 	matches := map[string]*mountinfo.Info{}
 	for _, mi := range infos {
-		if mi.Source == real || mi.Mountpoint == real || mi.Root == real {
-			if existing, ok := matches[mi.Root]; ok {
+		src := mi.Source
+		if resolved, err := filepath.EvalSymlinks(src); err == nil {
+			src = resolved
+		}
+		if src == real || mi.Mountpoint == real || mi.Root == real {
+			key := fmt.Sprintf("%d:%d:%s", mi.Major, mi.Minor, mi.Root)
+			if existing, ok := matches[key]; ok {
 				if !hasRW(existing.Options) && hasRW(mi.Options) {
-					matches[mi.Root] = mi
+					matches[key] = mi
 				}
 			} else {
-				matches[mi.Root] = mi
+				matches[key] = mi
 			}
 		}
 	}
