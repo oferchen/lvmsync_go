@@ -11,7 +11,7 @@ import (
 
 // TestWALCrashRecovery simulates crash scenarios and ensures WAL recovery.
 func TestWALCrashRecovery(t *testing.T) {
-	id := DeviceIdentity{SizeBytes: 128, KernelUUID: "k", GPTUUID: "g", MBRSignature: "", FSUUID: "f", Major: 1, Minor: 2, ManifestEpoch: 1}
+	id := DeviceIdentity{SizeBytes: 128, KernelUUID: "k", GPTUUID: "g", MBRSignature: "00000001", FSUUID: "f", Major: 1, Minor: 2, ManifestEpoch: 1}
 
 	t.Run("partial_header", func(t *testing.T) {
 		dir := t.TempDir()
@@ -144,5 +144,22 @@ func TestWALCrashRecovery(t *testing.T) {
 			t.Fatalf("unexpected ranges after resume %#v", rs)
 		}
 		w2.Close()
+	})
+
+	t.Run("mbr_mismatch", func(t *testing.T) {
+		dir := t.TempDir()
+		path := filepath.Join(dir, "wal")
+		w, err := OpenWAL(path, id, zap.NewNop(), nil)
+		if err != nil {
+			t.Fatalf("open wal: %v", err)
+		}
+		if err := w.Close(); err != nil {
+			t.Fatalf("close: %v", err)
+		}
+		badID := id
+		badID.MBRSignature = "00000002"
+		if _, err := OpenWAL(path, badID, zap.NewNop(), nil); err == nil {
+			t.Fatalf("expected mbr mismatch error")
+		}
 	})
 }
