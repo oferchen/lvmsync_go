@@ -142,6 +142,8 @@ func (c *PrivHelperClient) RecvAck(ctx context.Context) (bool, error) {
 				return false, ctxErr
 			}
 			if ne, ok := r.err.(net.Error); ok && ne.Timeout() {
+				// Surface context.DeadlineExceeded to callers when the read
+				// times out before the context's deadline expires.
 				return false, errors.Join(context.DeadlineExceeded, r.err)
 			}
 			return false, r.err
