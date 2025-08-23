@@ -129,6 +129,31 @@ func TestSelectAlgorithmExplicitOverride(t *testing.T) {
 	}
 }
 
+func TestCompressChunkSelectsAlgorithmBySize(t *testing.T) {
+	origAVX2, origNEON := hasAVX2, hasNEON
+	defer func() { hasAVX2, hasNEON = origAVX2, origNEON }()
+	hasAVX2 = func() bool { return true }
+	hasNEON = func() bool { return false }
+
+	small := bytes.Repeat([]byte{0}, 128*1024)
+	_, algo, err := CompressChunk(small, StrategyAuto, 0, 0, 1, 0.8, zap.NewNop())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if algo != compressionLZ4 {
+		t.Fatalf("expected lz4 for <256KiB, got %s", algo)
+	}
+
+	large := bytes.Repeat([]byte{0}, 512*1024)
+	_, algo, err = CompressChunk(large, StrategyAuto, 0, 0, 1, 0.8, zap.NewNop())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if algo != compressionZSTD {
+		t.Fatalf("expected zstd for >=256KiB with SIMD, got %s", algo)
+	}
+}
+
 func TestCompressionSkipsWhenRatioAtThreshold(t *testing.T) {
 	origAVX2, origNEON := hasAVX2, hasNEON
 	hasAVX2 = func() bool { return false }

@@ -20,6 +20,14 @@ LVMSync compresses data on a per‑chunk basis. Each chunk passes through a clas
 
 Compression levels are tuned with `--zstd-level 1..5` or `--lz4-level {fast|hc}`.
 
+### Selection Matrix
+
+| Chunk size      | CPU features      | Algorithm | Level mapping                           |
+|-----------------|-------------------|-----------|-----------------------------------------|
+| `<256` KiB      | Any               | LZ4       | level1 when `--lz4-level` is `0`        |
+| `≥256` KiB      | AVX2 or NEON      | Zstd      | default `1`; values `>3` cap to `3`     |
+| `≥256` KiB      | Neither detected  | LZ4       | level1 when `--lz4-level` is `0`        |
+
 ## Dictionary Training
 
 Early chunks seed a dictionary which is reused for subsequent blocks. The dictionary is trained from sampled data so small or repetitive chunks compress efficiently. Both LZ4 and Zstd dictionaries are supported.
