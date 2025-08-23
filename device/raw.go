@@ -16,6 +16,7 @@ import (
 	"golang.org/x/sys/unix"
 	"golang.org/x/term"
 
+	"lvmsync_go/internal/exitcode"
 	"lvmsync_go/internal/privilege"
 	"lvmsync_go/remote"
 )
@@ -56,13 +57,13 @@ func prepareFreeze(
 		return false, nil
 	}
 	if fsFreezeCmdPath == "" || fsThawCmdPath == "" {
-		return false, fmt.Errorf("raw sources require --offline or --fs-freeze-command/--fs-thaw-command")
+		return false, fmt.Errorf("raw sources require --offline or --fs-freeze-command/--fs-thaw-command: %w", fmt.Errorf("precondition: %w", exitcode.ErrPrecondition))
 	}
 	if err := ValidateCmd(fsFreezeCmdPath, fsFreezeCmdArgs); err != nil {
-		return false, fmt.Errorf("invalid freeze command: %w", err)
+		return false, fmt.Errorf("invalid freeze command: %w", fmt.Errorf("precondition: %w", exitcode.ErrPrecondition))
 	}
 	if err := ValidateCmd(fsThawCmdPath, fsThawCmdArgs); err != nil {
-		return false, fmt.Errorf("invalid thaw command: %w", err)
+		return false, fmt.Errorf("invalid thaw command: %w", fmt.Errorf("precondition: %w", exitcode.ErrPrecondition))
 	}
 	logger.Info("fs_freeze_start", zap.String("command", fsFreezeCmdPath), zap.Strings("args", fsFreezeCmdArgs))
 	freezeCtx := ctx
@@ -271,7 +272,7 @@ func (d *RawDevice) Cleanup(ctx context.Context) error {
 	if d.freezeIssued {
 		if err := ValidateCmd(d.thawCmdPath, d.thawCmdArgs); err != nil {
 			d.logger.Error("fs_thaw_failed", zap.Error(err))
-			return fmt.Errorf("invalid thaw command: %w", err)
+			return fmt.Errorf("invalid thaw command: %w", fmt.Errorf("precondition: %w", exitcode.ErrPrecondition))
 		}
 		d.logger.Info("fs_thaw_start", zap.String("command", d.thawCmdPath), zap.Strings("args", d.thawCmdArgs))
 		thawCtx := ctx
