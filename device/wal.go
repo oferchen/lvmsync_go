@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/zeebo/blake3"
 	"go.uber.org/zap"
+	walpkg "lvmsync_go/internal/wal"
 )
 
 const (
@@ -77,38 +77,19 @@ type walHeaderV0 struct {
 	MAC    [32]byte
 }
 
-type walFile interface {
-	io.ReaderAt
-	io.Writer
-	io.WriterAt
-	io.Seeker
-	Sync() error
-	Truncate(int64) error
-	Close() error
-	Stat() (fs.FileInfo, error)
-	Name() string
-}
-
 // ErrWALMetadataMismatch indicates the WAL header identity does not match the
 // provided device identity.
 var ErrWALMetadataMismatch = errors.New("wal metadata mismatch")
 
 type WAL struct {
-	f      walFile
+	*walpkg.WAL
 	header walHeader
 	ranges []Range
-	deps   *WALDeps
 }
 
-// WALDeps bundles filesystem interactions for WAL operations.
-type WALDeps struct {
-	syncDir func(string) error
-}
+type WALDeps = walpkg.Deps
 
-// NewWALDeps returns production dependencies.
-func NewWALDeps() *WALDeps {
-	return &WALDeps{syncDir: syncDir}
-}
+func NewWALDeps() *WALDeps { return walpkg.NewDeps() }
 
 func walHeaderMAC(h *walHeader) [32]byte {
 	var buf [8 + 8 + 8 + 4 + 4 + 64 + 64 + 4 + 64]byte
@@ -184,7 +165,7 @@ func OpenWAL(path string, id DeviceIdentity, logger *zap.Logger, deps *WALDeps) 
 		f.Close()
 		return nil, err
 	}
-	w := &WAL{f: f, deps: deps}
+	w := &WAL{WAL: walpkg.New(f, deps)}
 	if st.Size() < walHeaderV0Size {
 		if st.Size() > 0 {
 			if err := f.Truncate(0); err != nil {
@@ -231,7 +212,7 @@ func OpenWAL(path string, id DeviceIdentity, logger *zap.Logger, deps *WALDeps) 
 			f.Close()
 			return nil, err
 		}
-		if err := deps.syncDir(filepath.Dir(path)); err != nil {
+		if err := deps.SyncDir(filepath.Dir(path)); err != nil {
 			f.Close()
 			return nil, err
 		}
@@ -702,66 +683,11 @@ func OpenWAL(path string, id DeviceIdentity, logger *zap.Logger, deps *WALDeps) 
 // written to `<path>.tmp`, fsynced, atomically renamed to the WAL path, and the
 // directory is fsynced before returning.
 func (w *WAL) Append(r Range) error {
-	name := w.f.Name()
-	tmpPath := name + ".tmp"
-	tf, err := os.OpenFile(tmpPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
-	if err != nil {
+	if err := w.WAL.Append(r); err != nil {
 		return err
 	}
-	if _, err := w.f.Seek(0, 0); err != nil {
-		tf.Close()
-		os.Remove(tmpPath)
-		return err
-	}
-	st, err := w.f.Stat()
-	if err != nil {
-		tf.Close()
-		os.Remove(tmpPath)
-		return err
-	}
-	if _, err := io.Copy(tf, io.NewSectionReader(w.f, 0, st.Size())); err != nil {
-		tf.Close()
-		os.Remove(tmpPath)
-		return err
-	}
-	var buf [16]byte
-	binary.LittleEndian.PutUint64(buf[0:8], r.Start)
-	binary.LittleEndian.PutUint64(buf[8:16], r.End)
-	if n, err := tf.Write(buf[:]); err != nil {
-		tf.Close()
-		os.Remove(tmpPath)
-		return err
-	} else if n != len(buf) {
-		tf.Close()
-		os.Remove(tmpPath)
-		return fmt.Errorf("wal: short write: wrote %d of %d bytes", n, len(buf))
-	}
-	if err := tf.Sync(); err != nil {
-		tf.Close()
-		os.Remove(tmpPath)
-		return err
-	}
-	if err := tf.Close(); err != nil {
-		os.Remove(tmpPath)
-		return err
-	}
-	if err := w.f.Close(); err != nil {
-		return err
-	}
-	if err := os.Rename(tmpPath, name); err != nil {
-		return err
-	}
-	nf, err := os.OpenFile(name, os.O_RDWR, 0)
-	if err != nil {
-		return err
-	}
-	if _, err := nf.Seek(0, io.SeekEnd); err != nil {
-		nf.Close()
-		return err
-	}
-	w.f = nf
 	w.ranges = append(w.ranges, r)
-	return w.deps.syncDir(filepath.Dir(name))
+	return nil
 }
 
 // Ranges returns the ranges recorded in the WAL.
@@ -778,26 +704,5 @@ func (w *WAL) Has(start, end uint64) bool {
 }
 
 func (w *WAL) Close() error {
-	if w.f == nil {
-		return nil
-	}
-	if err := w.f.Sync(); err != nil {
-		w.f.Close()
-		return err
-	}
-	name := w.f.Name()
-	if err := w.f.Close(); err != nil {
-		return err
-	}
-	w.f = nil
-	return w.deps.syncDir(filepath.Dir(name))
-}
-
-func syncDir(path string) error {
-	d, err := os.Open(path)
-	if err != nil {
-		return err
-	}
-	defer d.Close()
-	return d.Sync()
+	return w.WAL.Close()
 }

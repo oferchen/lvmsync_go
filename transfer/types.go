@@ -1,10 +1,9 @@
 // transfer/types.go
 package transfer
 
-type Range struct {
-	Start uint64
-	End   uint64
-}
+import wal "lvmsync_go/internal/wal"
+
+type Range = wal.Range
 
 type BlockTask struct {
 	Index int
