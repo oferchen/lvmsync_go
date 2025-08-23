@@ -448,6 +448,55 @@ func TestDefaultMountFuncBindMountMountpoint(t *testing.T) {
 	}
 }
 
+func TestDefaultMountFuncBindMountSubdir(t *testing.T) {
+	dev, err := os.CreateTemp("", "dev")
+	if err != nil {
+		t.Fatalf("create device: %v", err)
+	}
+	defer os.Remove(dev.Name())
+	dev.Close()
+
+	dir := t.TempDir()
+	src := filepath.Join(dir, "src")
+	sub := filepath.Join(src, "sub")
+	bind := filepath.Join(dir, "bind")
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatalf("mkdir sub: %v", err)
+	}
+	if err := os.Mkdir(bind, 0o755); err != nil {
+		t.Fatalf("mkdir bind: %v", err)
+	}
+	fpath := filepath.Join(sub, "file")
+	if err := os.WriteFile(fpath, []byte("data"), 0o644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+
+	mounts, err := os.CreateTemp("", "mountinfo")
+	if err != nil {
+		t.Fatalf("create mountinfo: %v", err)
+	}
+	escaped := strings.ReplaceAll(dev.Name(), " ", "\\040")
+	base := fmt.Sprintf("42 24 0:0 / %s ro,relatime - ext4 %s ro\n", src, escaped)
+	bm := fmt.Sprintf("43 24 0:0 %s %s rw,bind - ext4 %s rw\n", sub, bind, escaped)
+	if _, err := mounts.WriteString(base + bm); err != nil {
+		t.Fatalf("write mountinfo: %v", err)
+	}
+	mounts.Close()
+	defer os.Remove(mounts.Name())
+
+	info := NewInfo()
+	prev := info.SetMountFunc(mountFuncFromMountInfoFile(mounts.Name()))
+	defer info.SetMountFunc(prev)
+
+	got, err := info.IsMountedRW(context.Background(), fpath)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !got {
+		t.Fatalf("expected mounted read-write")
+	}
+}
+
 func TestDefaultMountFuncRepeatedDeviceEntries(t *testing.T) {
 	dev, err := os.CreateTemp("", "dev")
 	if err != nil {
@@ -520,6 +569,96 @@ func TestDefaultMountFuncRepeatedDeviceEntriesAllRO(t *testing.T) {
 	defer info.SetMountFunc(prev)
 
 	got, err := info.IsMountedRW(context.Background(), mp)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got {
+		t.Fatalf("expected not mounted read-write")
+	}
+}
+
+func TestDefaultMountFuncRepeatedDeviceEntriesSubdir(t *testing.T) {
+	dev, err := os.CreateTemp("", "dev")
+	if err != nil {
+		t.Fatalf("create device: %v", err)
+	}
+	defer os.Remove(dev.Name())
+	dev.Close()
+
+	dir := t.TempDir()
+	mp := filepath.Join(dir, "mnt")
+	sub := filepath.Join(mp, "sub")
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatalf("mkdir sub: %v", err)
+	}
+	fpath := filepath.Join(sub, "file")
+	if err := os.WriteFile(fpath, []byte("data"), 0o644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+
+	mounts, err := os.CreateTemp("", "mountinfo")
+	if err != nil {
+		t.Fatalf("create mountinfo: %v", err)
+	}
+	escaped := strings.ReplaceAll(dev.Name(), " ", "\\040")
+	line1 := fmt.Sprintf("42 24 0:0 / %s ro,relatime - ext4 %s rw\n", mp, escaped)
+	line2 := fmt.Sprintf("43 24 0:0 / %s rw,relatime - ext4 %s rw\n", mp, escaped)
+	if _, err := mounts.WriteString(line1 + line2); err != nil {
+		t.Fatalf("write mountinfo: %v", err)
+	}
+	mounts.Close()
+	defer os.Remove(mounts.Name())
+
+	info := NewInfo()
+	prev := info.SetMountFunc(mountFuncFromMountInfoFile(mounts.Name()))
+	defer info.SetMountFunc(prev)
+
+	got, err := info.IsMountedRW(context.Background(), fpath)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !got {
+		t.Fatalf("expected mounted read-write")
+	}
+}
+
+func TestDefaultMountFuncRepeatedDeviceEntriesSubdirAllRO(t *testing.T) {
+	dev, err := os.CreateTemp("", "dev")
+	if err != nil {
+		t.Fatalf("create device: %v", err)
+	}
+	defer os.Remove(dev.Name())
+	dev.Close()
+
+	dir := t.TempDir()
+	mp := filepath.Join(dir, "mnt")
+	sub := filepath.Join(mp, "sub")
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatalf("mkdir sub: %v", err)
+	}
+	fpath := filepath.Join(sub, "file")
+	if err := os.WriteFile(fpath, []byte("data"), 0o644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+
+	mounts, err := os.CreateTemp("", "mountinfo")
+	if err != nil {
+		t.Fatalf("create mountinfo: %v", err)
+	}
+	escaped := strings.ReplaceAll(dev.Name(), " ", "\\040")
+	line1 := fmt.Sprintf("42 24 0:0 / %s ro,relatime - ext4 %s rw\n", mp, escaped)
+	line2 := fmt.Sprintf("43 24 0:0 / %s ro,relatime - ext4 %s rw\n", mp, escaped)
+	if _, err := mounts.WriteString(line1 + line2); err != nil {
+		t.Fatalf("write mountinfo: %v", err)
+	}
+	mounts.Close()
+	defer os.Remove(mounts.Name())
+
+	info := NewInfo()
+	prev := info.SetMountFunc(mountFuncFromMountInfoFile(mounts.Name()))
+	defer info.SetMountFunc(prev)
+
+	got, err := info.IsMountedRW(context.Background(), fpath)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -678,7 +817,7 @@ func mountFuncFromMountInfoFile(p string) func(context.Context, string) (bool, e
 			if resolved, err := filepath.EvalSymlinks(src); err == nil {
 				src = resolved
 			}
-			if src == real || mi.Mountpoint == real || mi.Root == real {
+			if src == real || pathWithin(mi.Mountpoint, real) || (mi.Root != "/" && pathWithin(mi.Root, real)) {
 				key := fmt.Sprintf("%d:%d:%s", mi.Major, mi.Minor, mi.Root)
 				if existing, ok := matches[key]; ok {
 					if !hasRW(existing.Options) && hasRW(mi.Options) {
