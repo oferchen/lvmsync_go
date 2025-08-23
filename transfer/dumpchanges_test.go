@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"lvmsync_go/common"
+	"lvmsync_go/device"
 	"lvmsync_go/internal/config"
 
 	"go.uber.org/zap"
@@ -51,7 +52,7 @@ func parseOffsetsNoHandshake(t *testing.T, r io.Reader) []int64 {
 }
 
 func TestDumpChangesSequential(t *testing.T) {
-	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, nil)
+	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, device.NewInfoWithDeps(nil, nil, func(context.Context, string) (bool, error) { return false, nil }, nil, nil))
 	blockSize := int64(1024)
 	changed := []int{0, 2}
 	src, snapshot := createDumpTestFiles(t, blockSize, changed)
@@ -130,7 +131,7 @@ func TestDumpChangesParallelProgress(t *testing.T) {
 }
 
 func TestProcessDumpDataAutoDecompression(t *testing.T) {
-	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, nil)
+	tr := NewTransfer(zap.NewNop(), &sync.WaitGroup{}, device.NewInfoWithDeps(nil, nil, func(context.Context, string) (bool, error) { return false, nil }, nil, nil))
 	blockSize := int64(1024)
 	changed := []int{0}
 	src, snapshot := createDumpTestFiles(t, blockSize, changed)
