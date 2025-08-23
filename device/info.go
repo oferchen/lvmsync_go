@@ -244,7 +244,7 @@ func defaultMountFunc(ctx context.Context, path string) (bool, error) {
 		if resolved, err := filepath.EvalSymlinks(src); err == nil {
 			src = resolved
 		}
-		if src == real || mi.Mountpoint == real || mi.Root == real {
+		if src == real || pathWithin(mi.Mountpoint, real) || (mi.Root != "/" && pathWithin(mi.Root, real)) {
 			key := fmt.Sprintf("%d:%d:%s", mi.Major, mi.Minor, mi.Root)
 			if existing, ok := matches[key]; ok {
 				if !hasRW(existing.Options) && hasRW(mi.Options) {
@@ -268,6 +268,18 @@ func defaultMountFunc(ctx context.Context, path string) (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+func pathWithin(base, p string) bool {
+	base = filepath.Clean(base)
+	p = filepath.Clean(p)
+	if base == "/" {
+		return true
+	}
+	if p == base {
+		return true
+	}
+	return strings.HasPrefix(p, base+string(filepath.Separator))
 }
 
 func hasRW(opts string) bool {
