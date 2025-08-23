@@ -55,7 +55,10 @@ func NewCDCDedupWithDeps(cfg *config.Config, deps *Deps) (*CDCDedup, error) {
 	}
 	if cfg.BloomMBits > 0 {
 		size := 1 << (cfg.BloomMBits - 3)
-		f, err := os.OpenFile(cfg.DedupStateFile+".idx", os.O_RDWR|os.O_CREATE, 0o600)
+		// Truncate the index file on each run to discard stale bits from previous
+		// transfers. The mmap is recreated against a zero-filled file to avoid
+		// false hits when reusing Bloom state.
+		f, err := os.OpenFile(cfg.DedupStateFile+".idx", os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600)
 		if err == nil {
 			if err := f.Truncate(int64(size)); err == nil {
 				data, err := unix.Mmap(int(f.Fd()), 0, size, unix.PROT_READ|unix.PROT_WRITE, unix.MAP_SHARED)

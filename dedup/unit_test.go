@@ -1,12 +1,17 @@
-package dedup
+package dedup_test
 
 import (
 	"bytes"
 	"encoding/hex"
 	"io"
+	"os"
+	"path/filepath"
 	"testing"
 
+	"lvmsync_go/dedup"
 	"lvmsync_go/hash"
+	"lvmsync_go/internal/config"
+	transfer "lvmsync_go/transfer"
 )
 
 func TestHasher(t *testing.T) {
@@ -39,7 +44,7 @@ func TestHasher(t *testing.T) {
 }
 
 func TestBloom(t *testing.T) {
-	b, err := NewBloom(1000, 0.01)
+	b, err := dedup.NewBloom(1000, 0.01)
 	if err != nil {
 		t.Fatalf("new bloom: %v", err)
 	}
@@ -55,7 +60,7 @@ func TestBloom(t *testing.T) {
 func TestBloomInvalidFpRate(t *testing.T) {
 	cases := []float64{0, 1, -0.5, 1.5}
 	for _, fp := range cases {
-		if _, err := NewBloom(1000, fp); err == nil {
+		if _, err := dedup.NewBloom(1000, fp); err == nil {
 			t.Fatalf("expected error for fpRate %v", fp)
 		}
 	}
@@ -63,7 +68,7 @@ func TestBloomInvalidFpRate(t *testing.T) {
 
 func TestChunkerBounds(t *testing.T) {
 	data := bytes.Repeat([]byte("a"), 1<<20)
-	ch, err := NewChunker(64, 128, 256)
+	ch, err := dedup.NewChunker(64, 128, 256)
 	if err != nil {
 		t.Fatalf("new chunker: %v", err)
 	}
@@ -84,7 +89,7 @@ func TestChunkerBounds(t *testing.T) {
 
 func TestFastCDC(t *testing.T) {
 	data := bytes.Repeat([]byte("a"), 1<<16)
-	chunks, err := FastCDC(bytes.NewReader(data), 64, 128, 256)
+	chunks, err := dedup.FastCDC(bytes.NewReader(data), 64, 128, 256)
 	if err != nil {
 		t.Fatalf("FastCDC failed: %v", err)
 	}
@@ -99,31 +104,31 @@ func TestFastCDC(t *testing.T) {
 }
 
 func TestBloomSizing(t *testing.T) {
-	max, err := MaxChunks(1<<30, 0.01)
+	max, err := dedup.MaxChunks(1<<30, 0.01)
 	if err != nil {
 		t.Fatalf("MaxChunks: %v", err)
 	}
 	if max == 0 {
 		t.Fatalf("expected non-zero max chunks")
 	}
-	avg, chunks, err := AdaptiveAvgChunk(1<<40, 1<<30, 0.01, 64, 1<<20)
+	avg, chunks, err := dedup.AdaptiveAvgChunk(1<<40, 1<<30, 0.01, 64, 1<<20)
 	if err != nil {
 		t.Fatalf("AdaptiveAvgChunk: %v", err)
 	}
 	if avg < 64 || chunks == 0 {
 		t.Fatalf("unexpected sizing avg=%d chunks=%d", avg, chunks)
 	}
-	if _, err := MaxChunks(1<<30, 0); err == nil {
+	if _, err := dedup.MaxChunks(1<<30, 0); err == nil {
 		t.Fatalf("expected error for invalid fpRate in MaxChunks")
 	}
-	if _, _, err := AdaptiveAvgChunk(1<<40, 1<<30, 0, 64, 1<<20); err == nil {
+	if _, _, err := dedup.AdaptiveAvgChunk(1<<40, 1<<30, 0, 64, 1<<20); err == nil {
 		t.Fatalf("expected error for invalid fpRate in AdaptiveAvgChunk")
 	}
 }
 
 func TestChunkerBufferReuse(t *testing.T) {
 	data := bytes.Repeat([]byte("a"), 1<<10)
-	ch, err := NewChunker(64, 128, 256)
+	ch, err := dedup.NewChunker(64, 128, 256)
 	if err != nil {
 		t.Fatalf("new chunker: %v", err)
 	}
@@ -150,5 +155,52 @@ func TestChunkerBufferReuse(t *testing.T) {
 	}
 	if !bytes.Equal(c2.Data, data[c1.Length:c1.Length+c2.Length]) {
 		t.Fatalf("unexpected chunk data")
+	}
+}
+
+func TestBloomStateReuseDiscardsIndex(t *testing.T) {
+	tmp := t.TempDir()
+	cfg := &config.Config{
+		BloomEntries:   1000,
+		BloomFpRate:    0.01,
+		BloomMBits:     10,
+		DedupStateFile: filepath.Join(tmp, "state"),
+		CDCMin:         64,
+		CDCAvg:         128,
+		CDCMax:         256,
+	}
+
+	data := bytes.Repeat([]byte("a"), 1<<10)
+
+	// First run populates the Bloom filter and index.
+	cd1, err := transfer.NewCDCDedup(cfg)
+	if err != nil {
+		t.Fatalf("new cdcdedup: %v", err)
+	}
+	if _, _, err := cd1.ChunkAndHash(data); err != nil {
+		t.Fatalf("chunk and hash: %v", err)
+	}
+	if err := cd1.SaveState(); err != nil {
+		t.Fatalf("save state: %v", err)
+	}
+	idxPath := cfg.DedupStateFile + ".idx"
+	content, err := os.ReadFile(idxPath)
+	if err != nil {
+		t.Fatalf("read index: %v", err)
+	}
+	if bytes.Count(content, []byte{0}) == len(content) {
+		t.Fatalf("expected index to contain data")
+	}
+
+	// Second run reuses Bloom state but should discard the previous index.
+	if _, err := transfer.NewCDCDedup(cfg); err != nil {
+		t.Fatalf("new cdcdedup reuse: %v", err)
+	}
+	content2, err := os.ReadFile(idxPath)
+	if err != nil {
+		t.Fatalf("read index after reuse: %v", err)
+	}
+	if bytes.Count(content2, []byte{0}) != len(content2) {
+		t.Fatalf("stale index not discarded")
 	}
 }
