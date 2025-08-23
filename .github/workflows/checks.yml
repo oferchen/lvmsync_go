@@ -114,3 +114,20 @@ jobs:
 
       - name: Validate sudoers file
         run: visudo -cf docs/sudoers.d/lvmsync
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Go
+        uses: actions/setup-go@v5.5.0
+        with:
+          go-version: "${{ vars.GO_VERSION || '1.24' }}"
+          cache: true
+
+      - name: Docs check
+        run: make docs-check
