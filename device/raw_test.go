@@ -14,6 +14,8 @@ import (
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
+
+	"lvmsync_go/internal/exitcode"
 )
 
 type ttyReader struct{ io.Reader }
@@ -118,8 +120,8 @@ func TestOpenRawRejectsCharDevice(t *testing.T) {
 }
 
 func TestOpenRawRequiresOfflineOrFreeze(t *testing.T) {
-	if _, err := OpenRaw(context.Background(), "/dev/null", false, "", nil, "", nil, time.Second, time.Second, fakeEsc{}, zap.NewNop(), NewRunner()); err == nil {
-		t.Fatalf("expected offline or freeze command error")
+	if _, err := OpenRaw(context.Background(), "/dev/null", false, "", nil, "", nil, time.Second, time.Second, fakeEsc{}, zap.NewNop(), NewRunner()); err == nil || !errors.Is(err, exitcode.ErrPrecondition) {
+		t.Fatalf("expected precondition error, got %v", err)
 	}
 }
 

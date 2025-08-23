@@ -1,9 +1,16 @@
 package device
 
 import (
+	"context"
+	"errors"
 	"os/exec"
 	"path/filepath"
 	"testing"
+	"time"
+
+	"go.uber.org/zap"
+
+	"lvmsync_go/internal/exitcode"
 )
 
 func TestValidateCmd(t *testing.T) {
@@ -70,5 +77,28 @@ func TestValidateCmd(t *testing.T) {
 				t.Fatalf("got %q, want %q", err.Error(), tc.wantErr)
 			}
 		})
+	}
+}
+
+func TestPrepareFreezeInvalidCommands(t *testing.T) {
+	truePath, err := exec.LookPath("true")
+	if err != nil {
+		t.Fatalf("missing true binary: %v", err)
+	}
+	ctx := WithForce(context.Background(), true)
+	ctx = WithAllowOverwrite(ctx, true)
+	ctx = WithYesIKnow(ctx, true)
+	if _, err := prepareFreeze(ctx, false, "/does-not-exist", nil, truePath, nil, time.Second, zap.NewNop(), NewRunner()); err == nil || !errors.Is(err, exitcode.ErrPrecondition) {
+		t.Fatalf("expected precondition error for freeze command, got %v", err)
+	}
+	if _, err := prepareFreeze(ctx, false, truePath, nil, "/does-not-exist", nil, time.Second, zap.NewNop(), NewRunner()); err == nil || !errors.Is(err, exitcode.ErrPrecondition) {
+		t.Fatalf("expected precondition error for thaw command, got %v", err)
+	}
+}
+
+func TestCleanupInvalidThawCommand(t *testing.T) {
+	d := &RawDevice{freezeIssued: true, logger: zap.NewNop(), thawCmdPath: "/does-not-exist", runner: NewRunner()}
+	if err := d.Cleanup(context.Background()); err == nil || !errors.Is(err, exitcode.ErrPrecondition) {
+		t.Fatalf("expected precondition error, got %v", err)
 	}
 }
