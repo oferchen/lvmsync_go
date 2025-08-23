@@ -74,20 +74,24 @@ placeholder table previously used.
 
 ## Layout and Versioning
 
-The file begins with a 136 byte little‑endian header:
+The file begins with a 184 byte little‑endian header:
 
-| Field          | Size | Description |
-|----------------|-----:|-------------|
-| `version`      | 4    | Manifest format version (`2` today) |
-| `block_size`   | 4    | Device block size in bytes |
-| `size_bytes`   | 8    | Total device size |
-| `chunk_count`  | 8    | Number of chunks tracked |
-| `cdc_min`      | 4    | Minimum CDC chunk size |
-| `cdc_avg`      | 4    | Average CDC chunk size |
-| `cdc_max`      | 4    | Maximum CDC chunk size |
-| `hybrid_fixed` | 4    | Fixed chunk size when hybrid dedup is used (0 otherwise) |
-| `device_id`    | 64   | Persistent device identifier |
-| `mac`          | 32   | BLAKE3 digest of the preceding header fields |
+| Field               | Size | Description |
+|---------------------|-----:|-------------|
+| `version`           | 4    | Manifest format version (`2` today) |
+| `block_size`        | 4    | Device block size in bytes |
+| `size_bytes`        | 8    | Total device size |
+| `chunk_count`       | 8    | Number of chunks tracked |
+| `cdc_min`           | 4    | Minimum CDC chunk size |
+| `cdc_avg`           | 4    | Average CDC chunk size |
+| `cdc_max`           | 4    | Maximum CDC chunk size |
+| `hybrid_fixed`      | 4    | Fixed chunk size when hybrid dedup is used (0 otherwise) |
+| `epoch`             | 8    | Manifest creation time in nanoseconds |
+| `major`             | 4    | Device major number |
+| `minor`             | 4    | Device minor number |
+| `device_id`         | 64   | Persistent device identifier |
+| `first_block_digest`| 32   | BLAKE3 digest of the first 1 MiB of the device |
+| `mac`               | 32   | BLAKE3 digest of the preceding header fields |
 
 Each subsequent entry describes one chunk and also uses little‑endian encoding:
 
@@ -99,10 +103,17 @@ Each subsequent entry describes one chunk and also uses little‑endian encoding
 | `xxh3`    | 8    | Fast non‑cryptographic hash |
 | `blake3`  | 32   | BLAKE3 digest of the chunk |
 
-The `version` field records the manifest format revision. LVMSync upgrades
-older headers in place when possible and recalculates the header MAC.
-Manifests written with unknown versions should be regenerated with
-`lvmsync manifest rebuild` to migrate to the current layout.
+The `version` field records the manifest format revision.
+Manifests written with versions `0` or `1` are upgraded in place to version `2`
+when opened, recalculating the header MAC. Manifests with unknown versions
+should be regenerated with `lvmsync manifest rebuild` to migrate to the current
+layout.
+
+### Version History
+
+- **Version 1:** Initial manifest format.
+- **Version 2:** Adds `epoch`, device major/minor numbers, and
+  `first_block_digest` fields.
 
 ## Two-Level Index
 

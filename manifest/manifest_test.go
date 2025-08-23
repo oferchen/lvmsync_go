@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/rand"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -207,40 +208,63 @@ func TestCreateSyncsHeader(t *testing.T) {
 }
 
 func TestUpgrade(t *testing.T) {
+	versions := []uint32{0, 1}
+	for _, ver := range versions {
+		t.Run(fmt.Sprintf("v%d", ver), func(t *testing.T) {
+			dir := t.TempDir()
+			path := filepath.Join(dir, "old.man")
+			idx, err := Create(path, "dev", 4096, 0, 0, 0, 4096, 0, 0, 0, 0)
+			if err != nil {
+				t.Fatalf("Create: %v", err)
+			}
+			idx.hdr.Version = ver
+			idx.hdr.MAC = headerMAC(&idx.hdr)
+			idx.writeHeader()
+			if err := idx.Close(); err != nil {
+				t.Fatalf("close: %v", err)
+			}
+			if _, err := Open(path); !errors.Is(err, ErrVersionMismatch) {
+				t.Fatalf("expected version mismatch, got %v", err)
+			}
+			up, err := Upgrade(path)
+			if err != nil {
+				t.Fatalf("Upgrade: %v", err)
+			}
+			if up.hdr.Version != Version {
+				t.Fatalf("version not upgraded: %d", up.hdr.Version)
+			}
+			if err := up.Close(); err != nil {
+				t.Fatalf("close upgraded: %v", err)
+			}
+			idx2, err := Open(path)
+			if err != nil {
+				t.Fatalf("Open after upgrade: %v", err)
+			}
+			if idx2.hdr.Version != Version {
+				t.Fatalf("version mismatch after upgrade: %d", idx2.hdr.Version)
+			}
+			if err := idx2.Close(); err != nil {
+				t.Fatalf("close2: %v", err)
+			}
+		})
+	}
+}
+
+func TestUpgradeUnknownVersion(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "old.man")
+	path := filepath.Join(dir, "bad.man")
 	idx, err := Create(path, "dev", 4096, 0, 0, 0, 4096, 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
-	idx.hdr.Version = 0
+	idx.hdr.Version = 99
 	idx.hdr.MAC = headerMAC(&idx.hdr)
 	idx.writeHeader()
 	if err := idx.Close(); err != nil {
 		t.Fatalf("close: %v", err)
 	}
-	if _, err := Open(path); !errors.Is(err, ErrVersionMismatch) {
-		t.Fatalf("expected version mismatch, got %v", err)
-	}
-	up, err := Upgrade(path)
-	if err != nil {
-		t.Fatalf("Upgrade: %v", err)
-	}
-	if up.hdr.Version != Version {
-		t.Fatalf("version not upgraded: %d", up.hdr.Version)
-	}
-	if err := up.Close(); err != nil {
-		t.Fatalf("close upgraded: %v", err)
-	}
-	idx2, err := Open(path)
-	if err != nil {
-		t.Fatalf("Open after upgrade: %v", err)
-	}
-	if idx2.hdr.Version != Version {
-		t.Fatalf("version mismatch after upgrade: %d", idx2.hdr.Version)
-	}
-	if err := idx2.Close(); err != nil {
-		t.Fatalf("close2: %v", err)
+	if _, err := Upgrade(path); err == nil || !strings.Contains(err.Error(), "unsupported version") {
+		t.Fatalf("expected unsupported version error, got %v", err)
 	}
 }
 
