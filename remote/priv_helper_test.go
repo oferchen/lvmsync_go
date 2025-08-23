@@ -98,7 +98,7 @@ type earlyTimeoutReader struct{ deadline time.Time }
 
 func (r *earlyTimeoutReader) Read(p []byte) (int, error) {
 	if !r.deadline.IsZero() {
-		if d := time.Until(r.deadline) - time.Millisecond; d > 0 {
+		if d := time.Until(r.deadline) - 50*time.Millisecond; d > 0 {
 			time.Sleep(d)
 		}
 	}
@@ -123,9 +123,14 @@ func TestRecvAckNetTimeoutBeforeDeadline(t *testing.T) {
 	defer cancel()
 	if _, err := c.RecvAck(ctx); err == nil || !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("expected context deadline exceeded, got %v", err)
+	} else {
+		var ne net.Error
+		if !errors.As(err, &ne) || !ne.Timeout() {
+			t.Fatalf("expected timeout error, got %v", err)
+		}
 	}
-	if ctxErr := ctx.Err(); !errors.Is(ctxErr, context.DeadlineExceeded) {
-		t.Fatalf("expected context deadline exceeded, got %v", ctxErr)
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		t.Fatalf("expected nil context error, got %v", ctxErr)
 	}
 }
 
