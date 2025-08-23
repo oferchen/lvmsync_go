@@ -5,11 +5,12 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
-	"strings"
+	walpkg "lvmsync_go/internal/wal"
 )
 
 func TestWALIdentityMismatch(t *testing.T) {
@@ -215,10 +216,10 @@ func TestWALSyncDirCreate(t *testing.T) {
 	id := DeviceIdentity{SizeBytes: 100, KernelUUID: "k", GPTUUID: "g", MBRSignature: "00000001", FSUUID: "f", Major: 1, Minor: 2, ManifestEpoch: 1}
 	stubErr := errors.New("syncdir fail")
 	var calls int
-	deps := &WALDeps{syncDir: func(string) error {
+	deps := walpkg.NewDepsWithSync(func(string) error {
 		calls++
 		return stubErr
-	}}
+	})
 	if _, err := OpenWAL(path, id, zap.NewNop(), deps); !errors.Is(err, stubErr) {
 		t.Fatalf("expected %v got %v", stubErr, err)
 	}
@@ -231,21 +232,24 @@ func TestWALSyncDirClose(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "wal")
 	id := DeviceIdentity{SizeBytes: 100, KernelUUID: "k", GPTUUID: "g", MBRSignature: "00000001", FSUUID: "f", Major: 1, Minor: 2, ManifestEpoch: 1}
-	w, err := OpenWAL(path, id, zap.NewNop(), nil)
+	stubErr := errors.New("syncdir fail")
+	var calls int
+	deps := walpkg.NewDepsWithSync(func(string) error {
+		calls++
+		if calls > 1 {
+			return stubErr
+		}
+		return nil
+	})
+	w, err := OpenWAL(path, id, zap.NewNop(), deps)
 	if err != nil {
 		t.Fatalf("open wal: %v", err)
 	}
-	stubErr := errors.New("syncdir fail")
-	var calls int
-	w.deps = &WALDeps{syncDir: func(string) error {
-		calls++
-		return stubErr
-	}}
 	if err := w.Close(); !errors.Is(err, stubErr) {
 		t.Fatalf("expected %v got %v", stubErr, err)
 	}
-	if calls != 1 {
-		t.Fatalf("expected syncDir called once, got %d", calls)
+	if calls != 2 {
+		t.Fatalf("expected syncDir called twice, got %d", calls)
 	}
 }
 
@@ -253,21 +257,24 @@ func TestWALSyncDirAppend(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "wal")
 	id := DeviceIdentity{SizeBytes: 100, KernelUUID: "k", GPTUUID: "g", MBRSignature: "00000001", FSUUID: "f", Major: 1, Minor: 2}
-	w, err := OpenWAL(path, id, zap.NewNop(), nil)
+	stubErr := errors.New("syncdir fail")
+	var calls int
+	deps := walpkg.NewDepsWithSync(func(string) error {
+		calls++
+		if calls > 1 {
+			return stubErr
+		}
+		return nil
+	})
+	w, err := OpenWAL(path, id, zap.NewNop(), deps)
 	if err != nil {
 		t.Fatalf("open wal: %v", err)
 	}
-	stubErr := errors.New("syncdir fail")
-	var calls int
-	w.deps = &WALDeps{syncDir: func(string) error {
-		calls++
-		return stubErr
-	}}
 	if err := w.Append(Range{Start: 0, End: 1}); !errors.Is(err, stubErr) {
 		t.Fatalf("expected %v got %v", stubErr, err)
 	}
-	if calls != 1 {
-		t.Fatalf("expected syncDir called once, got %d", calls)
+	if calls != 2 {
+		t.Fatalf("expected syncDir called twice, got %d", calls)
 	}
 	w.Close()
 }

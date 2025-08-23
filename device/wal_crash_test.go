@@ -86,10 +86,10 @@ func TestWALCrashRecovery(t *testing.T) {
 		var entry [16]byte
 		binary.LittleEndian.PutUint64(entry[0:8], 64)
 		binary.LittleEndian.PutUint64(entry[8:16], 128)
-		if _, err := w.f.Write(entry[:]); err != nil {
+		if _, err := w.File().Write(entry[:]); err != nil {
 			t.Fatalf("write entry: %v", err)
 		}
-		if err := w.f.Close(); err != nil {
+		if err := w.File().Close(); err != nil {
 			t.Fatalf("close: %v", err)
 		}
 		if err := os.Truncate(path, walHeaderSize+16); err != nil {
@@ -119,10 +119,10 @@ func TestWALCrashRecovery(t *testing.T) {
 		var entry [16]byte
 		binary.LittleEndian.PutUint64(entry[0:8], 64)
 		binary.LittleEndian.PutUint64(entry[8:16], 128)
-		if _, err := w.f.Write(entry[:]); err != nil {
+		if _, err := w.File().Write(entry[:]); err != nil {
 			t.Fatalf("write entry: %v", err)
 		}
-		if err := w.f.Close(); err != nil {
+		if err := w.File().Close(); err != nil {
 			t.Fatalf("close: %v", err)
 		}
 		if err := os.Truncate(path, walHeaderSize+16+8); err != nil {

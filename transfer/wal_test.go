@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	walpkg "lvmsync_go/internal/wal"
 )
 
 func TestWALMismatch(t *testing.T) {
@@ -116,21 +118,24 @@ func TestWALPartialWrite(t *testing.T) {
 func TestWALSyncDirAppend(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "wal")
-	w, _, err := OpenWAL(path, 100, "dev", 1, nil)
+	stubErr := errors.New("syncdir fail")
+	var calls int
+	deps := walpkg.NewDepsWithSync(func(string) error {
+		calls++
+		if calls > 1 {
+			return stubErr
+		}
+		return nil
+	})
+	w, _, err := OpenWAL(path, 100, "dev", 1, deps)
 	if err != nil {
 		t.Fatalf("open wal: %v", err)
 	}
-	stubErr := errors.New("syncdir fail")
-	var calls int
-	w.deps = &WALDeps{syncDir: func(string) error {
-		calls++
-		return stubErr
-	}}
 	if err := w.Append(Range{Start: 0, End: 1}); !errors.Is(err, stubErr) {
 		t.Fatalf("expected %v got %v", stubErr, err)
 	}
-	if calls != 1 {
-		t.Fatalf("expected syncDir called once, got %d", calls)
+	if calls != 2 {
+		t.Fatalf("expected syncDir called twice, got %d", calls)
 	}
 	w.Close()
 }

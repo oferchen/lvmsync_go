@@ -1,5 +1,7 @@
 package device
 
+import wal "lvmsync_go/internal/wal"
+
 // DeviceIdentity describes metadata uniquely identifying a block device.
 // The identity tuple is (size_bytes, kernel_uuid, gpt_uuid, mbr_signature, fs_uuid, major, minor, manifest_epoch).
 type DeviceIdentity struct {
@@ -41,7 +43,4 @@ func SameIdentityStrict(a, b DeviceIdentity) bool {
 }
 
 // Range represents a byte range on a device.
-type Range struct {
-	Start uint64
-	End   uint64
-}
+type Range = wal.Range

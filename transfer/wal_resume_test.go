@@ -25,7 +25,7 @@ func TestWALCommitFsync(t *testing.T) {
 		t.Fatalf("append: %v", err)
 	}
 	// Simulate crash by closing the underlying file without calling Close.
-	if err := w.f.Close(); err != nil {
+	if err := w.File().Close(); err != nil {
 		t.Fatalf("close: %v", err)
 	}
 	w2, ranges, err := OpenWAL(path, 128, "dev", 1, nil)
@@ -155,10 +155,10 @@ func TestWALDetectsUnsyncedEntry(t *testing.T) {
 	// Write a partial entry without syncing to simulate a crash before fsync.
 	var buf [8]byte
 	binary.LittleEndian.PutUint64(buf[:], 64)
-	if _, err := w.f.Write(buf[:]); err != nil {
+	if _, err := w.File().Write(buf[:]); err != nil {
 		t.Fatalf("partial write: %v", err)
 	}
-	if err := w.f.Close(); err != nil {
+	if err := w.File().Close(); err != nil {
 		t.Fatalf("close: %v", err)
 	}
 	w2, ranges, err := OpenWAL(path, 128, "dev", 1, nil)
