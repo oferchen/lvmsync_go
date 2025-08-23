@@ -25,7 +25,7 @@ func TestRegenerateMissing(t *testing.T) {
 		return &mockDevice{path: dev, size: uint64(len(data)), blockSize: 4}, nil
 	}
 	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return "uuid", nil }, nil, nil, nil, nil)
-	if err := Regenerate(context.Background(), dev, man, zap.NewNop(), 0, false, 0, 0, 0, 0, WithDetectDevice(detect), WithDeviceInfo(info)); err != nil {
+	if err := Regenerate(context.Background(), dev, man, zap.NewNop(), 0, true, 0, 0, 0, 0, WithDetectDevice(detect), WithDeviceInfo(info)); err != nil {
 		t.Fatalf("regenerate: %v", err)
 	}
 	idx, err := Open(man)
@@ -57,7 +57,7 @@ func TestRegenerateStale(t *testing.T) {
 		return &mockDevice{path: dev, size: uint64(len(orig)), blockSize: 4}, nil
 	}
 	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return "uuid", nil }, nil, nil, nil, nil)
-	if err := Rebuild(context.Background(), dev, man, zap.NewNop(), 0, false, 0, 0, 0, 0, WithDetectDevice(detect), WithDeviceInfo(info)); err != nil {
+	if err := Rebuild(context.Background(), dev, man, zap.NewNop(), 0, true, 0, 0, 0, 0, WithDetectDevice(detect), WithDeviceInfo(info)); err != nil {
 		t.Fatalf("rebuild: %v", err)
 	}
 	// modify device so manifest becomes stale
@@ -65,7 +65,7 @@ func TestRegenerateStale(t *testing.T) {
 	if err := os.WriteFile(dev, updated, 0o600); err != nil {
 		t.Fatalf("update device: %v", err)
 	}
-	if err := Regenerate(context.Background(), dev, man, zap.NewNop(), 0, false, 0, 0, 0, 0, WithDetectDevice(detect), WithDeviceInfo(info)); err != nil {
+	if err := Regenerate(context.Background(), dev, man, zap.NewNop(), 0, true, 0, 0, 0, 0, WithDetectDevice(detect), WithDeviceInfo(info)); err != nil {
 		t.Fatalf("regenerate: %v", err)
 	}
 	idx, err := Open(man)
@@ -94,14 +94,14 @@ func TestRegenerateExisting(t *testing.T) {
 		return &mockDevice{path: dev, size: uint64(len(data)), blockSize: 4}, nil
 	}
 	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return "uuid", nil }, nil, nil, nil, nil)
-	if err := Rebuild(context.Background(), dev, man, zap.NewNop(), 0, false, 0, 0, 0, 0, WithDetectDevice(detect), WithDeviceInfo(info)); err != nil {
+	if err := Rebuild(context.Background(), dev, man, zap.NewNop(), 0, true, 0, 0, 0, 0, WithDetectDevice(detect), WithDeviceInfo(info)); err != nil {
 		t.Fatalf("rebuild: %v", err)
 	}
 	before, err := os.Stat(man)
 	if err != nil {
 		t.Fatalf("stat: %v", err)
 	}
-	if err := Regenerate(context.Background(), dev, man, zap.NewNop(), 0, false, 0, 0, 0, 0, WithDetectDevice(detect), WithDeviceInfo(info)); err != nil {
+	if err := Regenerate(context.Background(), dev, man, zap.NewNop(), 0, true, 0, 0, 0, 0, WithDetectDevice(detect), WithDeviceInfo(info)); err != nil {
 		t.Fatalf("regenerate: %v", err)
 	}
 	after, err := os.Stat(man)
@@ -126,7 +126,7 @@ func TestRegenerateSizeMismatch(t *testing.T) {
 		return &mockDevice{path: dev, size: size, blockSize: 4}, nil
 	}
 	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return "uuid", nil }, nil, nil, nil, nil)
-	if err := Rebuild(context.Background(), dev, man, zap.NewNop(), 0, false, 0, 0, 0, 0, WithDetectDevice(detect), WithDeviceInfo(info)); err != nil {
+	if err := Rebuild(context.Background(), dev, man, zap.NewNop(), 0, true, 0, 0, 0, 0, WithDetectDevice(detect), WithDeviceInfo(info)); err != nil {
 		t.Fatalf("rebuild: %v", err)
 	}
 	before, err := os.Stat(man)
@@ -138,7 +138,7 @@ func TestRegenerateSizeMismatch(t *testing.T) {
 		t.Fatalf("enlarge device: %v", err)
 	}
 	size = uint64(len(enlarged))
-	if err := Regenerate(context.Background(), dev, man, zap.NewNop(), 0, false, 0, 0, 0, 0, WithDetectDevice(detect), WithDeviceInfo(info)); err != nil {
+	if err := Regenerate(context.Background(), dev, man, zap.NewNop(), 0, true, 0, 0, 0, 0, WithDetectDevice(detect), WithDeviceInfo(info)); err != nil {
 		t.Fatalf("regenerate: %v", err)
 	}
 	after, err := os.Stat(man)

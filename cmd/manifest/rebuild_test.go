@@ -42,6 +42,7 @@ func TestRunDefaultOutputPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
+	cfg.ManifestAllowMounted = true
 
 	core, logs := observer.New(zap.InfoLevel)
 	logger := zap.New(core)
@@ -85,6 +86,7 @@ func TestRunManifestPathFlag(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
+	cfg.ManifestAllowMounted = true
 
 	outputPath := filepath.Join(dir, "custom.manifest")
 	args := []string{"rebuild", "--manifest-path", outputPath, devicePath}
@@ -130,6 +132,7 @@ func TestRunLogsConfigWarnings(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
+	cfg.ManifestAllowMounted = true
 	cfg.DryRun = true
 
 	cfgPath := filepath.Join(dir, "config.yaml")
@@ -215,6 +218,7 @@ func TestRunZeroManifestTimeoutUsesBackground(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
+	cfg.ManifestAllowMounted = true
 	cfg.ManifestTimeout = 0
 	var captured context.Context
 	r := NewRunnerWithDeps(func(ctx context.Context, _, _ string, _ *zap.Logger, _ time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error {
@@ -267,6 +271,7 @@ func TestRunSyncsLoggerDryRun(t *testing.T) {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
 
+	cfg.ManifestAllowMounted = true
 	cfg.DryRun = true
 
 	var syncs int
@@ -294,6 +299,7 @@ func TestRunWritesVersion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DefaultConfig: %v", err)
 	}
+	cfg.ManifestAllowMounted = true
 	r := NewRunnerWithDeps(func(ctx context.Context, dev, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error {
 		opts = append(opts, manifestpkg.WithDeviceInfo(info))
 		return manifestpkg.Rebuild(ctx, dev, output, logger, interval, allow, cdcMin, cdcAvg, cdcMax, hybrid, opts...)

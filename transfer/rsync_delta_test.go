@@ -105,7 +105,7 @@ func rdBuildManifest(t *testing.T, devPath, manPath string, size uint64, cdcMin,
 		return &rdMockDevice{path: devPath, size: size, blockSize: 4}, nil
 	}
 	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return "uuid", nil }, nil, nil, nil, nil)
-	if err := manifestpkg.Rebuild(context.Background(), devPath, manPath, zap.NewNop(), 0, false, cdcMin, cdcAvg, cdcMax, 0, manifestpkg.WithDetectDevice(detect), manifestpkg.WithDeviceInfo(info)); err != nil {
+	if err := manifestpkg.Rebuild(context.Background(), devPath, manPath, zap.NewNop(), 0, true, cdcMin, cdcAvg, cdcMax, 0, manifestpkg.WithDetectDevice(detect), manifestpkg.WithDeviceInfo(info)); err != nil {
 		t.Fatalf("rebuild: %v", err)
 	}
 }

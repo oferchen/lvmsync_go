@@ -499,7 +499,7 @@ func TestRebuild(t *testing.T) {
 	manPath := filepath.Join(dir, "rebuild.man")
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false, 0, 0, 0, 0, WithDeviceInfo(info)); err != nil {
+	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, true, 0, 0, 0, 0, WithDeviceInfo(info)); err != nil {
 		t.Fatalf("rebuild: %v", err)
 	}
 	idx, err := Open(manPath)
@@ -552,7 +552,7 @@ func TestRebuildCloseHook(t *testing.T) {
 	hook := func() error { count++; return nil }
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false, 0, 0, 0, 0, WithCloseHook(hook), WithDeviceInfo(info)); err != nil {
+	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, true, 0, 0, 0, 0, WithCloseHook(hook), WithDeviceInfo(info)); err != nil {
 		t.Fatalf("rebuild: %v", err)
 	}
 	if count != 1 {
@@ -580,7 +580,7 @@ func TestRebuildCloseError(t *testing.T) {
 	hook := func() error { return hookErr }
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false, 0, 0, 0, 0, WithCloseHook(hook), WithDeviceInfo(info)); err == nil || !strings.Contains(err.Error(), "close fail") {
+	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, true, 0, 0, 0, 0, WithCloseHook(hook), WithDeviceInfo(info)); err == nil || !strings.Contains(err.Error(), "close fail") {
 		t.Fatalf("expected close error, got %v", err)
 	}
 }
@@ -613,7 +613,7 @@ func TestRebuildOptionApplication(t *testing.T) {
 	manPath := filepath.Join(dir, "options.man")
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false, 0, 0, 0, 0, WithDetectDevice(detect), WithCloseHook(hook), WithDeviceInfo(info)); err != nil {
+	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, true, 0, 0, 0, 0, WithDetectDevice(detect), WithCloseHook(hook), WithDeviceInfo(info)); err != nil {
 		t.Fatalf("rebuild: %v", err)
 	}
 	if !calledDetect {
@@ -650,7 +650,7 @@ func TestRebuildNonDefaultBlockSize(t *testing.T) {
 	manPath := filepath.Join(dir, "rebuildbs.man")
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false, 0, 0, 0, 0, WithDetectDevice(detect), WithDeviceInfo(info)); err != nil {
+	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, true, 0, 0, 0, 0, WithDetectDevice(detect), WithDeviceInfo(info)); err != nil {
 		t.Fatalf("rebuild: %v", err)
 	}
 	idx, err := Open(manPath)
@@ -699,7 +699,7 @@ func TestRebuildLogsProgress(t *testing.T) {
 	logger := zap.New(core)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	if err := Rebuild(ctx, file.Name(), manPath, logger, 0, false, 0, 0, 0, 0, WithDeviceInfo(info)); err != nil {
+	if err := Rebuild(ctx, file.Name(), manPath, logger, 0, true, 0, 0, 0, 0, WithDeviceInfo(info)); err != nil {
 		t.Fatalf("rebuild: %v", err)
 	}
 	entries := logs.FilterMessage("rebuild progress").All()
@@ -734,7 +734,7 @@ func TestRebuildLogsCompletion(t *testing.T) {
 	logger := zap.New(core)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	if err := Rebuild(ctx, file.Name(), manPath, logger, 0, false, 0, 0, 0, 0, WithDeviceInfo(info)); err != nil {
+	if err := Rebuild(ctx, file.Name(), manPath, logger, 0, true, 0, 0, 0, 0, WithDeviceInfo(info)); err != nil {
 		t.Fatalf("rebuild: %v", err)
 	}
 	entries := logs.FilterMessage("rebuild_complete").All()
@@ -770,7 +770,7 @@ func TestRebuildCanceledContext(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 		cancel()
 	}()
-	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, false, 0, 0, 0, 0, WithDetectDevice(detect), WithDeviceInfo(info)); !errors.Is(err, context.Canceled) {
+	if err := Rebuild(ctx, file.Name(), manPath, zap.NewNop(), 0, true, 0, 0, 0, 0, WithDetectDevice(detect), WithDeviceInfo(info)); !errors.Is(err, context.Canceled) {
 		t.Fatalf("expected context.Canceled, got %v", err)
 	}
 }
