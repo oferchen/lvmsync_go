@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/tools/imports"
 	lvmsynccmd "lvmsync_go/cmd/lvmsync"
+	"lvmsync_go/dedup"
 	"lvmsync_go/internal/config"
 )
 
@@ -239,5 +240,16 @@ func TestFlagDocumentation(t *testing.T) {
 	}
 	if len(missing) > 0 {
 		t.Fatalf("flags missing from README: %v", missing)
+	}
+}
+
+func TestDedupStrategyDocs(t *testing.T) {
+	want := dedup.AutoStrategyTable()
+	data, err := os.ReadFile("docs/dedup_strategies.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), want) {
+		t.Fatalf("dedup strategy table out of sync")
 	}
 }

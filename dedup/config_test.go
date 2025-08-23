@@ -67,3 +67,25 @@ func TestLoadConfigFailures(t *testing.T) {
 		}
 	})
 }
+
+func TestAutoStrategy(t *testing.T) {
+	cases := []struct {
+		name       string
+		volumeSize uint64
+		ramBytes   uint64
+		accel      bool
+		want       string
+	}{
+		{"bloom", 1 << 30, 1 << 27, false, "bloom"},
+		{"checksum", 1 << 40, 1 << 30, true, "checksum"},
+		{"rolling", 1 << 40, 1 << 30, false, "rolling_hash"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := AutoStrategy(tc.volumeSize, tc.ramBytes, tc.accel)
+			if got != tc.want {
+				t.Fatalf("AutoStrategy(%d,%d,%v)=%q want %q", tc.volumeSize, tc.ramBytes, tc.accel, got, tc.want)
+			}
+		})
+	}
+}

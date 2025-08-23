@@ -1498,6 +1498,17 @@ dedup_strategy: bloom
 dedup_state_file: ~/.lvmsync_state
 ```
 
+When `--dedup-strategy auto` is used, lvmsync chooses a strategy based on available RAM, volume size, and CPU capabilities.
+
+| Condition | Selected strategy |
+|-----------|------------------|
+| Bloom filter fits in RAM | `bloom` |
+| Doesn't fit, checksum acceleration available | `checksum` |
+| Doesn't fit, no acceleration | `rolling_hash` |
+
+See [docs/dedup_strategies.md](docs/dedup_strategies.md) for more details.
+
+
 LVMSync automatically reloads this state file on startup. Delete it to reset deduplication: `rm ~/.lvmsync_dedup`.
 When saving Bloom filter state, LVMSync logs `dedup_bloom_stats` with `entries`, `configured_fp_rate`, and `observed_fp_rate`.
 
