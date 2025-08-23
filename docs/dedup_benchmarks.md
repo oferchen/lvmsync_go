@@ -42,3 +42,11 @@ To reduce false positives, lower the configured rate at the cost of additional
 memory. `MaxChunks` estimates the number of unique chunks supported for a given
 false positive rate and available RAM.
 
+## Collisions and Index Cleanup
+
+During transfers a Bloom filter hit means a chunk is assumed to have been seen
+before. Rare false positives can therefore skip a changed block, but a final
+SHA-256 digest over all chunks exposes any mismatch and the transfer can be
+retried. When a Bloom filter uses the optional mmap-backed bitset, the `*.idx`
+file is truncated on startup so stale bits from earlier runs are removed.
+

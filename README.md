@@ -937,6 +937,11 @@ The Bloom filter de-duplicates previously seen chunks. Size it with `--bloom-ent
 The defaults (`--bloom-entries=1000000`, `--bloom-fp-rate=0.01`) consume about
 1.14 MiB and yield ~1% false positives, while `--bloom-mbits=27` allocates
 roughly 16 MiB for ~0.8% false positives.
+False positives are rare but possible; if a chunk collides in the Bloom filter
+it is treated as already transferred. A final SHA-256 digest over the transfer
+detects any mismatches so retries can resend the affected data. The mmap-backed
+index (`*.idx`) is truncated to zero on startup so each run begins with a clean
+bitset.
 
 Compression samples 8 KiB from each chunk and skips when the estimated ratio exceeds `--compress-threshold`. `--compress auto` selects LZ4 for chunks under 256 KiB and Zstd for larger chunks when AVX2 or NEON is available, falling back to LZ4 otherwise.
 
