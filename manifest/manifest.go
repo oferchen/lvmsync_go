@@ -339,7 +339,7 @@ func Upgrade(path string, opts ...IndexOption) (*Index, error) {
 			return nil, err
 		}
 		switch idx.hdr.Version {
-		case 0:
+		case 0, 1:
 			idx.hdr.Version = Version
 			idx.hdr.MAC = headerMAC(&idx.hdr)
 			idx.writeHeader()
