@@ -1,6 +1,12 @@
 package compressiondetect
 
-import "testing"
+import (
+	"fmt"
+	"runtime"
+	"testing"
+
+	"github.com/klauspost/cpuid/v2"
+)
 
 func TestBenchmarkCompression(t *testing.T) {
 	algo := BenchmarkCompression()
@@ -69,5 +75,34 @@ func TestDetectOptimalCompressionBenchmarkFallback(t *testing.T) {
 	got := DetectOptimalCompression()
 	if got != "lz4" && got != "zstd" {
 		t.Fatalf("unexpected %s", got)
+	}
+}
+
+func TestDetectOptimalCompressionBenchmarkCache(t *testing.T) {
+	ResetForTest()
+	defer ResetForTest()
+	origAVX2, origNEON := hasAVX2, hasNEON
+	defer func() { hasAVX2, hasNEON = origAVX2, origNEON }()
+	hasAVX2 = func() bool { return false }
+	hasNEON = func() bool { return false }
+
+	cores := cpuid.CPU.PhysicalCores
+	if cores == 0 {
+		cores = runtime.NumCPU()
+	}
+	cacheSize := 0
+	if cpuid.CPU.Cache.L3 > 0 {
+		cacheSize += cpuid.CPU.Cache.L3
+	}
+	if cpuid.CPU.Cache.L2 > 0 {
+		cacheSize += cpuid.CPU.Cache.L2
+	}
+	key := fmt.Sprintf("%d-%d", cores, cacheSize)
+	benchMu.Lock()
+	benchCache[key] = "lz4"
+	benchMu.Unlock()
+
+	if got := DetectOptimalCompression(); got != "lz4" {
+		t.Fatalf("expected lz4 from cache, got %s", got)
 	}
 }
