@@ -124,8 +124,8 @@ func TestRecvAckNetTimeoutBeforeDeadline(t *testing.T) {
 	if _, err := c.RecvAck(ctx); err == nil || !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("expected context deadline exceeded, got %v", err)
 	}
-	if ctxErr := ctx.Err(); ctxErr != nil {
-		t.Fatalf("context finished unexpectedly: %v", ctxErr)
+	if ctxErr := ctx.Err(); !errors.Is(ctxErr, context.DeadlineExceeded) {
+		t.Fatalf("expected context deadline exceeded, got %v", ctxErr)
 	}
 }
 
