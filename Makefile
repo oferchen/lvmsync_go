@@ -33,6 +33,8 @@ verify: deps
 > golangci-lint run
 
 docs-check:
+> go run ./cmd/configdoc
+> git diff --exit-code docs/config_env.md
 > go test ./docs
 
 test-race:

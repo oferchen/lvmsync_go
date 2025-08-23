@@ -157,13 +157,7 @@ jobs:
           jq -e 'map(select(.type | contains("(resolved)") | not)) | length == 0' reports/machine/gaps.json
 
       - name: Docs check
-        if: hashFiles('Makefile') != ''
-        run: |
-          if grep -q '^docs-check:' Makefile; then
-            make docs-check
-          else
-            echo "No docs-check target; skipping."
-          fi
+        run: make docs-check
 
       - name: Verify sudoers commands
         if: hashFiles('scripts/verify_sudoers.sh') != ''
