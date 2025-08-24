@@ -110,17 +110,30 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GOLANGCI_LINT_TOKEN }}
           SKIP_DOCKER_PUSH: ${{ env.SKIP_DOCKER_PUSH }}
 
+      - name: Compute provenance subjects
+        id: prov-subjects
+        run: |
+          echo "subjects=$(sha256sum dist/* | base64 -w0)" >> "$GITHUB_OUTPUT"
+
+      - name: Generate SLSA provenance
+        uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v1
+        with:
+          base64-subjects: ${{ steps.prov-subjects.outputs.subjects }}
+          provenance-name: dist/provenance.intoto.jsonl
+
       - name: Verify release artifacts
         run: |
           ls dist/*checksums.txt
           ls dist/*.sbom.json
+          ls dist/*.intoto.jsonl
 
-      - name: Attach checksums and SBOM to release
+      - name: Attach checksums, SBOM, and provenance to release
         uses: softprops/action-gh-release@v1
         with:
           files: |
             dist/*checksums.txt
             dist/*.sbom.json
+            dist/*.intoto.jsonl
 
       - name: Upload checksums
         uses: actions/upload-artifact@v4
@@ -133,3 +146,9 @@ jobs:
         with:
           name: sbom
           path: dist/*.sbom.json
+
+      - name: Upload provenance
+        uses: actions/upload-artifact@v4
+        with:
+          name: provenance
+          path: dist/*.intoto.jsonl
