@@ -109,15 +109,6 @@ func (c *PrivHelperClient) RecvAck(ctx context.Context) (bool, error) {
 		return false, errors.New("nil context")
 	}
 
-	if dl, ok := ctx.Deadline(); ok {
-		if conn, ok := c.stdout.(interface{ SetReadDeadline(time.Time) error }); ok {
-			if err := conn.SetReadDeadline(dl); err != nil {
-				return false, err
-			}
-			defer conn.SetReadDeadline(time.Time{}) //nolint:errcheck
-		}
-	}
-
 	type result struct {
 		b   byte
 		err error
@@ -125,6 +116,14 @@ func (c *PrivHelperClient) RecvAck(ctx context.Context) (bool, error) {
 	resCh := make(chan result, 1)
 	go func() {
 		var b [1]byte
+		if conn, ok := c.stdout.(interface{ SetReadDeadline(time.Time) error }); ok {
+			dl := time.Now().Add(100 * time.Millisecond)
+			if ctxDl, ok := ctx.Deadline(); ok && ctxDl.Before(dl) {
+				dl = ctxDl
+			}
+			_ = conn.SetReadDeadline(dl)
+			defer conn.SetReadDeadline(time.Time{}) //nolint:errcheck
+		}
 		_, err := io.ReadFull(c.stdout, b[:])
 		resCh <- result{b: b[0], err: err}
 	}()
@@ -134,7 +133,13 @@ func (c *PrivHelperClient) RecvAck(ctx context.Context) (bool, error) {
 		if conn, ok := c.stdout.(interface{ SetReadDeadline(time.Time) error }); ok {
 			_ = conn.SetReadDeadline(time.Now())
 		}
-		<-resCh // drain goroutine to avoid leak
+		if closer, ok := c.stdout.(io.Closer); ok {
+			_ = closer.Close()
+		}
+		select {
+		case <-resCh:
+		default:
+		}
 		return false, ctx.Err()
 	case r := <-resCh:
 		if r.err != nil {
