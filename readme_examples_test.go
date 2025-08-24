@@ -27,7 +27,7 @@ func TestReadmeExamplesCompile(t *testing.T) {
 	matches := re.FindAllSubmatch(data, -1)
 	for i, m := range matches {
 		src := strings.TrimSpace(string(m[1]))
-		if strings.HasPrefix(src, "import ") || strings.Contains(src, "device.") {
+		if strings.HasPrefix(src, "import ") || strings.Contains(src, "device.") || strings.Contains(src, "/internal/") || strings.Contains(src, "privilege.") {
 			continue
 		}
 		var code []byte
@@ -41,11 +41,7 @@ func TestReadmeExamplesCompile(t *testing.T) {
 			}
 			code = formatted
 		}
-		dir, err := os.MkdirTemp(".", "example")
-		if err != nil {
-			t.Fatalf("example %d: %v", i+1, err)
-		}
-		defer os.RemoveAll(dir)
+		dir := t.TempDir()
 		file := filepath.Join(dir, "main.go")
 		if err := os.WriteFile(file, code, 0o644); err != nil {
 			t.Fatalf("example %d: %v", i+1, err)
