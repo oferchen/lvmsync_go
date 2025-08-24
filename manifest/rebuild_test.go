@@ -9,6 +9,7 @@ import (
 	"github.com/zeebo/blake3"
 	"github.com/zeebo/xxh3"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 
 	"lvmsync_go/device"
 )
@@ -164,6 +165,49 @@ func TestRegenerateSizeMismatch(t *testing.T) {
 		t.Fatalf("unexpected entry metadata")
 	}
 	if xx != xxh3.Hash(enlarged[8:12]) || dig != blake3.Sum256(enlarged[8:12]) {
+		t.Fatalf("manifest not rebuilt correctly")
+	}
+}
+
+func TestRegenerateTruncated(t *testing.T) {
+	dir := t.TempDir()
+	dev := filepath.Join(dir, "dev")
+	data := []byte("aaaabbbb")
+	if err := os.WriteFile(dev, data, 0o600); err != nil {
+		t.Fatalf("write device: %v", err)
+	}
+	man := filepath.Join(dir, "dev.man")
+	detect := func(ctx context.Context, path string, logger *zap.Logger) (device.Device, error) {
+		return &mockDevice{path: dev, size: uint64(len(data)), blockSize: 4}, nil
+	}
+	info := device.NewInfoWithDeps(func(context.Context, string) (string, error) { return "uuid", nil }, nil, nil, nil, nil)
+	if err := Rebuild(context.Background(), dev, man, zap.NewNop(), 0, true, 0, 0, 0, 0, WithDetectDevice(detect), WithDeviceInfo(info)); err != nil {
+		t.Fatalf("rebuild: %v", err)
+	}
+	if err := os.Truncate(man, 10); err != nil {
+		t.Fatalf("truncate: %v", err)
+	}
+	core, logs := observer.New(zap.WarnLevel)
+	logger := zap.New(core)
+	if err := Regenerate(context.Background(), dev, man, logger, 0, true, 0, 0, 0, 0, WithDetectDevice(detect), WithDeviceInfo(info)); err != nil {
+		t.Fatalf("regenerate: %v", err)
+	}
+	if logs.FilterMessage("manifest_corrupt").Len() != 1 {
+		t.Fatalf("expected manifest_corrupt log")
+	}
+	idx, err := Open(man)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer idx.Close()
+	off, length, _, xx, dig, err := idx.Entry(0)
+	if err != nil {
+		t.Fatalf("entry: %v", err)
+	}
+	if off != 0 || length != 4 {
+		t.Fatalf("unexpected entry metadata")
+	}
+	if xx != xxh3.Hash(data[:4]) || dig != blake3.Sum256(data[:4]) {
 		t.Fatalf("manifest not rebuilt correctly")
 	}
 }

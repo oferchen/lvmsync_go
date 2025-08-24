@@ -48,7 +48,7 @@ func TestRunDefaultOutputPath(t *testing.T) {
 	logger := zap.New(core)
 	r := NewRunnerWithDeps(func(ctx context.Context, dev, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error {
 		opts = append(opts, manifestpkg.WithDeviceInfo(info))
-		return manifestpkg.Rebuild(ctx, dev, output, logger, interval, allow, cdcMin, cdcAvg, cdcMax, hybrid, opts...)
+		return manifestpkg.Regenerate(ctx, dev, output, logger, interval, allow, cdcMin, cdcAvg, cdcMax, hybrid, opts...)
 	}, nil, nil, manifestpkg.Open)
 	if err := r.Run(cfg, []string{"rebuild", devicePath}, logger); err != nil {
 		t.Fatalf("Run: %v", err)
@@ -94,7 +94,7 @@ func TestRunManifestPathFlag(t *testing.T) {
 	logger := zap.New(core)
 	r := NewRunnerWithDeps(func(ctx context.Context, dev, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error {
 		opts = append(opts, manifestpkg.WithDeviceInfo(info))
-		return manifestpkg.Rebuild(ctx, dev, output, logger, interval, allow, cdcMin, cdcAvg, cdcMax, hybrid, opts...)
+		return manifestpkg.Regenerate(ctx, dev, output, logger, interval, allow, cdcMin, cdcAvg, cdcMax, hybrid, opts...)
 	}, nil, nil, manifestpkg.Open)
 	if err := r.Run(cfg, args, logger); err != nil {
 		t.Fatalf("Run: %v", err)
@@ -302,7 +302,7 @@ func TestRunWritesVersion(t *testing.T) {
 	cfg.ManifestAllowMounted = true
 	r := NewRunnerWithDeps(func(ctx context.Context, dev, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error {
 		opts = append(opts, manifestpkg.WithDeviceInfo(info))
-		return manifestpkg.Rebuild(ctx, dev, output, logger, interval, allow, cdcMin, cdcAvg, cdcMax, hybrid, opts...)
+		return manifestpkg.Regenerate(ctx, dev, output, logger, interval, allow, cdcMin, cdcAvg, cdcMax, hybrid, opts...)
 	}, nil, nil, manifestpkg.Open)
 	if err := r.Run(cfg, []string{"rebuild", devicePath}, zap.NewNop()); err != nil {
 		t.Fatalf("Run: %v", err)

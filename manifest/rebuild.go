@@ -25,46 +25,50 @@ func Regenerate(
 	opts ...IndexOption,
 ) error {
 	idx, err := Open(manifestPath)
-	if err == nil {
-		defer idx.Close()
-		info, err := os.Stat(devicePath)
-		if err != nil {
-			return err
+	if err != nil {
+		if os.IsNotExist(err) {
+			logger.Warn("manifest_missing", zap.Error(err))
+		} else {
+			logger.Warn("manifest_corrupt", zap.Error(err))
 		}
-		if uint64(info.Size()) != idx.hdr.SizeBytes || idx.hdr.BlockSize == 0 {
-			return rebuild(ctx, devicePath, manifestPath, logger, interval, allowMounted, cdcMin, cdcAvg, cdcMax, hybridFixed, idx, opts...)
-		}
-		f, err := os.Open(devicePath)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-		buf := make([]byte, idx.hdr.BlockSize)
-		for i := uint64(0); i < idx.hdr.ChunkCount; i++ {
-			if err = ctx.Err(); err != nil {
-				return err
-			}
-			off, length, _, xx, digest, err := idx.Entry(i)
-			if err != nil {
-				return fmt.Errorf("manifest entry: %w", err)
-			}
-			if int(length) > cap(buf) {
-				buf = make([]byte, int(length))
-			}
-			data := buf[:int(length)]
-			if _, err := f.ReadAt(data, int64(off)); err != nil && err != io.EOF {
-				return fmt.Errorf("read device: %w", err)
-			}
-			if xxh3.Hash(data) != xx || blake3.Sum256(data) != digest {
-				return rebuild(ctx, devicePath, manifestPath, logger, interval, allowMounted, cdcMin, cdcAvg, cdcMax, hybridFixed, idx, opts...)
-			}
-		}
-		return nil
+		return Rebuild(ctx, devicePath, manifestPath, logger, interval, allowMounted, cdcMin, cdcAvg, cdcMax, hybridFixed, opts...)
 	}
-	if !os.IsNotExist(err) {
+	defer idx.Close()
+	info, err := os.Stat(devicePath)
+	if err != nil {
 		return err
 	}
-	return Rebuild(ctx, devicePath, manifestPath, logger, interval, allowMounted, cdcMin, cdcAvg, cdcMax, hybridFixed, opts...)
+	if uint64(info.Size()) != idx.hdr.SizeBytes || idx.hdr.BlockSize == 0 {
+		logger.Warn("manifest_stale")
+		return rebuild(ctx, devicePath, manifestPath, logger, interval, allowMounted, cdcMin, cdcAvg, cdcMax, hybridFixed, idx, opts...)
+	}
+	f, err := os.Open(devicePath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	buf := make([]byte, idx.hdr.BlockSize)
+	for i := uint64(0); i < idx.hdr.ChunkCount; i++ {
+		if err = ctx.Err(); err != nil {
+			return err
+		}
+		off, length, _, xx, digest, err := idx.Entry(i)
+		if err != nil {
+			return fmt.Errorf("manifest entry: %w", err)
+		}
+		if int(length) > cap(buf) {
+			buf = make([]byte, int(length))
+		}
+		data := buf[:int(length)]
+		if _, err := f.ReadAt(data, int64(off)); err != nil && err != io.EOF {
+			return fmt.Errorf("read device: %w", err)
+		}
+		if xxh3.Hash(data) != xx || blake3.Sum256(data) != digest {
+			logger.Warn("manifest_stale", zap.Uint64("offset_bytes", off))
+			return rebuild(ctx, devicePath, manifestPath, logger, interval, allowMounted, cdcMin, cdcAvg, cdcMax, hybridFixed, idx, opts...)
+		}
+	}
+	return nil
 }
 
 func rebuild(
