@@ -360,17 +360,11 @@ func ExitCode(err error) int {
 		return exitcode.Config
 	case errors.Is(err, exitcode.ErrPrecondition):
 		return exitcode.Precondition
-	case errors.Is(err, exitcode.ErrResumable):
+	case errors.Is(err, exitcode.ErrResumable) || errors.Is(err, context.Canceled):
 		return exitcode.Resumable
-	case errors.Is(err, exitcode.ErrSnapshotExhausted):
-		return exitcode.SnapshotExhausted
-	case errors.Is(err, exitcode.ErrDevice):
-		return exitcode.Device
 	case errors.Is(err, exitcode.ErrVerify):
 		return exitcode.Verify
-	case errors.Is(err, exitcode.ErrPartial) || errors.Is(err, context.Canceled):
-		return exitcode.Partial
 	default:
-		return exitcode.Runtime
+		return 1
 	}
 }

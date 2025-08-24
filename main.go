@@ -66,7 +66,7 @@ func (r *Runner) Run() {
 		tmpLogger := r.ExampleLogger()
 		tmpLogger.Error("unsupported platform", zap.String("goos", r.GOOS))
 		rootcmd.SyncLogger(tmpLogger)
-		r.Exit(exitcode.Platform)
+		r.Exit(1)
 		return
 	}
 

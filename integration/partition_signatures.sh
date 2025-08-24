@@ -45,8 +45,8 @@ set +e
 "$BIN" run --offline --skip-snapshot-creation --force --verify inline --check-partition "$SRC_LOOP" "$DST_LOOP"
 status=$?
 set -e
-if [ "$status" -ne 80 ]; then
-  echo "expected exit code 80, got $status"
+if [ "$status" -ne 2 ]; then
+  echo "expected exit code 2, got $status"
   exit 1
 fi
 

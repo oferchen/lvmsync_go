@@ -394,14 +394,6 @@ func TestSelectVolumeGroupNoMatchErrDevice(t *testing.T) {
 	r := lvm.NewRunnerWithDeps(nil, func() error { return nil }, nil, fb, "")
 	if _, err := r.SelectVolumeGroupForSize(context.Background(), []string{"vg1"}, 50); err == nil {
 		t.Fatalf("expected error")
-	} else {
-		code := exitcode.Runtime
-		if strings.Contains(err.Error(), "device") {
-			code = exitcode.Device
-		}
-		if code != exitcode.Device {
-			t.Fatalf("exit code = %d, want %d", code, exitcode.Device)
-		}
 	}
 }
 

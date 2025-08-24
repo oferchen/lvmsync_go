@@ -50,7 +50,7 @@ lvmsync run --verify-only /dev/vg0/snap0 /dev/vg0/target
 ```
 
 Reads both devices and reports mismatches without writing data. Exits with
-code `60` when blocks differ.
+code `3` when blocks differ.
 
 ## Skipping Snapshot Creation
 
@@ -100,14 +100,14 @@ effects. Estimates are expected to fall within ±5% of the final
    lvmsync run --resume=verify /dev/vg0/snap0 /dev/vg0/target
    ```
 
-Exit code `60` indicates a verification mismatch and leaves the destination untouched.
+Exit code `3` indicates a verification mismatch and leaves the destination untouched.
 
 ### Safe Overwrite Test
 
 The integration test `integration/safe_overwrite.sh` exercises this sequence:
 
 1. `lvmsync run --probe-only /dev/vg0/snap0 /dev/vg0/target` exits `0` without writing.
-2. `lvmsync run --verify-only /dev/vg0/snap0 /dev/vg0/target` exits `60` when blocks differ and leaves data unchanged.
+2. `lvmsync run --verify-only /dev/vg0/snap0 /dev/vg0/target` exits `3` when blocks differ and leaves data unchanged.
 3. `lvmsync run /dev/vg0/snap0 /dev/vg0/target` performs the actual copy.
 
 The test confirms the probe and verify steps do not modify the destination logical volume.
@@ -123,17 +123,12 @@ committed ranges.
 
 | Constant | Code | Meaning | Recovery Step |
 |----------|------|---------|---------------|
-| [`exitcode.OK`](internal/exitcode/exitcode.go) | `0`  | Success | None |
-| [`exitcode.Capability`](internal/exitcode/exitcode.go) | `10` | Privilege or capability check failed | Run as root or adjust `--lvm-escalation`. |
-| [`exitcode.Device`](internal/exitcode/exitcode.go) | `20` | Device error | Verify device paths and snapshot health. |
-| [`exitcode.SnapshotExhausted`](internal/exitcode/exitcode.go) | `25` | Snapshot space exhausted | Grow or recreate the snapshot before resuming. |
-| [`exitcode.Platform`](internal/exitcode/exitcode.go) | `30` | Unsupported platform | Run on a supported Linux platform. |
-| [`exitcode.Config`](internal/exitcode/exitcode.go) | `40` | Configuration error | Review flags, environment variables, and `config.yaml`. |
-| [`exitcode.Runtime`](internal/exitcode/exitcode.go) | `50` | Runtime failure | Inspect logs, fix the issue, and rerun using `--resume` when applicable. |
-| [`exitcode.Verify`](internal/exitcode/exitcode.go) | `60` | Verification mismatch | Investigate mismatched data before retrying. |
-| [`exitcode.Partial`](internal/exitcode/exitcode.go) | `70` | Partial transfer | Address the error and resume with `--resume`. |
-| [`exitcode.Precondition`](internal/exitcode/exitcode.go) | `80` | Precondition failed | Fix prerequisites and retry. |
-| [`exitcode.Resumable`](internal/exitcode/exitcode.go) | `90` | Resumable exit | Resume with `--resume` after resolving the issue. |
+| [`exitcode.OK`](internal/exitcode/exitcode.go) | `0` | Success | None |
+| [`exitcode.Precondition`](internal/exitcode/exitcode.go) | `2` | Precondition failed | Fix prerequisites and retry. |
+| [`exitcode.Verify`](internal/exitcode/exitcode.go) | `3` | Verification mismatch | Investigate mismatched data before retrying. |
+| [`exitcode.Resumable`](internal/exitcode/exitcode.go) | `4` | Resumable exit | Resume with `--resume` after resolving the issue. |
+| [`exitcode.Config`](internal/exitcode/exitcode.go) | `5` | Configuration error | Review flags, environment variables, and `config.yaml`. |
+| [`exitcode.Capability`](internal/exitcode/exitcode.go) | `6` | Privilege or capability check failed | Run as root or adjust `--lvm-escalation`. |
 
 Definitions live in [internal/exitcode](internal/exitcode/exitcode.go).
 
@@ -141,21 +136,21 @@ Verification mismatches exit with [`exitcode.Verify`](internal/exitcode/exitcode
 
 ```sh
 lvmsync run --verify-only /dev/vg0/snap0 /dev/vg0/bad_target || echo "verify failed with exit $?"
-# verify failed with exit 60
+# verify failed with exit 3
 ```
 
 Precondition failures exit with [`exitcode.Precondition`](internal/exitcode/exitcode.go):
 
 ```sh
 lvmsync run /dev/vg0/missing /dev/vg0/target || echo "precondition failed with exit $?"
-# precondition failed with exit 80
+# precondition failed with exit 2
 ```
 
 Partition-table changes between runs also trigger this error when GPT or MBR signatures differ.
 
 When using the `rsync` transport, the client sends the destination device identity
 before writing. If the server's identity differs, the transfer aborts with
-[`exitcode.Precondition`](internal/exitcode/exitcode.go) (`80`).
+[`exitcode.Precondition`](internal/exitcode/exitcode.go) (`2`).
 
 ## Troubleshooting
 
@@ -167,29 +162,29 @@ before writing. If the server's identity differs, the transfer aborts with
 ### Snapshot Overflow
 
 Snapshot volumes fill when copy-on-write blocks exceed the allocated snapshot size.
-LVMSync exits with [`exitcode.Device`](internal/exitcode/exitcode.go) (`20`).
+LVMSync exits with [`exitcode.Resumable`](internal/exitcode/exitcode.go) (`4`).
 Grow the snapshot or create a larger one, then rerun with the same `--resume` state:
 
 ```sh
 lvmsync run /dev/vg0/snap_full /dev/vg0/dst || echo "snapshot overflow exit $?"
-# snapshot overflow exit 20
+# snapshot overflow exit 4
 ```
 
 ### Verify Failure
 
 Verification mismatches stop the transfer with
-[`exitcode.Verify`](internal/exitcode/exitcode.go) (`60`). Inspect the logs to
+[`exitcode.Verify`](internal/exitcode/exitcode.go) (`3`). Inspect the logs to
 identify mismatched blocks before retrying:
 
 ```sh
 lvmsync run --verify-only /dev/vg0/snap0 /dev/vg0/target || echo "verify exit $?"
-# verify exit 60
+# verify exit 3
 ```
 
 ### Resume After Interruption
 
 Unexpected interruptions (signals, network loss) exit with
-[`exitcode.Resumable`](internal/exitcode/exitcode.go) (`90`). Fix the underlying
+[`exitcode.Resumable`](internal/exitcode/exitcode.go) (`4`). Fix the underlying
 issue and resume the transfer:
 
 ```sh
@@ -199,7 +194,7 @@ lvmsync run --resume state /dev/vg0/snap0 /dev/vg0/target
 ### Identity Tuple Mismatch
 
 If the source or destination no longer matches the resume state, LVMSync exits with
-[`exitcode.Precondition`](internal/exitcode/exitcode.go) (`80`) and refuses to resume. Recreate the
+[`exitcode.Precondition`](internal/exitcode/exitcode.go) (`2`) and refuses to resume. Recreate the
 destination or regenerate the resume state before restarting.
 
 ## Failure Drills
@@ -239,16 +234,16 @@ scenarios.
    ```sh
    lvmsync run --remote https://badhost /dev/vg0/snap0 user@host:/dev/vg0/dst
    ```
-2. The TLS handshake fails with `exitcode.Runtime`. Verify certificates and
+2. The TLS handshake fails with exit code `1`. Verify certificates and
    trust stores, then retry the transfer.
 
 ## Symptom Reference
 
 | Symptom/log excerpt | Exit code | Recommended operator action |
 |---------------------|-----------|------------------------------|
-| `privilege check failed` | [10](internal/exitcode/exitcode.go) | Run as root or adjust `--lvm-escalation`. |
-| `snapshot overflow exit 20` | [20](internal/exitcode/exitcode.go) | Grow or recreate the snapshot, then resume. |
-| `verify failed with exit 60` | [60](internal/exitcode/exitcode.go) | Investigate mismatched blocks before retrying. |
-| `precondition failed with exit 80` | [80](internal/exitcode/exitcode.go) | Ensure device identities match or regenerate the state file. |
-| `resumable exit 90` | [90](internal/exitcode/exitcode.go) | Retry with `--resume` after fixing the issue. |
+| `privilege check failed` | [6](internal/exitcode/exitcode.go) | Run as root or adjust `--lvm-escalation`. |
+| `snapshot overflow exit 4` | [4](internal/exitcode/exitcode.go) | Grow or recreate the snapshot, then resume. |
+| `verify failed with exit 3` | [3](internal/exitcode/exitcode.go) | Investigate mismatched blocks before retrying. |
+| `precondition failed with exit 2` | [2](internal/exitcode/exitcode.go) | Ensure device identities match or regenerate the state file. |
+| `resumable exit 4` | [4](internal/exitcode/exitcode.go) | Retry with `--resume` after fixing the issue. |
 

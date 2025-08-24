@@ -89,12 +89,12 @@ lvmsync run --dry-run --verify-only /dev/vg0/snap0 /dev/vg0/target
 lvmsync run --dry-run /dev/vg0/snap0 /dev/vg0/target
 ```
 
-Exit code `60` signals verification mismatches. See [operations guide](OPERATIONS.md) for detailed recovery steps.
+Exit code `3` signals verification mismatches. See [operations guide](OPERATIONS.md) for detailed recovery steps.
 
 ## Supported Platforms
 
 LVMSync supports Linux only. A runtime check in [`main.go`](main.go) aborts
-execution on other operating systems with exit code `30`. The project is
+execution on other operating systems with exit code `1`. The project is
 regularly tested on `amd64` and `arm64` architectures.
 
 To cross-compile for another Linux architecture, set `GOOS=linux` and the

@@ -60,7 +60,7 @@ Common options:
 Benchmarks are executed with helper scripts that wrap the `lvmsync run` command and collect timing data.
 
 Ensure the privilege model is satisfied: run as root or configure `--lvm-escalation`.  
-Non-zero exit codes indicate problems (`10` for privilege failures, `60` for verification mismatches).
+Non-zero exit codes indicate problems (`6` for privilege failures, `3` for verification mismatches).
 
 ### LAN Flags
 

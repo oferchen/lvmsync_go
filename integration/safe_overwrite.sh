@@ -52,13 +52,13 @@ if [ "$HASH_AFTER_PROBE" != "$HASH_BEFORE" ]; then
   exit 1
 fi
 
-# Verify-only should exit 60 and not modify destination
+# Verify-only should exit 3 and not modify destination
 set +e
 "$BIN" run --verify-only /dev/vgsrc/snap /dev/vgd/dest
 STATUS=$?
 set -e
-if [ "$STATUS" -ne 60 ]; then
-  echo "expected exit code 60, got $STATUS"
+if [ "$STATUS" -ne 3 ]; then
+  echo "expected exit code 3, got $STATUS"
   exit 1
 fi
 HASH_AFTER_VERIFY=$(sha256sum /dev/vgd/dest | awk '{print $1}')

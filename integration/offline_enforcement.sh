@@ -54,8 +54,8 @@ run_fs() (
   "$BIN" --dry-run --transport=rsync "$LOOP" "$DEST" >/tmp/offline_${FS}_a.log 2>&1
   STATUS=$?
   set -e
-  if [ "$STATUS" -ne 80 ]; then
-    echo "expected exit code 80, got $STATUS for $FS"
+  if [ "$STATUS" -ne 2 ]; then
+    echo "expected exit code 2, got $STATUS for $FS"
     cat /tmp/offline_${FS}_a.log
     exit 1
   fi

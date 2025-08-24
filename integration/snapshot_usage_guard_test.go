@@ -85,8 +85,8 @@ func TestSnapshotUsageGuard(t *testing.T) {
 	if !errors.As(err, &exitErr) {
 		t.Fatalf("expected exit error, got %v", err)
 	}
-	if exitErr.ExitCode() != exitcode.SnapshotExhausted {
-		t.Fatalf("expected exit code %d, got %d", exitcode.SnapshotExhausted, exitErr.ExitCode())
+	if exitErr.ExitCode() != exitcode.Resumable {
+		t.Fatalf("expected exit code %d, got %d", exitcode.Resumable, exitErr.ExitCode())
 	}
 
 	out := run(t, exec.Command("lvs", "--noheadings", "-o", "lv_name", "vgtest"))

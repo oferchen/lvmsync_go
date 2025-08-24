@@ -12,7 +12,7 @@ Read-only operations can run without elevated privileges.
 `--probe-only` checks device metadata, validates privileges, and emits dry-run estimates. It prints `(size_bytes, kernel_uuid, gpt_uuid, mbr_signature, fs_uuid, major, minor, manifest_epoch)` for confirmation.
 `--verify-only` reads source and destination devices and reports mismatches.
 
-Both commands exit `0` on success, return `60` for verification failures, and `10` when required capabilities are missing. See [exit code meanings](OPERATIONS.md#exit-codes-and-recovery) for all codes.
+Both commands exit `0` on success, return `3` for verification failures, and `6` when required capabilities are missing. See [exit code meanings](OPERATIONS.md#exit-codes-and-recovery) for all codes.
 
 Example `--probe-only` output:
 
@@ -26,7 +26,7 @@ When privileges are missing:
 ```sh
 lvmsync run --probe-only /dev/vg0/snap0 /dev/vg0/target || \
   echo "probe failed with exit $?; run as root or adjust --lvm-escalation"
-# probe failed with exit 10; run as root or adjust --lvm-escalation
+# probe failed with exit 6; run as root or adjust --lvm-escalation
 ```
 
 ## Device identity enforcement

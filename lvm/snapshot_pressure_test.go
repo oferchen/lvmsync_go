@@ -68,8 +68,8 @@ func TestSnapshotPressureAbortCleanup(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "snapshot exhausted") {
 		t.Fatalf("expected snapshot exhausted error, got %v", err)
 	}
-	if code := rootcmd.ExitCode(err); code != exitcode.SnapshotExhausted {
-		t.Fatalf("exit code = %d; want %d", code, exitcode.SnapshotExhausted)
+	if code := rootcmd.ExitCode(err); code != exitcode.Resumable {
+		t.Fatalf("exit code = %d; want %d", code, exitcode.Resumable)
 	}
 
 	cleanup()
