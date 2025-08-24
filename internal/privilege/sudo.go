@@ -17,7 +17,26 @@ import (
 // commands may run when the caller does not provide a deadline.
 const defaultEscalationTimeout = 5 * time.Second
 
+func (s *sudoEscalator) mergeContext(ctx context.Context) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if s.ctx == nil {
+		return ctx
+	}
+	merged, cancel := context.WithCancel(ctx)
+	go func() {
+		select {
+		case <-s.ctx.Done():
+			cancel()
+		case <-merged.Done():
+		}
+	}()
+	return merged
+}
+
 func (s *sudoEscalator) withTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
+	ctx = s.mergeContext(ctx)
 	if _, ok := ctx.Deadline(); ok {
 		return context.WithCancel(ctx)
 	}

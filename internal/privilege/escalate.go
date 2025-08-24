@@ -22,6 +22,7 @@ type Escalator interface {
 // sudoEscalator implements Escalator using Linux capabilities when present
 // and sudo -n as a fallback.
 type sudoEscalator struct {
+	ctx         context.Context
 	useSudo     bool
 	runner      *Runner
 	sanitizeEnv bool

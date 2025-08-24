@@ -27,8 +27,9 @@ type Runner struct {
 	Timeout  time.Duration
 }
 
-// New returns an Escalator with production dependencies.
-// ctx is currently unused but reserved for future use.
+// New returns an Escalator with production dependencies. The provided context
+// is stored on the Escalator and used when invoking external commands so
+// callers can cancel operations.
 func New(ctx context.Context, logger *zap.Logger) Escalator {
 	return NewWithRunner(ctx, nil, logger)
 }
@@ -59,7 +60,10 @@ func NewWithRunnerAndSanitize(ctx context.Context, r *Runner, sanitize bool) Esc
 	return newEscalator(ctx, r, sanitize)
 }
 
-func newEscalator(_ context.Context, r *Runner, sanitize bool) Escalator {
+func newEscalator(ctx context.Context, r *Runner, sanitize bool) Escalator {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	cmd := Commander(commanderFunc(exec.CommandContext))
 	lp := exec.LookPath
 	logger := zap.NewNop()
@@ -79,6 +83,7 @@ func newEscalator(_ context.Context, r *Runner, sanitize bool) Escalator {
 		}
 	}
 	return &sudoEscalator{
+		ctx:         ctx,
 		useSudo:     !HasCaps(),
 		runner:      &Runner{Cmd: cmd, LookPath: lp, Logger: logger},
 		sanitizeEnv: sanitize,
