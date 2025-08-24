@@ -55,6 +55,25 @@ func (d *dummyListener) Accept() (net.Conn, error) {
 func (d *dummyListener) Close() error   { return nil }
 func (d *dummyListener) Addr() net.Addr { return d.addr }
 
+func TestParseListenErrors(t *testing.T) {
+	tests := []struct {
+		name    string
+		uri     string
+		wantErr string
+	}{
+		{"ParseError", "://bad", "parse listen URI"},
+		{"MissingScheme", "//:1234", "missing scheme"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := parseListen([]string{tt.uri})
+			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("expected error containing %q, got %v", tt.wantErr, err)
+			}
+		})
+	}
+}
+
 func TestFlagParsing(t *testing.T) {
 	v := viper.New()
 	cmd := &cobra.Command{}
@@ -154,6 +173,26 @@ func TestStartMissingCerts(t *testing.T) {
 	err := start(context.Background(), options{}, zap.NewNop())
 	if err == nil || !strings.Contains(err.Error(), "server-cert, server-key, client-cert, client-key, and ca-cert are required") {
 		t.Fatalf("expected missing cert error, got %v", err)
+	}
+}
+
+func TestStartAllowsMissingCertsWithAllowInsecure(t *testing.T) {
+	if err := transport.Register("mocktls", func(cfg transport.Config) (transport.Interface, error) {
+		return &mockTransport{}, nil
+	}); err != nil && !strings.Contains(err.Error(), "already registered") {
+		t.Fatalf("register: %v", err)
+	}
+	opts := options{
+		listens:       []string{"mocktls://:1234"},
+		allowInsecure: true,
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- start(ctx, opts, zap.NewNop()) }()
+	time.Sleep(100 * time.Millisecond)
+	cancel()
+	if err := <-done; err != context.Canceled {
+		t.Fatalf("start returned %v", err)
 	}
 }
 
