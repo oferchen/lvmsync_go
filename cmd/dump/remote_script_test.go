@@ -51,7 +51,7 @@ func TestRemotePostScriptRunsOnError(t *testing.T) {
 			return io.ErrUnexpectedEOF
 		},
 		sumFile: func(string, string) ([32]byte, error) { return [32]byte{}, nil },
-		detectDevice: func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, privilege.Escalator, *zap.Logger, *device.Runner) (device.Device, error) {
+		detectDevice: func(context.Context, string, bool, bool, string, string, string, string, time.Duration, time.Duration, privilege.Escalator, *zap.Logger, *device.Runner) (device.Device, error) {
 			return &fakeDevice{path: "/dev/snap"}, nil
 		},
 		verifyIdentity: func(context.Context, *device.Info, string, string) error { return nil },
@@ -107,7 +107,7 @@ func TestRemotePostScriptNotRunIfPreScriptFails(t *testing.T) {
 	cfg.LVMSyncPath = "lvmsync"
 
 	r := NewRunnerWithDeps(&Runner{
-		detectDevice: func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, privilege.Escalator, *zap.Logger, *device.Runner) (device.Device, error) {
+		detectDevice: func(context.Context, string, bool, bool, string, string, string, string, time.Duration, time.Duration, privilege.Escalator, *zap.Logger, *device.Runner) (device.Device, error) {
 			return &fakeDevice{path: "/dev/snap"}, nil
 		},
 		verifyIdentity: func(context.Context, *device.Info, string, string) error { return nil },
@@ -168,7 +168,7 @@ func TestRemotePostScriptContextError(t *testing.T) {
 	cfg.LVMSyncPath = "lvmsync"
 
 	r := NewRunnerWithDeps(&Runner{
-		detectDevice: func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, privilege.Escalator, *zap.Logger, *device.Runner) (device.Device, error) {
+		detectDevice: func(context.Context, string, bool, bool, string, string, string, string, time.Duration, time.Duration, privilege.Escalator, *zap.Logger, *device.Runner) (device.Device, error) {
 			return &fakeDevice{path: "/dev/snap"}, nil
 		},
 		verifyIdentity: func(context.Context, *device.Info, string, string) error { return nil },

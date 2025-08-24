@@ -49,7 +49,7 @@ func TestDetectFile(t *testing.T) {
 	ctx := WithForce(context.Background(), true)
 	ctx = WithAllowOverwrite(ctx, true)
 	ctx = WithYesIKnow(ctx, true)
-	dev, err := Detect(ctx, f.Name(), true, "", "", "", "", 0, 0, fakeEsc{}, logger, NewRunner())
+	dev, err := Detect(ctx, f.Name(), true, true, "", "", "", "", 0, 0, fakeEsc{}, logger, NewRunner())
 	if err != nil {
 		t.Fatalf("detect: %v", err)
 	}
@@ -83,7 +83,7 @@ func TestDetectFileSymlink(t *testing.T) {
 	ctx := WithForce(context.Background(), true)
 	ctx = WithAllowOverwrite(ctx, true)
 	ctx = WithYesIKnow(ctx, true)
-	dev, err := Detect(ctx, link, true, "", "", "", "", 0, 0, fakeEsc{}, zap.NewNop(), NewRunner())
+	dev, err := Detect(ctx, link, true, true, "", "", "", "", 0, 0, fakeEsc{}, zap.NewNop(), NewRunner())
 	if err != nil {
 		t.Fatalf("detect: %v", err)
 	}
@@ -123,7 +123,7 @@ func TestDetectPathValidation(t *testing.T) {
 			ctx := WithForce(context.Background(), true)
 			ctx = WithAllowOverwrite(ctx, true)
 			ctx = WithYesIKnow(ctx, true)
-			_, err := Detect(ctx, tc.path, true, "", "", "", "", 0, 0, fakeEsc{}, zap.NewNop(), NewRunner())
+			_, err := Detect(ctx, tc.path, true, true, "", "", "", "", 0, 0, fakeEsc{}, zap.NewNop(), NewRunner())
 			if tc.wantErr {
 				if err == nil {
 					t.Fatalf("expected error for path %s", tc.path)
@@ -151,7 +151,7 @@ func TestDetectRaw(t *testing.T) {
 	ctx := WithForce(context.Background(), true)
 	ctx = WithAllowOverwrite(ctx, true)
 	ctx = WithYesIKnow(ctx, true)
-	dev, err := Detect(ctx, loop, true, "", "", "", "", 0, 0, fakeEsc{}, logger, NewRunner())
+	dev, err := Detect(ctx, loop, true, true, "", "", "", "", 0, 0, fakeEsc{}, logger, NewRunner())
 	if err != nil {
 		t.Fatalf("detect: %v", err)
 	}
@@ -193,7 +193,7 @@ func TestDetectRawSymlink(t *testing.T) {
 	ctx := WithForce(context.Background(), true)
 	ctx = WithAllowOverwrite(ctx, true)
 	ctx = WithYesIKnow(ctx, true)
-	dev, err := Detect(ctx, link, true, "", "", "", "", 0, 0, fakeEsc{}, zap.NewNop(), NewRunner())
+	dev, err := Detect(ctx, link, true, true, "", "", "", "", 0, 0, fakeEsc{}, zap.NewNop(), NewRunner())
 	if err != nil {
 		t.Fatalf("detect: %v", err)
 	}
@@ -219,7 +219,7 @@ func TestDetectLVMSymlink(t *testing.T) {
 	ctx := WithForce(context.Background(), true)
 	ctx = WithAllowOverwrite(ctx, true)
 	ctx = WithYesIKnow(ctx, true)
-	dev, err := Detect(ctx, lvPath, true, "", "", "", "", 0, 0, fakeEsc{}, zap.NewNop(), NewRunner())
+	dev, err := Detect(ctx, lvPath, true, true, "", "", "", "", 0, 0, fakeEsc{}, zap.NewNop(), NewRunner())
 	if err != nil {
 		t.Fatalf("detect: %v", err)
 	}
@@ -242,13 +242,13 @@ func TestDetectLVM(t *testing.T) {
 		return exec.CommandContext(ctx, name, args...)
 	})
 	runner := NewDeviceRunner(cmd)
-	runner.openLVMOverride = func(ctx context.Context, p string, _ *lvm.FDCache, _ bool, _ string, _ *zap.Logger) (*LVMDevice, error) {
+	runner.openLVMOverride = func(ctx context.Context, p string, _ *lvm.FDCache, _ bool, _ bool, _ string, _ *zap.Logger) (*LVMDevice, error) {
 		return &LVMDevice{path: p, logger: zap.NewNop(), runner: runner}, nil
 	}
 	ctx := WithForce(context.Background(), true)
 	ctx = WithAllowOverwrite(ctx, true)
 	ctx = WithYesIKnow(ctx, true)
-	dev, err := Detect(ctx, loop, true, "", "", "", "", 0, 0, fakeEsc{}, zap.NewNop(), runner)
+	dev, err := Detect(ctx, loop, true, true, "", "", "", "", 0, 0, fakeEsc{}, zap.NewNop(), runner)
 	if err != nil {
 		t.Fatalf("detect: %v", err)
 	}
@@ -280,7 +280,7 @@ func TestDetectRawCommandQuoting(t *testing.T) {
 	ctx := WithForce(context.Background(), true)
 	ctx = WithAllowOverwrite(ctx, true)
 	ctx = WithYesIKnow(ctx, true)
-	dev, err := Detect(ctx, loop, false, "raw", freeze, thaw, "", 0, 0, fakeEsc{}, zap.NewNop(), NewDeviceRunner(cmd))
+	dev, err := Detect(ctx, loop, false, false, "raw", freeze, thaw, "", 0, 0, fakeEsc{}, zap.NewNop(), NewDeviceRunner(cmd))
 	if err != nil {
 		t.Fatalf("detect: %v", err)
 	}
@@ -324,7 +324,7 @@ func TestDetectRawPartitionMismatch(t *testing.T) {
 	ctx = WithForce(ctx, true)
 	ctx = WithAllowOverwrite(ctx, true)
 	ctx = WithYesIKnow(ctx, true)
-	if _, err := detectRawDevice(ctx, loop, true, "", "", 0, 0, fakeEsc{}, zap.NewNop(), NewRunner()); err == nil || !errors.Is(err, ErrPartitionMismatch) {
+	if _, err := detectRawDevice(ctx, loop, true, true, "", "", 0, 0, fakeEsc{}, zap.NewNop(), NewRunner()); err == nil || !errors.Is(err, ErrPartitionMismatch) {
 		t.Fatalf("expected partition mismatch error, got %v", err)
 	}
 }
@@ -354,7 +354,7 @@ func TestDetectRawPartitionMatch(t *testing.T) {
 	ctx = WithForce(ctx, true)
 	ctx = WithAllowOverwrite(ctx, true)
 	ctx = WithYesIKnow(ctx, true)
-	dev, err := detectRawDevice(ctx, loop, true, "", "", 0, 0, fakeEsc{}, zap.NewNop(), NewRunner())
+	dev, err := detectRawDevice(ctx, loop, true, true, "", "", 0, 0, fakeEsc{}, zap.NewNop(), NewRunner())
 	if err != nil {
 		t.Fatalf("detectRawDevice: %v", err)
 	}
@@ -385,12 +385,12 @@ func TestDetectPartitionComparison(t *testing.T) {
 			ctx = WithForce(ctx, true)
 			ctx = WithAllowOverwrite(ctx, true)
 			ctx = WithYesIKnow(ctx, true)
-			dev, err := Detect(ctx, f1, true, "", "", "", "", 0, 0, fakeEsc{}, zap.NewNop(), NewRunner())
+			dev, err := Detect(ctx, f1, true, true, "", "", "", "", 0, 0, fakeEsc{}, zap.NewNop(), NewRunner())
 			if err != nil {
 				t.Fatalf("detect src: %v", err)
 			}
 			dev.Close()
-			_, err = Detect(ctx, f2, true, "", "", "", "", 0, 0, fakeEsc{}, zap.NewNop(), NewRunner())
+			_, err = Detect(ctx, f2, true, true, "", "", "", "", 0, 0, fakeEsc{}, zap.NewNop(), NewRunner())
 			if tc.wantErr {
 				if err == nil || !errors.Is(err, ErrPartitionMismatch) {
 					t.Fatalf("expected partition mismatch error, got %v", err)

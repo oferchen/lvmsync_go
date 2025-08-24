@@ -31,8 +31,8 @@ type Runner struct {
 	discardEnabled    func(context.Context, string) (bool, error)
 	isMountedRW       func(context.Context, string) (bool, error)
 	lockAcquire       func(string, string) (*lock.Lock, error)
-	openLVMOverride   func(context.Context, string, *lvm.FDCache, bool, string, *zap.Logger) (*LVMDevice, error)
-	openRawOverride   func(context.Context, string, bool, string, []string, string, []string, time.Duration, time.Duration, privilege.Escalator, *zap.Logger) (*RawDevice, error)
+	openLVMOverride   func(context.Context, string, *lvm.FDCache, bool, bool, string, *zap.Logger) (*LVMDevice, error)
+	openRawOverride   func(context.Context, string, bool, bool, string, []string, string, []string, time.Duration, time.Duration, privilege.Escalator, *zap.Logger) (*RawDevice, error)
 }
 
 // NewDeviceRunner returns a Runner using production dependencies and the provided Commander.
@@ -93,6 +93,7 @@ func defaultIsMountedRW(ctx context.Context, path string) (bool, error) {
 func (r *Runner) OpenRaw(
 	ctx context.Context,
 	path string,
+	readonly bool,
 	offline bool,
 	freezePath string,
 	freezeArgs []string,
@@ -104,7 +105,7 @@ func (r *Runner) OpenRaw(
 	logger *zap.Logger,
 ) (*RawDevice, error) {
 	if r.openRawOverride != nil {
-		return r.openRawOverride(ctx, path, offline, freezePath, freezeArgs, thawPath, thawArgs, freezeTimeout, thawTimeout, esc, logger)
+		return r.openRawOverride(ctx, path, readonly, offline, freezePath, freezeArgs, thawPath, thawArgs, freezeTimeout, thawTimeout, esc, logger)
 	}
-	return OpenRaw(ctx, path, offline, freezePath, freezeArgs, thawPath, thawArgs, freezeTimeout, thawTimeout, esc, logger, r)
+	return OpenRaw(ctx, path, readonly, offline, freezePath, freezeArgs, thawPath, thawArgs, freezeTimeout, thawTimeout, esc, logger, r)
 }

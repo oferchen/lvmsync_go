@@ -86,7 +86,7 @@ func prepareFreeze(
 
 // openDevice ensures the path is a block device and opens it for reading and writing.
 // Callers must ensure the necessary privilege before invoking this function.
-func openDevice(path string) (*os.File, error) {
+func openDevice(path string, readonly bool) (*os.File, error) {
 	if !filepath.IsAbs(path) {
 		return nil, fmt.Errorf("precondition: path must be absolute: %s", path)
 	}
@@ -96,6 +96,9 @@ func openDevice(path string) (*os.File, error) {
 	}
 	if info.Mode()&os.ModeDevice == 0 || info.Mode()&os.ModeCharDevice != 0 {
 		return nil, fmt.Errorf("%s is not a block device", path)
+	}
+	if readonly {
+		return os.Open(path)
 	}
 	return os.OpenFile(path, os.O_RDWR, 0)
 }
@@ -123,6 +126,7 @@ func queryDeviceInfo(f *os.File, path string, logger *zap.Logger) (uint64, uint6
 func OpenRaw(
 	ctx context.Context,
 	path string,
+	readonly bool,
 	offline bool,
 	fsFreezeCmdPath string,
 	fsFreezeCmdArgs []string,
@@ -159,7 +163,7 @@ func OpenRaw(
 			}
 		}()
 	}
-	f, err := openDevice(path)
+	f, err := openDevice(path, readonly)
 	if err != nil {
 		return nil, err
 	}

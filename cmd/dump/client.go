@@ -57,7 +57,7 @@ type Runner struct {
 	dumpDedup      func(context.Context, *transfer.Transfer, *config.Config, string, string, io.Writer, transfer.DeduplicationStrategy) error
 	newSSHClient   func(context.Context, string, string, string, int, string, bool, time.Duration, time.Duration, int, *zap.Logger) (*remote.SSHClient, error)
 	openFile       func(string, int, os.FileMode) (*os.File, error)
-	detectDevice   func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, privilege.Escalator, *zap.Logger, *device.Runner) (device.Device, error)
+	detectDevice   func(context.Context, string, bool, bool, string, string, string, string, time.Duration, time.Duration, privilege.Escalator, *zap.Logger, *device.Runner) (device.Device, error)
 	sumFile        func(string, string) ([32]byte, error)
 	streamToRemote func(context.Context, *config.Config, io.WriteCloser, string, string, string, *zap.Logger) error
 	probeDest      func(context.Context, *config.Config, string, *zap.Logger) (device.DeviceIdentity, error)
@@ -291,6 +291,7 @@ func (r *Runner) Run(ctx context.Context, cfg *config.Config, source, dest strin
 	dev, err := r.detectDevice(
 		ctx,
 		source,
+		true,
 		cfg.Offline,
 		cfg.SourceType,
 		cfg.FSFreezeCommand,
@@ -370,7 +371,7 @@ func (r *Runner) RunLocalDump(ctx context.Context, cfg *config.Config, snapshotD
 		return destType, r.ExecuteDump(ctx, cfg, snapshotDevice, originDevice, io.Discard, logger)
 	}
 	if destType == "auto" {
-		dev, err := device.Detect(devCtx, dest, true, destType, "", "", cfg.LVMEscalation, cfg.FreezeTimeout, cfg.ThawTimeout, privilege.New(devCtx, logger), logger, devRunner)
+		dev, err := device.Detect(devCtx, dest, false, true, destType, "", "", cfg.LVMEscalation, cfg.FreezeTimeout, cfg.ThawTimeout, privilege.New(devCtx, logger), logger, devRunner)
 		if err != nil {
 			if cfg.CheckPartition && errors.Is(err, device.ErrPartitionMismatch) {
 				if !cfg.Force {
@@ -382,7 +383,7 @@ func (r *Runner) RunLocalDump(ctx context.Context, cfg *config.Config, snapshotD
 				tmpCtx := device.WithForce(context.Background(), cfg.Force)
 				tmpCtx = device.WithAllowOverwrite(tmpCtx, cfg.AllowOverwrite)
 				tmpCtx = device.WithYesIKnow(tmpCtx, cfg.YesIKnow)
-				dev, err = device.Detect(tmpCtx, dest, true, destType, "", "", cfg.LVMEscalation, cfg.FreezeTimeout, cfg.ThawTimeout, privilege.New(tmpCtx, logger), logger, devRunner)
+				dev, err = device.Detect(tmpCtx, dest, false, true, destType, "", "", cfg.LVMEscalation, cfg.FreezeTimeout, cfg.ThawTimeout, privilege.New(tmpCtx, logger), logger, devRunner)
 				if err != nil {
 					dev = nil
 				}
@@ -566,7 +567,7 @@ func (r *Runner) streamRsyncDelta(ctx context.Context, cfg *config.Config, remot
 
 	rw := writeOnlyReadWriter{remoteStdin}
 	cl := rsyncwire.NewClient(rsyncwire.NewStream(rw, maxFrame))
-	dev, err := r.detectDevice(ctx, originDevice, true, "", "", "", "", 0, 0, privilege.New(ctx, logger), logger, device.NewRunner())
+	dev, err := r.detectDevice(ctx, originDevice, true, true, "", "", "", "", 0, 0, privilege.New(ctx, logger), logger, device.NewRunner())
 	if err != nil {
 		remoteStdin.Close()
 		return fmt.Errorf("detect origin: %w", err)

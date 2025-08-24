@@ -21,15 +21,15 @@ func TestIdentityMismatchRequiresOverwriteFlags(t *testing.T) {
 	defer cleanupDst()
 
 	ctx := WithForce(context.Background(), true)
-	if _, err := OpenRaw(ctx, dstLoop, true, "", nil, "", nil, 0, 0, fakeEsc{}, zap.NewNop(), NewRunner()); err == nil || !strings.Contains(err.Error(), "--allow-overwrite") {
+	if _, err := OpenRaw(ctx, dstLoop, true, true, "", nil, "", nil, 0, 0, fakeEsc{}, zap.NewNop(), NewRunner()); err == nil || !strings.Contains(err.Error(), "--allow-overwrite") {
 		t.Fatalf("expected allow-overwrite error, got %v", err)
 	}
 	ctx = WithAllowOverwrite(ctx, true)
-	if _, err := OpenRaw(ctx, dstLoop, true, "", nil, "", nil, 0, 0, fakeEsc{}, zap.NewNop(), NewRunner()); err == nil || !strings.Contains(err.Error(), "--yes-i-know") {
+	if _, err := OpenRaw(ctx, dstLoop, true, true, "", nil, "", nil, 0, 0, fakeEsc{}, zap.NewNop(), NewRunner()); err == nil || !strings.Contains(err.Error(), "--yes-i-know") {
 		t.Fatalf("expected yes-i-know error, got %v", err)
 	}
 	ctx = WithYesIKnow(ctx, true)
-	dev, err := OpenRaw(ctx, dstLoop, true, "", nil, "", nil, 0, 0, fakeEsc{}, zap.NewNop(), NewRunner())
+	dev, err := OpenRaw(ctx, dstLoop, true, true, "", nil, "", nil, 0, 0, fakeEsc{}, zap.NewNop(), NewRunner())
 	if err != nil {
 		t.Fatalf("OpenRaw: %v", err)
 	}

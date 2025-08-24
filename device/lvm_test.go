@@ -78,7 +78,7 @@ func TestOpenLVM(t *testing.T) {
 	}
 	defer cache.Close()
 	runner := NewRunner()
-	dev, err := runner.OpenLVM(context.Background(), loop, cache, false, "", zap.NewNop())
+	dev, err := runner.OpenLVM(context.Background(), loop, cache, true, false, "", zap.NewNop())
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
@@ -103,7 +103,7 @@ func TestOpenLVMNonBlockDevice(t *testing.T) {
 	}
 	defer cache.Close()
 	runner := NewRunner()
-	if _, err := runner.OpenLVM(context.Background(), f.Name(), cache, false, "", zap.NewNop()); err == nil {
+	if _, err := runner.OpenLVM(context.Background(), f.Name(), cache, true, false, "", zap.NewNop()); err == nil {
 		t.Fatalf("expected error for non-block device")
 	}
 }
@@ -115,7 +115,7 @@ func TestOpenLVMChecks(t *testing.T) {
 	}
 	defer cache.Close()
 	runner := NewRunnerWithDeps(func(context.Context, string) (bool, error) { return false, nil }, lvm.AutoExtendEnabled, lvm.DiscardEnabled, defaultIsMountedRW, lock.Acquire, nil)
-	if _, err := runner.OpenLVM(context.Background(), "/dev/missing", cache, false, "", zap.NewNop()); err == nil {
+	if _, err := runner.OpenLVM(context.Background(), "/dev/missing", cache, true, false, "", zap.NewNop()); err == nil {
 		t.Fatalf("expected error when volume missing")
 	}
 }
@@ -149,10 +149,10 @@ func TestOpenLVMRequiresSnapshot(t *testing.T) {
 		func(string, string) (*lock.Lock, error) { return &lock.Lock{}, nil },
 		nil,
 	)
-	if _, err := runner.OpenLVM(context.Background(), loop, cache, false, "", zap.NewNop()); !errors.Is(err, exitcode.ErrPrecondition) {
+	if _, err := runner.OpenLVM(context.Background(), loop, cache, true, false, "", zap.NewNop()); !errors.Is(err, exitcode.ErrPrecondition) {
 		t.Fatalf("expected precondition error, got %v", err)
 	}
-	if _, err := runner.OpenLVM(context.Background(), loop, cache, true, "", zap.NewNop()); err != nil {
+	if _, err := runner.OpenLVM(context.Background(), loop, cache, true, true, "", zap.NewNop()); err != nil {
 		t.Fatalf("offline open: %v", err)
 	}
 }
@@ -186,7 +186,7 @@ func TestOpenLVMSnapshotAllowed(t *testing.T) {
 		func(string, string) (*lock.Lock, error) { return &lock.Lock{}, nil },
 		nil,
 	)
-	dev, err := runner.OpenLVM(context.Background(), loop, cache, false, "", zap.NewNop())
+	dev, err := runner.OpenLVM(context.Background(), loop, cache, true, false, "", zap.NewNop())
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
@@ -423,7 +423,7 @@ func TestSnapshotReadOnly(t *testing.T) {
 	defer func() { generateSnapshot = origName }()
 
 	runner := NewDeviceRunner(cmd)
-	runner.openLVMOverride = func(ctx context.Context, p string, _ *lvm.FDCache, _ bool, _ string, _ *zap.Logger) (*LVMDevice, error) {
+	runner.openLVMOverride = func(ctx context.Context, p string, _ *lvm.FDCache, _ bool, _ bool, _ string, _ *zap.Logger) (*LVMDevice, error) {
 		return &LVMDevice{path: p, cleanupPath: p, escalation: "doas -n", logger: zap.NewNop(), runner: runner}, nil
 	}
 

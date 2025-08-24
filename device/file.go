@@ -18,8 +18,9 @@ type FileDevice struct {
 }
 
 // OpenFile opens a regular file and reports its size and filesystem block size.
-// logger must be non-nil.
-func OpenFile(path string, logger *zap.Logger) (*FileDevice, error) {
+// When readonly is true the file is opened with os.O_RDONLY. logger must be
+// non-nil.
+func OpenFile(path string, readonly bool, logger *zap.Logger) (*FileDevice, error) {
 	info, err := os.Stat(path)
 	if err != nil {
 		logger.Error("file_device_open_failed", zap.String("path", path), zap.Error(err))
@@ -30,7 +31,12 @@ func OpenFile(path string, logger *zap.Logger) (*FileDevice, error) {
 		logger.Error("file_device_open_failed", zap.String("path", path), zap.Error(err))
 		return nil, err
 	}
-	f, err := os.OpenFile(path, os.O_RDWR, 0)
+	var f *os.File
+	if readonly {
+		f, err = os.Open(path)
+	} else {
+		f, err = os.OpenFile(path, os.O_RDWR, 0)
+	}
 	if err != nil {
 		logger.Error("file_device_open_failed", zap.String("path", path), zap.Error(err))
 		return nil, err

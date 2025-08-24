@@ -39,7 +39,7 @@ func (s *identityStub) RecoverWAL(fn func(Range) error) error { return nil }
 
 func TestVerifyIdentityMatch(t *testing.T) {
 	info := NewInfoWithDeps(func(context.Context, string) (string, error) { return "id", nil }, nil, nil, nil, nil)
-	prev := info.SetDetectFunc(func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, privilege.Escalator, *zap.Logger, *Runner) (Device, error) {
+	prev := info.SetDetectFunc(func(context.Context, string, bool, bool, string, string, string, string, time.Duration, time.Duration, privilege.Escalator, *zap.Logger, *Runner) (Device, error) {
 		return &identityStub{size: 1, epoch: 1}, nil
 	})
 	defer info.SetDetectFunc(prev)
@@ -50,7 +50,7 @@ func TestVerifyIdentityMatch(t *testing.T) {
 
 func TestIdentitySizeMismatchFailsEarly(t *testing.T) {
 	info := NewInfo()
-	prev := info.SetDetectFunc(func(_ context.Context, path string, _ bool, _, _, _, _ string, _ time.Duration, _ time.Duration, _ privilege.Escalator, _ *zap.Logger, _ *Runner) (Device, error) {
+	prev := info.SetDetectFunc(func(_ context.Context, path string, _ bool, _ bool, _, _, _, _ string, _ time.Duration, _ time.Duration, _ privilege.Escalator, _ *zap.Logger, _ *Runner) (Device, error) {
 		if strings.Contains(path, "src") {
 			return &identityStub{size: 1, epoch: 1}, nil
 		}
@@ -73,7 +73,7 @@ func TestIdentityFSUUIDMismatch(t *testing.T) {
 		}
 		return "id2", nil
 	}, nil, nil, nil, nil)
-	prev := info.SetDetectFunc(func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, privilege.Escalator, *zap.Logger, *Runner) (Device, error) {
+	prev := info.SetDetectFunc(func(context.Context, string, bool, bool, string, string, string, string, time.Duration, time.Duration, privilege.Escalator, *zap.Logger, *Runner) (Device, error) {
 		return &identityStub{size: 1, epoch: 1}, nil
 	})
 	defer info.SetDetectFunc(prev)
@@ -84,7 +84,7 @@ func TestIdentityFSUUIDMismatch(t *testing.T) {
 
 func TestIdentityGPTUUIDMismatch(t *testing.T) {
 	info := NewInfoWithDeps(func(context.Context, string) (string, error) { return "id", nil }, nil, nil, nil, nil)
-	prev := info.SetDetectFunc(func(_ context.Context, path string, _ bool, _, _, _, _ string, _ time.Duration, _ time.Duration, _ privilege.Escalator, _ *zap.Logger, _ *Runner) (Device, error) {
+	prev := info.SetDetectFunc(func(_ context.Context, path string, _ bool, _ bool, _, _, _, _ string, _ time.Duration, _ time.Duration, _ privilege.Escalator, _ *zap.Logger, _ *Runner) (Device, error) {
 		if strings.Contains(path, "src") {
 			return &identityStub{size: 1, epoch: 1, gpt: "gpt1", mbr: "m"}, nil
 		}
@@ -98,7 +98,7 @@ func TestIdentityGPTUUIDMismatch(t *testing.T) {
 
 func TestIdentityMBRSignatureMismatch(t *testing.T) {
 	info := NewInfoWithDeps(func(context.Context, string) (string, error) { return "id", nil }, nil, nil, nil, nil)
-	prev := info.SetDetectFunc(func(_ context.Context, path string, _ bool, _, _, _, _ string, _ time.Duration, _ time.Duration, _ privilege.Escalator, _ *zap.Logger, _ *Runner) (Device, error) {
+	prev := info.SetDetectFunc(func(_ context.Context, path string, _ bool, _ bool, _, _, _, _ string, _ time.Duration, _ time.Duration, _ privilege.Escalator, _ *zap.Logger, _ *Runner) (Device, error) {
 		if strings.Contains(path, "src") {
 			return &identityStub{size: 1, epoch: 1, gpt: "g", mbr: "m1"}, nil
 		}
@@ -112,7 +112,7 @@ func TestIdentityMBRSignatureMismatch(t *testing.T) {
 
 func TestIdentityPartitionHashMismatch(t *testing.T) {
 	info := NewInfoWithDeps(func(context.Context, string) (string, error) { return "id", nil }, nil, nil, nil, nil)
-	prev := info.SetDetectFunc(func(_ context.Context, path string, _ bool, _, _, _, _ string, _ time.Duration, _ time.Duration, _ privilege.Escalator, _ *zap.Logger, _ *Runner) (Device, error) {
+	prev := info.SetDetectFunc(func(_ context.Context, path string, _ bool, _ bool, _, _, _, _ string, _ time.Duration, _ time.Duration, _ privilege.Escalator, _ *zap.Logger, _ *Runner) (Device, error) {
 		if strings.Contains(path, "src") {
 			return &identityStub{size: 1, epoch: 1, phash: hash.SumBLAKE3([]byte("a"))}, nil
 		}
@@ -126,7 +126,7 @@ func TestIdentityPartitionHashMismatch(t *testing.T) {
 
 func TestVerifyIdentityManifestEpochMismatch(t *testing.T) {
 	info := NewInfoWithDeps(func(context.Context, string) (string, error) { return "id", nil }, nil, nil, nil, nil)
-	prev := info.SetDetectFunc(func(_ context.Context, path string, _ bool, _, _, _, _ string, _ time.Duration, _ time.Duration, _ privilege.Escalator, _ *zap.Logger, _ *Runner) (Device, error) {
+	prev := info.SetDetectFunc(func(_ context.Context, path string, _ bool, _ bool, _, _, _, _ string, _ time.Duration, _ time.Duration, _ privilege.Escalator, _ *zap.Logger, _ *Runner) (Device, error) {
 		if strings.Contains(path, "src") {
 			return &identityStub{size: 1, epoch: 1}, nil
 		}
