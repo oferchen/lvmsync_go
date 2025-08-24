@@ -213,6 +213,39 @@ func TestCommandContextCanceled(t *testing.T) {
 	}
 }
 
+func TestEnsureEscalatorContextCanceled(t *testing.T) {
+	HasCaps = func() bool { return false }
+	parent, cancel := context.WithCancel(context.Background())
+	r := &Runner{Cmd: cmdFunc(func(ctx context.Context, _ string, _ ...string) *exec.Cmd {
+		return exec.CommandContext(ctx, "sleep", "10")
+	}), LookPath: fakeLookPath(nil)}
+	esc := NewWithRunner(parent, r, zap.NewNop())
+	go func() {
+		time.Sleep(10 * time.Millisecond)
+		cancel()
+	}()
+	err := esc.Ensure(context.Background())
+	if err == nil || parent.Err() != context.Canceled {
+		t.Fatalf("expected context canceled, got err=%v ctxErr=%v", err, parent.Err())
+	}
+}
+
+func TestCommandEscalatorContextCanceled(t *testing.T) {
+	parent, cancel := context.WithCancel(context.Background())
+	esc := &sudoEscalator{useSudo: false, runner: &Runner{Cmd: cmdFunc(func(ctx context.Context, _ string, _ ...string) *exec.Cmd {
+		return exec.CommandContext(ctx, "sleep", "10")
+	}), Logger: zap.NewNop()}, ctx: parent}
+	cmd := esc.Command(context.Background(), "sleep", "10")
+	go func() {
+		time.Sleep(10 * time.Millisecond)
+		cancel()
+	}()
+	err := cmd.Run()
+	if err == nil || parent.Err() != context.Canceled {
+		t.Fatalf("expected context canceled, got err=%v ctxErr=%v", err, parent.Err())
+	}
+}
+
 func TestEnsureDefaultTimeout(t *testing.T) {
 	HasCaps = func() bool { return false }
 	r := &Runner{Cmd: cmdFunc(func(ctx context.Context, _ string, _ ...string) *exec.Cmd {
