@@ -26,8 +26,8 @@ const (
 	Version uint32 = 2
 
 	// HeaderSize is the binary size of Header.
-	HeaderSize = 4 + 4 + 8 + 8 + 4 + 4 + 4 + 4 + 8 + 4 + 4 + 64 + 32 + 32 // 184 bytes
-	entrySize  = 8 + 4 + 4 + 8 + 32                                       // 56 bytes
+	HeaderSize = 4 + 4 + 8 + 8 + 4 + 4 + 4 + 4 + 8 + 4 + 4 + 64 + 64 + 64 + 4 + 32 + 32 + 32 // 348 bytes
+	entrySize  = 8 + 4 + 4 + 8 + 32                                                          // 56 bytes
 
 	// FlagCDC marks chunks produced by content-defined chunking.
 	FlagCDC uint32 = 1 << 0
@@ -55,6 +55,10 @@ type Header struct {
 	Major            uint32
 	Minor            uint32
 	DeviceID         [64]byte
+	KernelUUID       [64]byte
+	GPTUUID          [64]byte
+	MBRSignature     [4]byte
+	PartitionHash    [32]byte
 	FirstBlockDigest [32]byte
 	MAC              [32]byte
 }
@@ -143,7 +147,11 @@ func headerMAC(h *Header) [32]byte {
 	binary.LittleEndian.PutUint32(buf[48:52], h.Major)
 	binary.LittleEndian.PutUint32(buf[52:56], h.Minor)
 	copy(buf[56:120], h.DeviceID[:])
-	copy(buf[120:152], h.FirstBlockDigest[:])
+	copy(buf[120:184], h.KernelUUID[:])
+	copy(buf[184:248], h.GPTUUID[:])
+	copy(buf[248:252], h.MBRSignature[:])
+	copy(buf[252:284], h.PartitionHash[:])
+	copy(buf[284:316], h.FirstBlockDigest[:])
 	sum := blake3.Sum256(buf[:])
 	return sum
 }
@@ -162,8 +170,12 @@ func (i *Index) writeHeader() {
 	binary.LittleEndian.PutUint32(buf[48:52], i.hdr.Major)
 	binary.LittleEndian.PutUint32(buf[52:56], i.hdr.Minor)
 	copy(buf[56:120], i.hdr.DeviceID[:])
-	copy(buf[120:152], i.hdr.FirstBlockDigest[:])
-	copy(buf[152:184], i.hdr.MAC[:])
+	copy(buf[120:184], i.hdr.KernelUUID[:])
+	copy(buf[184:248], i.hdr.GPTUUID[:])
+	copy(buf[248:252], i.hdr.MBRSignature[:])
+	copy(buf[252:284], i.hdr.PartitionHash[:])
+	copy(buf[284:316], i.hdr.FirstBlockDigest[:])
+	copy(buf[316:348], i.hdr.MAC[:])
 	copy(i.data[:HeaderSize], buf[:])
 }
 
@@ -184,8 +196,12 @@ func (i *Index) readHeader() error {
 	i.hdr.Major = binary.LittleEndian.Uint32(buf[48:52])
 	i.hdr.Minor = binary.LittleEndian.Uint32(buf[52:56])
 	copy(i.hdr.DeviceID[:], buf[56:120])
-	copy(i.hdr.FirstBlockDigest[:], buf[120:152])
-	copy(i.hdr.MAC[:], buf[152:184])
+	copy(i.hdr.KernelUUID[:], buf[120:184])
+	copy(i.hdr.GPTUUID[:], buf[184:248])
+	copy(i.hdr.MBRSignature[:], buf[248:252])
+	copy(i.hdr.PartitionHash[:], buf[252:284])
+	copy(i.hdr.FirstBlockDigest[:], buf[284:316])
+	copy(i.hdr.MAC[:], buf[316:348])
 	if mac := headerMAC(&i.hdr); !bytes.Equal(mac[:], i.hdr.MAC[:]) {
 		return fmt.Errorf("manifest: header MAC mismatch")
 	}

@@ -251,7 +251,11 @@ func manifestHeaderMAC(h *manifestpkg.Header) [32]byte {
 	binary.LittleEndian.PutUint32(buf[48:52], h.Major)
 	binary.LittleEndian.PutUint32(buf[52:56], h.Minor)
 	copy(buf[56:120], h.DeviceID[:])
-	copy(buf[120:152], h.FirstBlockDigest[:])
+	copy(buf[120:184], h.KernelUUID[:])
+	copy(buf[184:248], h.GPTUUID[:])
+	copy(buf[248:252], h.MBRSignature[:])
+	copy(buf[252:284], h.PartitionHash[:])
+	copy(buf[284:316], h.FirstBlockDigest[:])
 	return blake3.Sum256(buf[:])
 }
 
@@ -324,11 +328,46 @@ func (t *Transfer) verifyDestination(ctx context.Context, cfg *config.Config, de
 			t.Logger.Error("device_size_mismatch", zap.Uint64("expected_size_bytes", hdr.SizeBytes), zap.Uint64("size_bytes", size))
 			return 0, "", 0, fmt.Errorf("precondition: destination device size %d does not match manifest %d: %w", size, hdr.SizeBytes, exitcode.ErrPrecondition)
 		}
-		expectedID := device.DeviceIdentity{SizeBytes: hdr.SizeBytes, Major: hdr.Major, Minor: hdr.Minor}
-		actualID := device.DeviceIdentity{SizeBytes: size, Major: ident.Major, Minor: ident.Minor}
+		mbr := binary.LittleEndian.Uint32(hdr.MBRSignature[:])
+		mbrSig := ""
+		if mbr != 0 {
+			mbrSig = fmt.Sprintf("%08x", mbr)
+		}
+		expectedID := device.DeviceIdentity{
+			SizeBytes:     hdr.SizeBytes,
+			KernelUUID:    strings.TrimRight(string(hdr.KernelUUID[:]), "\x00"),
+			GPTUUID:       strings.TrimRight(string(hdr.GPTUUID[:]), "\x00"),
+			MBRSignature:  mbrSig,
+			FSUUID:        manID,
+			PartitionHash: hdr.PartitionHash,
+			Major:         hdr.Major,
+			Minor:         hdr.Minor,
+			ManifestEpoch: hdr.Epoch,
+		}
+		actualID := ident
+		actualID.SizeBytes = size
+		actualID.FSUUID = id
 		if !device.SameIdentityStrict(expectedID, actualID) {
-			t.Logger.Error("device_number_mismatch", zap.Uint32("expected_major", hdr.Major), zap.Uint32("expected_minor", hdr.Minor), zap.Uint32("major", ident.Major), zap.Uint32("minor", ident.Minor))
-			return 0, "", 0, fmt.Errorf("precondition: destination device number mismatch: %w", exitcode.ErrPrecondition)
+			t.Logger.Error(
+				"device_identity_mismatch",
+				zap.String("expected_kernel_uuid", expectedID.KernelUUID),
+				zap.String("kernel_uuid", actualID.KernelUUID),
+				zap.String("expected_gpt_uuid", expectedID.GPTUUID),
+				zap.String("gpt_uuid", actualID.GPTUUID),
+				zap.String("expected_mbr_signature", expectedID.MBRSignature),
+				zap.String("mbr_signature", actualID.MBRSignature),
+				zap.String("expected_fs_uuid", expectedID.FSUUID),
+				zap.String("fs_uuid", actualID.FSUUID),
+				zap.String("expected_partition_hash", hex.EncodeToString(expectedID.PartitionHash[:])),
+				zap.String("partition_hash", hex.EncodeToString(actualID.PartitionHash[:])),
+				zap.Uint32("expected_major", expectedID.Major),
+				zap.Uint32("expected_minor", expectedID.Minor),
+				zap.Uint32("major", actualID.Major),
+				zap.Uint32("minor", actualID.Minor),
+				zap.Uint64("expected_manifest_epoch", expectedID.ManifestEpoch),
+				zap.Uint64("manifest_epoch", actualID.ManifestEpoch),
+			)
+			return 0, "", 0, fmt.Errorf("precondition: destination device identity mismatch: %w", exitcode.ErrPrecondition)
 		}
 		dig, err := t.Info.FirstBlockDigest(ctx, destPath, firstBlockDigestSize)
 		if err != nil {
