@@ -37,12 +37,9 @@ var ErrRemoteCommand = errors.New("remote command error")
 
 const maxFrame = 1 << 20
 
-func chooseCompression(chunkLen int, compress string) string {
+func chooseCompression(_ int, compress string) string {
 	if compress != transfer.StrategyAuto && compress != "" {
 		return compress
-	}
-	if chunkLen > 0 && chunkLen < 256*1024 {
-		return "lz4"
 	}
 	if cpufeatures.HasAVX2() || cpufeatures.HasNEON() {
 		return "zstd"

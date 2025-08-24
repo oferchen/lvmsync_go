@@ -15,18 +15,17 @@ LVMSync compresses data on a per‑chunk basis. Each chunk passes through a clas
 
 `--compress auto` chooses between LZ4 and Zstd for each chunk:
 
-- Chunks <256 KiB use LZ4.
-- Larger chunks use Zstd when the CPU reports AVX2 (amd64) or NEON (arm64) via [`x/sys/cpu`](https://pkg.go.dev/golang.org/x/sys/cpu); otherwise LZ4 is used.
+- Zstd is used when the CPU reports AVX2 (amd64) or NEON (arm64) via [`x/sys/cpu`](https://pkg.go.dev/golang.org/x/sys/cpu).
+- LZ4 is used otherwise.
 
 Compression levels are tuned with `--zstd-level 1..5` or `--lz4-level {fast|hc}`.
 
 ### Selection Matrix
 
-| Chunk size      | CPU features      | Algorithm | Level mapping                           |
-|-----------------|-------------------|-----------|-----------------------------------------|
-| `<256` KiB      | Any               | LZ4       | level1 when `--lz4-level` is `0`        |
-| `≥256` KiB      | AVX2 or NEON      | Zstd      | default `1`; values `>3` cap to `3`     |
-| `≥256` KiB      | Neither detected  | LZ4       | level1 when `--lz4-level` is `0`        |
+| CPU features      | Algorithm | Level mapping                           |
+|-------------------|-----------|-----------------------------------------|
+| AVX2 or NEON      | Zstd      | default `1`; values `>3` cap to `3`     |
+| Neither detected  | LZ4       | level1 when `--lz4-level` is `0`        |
 
 ## Dictionary Training
 
