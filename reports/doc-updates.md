@@ -1,7 +1,0 @@
-- README.md: removed transport selection example and marked `--transport` flag as currently ignored in option list and configuration tables.
-- README.md: document `--transport` as reserved; examples note "transport not implemented" error.
-- README.md: clarified `--strict-host-key-checking` flag; disabling it now skips SSH host key verification.
-- README.md: documented SSH agent usage when `--ssh-key` is unset and that the connection respects `--ssh-timeout`.
-- README.md: document validation for raw freeze/thaw commands.
-- docs/danger_rollback.md: summarize snapshot cleanup, resume, and verify-only rollback procedures; linked from README.md and docs/OPERATIONS.md.
-- README.md: condensed exit code section and linked to docs/OPERATIONS.md#exit-codes.
