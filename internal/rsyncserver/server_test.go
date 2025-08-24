@@ -594,7 +594,8 @@ func TestHandleMissingIdentity(t *testing.T) {
 	defer c2.Close()
 
 	dev := &memDevice{buf: make([]byte, 1)}
-	srv, err := New(dev, zap.NewNop(), nil, "", "")
+	core, logs := observer.New(zap.ErrorLevel)
+	srv, err := New(dev, zap.New(core), nil, "", "")
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -608,6 +609,18 @@ func TestHandleMissingIdentity(t *testing.T) {
 	c1.Close()
 	if err := waitHandle(t, errCh); err == nil || !strings.Contains(err.Error(), "precondition") {
 		t.Fatalf("expected precondition error, got %v", err)
+	}
+	entries := logs.FilterMessage("missing_identity").All()
+	if len(entries) != 1 {
+		t.Fatalf("expected missing_identity log, got %v", logs.All())
+	}
+	ctxMap := entries[0].ContextMap()
+	exp := ctxMap["expected_identity"].(map[string]any)
+	if v, ok := exp["size_bytes"].(uint64); !ok || v != 1 {
+		t.Fatalf("unexpected expected_identity size_bytes %v", exp["size_bytes"])
+	}
+	if v, ok := ctxMap["received_identity"]; ok && v != nil {
+		t.Fatalf("expected received_identity nil, got %v", v)
 	}
 	cancel()
 }
@@ -625,7 +638,8 @@ func TestHandleIdentityMismatch(t *testing.T) {
 		FSUUID:       "fs",
 	}
 	dev := &memDevice{buf: make([]byte, 1), id: id}
-	srv, err := New(dev, zap.NewNop(), nil, "", "")
+	core, logs := observer.New(zap.ErrorLevel)
+	srv, err := New(dev, zap.New(core), nil, "", "")
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -642,6 +656,19 @@ func TestHandleIdentityMismatch(t *testing.T) {
 	c1.Close()
 	if err := waitHandle(t, errCh); err == nil || !strings.Contains(err.Error(), "precondition") {
 		t.Fatalf("expected precondition error, got %v", err)
+	}
+	entries := logs.FilterMessage("device_identity_mismatch").All()
+	if len(entries) != 1 {
+		t.Fatalf("expected device_identity_mismatch log, got %v", logs.All())
+	}
+	ctxMap := entries[0].ContextMap()
+	exp := ctxMap["expected_identity"].(map[string]any)
+	if v, ok := exp["size_bytes"].(uint64); !ok || v != 1 {
+		t.Fatalf("unexpected expected_identity size_bytes %v", exp["size_bytes"])
+	}
+	recv := ctxMap["received_identity"].(map[string]any)
+	if v, ok := recv["size_bytes"].(uint64); !ok || v != 2 {
+		t.Fatalf("unexpected received_identity size_bytes %v", recv["size_bytes"])
 	}
 	cancel()
 }

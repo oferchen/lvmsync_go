@@ -98,12 +98,23 @@ func (s *Server) Handle(ctx context.Context, stream *rsyncwire.Stream) error {
 				return err
 			}
 			if !device.SameIdentity(local, id) {
+				s.logger.Error("device_identity_mismatch",
+					zap.Any("expected_identity", identityMap(local)),
+					zap.Any("received_identity", identityMap(id)))
 				return fmt.Errorf("precondition: device identity mismatch")
 			}
 			idOK = true
 			continue
 		case 'D':
 			if !idOK {
+				local, err := s.dev.Identity(ctx)
+				if err != nil {
+					s.logger.Error("missing_identity", zap.Error(err))
+				} else {
+					s.logger.Error("missing_identity",
+						zap.Any("expected_identity", identityMap(local)),
+						zap.Any("received_identity", nil))
+				}
 				return fmt.Errorf("precondition: missing identity")
 			}
 			if len(frame) < 9 {
@@ -237,4 +248,21 @@ func (s *Server) verifyDigest() error {
 		}
 	}
 	return nil
+}
+
+func identityMap(id device.DeviceIdentity) map[string]any {
+	m := map[string]any{
+		"size_bytes":     id.SizeBytes,
+		"kernel_uuid":    id.KernelUUID,
+		"gpt_uuid":       id.GPTUUID,
+		"mbr_signature":  id.MBRSignature,
+		"fs_uuid":        id.FSUUID,
+		"major":          id.Major,
+		"minor":          id.Minor,
+		"manifest_epoch": id.ManifestEpoch,
+	}
+	if id.PartitionHash != [32]byte{} {
+		m["partition_hash"] = fmt.Sprintf("%x", id.PartitionHash[:])
+	}
+	return m
 }
