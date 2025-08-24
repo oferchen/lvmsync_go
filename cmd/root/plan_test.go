@@ -171,3 +171,9 @@ func TestEmitPlanRedactsAndOrdersTransports(t *testing.T) {
 		t.Fatalf("transport order %v != %v", po.TransportOrder, expected)
 	}
 }
+
+func TestEmitPlanMissingSource(t *testing.T) {
+	if err := emitPlan(&config.Config{}, nil, zap.NewNop()); err == nil || err.Error() != "missing source argument" {
+		t.Fatalf("expected missing source error, got: %v", err)
+	}
+}
