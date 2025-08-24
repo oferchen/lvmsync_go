@@ -11,6 +11,7 @@ import (
 
 	"lvmsync_go/device"
 	digest "lvmsync_go/internal/digest"
+	"lvmsync_go/internal/exitcode"
 	"lvmsync_go/lvm"
 )
 
@@ -61,6 +62,15 @@ func (c *Config) ValidateWith(geteuid func() int) error {
 		if err := device.ValidateCmd(thawParts[0], thawParts[1:]); err != nil {
 			return fmt.Errorf("invalid fs-thaw-command: %w", err)
 		}
+		if c.FreezeTimeout <= 0 {
+			return fmt.Errorf("freeze-timeout must be > 0")
+		}
+		if c.ThawTimeout <= 0 {
+			return fmt.Errorf("thaw-timeout must be > 0")
+		}
+	}
+	if (c.SourceType == "raw" || c.DestType == "raw") && !c.Offline && c.FSFreezeCommand == "" && c.FSThawCommand == "" {
+		return fmt.Errorf("raw sources require --offline or --fs-freeze-command/--fs-thaw-command: %w", fmt.Errorf("precondition: %w", exitcode.ErrPrecondition))
 	}
 	if c.SSHKeepAliveInterval <= 0 {
 		return fmt.Errorf("ssh keepalive interval must be > 0")
