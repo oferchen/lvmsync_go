@@ -16,7 +16,6 @@ import (
 	"github.com/pierrec/lz4/v4"
 	"github.com/zeebo/blake3"
 	"go.uber.org/zap"
-	"golang.org/x/sys/unix"
 
 	rootcmd "lvmsync_go/cmd/root"
 	"lvmsync_go/common"
@@ -24,6 +23,7 @@ import (
 	hashutil "lvmsync_go/hash"
 	"lvmsync_go/internal/config"
 	"lvmsync_go/internal/exitcode"
+	"lvmsync_go/internal/privilege"
 	"lvmsync_go/lvm"
 	manifestpkg "lvmsync_go/manifest"
 )
@@ -289,41 +289,45 @@ func (t *Transfer) verifyDestination(ctx context.Context, cfg *config.Config, de
 	if cfg.ResumeState != "" && strings.ToLower(cfg.VerifyLevel) != "none" {
 		cfg.ResumeVerify = true
 	}
-	var size uint64
-	var id string
-	var epoch uint64
+	dev, err := device.Detect(ctx, destPath, true, "", "", "", "", 0, 0, privilege.New(ctx, t.Logger), t.Logger, device.NewRunner())
+	if err != nil {
+		return 0, "", 0, err
+	}
+	defer dev.Close()
+	ident, err := dev.Identity(ctx)
+	if err != nil {
+		return 0, "", 0, err
+	}
+	size := ident.SizeBytes
+	id := ident.FSUUID
+	if id == "" && (cfg.ManifestPath != "" || cfg.ResumeState != "" || cfg.DeviceUUID != "") {
+		if v, err := t.Info.GetDeviceID(ctx, destPath); err == nil {
+			id = v
+		} else {
+			return 0, "", 0, fmt.Errorf("read destination id: %w", err)
+		}
+	}
+	epoch := ident.ManifestEpoch
+	t.Tracker.partitionHash = ident.PartitionHash
+
 	if cfg.ManifestPath != "" {
 		hdr, err := readManifestHeader(ctx, cfg.ManifestPath, 0)
 		if err != nil {
 			return 0, "", 0, err
-		}
-		id, err = t.Info.GetDeviceID(ctx, destPath)
-		if err != nil {
-			return 0, "", 0, fmt.Errorf("read destination id: %w", err)
 		}
 		manID := strings.TrimRight(string(hdr.DeviceID[:]), "\x00")
 		if id != manID {
 			t.Logger.Error("device_id_mismatch", zap.String("expected_resource_id", manID), zap.String("resource_id", id))
 			return 0, "", 0, fmt.Errorf("precondition: destination device id %s does not match manifest %s: %w", id, manID, exitcode.ErrPrecondition)
 		}
-		size, err = t.Info.SizeBytes(ctx, destPath)
-		if err != nil {
-			return 0, "", 0, fmt.Errorf("read destination size: %w", err)
-		}
 		if size != hdr.SizeBytes {
 			t.Logger.Error("device_size_mismatch", zap.Uint64("expected_size_bytes", hdr.SizeBytes), zap.Uint64("size_bytes", size))
 			return 0, "", 0, fmt.Errorf("precondition: destination device size %d does not match manifest %d: %w", size, hdr.SizeBytes, exitcode.ErrPrecondition)
 		}
-		var st unix.Stat_t
-		if err := unix.Stat(destPath, &st); err != nil {
-			return 0, "", 0, fmt.Errorf("stat destination: %w", err)
-		}
-		major := uint32(unix.Major(uint64(st.Rdev)))
-		minor := uint32(unix.Minor(uint64(st.Rdev)))
 		expectedID := device.DeviceIdentity{SizeBytes: hdr.SizeBytes, Major: hdr.Major, Minor: hdr.Minor}
-		actualID := device.DeviceIdentity{SizeBytes: size, Major: major, Minor: minor}
+		actualID := device.DeviceIdentity{SizeBytes: size, Major: ident.Major, Minor: ident.Minor}
 		if !device.SameIdentityStrict(expectedID, actualID) {
-			t.Logger.Error("device_number_mismatch", zap.Uint32("expected_major", hdr.Major), zap.Uint32("expected_minor", hdr.Minor), zap.Uint32("major", major), zap.Uint32("minor", minor))
+			t.Logger.Error("device_number_mismatch", zap.Uint32("expected_major", hdr.Major), zap.Uint32("expected_minor", hdr.Minor), zap.Uint32("major", ident.Major), zap.Uint32("minor", ident.Minor))
 			return 0, "", 0, fmt.Errorf("precondition: destination device number mismatch: %w", exitcode.ErrPrecondition)
 		}
 		dig, err := t.Info.FirstBlockDigest(ctx, destPath, firstBlockDigestSize)
@@ -340,7 +344,7 @@ func (t *Transfer) verifyDestination(ctx context.Context, cfg *config.Config, de
 		}
 		if cfg.ResumeState != "" {
 			if _, err := os.Stat(cfg.ResumeState); err == nil {
-				chk := readResumeState(cfg, t.Logger, device.DeviceIdentity{SizeBytes: hdr.SizeBytes, FSUUID: manID, ManifestEpoch: hdr.Epoch}, hdr.FirstBlockDigest)
+				chk := readResumeState(cfg, t.Logger, ident, hdr.FirstBlockDigest)
 				if chk == (resumeCheckpoint{}) {
 					return 0, "", 0, fmt.Errorf("precondition: resume state does not match destination metadata: %w", exitcode.ErrPrecondition)
 				}
@@ -350,17 +354,8 @@ func (t *Transfer) verifyDestination(ctx context.Context, cfg *config.Config, de
 		t.Logger.Info("destination_validated", zap.String("resource_id", id), zap.Uint64("size_bytes", size))
 	} else {
 		if cfg.ResumeState != "" || cfg.DeviceUUID != "" {
-			var err error
-			id, err = t.Info.GetDeviceID(ctx, destPath)
-			if err != nil {
-				return 0, "", 0, fmt.Errorf("read destination id: %w", err)
-			}
 			if cfg.ResumeState != "" {
-				size, err = t.Info.SizeBytes(ctx, destPath)
-				if err != nil {
-					return 0, "", 0, fmt.Errorf("read destination size: %w", err)
-				}
-				chk := readResumeState(cfg, t.Logger, device.DeviceIdentity{SizeBytes: size, FSUUID: id}, [32]byte{})
+				chk := readResumeState(cfg, t.Logger, ident, [32]byte{})
 				if chk == (resumeCheckpoint{}) {
 					return 0, "", 0, fmt.Errorf("precondition: resume state does not match destination metadata: %w", exitcode.ErrPrecondition)
 				}

@@ -23,7 +23,7 @@ func TestResumeFixedIdempotent(t *testing.T) {
 	var first, second bytes.Buffer
 	for i := 0; i < 2; i++ {
 		tr.Tracker = &resumeTracker{}
-		writeResumeState(cfg, zap.NewNop(), resume, resumeChunks{Fixed: resumeChunk{Chunk: digest, Offset: uint64(blockSize), Length: uint32(blockSize)}}, 0, "", 0)
+		writeResumeState(cfg, zap.NewNop(), resume, resumeChunks{Fixed: resumeChunk{Chunk: digest, Offset: uint64(blockSize), Length: uint32(blockSize)}}, 0, "", 0, [32]byte{})
 		buf := &first
 		if i == 1 {
 			buf = &second

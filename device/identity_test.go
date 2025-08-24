@@ -3,6 +3,7 @@ package device
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,6 +13,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"lvmsync_go/hash"
 	"lvmsync_go/internal/privilege"
 )
 
@@ -20,6 +22,7 @@ type identityStub struct {
 	epoch uint64
 	gpt   string
 	mbr   string
+	phash [32]byte
 }
 
 func (s *identityStub) Path() string                                     { return "" }
@@ -29,7 +32,7 @@ func (s *identityStub) Snapshot(context.Context, string) (Device, error) { retur
 func (s *identityStub) Cleanup(context.Context) error                    { return nil }
 func (s *identityStub) Close() error                                     { return nil }
 func (s *identityStub) Identity(context.Context) (DeviceIdentity, error) {
-	return DeviceIdentity{SizeBytes: s.size, GPTUUID: s.gpt, MBRSignature: s.mbr, ManifestEpoch: s.epoch}, nil
+	return DeviceIdentity{SizeBytes: s.size, GPTUUID: s.gpt, MBRSignature: s.mbr, ManifestEpoch: s.epoch, PartitionHash: s.phash}, nil
 }
 func (s *identityStub) AppendWAL(r Range) error               { return nil }
 func (s *identityStub) RecoverWAL(fn func(Range) error) error { return nil }
@@ -107,6 +110,20 @@ func TestIdentityMBRSignatureMismatch(t *testing.T) {
 	}
 }
 
+func TestIdentityPartitionHashMismatch(t *testing.T) {
+	info := NewInfoWithDeps(func(context.Context, string) (string, error) { return "id", nil }, nil, nil, nil, nil)
+	prev := info.SetDetectFunc(func(_ context.Context, path string, _ bool, _, _, _, _ string, _ time.Duration, _ time.Duration, _ privilege.Escalator, _ *zap.Logger, _ *Runner) (Device, error) {
+		if strings.Contains(path, "src") {
+			return &identityStub{size: 1, epoch: 1, phash: hash.SumBLAKE3([]byte("a"))}, nil
+		}
+		return &identityStub{size: 1, epoch: 1, phash: hash.SumBLAKE3([]byte("b"))}, nil
+	})
+	defer info.SetDetectFunc(prev)
+	if err := VerifyIdentity(context.Background(), info, "/dev/src", "/dev/dest"); err == nil || !strings.Contains(err.Error(), "partition hash mismatch") {
+		t.Fatalf("expected partition hash mismatch error, got %v", err)
+	}
+}
+
 func TestVerifyIdentityManifestEpochMismatch(t *testing.T) {
 	info := NewInfoWithDeps(func(context.Context, string) (string, error) { return "id", nil }, nil, nil, nil, nil)
 	prev := info.SetDetectFunc(func(_ context.Context, path string, _ bool, _, _, _, _ string, _ time.Duration, _ time.Duration, _ privilege.Escalator, _ *zap.Logger, _ *Runner) (Device, error) {
@@ -128,16 +145,23 @@ func TestDeviceIdentityFormatParseOrder(t *testing.T) {
 		GPTUUID:       "g",
 		MBRSignature:  "m",
 		FSUUID:        "f",
+		PartitionHash: hash.SumBLAKE3([]byte("p")),
 		Major:         2,
 		Minor:         3,
 		ManifestEpoch: 4,
 	}
 	var buf bytes.Buffer
-	fmt.Fprintf(&buf, "%d %s %s %s %s %d %d %d", id.SizeBytes, id.KernelUUID, id.GPTUUID, id.MBRSignature, id.FSUUID, id.Major, id.Minor, id.ManifestEpoch)
+	fmt.Fprintf(&buf, "%d %s %s %s %s %x %d %d %d", id.SizeBytes, id.KernelUUID, id.GPTUUID, id.MBRSignature, id.FSUUID, id.PartitionHash, id.Major, id.Minor, id.ManifestEpoch)
 	var parsed DeviceIdentity
-	if _, err := fmt.Fscan(&buf, &parsed.SizeBytes, &parsed.KernelUUID, &parsed.GPTUUID, &parsed.MBRSignature, &parsed.FSUUID, &parsed.Major, &parsed.Minor, &parsed.ManifestEpoch); err != nil {
+	var ph string
+	if _, err := fmt.Fscan(&buf, &parsed.SizeBytes, &parsed.KernelUUID, &parsed.GPTUUID, &parsed.MBRSignature, &parsed.FSUUID, &ph, &parsed.Major, &parsed.Minor, &parsed.ManifestEpoch); err != nil {
 		t.Fatalf("Fscan: %v", err)
 	}
+	b, err := hex.DecodeString(ph)
+	if err != nil || len(b) != 32 {
+		t.Fatalf("decode partition hash: %v", err)
+	}
+	copy(parsed.PartitionHash[:], b)
 	if parsed != id {
 		t.Fatalf("round-trip mismatch: got %+v want %+v", parsed, id)
 	}

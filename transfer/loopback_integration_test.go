@@ -101,7 +101,7 @@ func TestLoopbackLVMToRawOverSSH(t *testing.T) {
 		CheckpointBytes:   1,
 	}
 	digest0 := blake3.Sum256(srcData0)
-	writeResumeState(cfg, zap.NewNop(), resumePath, resumeChunks{Fixed: resumeChunk{Chunk: digest0, Offset: 0, Length: uint32(blockSize)}}, 0, "", 0)
+	writeResumeState(cfg, zap.NewNop(), resumePath, resumeChunks{Fixed: resumeChunk{Chunk: digest0, Offset: 0, Length: uint32(blockSize)}}, 0, "", 0, [32]byte{})
 
 	ctx := context.Background()
 	tr, err := transport.Get("ssh", transport.Config{Logger: zap.NewNop(), SSHUser: "test", SSHPassword: "pass", AllowInsecure: true})
@@ -214,7 +214,7 @@ func TestLoopbackFileToFileOverTCPTLS(t *testing.T) {
 		CheckpointBytes:   1,
 	}
 	digest0 := blake3.Sum256(srcData0)
-	writeResumeState(cfg, zap.NewNop(), resumePath, resumeChunks{Fixed: resumeChunk{Chunk: digest0, Offset: 0, Length: uint32(blockSize)}}, 0, "", 0)
+	writeResumeState(cfg, zap.NewNop(), resumePath, resumeChunks{Fixed: resumeChunk{Chunk: digest0, Offset: 0, Length: uint32(blockSize)}}, 0, "", 0, [32]byte{})
 
 	ctx := context.Background()
 	tr, err := transport.Get("tcp+tls", transport.Config{Logger: zap.NewNop(), AllowInsecure: true})
@@ -355,7 +355,7 @@ func TestLoopbackLVMToRawOverTCPTLS(t *testing.T) {
 				CheckpointBytes:   1,
 			}
 			digest0 := blake3.Sum256(srcData0)
-			writeResumeState(cfg, zap.NewNop(), resumePath, resumeChunks{Fixed: resumeChunk{Chunk: digest0, Offset: 0, Length: uint32(blockSize)}}, 0, "", 0)
+			writeResumeState(cfg, zap.NewNop(), resumePath, resumeChunks{Fixed: resumeChunk{Chunk: digest0, Offset: 0, Length: uint32(blockSize)}}, 0, "", 0, [32]byte{})
 
 			ctx := context.Background()
 			tr, err := transport.Get("tcp+tls", transport.Config{Logger: zap.NewNop(), AllowInsecure: true})
@@ -476,7 +476,7 @@ func runRawToRawLoopback(t *testing.T, transportName string) {
 				CheckpointBytes:   1,
 			}
 			digest0 := blake3.Sum256(srcData0)
-			writeResumeState(cfg, zap.NewNop(), resumePath, resumeChunks{Fixed: resumeChunk{Chunk: digest0, Offset: 0, Length: uint32(blockSize)}}, 0, "", 0)
+			writeResumeState(cfg, zap.NewNop(), resumePath, resumeChunks{Fixed: resumeChunk{Chunk: digest0, Offset: 0, Length: uint32(blockSize)}}, 0, "", 0, [32]byte{})
 
 			ctx := context.Background()
 			tcfg := transport.Config{Logger: zap.NewNop()}
@@ -654,7 +654,7 @@ func TestLoopbackSparseFileToFileOverSSH(t *testing.T) {
 				CheckpointBytes:   1,
 			}
 			digest0 := blake3.Sum256(srcData0)
-			writeResumeState(cfg, zap.NewNop(), resumePath, resumeChunks{Fixed: resumeChunk{Chunk: digest0, Offset: 0, Length: uint32(blockSize)}}, 0, "", 0)
+			writeResumeState(cfg, zap.NewNop(), resumePath, resumeChunks{Fixed: resumeChunk{Chunk: digest0, Offset: 0, Length: uint32(blockSize)}}, 0, "", 0, [32]byte{})
 
 			ctx := context.Background()
 			tr, err := transport.Get("ssh", transport.Config{Logger: zap.NewNop(), SSHUser: "test", SSHPassword: "pass", AllowInsecure: true})

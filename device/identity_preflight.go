@@ -1,6 +1,7 @@
 package device
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 
@@ -67,6 +68,9 @@ func VerifyIdentity(ctx context.Context, info *Info, src, dest string) (err erro
 	}
 	if idA.MBRSignature != idB.MBRSignature && !allow {
 		return fmt.Errorf("mbr signature mismatch: %w", exitcode.ErrPrecondition)
+	}
+	if !bytes.Equal(idA.PartitionHash[:], idB.PartitionHash[:]) && !allow {
+		return fmt.Errorf("partition hash mismatch: %w", exitcode.ErrPrecondition)
 	}
 	if idA.ManifestEpoch != idB.ManifestEpoch && !allow {
 		return fmt.Errorf("manifest epoch mismatch: %w", exitcode.ErrPrecondition)

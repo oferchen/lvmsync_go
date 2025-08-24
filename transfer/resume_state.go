@@ -36,13 +36,14 @@ type resumeState struct {
 	SizeBytes         uint64           `json:"size_bytes"`
 	DeviceID          string           `json:"device_id"`
 	Epoch             uint64           `json:"epoch"`
+	PartitionHash     string           `json:"partition_hash"`
 	FirstBlockDigest  string           `json:"first_block_digest"`
 }
 
 // writeResumeState persists resume state using a WAL file. The state is written
 // to a temporary file, fsynced, and atomically renamed to `<path>.wal` to avoid
 // corruption on crashes. The logger must be non-nil.
-func writeResumeState(cfg *config.Config, logger *zap.Logger, path string, chunks resumeChunks, size uint64, deviceID string, epoch uint64) {
+func writeResumeState(cfg *config.Config, logger *zap.Logger, path string, chunks resumeChunks, size uint64, deviceID string, epoch uint64, partHash [32]byte) {
 	toState := func(ch resumeChunk) resumeChunkState {
 		return resumeChunkState{
 			Offset: ch.Offset,
@@ -62,6 +63,7 @@ func writeResumeState(cfg *config.Config, logger *zap.Logger, path string, chunk
 		SizeBytes:         size,
 		DeviceID:          deviceID,
 		Epoch:             epoch,
+		PartitionHash:     hex.EncodeToString(partHash[:]),
 		FirstBlockDigest:  cfg.FirstBlockDigest,
 	}
 	data, err := json.Marshal(rs)
@@ -118,7 +120,7 @@ func saveResumeState(cfg *config.Config, rt *resumeTracker, offset uint64, chunk
 	*rc = resumeChunk{Chunk: chunk, Offset: offset, Length: uint32(size)}
 	if (cfg.CheckpointBytes > 0 && rt.bytes >= int64(cfg.CheckpointBytes)) ||
 		(cfg.CheckpointInterval > 0 && time.Since(rt.last) >= cfg.CheckpointInterval) {
-		writeResumeState(cfg, logger, cfg.ResumeState, resumeChunks{Fixed: rt.Fixed, CDC: rt.CDC, Hybrid: rt.Hybrid}, rt.sizeBytes, rt.deviceID, rt.epoch)
+		writeResumeState(cfg, logger, cfg.ResumeState, resumeChunks{Fixed: rt.Fixed, CDC: rt.CDC, Hybrid: rt.Hybrid}, rt.sizeBytes, rt.deviceID, rt.epoch, rt.partitionHash)
 		rt.bytes = 0
 		rt.last = time.Now()
 	}
@@ -143,6 +145,7 @@ func finalizeResumeState(cfg *config.Config, rt *resumeTracker, logger *zap.Logg
 	rt.sizeBytes = 0
 	rt.deviceID = ""
 	rt.epoch = 0
+	rt.partitionHash = [32]byte{}
 }
 
 func readResumeState(cfg *config.Config, logger *zap.Logger, id device.DeviceIdentity, digest [32]byte) resumeCheckpoint {
@@ -184,7 +187,11 @@ func loadResumeState(path string, cfg *config.Config, id device.DeviceIdentity, 
 	if cfg.ResumeToken == "" {
 		cfg.ResumeToken = rs.ResumeToken
 	}
-	storedID := device.DeviceIdentity{SizeBytes: rs.SizeBytes, FSUUID: rs.DeviceID, ManifestEpoch: rs.Epoch}
+	var part [32]byte
+	if b, err := hex.DecodeString(rs.PartitionHash); err == nil && len(b) == 32 {
+		copy(part[:], b)
+	}
+	storedID := device.DeviceIdentity{SizeBytes: rs.SizeBytes, FSUUID: rs.DeviceID, ManifestEpoch: rs.Epoch, PartitionHash: part}
 	actualID := id
 	if storedID.SizeBytes == 0 || actualID.SizeBytes == 0 {
 		storedID.SizeBytes = 0
@@ -197,6 +204,10 @@ func loadResumeState(path string, cfg *config.Config, id device.DeviceIdentity, 
 	if storedID.ManifestEpoch == 0 || actualID.ManifestEpoch == 0 {
 		storedID.ManifestEpoch = 0
 		actualID.ManifestEpoch = 0
+	}
+	if storedID.PartitionHash == ([32]byte{}) || actualID.PartitionHash == ([32]byte{}) {
+		storedID.PartitionHash = [32]byte{}
+		actualID.PartitionHash = [32]byte{}
 	}
 	if !device.SameIdentityStrict(storedID, actualID) {
 		return out, false

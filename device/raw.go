@@ -3,6 +3,7 @@
 package device
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -16,6 +17,7 @@ import (
 	"golang.org/x/sys/unix"
 	"golang.org/x/term"
 
+	"lvmsync_go/hash"
 	"lvmsync_go/internal/exitcode"
 	"lvmsync_go/internal/privilege"
 	"lvmsync_go/remote"
@@ -225,6 +227,13 @@ func (d *RawDevice) Identity(ctx context.Context) (DeviceIdentity, error) {
 	if gpt, mbr, err := readPartitionSignatures(d.Path()); err == nil {
 		id.GPTUUID = gpt
 		id.MBRSignature = mbr
+	}
+	if layout, err := readPartitionLayout(ctx, d.Path(), d.runner); err == nil {
+		var buf bytes.Buffer
+		for _, p := range layout {
+			fmt.Fprintf(&buf, "%d:%d:%s;", p.Start, p.End, p.Type)
+		}
+		id.PartitionHash = hash.SumBLAKE3(buf.Bytes())
 	}
 	return id, nil
 }

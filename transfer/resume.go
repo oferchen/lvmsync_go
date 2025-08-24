@@ -27,9 +27,10 @@ type resumeTracker struct {
 	bytes int64
 	last  time.Time
 	resumeChunks
-	sizeBytes uint64
-	deviceID  string
-	epoch     uint64
+	sizeBytes     uint64
+	deviceID      string
+	epoch         uint64
+	partitionHash [32]byte
 }
 
 func (rt *resumeTracker) chunk(mode string) *resumeChunk {
