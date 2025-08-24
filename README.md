@@ -89,7 +89,7 @@ lvmsync run --dry-run --verify-only /dev/vg0/snap0 /dev/vg0/target
 lvmsync run --dry-run /dev/vg0/snap0 /dev/vg0/target
 ```
 
-Exit code `3` signals verification mismatches. See [operations guide](OPERATIONS.md) for detailed recovery steps.
+Exit code `3` signals verification mismatches. See [operations guide](docs/OPERATIONS.md) for detailed recovery steps.
 
 ## Supported Platforms
 
@@ -1608,7 +1608,7 @@ Invalid configurations will cause the tool to abort with a clear error message.
 
 ## Exit Codes
 
-LVMSync signals success and failure with structured exit codes. Refer to the [operations guide](docs/OPERATIONS.md#exit-codes) for the complete list and recommended recovery steps.
+LVMSync signals success and failure with structured exit codes. Refer to the [operations guide](docs/OPERATIONS.md#exit-codes-and-recovery) for the complete list and recommended recovery steps.
 
 | Code | Meaning | Recovery Step |
 |------|---------|---------------|
