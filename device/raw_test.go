@@ -220,7 +220,7 @@ func TestOpenRawFreezeTimeout(t *testing.T) {
 
 func TestConfirmOverwriteTTYRaw(t *testing.T) {
 	ctx := WithForce(context.Background(), true)
-	r := ttyReader{strings.NewReader("yes\n")}
+	r := ttyReader{strings.NewReader("double-confirm\n")}
 	if err := confirmOverwrite(ctx, r, io.Discard, func(int) bool { return true }); err != nil {
 		t.Fatalf("confirmOverwrite: %v", err)
 	}
@@ -228,7 +228,7 @@ func TestConfirmOverwriteTTYRaw(t *testing.T) {
 
 func TestConfirmOverwriteNonTTYRaw(t *testing.T) {
 	ctx := WithForce(context.Background(), true)
-	r := strings.NewReader("yes\n")
+	r := strings.NewReader("double-confirm\n")
 	if err := confirmOverwrite(ctx, r, io.Discard, func(int) bool { return true }); err == nil || !strings.Contains(err.Error(), "--allow-overwrite") {
 		t.Fatalf("expected allow-overwrite error, got %v", err)
 	}
@@ -237,7 +237,7 @@ func TestConfirmOverwriteNonTTYRaw(t *testing.T) {
 func TestConfirmOverwriteRequiresYesIKnowRaw(t *testing.T) {
 	ctx := WithForce(context.Background(), true)
 	ctx = WithAllowOverwrite(ctx, true)
-	r := strings.NewReader("yes\n")
+	r := strings.NewReader("double-confirm\n")
 	if err := confirmOverwrite(ctx, r, io.Discard, func(int) bool { return true }); err == nil || !strings.Contains(err.Error(), "--yes-i-know") {
 		t.Fatalf("expected yes-i-know error, got %v", err)
 	}
