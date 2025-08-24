@@ -3,6 +3,7 @@ package device
 import (
 	"encoding/binary"
 	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,7 +11,6 @@ import (
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
-	walpkg "lvmsync_go/internal/wal"
 )
 
 func TestWALIdentityMismatch(t *testing.T) {
@@ -130,30 +130,123 @@ func TestWALVersionMismatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open file: %v", err)
 	}
-        var buf [walHeaderSize]byte
-        if _, err := f.ReadAt(buf[:], 0); err != nil {
-                t.Fatalf("read header: %v", err)
-        }
-        var hdr walHeader
-        hdr.Version = walVersion + 1
-        hdr.Size = binary.LittleEndian.Uint64(buf[8:16])
-        hdr.Epoch = binary.LittleEndian.Uint64(buf[16:24])
-        hdr.Major = binary.LittleEndian.Uint32(buf[24:28])
-        hdr.Minor = binary.LittleEndian.Uint32(buf[28:32])
-        copy(hdr.Kernel[:], buf[32:96])
-        copy(hdr.GPT[:], buf[96:160])
-        copy(hdr.MBR[:], buf[160:164])
-        copy(hdr.FS[:], buf[164:228])
-        copy(hdr.Part[:], buf[228:260])
-        hdr.MAC = walHeaderMAC(&hdr)
-        binary.LittleEndian.PutUint64(buf[0:8], hdr.Version)
-        copy(buf[260:292], hdr.MAC[:])
-        if _, err := f.WriteAt(buf[:], 0); err != nil {
-                t.Fatalf("write header: %v", err)
-        }
+	var buf [walHeaderSize]byte
+	if _, err := f.ReadAt(buf[:], 0); err != nil {
+		t.Fatalf("read header: %v", err)
+	}
+	var hdr walHeader
+	hdr.Version = walVersion + 1
+	hdr.Size = binary.LittleEndian.Uint64(buf[8:16])
+	hdr.Epoch = binary.LittleEndian.Uint64(buf[16:24])
+	hdr.Major = binary.LittleEndian.Uint32(buf[24:28])
+	hdr.Minor = binary.LittleEndian.Uint32(buf[28:32])
+	copy(hdr.Kernel[:], buf[32:96])
+	copy(hdr.GPT[:], buf[96:160])
+	copy(hdr.MBR[:], buf[160:164])
+	copy(hdr.FS[:], buf[164:228])
+	copy(hdr.Part[:], buf[228:260])
+	hdr.MAC = walHeaderMAC(&hdr)
+	binary.LittleEndian.PutUint64(buf[0:8], hdr.Version)
+	copy(buf[260:292], hdr.MAC[:])
+	if _, err := f.WriteAt(buf[:], 0); err != nil {
+		t.Fatalf("write header: %v", err)
+	}
 	f.Close()
 	if _, err := OpenWAL(path, id, zap.NewNop(), nil); err == nil {
 		t.Fatalf("expected version mismatch error")
+	}
+}
+
+func TestWALCorruptedHeader(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "wal")
+	id := DeviceIdentity{SizeBytes: 100, KernelUUID: "dev", GPTUUID: "gpt", MBRSignature: "00000001", FSUUID: "fs", Major: 1, Minor: 2, ManifestEpoch: 1}
+	w, err := OpenWAL(path, id, zap.NewNop(), nil)
+	if err != nil {
+		t.Fatalf("open wal: %v", err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+	f, err := os.OpenFile(path, os.O_RDWR, 0)
+	if err != nil {
+		t.Fatalf("open file: %v", err)
+	}
+	var buf [walHeaderSize]byte
+	if _, err := f.ReadAt(buf[:], 0); err != nil {
+		t.Fatalf("read header: %v", err)
+	}
+	var hdr walHeader
+	hdr.Version = binary.LittleEndian.Uint64(buf[0:8])
+	hdr.Size = binary.LittleEndian.Uint64(buf[8:16]) + 1
+	hdr.Epoch = binary.LittleEndian.Uint64(buf[16:24])
+	hdr.Major = binary.LittleEndian.Uint32(buf[24:28])
+	hdr.Minor = binary.LittleEndian.Uint32(buf[28:32])
+	copy(hdr.Kernel[:], buf[32:96])
+	copy(hdr.GPT[:], buf[96:160])
+	copy(hdr.MBR[:], buf[160:164])
+	copy(hdr.FS[:], buf[164:228])
+	copy(hdr.Part[:], buf[228:260])
+	hdr.MAC = walHeaderMAC(&hdr)
+	binary.LittleEndian.PutUint64(buf[0:8], hdr.Version)
+	binary.LittleEndian.PutUint64(buf[8:16], hdr.Size)
+	binary.LittleEndian.PutUint64(buf[16:24], hdr.Epoch)
+	binary.LittleEndian.PutUint32(buf[24:28], hdr.Major)
+	binary.LittleEndian.PutUint32(buf[28:32], hdr.Minor)
+	copy(buf[32:96], hdr.Kernel[:])
+	copy(buf[96:160], hdr.GPT[:])
+	copy(buf[160:164], hdr.MBR[:])
+	copy(buf[164:228], hdr.FS[:])
+	copy(buf[228:260], hdr.Part[:])
+	copy(buf[260:292], hdr.MAC[:])
+	if _, err := f.WriteAt(buf[:], 0); err != nil {
+		t.Fatalf("write header: %v", err)
+	}
+	f.Close()
+	if _, err := OpenWAL(path, id, zap.NewNop(), nil); !errors.Is(err, ErrWALMetadataMismatch) {
+		t.Fatalf("expected ErrWALMetadataMismatch, got %v", err)
+	}
+}
+
+func TestWALIdentityMismatchError(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "wal")
+	id := DeviceIdentity{SizeBytes: 100, KernelUUID: "dev", GPTUUID: "gpt", MBRSignature: "00000001", FSUUID: "fs", Major: 1, Minor: 2, ManifestEpoch: 1}
+	w, err := OpenWAL(path, id, zap.NewNop(), nil)
+	if err != nil {
+		t.Fatalf("open wal: %v", err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+	badID := id
+	badID.GPTUUID = "gpt2"
+	if _, err := OpenWAL(path, badID, zap.NewNop(), nil); !errors.Is(err, ErrWALMetadataMismatch) {
+		t.Fatalf("expected ErrWALMetadataMismatch, got %v", err)
+	}
+}
+
+func TestOpenWALOpenFileError(t *testing.T) {
+	stubErr := errors.New("open fail")
+	deps := NewWALDeps()
+	deps.openFile = func(string, int, os.FileMode) (*os.File, error) { return nil, stubErr }
+	id := DeviceIdentity{SizeBytes: 100, KernelUUID: "dev", GPTUUID: "gpt", MBRSignature: "00000001", FSUUID: "fs", Major: 1, Minor: 2, ManifestEpoch: 1}
+	dir := t.TempDir()
+	path := filepath.Join(dir, "wal")
+	if _, err := OpenWAL(path, id, zap.NewNop(), deps); !errors.Is(err, stubErr) {
+		t.Fatalf("expected %v got %v", stubErr, err)
+	}
+}
+
+func TestOpenWALStatError(t *testing.T) {
+	stubErr := errors.New("stat fail")
+	deps := NewWALDeps()
+	deps.stat = func(*os.File) (fs.FileInfo, error) { return nil, stubErr }
+	id := DeviceIdentity{SizeBytes: 100, KernelUUID: "dev", GPTUUID: "gpt", MBRSignature: "00000001", FSUUID: "fs", Major: 1, Minor: 2, ManifestEpoch: 1}
+	dir := t.TempDir()
+	path := filepath.Join(dir, "wal")
+	if _, err := OpenWAL(path, id, zap.NewNop(), deps); !errors.Is(err, stubErr) {
+		t.Fatalf("expected %v got %v", stubErr, err)
 	}
 }
 
@@ -217,7 +310,7 @@ func TestWALSyncDirCreate(t *testing.T) {
 	id := DeviceIdentity{SizeBytes: 100, KernelUUID: "k", GPTUUID: "g", MBRSignature: "00000001", FSUUID: "f", Major: 1, Minor: 2, ManifestEpoch: 1}
 	stubErr := errors.New("syncdir fail")
 	var calls int
-	deps := walpkg.NewDepsWithSync(func(string) error {
+	deps := NewWALDepsWithSync(func(string) error {
 		calls++
 		return stubErr
 	})
@@ -235,7 +328,7 @@ func TestWALSyncDirClose(t *testing.T) {
 	id := DeviceIdentity{SizeBytes: 100, KernelUUID: "k", GPTUUID: "g", MBRSignature: "00000001", FSUUID: "f", Major: 1, Minor: 2, ManifestEpoch: 1}
 	stubErr := errors.New("syncdir fail")
 	var calls int
-	deps := walpkg.NewDepsWithSync(func(string) error {
+	deps := NewWALDepsWithSync(func(string) error {
 		calls++
 		if calls > 1 {
 			return stubErr
@@ -260,7 +353,7 @@ func TestWALSyncDirAppend(t *testing.T) {
 	id := DeviceIdentity{SizeBytes: 100, KernelUUID: "k", GPTUUID: "g", MBRSignature: "00000001", FSUUID: "f", Major: 1, Minor: 2}
 	stubErr := errors.New("syncdir fail")
 	var calls int
-	deps := walpkg.NewDepsWithSync(func(string) error {
+	deps := NewWALDepsWithSync(func(string) error {
 		calls++
 		if calls > 1 {
 			return stubErr
