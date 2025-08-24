@@ -72,7 +72,7 @@ func TestRunnerRun(t *testing.T) {
 
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
-			r := newRunnerWithDeps(tc.ensure, tc.drop)
+			r := newRunnerWithDeps(tc.ensure, tc.drop, nil, nil, nil)
 			core, logs := observer.New(zapcore.DebugLevel)
 			logger := zap.New(core)
 
@@ -98,5 +98,29 @@ func TestRunnerRun(t *testing.T) {
 				t.Fatalf("log level: got %v want %v", entries[0].Level, tc.logLevel)
 			}
 		})
+	}
+}
+
+func TestRunSyncsLogger(t *testing.T) {
+	syncCalled := false
+	exitCode := 0
+	core, logs := observer.New(zapcore.ErrorLevel)
+	r := newRunnerWithDeps(
+		func(escalate.Options, *zap.Logger) (bool, error) { return false, errors.New("boom") },
+		func(escalate.Options, *zap.Logger) error { t.Fatalf("drop should not be called"); return nil },
+		func(*zap.Logger) { syncCalled = true },
+		func(c int) { exitCode = c },
+		func() *zap.Logger { return zap.New(core) },
+	)
+	r.Run()
+	if exitCode != 1 {
+		t.Fatalf("exit code: got %d want 1", exitCode)
+	}
+	entries := logs.FilterMessage("ensure_root_or_reexec").All()
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 log entry, got %d", len(entries))
+	}
+	if !syncCalled {
+		t.Fatalf("expected SyncLogger to be called")
 	}
 }

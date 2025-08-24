@@ -6,22 +6,57 @@ import (
 	"go.uber.org/zap"
 	rootcmd "lvmsync_go/cmd/root"
 	"lvmsync_go/escalate"
+	"lvmsync_go/internal/logging"
 )
 
 type runner struct {
 	ensureRootOrReexec  func(escalate.Options, *zap.Logger) (bool, error)
 	dropToInvokerIfSudo func(escalate.Options, *zap.Logger) error
+	syncLogger          func(*zap.Logger)
+	exit                func(int)
+	newLogger           func() *zap.Logger
 }
 
 func newRunner() *runner {
 	return &runner{
 		ensureRootOrReexec:  escalate.EnsureRootOrReexec,
 		dropToInvokerIfSudo: escalate.DropToInvokerIfSudo,
+		syncLogger:          rootcmd.SyncLogger,
+		exit:                os.Exit,
+		newLogger: func() *zap.Logger {
+			logger, err := logging.NewLogger(nil, "privdrop")
+			if err != nil {
+				return zap.NewNop()
+			}
+			return logger
+		},
 	}
 }
 
-func newRunnerWithDeps(ensure func(escalate.Options, *zap.Logger) (bool, error), drop func(escalate.Options, *zap.Logger) error) *runner {
-	return &runner{ensureRootOrReexec: ensure, dropToInvokerIfSudo: drop}
+func newRunnerWithDeps(
+	ensure func(escalate.Options, *zap.Logger) (bool, error),
+	drop func(escalate.Options, *zap.Logger) error,
+	syncFunc func(*zap.Logger),
+	exitFunc func(int),
+	loggerFunc func() *zap.Logger,
+) *runner {
+	r := newRunner()
+	if ensure != nil {
+		r.ensureRootOrReexec = ensure
+	}
+	if drop != nil {
+		r.dropToInvokerIfSudo = drop
+	}
+	if syncFunc != nil {
+		r.syncLogger = syncFunc
+	}
+	if exitFunc != nil {
+		r.exit = exitFunc
+	}
+	if loggerFunc != nil {
+		r.newLogger = loggerFunc
+	}
+	return r
 }
 
 func (r *runner) run(logger *zap.Logger) int {
@@ -43,10 +78,11 @@ func (r *runner) run(logger *zap.Logger) int {
 	return 0
 }
 
-func main() {
-	logger := zap.NewExample()
-	defer rootcmd.SyncLogger(logger)
-
-	r := newRunner()
-	os.Exit(r.run(logger))
+func (r *runner) Run() {
+	logger := r.newLogger()
+	defer r.syncLogger(logger)
+	code := r.run(logger)
+	r.exit(code)
 }
+
+func main() { newRunner().Run() }
