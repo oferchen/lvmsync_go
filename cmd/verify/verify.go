@@ -147,7 +147,7 @@ func (r *Runner) verifyDevices(ctx context.Context, cfg *config.Config, src, dst
 	esc := privilege.New(ctx, logger)
 	runner := device.NewRunner()
 
-	srcDev, err := device.Detect(ctx, src, cfg.Offline, cfg.SourceType, cfg.FSFreezeCommand, cfg.FSThawCommand, cfg.LVMEscalation, cfg.FreezeTimeout, cfg.ThawTimeout, esc, logger, runner)
+	srcDev, err := device.Detect(ctx, src, true, cfg.Offline, cfg.SourceType, cfg.FSFreezeCommand, cfg.FSThawCommand, cfg.LVMEscalation, cfg.FreezeTimeout, cfg.ThawTimeout, esc, logger, runner)
 	if err != nil {
 		return err
 	}
@@ -165,7 +165,7 @@ func (r *Runner) verifyDevices(ctx context.Context, cfg *config.Config, src, dst
 		}
 	}()
 
-	dstDev, err := device.Detect(ctx, dst, cfg.Offline, cfg.DestType, cfg.FSFreezeCommand, cfg.FSThawCommand, cfg.LVMEscalation, cfg.FreezeTimeout, cfg.ThawTimeout, esc, logger, runner)
+	dstDev, err := device.Detect(ctx, dst, true, cfg.Offline, cfg.DestType, cfg.FSFreezeCommand, cfg.FSThawCommand, cfg.LVMEscalation, cfg.FreezeTimeout, cfg.ThawTimeout, esc, logger, runner)
 	if err != nil {
 		return err
 	}

@@ -289,7 +289,7 @@ func (t *Transfer) verifyDestination(ctx context.Context, cfg *config.Config, de
 	if cfg.ResumeState != "" && strings.ToLower(cfg.VerifyLevel) != "none" {
 		cfg.ResumeVerify = true
 	}
-	dev, err := device.Detect(ctx, destPath, true, "", "", "", "", 0, 0, privilege.New(ctx, t.Logger), t.Logger, device.NewRunner())
+	dev, err := device.Detect(ctx, destPath, true, true, "", "", "", "", 0, 0, privilege.New(ctx, t.Logger), t.Logger, device.NewRunner())
 	if err != nil {
 		return 0, "", 0, err
 	}

@@ -10,57 +10,74 @@ import (
 )
 
 func TestOpenFile(t *testing.T) {
-	f, err := os.CreateTemp(t.TempDir(), "filedev")
-	if err != nil {
-		t.Fatalf("temp file: %v", err)
+	cases := []struct {
+		name     string
+		readonly bool
+	}{
+		{name: "read_write", readonly: false},
+		{name: "read_only", readonly: true},
 	}
-	if _, err := f.Write(make([]byte, 4096)); err != nil {
-		t.Fatalf("write: %v", err)
-	}
-	path := f.Name()
-	f.Close()
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			f, err := os.CreateTemp(t.TempDir(), "filedev")
+			if err != nil {
+				t.Fatalf("temp file: %v", err)
+			}
+			if _, err := f.Write(make([]byte, 4096)); err != nil {
+				t.Fatalf("write: %v", err)
+			}
+			path := f.Name()
+			f.Close()
 
-	core, logs := observer.New(zap.InfoLevel)
-	logger := zap.New(core)
-	d, err := OpenFile(path, logger)
-	if err != nil {
-		t.Fatalf("open: %v", err)
-	}
-	ctx := context.Background()
-	_, _ = d.Snapshot(ctx, "")
-	_ = d.Cleanup(ctx)
-	d.Close()
+			core, logs := observer.New(zap.InfoLevel)
+			logger := zap.New(core)
+			d, err := OpenFile(path, tc.readonly, logger)
+			if err != nil {
+				t.Fatalf("open: %v", err)
+			}
+			ctx := context.Background()
+			_, _ = d.Snapshot(ctx, "")
+			_ = d.Cleanup(ctx)
 
-	if d.SizeBytes() != 4096 {
-		t.Fatalf("expected size 4096, got %d", d.SizeBytes())
-	}
-	if d.BlockSize() == 0 {
-		t.Fatalf("expected non-zero block size")
-	}
+			if _, err := d.f.Write([]byte{1}); tc.readonly && err == nil {
+				t.Fatalf("expected write error in readonly mode")
+			} else if !tc.readonly && err != nil {
+				t.Fatalf("unexpected write error: %v", err)
+			}
+			d.Close()
 
-	if logs.FilterMessage("file_device_opened").Len() == 0 {
-		t.Fatalf("expected file_device_opened log")
-	}
-	entries := logs.FilterMessage("file_device_info").All()
-	found := false
-	for _, e := range entries {
-		if e.ContextMap()["path"] == path &&
-			e.ContextMap()["size_bytes"].(uint64) == d.SizeBytes() &&
-			e.ContextMap()["block_size_bytes"].(uint64) == d.BlockSize() {
-			found = true
-		}
-	}
-	if !found {
-		t.Fatalf("expected file_device_info log with fields, got %v", logs.All())
-	}
-	if logs.FilterMessage("file_device_closed").Len() == 0 {
-		t.Fatalf("expected file_device_closed log")
+			if d.SizeBytes() != 4096 {
+				t.Fatalf("expected size 4096, got %d", d.SizeBytes())
+			}
+			if d.BlockSize() == 0 {
+				t.Fatalf("expected non-zero block size")
+			}
+
+			if logs.FilterMessage("file_device_opened").Len() == 0 {
+				t.Fatalf("expected file_device_opened log")
+			}
+			entries := logs.FilterMessage("file_device_info").All()
+			found := false
+			for _, e := range entries {
+				if e.ContextMap()["path"] == path &&
+					e.ContextMap()["size_bytes"].(uint64) == d.SizeBytes() &&
+					e.ContextMap()["block_size_bytes"].(uint64) == d.BlockSize() {
+					found = true
+				}
+			}
+			if !found {
+				t.Fatalf("expected file_device_info log with fields, got %v", logs.All())
+			}
+			if logs.FilterMessage("file_device_closed").Len() == 0 {
+				t.Fatalf("expected file_device_closed log")
+			}
+		})
 	}
 }
 
 func TestOpenFileRejectsNonRegular(t *testing.T) {
 	dir := t.TempDir()
-	if _, err := OpenFile(dir, zap.NewNop()); err == nil {
+	if _, err := OpenFile(dir, false, zap.NewNop()); err == nil {
 		t.Fatalf("expected error for directory")
 	}
 }
@@ -82,7 +99,7 @@ func TestFileSnapshotIdentityAndFDLeak(t *testing.T) {
 	path := f.Name()
 	f.Close()
 
-	d, err := OpenFile(path, zap.NewNop())
+	d, err := OpenFile(path, false, zap.NewNop())
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
@@ -110,7 +127,7 @@ func TestFileSnapshotClosedDevice(t *testing.T) {
 	path := f.Name()
 	f.Close()
 
-	d, err := OpenFile(path, zap.NewNop())
+	d, err := OpenFile(path, false, zap.NewNop())
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
@@ -130,7 +147,7 @@ func TestFileDevicePath(t *testing.T) {
 	}
 	path := f.Name()
 	f.Close()
-	d, err := OpenFile(path, zap.NewNop())
+	d, err := OpenFile(path, false, zap.NewNop())
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}

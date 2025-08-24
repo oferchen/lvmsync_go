@@ -50,7 +50,7 @@ func runOpenRaw(t *testing.T, freeze, thaw string, timeout time.Duration) (*obse
 	ctx = device.WithAllowOverwrite(ctx, true)
 	ctx = device.WithYesIKnow(ctx, true)
 	devPath := mockBlockDevice(t)
-	_, err := device.OpenRaw(ctx, devPath, false, freeze, nil, thaw, nil, timeout, time.Second, nil, logger, device.NewRunner())
+	_, err := device.OpenRaw(ctx, devPath, false, false, freeze, nil, thaw, nil, timeout, time.Second, nil, logger, device.NewRunner())
 	return logs, err
 }
 

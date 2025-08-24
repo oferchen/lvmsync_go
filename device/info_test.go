@@ -869,7 +869,7 @@ func TestDefaultLVMUUIDFunc(t *testing.T) {
 func TestSizeBytes(t *testing.T) {
 	dev := &stubDevice{size: 123}
 	info := NewInfo()
-	prev := info.SetDetectFunc(func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, privilege.Escalator, *zap.Logger, *Runner) (Device, error) {
+	prev := info.SetDetectFunc(func(context.Context, string, bool, bool, string, string, string, string, time.Duration, time.Duration, privilege.Escalator, *zap.Logger, *Runner) (Device, error) {
 		return dev, nil
 	})
 	defer info.SetDetectFunc(prev)
@@ -888,7 +888,7 @@ func TestSizeBytesCloseError(t *testing.T) {
 	want := errors.New("close boom")
 	dev := &stubDevice{size: 456, closeErr: want}
 	info := NewInfo()
-	prev := info.SetDetectFunc(func(context.Context, string, bool, string, string, string, string, time.Duration, time.Duration, privilege.Escalator, *zap.Logger, *Runner) (Device, error) {
+	prev := info.SetDetectFunc(func(context.Context, string, bool, bool, string, string, string, string, time.Duration, time.Duration, privilege.Escalator, *zap.Logger, *Runner) (Device, error) {
 		return dev, nil
 	})
 	defer info.SetDetectFunc(prev)

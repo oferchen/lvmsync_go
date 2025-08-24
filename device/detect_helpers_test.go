@@ -23,7 +23,7 @@ func TestDetectFileDeviceSuccess(t *testing.T) {
 	f.Close()
 	core, logs := observer.New(zap.InfoLevel)
 	logger := zap.New(core)
-	dev, err := detectFileDevice(f.Name(), logger)
+	dev, err := detectFileDevice(f.Name(), true, logger)
 	if err != nil {
 		t.Fatalf("detect: %v", err)
 	}
@@ -45,7 +45,7 @@ func TestDetectFileDeviceSuccess(t *testing.T) {
 
 func TestDetectFileDeviceError(t *testing.T) {
 	dir := t.TempDir()
-	if _, err := detectFileDevice(dir, zap.NewNop()); err == nil {
+	if _, err := detectFileDevice(dir, true, zap.NewNop()); err == nil {
 		t.Fatalf("expected error")
 	}
 }
@@ -56,10 +56,10 @@ func TestDetectLVMDeviceSuccess(t *testing.T) {
 	core, logs := observer.New(zap.InfoLevel)
 	logger := zap.New(core)
 	runner := NewRunner()
-	runner.openLVMOverride = func(ctx context.Context, p string, _ *lvm.FDCache, _ bool, _ string, _ *zap.Logger) (*LVMDevice, error) {
+	runner.openLVMOverride = func(ctx context.Context, p string, _ *lvm.FDCache, _ bool, _ bool, _ string, _ *zap.Logger) (*LVMDevice, error) {
 		return &LVMDevice{path: p, logger: zap.NewNop(), runner: runner}, nil
 	}
-	dev, err := detectLVMDevice(context.Background(), "/dev/test", false, "", runner, logger)
+	dev, err := detectLVMDevice(context.Background(), "/dev/test", true, false, "", runner, logger)
 	if err != nil {
 		t.Fatalf("detect: %v", err)
 	}
@@ -83,10 +83,10 @@ func TestDetectLVMDeviceError(t *testing.T) {
 	restore := lvm.SetEscalationChecker(func(string) error { return nil })
 	defer restore()
 	runner := NewRunner()
-	runner.openLVMOverride = func(context.Context, string, *lvm.FDCache, bool, string, *zap.Logger) (*LVMDevice, error) {
+	runner.openLVMOverride = func(context.Context, string, *lvm.FDCache, bool, bool, string, *zap.Logger) (*LVMDevice, error) {
 		return nil, errors.New("fail")
 	}
-	if _, err := detectLVMDevice(context.Background(), "/dev/test", false, "", runner, zap.NewNop()); err == nil {
+	if _, err := detectLVMDevice(context.Background(), "/dev/test", true, false, "", runner, zap.NewNop()); err == nil {
 		t.Fatalf("expected error")
 	}
 }
@@ -96,11 +96,11 @@ func TestDetectLVMDeviceEscalationError(t *testing.T) {
 	defer restore()
 	runner := NewRunner()
 	called := false
-	runner.openLVMOverride = func(context.Context, string, *lvm.FDCache, bool, string, *zap.Logger) (*LVMDevice, error) {
+	runner.openLVMOverride = func(context.Context, string, *lvm.FDCache, bool, bool, string, *zap.Logger) (*LVMDevice, error) {
 		called = true
 		return &LVMDevice{path: "/dev/test", logger: zap.NewNop(), runner: runner}, nil
 	}
-	if _, err := detectLVMDevice(context.Background(), "/dev/test", false, "sudo -n", runner, zap.NewNop()); err == nil {
+	if _, err := detectLVMDevice(context.Background(), "/dev/test", true, false, "sudo -n", runner, zap.NewNop()); err == nil {
 		t.Fatalf("expected error")
 	}
 	if called {
@@ -110,7 +110,7 @@ func TestDetectLVMDeviceEscalationError(t *testing.T) {
 
 func TestDetectRawDeviceSuccess(t *testing.T) {
 	runner := NewRunner()
-	runner.openRawOverride = func(ctx context.Context, path string, offline bool, freezePath string, freezeArgs []string, thawPath string, thawArgs []string, freezeTimeout, thawTimeout time.Duration, esc privilege.Escalator, logger *zap.Logger) (*RawDevice, error) {
+	runner.openRawOverride = func(ctx context.Context, path string, readonly bool, offline bool, freezePath string, freezeArgs []string, thawPath string, thawArgs []string, freezeTimeout, thawTimeout time.Duration, esc privilege.Escalator, logger *zap.Logger) (*RawDevice, error) {
 		f, err := os.CreateTemp(t.TempDir(), "raw")
 		if err != nil {
 			return nil, err
@@ -122,7 +122,7 @@ func TestDetectRawDeviceSuccess(t *testing.T) {
 	ctx := WithForce(context.Background(), true)
 	ctx = WithAllowOverwrite(ctx, true)
 	ctx = WithYesIKnow(ctx, true)
-	dev, err := detectRawDevice(ctx, "/dev/test", true, "", "", 0, 0, fakeEsc{}, logger, runner)
+	dev, err := detectRawDevice(ctx, "/dev/test", true, true, "", "", 0, 0, fakeEsc{}, logger, runner)
 	if err != nil {
 		t.Fatalf("detect: %v", err)
 	}
@@ -146,7 +146,7 @@ func TestDetectRawDeviceError(t *testing.T) {
 	ctx := WithForce(context.Background(), true)
 	ctx = WithAllowOverwrite(ctx, true)
 	ctx = WithYesIKnow(ctx, true)
-	if _, err := detectRawDevice(ctx, "/dev/null", true, "", "", 0, 0, fakeEsc{}, zap.NewNop(), NewRunner()); err == nil {
+	if _, err := detectRawDevice(ctx, "/dev/null", true, true, "", "", 0, 0, fakeEsc{}, zap.NewNop(), NewRunner()); err == nil {
 		t.Fatalf("expected error")
 	}
 }
@@ -154,7 +154,7 @@ func TestDetectRawDeviceError(t *testing.T) {
 func TestDetectRawDeviceFreezeParseError(t *testing.T) {
 	runner := NewRunner()
 	called := false
-	runner.openRawOverride = func(ctx context.Context, path string, offline bool, freezePath string, freezeArgs []string, thawPath string, thawArgs []string, freezeTimeout, thawTimeout time.Duration, esc privilege.Escalator, logger *zap.Logger) (*RawDevice, error) {
+	runner.openRawOverride = func(ctx context.Context, path string, readonly bool, offline bool, freezePath string, freezeArgs []string, thawPath string, thawArgs []string, freezeTimeout, thawTimeout time.Duration, esc privilege.Escalator, logger *zap.Logger) (*RawDevice, error) {
 		called = true
 		return nil, nil
 	}
@@ -163,7 +163,7 @@ func TestDetectRawDeviceFreezeParseError(t *testing.T) {
 	ctx := WithForce(context.Background(), true)
 	ctx = WithAllowOverwrite(ctx, true)
 	ctx = WithYesIKnow(ctx, true)
-	_, err := detectRawDevice(ctx, "/dev/test", true, "/bin/echo \"unterminated", "", 0, 0, fakeEsc{}, logger, runner)
+	_, err := detectRawDevice(ctx, "/dev/test", true, true, "/bin/echo \"unterminated", "", 0, 0, fakeEsc{}, logger, runner)
 	if err == nil || !strings.Contains(err.Error(), "invalid freeze command") {
 		t.Fatalf("expected freeze parse error, got %v", err)
 	}
@@ -182,7 +182,7 @@ func TestDetectRawDeviceFreezeParseError(t *testing.T) {
 func TestDetectRawDeviceThawParseError(t *testing.T) {
 	runner := NewRunner()
 	called := false
-	runner.openRawOverride = func(ctx context.Context, path string, offline bool, freezePath string, freezeArgs []string, thawPath string, thawArgs []string, freezeTimeout, thawTimeout time.Duration, esc privilege.Escalator, logger *zap.Logger) (*RawDevice, error) {
+	runner.openRawOverride = func(ctx context.Context, path string, readonly bool, offline bool, freezePath string, freezeArgs []string, thawPath string, thawArgs []string, freezeTimeout, thawTimeout time.Duration, esc privilege.Escalator, logger *zap.Logger) (*RawDevice, error) {
 		called = true
 		return nil, nil
 	}
@@ -191,7 +191,7 @@ func TestDetectRawDeviceThawParseError(t *testing.T) {
 	ctx := WithForce(context.Background(), true)
 	ctx = WithAllowOverwrite(ctx, true)
 	ctx = WithYesIKnow(ctx, true)
-	_, err := detectRawDevice(ctx, "/dev/test", true, "", "/bin/echo \"unterminated", 0, 0, fakeEsc{}, logger, runner)
+	_, err := detectRawDevice(ctx, "/dev/test", true, true, "", "/bin/echo \"unterminated", 0, 0, fakeEsc{}, logger, runner)
 	if err == nil || !strings.Contains(err.Error(), "invalid thaw command") {
 		t.Fatalf("expected thaw parse error, got %v", err)
 	}

@@ -39,9 +39,9 @@ type LVMDevice struct {
 // OpenLVM opens an LVM logical volume and queries its size and block size.
 // It fails unless the device is a snapshot or offline is true. Size
 // information is obtained through the lvm package helpers.
-func (r *Runner) OpenLVM(ctx context.Context, path string, cache *lvm.FDCache, offline bool, escalation string, logger *zap.Logger) (*LVMDevice, error) {
+func (r *Runner) OpenLVM(ctx context.Context, path string, cache *lvm.FDCache, readonly bool, offline bool, escalation string, logger *zap.Logger) (*LVMDevice, error) {
 	if r.openLVMOverride != nil {
-		return r.openLVMOverride(ctx, path, cache, offline, escalation, logger)
+		return r.openLVMOverride(ctx, path, cache, readonly, offline, escalation, logger)
 	}
 	exists, err := r.volumeExists(ctx, path)
 	if err != nil {
@@ -96,7 +96,12 @@ func (r *Runner) OpenLVM(ctx context.Context, path string, cache *lvm.FDCache, o
 	if err != nil {
 		return nil, err
 	}
-	f, err := os.OpenFile(path, os.O_RDWR, 0)
+	var f *os.File
+	if readonly {
+		f, err = os.Open(path)
+	} else {
+		f, err = os.OpenFile(path, os.O_RDWR, 0)
+	}
 	if err != nil {
 		_ = lk.Release()
 		return nil, err
@@ -295,7 +300,7 @@ func (d *LVMDevice) Snapshot(ctx context.Context, snapshotSize string) (Device, 
 		return nil, err
 	}
 	defer cache.Close()
-	snapDev, err := d.runner.OpenLVM(ctx, snapPath, cache, false, d.escalation, d.logger)
+	snapDev, err := d.runner.OpenLVM(ctx, snapPath, cache, true, false, d.escalation, d.logger)
 	if err != nil {
 		_ = d.runner.runLVM(ctx, d.escalation, "lvremove", "-f", snapPath)
 		return nil, err

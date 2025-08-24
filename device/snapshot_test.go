@@ -27,7 +27,7 @@ func TestSnapshotLifecycle(t *testing.T) {
 		t.Fatalf("temp file: %v", err)
 	}
 	f.Close()
-	fd, err := OpenFile(f.Name(), zap.NewNop())
+	fd, err := OpenFile(f.Name(), false, zap.NewNop())
 	if err != nil {
 		t.Fatalf("open file: %v", err)
 	}
@@ -67,7 +67,7 @@ func TestSnapshotLifecycle(t *testing.T) {
 	defer func() { generateSnapshot = origName }()
 
 	runner := NewDeviceRunner(cmd)
-	runner.openLVMOverride = func(ctx context.Context, p string, _ *lvm.FDCache, _ bool, _ string, _ *zap.Logger) (*LVMDevice, error) {
+	runner.openLVMOverride = func(ctx context.Context, p string, _ *lvm.FDCache, _ bool, _ bool, _ string, _ *zap.Logger) (*LVMDevice, error) {
 		return &LVMDevice{path: p, cleanupPath: p, escalation: "doas -n", logger: zap.NewNop(), runner: runner}, nil
 	}
 

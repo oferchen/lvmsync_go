@@ -413,7 +413,7 @@ func TestVerifyDevicesContextCancelled(t *testing.T) {
 	r := newStubRunner()
 	ctx, cancel := context.WithCancel(context.Background())
 	called := make(chan struct{})
-	patch := monkey.Patch(device.Detect, func(ctx context.Context, _ string, _ bool, _ string, _ string, _ string, _ string, _ time.Duration, _ time.Duration, _ privilege.Escalator, _ *zap.Logger, _ *device.Runner) (device.Device, error) {
+	patch := monkey.Patch(device.Detect, func(ctx context.Context, _ string, _ bool, _ bool, _ string, _ string, _ string, _ string, _ time.Duration, _ time.Duration, _ privilege.Escalator, _ *zap.Logger, _ *device.Runner) (device.Device, error) {
 		close(called)
 		<-ctx.Done()
 		return nil, ctx.Err()
