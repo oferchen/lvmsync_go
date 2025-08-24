@@ -16,9 +16,9 @@ import (
 	"lvmsync_go/device"
 	"lvmsync_go/internal/config"
 	digestpkg "lvmsync_go/internal/digest"
-	"lvmsync_go/internal/rsyncserver"
 	"lvmsync_go/internal/rsyncwire"
 	manifestpkg "lvmsync_go/manifest"
+	"lvmsync_go/testutil/rsyncserver"
 )
 
 type countingConn struct {
