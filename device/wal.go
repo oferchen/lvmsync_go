@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -104,9 +105,27 @@ type WAL struct {
 	ranges []Range
 }
 
-type WALDeps = walpkg.Deps
+type WALDeps struct {
+	*walpkg.Deps
+	openFile func(string, int, os.FileMode) (*os.File, error)
+	stat     func(*os.File) (fs.FileInfo, error)
+}
 
-func NewWALDeps() *WALDeps { return walpkg.NewDeps() }
+func NewWALDeps() *WALDeps {
+	return &WALDeps{
+		Deps:     walpkg.NewDeps(),
+		openFile: func(name string, flag int, perm os.FileMode) (*os.File, error) { return os.OpenFile(name, flag, perm) },
+		stat:     func(f *os.File) (fs.FileInfo, error) { return f.Stat() },
+	}
+}
+
+func NewWALDepsWithSync(fn func(string) error) *WALDeps {
+	return &WALDeps{
+		Deps:     walpkg.NewDepsWithSync(fn),
+		openFile: func(name string, flag int, perm os.FileMode) (*os.File, error) { return os.OpenFile(name, flag, perm) },
+		stat:     func(f *os.File) (fs.FileInfo, error) { return f.Stat() },
+	}
+}
 
 func walHeaderMAC(h *walHeader) [32]byte {
 	var buf [8 + 8 + 8 + 4 + 4 + 64 + 64 + 4 + 64 + 32]byte
@@ -188,16 +207,16 @@ func OpenWAL(path string, id DeviceIdentity, logger *zap.Logger, deps *WALDeps) 
 	if deps == nil {
 		deps = NewWALDeps()
 	}
-	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0o600)
+	f, err := deps.openFile(path, os.O_RDWR|os.O_CREATE, 0o600)
 	if err != nil {
 		return nil, err
 	}
-	st, err := f.Stat()
+	st, err := deps.stat(f)
 	if err != nil {
 		f.Close()
 		return nil, err
 	}
-	w := &WAL{WAL: walpkg.New(f, deps)}
+	w := &WAL{WAL: walpkg.New(f, deps.Deps)}
 	if st.Size() < walHeaderV0Size {
 		if st.Size() > 0 {
 			if err := f.Truncate(0); err != nil {
