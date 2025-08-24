@@ -1,28 +1,26 @@
 # Operations
 
-This guide covers snapshot lifecycle management, resume options, verification modes, and expected exit codes for recovery.
-See [danger_rollback.md](danger_rollback.md) for snapshot cleanup, resume, and verify-only rollback procedures.
+This guide outlines snapshot lifecycle management, resume workflows, verification modes, configuration hardening, exit codes, and recovery procedures. See [danger_rollback.md](danger_rollback.md) for snapshot cleanup, resume, and verify-only rollback details.
 
 ## STDOUT mode confirmation
 
-`--stdout` streams raw binary data to standard output. When `lvmsync` detects
-an interactive TTY on stdin, it prompts for confirmation before proceeding. In
-non-interactive sessions the `--yes-i-know` flag (or `LVMSYNC_YES_I_KNOW`)
-must be supplied to bypass the prompt.
+`--stdout` streams raw binary data to standard output. When `lvmsync` detects an interactive TTY on stdin, it prompts for confirmation before proceeding. In non-interactive sessions the `--yes-i-know` flag (or `LVMSYNC_YES_I_KNOW`) must be supplied to bypass the prompt.
 
 ## Direct device writes
 
-Writing directly to block devices bypasses filesystem safeguards and can
-destroy data. These operations require `--force-offline`. When stdin is a TTY,
-`lvmsync` prompts for the literal text `double-confirm`; non-interactive
-sessions must also provide `--yes-i-know`.
+Writing directly to block devices bypasses filesystem safeguards and can destroy data. These operations require `--force-offline`. When stdin is a TTY, `lvmsync` prompts for the literal text `double-confirm`; non-interactive sessions must also provide `--yes-i-know`.
 
 ## Dry-run and plan output
 
-`--dry-run` and `lvmsync plan` report the estimated transfer parameters
-without copying data. The JSON log entry includes `size_bytes`,
-`estimated_duration_ms`, `estimated_bandwidth_bps`, and `compression`
-showing the selected compression algorithm.
+`--dry-run` and `lvmsync plan` report the estimated transfer parameters without copying data. The JSON log entry includes `size_bytes`, `estimated_duration_ms`, `estimated_bandwidth_bps`, and `compression` showing the selected compression algorithm.
+
+## Strict configuration
+
+`--strict-config` or `LVMSYNC_STRICT_CONFIG=1` converts configuration warnings into errors, allowing CI pipelines to fail fast when unknown or deprecated settings are present.
+
+## Hardened privilege escalation
+
+`--no-new-privs` or `LVMSYNC_NO_NEW_PRIVS=1` sets `PR_SET_NO_NEW_PRIVS` before invoking `sudo` to prevent the escalated process from gaining additional privileges.
 
 ## Snapshot Creation and Cleanup Flow
 
@@ -33,6 +31,15 @@ showing the selected compression algorithm.
 5. If snapshot usage exceeds the threshold, the transfer aborts with exit code `4` and the snapshot is cleaned up.
 
 ## Resume and Verification Sequences
+
+### `--probe-only`
+
+```sh
+lvmsync run --probe-only /dev/vg0/snap0 /dev/vg0/target
+# 10737418240 12345678-9abc-def0-1234-56789abcdef0 9abcdef0-1234-5678-90ab-cdef12345678 0fedcba9-8765-4321-0fed-cba987654321 253 0 1700000000
+```
+
+Validates device identities and privileges and prints `size_bytes kernel_uuid gpt_uuid mbr_signature fs_uuid major minor manifest_epoch` without writing data.
 
 ### `--resume`
 
@@ -49,14 +56,17 @@ lvmsync run --resume=statefile /dev/vg0/snap0 /dev/vg0/target
 ### Crash Recovery
 
 1. Start transfers with `--resume statefile` so checkpoints persist.
-2. If the process is interrupted (for example, by `SIGKILL`), invoke the same
-   command with `--resume statefile` to continue copying remaining blocks.
-3. LVMSync validates the device identity tuple `(size_bytes, kernel_uuid,
-   gpt_uuid, mbr_signature, fs_uuid, major, minor, manifest_epoch)` against the resume file.
-   Mismatches abort with a precondition failure to prevent accidental
-   overwrites.
-4. After a successful resume the state file is removed; optionally run
-   `lvmsync verify` to confirm both devices match.
+2. If the process is interrupted (for example, by `SIGKILL`), invoke the same command with `--resume statefile` to continue copying remaining blocks.
+3. LVMSync validates the device identity tuple `(size_bytes, kernel_uuid, gpt_uuid, mbr_signature, fs_uuid, major, minor, manifest_epoch)` against the resume file. Mismatches abort with a precondition failure to prevent accidental overwrites.
+4. After a successful resume the state file is removed; optionally run `lvmsync verify` to confirm both devices match.
+
+### `--resume=verify`
+
+```sh
+lvmsync run --resume=verify /dev/vg0/snap0 /dev/vg0/target
+```
+
+Reloads the write-ahead log and rechecks previously written ranges against the manifest before copying remaining data. This detects corrupted or tampered WAL entries before continuing.
 
 ### `--verify-only`
 
@@ -64,20 +74,175 @@ lvmsync run --resume=statefile /dev/vg0/snap0 /dev/vg0/target
 lvmsync run --verify-only /dev/vg0/snap0 /dev/vg0/target
 ```
 
-Reads both devices and reports mismatches without writing data.
+Reads both devices and reports mismatches without writing data. Exits with code `3` when blocks differ.
+
+## Skipping Snapshot Creation
+
+`--skip-snapshot-creation` uses the source volume directly without creating a snapshot. To confirm the operator understands the risk, this flag must be combined with `--force`:
+
+```sh
+lvmsync run --skip-snapshot-creation --force /dev/vg0/src /dev/vg0/target
+```
+
+Snapshots created by LVMSync are tracked globally and removed if the process receives `SIGINT`, `SIGTERM`, or panics.
+
+## Automatic Destination Creation
+
+`--create-dest-lv` creates the destination logical volume when it does not exist. This is useful for fresh replication targets:
+
+```sh
+lvmsync run --create-dest-lv /dev/vg0/src /dev/vg0/dest
+```
+
+## Plan accuracy
+
+`lvmsync run --plan SRC DST` emits a plan containing `estimated_bytes`. Actual transfers may vary slightly due to block alignment and compression effects. Estimates are expected to fall within ±5% of the final `bytes_transferred` reported at the end of a run.
+
+## Safe Overwrite Procedure
+
+1. Probe devices and ensure privileges are correct:
+
+   ```sh
+   lvmsync run --probe-only /dev/vg0/snap0 /dev/vg0/target
+   # 10737418240 12345678-9abc-def0-1234-56789abcdef0 9abcdef0-1234-5678-90ab-cdef12345678 0fedcba9-8765-4321-0fed-cba987654321 253 0 1700000000
+   ```
+
+2. Verify existing blocks:
+
+   ```sh
+   lvmsync run --verify-only /dev/vg0/snap0 /dev/vg0/target
+   ```
+
+3. Perform the copy, optionally resuming with verification:
+
+   ```sh
+   lvmsync run --resume=verify /dev/vg0/snap0 /dev/vg0/target
+   ```
+
+Exit code `3` indicates a verification mismatch and leaves the destination untouched.
+
+### Safe Overwrite Test
+
+The integration test `integration/safe_overwrite.sh` exercises this sequence:
+
+1. `lvmsync run --probe-only /dev/vg0/snap0 /dev/vg0/target` exits `0` without writing.
+2. `lvmsync run --verify-only /dev/vg0/snap0 /dev/vg0/target` exits `3` when blocks differ and leaves data unchanged.
+3. `lvmsync run /dev/vg0/snap0 /dev/vg0/target` performs the actual copy.
+
+The test confirms the probe and verify steps do not modify the destination logical volume.
 
 ## WAL Crash Safety
 
-The write-ahead log records completed block ranges so interrupted transfers can resume safely. Each appended range is fsynced before returning. On restart `OpenWAL` validates a MAC over the header and ensures the size, epoch, and device ID match the current transfer. Corrupted headers or tampered device IDs cause the log to be rejected, and entries written without a matching fsync are ignored after power loss. See [wal.md](wal.md) for header layout and replay semantics.
+WAL updates are written to a temporary file and `fsync`ed before atomically renaming to the final path. The parent directory is then `fsync`ed to persist the rename. On restart `OpenWAL` validates a MAC over the header and ensures the size, epoch, and device ID match the current transfer. Corrupted headers or entries written without a matching `fsync` are ignored after power loss. See [wal.md](wal.md) for header layout and replay semantics.
 
-## Exit Codes
+## Exit Codes and Recovery
 
-| Code | Meaning | Recovery Step |
-|------|---------|---------------|
-| `0` | Success | None |
-| `2` | Precondition failed | Fix prerequisites and retry. |
-| `3` | Verification mismatch | Investigate mismatched data before retrying. |
-| `4` | Resumable exit | Address the issue and resume with `--resume`. |
-| `5` | Configuration error | Review flags, environment variables, and `config.yaml`. |
-| `6` | Privilege or capability check failed | Run as root or adjust `--lvm-escalation`. |
+| Constant | Code | Meaning | Recovery Step |
+|----------|------|---------|---------------|
+| [`exitcode.OK`](../internal/exitcode/exitcode.go) | `0` | Success | None |
+| [`exitcode.Precondition`](../internal/exitcode/exitcode.go) | `2` | Precondition failed | Fix prerequisites and retry. |
+| [`exitcode.Verify`](../internal/exitcode/exitcode.go) | `3` | Verification mismatch | Investigate mismatched data before retrying. |
+| [`exitcode.Resumable`](../internal/exitcode/exitcode.go) | `4` | Resumable exit | Resume with `--resume` after resolving the issue. |
+| [`exitcode.Config`](../internal/exitcode/exitcode.go) | `5` | Configuration error | Review flags, environment variables, and `config.yaml`. |
+| [`exitcode.Capability`](../internal/exitcode/exitcode.go) | `6` | Privilege or capability check failed | Run as root or adjust `--lvm-escalation`. |
 
+Definitions live in [internal/exitcode](../internal/exitcode/exitcode.go).
+
+Verification mismatches exit with [`exitcode.Verify`](../internal/exitcode/exitcode.go):
+
+```sh
+lvmsync run --verify-only /dev/vg0/snap0 /dev/vg0/bad_target || echo "verify failed with exit $?"
+# verify failed with exit 3
+```
+
+Precondition failures exit with [`exitcode.Precondition`](../internal/exitcode/exitcode.go):
+
+```sh
+lvmsync run /dev/vg0/missing /dev/vg0/target || echo "precondition failed with exit $?"
+# precondition failed with exit 2
+```
+
+Partition-table changes between runs also trigger this error when GPT or MBR signatures differ. When using the `rsync` transport, the client sends the destination device identity before writing. If the server's identity differs, the transfer aborts with [`exitcode.Precondition`](../internal/exitcode/exitcode.go) (`2`).
+
+## Troubleshooting
+
+- Compare source and destination identities; the device identity tuple `(size_bytes, kernel_uuid, gpt_uuid, mbr_signature, fs_uuid, major, minor, manifest_epoch)` must match the resume file. LVMSync refuses to resume when the tuple differs.
+- Confirm the destination is not mounted read-write. Use `--force` only when intentionally overwriting.
+- Rerun with `--resume` after resolving issues to avoid re-copying completed blocks.
+- Review logs for detailed errors and ensure all configuration values follow the expected flag > environment variable > config file precedence.
+
+### Snapshot Overflow
+
+Snapshot volumes fill when copy-on-write blocks exceed the allocated snapshot size. LVMSync exits with [`exitcode.Resumable`](../internal/exitcode/exitcode.go) (`4`). Grow the snapshot or create a larger one, then rerun with the same `--resume` state:
+
+```sh
+lvmsync run /dev/vg0/snap_full /dev/vg0/dst || echo "snapshot overflow exit $?"
+# snapshot overflow exit 4
+```
+
+### Verify Failure
+
+Verification mismatches stop the transfer with [`exitcode.Verify`](../internal/exitcode/exitcode.go) (`3`). Inspect the logs to identify mismatched blocks before retrying:
+
+```sh
+lvmsync run --verify-only /dev/vg0/snap0 /dev/vg0/target || echo "verify exit $?"
+# verify exit 3
+```
+
+### Resume After Interruption
+
+Unexpected interruptions (signals, network loss) exit with [`exitcode.Resumable`](../internal/exitcode/exitcode.go) (`4`). Fix the underlying issue and resume the transfer:
+
+```sh
+lvmsync run --resume state /dev/vg0/snap0 /dev/vg0/target
+```
+
+### Identity Tuple Mismatch
+
+If the source or destination no longer matches the resume state, LVMSync exits with [`exitcode.Precondition`](../internal/exitcode/exitcode.go) (`2`) and refuses to resume. Recreate the destination or regenerate the resume state before restarting.
+
+## Failure Drills
+
+Practice recovery steps regularly so operators are prepared for common failure scenarios.
+
+### Snapshot Full
+
+1. Create a small snapshot and start a transfer:
+   ```sh
+   lvcreate -L1G -s -n snap_full /dev/vg0/src
+   lvmsync run /dev/vg0/snap_full /dev/vg0/dst &
+   ```
+2. Write more than 1 GiB to the source to exhaust the snapshot:
+   ```sh
+   dd if=/dev/zero of=/dev/vg0/src bs=1M count=2048
+   ```
+3. LVMSync exits with a device error. Remove the snapshot, create a larger one, and resume with the same command line.
+
+### Identity Mismatch
+
+1. Begin a transfer and capture the resume state file.
+2. Modify the destination (e.g., recreate the LV) and rerun with `--resume`:
+   ```sh
+   lvremove -y /dev/vg0/dst
+   lvcreate -L10G -n dst /dev/vg0
+   lvmsync run --resume state /dev/vg0/snap0 /dev/vg0/dst || echo "mismatch"
+   ```
+3. LVMSync reports a precondition failure due to the changed identity. Fix the destination and restart without `--resume` or regenerate the state.
+
+### TLS Failure
+
+1. Run a remote transfer with an invalid certificate or hostname:
+   ```sh
+   lvmsync run --remote https://badhost /dev/vg0/snap0 user@host:/dev/vg0/dst
+   ```
+2. The TLS handshake fails with exit code `1`. Verify certificates and trust stores, then retry the transfer.
+
+## Symptom Reference
+
+| Symptom/log excerpt | Exit code | Recommended operator action |
+|---------------------|-----------|------------------------------|
+| `privilege check failed` | [6](../internal/exitcode/exitcode.go) | Run as root or adjust `--lvm-escalation`. |
+| `snapshot overflow exit 4` | [4](../internal/exitcode/exitcode.go) | Grow or recreate the snapshot, then resume. |
+| `verify failed with exit 3` | [3](../internal/exitcode/exitcode.go) | Investigate mismatched blocks before retrying. |
+| `precondition failed with exit 2` | [2](../internal/exitcode/exitcode.go) | Ensure device identities match or regenerate the state file. |
+| `resumable exit 4` | [4](../internal/exitcode/exitcode.go) | Retry with `--resume` after fixing the issue. |
