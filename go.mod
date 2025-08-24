@@ -32,6 +32,7 @@ require (
 
 require (
 	github.com/bits-and-blooms/bitset v1.24.0 // indirect
+	github.com/creack/pty v1.1.23 // indirect
 	github.com/fsnotify/fsnotify v1.8.0 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
