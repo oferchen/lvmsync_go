@@ -44,8 +44,19 @@ func (t *Transfer) streamRsyncDelta(ctx context.Context, cfg *config.Config, sna
 
 	t.Logger.Warn("plaintext_connection", zap.String("transport", "rsync"), zap.String("docs", "docs/transports.md"))
 
-	rw := writeOnlyReadWriter{out}
-	cl := rsyncwire.NewClient(rsyncwire.NewStream(rw, rsyncMaxFrame))
+	// Prefer a read/write connection so we can drain server responses
+	// before closing the stream. Fall back to a write-only wrapper when the
+	// writer doesn't implement io.Reader.
+	var (
+		rw     io.ReadWriter
+		stream *rsyncwire.Stream
+		rwOK   bool
+	)
+	if rw, rwOK = out.(io.ReadWriter); !rwOK {
+		rw = writeOnlyReadWriter{out}
+	}
+	stream = rsyncwire.NewStream(rw, rsyncMaxFrame)
+	cl := rsyncwire.NewClient(stream)
 	// Send destination identity to allow early mismatch detection.
 	dev, err := device.Detect(ctx, origin, true, true, "", "", "", "", 0, 0, privilege.New(ctx, t.Logger), t.Logger, device.NewRunner())
 	if err != nil {
@@ -171,6 +182,31 @@ func (t *Transfer) streamRsyncDelta(ctx context.Context, cfg *config.Config, sna
 	}
 	if err := cl.SendDigest(ctx, cfg.ChecksumAlgorithm, sum); err != nil {
 		return fmt.Errorf("send digest: %w", err)
+	}
+
+	// When the underlying connection supports half-closing, close the
+	// write side, drain any server responses, then close the stream. This
+	// avoids the server encountering a closed pipe when sending its final
+	// frames (e.g. digest acknowledgments).
+	type closeWriter interface{ CloseWrite() error }
+	if cw, ok := out.(closeWriter); ok && rwOK {
+		if err := cw.CloseWrite(); err != nil && !errors.Is(err, io.EOF) {
+			return fmt.Errorf("close write: %w", err)
+		}
+		for {
+			if _, err := stream.Recv(ctx); err != nil {
+				if errors.Is(err, io.EOF) {
+					break
+				}
+				return fmt.Errorf("recv response: %w", err)
+			}
+		}
+		if closer, ok := out.(io.Closer); ok {
+			if err := closer.Close(); err != nil && !errors.Is(err, io.EOF) {
+				return fmt.Errorf("failed to close output: %w", err)
+			}
+		}
+		return nil
 	}
 
 	if closer, ok := out.(io.Closer); ok {

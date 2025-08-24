@@ -170,6 +170,9 @@ func TestDumpChangesRsyncDelta(t *testing.T) {
 		<-serverReady
 		clientErrCh <- tr.DumpChangesSequential(ctx, cfg, snapPath, origPath, cc)
 		close(clientDone)
+		// Drain any server responses before closing our side of the pipe to
+		// ensure the server exits cleanly.
+		io.Copy(io.Discard, c1)
 		c1.Close()
 	}()
 
@@ -271,6 +274,9 @@ func TestRsyncDeltaCDCShift(t *testing.T) {
 		<-serverReady
 		clientErrCh <- tr.DumpChangesSequential(ctx, cfg, snapPath, origPath, cc)
 		close(clientDone)
+		// Drain any server responses before closing the client side to
+		// avoid triggering write errors on the server.
+		io.Copy(io.Discard, c1)
 		c1.Close()
 	}()
 
