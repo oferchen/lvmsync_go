@@ -15,25 +15,25 @@ import (
 
 // Runner holds dependencies for manifest operations.
 type Runner struct {
-	Rebuild func(ctx context.Context, device, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error
-	GC      func(path string, opts ...manifestpkg.IndexOption) error
-	Compact func(path string, opts ...manifestpkg.IndexOption) error
-	Open    func(path string, opts ...manifestpkg.IndexOption) (*manifestpkg.Index, error)
+	Regenerate func(ctx context.Context, device, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error
+	GC         func(path string, opts ...manifestpkg.IndexOption) error
+	Compact    func(path string, opts ...manifestpkg.IndexOption) error
+	Open       func(path string, opts ...manifestpkg.IndexOption) (*manifestpkg.Index, error)
 }
 
 // NewRunner returns a Runner with production dependencies.
 func NewRunner() *Runner {
-	return &Runner{Rebuild: manifestpkg.Rebuild, GC: manifestpkg.GC, Compact: manifestpkg.Compact, Open: manifestpkg.Open}
+	return &Runner{Regenerate: manifestpkg.Regenerate, GC: manifestpkg.GC, Compact: manifestpkg.Compact, Open: manifestpkg.Open}
 }
 
-// NewRunnerWithDeps creates a Runner with custom rebuild function.
+// NewRunnerWithDeps creates a Runner with custom regenerate function.
 func NewRunnerWithDeps(
-	rebuild func(ctx context.Context, device, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error,
+	regenerate func(ctx context.Context, device, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error,
 	gc func(path string, opts ...manifestpkg.IndexOption) error,
 	compact func(path string, opts ...manifestpkg.IndexOption) error,
 	open func(path string, opts ...manifestpkg.IndexOption) (*manifestpkg.Index, error),
 ) *Runner {
-	return &Runner{Rebuild: rebuild, GC: gc, Compact: compact, Open: open}
+	return &Runner{Regenerate: regenerate, GC: gc, Compact: compact, Open: open}
 }
 
 func init() {
@@ -89,7 +89,7 @@ func (r *Runner) Run(cfg *config.Config, args []string, logger *zap.Logger) erro
 		if conf.DedupMode == "hybrid" {
 			hybridFixed = uint32(conf.BlockSize)
 		}
-		if err := r.Rebuild(ctx, device, path, logger, conf.ManifestProgressInterval, conf.ManifestAllowMounted, uint32(conf.CDCMin), uint32(conf.CDCAvg), uint32(conf.CDCMax), hybridFixed); err != nil {
+		if err := r.Regenerate(ctx, device, path, logger, conf.ManifestProgressInterval, conf.ManifestAllowMounted, uint32(conf.CDCMin), uint32(conf.CDCAvg), uint32(conf.CDCMax), hybridFixed); err != nil {
 			logger.Error("rebuild failed", zap.Error(err))
 			return err
 		}
