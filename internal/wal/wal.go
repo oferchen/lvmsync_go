@@ -30,19 +30,37 @@ type File interface {
 
 // Deps bundles filesystem helpers for WAL operations.
 type Deps struct {
-	syncDir func(string) error
+	syncDir  func(string) error
+	openFile func(string, int, os.FileMode) (File, error)
+	rename   func(string, string) error
 }
 
 // NewDeps returns production dependencies.
 func NewDeps() *Deps {
-	return &Deps{syncDir: syncDir}
+	return &Deps{
+		syncDir:  syncDir,
+		openFile: func(name string, flag int, perm os.FileMode) (File, error) { return os.OpenFile(name, flag, perm) },
+		rename:   os.Rename,
+	}
 }
 
 // SyncDir fsyncs the provided directory path.
 func (d *Deps) SyncDir(path string) error { return d.syncDir(path) }
 
+// OpenFile opens or creates a file.
+func (d *Deps) OpenFile(name string, flag int, perm os.FileMode) (File, error) {
+	return d.openFile(name, flag, perm)
+}
+
+// Rename moves oldpath to newpath.
+func (d *Deps) Rename(oldpath, newpath string) error { return d.rename(oldpath, newpath) }
+
 // NewDepsWithSync returns dependencies using the provided syncDir implementation.
-func NewDepsWithSync(fn func(string) error) *Deps { return &Deps{syncDir: fn} }
+func NewDepsWithSync(fn func(string) error) *Deps {
+	d := NewDeps()
+	d.syncDir = fn
+	return d
+}
 
 // WAL manages a write-ahead log backed by a file.
 type WAL struct {
@@ -63,7 +81,7 @@ func New(f File, deps *Deps) *WAL {
 func (w *WAL) Append(r Range) error {
 	name := w.f.Name()
 	tmpPath := name + ".tmp"
-	tf, err := os.OpenFile(tmpPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	tf, err := w.deps.OpenFile(tmpPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
 		return err
 	}
@@ -107,10 +125,10 @@ func (w *WAL) Append(r Range) error {
 	if err := w.f.Close(); err != nil {
 		return err
 	}
-	if err := os.Rename(tmpPath, name); err != nil {
+	if err := w.deps.Rename(tmpPath, name); err != nil {
 		return err
 	}
-	nf, err := os.OpenFile(name, os.O_RDWR, 0)
+	nf, err := w.deps.OpenFile(name, os.O_RDWR, 0)
 	if err != nil {
 		return err
 	}
