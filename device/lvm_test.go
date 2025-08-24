@@ -363,7 +363,7 @@ func TestLVMDeviceCloseErrorLogging(t *testing.T) {
 
 func TestConfirmOverwriteTTYLVM(t *testing.T) {
 	ctx := WithForce(context.Background(), true)
-	r := ttyLVMReader{strings.NewReader("yes\n")}
+	r := ttyLVMReader{strings.NewReader("double-confirm\n")}
 	if err := confirmOverwrite(ctx, r, io.Discard, func(int) bool { return true }); err != nil {
 		t.Fatalf("confirmOverwrite: %v", err)
 	}
@@ -371,7 +371,7 @@ func TestConfirmOverwriteTTYLVM(t *testing.T) {
 
 func TestConfirmOverwriteNonTTYLVM(t *testing.T) {
 	ctx := WithForce(context.Background(), true)
-	r := strings.NewReader("yes\n")
+	r := strings.NewReader("double-confirm\n")
 	if err := confirmOverwrite(ctx, r, io.Discard, func(int) bool { return true }); err == nil || !strings.Contains(err.Error(), "--allow-overwrite") {
 		t.Fatalf("expected allow-overwrite error, got %v", err)
 	}
