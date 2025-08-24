@@ -781,6 +781,49 @@ func TestTCPTLSClientAuthInsecure(t *testing.T) {
 	}
 }
 
+func TestTCPTLSClientMissingCert(t *testing.T) {
+	cert, root := generateSelfSignedCert(t)
+	srvIface, err := New(transport.Config{Logger: zap.NewNop(), Roots: root, ClientCert: cert, ServerCert: cert})
+	if err != nil {
+		t.Fatalf("new server transport: %v", err)
+	}
+	srv := srvIface.(*Transport)
+	ctx := context.Background()
+	ln, err := srv.Listen(ctx, "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer ln.Close()
+
+	core, logs := observer.New(zap.InfoLevel)
+	cliIface, err := New(transport.Config{Logger: zap.New(core), Roots: root, ClientCert: cert, ServerCert: cert})
+	if err != nil {
+		t.Fatalf("new client transport: %v", err)
+	}
+	cli := cliIface.(*Transport)
+	cli.clientConf.Certificates = nil
+
+	done := make(chan struct{})
+	go func() {
+		if conn, err := ln.Accept(); err == nil {
+			conn.Close()
+		}
+		close(done)
+	}()
+
+	dialCtx, cancel := context.WithTimeout(ctx, time.Second)
+	_, err = cli.Dial(dialCtx, ln.Addr().String())
+	cancel()
+	if err == nil {
+		t.Fatalf("expected dial error without client certificate")
+	}
+
+	<-done
+
+	checkLogFields(t, logs, "dial_start", 1, false, zapcore.InfoLevel)
+	checkLogFields(t, logs, "dial_end", 1, true, zapcore.ErrorLevel)
+}
+
 func TestTCPTLSTLSVersion(t *testing.T) {
 	cert, root := generateSelfSignedCert(t)
 	trIface, err := New(transport.Config{Logger: zap.NewNop(), Roots: root, ClientCert: cert, ServerCert: cert})
