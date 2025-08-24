@@ -18,7 +18,7 @@ For snapshot cleanup, resuming transfers, and verify-only rollback procedures, s
 - **Parallel Execution**: Configurable concurrency for optimal performance.
 - **Adaptive Transport Concurrency**: Maintains ~1–2×BDP of in-flight data and can be overridden with `--concurrency`.
 - **Rate-Limiting**: Control bandwidth usage during transfers.
-- **Compression**: Samples 8 KiB per chunk and skips compression when the ratio exceeds `--compress-threshold`. Auto mode selects LZ4 for chunks <256 KiB and Zstd for larger chunks on CPUs with AVX2 or NEON support. Compression levels are tuned via `--lz4-level` and `--zstd-level`. See [compression documentation](docs/compression.md) for pipeline details.
+- **Compression**: Samples 8 KiB per chunk and skips compression when the ratio exceeds `--compress-threshold`. Auto mode selects Zstd on CPUs with AVX2 or NEON support, falling back to LZ4 when those features are absent. Compression levels are tuned via `--lz4-level` and `--zstd-level`. See [compression documentation](docs/compression.md) for pipeline details.
 - **Checksum Verification**: Ensures data integrity using SHA-256 or BLAKE3, automatically selecting BLAKE3 on CPUs with AES-NI, AVX2/AVX-512, or NEON.
 - **Native LVM2 Integration**: Uses Go bindings to `liblvm2cmd` instead of shelling out.
 - **Generic Block Device Support**: Access raw `/dev/*` paths and regular files (including loopback images) through a unified device abstraction.
@@ -943,7 +943,7 @@ detects any mismatches so retries can resend the affected data. The mmap-backed
 index (`*.idx`) is truncated to zero on startup so each run begins with a clean
 bitset.
 
-Compression samples 8 KiB from each chunk and skips when the estimated ratio exceeds `--compress-threshold`. `--compress auto` selects LZ4 for chunks under 256 KiB and Zstd for larger chunks when AVX2 or NEON is available, falling back to LZ4 otherwise.
+Compression samples 8 KiB from each chunk and skips when the estimated ratio exceeds `--compress-threshold`. `--compress auto` selects Zstd when AVX2 or NEON is available, falling back to LZ4 otherwise.
 
 CLI:
 
@@ -1521,9 +1521,8 @@ When saving Bloom filter state, LVMSync logs `dedup_bloom_stats` with `entries`,
 
 LVMSync samples 8 KiB from each chunk to gauge compression efficiency. If the
 compressed sample ratio is greater than or equal to `--compress-threshold`, the
-chunk is sent uncompressed. In `auto` mode, chunks smaller than 256 KiB use LZ4,
-and larger ones select Zstd (levels 1–3) when AVX2 or NEON is available;
-otherwise LZ4.
+chunk is sent uncompressed. In `auto` mode, Zstd is used when AVX2 or NEON is
+available; otherwise LZ4 is selected.
 The compression threshold is tunable via `--compress-threshold` (`LVMSYNC_COMPRESSION_COMPRESS_THRESHOLD` or `compress_threshold`), where values near 1 favor compression and lower values skip high-entropy data.
 Levels can be tuned with `--zstd-level` (1-5) or `--lz4-level` (`fast` or `hc`).
 
