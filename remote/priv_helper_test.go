@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"os"
@@ -94,9 +95,98 @@ func TestRecvAckTimeout(t *testing.T) {
 	}
 }
 
+type blockingAckReader struct {
+	readStarted chan struct{}
+	closeCh     chan struct{}
+	closed      bool
+	readDone    chan struct{}
+}
+
+func newBlockingAckReader() *blockingAckReader {
+	return &blockingAckReader{
+		readStarted: make(chan struct{}),
+		closeCh:     make(chan struct{}),
+		readDone:    make(chan struct{}),
+	}
+}
+
+func (r *blockingAckReader) Read(_ []byte) (int, error) {
+	close(r.readStarted)
+	<-r.closeCh
+	close(r.readDone)
+	return 0, io.EOF
+}
+
+func (r *blockingAckReader) Close() error {
+	r.closed = true
+	close(r.closeCh)
+	return nil
+}
+
+type neverReader struct{}
+
+func (neverReader) Read(_ []byte) (int, error) { select {} }
+
+func TestRecvAckCancelClosesReader(t *testing.T) {
+	r := newBlockingAckReader()
+	c := &PrivHelperClient{stdout: r}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() {
+		_, err := c.RecvAck(ctx)
+		if err == nil || !errors.Is(err, context.Canceled) {
+			done <- fmt.Errorf("expected context canceled, got %v", err)
+			return
+		}
+		done <- nil
+	}()
+	<-r.readStarted
+	cancel()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(500 * time.Millisecond):
+		t.Fatalf("RecvAck did not return")
+	}
+	if !r.closed {
+		t.Fatalf("reader not closed")
+	}
+	select {
+	case <-r.readDone:
+	case <-time.After(500 * time.Millisecond):
+		t.Fatalf("read goroutine not cleaned up")
+	}
+}
+
+func TestRecvAckCancelUnclosable(t *testing.T) {
+	c := &PrivHelperClient{stdout: neverReader{}}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() {
+		_, err := c.RecvAck(ctx)
+		if err == nil || !errors.Is(err, context.Canceled) {
+			done <- fmt.Errorf("expected context canceled, got %v", err)
+			return
+		}
+		done <- nil
+	}()
+	time.Sleep(50 * time.Millisecond)
+	cancel()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(500 * time.Millisecond):
+		t.Fatalf("RecvAck blocked with unclosable reader")
+	}
+}
+
 type earlyTimeoutReader struct{ deadline time.Time }
 
-func (r *earlyTimeoutReader) Read(p []byte) (int, error) {
+func (r *earlyTimeoutReader) Read(_ []byte) (int, error) {
 	if !r.deadline.IsZero() {
 		if d := time.Until(r.deadline) - 50*time.Millisecond; d > 0 {
 			time.Sleep(d)
