@@ -9,16 +9,11 @@ func TestExitCodeValues(t *testing.T) {
 		want int
 	}{
 		{"OK", OK, 0},
-		{"Capability", Capability, 10},
-		{"Device", Device, 20},
-		{"SnapshotExhausted", SnapshotExhausted, 25},
-		{"Platform", Platform, 30},
-		{"Config", Config, 40},
-		{"Runtime", Runtime, 50},
-		{"Verify", Verify, 60},
-		{"Partial", Partial, 70},
-		{"Precondition", Precondition, 80},
-		{"Resumable", Resumable, 90},
+		{"Precondition", Precondition, 2},
+		{"Verify", Verify, 3},
+		{"Resumable", Resumable, 4},
+		{"Config", Config, 5},
+		{"Capability", Capability, 6},
 	}
 	for _, c := range cases {
 		if c.code != c.want {

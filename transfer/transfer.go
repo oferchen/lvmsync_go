@@ -141,7 +141,7 @@ func (t *Transfer) dumpChangesCore(ctx context.Context, cfg *config.Config, snap
 			return err
 		}
 		if usage >= cfg.SnapshotMaxUsage {
-			return fmt.Errorf("snapshot exhausted: usage %.2f%% >= threshold %.2f%%: %w", usage, cfg.SnapshotMaxUsage, exitcode.ErrSnapshotExhausted)
+			return fmt.Errorf("snapshot exhausted: usage %.2f%% >= threshold %.2f%%: %w", usage, cfg.SnapshotMaxUsage, exitcode.ErrResumable)
 		}
 	}
 

@@ -166,9 +166,8 @@ func TestExitCodeMapping(t *testing.T) {
 	}{
 		{"success", nil, exitcode.OK, nil},
 		{"config", fmt.Errorf("parse listen: %w", exitcode.ErrConfig), exitcode.Config, exitcode.ErrConfig},
-		{"runtime", fmt.Errorf("listen failed: %w", exitcode.ErrRuntime), exitcode.Runtime, exitcode.ErrRuntime},
+		{"runtime", fmt.Errorf("listen failed"), 1, nil},
 		{"verify", fmt.Errorf("digest mismatch: %w", exitcode.ErrVerify), exitcode.Verify, exitcode.ErrVerify},
-		{"partial", fmt.Errorf("received signal: %w", exitcode.ErrPartial), exitcode.Partial, exitcode.ErrPartial},
 		{"precondition", fmt.Errorf("precondition not met: %w", exitcode.ErrPrecondition), exitcode.Precondition, exitcode.ErrPrecondition},
 		{"resumable", fmt.Errorf("resumable: %w", exitcode.ErrResumable), exitcode.Resumable, exitcode.ErrResumable},
 	}

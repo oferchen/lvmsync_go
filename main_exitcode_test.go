@@ -20,13 +20,11 @@ func TestRunnerExitCodes(t *testing.T) {
 		want   int
 	}{
 		{"success", "linux", nil, nil, exitcode.OK},
-		{"platform", "darwin", nil, nil, exitcode.Platform},
+		{"platform", "darwin", nil, nil, 1},
 		{"capability", "linux", fmt.Errorf("privilege: %w", exitcode.ErrCapability), nil, exitcode.Capability},
 		{"config", "linux", fmt.Errorf("config invalid: %w", exitcode.ErrConfig), nil, exitcode.Config},
-		{"device", "linux", nil, fmt.Errorf("device gone: %w", exitcode.ErrDevice), exitcode.Device},
-		{"runtime", "linux", nil, fmt.Errorf("boom: %w", exitcode.ErrRuntime), exitcode.Runtime},
+		{"runtime", "linux", nil, fmt.Errorf("boom"), 1},
 		{"verify", "linux", nil, fmt.Errorf("digest mismatch: %w", exitcode.ErrVerify), exitcode.Verify},
-		{"partial", "linux", nil, fmt.Errorf("interrupt: %w", exitcode.ErrPartial), exitcode.Partial},
 		{"precondition", "linux", nil, fmt.Errorf("precondition: %w", exitcode.ErrPrecondition), exitcode.Precondition},
 		{"resumable", "linux", nil, fmt.Errorf("resumable: %w", exitcode.ErrResumable), exitcode.Resumable},
 	}
@@ -61,15 +59,11 @@ func TestExitCodeValues(t *testing.T) {
 		want int
 	}{
 		{"OK", exitcode.OK, 0},
-		{"Capability", exitcode.Capability, 10},
-		{"Device", exitcode.Device, 20},
-		{"Platform", exitcode.Platform, 30},
-		{"Config", exitcode.Config, 40},
-		{"Runtime", exitcode.Runtime, 50},
-		{"Verify", exitcode.Verify, 60},
-		{"Partial", exitcode.Partial, 70},
-		{"Precondition", exitcode.Precondition, 80},
-		{"Resumable", exitcode.Resumable, 90},
+		{"Precondition", exitcode.Precondition, 2},
+		{"Verify", exitcode.Verify, 3},
+		{"Resumable", exitcode.Resumable, 4},
+		{"Config", exitcode.Config, 5},
+		{"Capability", exitcode.Capability, 6},
 	}
 	for _, tt := range cases {
 		if tt.code != tt.want {

@@ -57,8 +57,8 @@ set +e
 "$BIN" run --verify-only /dev/vgsrc/snap /dev/vgd/dest
 STATUS=$?
 set -e
-if [ "$STATUS" -ne 60 ]; then
-  echo "expected exit code 60, got $STATUS"
+if [ "$STATUS" -ne 3 ]; then
+  echo "expected exit code 3, got $STATUS"
   exit 1
 fi
 

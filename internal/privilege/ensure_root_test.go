@@ -55,8 +55,8 @@ func TestEnsureSudoErrorsExitCode(t *testing.T) {
 			if err == nil {
 				t.Fatalf("expected error")
 			}
-			if code := rootcmd.ExitCode(fmt.Errorf("privilege check failed: %w", err)); code != exitcode.Runtime {
-				t.Fatalf("exit code = %d, want %d", code, exitcode.Runtime)
+			if code := rootcmd.ExitCode(fmt.Errorf("privilege check failed: %w", err)); code != 1 {
+				t.Fatalf("exit code = %d, want 1", code)
 			}
 		})
 	}

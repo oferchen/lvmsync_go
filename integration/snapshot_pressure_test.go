@@ -66,7 +66,7 @@ func TestSnapshotPressure(t *testing.T) {
 	if !errors.As(err, &exitErr) {
 		t.Fatalf("expected exit error, got %v", err)
 	}
-	if exitErr.ExitCode() != exitcode.Device {
-		t.Fatalf("expected exit code %d, got %d", exitcode.Device, exitErr.ExitCode())
+	if exitErr.ExitCode() != exitcode.Resumable {
+		t.Fatalf("expected exit code %d, got %d", exitcode.Resumable, exitErr.ExitCode())
 	}
 }

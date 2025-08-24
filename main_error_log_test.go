@@ -38,7 +38,7 @@ func TestMainLogsStructuredError(t *testing.T) {
 	runner := NewRunnerWithDeps(
 		func() (*config.Config, []string, *zap.Logger, error) { return &config.Config{}, nil, logger, nil },
 		func(_ *config.Config, _ []string, _ *zap.Logger) error {
-			return fmt.Errorf("boom: %w", exitcode.ErrRuntime)
+			return fmt.Errorf("boom")
 		},
 		rootcmd.SyncLogger,
 		func(c int) { code = c },
@@ -47,8 +47,8 @@ func TestMainLogsStructuredError(t *testing.T) {
 	)
 	runner.Run()
 
-	if code != exitcode.Runtime {
-		t.Fatalf("expected exit code %d, got %d", exitcode.Runtime, code)
+	if code != 1 {
+		t.Fatalf("expected exit code 1, got %d", code)
 	}
 
 	entries := logs.FilterMessage("run failed").All()
@@ -129,8 +129,8 @@ func TestMainErrorsOnNonLinux(t *testing.T) {
 	)
 	runner.Run()
 
-	if code != exitcode.Platform {
-		t.Fatalf("expected exit code %d, got %d", exitcode.Platform, code)
+	if code != 1 {
+		t.Fatalf("expected exit code 1, got %d", code)
 	}
 
 	entries := logs.FilterMessage("unsupported platform").All()
@@ -170,25 +170,6 @@ func TestMainCapabilityErrorExitCode(t *testing.T) {
 	}
 }
 
-func TestMainDeviceErrorExitCode(t *testing.T) {
-	var code int
-	logger := zap.NewNop()
-	runner := NewRunnerWithDeps(
-		func() (*config.Config, []string, *zap.Logger, error) { return &config.Config{}, nil, logger, nil },
-		func(_ *config.Config, _ []string, _ *zap.Logger) error {
-			return fmt.Errorf("device lost: %w", exitcode.ErrDevice)
-		},
-		rootcmd.SyncLogger,
-		func(c int) { code = c },
-		func() *zap.Logger { return zap.NewNop() },
-		"linux",
-	)
-	runner.Run()
-	if code != exitcode.Device {
-		t.Fatalf("expected exit code %d, got %d", exitcode.Device, code)
-	}
-}
-
 func TestMainVerifyExitCode(t *testing.T) {
 	var code int
 	logger := zap.NewNop()
@@ -208,13 +189,13 @@ func TestMainVerifyExitCode(t *testing.T) {
 	}
 }
 
-func TestMainPartialExitCode(t *testing.T) {
+func TestMainResumableExitCode(t *testing.T) {
 	var code int
 	logger := zap.NewNop()
 	runner := NewRunnerWithDeps(
 		func() (*config.Config, []string, *zap.Logger, error) { return &config.Config{}, nil, logger, nil },
 		func(_ *config.Config, _ []string, _ *zap.Logger) error {
-			return fmt.Errorf("received signal: %w", exitcode.ErrPartial)
+			return fmt.Errorf("received signal: %w", exitcode.ErrResumable)
 		},
 		rootcmd.SyncLogger,
 		func(c int) { code = c },
@@ -222,7 +203,7 @@ func TestMainPartialExitCode(t *testing.T) {
 		"linux",
 	)
 	runner.Run()
-	if code != exitcode.Partial {
-		t.Fatalf("expected exit code %d, got %d", exitcode.Partial, code)
+	if code != exitcode.Resumable {
+		t.Fatalf("expected exit code %d, got %d", exitcode.Resumable, code)
 	}
 }

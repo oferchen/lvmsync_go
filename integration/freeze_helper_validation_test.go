@@ -39,7 +39,7 @@ func TestFreezeHelperValidation(t *testing.T) {
 	if !ok {
 		t.Fatalf("unexpected error type: %T\n%s", err, out)
 	}
-	if ee.ExitCode() != 80 {
-		t.Fatalf("expected exit code 80, got %d\n%s", ee.ExitCode(), out)
+	if ee.ExitCode() != 2 {
+		t.Fatalf("expected exit code 2, got %d\n%s", ee.ExitCode(), out)
 	}
 }

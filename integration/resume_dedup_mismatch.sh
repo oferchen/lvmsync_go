@@ -59,8 +59,8 @@ if [ $STATUS -eq 0 ]; then
   echo "expected resume to fail due to dedup mode mismatch"
   exit 1
 fi
-if [ $STATUS -ne 80 ]; then
-  echo "expected exit code 80, got $STATUS"
+if [ $STATUS -ne 2 ]; then
+  echo "expected exit code 2, got $STATUS"
   exit 1
 fi
 if ! grep -q precondition "$TMPDIR/mismatch.log"; then
