@@ -80,3 +80,6 @@ Temporary Items
 
 # Generated reports
 reports/
+
+# Legacy agent directory
+AGENTS/
