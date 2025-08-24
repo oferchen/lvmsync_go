@@ -269,15 +269,11 @@ Run these commands locally before opening a pull request:
 
 ## Gap Reporting
 
-- Track known issues in `reports/gaps.md` and `reports/gaps.json`.
-- Each gap entry must appear in both files with matching details.
-- `reports/gaps_test.go` fails `go test` when `gaps.json` is non-empty.
-- Remove entries after fixes to keep CI green.
-- When adding a gap:
-  1. Review outstanding TODO items or missing tests.
-  2. Add an entry to `reports/gaps.md` and the matching object to `reports/gaps.json`.
-  3. Run `go test ./reports` to surface the failing gap test.
-  4. After addressing the gap, delete the entry from both files and rerun tests to ensure they pass.
+- Track known issues using GitHub issues rather than repository files.
+- When a gap is discovered:
+  1. Open a new issue describing the problem and any missing test coverage.
+  2. Optionally add a `TODO(#issue)` comment in the code referencing the issue number.
+  3. Address the gap in a follow-up change and close the issue once tests pass.
 
 ## Regex Patterns
 
