@@ -152,6 +152,7 @@ func TestDumpChangesRsyncDelta(t *testing.T) {
 	cc := &countingConn{Conn: c1}
 	serverReady := make(chan struct{})
 	clientDone := make(chan struct{})
+	serverDone := make(chan struct{})
 	srvErrCh := make(chan error, 1)
 	clientErrCh := make(chan error, 1)
 
@@ -163,6 +164,7 @@ func TestDumpChangesRsyncDelta(t *testing.T) {
 		case <-ctx.Done():
 		}
 		c2.Close()
+		close(serverDone)
 	}()
 
 	tr := NewTransfer(logger, &sync.WaitGroup{}, nil)
@@ -170,6 +172,7 @@ func TestDumpChangesRsyncDelta(t *testing.T) {
 		<-serverReady
 		clientErrCh <- tr.DumpChangesSequential(ctx, cfg, snapPath, origPath, cc)
 		close(clientDone)
+		<-serverDone
 		// Drain any server responses before closing our side of the pipe to
 		// ensure the server exits cleanly.
 		io.Copy(io.Discard, c1)
@@ -256,6 +259,7 @@ func TestRsyncDeltaCDCShift(t *testing.T) {
 	cc := &countingConn{Conn: c1}
 	serverReady := make(chan struct{})
 	clientDone := make(chan struct{})
+	serverDone := make(chan struct{})
 	srvErrCh := make(chan error, 1)
 	clientErrCh := make(chan error, 1)
 
@@ -267,6 +271,7 @@ func TestRsyncDeltaCDCShift(t *testing.T) {
 		case <-ctx.Done():
 		}
 		c2.Close()
+		close(serverDone)
 	}()
 
 	tr := NewTransfer(logger, &sync.WaitGroup{}, nil)
@@ -274,6 +279,7 @@ func TestRsyncDeltaCDCShift(t *testing.T) {
 		<-serverReady
 		clientErrCh <- tr.DumpChangesSequential(ctx, cfg, snapPath, origPath, cc)
 		close(clientDone)
+		<-serverDone
 		// Drain any server responses before closing the client side to
 		// avoid triggering write errors on the server.
 		io.Copy(io.Discard, c1)
@@ -361,6 +367,7 @@ func TestRsyncDeltaCDCMutate(t *testing.T) {
 	cc := &countingConn{Conn: c1}
 	serverReady := make(chan struct{})
 	clientDone := make(chan struct{})
+	serverDone := make(chan struct{})
 	srvErrCh := make(chan error, 1)
 	clientErrCh := make(chan error, 1)
 
@@ -372,6 +379,7 @@ func TestRsyncDeltaCDCMutate(t *testing.T) {
 		case <-ctx.Done():
 		}
 		c2.Close()
+		close(serverDone)
 	}()
 
 	tr := NewTransfer(logger, &sync.WaitGroup{}, nil)
@@ -379,6 +387,8 @@ func TestRsyncDeltaCDCMutate(t *testing.T) {
 		<-serverReady
 		clientErrCh <- tr.DumpChangesSequential(ctx, cfg, snapPath, origPath, cc)
 		close(clientDone)
+		<-serverDone
+		io.Copy(io.Discard, c1)
 		c1.Close()
 	}()
 
