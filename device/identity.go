@@ -1,15 +1,21 @@
 package device
 
-import wal "lvmsync_go/internal/wal"
+import (
+	"bytes"
+
+	wal "lvmsync_go/internal/wal"
+)
 
 // DeviceIdentity describes metadata uniquely identifying a block device.
-// The identity tuple is (size_bytes, kernel_uuid, gpt_uuid, mbr_signature, fs_uuid, major, minor, manifest_epoch).
+// The identity tuple is (size_bytes, kernel_uuid, gpt_uuid, mbr_signature,
+// fs_uuid, partition_hash, major, minor, manifest_epoch).
 type DeviceIdentity struct {
 	SizeBytes     uint64
 	KernelUUID    string
 	GPTUUID       string
 	MBRSignature  string
 	FSUUID        string
+	PartitionHash [32]byte
 	Major         uint32
 	Minor         uint32
 	ManifestEpoch uint64
@@ -26,6 +32,7 @@ func SameIdentity(a, b DeviceIdentity) bool {
 		a.GPTUUID == b.GPTUUID &&
 		a.MBRSignature == b.MBRSignature &&
 		a.FSUUID == b.FSUUID &&
+		bytes.Equal(a.PartitionHash[:], b.PartitionHash[:]) &&
 		a.ManifestEpoch == b.ManifestEpoch
 }
 
@@ -37,6 +44,7 @@ func SameIdentityStrict(a, b DeviceIdentity) bool {
 		a.GPTUUID == b.GPTUUID &&
 		a.MBRSignature == b.MBRSignature &&
 		a.FSUUID == b.FSUUID &&
+		bytes.Equal(a.PartitionHash[:], b.PartitionHash[:]) &&
 		a.Major == b.Major &&
 		a.Minor == b.Minor &&
 		a.ManifestEpoch == b.ManifestEpoch

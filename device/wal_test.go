@@ -130,26 +130,27 @@ func TestWALVersionMismatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open file: %v", err)
 	}
-	var buf [walHeaderSize]byte
-	if _, err := f.ReadAt(buf[:], 0); err != nil {
-		t.Fatalf("read header: %v", err)
-	}
-	var hdr walHeader
-	hdr.Version = walVersion + 1
-	hdr.Size = binary.LittleEndian.Uint64(buf[8:16])
-	hdr.Epoch = binary.LittleEndian.Uint64(buf[16:24])
-	hdr.Major = binary.LittleEndian.Uint32(buf[24:28])
-	hdr.Minor = binary.LittleEndian.Uint32(buf[28:32])
-	copy(hdr.Kernel[:], buf[32:96])
-	copy(hdr.GPT[:], buf[96:160])
-	copy(hdr.MBR[:], buf[160:164])
-	copy(hdr.FS[:], buf[164:228])
-	hdr.MAC = walHeaderMAC(&hdr)
-	binary.LittleEndian.PutUint64(buf[0:8], hdr.Version)
-	copy(buf[228:260], hdr.MAC[:])
-	if _, err := f.WriteAt(buf[:], 0); err != nil {
-		t.Fatalf("write header: %v", err)
-	}
+        var buf [walHeaderSize]byte
+        if _, err := f.ReadAt(buf[:], 0); err != nil {
+                t.Fatalf("read header: %v", err)
+        }
+        var hdr walHeader
+        hdr.Version = walVersion + 1
+        hdr.Size = binary.LittleEndian.Uint64(buf[8:16])
+        hdr.Epoch = binary.LittleEndian.Uint64(buf[16:24])
+        hdr.Major = binary.LittleEndian.Uint32(buf[24:28])
+        hdr.Minor = binary.LittleEndian.Uint32(buf[28:32])
+        copy(hdr.Kernel[:], buf[32:96])
+        copy(hdr.GPT[:], buf[96:160])
+        copy(hdr.MBR[:], buf[160:164])
+        copy(hdr.FS[:], buf[164:228])
+        copy(hdr.Part[:], buf[228:260])
+        hdr.MAC = walHeaderMAC(&hdr)
+        binary.LittleEndian.PutUint64(buf[0:8], hdr.Version)
+        copy(buf[260:292], hdr.MAC[:])
+        if _, err := f.WriteAt(buf[:], 0); err != nil {
+                t.Fatalf("write header: %v", err)
+        }
 	f.Close()
 	if _, err := OpenWAL(path, id, zap.NewNop(), nil); err == nil {
 		t.Fatalf("expected version mismatch error")
