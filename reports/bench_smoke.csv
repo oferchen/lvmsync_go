@@ -1,7 +1,0 @@
-commit,compression,dedup,dataset_MB,throughput_MBps
-69a57b8,none,none,8,103.46
-69a57b8,zstd,none,8,134.95
-69a57b8,none,fixed,8,134.38
-69a57b8,zstd,fixed,8,137.92
-86a7cc7,none,none,64,269.70
-86a7cc7,zstd,none,64,281.87

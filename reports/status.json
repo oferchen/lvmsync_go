@@ -1,4 +1,0 @@
-{
-  "readiness": "R3",
-  "notes": "Core transports implemented; pending integration tests and logging audit"
-}

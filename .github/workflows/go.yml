@@ -108,12 +108,14 @@ jobs:
           bash scripts/bench_smoke.sh
 
       - name: Post benchmark results
-        if: always() && hashFiles('reports/bench_smoke.csv') != ''
+        if: always()
         run: |
-          echo "### Benchmark smoke test" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Compression | Throughput (MB/s) | CPU (%) |" >> "$GITHUB_STEP_SUMMARY"
-          echo "|-------------|-------------------|---------|" >> "$GITHUB_STEP_SUMMARY"
-          tail -n2 reports/bench_smoke.csv | awk -F, '{printf "| %s | %s | %s |\n", $2, $3, $4}' >> "$GITHUB_STEP_SUMMARY"
+          if [ -f reports/bench_smoke.csv ]; then
+            echo "### Benchmark smoke test" >> "$GITHUB_STEP_SUMMARY"
+            echo "| Compression | Throughput (MB/s) | CPU (%) |" >> "$GITHUB_STEP_SUMMARY"
+            echo "|-------------|-------------------|---------|" >> "$GITHUB_STEP_SUMMARY"
+            tail -n2 reports/bench_smoke.csv | awk -F, '{printf "| %s | %s | %s |\n", $2, $3, $4}' >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Go vet
         env:
@@ -152,9 +154,10 @@ jobs:
           fi
 
       - name: Verify gaps resolved
-        if: hashFiles('reports/machine/gaps.json') != ''
         run: |
-          jq -e 'map(select(.type | contains("(resolved)") | not)) | length == 0' reports/machine/gaps.json
+          if [ -f reports/machine/gaps.json ]; then
+            jq -e 'map(select(.type | contains("(resolved)") | not)) | length == 0' reports/machine/gaps.json
+          fi
 
       - name: Docs check
         run: make docs-check
@@ -173,3 +176,10 @@ jobs:
         run: |
           pct=$(go tool cover -func=coverage.out | awk '/^total:/{gsub(/%/,"",$3); print $3}')
           awk -v p="$pct" 'BEGIN { if (p+0 < 50) { printf("coverage %.2f%% is below 50%%\n", p); exit 1 } }'
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports-${{ matrix.os }}
+          path: reports
+          if-no-files-found: ignore
