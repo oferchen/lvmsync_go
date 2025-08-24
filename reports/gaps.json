@@ -1,1 +1,18 @@
-[]
+[
+  {
+    "type": "bug",
+    "component": "Manifest",
+    "evidence": "go run /tmp/manifest_fail.go -> manifest: file too small",
+    "impact": "Corrupt manifests halt resume operations",
+    "fix": "Add rebuild command to regenerate or replace damaged manifests",
+    "priority": "high"
+  },
+  {
+    "type": "bug",
+    "component": "RecvAck",
+    "evidence": "go test ./remote -run TestRecvAckPipe -> RecvAck blocked beyond deadline",
+    "impact": "Hung transfers and goroutine leaks when helper stdout lacks deadline support",
+    "fix": "Close reader or avoid draining when context is canceled; add tests",
+    "priority": "medium"
+  }
+]
