@@ -23,6 +23,9 @@ linters:
     - asciicheck
     - bodyclose
     - misspell
+    - deadcode
+    - gosimple
+    - stylecheck
 
 linters-settings:
   errcheck:
