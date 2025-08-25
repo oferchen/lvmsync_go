@@ -53,9 +53,16 @@ func NewSSHClient(
 	logger *zap.Logger,
 ) (*SSHClient, error) {
 
-	authMethods, err := selectAuthMethods(ctx, logger, keyPath, timeout)
+	authMethods, cleanup, err := selectAuthMethods(ctx, logger, keyPath, timeout)
 	if err != nil {
 		return nil, err
+	}
+	if cleanup != nil {
+		defer func() {
+			if cerr := cleanup(); cerr != nil {
+				logger.Warn("ssh agent connection close error", zap.Error(cerr))
+			}
+		}()
 	}
 	hostKeyCallback, err := setupHostKeyCallback(verify, knownHostsPath)
 	if err != nil {
@@ -92,29 +99,29 @@ func keyFileAuth(keyPath string) (ssh.AuthMethod, error) {
 	return ssh.PublicKeys(signer), nil
 }
 
-func agentAuth(ctx context.Context, logger *zap.Logger, timeout time.Duration) (ssh.AuthMethod, error) {
+func agentAuth(ctx context.Context, logger *zap.Logger, timeout time.Duration) (ssh.AuthMethod, func() error, error) {
 	sshAgentSock := os.Getenv("SSH_AUTH_SOCK")
 	if sshAgentSock == "" {
-		return nil, nil
+		return nil, nil, nil
 	}
 	dialer := net.Dialer{Timeout: timeout}
 	conn, err := dialer.DialContext(ctx, "unix", sshAgentSock)
 	if err != nil {
 		if ctxErr := ctx.Err(); ctxErr != nil {
-			return nil, ctxErr
+			return nil, nil, ctxErr
 		}
 		logger.Warn("ssh agent dial failed", zap.String("socket_path", sshAgentSock), zap.Error(err))
-		return nil, nil
+		return nil, nil, nil
 	}
 	agentClient := agent.NewClient(conn)
-	return ssh.PublicKeysCallback(func() ([]ssh.Signer, error) {
-		defer func() {
-			if cerr := conn.Close(); cerr != nil {
-				logger.Warn("ssh agent connection close error", zap.Error(cerr))
-			}
-		}()
-		return agentClient.Signers()
-	}), nil
+	cleanup := func() error {
+		if cerr := conn.Close(); cerr != nil {
+			logger.Warn("ssh agent connection close error", zap.Error(cerr))
+			return cerr
+		}
+		return nil
+	}
+	return ssh.PublicKeysCallback(agentClient.Signers), cleanup, nil
 }
 
 func aggregateAuthMethods(methods ...ssh.AuthMethod) ([]ssh.AuthMethod, error) {
@@ -130,21 +137,48 @@ func aggregateAuthMethods(methods ...ssh.AuthMethod) ([]ssh.AuthMethod, error) {
 	return result, nil
 }
 
-func selectAuthMethods(ctx context.Context, logger *zap.Logger, keyPath string, timeout time.Duration) ([]ssh.AuthMethod, error) {
+func selectAuthMethods(ctx context.Context, logger *zap.Logger, keyPath string, timeout time.Duration) ([]ssh.AuthMethod, func() error, error) {
 	var methods []ssh.AuthMethod
+	var cleanups []func() error
+
 	if keyPath != "" {
 		keyMethod, err := keyFileAuth(keyPath)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		methods = append(methods, keyMethod)
 	}
-	agentMethod, err := agentAuth(ctx, logger, timeout)
+
+	agentMethod, cleanup, err := agentAuth(ctx, logger, timeout)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	methods = append(methods, agentMethod)
-	return aggregateAuthMethods(methods...)
+	if agentMethod != nil {
+		methods = append(methods, agentMethod)
+	}
+	if cleanup != nil {
+		cleanups = append(cleanups, cleanup)
+	}
+
+	aggregated, err := aggregateAuthMethods(methods...)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var combined func() error
+	if len(cleanups) > 0 {
+		combined = func() error {
+			var firstErr error
+			for _, c := range cleanups {
+				if err := c(); err != nil && firstErr == nil {
+					firstErr = err
+				}
+			}
+			return firstErr
+		}
+	}
+
+	return aggregated, combined, nil
 }
 
 func setupHostKeyCallback(verify bool, knownHostsPath string) (ssh.HostKeyCallback, error) {
