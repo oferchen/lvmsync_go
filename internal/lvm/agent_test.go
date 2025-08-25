@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"go.uber.org/zap"
+
+	lvmlib "lvmsync_go/lvm"
 )
 
 type fakeEsc struct{ err error }
@@ -19,7 +21,7 @@ func (fakeEsc) Command(ctx context.Context, name string, args ...string) *exec.C
 type mockLVM struct {
 	lockErr         error
 	unlockErr       error
-	md              VolumeMetadata
+	md              lvmlib.VolumeMetadata
 	getMetadataErr  error
 	sendMetadataErr error
 	startErr        error
@@ -44,11 +46,11 @@ func (m *mockLVM) Unlock(_ context.Context, _, _ string) error {
 	return m.unlockErr
 }
 
-func (m *mockLVM) GetMetadata(_ context.Context, _ string) (VolumeMetadata, error) {
+func (m *mockLVM) GetMetadata(_ context.Context, _ string) (lvmlib.VolumeMetadata, error) {
 	return m.md, m.getMetadataErr
 }
 
-func (m *mockLVM) SendMetadata(_ context.Context, md VolumeMetadata) error {
+func (m *mockLVM) SendMetadata(_ context.Context, md lvmlib.VolumeMetadata) error {
 	m.md = md
 	return m.sendMetadataErr
 }
@@ -81,6 +83,8 @@ func (m *mockLVM) IsMounted(_ context.Context, _ string) (bool, error) {
 	return m.mounted, m.mountedErr
 }
 
+var _ lvmlib.API = (*mockLVM)(nil)
+
 func TestAgentLock(t *testing.T) {
 	ctx := context.Background()
 	mock := &mockLVM{}
@@ -109,7 +113,7 @@ func TestAgentUnlock(t *testing.T) {
 
 func TestAgentGetMetadata(t *testing.T) {
 	ctx := context.Background()
-	expected := VolumeMetadata{VolumeName: "vol", SizeBytes: 1, ChunkSize: 2}
+	expected := lvmlib.VolumeMetadata{VolumeName: "vol", SizeBytes: 1, ChunkSize: 2}
 	mock := &mockLVM{md: expected}
 	a := NewAgent(mock, fakeEsc{}, zap.NewNop())
 	md, err := a.GetMetadata(ctx, "vol")
@@ -129,7 +133,7 @@ func TestAgentSendMetadata(t *testing.T) {
 	ctx := context.Background()
 	mock := &mockLVM{}
 	a := NewAgent(mock, fakeEsc{}, zap.NewNop())
-	md := VolumeMetadata{VolumeName: "vol"}
+	md := lvmlib.VolumeMetadata{VolumeName: "vol"}
 	if err := a.SendMetadata(ctx, md); err != nil {
 		t.Fatalf("send metadata failed: %v", err)
 	}
@@ -237,6 +241,24 @@ func TestAgentIsMounted(t *testing.T) {
 	}
 	mock.mountedErr = errors.New("boom")
 	if _, err := a.IsMounted(ctx, "vol"); err == nil {
+		t.Fatalf("expected error")
+	}
+}
+
+func TestNewSudoAgent(t *testing.T) {
+	ctx := context.Background()
+	mock := &mockLVM{exists: true}
+	a := NewSudoAgent("", mock, nil, zap.NewNop())
+	ok, err := a.VolumeExists(ctx, "vol")
+	if err != nil || !ok {
+		t.Fatalf("VolumeExists failed: %v %v", ok, err)
+	}
+}
+
+func TestNewSudoAgentNilAPI(t *testing.T) {
+	ctx := context.Background()
+	a := NewSudoAgent("", nil, nil, zap.NewNop())
+	if err := a.Lock(ctx, "vol", "req"); err == nil {
 		t.Fatalf("expected error")
 	}
 }
