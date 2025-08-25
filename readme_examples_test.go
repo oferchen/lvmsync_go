@@ -47,6 +47,7 @@ func TestReadmeExamplesCompile(t *testing.T) {
 			t.Fatalf("example %d: %v", i+1, err)
 		}
 		cmd := exec.Command("go", "build", file)
+		cmd.Env = append(os.Environ(), "GOCOVERDIR=")
 		if out, err := cmd.CombinedOutput(); err != nil {
 			t.Fatalf("example %d: %v\n%s", i+1, err, out)
 		}
