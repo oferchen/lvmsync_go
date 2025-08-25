@@ -7,7 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"lvmsync_go/internal/lvm"
+	ilvm "lvmsync_go/internal/lvm"
+	lvmlib "lvmsync_go/lvm"
 )
 
 type mockAgent struct {
@@ -30,11 +31,11 @@ func (m *mockAgent) Unlock(ctx context.Context, volume, requester string) error 
 	return m.unlockErr
 }
 
-func (m *mockAgent) GetMetadata(ctx context.Context, volume string) (lvm.VolumeMetadata, error) {
-	return lvm.VolumeMetadata{}, nil
+func (m *mockAgent) GetMetadata(ctx context.Context, volume string) (lvmlib.VolumeMetadata, error) {
+	return lvmlib.VolumeMetadata{}, nil
 }
 
-func (m *mockAgent) SendMetadata(ctx context.Context, md lvm.VolumeMetadata) error { return nil }
+func (m *mockAgent) SendMetadata(ctx context.Context, md lvmlib.VolumeMetadata) error { return nil }
 
 func (m *mockAgent) StartTransferSession(ctx context.Context, volume, requester string) error {
 	return nil
@@ -76,7 +77,7 @@ func TestDeviceWriterOpenSuccess(t *testing.T) {
 	ftmp.Close()
 
 	agent := &mockAgent{volumeExists: true, autoExtend: true, discard: true}
-	dw := DeviceWriter{Checker: lvm.Checker{Agent: agent, Requester: "req", DevRoot: root}}
+	dw := DeviceWriter{Checker: ilvm.Checker{Agent: agent, Requester: "req", DevRoot: root}}
 
 	f, closeFn, err := dw.Open(ctx, "testvg1", "testlv1", false)
 	if err != nil {
@@ -103,7 +104,7 @@ func TestDeviceWriterOpenPreOpenFailure(t *testing.T) {
 	ctx := context.Background()
 	root := t.TempDir()
 	agent := &mockAgent{volumeExists: false}
-	dw := DeviceWriter{Checker: lvm.Checker{Agent: agent, Requester: "req", DevRoot: root}}
+	dw := DeviceWriter{Checker: ilvm.Checker{Agent: agent, Requester: "req", DevRoot: root}}
 	f, closeFn, err := dw.Open(ctx, "vg", "lv", false)
 	if err == nil {
 		t.Fatalf("expected error")
@@ -130,7 +131,7 @@ func TestDeviceWriterOpenPostCommitFailure(t *testing.T) {
 	ftmp.Close()
 
 	agent := &mockAgent{volumeExists: true, autoExtend: true, discard: true, unlockErr: errors.New("unlock failed")}
-	dw := DeviceWriter{Checker: lvm.Checker{Agent: agent, Requester: "req", DevRoot: root}}
+	dw := DeviceWriter{Checker: ilvm.Checker{Agent: agent, Requester: "req", DevRoot: root}}
 
 	f, closeFn, err := dw.Open(ctx, "testvg2", "testlv2", false)
 	if err != nil {
