@@ -55,17 +55,23 @@ func TestKeyFileAuthMissing(t *testing.T) {
 }
 
 func TestAgentAuthSuccess(t *testing.T) {
-	sock, cleanup := startAgent(t)
-	defer cleanup()
+	sock, stop := startAgent(t)
+	defer stop()
 	t.Setenv("SSH_AUTH_SOCK", sock)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	method, err := agentAuth(ctx, zap.NewNop(), time.Second)
+	method, cleanup, err := agentAuth(ctx, zap.NewNop(), time.Second)
 	if err != nil {
 		t.Fatalf("agentAuth: %v", err)
 	}
 	if method == nil {
 		t.Fatal("expected auth method")
+	}
+	if cleanup == nil {
+		t.Fatal("expected cleanup function")
+	}
+	if err := cleanup(); err != nil {
+		t.Fatalf("cleanup: %v", err)
 	}
 }
 
@@ -74,7 +80,7 @@ func TestAgentAuthContextError(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 	defer cancel()
 	t.Setenv("SSH_AUTH_SOCK", filepath.Join(t.TempDir(), "missing.sock"))
-	if _, err := agentAuth(ctx, zap.NewNop(), time.Second); !errors.Is(err, context.DeadlineExceeded) {
+	if _, _, err := agentAuth(ctx, zap.NewNop(), time.Second); !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("expected context deadline exceeded, got %v", err)
 	}
 }
@@ -96,17 +102,22 @@ func TestAggregateAuthMethodsError(t *testing.T) {
 }
 
 func TestSelectAuthMethodsSuccess(t *testing.T) {
-	sock, cleanup := startAgent(t)
-	defer cleanup()
+	sock, stop := startAgent(t)
+	defer stop()
 	t.Setenv("SSH_AUTH_SOCK", sock)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	methods, err := selectAuthMethods(ctx, zap.NewNop(), "", time.Second)
+	methods, cleanup, err := selectAuthMethods(ctx, zap.NewNop(), "", time.Second)
 	if err != nil {
 		t.Fatalf("selectAuthMethods error: %v", err)
 	}
 	if len(methods) == 0 {
 		t.Fatal("expected auth methods")
+	}
+	if cleanup != nil {
+		if err := cleanup(); err != nil {
+			t.Fatalf("cleanup: %v", err)
+		}
 	}
 }
 
@@ -115,7 +126,7 @@ func TestSelectAuthMethodsTimeout(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 	defer cancel()
 	t.Setenv("SSH_AUTH_SOCK", filepath.Join(t.TempDir(), "missing.sock"))
-	_, err := selectAuthMethods(ctx, zap.NewNop(), "", time.Second)
+	_, _, err := selectAuthMethods(ctx, zap.NewNop(), "", time.Second)
 	if err == nil {
 		t.Fatalf("expected error, got nil")
 	}
@@ -128,7 +139,7 @@ func TestSelectAuthMethodsCanceled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	t.Setenv("SSH_AUTH_SOCK", filepath.Join(t.TempDir(), "missing.sock"))
-	_, err := selectAuthMethods(ctx, zap.NewNop(), "", time.Second)
+	_, _, err := selectAuthMethods(ctx, zap.NewNop(), "", time.Second)
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("expected context canceled, got %v", err)
 	}
@@ -143,7 +154,7 @@ func TestSelectAuthMethodsLogsAgentFailure(t *testing.T) {
 	core, obs := observer.New(zap.WarnLevel)
 	logger := zap.New(core)
 
-	_, err := selectAuthMethods(ctx, logger, "", 50*time.Millisecond)
+	_, _, err := selectAuthMethods(ctx, logger, "", 50*time.Millisecond)
 	if err == nil {
 		t.Fatalf("expected error, got nil")
 	}
