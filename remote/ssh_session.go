@@ -20,30 +20,45 @@ type SSHSession struct {
 	host    string
 }
 
+type sessionEntry struct {
+	session *SSHSession
+	timer   *time.Timer
+}
+
 type SSHMultiplexer struct {
 	mu       sync.Mutex
-	sessions map[string]*SSHSession
+	sessions map[string]*sessionEntry
+	ttl      time.Duration
 }
 
 var multiplexer = &SSHMultiplexer{
-	sessions: make(map[string]*SSHSession),
+	sessions: make(map[string]*sessionEntry),
+	ttl:      time.Minute,
 }
 
 func GetMultiplexedSession(client *SSHClient, host string) (*SSHSession, error) {
 	multiplexer.mu.Lock()
-	defer multiplexer.mu.Unlock()
-
-	if session, exists := multiplexer.sessions[host]; exists {
+	if entry, exists := multiplexer.sessions[host]; exists {
+		entry.timer.Reset(multiplexer.ttl)
+		session := entry.session
+		multiplexer.mu.Unlock()
 		return session, nil
 	}
+	multiplexer.mu.Unlock()
 
 	session, err := NewSSHSession(client)
 	if err != nil {
 		return nil, err
 	}
-
 	session.host = host
-	multiplexer.sessions[host] = session
+	timer := time.AfterFunc(multiplexer.ttl, func() {
+		session.Close()
+	})
+
+	multiplexer.mu.Lock()
+	multiplexer.sessions[host] = &sessionEntry{session: session, timer: timer}
+	multiplexer.mu.Unlock()
+
 	return session, nil
 }
 
@@ -78,8 +93,26 @@ func (s *SSHSession) Close() {
 // RemoveSession deletes the cached session for the given host.
 func RemoveSession(host string) {
 	multiplexer.mu.Lock()
-	defer multiplexer.mu.Unlock()
-	delete(multiplexer.sessions, host)
+	if entry, ok := multiplexer.sessions[host]; ok {
+		entry.timer.Stop()
+		delete(multiplexer.sessions, host)
+	}
+	multiplexer.mu.Unlock()
+}
+
+// CloseAllSessions closes and removes all cached sessions.
+func CloseAllSessions() {
+	multiplexer.mu.Lock()
+	sessions := make([]*SSHSession, 0, len(multiplexer.sessions))
+	for host, entry := range multiplexer.sessions {
+		entry.timer.Stop()
+		sessions = append(sessions, entry.session)
+		delete(multiplexer.sessions, host)
+	}
+	multiplexer.mu.Unlock()
+	for _, s := range sessions {
+		s.Close()
+	}
 }
 
 // RunSSHCommand executes a command on a remote host over SSH and logs using logger.
