@@ -21,7 +21,9 @@ func finalizeProgress(cfg *config.Config, logger *zap.Logger) {
 	if cfg.Progress {
 		logger.Info("progress complete")
 		if cfg.Output == "json" {
-			_ = json.NewEncoder(os.Stdout).Encode(progressEvent{Event: "complete", Progress: 100})
+			if err := json.NewEncoder(os.Stdout).Encode(progressEvent{Event: "complete", Progress: 100}); err != nil {
+				logger.Error("encode progress event", zap.Error(err))
+			}
 		}
 	}
 }
@@ -32,12 +34,14 @@ func reportProgress(cfg *config.Config, transferred, total int64, index int, sta
 
 		logger.Info("transfer progress", zap.Float64("progress_percent", progressPercent))
 		if cfg.Output == "json" {
-			_ = json.NewEncoder(os.Stdout).Encode(progressEvent{
+			if err := json.NewEncoder(os.Stdout).Encode(progressEvent{
 				Event:            "progress",
 				Progress:         progressPercent,
 				BytesTransferred: transferred,
 				BytesTotal:       total,
-			})
+			}); err != nil {
+				logger.Error("encode progress event", zap.Error(err))
+			}
 		}
 	}
 	if cfg.Verbose > 0 && index > 0 && index%100 == 0 {

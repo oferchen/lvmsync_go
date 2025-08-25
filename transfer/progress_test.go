@@ -93,6 +93,38 @@ func TestFinalizeProgressJSON(t *testing.T) {
 	}
 }
 
+func TestReportProgressJSONEncodeError(t *testing.T) {
+	r, w, _ := os.Pipe()
+	w.Close()
+	old := os.Stdout
+	os.Stdout = w
+	core, logs := observer.New(zap.ErrorLevel)
+	logger := zap.New(core)
+	cfg := &config.Config{Progress: true, Output: "json"}
+	reportProgress(cfg, 50, 100, 1, time.Now(), logger)
+	os.Stdout = old
+	r.Close()
+	if logs.FilterMessage("encode progress event").Len() != 1 {
+		t.Fatalf("expected encode progress event error log, got %d", logs.FilterMessage("encode progress event").Len())
+	}
+}
+
+func TestFinalizeProgressJSONEncodeError(t *testing.T) {
+	r, w, _ := os.Pipe()
+	w.Close()
+	old := os.Stdout
+	os.Stdout = w
+	core, logs := observer.New(zap.ErrorLevel)
+	logger := zap.New(core)
+	cfg := &config.Config{Progress: true, Output: "json"}
+	finalizeProgress(cfg, logger)
+	os.Stdout = old
+	r.Close()
+	if logs.FilterMessage("encode progress event").Len() != 1 {
+		t.Fatalf("expected encode progress event error log, got %d", logs.FilterMessage("encode progress event").Len())
+	}
+}
+
 func TestLogSummaries(t *testing.T) {
 	core, logs := observer.New(zap.InfoLevel)
 	logger := zap.New(core)
