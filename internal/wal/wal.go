@@ -79,6 +79,9 @@ func New(f File, deps *Deps) *WAL {
 
 // Append records r using a temporary file and atomic rename for crash safety.
 func (w *WAL) Append(r Range) error {
+	if r.Start > r.End {
+		return fmt.Errorf("wal: invalid range: start %d > end %d", r.Start, r.End)
+	}
 	name := w.f.Name()
 	tmpPath := name + ".tmp"
 	tf, err := w.deps.OpenFile(tmpPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
