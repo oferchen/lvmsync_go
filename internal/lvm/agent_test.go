@@ -8,6 +8,7 @@ import (
 
 	"go.uber.org/zap"
 
+	privilege "lvmsync_go/internal/privilege"
 	lvmlib "lvmsync_go/lvm"
 )
 
@@ -245,8 +246,12 @@ func TestAgentIsMounted(t *testing.T) {
 	}
 }
 
+// TestNewSudoAgent requires root or appropriate capabilities.
 func TestNewSudoAgent(t *testing.T) {
 	ctx := context.Background()
+	if err := privilege.New(context.Background(), zap.NewNop()).Ensure(ctx); err != nil {
+		t.Skipf("requires root: %v", err)
+	}
 	mock := &mockLVM{exists: true}
 	a := NewSudoAgent("", mock, nil, zap.NewNop())
 	ok, err := a.VolumeExists(ctx, "vol")
@@ -255,8 +260,12 @@ func TestNewSudoAgent(t *testing.T) {
 	}
 }
 
+// TestNewSudoAgentNilAPI requires root or appropriate capabilities.
 func TestNewSudoAgentNilAPI(t *testing.T) {
 	ctx := context.Background()
+	if err := privilege.New(context.Background(), zap.NewNop()).Ensure(ctx); err != nil {
+		t.Skipf("requires root: %v", err)
+	}
 	a := NewSudoAgent("", nil, nil, zap.NewNop())
 	if err := a.Lock(ctx, "vol", "req"); err == nil {
 		t.Fatalf("expected error")
