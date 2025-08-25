@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -55,22 +57,17 @@ func (d *dummyListener) Accept() (net.Conn, error) {
 func (d *dummyListener) Close() error   { return nil }
 func (d *dummyListener) Addr() net.Addr { return d.addr }
 
-func TestParseListenErrors(t *testing.T) {
-	tests := []struct {
-		name    string
-		uri     string
-		wantErr string
-	}{
-		{"ParseError", "://bad", "parse listen URI"},
-		{"MissingScheme", "//:1234", "missing scheme"},
+func TestParseListenMalformedURI(t *testing.T) {
+	_, err := parseListen([]string{"://bad"})
+	if err == nil || !strings.Contains(err.Error(), "parse listen URI \"://bad\"") {
+		t.Fatalf("unexpected error: %v", err)
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := parseListen([]string{tt.uri})
-			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
-				t.Fatalf("expected error containing %q, got %v", tt.wantErr, err)
-			}
-		})
+}
+
+func TestParseListenMissingScheme(t *testing.T) {
+	_, err := parseListen([]string{"//:1234"})
+	if err == nil || !strings.Contains(err.Error(), "missing scheme in \"//:1234\"") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
@@ -170,9 +167,41 @@ func TestAllowInsecureLogsWarning(t *testing.T) {
 }
 
 func TestStartMissingCerts(t *testing.T) {
-	err := start(context.Background(), options{}, zap.NewNop())
+	core, logs := observer.New(zap.ErrorLevel)
+	logger := zap.New(core)
+	err := start(context.Background(), options{}, logger)
 	if err == nil || !strings.Contains(err.Error(), "server-cert, server-key, client-cert, client-key, and ca-cert are required") {
 		t.Fatalf("expected missing cert error, got %v", err)
+	}
+	if logs.Len() != 0 {
+		t.Fatalf("unexpected logs: %v", logs.All())
+	}
+}
+
+func TestStartInvalidTLSFiles(t *testing.T) {
+	dir := t.TempDir()
+	write := func(name string) string {
+		path := filepath.Join(dir, name)
+		if err := os.WriteFile(path, []byte("invalid"), 0600); err != nil {
+			t.Fatalf("write %s: %v", name, err)
+		}
+		return path
+	}
+	opts := options{
+		serverCert: write("server.crt"),
+		serverKey:  write("server.key"),
+		clientCert: write("client.crt"),
+		clientKey:  write("client.key"),
+		caCert:     write("ca.crt"),
+	}
+	core, logs := observer.New(zap.ErrorLevel)
+	logger := zap.New(core)
+	err := start(context.Background(), opts, logger)
+	if err == nil || !strings.Contains(err.Error(), "load server TLS key pair") {
+		t.Fatalf("expected server TLS key pair error, got %v", err)
+	}
+	if logs.Len() != 0 {
+		t.Fatalf("unexpected logs: %v", logs.All())
 	}
 }
 
