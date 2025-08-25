@@ -184,3 +184,36 @@ func TestAppendRenameError(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+func TestAppendValidRange(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "wal")
+	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0o600)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	w := New(f, nil)
+	if err := w.Append(Range{Start: 5, End: 5}); err != nil {
+		t.Fatalf("append: %v", err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+}
+
+func TestAppendInvalidRange(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "wal")
+	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0o600)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	w := New(f, nil)
+	err = w.Append(Range{Start: 10, End: 5})
+	if err == nil || !strings.Contains(err.Error(), "invalid range") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cerr := w.Close(); cerr != nil {
+		t.Fatalf("close: %v", cerr)
+	}
+}
