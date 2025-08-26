@@ -62,7 +62,8 @@ func TestSnapshotRemovedOnSignal(t *testing.T) {
 		t.Skipf("CreateSnapshot: %v", err)
 	}
 	snapPath := "/dev/vgsig/snap"
-	RegisterSnapshot(snapPath, zap.NewNop())
+	sr := NewSnapshotRegistry(nil)
+	sr.RegisterSnapshot(snapPath, zap.NewNop())
 
 	if err := syscall.Kill(os.Getpid(), syscall.SIGINT); err != nil {
 		t.Fatalf("send signal: %v", err)

@@ -48,20 +48,21 @@ func chooseCompression(_ int, compress string) string {
 
 // Runner manages external interactions for dump operations.
 type Runner struct {
-	dumpSeq        func(context.Context, *transfer.Transfer, *config.Config, string, string, io.Writer) error
-	dumpPar        func(context.Context, *transfer.Transfer, *config.Config, string, string, io.Writer) error
-	dumpDedup      func(context.Context, *transfer.Transfer, *config.Config, string, string, io.Writer, transfer.DeduplicationStrategy) error
-	newSSHClient   func(context.Context, string, string, string, int, string, bool, time.Duration, time.Duration, int, *zap.Logger) (*remote.SSHClient, error)
-	openFile       func(string, int, os.FileMode) (*os.File, error)
-	detectDevice   func(context.Context, string, bool, bool, string, string, string, string, time.Duration, time.Duration, privilege.Escalator, *zap.Logger, *device.Runner) (device.Device, error)
-	sumFile        func(string, string) ([32]byte, error)
-	streamToRemote func(context.Context, *config.Config, io.WriteCloser, string, string, string, *zap.Logger) error
-	probeDest      func(context.Context, *config.Config, string, *zap.Logger) (device.DeviceIdentity, error)
-	createLV       func(context.Context, string, string, uint64, *zap.Logger) error
-	parseLVPath    func(string) (string, string, error)
-	getVolumeSize  func(string, *lvm.FDCache, *zap.Logger) (uint64, error)
-	newFDC         func(*zap.Logger) (*lvm.FDCache, error)
-	verifyIdentity func(context.Context, *device.Info, string, string) error
+	dumpSeq          func(context.Context, *transfer.Transfer, *config.Config, string, string, io.Writer) error
+	dumpPar          func(context.Context, *transfer.Transfer, *config.Config, string, string, io.Writer) error
+	dumpDedup        func(context.Context, *transfer.Transfer, *config.Config, string, string, io.Writer, transfer.DeduplicationStrategy) error
+	newSSHClient     func(context.Context, string, string, string, int, string, bool, time.Duration, time.Duration, int, *zap.Logger) (*remote.SSHClient, error)
+	openFile         func(string, int, os.FileMode) (*os.File, error)
+	detectDevice     func(context.Context, string, bool, bool, string, string, string, string, time.Duration, time.Duration, privilege.Escalator, *zap.Logger, *device.Runner) (device.Device, error)
+	sumFile          func(string, string) ([32]byte, error)
+	streamToRemote   func(context.Context, *config.Config, io.WriteCloser, string, string, string, *zap.Logger) error
+	probeDest        func(context.Context, *config.Config, string, *zap.Logger) (device.DeviceIdentity, error)
+	createLV         func(context.Context, string, string, uint64, *zap.Logger) error
+	parseLVPath      func(string) (string, string, error)
+	getVolumeSize    func(string, *lvm.FDCache, *zap.Logger) (uint64, error)
+	newFDC           func(*zap.Logger) (*lvm.FDCache, error)
+	verifyIdentity   func(context.Context, *device.Info, string, string) error
+	snapshotRegistry *lvm.SnapshotRegistry
 }
 
 var (
@@ -82,19 +83,20 @@ var (
 // NewRunner constructs a Runner with production dependencies.
 func NewRunner() *Runner {
 	r := &Runner{
-		dumpSeq:        dumpChangesSequential,
-		dumpPar:        dumpChangesParallel,
-		dumpDedup:      dumpChangesWithDeduplication,
-		newSSHClient:   remote.NewSSHClient,
-		openFile:       os.OpenFile,
-		detectDevice:   device.Detect,
-		sumFile:        digestpkg.SumFile,
-		probeDest:      probeDestination,
-		createLV:       lvm.CreateLogicalVolume,
-		parseLVPath:    lvm.ParseLVPath,
-		getVolumeSize:  lvm.GetVolumeSize,
-		newFDC:         lvm.NewDeviceFDCache,
-		verifyIdentity: device.VerifyIdentity,
+		dumpSeq:          dumpChangesSequential,
+		dumpPar:          dumpChangesParallel,
+		dumpDedup:        dumpChangesWithDeduplication,
+		newSSHClient:     remote.NewSSHClient,
+		openFile:         os.OpenFile,
+		detectDevice:     device.Detect,
+		sumFile:          digestpkg.SumFile,
+		probeDest:        probeDestination,
+		createLV:         lvm.CreateLogicalVolume,
+		parseLVPath:      lvm.ParseLVPath,
+		getVolumeSize:    lvm.GetVolumeSize,
+		newFDC:           lvm.NewDeviceFDCache,
+		verifyIdentity:   device.VerifyIdentity,
+		snapshotRegistry: lvm.NewSnapshotRegistry(nil),
 	}
 	r.streamToRemote = r.StreamToRemote
 	return r
@@ -152,6 +154,9 @@ func NewRunnerWithDeps(deps *Runner) *Runner {
 	}
 	if deps.verifyIdentity != nil {
 		r.verifyIdentity = deps.verifyIdentity
+	}
+	if deps.snapshotRegistry != nil {
+		r.snapshotRegistry = deps.snapshotRegistry
 	}
 	return r
 }
@@ -337,8 +342,8 @@ func (r *Runner) Run(ctx context.Context, cfg *config.Config, source, dest strin
 	}
 	snapshotDevice := snapDev.Path()
 	originDevice := dev.Path()
-	lvm.RegisterSnapshot(snapshotDevice, logger)
-	defer lvm.CleanupSnapshot(ctx, snapshotDevice, logger)
+	r.snapshotRegistry.RegisterSnapshot(snapshotDevice, logger)
+	defer r.snapshotRegistry.CleanupSnapshot(ctx, snapshotDevice, logger)
 	defer func() {
 		snapDev.Close()
 		if snapDev != dev {

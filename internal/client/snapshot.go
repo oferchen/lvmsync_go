@@ -22,13 +22,13 @@ type Runner struct {
 	createSnapshot           func(context.Context, string, string, string, *zap.Logger) error
 	getSnapshotDevicePath    func(string, string, *zap.Logger) string
 	monitorSnapshot          func(context.Context, string, float64, time.Duration, *zap.Logger) error
-	removeSnapshot           func(context.Context, string, *zap.Logger) error
 	snapshotName             func() string
+	snapshotRegistry         *lvm.SnapshotRegistry
 }
 
 // NewRunner constructs a Runner with production dependencies.
 func NewRunner() *Runner {
-	return &Runner{
+	r := &Runner{
 		parseSnapshotSize:        lvm.ParseSnapshotSize,
 		getVolumeGroupName:       lvm.GetVolumeGroupName,
 		getVolumeSize:            lvm.GetVolumeSize,
@@ -37,9 +37,10 @@ func NewRunner() *Runner {
 		createSnapshot:           lvm.CreateSnapshot,
 		getSnapshotDevicePath:    lvm.GetSnapshotDevicePath,
 		monitorSnapshot:          lvm.MonitorSnapshot,
-		removeSnapshot:           lvm.RemoveSnapshot,
 		snapshotName:             func() string { return fmt.Sprintf("snap-%d", time.Now().Unix()) },
 	}
+	r.snapshotRegistry = lvm.NewSnapshotRegistry(lvm.RemoveSnapshot)
+	return r
 }
 
 // NewRunnerWithDeps constructs a Runner overriding dependencies. Nil functions use defaults.
@@ -81,7 +82,7 @@ func NewRunnerWithDeps(
 		r.monitorSnapshot = monitor
 	}
 	if remove != nil {
-		r.removeSnapshot = remove
+		r.snapshotRegistry = lvm.NewSnapshotRegistry(remove)
 	}
 	if snapName != nil {
 		r.snapshotName = snapName
@@ -155,7 +156,7 @@ func (r *Runner) createSnapshotIfNeeded(ctx context.Context, cfg *config.Config,
 		return "", nil, nil, fmt.Errorf("snapshot creation failed: %w", err)
 	}
 	snapshotPath = r.getSnapshotDevicePath(snapshotName, cfg.VolumeGroup, logger)
-	lvm.RegisterSnapshot(snapshotPath, logger)
+	r.snapshotRegistry.RegisterSnapshot(snapshotPath, logger)
 	logger.Info("Snapshot created", zap.String("snapshot", snapshotPath))
 
 	monitorCtx, cancel := context.WithCancel(ctx)
@@ -173,14 +174,7 @@ func (r *Runner) createSnapshotIfNeeded(ctx context.Context, cfg *config.Config,
 
 	cleanup = func() {
 		cancel()
-		lvm.UnregisterSnapshot(snapshotPath)
-		removeCtx, removeCancel := context.WithTimeout(ctx, 10*time.Second)
-		defer removeCancel()
-		if err := r.removeSnapshot(removeCtx, snapshotPath, logger); err != nil {
-			logger.Warn("Failed to remove snapshot", zap.Error(err))
-		} else {
-			logger.Info("Snapshot removed", zap.String("snapshot", snapshotPath))
-		}
+		r.snapshotRegistry.CleanupSnapshot(ctx, snapshotPath, logger)
 	}
 
 	return snapshotPath, monitorErrCh, cleanup, nil
