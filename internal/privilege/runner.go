@@ -2,6 +2,7 @@ package privilege
 
 import (
 	"context"
+	"errors"
 	"os/exec"
 	"time"
 
@@ -30,22 +31,22 @@ type Runner struct {
 // New returns an Escalator with production dependencies. The provided context
 // is stored on the Escalator and used when invoking external commands so
 // callers can cancel operations.
-func New(ctx context.Context, logger *zap.Logger) Escalator {
+func New(ctx context.Context, logger *zap.Logger) (Escalator, error) {
 	return NewWithRunner(ctx, nil, logger)
 }
 
 // NewWithRunner constructs an Escalator with the provided Runner.
 // Nil fields default to exec.CommandContext and exec.LookPath.
-func NewWithRunner(ctx context.Context, r *Runner, logger *zap.Logger) Escalator {
+func NewWithRunner(ctx context.Context, r *Runner, logger *zap.Logger) (Escalator, error) {
 	if logger == nil {
-		logger = zap.NewNop()
+		return nil, errors.New("logger is nil")
 	}
 	if r == nil {
 		r = &Runner{Logger: logger}
 	} else if r.Logger == nil {
 		r.Logger = logger
 	}
-	return newEscalator(ctx, r, false)
+	return newEscalator(ctx, r, false), nil
 }
 
 // NewWithSanitize constructs an Escalator that optionally sanitizes the

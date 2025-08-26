@@ -2,6 +2,7 @@ package privilege
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"go.uber.org/zap"
@@ -35,5 +36,11 @@ func TestNewWithRunnerAndSanitize(t *testing.T) {
 	}
 	if esc.runner.Logger != r.Logger {
 		t.Fatalf("logger not propagated")
+	}
+}
+
+func TestNewNilLogger(t *testing.T) {
+	if _, err := New(context.Background(), nil); err == nil || !strings.Contains(err.Error(), "logger is nil") {
+		t.Fatalf("expected nil logger error, got %v", err)
 	}
 }

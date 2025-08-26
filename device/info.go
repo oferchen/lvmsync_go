@@ -192,7 +192,11 @@ func (i *Info) SizeBytes(ctx context.Context, path string) (size uint64, err err
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	dev, err := i.detectFunc(ctx, path, true, true, "", "", "", "", 0, 0, privilege.New(ctx, zap.NewNop()), zap.NewNop(), NewRunner())
+	esc, err := privilege.New(ctx, zap.NewNop())
+	if err != nil {
+		return 0, err
+	}
+	dev, err := i.detectFunc(ctx, path, true, true, "", "", "", "", 0, 0, esc, zap.NewNop(), NewRunner())
 	if err != nil {
 		return 0, err
 	}

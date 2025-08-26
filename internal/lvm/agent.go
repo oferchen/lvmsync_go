@@ -40,7 +40,11 @@ func NewAgent(lvm lvmlib.API, esc privilege.Escalator, logger *zap.Logger) Agent
 		logger = zap.NewNop()
 	}
 	if esc == nil {
-		esc = privilege.New(context.Background(), logger)
+		var err error
+		esc, err = privilege.New(context.Background(), logger)
+		if err != nil {
+			panic("privilege.New: " + err.Error())
+		}
 	}
 	return &agent{esc: esc, lvm: lvm}
 }
