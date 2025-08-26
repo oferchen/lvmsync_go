@@ -65,11 +65,12 @@ func emitPlan(cfg *config.Config, args []string, logger *zap.Logger) error {
 			break
 		}
 	}
-	if cfg.AllowInsecure || rsyncRequested {
+	if rsyncRequested && !cfg.AllowInsecure {
+		logger.Warn("rsync transport requires --allow-insecure", zap.String("reason", "allow_insecure_required"))
+		return fmt.Errorf("insecure configuration requires --allow-insecure")
+	}
+	if cfg.AllowInsecure {
 		logger.Warn("allow_insecure enabled; security checks disabled", zap.String("reason", "allow_insecure_enabled"))
-		if !cfg.AllowInsecure {
-			return fmt.Errorf("insecure configuration requires --allow-insecure")
-		}
 	}
 	_, est, err := estimateBytes(args[0], cfg)
 	if err != nil {
