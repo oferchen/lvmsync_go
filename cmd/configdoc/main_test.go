@@ -11,6 +11,23 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 )
 
+func newRunnerWithDeps(runFunc func() error, syncFunc func(*zap.Logger), exitFunc func(int), loggerFunc func() *zap.Logger) *runner {
+	r := newRunner()
+	if runFunc != nil {
+		r.run = runFunc
+	}
+	if syncFunc != nil {
+		r.syncLogger = syncFunc
+	}
+	if exitFunc != nil {
+		r.exit = exitFunc
+	}
+	if loggerFunc != nil {
+		r.newLogger = loggerFunc
+	}
+	return r
+}
+
 func TestRunGeneratesDoc(t *testing.T) {
 	tmp := t.TempDir()
 	if err := os.WriteFile(filepath.Join(tmp, "go.mod"), []byte("module test\n"), 0o644); err != nil {

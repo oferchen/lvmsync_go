@@ -798,7 +798,7 @@ func TestDefaultMountFuncError(t *testing.T) {
 
 func mountFuncFromMountInfoFile(p string) func(context.Context, string) (bool, error) {
 	return func(_ context.Context, path string) (bool, error) {
-		real, err := filepath.EvalSymlinks(path)
+		realPath, err := filepath.EvalSymlinks(path)
 		if err != nil {
 			return false, err
 		}
@@ -817,7 +817,7 @@ func mountFuncFromMountInfoFile(p string) func(context.Context, string) (bool, e
 			if resolved, err := filepath.EvalSymlinks(src); err == nil {
 				src = resolved
 			}
-			if src == real || pathWithin(mi.Mountpoint, real) || (mi.Root != "/" && pathWithin(mi.Root, real)) {
+			if src == realPath || pathWithin(mi.Mountpoint, realPath) || (mi.Root != "/" && pathWithin(mi.Root, realPath)) {
 				key := fmt.Sprintf("%d:%d:%s", mi.Major, mi.Minor, mi.Root)
 				if existing, ok := matches[key]; ok {
 					if !hasRW(existing.Options) && hasRW(mi.Options) {
@@ -917,5 +917,5 @@ func (s *stubDevice) Close() error                                     { return 
 func (s *stubDevice) Identity(context.Context) (DeviceIdentity, error) {
 	return DeviceIdentity{SizeBytes: s.size}, nil
 }
-func (s *stubDevice) AppendWAL(r Range) error               { return nil }
-func (s *stubDevice) RecoverWAL(fn func(Range) error) error { return nil }
+func (s *stubDevice) AppendWAL(_ Range) error              { return nil }
+func (s *stubDevice) RecoverWAL(_ func(Range) error) error { return nil }

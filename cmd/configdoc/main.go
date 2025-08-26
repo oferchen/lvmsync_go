@@ -26,23 +26,6 @@ func newRunner() *runner {
 	}
 }
 
-func newRunnerWithDeps(runFunc func() error, syncFunc func(*zap.Logger), exitFunc func(int), loggerFunc func() *zap.Logger) *runner {
-	r := newRunner()
-	if runFunc != nil {
-		r.run = runFunc
-	}
-	if syncFunc != nil {
-		r.syncLogger = syncFunc
-	}
-	if exitFunc != nil {
-		r.exit = exitFunc
-	}
-	if loggerFunc != nil {
-		r.newLogger = loggerFunc
-	}
-	return r
-}
-
 func (r *runner) Run() {
 	logger := r.newLogger()
 	defer r.syncLogger(logger)

@@ -9,7 +9,7 @@ import (
 // DeviceIdentity describes metadata uniquely identifying a block device.
 // The identity tuple is (size_bytes, kernel_uuid, gpt_uuid, mbr_signature,
 // fs_uuid, partition_hash, major, minor, manifest_epoch).
-type DeviceIdentity struct {
+type DeviceIdentity struct { //nolint:revive // name stutters with package but kept for clarity
 	SizeBytes     uint64
 	KernelUUID    string
 	GPTUUID       string

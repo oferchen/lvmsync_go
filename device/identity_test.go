@@ -34,8 +34,8 @@ func (s *identityStub) Close() error                                     { retur
 func (s *identityStub) Identity(context.Context) (DeviceIdentity, error) {
 	return DeviceIdentity{SizeBytes: s.size, GPTUUID: s.gpt, MBRSignature: s.mbr, ManifestEpoch: s.epoch, PartitionHash: s.phash}, nil
 }
-func (s *identityStub) AppendWAL(r Range) error               { return nil }
-func (s *identityStub) RecoverWAL(fn func(Range) error) error { return nil }
+func (s *identityStub) AppendWAL(_ Range) error              { return nil }
+func (s *identityStub) RecoverWAL(_ func(Range) error) error { return nil }
 
 func TestVerifyIdentityMatch(t *testing.T) {
 	info := NewInfoWithDeps(func(context.Context, string) (string, error) { return "id", nil }, nil, nil, nil, nil)

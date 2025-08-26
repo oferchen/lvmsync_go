@@ -49,9 +49,8 @@ func isAllZero(b []byte) bool {
 }
 
 // writeZeroBlock attempts to punch a sparse hole at the given offset unless
-// cfg.Sparse is "never". If the filesystem does not support hole punching it
-// falls back to writing a zero filled buffer. The buffer respects the O_DIRECT
-// setting by using aligned allocations when necessary.
+// cfg.Sparse is "never". If unsupported it writes a zero-filled block.
+// nolint: unused // used via go:linkname in tests
 func writeZeroBlock(cfg *config.Config, dest *os.File, offset uint64, logger *zap.Logger, deps *Deps) error {
 	if deps == nil {
 		deps = DefaultDeps
