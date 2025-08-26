@@ -2,6 +2,7 @@ package device
 
 import (
 	"context"
+	"errors"
 	"os"
 	"os/exec"
 	"reflect"
@@ -9,6 +10,7 @@ import (
 	"testing"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 
 	"lvmsync_go/lvm"
 )
@@ -123,5 +125,43 @@ func TestSnapshotLVCreateFailure(t *testing.T) {
 	}
 	if len(cmds) != 1 || !strings.Contains(cmds[0], "lvcreate") {
 		t.Fatalf("unexpected commands: %v", cmds)
+	}
+}
+
+func TestSnapshotCleanupLogsFailure(t *testing.T) {
+	if os.Geteuid() != 0 {
+		t.Skip("root required")
+	}
+	ctx := WithForce(context.Background(), true)
+	ctx = WithAllowOverwrite(ctx, true)
+	ctx = WithYesIKnow(ctx, true)
+	core, logs := observer.New(zap.WarnLevel)
+	logger := zap.New(core)
+	cmd := cmdFunc(func(ctx context.Context, name string, args ...string) *exec.Cmd {
+		cmdline := name + " " + strings.Join(args, " ")
+		if strings.Contains(cmdline, "lvremove") {
+			return exec.CommandContext(ctx, "false")
+		}
+		return exec.CommandContext(ctx, "true")
+	})
+	restore := lvm.SetEscalationChecker(func(string) error { return nil })
+	defer restore()
+	runner := NewDeviceRunner(cmd)
+	runner.openLVMOverride = func(ctx context.Context, p string, _ *lvm.FDCache, _ bool, _ bool, _ string, _ *zap.Logger) (*LVMDevice, error) {
+		return nil, errors.New("open failure")
+	}
+	origName := generateSnapshot
+	generateSnapshot = func() string { return "snap" }
+	defer func() { generateSnapshot = origName }()
+	lvd := &LVMDevice{path: "/dev/vg0/origin", escalation: "doas -n", logger: logger, runner: runner}
+	if _, err := lvd.Snapshot(ctx, "1G"); err == nil {
+		t.Fatalf("expected snapshot error")
+	}
+	entries := logs.FilterMessage("snapshot_cleanup_failed").All()
+	if len(entries) != 1 {
+		t.Fatalf("expected snapshot_cleanup_failed log, got %v", logs.All())
+	}
+	if entries[0].ContextMap()["snapshot_path"] != "/dev/vg0/snap" {
+		t.Fatalf("snapshot_path = %v", entries[0].ContextMap()["snapshot_path"])
 	}
 }
