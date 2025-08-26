@@ -233,57 +233,55 @@ func (r *Runner) dispatchSubcommand(cfg *config.Config, args []string, logger *z
 	return false, nil
 }
 
-func (r *Runner) prepareClient(cfg *config.Config, args []string, logger *zap.Logger) (context.Context, func(), string, string, chan error, chan error, error) {
-	if _, err := r.selectTransportFn(cfg, logger); err != nil {
-		return nil, nil, "", "", nil, nil, fmt.Errorf("select transport: %w", err)
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	if cfg.CheckPartition {
-		ctx = device.WithPartitionSignatures(ctx, "", "")
-	}
-
-	var snapshotPath string
-	signals, sigErrCh := r.setupSignalHandleFn(ctx, cfg, &snapshotPath, logger)
-
+func validateArgs(cfg *config.Config, args []string) (string, string, error) {
 	if (cfg.StdoutMode && len(args) < 1) || (!cfg.StdoutMode && len(args) < 2) {
 		pflag.Usage()
-		cancel()
-		signal.Stop(signals)
-		return nil, nil, "", "", nil, nil, fmt.Errorf("invalid arguments")
+		return "", "", fmt.Errorf("invalid arguments")
 	}
-
 	originalVolume := args[0]
 	destPath := ""
 	if !cfg.StdoutMode {
 		destPath = args[1]
 	}
-	if destPath != "" && !cfg.StdoutMode && !strings.Contains(destPath, ":") {
-		resolved, err := filepath.EvalSymlinks(destPath)
-		if err == nil {
-			if info, err := os.Stat(resolved); err == nil && info.Mode()&os.ModeDevice != 0 && info.Mode()&os.ModeCharDevice == 0 {
-				if !cfg.ForceOffline {
-					cancel()
-					signal.Stop(signals)
-					return nil, nil, "", "", nil, nil, fmt.Errorf("direct device writes require --force-offline")
-				}
-				if term.IsTerminal(int(os.Stdin.Fd())) {
-					fmt.Fprint(os.Stderr, "Direct device writes may destroy data. Type 'double-confirm' to continue: ")
-					resp, _ := bufio.NewReader(os.Stdin).ReadString('\n')
-					if strings.TrimSpace(resp) != "double-confirm" {
-						cancel()
-						signal.Stop(signals)
-						return nil, nil, "", "", nil, nil, fmt.Errorf("direct device write cancelled")
-					}
-				} else if !cfg.YesIKnow {
-					cancel()
-					signal.Stop(signals)
-					return nil, nil, "", "", nil, nil, fmt.Errorf("direct device writes require --yes-i-know flag when not run interactively")
-				}
-			}
-		}
-	}
+	return originalVolume, destPath, nil
+}
 
+func confirmDirectDevice(cfg *config.Config, destPath string) error {
+	if destPath == "" || cfg.StdoutMode || strings.Contains(destPath, ":") {
+		return nil
+	}
+	resolved, err := filepath.EvalSymlinks(destPath)
+	if err != nil {
+		return nil
+	}
+	info, err := os.Stat(resolved)
+	if err != nil || info.Mode()&os.ModeDevice == 0 || info.Mode()&os.ModeCharDevice != 0 {
+		return nil
+	}
+	if !cfg.ForceOffline {
+		return fmt.Errorf("direct device writes require --force-offline")
+	}
+	if term.IsTerminal(int(os.Stdin.Fd())) {
+		fmt.Fprint(os.Stderr, "Direct device writes may destroy data. Type 'double-confirm' to continue: ")
+		resp, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+		if strings.TrimSpace(resp) != "double-confirm" {
+			return fmt.Errorf("direct device write cancelled")
+		}
+		return nil
+	}
+	if !cfg.YesIKnow {
+		return fmt.Errorf("direct device writes require --yes-i-know flag when not run interactively")
+	}
+	return nil
+}
+
+func (r *Runner) setupSnapshotAndSignals(cfg *config.Config, originalVolume string, logger *zap.Logger) (context.Context, func(), string, chan error, chan error, error) {
+	ctx, cancel := context.WithCancel(context.Background())
+	if cfg.CheckPartition {
+		ctx = device.WithPartitionSignatures(ctx, "", "")
+	}
+	var snapshotPath string
+	signals, sigErrCh := r.setupSignalHandleFn(ctx, cfg, &snapshotPath, logger)
 	snapPath, monitorErrCh, snapCleanup, err := r.prepareSnapshotFn(ctx, cfg, originalVolume, logger)
 	if err != nil {
 		cancel()
@@ -291,16 +289,36 @@ func (r *Runner) prepareClient(cfg *config.Config, args []string, logger *zap.Lo
 		if snapCleanup != nil {
 			snapCleanup()
 		}
-		return nil, nil, "", "", nil, nil, fmt.Errorf("prepare snapshot: %w", err)
+		return nil, nil, "", nil, nil, fmt.Errorf("prepare snapshot: %w", err)
 	}
 	snapshotPath = snapPath
-
 	cleanup := func() {
 		if snapCleanup != nil {
 			snapCleanup()
 		}
 		signal.Stop(signals)
 		cancel()
+	}
+	return ctx, cleanup, snapshotPath, sigErrCh, monitorErrCh, nil
+}
+
+func (r *Runner) prepareClient(cfg *config.Config, args []string, logger *zap.Logger) (context.Context, func(), string, string, chan error, chan error, error) {
+	if _, err := r.selectTransportFn(cfg, logger); err != nil {
+		return nil, nil, "", "", nil, nil, fmt.Errorf("select transport: %w", err)
+	}
+
+	originalVolume, destPath, err := validateArgs(cfg, args)
+	if err != nil {
+		return nil, nil, "", "", nil, nil, err
+	}
+
+	if err := confirmDirectDevice(cfg, destPath); err != nil {
+		return nil, nil, "", "", nil, nil, err
+	}
+
+	ctx, cleanup, snapshotPath, sigErrCh, monitorErrCh, err := r.setupSnapshotAndSignals(cfg, originalVolume, logger)
+	if err != nil {
+		return nil, nil, "", "", nil, nil, err
 	}
 	return ctx, cleanup, snapshotPath, destPath, sigErrCh, monitorErrCh, nil
 }

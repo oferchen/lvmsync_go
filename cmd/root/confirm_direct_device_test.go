@@ -1,18 +1,15 @@
 package root
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/creack/pty"
-	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
 
 	"lvmsync_go/internal/config"
-	"lvmsync_go/transport"
 )
 
 // createBlockDevice returns path to a temporary block device file.
@@ -26,20 +23,28 @@ func createBlockDevice(t *testing.T) string {
 	return devPath
 }
 
-func newStubRunner(called *bool) *Runner {
-	return NewRunnerWithDeps(&Runner{
-		selectTransportFn: func(*config.Config, *zap.Logger) (transport.Interface, error) { return nil, nil },
-		setupSignalHandleFn: func(context.Context, *config.Config, *string, *zap.Logger) (chan os.Signal, chan error) {
-			return make(chan os.Signal), make(chan error)
-		},
-		prepareSnapshotFn: func(context.Context, *config.Config, string, *zap.Logger) (string, chan error, func(), error) {
-			*called = true
-			return "snap", make(chan error), func() {}, nil
-		},
-	})
+func TestConfirmDirectDeviceNonBlock(t *testing.T) {
+	cfg, err := config.DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig error: %v", err)
+	}
+	if err := confirmDirectDevice(cfg, "/not-a-device"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 }
 
-func TestPrepareClientDirectDeviceTTYRequiresConfirmation(t *testing.T) {
+func TestConfirmDirectDeviceRequiresForceOffline(t *testing.T) {
+	devPath := createBlockDevice(t)
+	cfg, err := config.DefaultConfig()
+	if err != nil {
+		t.Fatalf("DefaultConfig error: %v", err)
+	}
+	if err := confirmDirectDevice(cfg, devPath); err == nil || err.Error() != "direct device writes require --force-offline" {
+		t.Fatalf("expected force-offline error, got: %v", err)
+	}
+}
+
+func TestConfirmDirectDeviceTTYRequiresConfirmation(t *testing.T) {
 	devPath := createBlockDevice(t)
 	cfg, err := config.DefaultConfig()
 	if err != nil {
@@ -60,17 +65,12 @@ func TestPrepareClientDirectDeviceTTYRequiresConfirmation(t *testing.T) {
 	}()
 	fmt.Fprintln(master, "no")
 
-	called := false
-	rnr := newStubRunner(&called)
-	if _, _, _, _, _, _, err := rnr.prepareClient(cfg, []string{"/src", devPath}, zap.NewNop()); err == nil || err.Error() != "direct device write cancelled" {
+	if err := confirmDirectDevice(cfg, devPath); err == nil || err.Error() != "direct device write cancelled" {
 		t.Fatalf("expected cancellation error, got: %v", err)
-	}
-	if called {
-		t.Fatalf("prepareSnapshot should not be called")
 	}
 }
 
-func TestPrepareClientDirectDeviceTTYConfirmed(t *testing.T) {
+func TestConfirmDirectDeviceTTYConfirmed(t *testing.T) {
 	devPath := createBlockDevice(t)
 	cfg, err := config.DefaultConfig()
 	if err != nil {
@@ -91,17 +91,12 @@ func TestPrepareClientDirectDeviceTTYConfirmed(t *testing.T) {
 	}()
 	fmt.Fprintln(master, "double-confirm")
 
-	called := false
-	rnr := newStubRunner(&called)
-	if _, _, _, _, _, _, err := rnr.prepareClient(cfg, []string{"/src", devPath}, zap.NewNop()); err != nil {
+	if err := confirmDirectDevice(cfg, devPath); err != nil {
 		t.Fatalf("unexpected error: %v", err)
-	}
-	if !called {
-		t.Fatalf("prepareSnapshot not called")
 	}
 }
 
-func TestPrepareClientDirectDeviceNonTTYRequiresYesIKnow(t *testing.T) {
+func TestConfirmDirectDeviceNonTTYRequiresYesIKnow(t *testing.T) {
 	devPath := createBlockDevice(t)
 	cfg, err := config.DefaultConfig()
 	if err != nil {
@@ -118,17 +113,12 @@ func TestPrepareClientDirectDeviceNonTTYRequiresYesIKnow(t *testing.T) {
 		w.Close()
 	}()
 
-	called := false
-	rnr := newStubRunner(&called)
-	if _, _, _, _, _, _, err := rnr.prepareClient(cfg, []string{"/src", devPath}, zap.NewNop()); err == nil || err.Error() != "direct device writes require --yes-i-know flag when not run interactively" {
+	if err := confirmDirectDevice(cfg, devPath); err == nil || err.Error() != "direct device writes require --yes-i-know flag when not run interactively" {
 		t.Fatalf("expected yes-i-know error, got: %v", err)
-	}
-	if called {
-		t.Fatalf("prepareSnapshot should not be called")
 	}
 }
 
-func TestPrepareClientDirectDeviceNonTTYConfirmed(t *testing.T) {
+func TestConfirmDirectDeviceNonTTYConfirmed(t *testing.T) {
 	devPath := createBlockDevice(t)
 	cfg, err := config.DefaultConfig()
 	if err != nil {
@@ -146,12 +136,7 @@ func TestPrepareClientDirectDeviceNonTTYConfirmed(t *testing.T) {
 		w.Close()
 	}()
 
-	called := false
-	rnr := newStubRunner(&called)
-	if _, _, _, _, _, _, err := rnr.prepareClient(cfg, []string{"/src", devPath}, zap.NewNop()); err != nil {
+	if err := confirmDirectDevice(cfg, devPath); err != nil {
 		t.Fatalf("unexpected error: %v", err)
-	}
-	if !called {
-		t.Fatalf("prepareSnapshot not called")
 	}
 }
