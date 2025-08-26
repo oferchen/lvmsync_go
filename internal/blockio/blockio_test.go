@@ -220,7 +220,11 @@ func TestReadWriteAtAndSize(t *testing.T) {
 	if !bytes.Equal(buf, data) {
 		t.Fatalf("ReadAt data mismatch")
 	}
-	if size := f.Size(); size != int64(len(data)) {
+	size, err := f.Size()
+	if err != nil {
+		t.Fatalf("Size: %v", err)
+	}
+	if size != int64(len(data)) {
 		t.Fatalf("size %d want %d", size, len(data))
 	}
 }
