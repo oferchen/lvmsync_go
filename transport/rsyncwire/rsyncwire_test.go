@@ -1,6 +1,7 @@
 package rsyncwire
 
 import (
+	"sync"
 	"testing"
 
 	"go.uber.org/zap"
@@ -22,6 +23,7 @@ func TestRequiresLogger(t *testing.T) {
 }
 
 func TestLogsPlaintextWarning(t *testing.T) {
+	plaintextWarnOnce = sync.Once{}
 	core, logs := observer.New(zap.WarnLevel)
 	logger := zap.New(core)
 	if _, err := New(transport.Config{Logger: logger, AllowInsecure: true}); err != nil {
@@ -36,5 +38,25 @@ func TestLogsPlaintextWarning(t *testing.T) {
 	}
 	if entries[0].ContextMap()["docs"] != "docs/transports.md" {
 		t.Fatalf("missing docs field: %v", entries[0].ContextMap()["docs"])
+	}
+}
+
+func TestPlaintextWarningOnce(t *testing.T) {
+	plaintextWarnOnce = sync.Once{}
+	core, logs := observer.New(zap.WarnLevel)
+	logger := zap.New(core)
+	cfg := transport.Config{Logger: logger, AllowInsecure: true}
+	if _, err := New(cfg); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if _, err := New(cfg); err != nil {
+		t.Fatalf("unexpected error on second call: %v", err)
+	}
+	entries := logs.All()
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 warning log, got %d", len(entries))
+	}
+	if entries[0].Message != "plaintext_connection" {
+		t.Fatalf("unexpected message: %s", entries[0].Message)
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gokrazy/rsync"
@@ -16,6 +17,8 @@ import (
 )
 
 const defaultDialTimeout = 5 * time.Second
+
+var plaintextWarnOnce sync.Once
 
 // Transport implements the rsync daemon handshake over plain TCP.
 type Transport struct {
@@ -30,11 +33,13 @@ func New(cfg transport.Config) (transport.Interface, error) {
 	if !cfg.AllowInsecure {
 		return nil, fmt.Errorf("rsync transport requires AllowInsecure")
 	}
-	cfg.Logger.Warn(
-		"plaintext_connection",
-		zap.String("transport", "rsync"),
-		zap.String("docs", "docs/transports.md"),
-	)
+	plaintextWarnOnce.Do(func() {
+		cfg.Logger.Warn(
+			"plaintext_connection",
+			zap.String("transport", "rsync"),
+			zap.String("docs", "docs/transports.md"),
+		)
+	})
 	return &Transport{logger: cfg.Logger}, nil
 }
 
