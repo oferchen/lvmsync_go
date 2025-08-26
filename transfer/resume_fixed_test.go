@@ -9,6 +9,7 @@ import (
 	"github.com/zeebo/blake3"
 	"go.uber.org/zap"
 
+	"lvmsync_go/device"
 	"lvmsync_go/internal/config"
 )
 
@@ -23,7 +24,7 @@ func TestResumeFixedIdempotent(t *testing.T) {
 	var first, second bytes.Buffer
 	for i := 0; i < 2; i++ {
 		tr.Tracker = &resumeTracker{}
-		writeResumeState(cfg, zap.NewNop(), resume, resumeChunks{Fixed: resumeChunk{Chunk: digest, Offset: uint64(blockSize), Length: uint32(blockSize)}}, 0, "", 0, [32]byte{})
+		writeResumeState(cfg, zap.NewNop(), resume, resumeChunks{Fixed: resumeChunk{Chunk: digest, Offset: uint64(blockSize), Length: uint32(blockSize)}}, device.DeviceIdentity{})
 		buf := &first
 		if i == 1 {
 			buf = &second

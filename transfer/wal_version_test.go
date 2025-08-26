@@ -5,12 +5,15 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"lvmsync_go/device"
 )
 
 func TestWALVersionMismatch(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "wal")
-	w, _, err := OpenWAL(path, 100, "dev", 1, nil)
+	id := device.DeviceIdentity{SizeBytes: 100, KernelUUID: "dev", GPTUUID: "gpt", MBRSignature: "00000001", FSUUID: "fs", Major: 1, Minor: 2, ManifestEpoch: 1}
+	w, _, err := OpenWAL(path, id, nil)
 	if err != nil {
 		t.Fatalf("open wal: %v", err)
 	}
@@ -29,15 +32,20 @@ func TestWALVersionMismatch(t *testing.T) {
 	hdr.Version = walVersion + 1
 	hdr.Size = binary.LittleEndian.Uint64(buf[8:16])
 	hdr.Epoch = binary.LittleEndian.Uint64(buf[16:24])
-	copy(hdr.DeviceID[:], buf[24:88])
+	copy(hdr.KernelUUID[:], buf[24:88])
+	copy(hdr.GPTUUID[:], buf[88:152])
+	copy(hdr.MBRSignature[:], buf[152:160])
+	copy(hdr.FSUUID[:], buf[160:224])
+	hdr.Major = binary.LittleEndian.Uint32(buf[224:228])
+	hdr.Minor = binary.LittleEndian.Uint32(buf[228:232])
 	hdr.MAC = walHeaderMAC(&hdr)
 	binary.LittleEndian.PutUint64(buf[0:8], hdr.Version)
-	copy(buf[88:120], hdr.MAC[:])
+	copy(buf[232:264], hdr.MAC[:])
 	if _, err := f.WriteAt(buf[:], 0); err != nil {
 		t.Fatalf("write header: %v", err)
 	}
 	f.Close()
-	if _, _, err := OpenWAL(path, 100, "dev", 1, nil); err == nil {
+	if _, _, err := OpenWAL(path, id, nil); err == nil {
 		t.Fatalf("expected version mismatch error")
 	}
 }
@@ -52,12 +60,12 @@ func TestWALUpgrade(t *testing.T) {
 	var hdr0 walHeaderV0
 	hdr0.Size = 100
 	hdr0.Epoch = 1
-	copy(hdr0.DeviceID[:], []byte("dev"))
+	copy(hdr0.FSUUID[:], []byte("fs"))
 	hdr0.MAC = walHeaderMACV0(&hdr0)
 	var buf0 [walHeaderV0Size]byte
 	binary.LittleEndian.PutUint64(buf0[0:8], hdr0.Size)
 	binary.LittleEndian.PutUint64(buf0[8:16], hdr0.Epoch)
-	copy(buf0[16:80], hdr0.DeviceID[:])
+	copy(buf0[16:80], hdr0.FSUUID[:])
 	copy(buf0[80:112], hdr0.MAC[:])
 	if _, err := f.Write(buf0[:]); err != nil {
 		t.Fatalf("write header: %v", err)
@@ -69,7 +77,8 @@ func TestWALUpgrade(t *testing.T) {
 		t.Fatalf("write entry: %v", err)
 	}
 	f.Close()
-	w, ranges, err := OpenWAL(path, 100, "dev", 1, nil)
+	id := device.DeviceIdentity{SizeBytes: 100, KernelUUID: "dev", GPTUUID: "gpt", MBRSignature: "00000001", FSUUID: "fs", Major: 1, Minor: 2, ManifestEpoch: 1}
+	w, ranges, err := OpenWAL(path, id, nil)
 	if err != nil {
 		t.Fatalf("open wal: %v", err)
 	}

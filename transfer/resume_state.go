@@ -34,7 +34,12 @@ type resumeState struct {
 	CDC               resumeChunkState `json:"cdc"`
 	Hybrid            resumeChunkState `json:"hybrid"`
 	SizeBytes         uint64           `json:"size_bytes"`
-	DeviceID          string           `json:"device_id"`
+	KernelUUID        string           `json:"kernel_uuid"`
+	GPTUUID           string           `json:"gpt_uuid"`
+	MBRSignature      string           `json:"mbr_signature"`
+	FSUUID            string           `json:"fs_uuid"`
+	Major             uint32           `json:"major"`
+	Minor             uint32           `json:"minor"`
 	Epoch             uint64           `json:"epoch"`
 	PartitionHash     string           `json:"partition_hash"`
 	FirstBlockDigest  string           `json:"first_block_digest"`
@@ -43,7 +48,7 @@ type resumeState struct {
 // writeResumeState persists resume state using a WAL file. The state is written
 // to a temporary file, fsynced, and atomically renamed to `<path>.wal` to avoid
 // corruption on crashes. The logger must be non-nil.
-func writeResumeState(cfg *config.Config, logger *zap.Logger, path string, chunks resumeChunks, size uint64, deviceID string, epoch uint64, partHash [32]byte) {
+func writeResumeState(cfg *config.Config, logger *zap.Logger, path string, chunks resumeChunks, id device.DeviceIdentity) {
 	toState := func(ch resumeChunk) resumeChunkState {
 		return resumeChunkState{
 			Offset: ch.Offset,
@@ -60,10 +65,15 @@ func writeResumeState(cfg *config.Config, logger *zap.Logger, path string, chunk
 		Fixed:             toState(chunks.Fixed),
 		CDC:               toState(chunks.CDC),
 		Hybrid:            toState(chunks.Hybrid),
-		SizeBytes:         size,
-		DeviceID:          deviceID,
-		Epoch:             epoch,
-		PartitionHash:     hex.EncodeToString(partHash[:]),
+		SizeBytes:         id.SizeBytes,
+		KernelUUID:        id.KernelUUID,
+		GPTUUID:           id.GPTUUID,
+		MBRSignature:      id.MBRSignature,
+		FSUUID:            id.FSUUID,
+		Major:             id.Major,
+		Minor:             id.Minor,
+		Epoch:             id.ManifestEpoch,
+		PartitionHash:     hex.EncodeToString(id.PartitionHash[:]),
 		FirstBlockDigest:  cfg.FirstBlockDigest,
 	}
 	data, err := json.Marshal(rs)
@@ -120,7 +130,7 @@ func saveResumeState(cfg *config.Config, rt *resumeTracker, offset uint64, chunk
 	*rc = resumeChunk{Chunk: chunk, Offset: offset, Length: uint32(size)}
 	if (cfg.CheckpointBytes > 0 && rt.bytes >= int64(cfg.CheckpointBytes)) ||
 		(cfg.CheckpointInterval > 0 && time.Since(rt.last) >= cfg.CheckpointInterval) {
-		writeResumeState(cfg, logger, cfg.ResumeState, resumeChunks{Fixed: rt.Fixed, CDC: rt.CDC, Hybrid: rt.Hybrid}, rt.sizeBytes, rt.deviceID, rt.epoch, rt.partitionHash)
+		writeResumeState(cfg, logger, cfg.ResumeState, resumeChunks{Fixed: rt.Fixed, CDC: rt.CDC, Hybrid: rt.Hybrid}, rt.id)
 		rt.bytes = 0
 		rt.last = time.Now()
 	}
@@ -142,10 +152,7 @@ func finalizeResumeState(cfg *config.Config, rt *resumeTracker, logger *zap.Logg
 	rt.bytes = 0
 	rt.last = time.Time{}
 	rt.resumeChunks = resumeChunks{}
-	rt.sizeBytes = 0
-	rt.deviceID = ""
-	rt.epoch = 0
-	rt.partitionHash = [32]byte{}
+	rt.id = device.DeviceIdentity{}
 }
 
 func readResumeState(cfg *config.Config, logger *zap.Logger, id device.DeviceIdentity, digest [32]byte) resumeCheckpoint {
@@ -191,23 +198,53 @@ func loadResumeState(path string, cfg *config.Config, id device.DeviceIdentity, 
 	if b, err := hex.DecodeString(rs.PartitionHash); err == nil && len(b) == 32 {
 		copy(part[:], b)
 	}
-	storedID := device.DeviceIdentity{SizeBytes: rs.SizeBytes, FSUUID: rs.DeviceID, ManifestEpoch: rs.Epoch, PartitionHash: part}
+	storedID := device.DeviceIdentity{
+		SizeBytes:     rs.SizeBytes,
+		KernelUUID:    rs.KernelUUID,
+		GPTUUID:       rs.GPTUUID,
+		MBRSignature:  rs.MBRSignature,
+		FSUUID:        rs.FSUUID,
+		PartitionHash: part,
+		Major:         rs.Major,
+		Minor:         rs.Minor,
+		ManifestEpoch: rs.Epoch,
+	}
 	actualID := id
 	if storedID.SizeBytes == 0 || actualID.SizeBytes == 0 {
 		storedID.SizeBytes = 0
 		actualID.SizeBytes = 0
 	}
+	if storedID.KernelUUID == "" || actualID.KernelUUID == "" {
+		storedID.KernelUUID = ""
+		actualID.KernelUUID = ""
+	}
+	if storedID.GPTUUID == "" || actualID.GPTUUID == "" {
+		storedID.GPTUUID = ""
+		actualID.GPTUUID = ""
+	}
+	if storedID.MBRSignature == "" || actualID.MBRSignature == "" {
+		storedID.MBRSignature = ""
+		actualID.MBRSignature = ""
+	}
 	if storedID.FSUUID == "" || actualID.FSUUID == "" {
 		storedID.FSUUID = ""
 		actualID.FSUUID = ""
 	}
-	if storedID.ManifestEpoch == 0 || actualID.ManifestEpoch == 0 {
-		storedID.ManifestEpoch = 0
-		actualID.ManifestEpoch = 0
-	}
 	if storedID.PartitionHash == ([32]byte{}) || actualID.PartitionHash == ([32]byte{}) {
 		storedID.PartitionHash = [32]byte{}
 		actualID.PartitionHash = [32]byte{}
+	}
+	if storedID.Major == 0 || actualID.Major == 0 {
+		storedID.Major = 0
+		actualID.Major = 0
+	}
+	if storedID.Minor == 0 || actualID.Minor == 0 {
+		storedID.Minor = 0
+		actualID.Minor = 0
+	}
+	if storedID.ManifestEpoch == 0 || actualID.ManifestEpoch == 0 {
+		storedID.ManifestEpoch = 0
+		actualID.ManifestEpoch = 0
 	}
 	if !device.SameIdentityStrict(storedID, actualID) {
 		return out, false

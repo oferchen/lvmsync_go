@@ -23,7 +23,7 @@ func TestResumeHybridOffset(t *testing.T) {
 
 	cfg := &config.Config{ResumeState: state, Compress: "none", ChecksumAlgorithm: "blake3", Transport: "ssh", DedupMode: "hybrid"}
 	digest := blake3.Sum256([]byte("chunk"))
-	writeResumeState(cfg, logger, state, resumeChunks{Hybrid: resumeChunk{Chunk: digest, Offset: 80, Length: 40}}, 0, "", 0, [32]byte{})
+	writeResumeState(cfg, logger, state, resumeChunks{Hybrid: resumeChunk{Chunk: digest, Offset: 80, Length: 40}}, device.DeviceIdentity{})
 
 	chk := readResumeState(cfg, logger, device.DeviceIdentity{FSUUID: cfg.DeviceUUID}, [32]byte{})
 	ranges := []Range{{Start: 0, End: 99}, {Start: 100, End: 199}}
@@ -45,7 +45,7 @@ func TestResumeHybridSequential(t *testing.T) {
 	cfg := &config.Config{BlockSize: int(blockSize), Compress: "none", Parallel: 1, ResumeState: resume, MaxRetries: 1, ChecksumAlgorithm: "blake3", Transport: "ssh", DedupMode: "hybrid"}
 
 	digest := blake3.Sum256(bytes.Repeat([]byte{2}, int(blockSize)))
-	writeResumeState(cfg, zap.NewNop(), resume, resumeChunks{Hybrid: resumeChunk{Chunk: digest, Offset: uint64(blockSize), Length: uint32(blockSize)}}, 0, "", 0, [32]byte{})
+	writeResumeState(cfg, zap.NewNop(), resume, resumeChunks{Hybrid: resumeChunk{Chunk: digest, Offset: uint64(blockSize), Length: uint32(blockSize)}}, device.DeviceIdentity{})
 
 	var buf bytes.Buffer
 	if err := tr.DumpChangesParallel(context.Background(), cfg, snapshot, src, &buf); err != nil {
@@ -70,7 +70,7 @@ func TestResumeHybridIdempotent(t *testing.T) {
 	var first, second bytes.Buffer
 	for i := 0; i < 2; i++ {
 		tr.Tracker = &resumeTracker{}
-		writeResumeState(cfg, zap.NewNop(), resume, resumeChunks{Hybrid: resumeChunk{Chunk: digest, Offset: uint64(blockSize), Length: uint32(blockSize)}}, 0, "", 0, [32]byte{})
+		writeResumeState(cfg, zap.NewNop(), resume, resumeChunks{Hybrid: resumeChunk{Chunk: digest, Offset: uint64(blockSize), Length: uint32(blockSize)}}, device.DeviceIdentity{})
 		buf := &first
 		if i == 1 {
 			buf = &second

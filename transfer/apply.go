@@ -36,13 +36,9 @@ func (t *Transfer) processDumpDataCore(ctx context.Context, cfg *config.Config, 
 
 	reader := bufio.NewReader(decReader)
 
-	size, id, epoch, err := t.verifyDestination(ctx, cfg, destPath)
-	if err != nil {
+	if _, _, _, err := t.verifyDestination(ctx, cfg, destPath); err != nil {
 		return err
 	}
-	t.Tracker.sizeBytes = size
-	t.Tracker.deviceID = id
-	t.Tracker.epoch = epoch
 
 	var destFile *os.File
 	if cfg.ODirect {
@@ -73,7 +69,7 @@ func (t *Transfer) processDumpDataCore(ctx context.Context, cfg *config.Config, 
 
 	var walRanges []Range
 	if cfg.ResumeState != "" {
-		t.wal, walRanges, err = OpenWAL(cfg.ResumeState+".wal", size, id, epoch, nil)
+		t.wal, walRanges, err = OpenWAL(cfg.ResumeState+".wal", t.Tracker.id, nil)
 		if err != nil {
 			return err
 		}
