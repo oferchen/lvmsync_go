@@ -92,13 +92,18 @@ func fdatasync(f *os.File) error {
 	return unix.Fdatasync(int(f.Fd()))
 }
 
-func openFileODirect(path string, flag int) (*os.File, bool, error) {
+// openFileODirect tries to open path with O_DIRECT. The returned boolean
+// reports whether O_DIRECT was actually enabled.
+func openFileODirect(path string, flag int) (f *os.File, used bool, err error) {
 	fd, err := unix.Open(path, flag|unix.O_DIRECT, 0)
-	if err != nil {
-		f, err2 := os.OpenFile(path, flag, 0)
-		return f, false, err2
+	if err == nil {
+		return os.NewFile(uintptr(fd), path), true, nil
 	}
-	return os.NewFile(uintptr(fd), path), true, nil
+	f, err = os.OpenFile(path, flag, 0)
+	if err != nil {
+		return nil, false, err
+	}
+	return f, false, nil
 }
 
 func seekHoleSupported(f *os.File) bool {
