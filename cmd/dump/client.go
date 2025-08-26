@@ -289,6 +289,10 @@ func (r *Runner) Run(ctx context.Context, cfg *config.Config, source, dest strin
 		fmt.Fprintf(os.Stdout, "%d %s %s %s %s %d %d %d\n", id.SizeBytes, id.KernelUUID, id.GPTUUID, id.MBRSignature, id.FSUUID, id.Major, id.Minor, id.ManifestEpoch)
 		return cfg.DestType, nil
 	}
+	esc, err := privilege.New(ctx, logger)
+	if err != nil {
+		return cfg.DestType, err
+	}
 	dev, err := r.detectDevice(
 		ctx,
 		source,
@@ -300,7 +304,7 @@ func (r *Runner) Run(ctx context.Context, cfg *config.Config, source, dest strin
 		cfg.LVMEscalation,
 		cfg.FreezeTimeout,
 		cfg.ThawTimeout,
-		privilege.New(ctx, logger),
+		esc,
 		logger,
 		device.NewRunner(),
 	)
@@ -372,7 +376,11 @@ func (r *Runner) RunLocalDump(ctx context.Context, cfg *config.Config, snapshotD
 		return destType, r.ExecuteDump(ctx, cfg, snapshotDevice, originDevice, io.Discard, logger)
 	}
 	if destType == "auto" {
-		dev, err := device.Detect(devCtx, dest, false, true, destType, "", "", cfg.LVMEscalation, cfg.FreezeTimeout, cfg.ThawTimeout, privilege.New(devCtx, logger), logger, devRunner)
+		esc, err := privilege.New(devCtx, logger)
+		if err != nil {
+			return destType, err
+		}
+		dev, err := device.Detect(devCtx, dest, false, true, destType, "", "", cfg.LVMEscalation, cfg.FreezeTimeout, cfg.ThawTimeout, esc, logger, devRunner)
 		if err != nil {
 			if cfg.CheckPartition && errors.Is(err, device.ErrPartitionMismatch) {
 				if !cfg.Force {
@@ -384,7 +392,10 @@ func (r *Runner) RunLocalDump(ctx context.Context, cfg *config.Config, snapshotD
 				tmpCtx := device.WithForce(context.Background(), cfg.Force)
 				tmpCtx = device.WithAllowOverwrite(tmpCtx, cfg.AllowOverwrite)
 				tmpCtx = device.WithYesIKnow(tmpCtx, cfg.YesIKnow)
-				dev, err = device.Detect(tmpCtx, dest, false, true, destType, "", "", cfg.LVMEscalation, cfg.FreezeTimeout, cfg.ThawTimeout, privilege.New(tmpCtx, logger), logger, devRunner)
+				tmpEsc, err := privilege.New(tmpCtx, logger)
+				if err == nil {
+					dev, err = device.Detect(tmpCtx, dest, false, true, destType, "", "", cfg.LVMEscalation, cfg.FreezeTimeout, cfg.ThawTimeout, tmpEsc, logger, devRunner)
+				}
 				if err != nil {
 					dev = nil
 				}
@@ -568,7 +579,12 @@ func (r *Runner) streamRsyncDelta(ctx context.Context, cfg *config.Config, remot
 
 	rw := writeOnlyReadWriter{remoteStdin}
 	cl := rsyncwire.NewClient(rsyncwire.NewStream(rw, maxFrame))
-	dev, err := r.detectDevice(ctx, originDevice, true, true, "", "", "", "", 0, 0, privilege.New(ctx, logger), logger, device.NewRunner())
+	esc, err := privilege.New(ctx, logger)
+	if err != nil {
+		remoteStdin.Close()
+		return fmt.Errorf("detect origin: %w", err)
+	}
+	dev, err := r.detectDevice(ctx, originDevice, true, true, "", "", "", "", 0, 0, esc, logger, device.NewRunner())
 	if err != nil {
 		remoteStdin.Close()
 		return fmt.Errorf("detect origin: %w", err)

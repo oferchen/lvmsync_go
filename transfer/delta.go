@@ -58,7 +58,11 @@ func (t *Transfer) streamRsyncDelta(ctx context.Context, cfg *config.Config, sna
 	stream = rsyncwire.NewStream(rw, rsyncMaxFrame)
 	cl := rsyncwire.NewClient(stream)
 	// Send destination identity to allow early mismatch detection.
-	dev, err := device.Detect(ctx, origin, true, true, "", "", "", "", 0, 0, privilege.New(ctx, t.Logger), t.Logger, device.NewRunner())
+	esc, err := privilege.New(ctx, t.Logger)
+	if err != nil {
+		return fmt.Errorf("detect origin: %w", err)
+	}
+	dev, err := device.Detect(ctx, origin, true, true, "", "", "", "", 0, 0, esc, t.Logger, device.NewRunner())
 	if err != nil {
 		return fmt.Errorf("detect origin: %w", err)
 	}

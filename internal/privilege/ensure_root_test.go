@@ -22,7 +22,10 @@ func TestEnsureSudoTrue(t *testing.T) {
 	requireSudo(t)
 	privilege.HasCaps = func() bool { return false }
 	defer func() { privilege.HasCaps = privilege.RealHasCaps }()
-	esc := privilege.New(context.Background(), zap.NewNop())
+	esc, err := privilege.New(context.Background(), zap.NewNop())
+	if err != nil {
+		t.Fatalf("privilege.New: %v", err)
+	}
 	if err := esc.Ensure(context.Background()); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -50,8 +53,11 @@ func TestEnsureSudoErrorsExitCode(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			privilege.HasCaps = func() bool { return false }
 			defer func() { privilege.HasCaps = privilege.RealHasCaps }()
-			esc := privilege.NewWithRunner(context.Background(), tt.runner, zap.NewNop())
-			err := esc.Ensure(context.Background())
+			esc, err := privilege.NewWithRunner(context.Background(), tt.runner, zap.NewNop())
+			if err != nil {
+				t.Fatalf("privilege.NewWithRunner: %v", err)
+			}
+			err = esc.Ensure(context.Background())
 			if err == nil {
 				t.Fatalf("expected error")
 			}

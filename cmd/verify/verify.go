@@ -143,7 +143,10 @@ func (r *Runner) Run(args []string, logger *zap.Logger) error {
 }
 
 func (r *Runner) verifyDevices(ctx context.Context, cfg *config.Config, src, dst, manifestPath string, logger *zap.Logger) error {
-	esc := privilege.New(ctx, logger)
+	esc, err := privilege.New(ctx, logger)
+	if err != nil {
+		return err
+	}
 	runner := device.NewRunner()
 
 	srcDev, err := device.Detect(ctx, src, true, cfg.Offline, cfg.SourceType, cfg.FSFreezeCommand, cfg.FSThawCommand, cfg.LVMEscalation, cfg.FreezeTimeout, cfg.ThawTimeout, esc, logger, runner)

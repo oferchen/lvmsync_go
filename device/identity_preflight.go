@@ -37,7 +37,11 @@ func VerifyIdentity(ctx context.Context, info *Info, src, dest string) (err erro
 	if !match && !allow {
 		return fmt.Errorf("uuid mismatch: %w", exitcode.ErrPrecondition)
 	}
-	devA, err := info.detectFunc(ctx, src, true, true, "", "", "", "", 0, 0, privilege.New(ctx, zap.NewNop()), zap.NewNop(), NewRunner())
+	escA, err := privilege.New(ctx, zap.NewNop())
+	if err != nil {
+		return err
+	}
+	devA, err := info.detectFunc(ctx, src, true, true, "", "", "", "", 0, 0, escA, zap.NewNop(), NewRunner())
 	if err != nil {
 		return err
 	}
@@ -46,7 +50,11 @@ func VerifyIdentity(ctx context.Context, info *Info, src, dest string) (err erro
 			err = fmt.Errorf("close block device: %w", closeErr)
 		}
 	}()
-	devB, err := info.detectFunc(ctx, dest, true, true, "", "", "", "", 0, 0, privilege.New(ctx, zap.NewNop()), zap.NewNop(), NewRunner())
+	escB, err := privilege.New(ctx, zap.NewNop())
+	if err != nil {
+		return err
+	}
+	devB, err := info.detectFunc(ctx, dest, true, true, "", "", "", "", 0, 0, escB, zap.NewNop(), NewRunner())
 	if err != nil {
 		return err
 	}
