@@ -2,6 +2,8 @@
 
 Thanks for your interest in contributing to lvmsync_go!
 
+Ensure Go 1.24.3 or later is installed. See the [development prerequisites](README.md#prerequisites) for how to verify your version with `go version`.
+
 ## Commit Message Policy
 
 This project follows the [Conventional Commits](https://www.conventionalcommits.org/) specification.

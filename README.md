@@ -1667,6 +1667,14 @@ Compression detection uses benchmark-driven selection between LZ4 and Zstd and n
 
 ## Development
 
+### Prerequisites
+
+LVMSync requires Go 1.24.3 or later. Verify your installation with:
+
+```sh
+go version
+```
+
 ### Development Setup
 
 The Super-Linter workflow validates the entire repository.
