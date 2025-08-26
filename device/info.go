@@ -24,7 +24,7 @@ const (
 )
 
 // DeviceInfoProvider exposes device identification helpers.
-type DeviceInfoProvider interface {
+type DeviceInfoProvider interface { //nolint:revive // name stutters with package but kept for clarity
 	GetUUID(ctx context.Context, path string) (string, error)
 	GetLVMUUID(ctx context.Context, path string) (string, error)
 	GetDeviceID(ctx context.Context, path string) (string, error)
@@ -98,6 +98,7 @@ func (i *Info) SetDetectFunc(
 	return prev
 }
 
+// GetUUID returns the filesystem UUID for the device at path.
 func (i *Info) GetUUID(ctx context.Context, path string) (string, error) {
 	if ctx == nil {
 		ctx = context.Background()
@@ -110,6 +111,7 @@ func (i *Info) GetUUID(ctx context.Context, path string) (string, error) {
 	return i.uuidFunc(ctx, path)
 }
 
+// GetLVMUUID returns the LVM logical volume UUID for the device at path.
 func (i *Info) GetLVMUUID(ctx context.Context, path string) (string, error) {
 	if ctx == nil {
 		ctx = context.Background()
@@ -122,6 +124,7 @@ func (i *Info) GetLVMUUID(ctx context.Context, path string) (string, error) {
 	return i.lvmUUIDFunc(ctx, path)
 }
 
+// GetDeviceID returns a stable identifier for the device, preferring LVM UUID.
 func (i *Info) GetDeviceID(ctx context.Context, path string) (string, error) {
 	if ctx == nil {
 		ctx = context.Background()
@@ -137,6 +140,7 @@ func (i *Info) GetDeviceID(ctx context.Context, path string) (string, error) {
 	return i.uuidFunc(ctx, path)
 }
 
+// IDsMatch reports whether two device paths refer to the same device.
 func (i *Info) IDsMatch(ctx context.Context, src, dest string) (bool, error) {
 	sid, err := i.GetDeviceID(ctx, src)
 	if err != nil {
@@ -149,6 +153,7 @@ func (i *Info) IDsMatch(ctx context.Context, src, dest string) (bool, error) {
 	return sid == did, nil
 }
 
+// IsMountedRW reports whether the device at path is mounted read-write.
 func (i *Info) IsMountedRW(ctx context.Context, path string) (bool, error) {
 	if ctx == nil {
 		ctx = context.Background()
@@ -215,7 +220,7 @@ func (i *Info) FirstBlockDigest(ctx context.Context, path string, size uint64) (
 }
 
 func defaultMountFunc(ctx context.Context, path string) (bool, error) {
-	real, err := filepath.EvalSymlinks(path)
+	realPath, err := filepath.EvalSymlinks(path)
 	if err != nil {
 		return false, err
 	}
@@ -244,7 +249,7 @@ func defaultMountFunc(ctx context.Context, path string) (bool, error) {
 		if resolved, err := filepath.EvalSymlinks(src); err == nil {
 			src = resolved
 		}
-		if src == real || pathWithin(mi.Mountpoint, real) || (mi.Root != "/" && pathWithin(mi.Root, real)) {
+		if src == realPath || pathWithin(mi.Mountpoint, realPath) || (mi.Root != "/" && pathWithin(mi.Root, realPath)) {
 			key := fmt.Sprintf("%d:%d:%s", mi.Major, mi.Minor, mi.Root)
 			if existing, ok := matches[key]; ok {
 				if !hasRW(existing.Options) && hasRW(mi.Options) {

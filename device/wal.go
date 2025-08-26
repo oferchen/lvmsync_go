@@ -99,32 +99,36 @@ type walHeaderV0 struct {
 // provided device identity.
 var ErrWALMetadataMismatch = errors.New("wal metadata mismatch")
 
+// WAL wraps walpkg.WAL and tracks block ranges.
 type WAL struct {
-	*walpkg.WAL
-	header walHeader
-	ranges []Range
+        *walpkg.WAL
+        header walHeader
+        ranges []Range
 }
 
+// WALDeps provides overridable dependencies for WAL operations.
 type WALDeps struct {
-	*walpkg.Deps
-	openFile func(string, int, os.FileMode) (*os.File, error)
-	stat     func(*os.File) (fs.FileInfo, error)
+        *walpkg.Deps
+        openFile func(string, int, os.FileMode) (*os.File, error)
+        stat     func(*os.File) (fs.FileInfo, error)
 }
 
+// NewWALDeps constructs default WAL dependencies.
 func NewWALDeps() *WALDeps {
-	return &WALDeps{
-		Deps:     walpkg.NewDeps(),
-		openFile: func(name string, flag int, perm os.FileMode) (*os.File, error) { return os.OpenFile(name, flag, perm) },
-		stat:     func(f *os.File) (fs.FileInfo, error) { return f.Stat() },
-	}
+        return &WALDeps{
+                Deps:     walpkg.NewDeps(),
+                openFile: func(name string, flag int, perm os.FileMode) (*os.File, error) { return os.OpenFile(name, flag, perm) },
+                stat:     func(f *os.File) (fs.FileInfo, error) { return f.Stat() },
+        }
 }
 
+// NewWALDepsWithSync constructs WAL dependencies with a custom sync function.
 func NewWALDepsWithSync(fn func(string) error) *WALDeps {
-	return &WALDeps{
-		Deps:     walpkg.NewDepsWithSync(fn),
-		openFile: func(name string, flag int, perm os.FileMode) (*os.File, error) { return os.OpenFile(name, flag, perm) },
-		stat:     func(f *os.File) (fs.FileInfo, error) { return f.Stat() },
-	}
+        return &WALDeps{
+                Deps:     walpkg.NewDepsWithSync(fn),
+                openFile: func(name string, flag int, perm os.FileMode) (*os.File, error) { return os.OpenFile(name, flag, perm) },
+                stat:     func(f *os.File) (fs.FileInfo, error) { return f.Stat() },
+        }
 }
 
 func walHeaderMAC(h *walHeader) [32]byte {
@@ -860,6 +864,7 @@ func (w *WAL) Has(start, end uint64) bool {
 	return false
 }
 
+// Close flushes and closes the underlying WAL.
 func (w *WAL) Close() error {
-	return w.WAL.Close()
+        return w.WAL.Close()
 }

@@ -10,6 +10,32 @@ import (
 	"lvmsync_go/escalate"
 )
 
+func newRunnerWithDeps(
+	ensure func(escalate.Options, *zap.Logger) (bool, error),
+	drop func(escalate.Options, *zap.Logger) error,
+	syncFunc func(*zap.Logger),
+	exitFunc func(int),
+	loggerFunc func() *zap.Logger,
+) *runner {
+	r := newRunner()
+	if ensure != nil {
+		r.ensureRootOrReexec = ensure
+	}
+	if drop != nil {
+		r.dropToInvokerIfSudo = drop
+	}
+	if syncFunc != nil {
+		r.syncLogger = syncFunc
+	}
+	if exitFunc != nil {
+		r.exit = exitFunc
+	}
+	if loggerFunc != nil {
+		r.newLogger = loggerFunc
+	}
+	return r
+}
+
 func TestRunnerRun(t *testing.T) {
 	tcs := []struct {
 		name     string

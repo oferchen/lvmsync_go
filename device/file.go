@@ -74,10 +74,10 @@ func (d *FileDevice) Identity(context.Context) (DeviceIdentity, error) {
 }
 
 // AppendWAL is a no-op for file devices.
-func (d *FileDevice) AppendWAL(r Range) error { return nil }
+func (d *FileDevice) AppendWAL(_ Range) error { return nil }
 
 // RecoverWAL is a no-op for file devices.
-func (d *FileDevice) RecoverWAL(fn func(Range) error) error { return nil }
+func (d *FileDevice) RecoverWAL(_ func(Range) error) error { return nil }
 
 // Close closes the underlying file descriptor.
 func (d *FileDevice) Close() error {

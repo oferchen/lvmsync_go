@@ -1,10 +1,25 @@
 package blockio
 
 import (
+	"golang.org/x/sys/unix"
 	"os"
 	"testing"
 	"unsafe"
 )
+
+func purgeAlignedBlockBufferPools() {
+	bufferPools.Range(func(k, v any) bool {
+		bufferPools.Delete(k)
+		return true
+	})
+	mmappedBuffers.Range(func(k, v any) bool {
+		if b, ok := v.([]byte); ok {
+			unix.Munmap(b)
+		}
+		mmappedBuffers.Delete(k)
+		return true
+	})
+}
 
 func TestPutUnmapsWhenPoolMissing(t *testing.T) {
 	size := os.Getpagesize()

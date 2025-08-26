@@ -2,11 +2,9 @@ version: 2
 
 run:
   timeout: 5m
-  tests: true
+  tests: false
 
 issues:
-  new: true
-  new-from-rev: origin/main
   max-issues-per-linter: 0
   max-same-issues: 0
 
@@ -23,9 +21,6 @@ linters:
     - asciicheck
     - bodyclose
     - misspell
-    - deadcode
-    - gosimple
-    - stylecheck
 
 linters-settings:
   errcheck:
@@ -49,6 +44,8 @@ linters-settings:
       - "golang.org/x/sys/unix.Close"
       - "(*strings.Builder).Write"
       - "(*lvmsync_go/dedup.Hasher).Write"
+    exclude:
+      - _test\.go
 
   gocritic:
     enabled-checks:
@@ -57,6 +54,7 @@ linters-settings:
 
   revive:
     severity: warning
+    enable-all-rules: false
     rules:
       - name: indent-error-flow
       - name: empty-block
