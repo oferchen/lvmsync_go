@@ -53,6 +53,9 @@ func TestEmitPlanAllowInsecureWarns(t *testing.T) {
 	if logs.Len() == 0 {
 		t.Fatalf("missing warning")
 	}
+	if logs.All()[0].Message != "allow_insecure enabled; security checks disabled" {
+		t.Fatalf("unexpected warning: %v", logs.All()[0].Message)
+	}
 	if len(outBytes) == 0 {
 		t.Fatalf("expected plan output")
 	}
@@ -77,6 +80,9 @@ func TestEmitPlanRsyncRequiresAllowInsecure(t *testing.T) {
 	outBytes, _ := io.ReadAll(rOut)
 	if logs.Len() == 0 {
 		t.Fatalf("missing warning")
+	}
+	if logs.All()[0].Message != "rsync transport requires --allow-insecure" {
+		t.Fatalf("unexpected warning: %v", logs.All()[0].Message)
 	}
 	if len(outBytes) != 0 {
 		t.Fatalf("unexpected plan output: %q", outBytes)
