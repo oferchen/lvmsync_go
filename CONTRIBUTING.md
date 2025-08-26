@@ -62,3 +62,11 @@ visudo -cf docs/sudoers.d/lvmsync
 ```
 
 Run this locally when modifying sudoers entries to ensure they parse correctly.
+
+## Production readiness workflow
+
+Pushes to `main` and release tags run the `assert-production-ready` workflow.
+Branch protection requires this job to pass before changes can merge. The
+workflow vets, lints, races tests, runs integration tests (`make
+test-integration`), builds `amd64` and `arm64` binaries, and publishes checksum
+and SBOM artifacts.

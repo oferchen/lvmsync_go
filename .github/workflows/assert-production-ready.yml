@@ -1,0 +1,81 @@
+---
+# Asserts that the repository is ready for production by running vetting,
+# linting, tests, and building release artifacts. Checksums and an SBOM are
+# uploaded as build artifacts.
+
+name: assert-production-ready
+
+on:
+  push:
+    branches: ["main"]
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  assert:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "${{ vars.GO_VERSION || '1.24.x' }}"
+          cache: true
+
+      - name: Install tools
+        run: |
+          go install honnef.co/go/tools/cmd/staticcheck@latest
+          go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+          go install github.com/anchore/syft/cmd/syft@latest
+
+      - name: Go vet
+        env:
+          LVMSYNC_STRICT_CONFIG: 1
+        run: go vet ./...
+
+      - name: Staticcheck
+        run: staticcheck -checks=U*,SA* ./...
+
+      - name: golangci-lint
+        run: golangci-lint run
+
+      - name: Go test (race)
+        run: go test -race ./...
+
+      - name: Integration tests
+        run: |
+          if make -n test-integration >/dev/null 2>&1; then
+            make test-integration
+          else
+            make integration
+          fi
+
+      - name: Build artifacts
+        run: |
+          mkdir -p dist
+          for arch in amd64 arm64; do
+            GOOS=linux GOARCH=$arch go build -o dist/lvmsync-$arch .
+          done
+
+      - name: Checksums
+        run: sha256sum dist/* > dist/checksums.txt
+
+      - name: Generate SBOM
+        run: syft dir:dist -o json > dist/sbom.json
+
+      - name: Upload checksums
+        uses: actions/upload-artifact@v4
+        with:
+          name: checksums
+          path: dist/checksums.txt
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: dist/sbom.json
+
