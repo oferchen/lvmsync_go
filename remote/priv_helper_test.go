@@ -87,7 +87,7 @@ func TestRecvAckTimeout(t *testing.T) {
 	r, w := net.Pipe()
 	defer r.Close() //nolint:errcheck
 	defer w.Close() //nolint:errcheck
-	c := &PrivHelperClient{stdout: r}
+	c := &PrivHelperClient{stdout: r, logger: zap.NewNop()}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 	defer cancel()
 	if _, err := c.RecvAck(ctx); err == nil || !errors.Is(err, context.DeadlineExceeded) {
@@ -129,7 +129,7 @@ func (neverReader) Read(_ []byte) (int, error) { select {} }
 
 func TestRecvAckCancelClosesReader(t *testing.T) {
 	r := newBlockingAckReader()
-	c := &PrivHelperClient{stdout: r}
+	c := &PrivHelperClient{stdout: r, logger: zap.NewNop()}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() {
@@ -161,7 +161,7 @@ func TestRecvAckCancelClosesReader(t *testing.T) {
 }
 
 func TestRecvAckCancelUnclosable(t *testing.T) {
-	c := &PrivHelperClient{stdout: neverReader{}}
+	c := &PrivHelperClient{stdout: neverReader{}, logger: zap.NewNop()}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() {
@@ -181,6 +181,56 @@ func TestRecvAckCancelUnclosable(t *testing.T) {
 		}
 	case <-time.After(500 * time.Millisecond):
 		t.Fatalf("RecvAck blocked with unclosable reader")
+	}
+}
+
+type errAckReader struct {
+	readStarted chan struct{}
+	closeCh     chan struct{}
+}
+
+func newErrAckReader() *errAckReader {
+	return &errAckReader{
+		readStarted: make(chan struct{}),
+		closeCh:     make(chan struct{}),
+	}
+}
+
+var (
+	errSetDeadline = errors.New("set deadline error")
+	errClose       = errors.New("close error")
+)
+
+func (r *errAckReader) Read(_ []byte) (int, error) {
+	close(r.readStarted)
+	<-r.closeCh
+	return 0, io.EOF
+}
+
+func (r *errAckReader) SetReadDeadline(time.Time) error { return errSetDeadline }
+
+func (r *errAckReader) Close() error {
+	close(r.closeCh)
+	return errClose
+}
+
+func TestRecvAckCancelJoinErrors(t *testing.T) {
+	r := newErrAckReader()
+	c := &PrivHelperClient{stdout: r, logger: zap.NewNop()}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() {
+		_, err := c.RecvAck(ctx)
+		done <- err
+	}()
+	<-r.readStarted
+	cancel()
+	err := <-done
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if !errors.Is(err, context.Canceled) || !errors.Is(err, errSetDeadline) || !errors.Is(err, errClose) {
+		t.Fatalf("expected joined errors, got %v", err)
 	}
 }
 
@@ -208,7 +258,7 @@ func (netTimeoutError) Temporary() bool { return true }
 
 func TestRecvAckNetTimeoutBeforeDeadline(t *testing.T) {
 	r := &earlyTimeoutReader{}
-	c := &PrivHelperClient{stdout: r}
+	c := &PrivHelperClient{stdout: r, logger: zap.NewNop()}
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 	if _, err := c.RecvAck(ctx); err == nil || !errors.Is(err, context.DeadlineExceeded) {
