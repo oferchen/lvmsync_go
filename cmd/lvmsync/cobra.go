@@ -121,9 +121,15 @@ func NewRootCmd(logger *zap.Logger, r *Runner) *cobra.Command {
 		r = NewRunner()
 	}
 	rootCmd := &cobra.Command{
-		Use:   "lvmsync",
-		Short: "LVMSync command line tool",
+		Use:     "lvmsync",
+		Short:   "LVMSync command line tool",
+		Version: Version,
 	}
+	rootCmd.Annotations = map[string]string{
+		"commit": Commit,
+		"date":   Date,
+	}
+	rootCmd.SetVersionTemplate("{{.Version}} {{index .Annotations \"commit\"}} {{index .Annotations \"date\"}}\n")
 
 	runCmd := &cobra.Command{
 		Use:                "run [flags] <source> <dest>",

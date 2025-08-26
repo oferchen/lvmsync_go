@@ -1,6 +1,8 @@
 package lvmsync
 
 import (
+	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -352,4 +354,19 @@ func TestEstimateTransferNilLoggerPanics(t *testing.T) {
 	}
 	f.Close()
 	_ = estimateTransfer(f.Name(), &config.Config{}, nil)
+}
+
+func TestVersionFlag(t *testing.T) {
+	buf := new(bytes.Buffer)
+	cmd := NewRootCmd(zap.NewNop(), nil)
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+	cmd.SetArgs([]string{"--version"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("execute version: %v", err)
+	}
+	expected := fmt.Sprintf("%s %s %s\n", cmd.Version, cmd.Annotations["commit"], cmd.Annotations["date"])
+	if buf.String() != expected {
+		t.Fatalf("unexpected version output: got %q want %q", buf.String(), expected)
+	}
 }
