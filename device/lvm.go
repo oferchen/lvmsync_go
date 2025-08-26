@@ -291,18 +291,24 @@ func (d *LVMDevice) Snapshot(ctx context.Context, snapshotSize string) (Device, 
 	}
 	snapPath := lvm.GetSnapshotDevicePath(snapName, vg, d.logger)
 	if err := d.runner.runLVM(ctx, d.escalation, "lvchange", "-ay", "-pr", snapPath); err != nil {
-		_ = d.runner.runLVM(ctx, d.escalation, "lvremove", "-f", snapPath)
+		if rmErr := d.runner.runLVM(ctx, d.escalation, "lvremove", "-f", snapPath); rmErr != nil {
+			d.logger.Warn("snapshot_cleanup_failed", zap.String("snapshot_path", snapPath), zap.Error(rmErr))
+		}
 		return nil, err
 	}
 	cache, err := lvm.NewDeviceFDCache(d.logger)
 	if err != nil {
-		_ = d.runner.runLVM(ctx, d.escalation, "lvremove", "-f", snapPath)
+		if rmErr := d.runner.runLVM(ctx, d.escalation, "lvremove", "-f", snapPath); rmErr != nil {
+			d.logger.Warn("snapshot_cleanup_failed", zap.String("snapshot_path", snapPath), zap.Error(rmErr))
+		}
 		return nil, err
 	}
 	defer cache.Close()
 	snapDev, err := d.runner.OpenLVM(ctx, snapPath, cache, true, false, d.escalation, d.logger)
 	if err != nil {
-		_ = d.runner.runLVM(ctx, d.escalation, "lvremove", "-f", snapPath)
+		if rmErr := d.runner.runLVM(ctx, d.escalation, "lvremove", "-f", snapPath); rmErr != nil {
+			d.logger.Warn("snapshot_cleanup_failed", zap.String("snapshot_path", snapPath), zap.Error(rmErr))
+		}
 		return nil, err
 	}
 	snapDev.cleanupPath = snapPath
