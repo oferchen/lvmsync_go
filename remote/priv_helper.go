@@ -121,8 +121,18 @@ func (c *PrivHelperClient) RecvAck(ctx context.Context) (bool, error) {
 			if ctxDl, ok := ctx.Deadline(); ok && ctxDl.Before(dl) {
 				dl = ctxDl
 			}
-			_ = conn.SetReadDeadline(dl)
-			defer conn.SetReadDeadline(time.Time{}) //nolint:errcheck
+			if err := conn.SetReadDeadline(dl); err != nil {
+				if c.logger != nil {
+					c.logger.Warn("set_read_deadline", zap.Error(err))
+				}
+			}
+			defer func() {
+				if err := conn.SetReadDeadline(time.Time{}); err != nil {
+					if c.logger != nil {
+						c.logger.Warn("clear_read_deadline", zap.Error(err))
+					}
+				}
+			}()
 		}
 		_, err := io.ReadFull(c.stdout, b[:])
 		resCh <- result{b: b[0], err: err}
@@ -130,17 +140,28 @@ func (c *PrivHelperClient) RecvAck(ctx context.Context) (bool, error) {
 
 	select {
 	case <-ctx.Done():
+		var err error
 		if conn, ok := c.stdout.(interface{ SetReadDeadline(time.Time) error }); ok {
-			_ = conn.SetReadDeadline(time.Now())
+			if e := conn.SetReadDeadline(time.Now()); e != nil {
+				if c.logger != nil {
+					c.logger.Warn("set_read_deadline", zap.Error(e))
+				}
+				err = errors.Join(err, e)
+			}
 		}
 		if closer, ok := c.stdout.(io.Closer); ok {
-			_ = closer.Close()
+			if e := closer.Close(); e != nil {
+				if c.logger != nil {
+					c.logger.Warn("close_stdout", zap.Error(e))
+				}
+				err = errors.Join(err, e)
+			}
 		}
 		select {
 		case <-resCh:
 		default:
 		}
-		return false, ctx.Err()
+		return false, errors.Join(ctx.Err(), err)
 	case r := <-resCh:
 		if r.err != nil {
 			if ctxErr := ctx.Err(); ctxErr != nil {
