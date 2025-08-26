@@ -7,32 +7,66 @@ import (
 	"path/filepath"
 	"testing"
 
+	"lvmsync_go/device"
 	walpkg "lvmsync_go/internal/wal"
 )
 
 func TestWALMismatch(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "wal")
-	w, _, err := OpenWAL(path, 100, "dev", 1, nil)
+	id := device.DeviceIdentity{SizeBytes: 100, KernelUUID: "dev", GPTUUID: "gpt", MBRSignature: "00000001", FSUUID: "fs", Major: 1, Minor: 2, ManifestEpoch: 1}
+	w, _, err := OpenWAL(path, id, nil)
 	if err != nil {
 		t.Fatalf("open wal: %v", err)
 	}
 	w.Close()
-	if _, _, err := OpenWAL(path, 101, "dev", 1, nil); err == nil {
+	badID := id
+	badID.SizeBytes = 101
+	if _, _, err := OpenWAL(path, badID, nil); err == nil {
 		t.Fatalf("expected size mismatch error")
 	}
-	if _, _, err := OpenWAL(path, 100, "dev2", 1, nil); err == nil {
+	badID = id
+	badID.FSUUID = "fs2"
+	if _, _, err := OpenWAL(path, badID, nil); err == nil {
 		t.Fatalf("expected device mismatch error")
 	}
-	if _, _, err := OpenWAL(path, 100, "dev", 2, nil); err == nil {
+	badID = id
+	badID.ManifestEpoch = 2
+	if _, _, err := OpenWAL(path, badID, nil); err == nil {
 		t.Fatalf("expected epoch mismatch error")
+	}
+	badID = id
+	badID.KernelUUID = "dev2"
+	if _, _, err := OpenWAL(path, badID, nil); err == nil {
+		t.Fatalf("expected kernel uuid mismatch error")
+	}
+	badID = id
+	badID.GPTUUID = "gpt2"
+	if _, _, err := OpenWAL(path, badID, nil); err == nil {
+		t.Fatalf("expected gpt uuid mismatch error")
+	}
+	badID = id
+	badID.MBRSignature = "00000002"
+	if _, _, err := OpenWAL(path, badID, nil); err == nil {
+		t.Fatalf("expected mbr signature mismatch error")
+	}
+	badID = id
+	badID.Major = 3
+	if _, _, err := OpenWAL(path, badID, nil); err == nil {
+		t.Fatalf("expected major mismatch error")
+	}
+	badID = id
+	badID.Minor = 4
+	if _, _, err := OpenWAL(path, badID, nil); err == nil {
+		t.Fatalf("expected minor mismatch error")
 	}
 }
 
 func TestWALRecovery(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "wal")
-	w, _, err := OpenWAL(path, 100, "dev", 1, nil)
+	id := device.DeviceIdentity{SizeBytes: 100, KernelUUID: "dev", GPTUUID: "gpt", MBRSignature: "00000001", FSUUID: "fs", Major: 1, Minor: 2, ManifestEpoch: 1}
+	w, _, err := OpenWAL(path, id, nil)
 	if err != nil {
 		t.Fatalf("open wal: %v", err)
 	}
@@ -40,7 +74,7 @@ func TestWALRecovery(t *testing.T) {
 		t.Fatalf("append: %v", err)
 	}
 	w.Close()
-	w, ranges, err := OpenWAL(path, 100, "dev", 1, nil)
+	w, ranges, err := OpenWAL(path, id, nil)
 	if err != nil {
 		t.Fatalf("reopen wal: %v", err)
 	}
@@ -56,7 +90,8 @@ func TestWALRecovery(t *testing.T) {
 func TestWALTruncatedHeader(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "wal")
-	w, _, err := OpenWAL(path, 100, "dev", 1, nil)
+	id := device.DeviceIdentity{SizeBytes: 100, KernelUUID: "dev", GPTUUID: "gpt", MBRSignature: "00000001", FSUUID: "fs", Major: 1, Minor: 2, ManifestEpoch: 1}
+	w, _, err := OpenWAL(path, id, nil)
 	if err != nil {
 		t.Fatalf("open wal: %v", err)
 	}
@@ -66,7 +101,7 @@ func TestWALTruncatedHeader(t *testing.T) {
 	if err := os.Truncate(path, 10); err != nil {
 		t.Fatalf("truncate: %v", err)
 	}
-	if _, _, err := OpenWAL(path, 100, "dev", 1, nil); err == nil {
+	if _, _, err := OpenWAL(path, id, nil); err == nil {
 		t.Fatalf("expected truncated header error")
 	}
 }
@@ -74,7 +109,8 @@ func TestWALTruncatedHeader(t *testing.T) {
 func TestWALPartialWrite(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "wal")
-	w, _, err := OpenWAL(path, 100, "dev", 1, nil)
+	id := device.DeviceIdentity{SizeBytes: 100, KernelUUID: "dev", GPTUUID: "gpt", MBRSignature: "00000001", FSUUID: "fs", Major: 1, Minor: 2, ManifestEpoch: 1}
+	w, _, err := OpenWAL(path, id, nil)
 	if err != nil {
 		t.Fatalf("open wal: %v", err)
 	}
@@ -97,7 +133,7 @@ func TestWALPartialWrite(t *testing.T) {
 	if err := f.Close(); err != nil {
 		t.Fatalf("close file: %v", err)
 	}
-	w2, ranges, err := OpenWAL(path, 100, "dev", 1, nil)
+	w2, ranges, err := OpenWAL(path, id, nil)
 	if err != nil {
 		t.Fatalf("reopen wal: %v", err)
 	}
@@ -127,7 +163,8 @@ func TestWALSyncDirAppend(t *testing.T) {
 		}
 		return nil
 	})
-	w, _, err := OpenWAL(path, 100, "dev", 1, deps)
+	id := device.DeviceIdentity{SizeBytes: 100, KernelUUID: "dev", GPTUUID: "gpt", MBRSignature: "00000001", FSUUID: "fs", Major: 1, Minor: 2, ManifestEpoch: 1}
+	w, _, err := OpenWAL(path, id, deps)
 	if err != nil {
 		t.Fatalf("open wal: %v", err)
 	}

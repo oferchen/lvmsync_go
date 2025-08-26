@@ -52,7 +52,8 @@ func TestWALVerifySuccess(t *testing.T) {
 	man := filepath.Join(dir, "man")
 	buildManifest(t, dev, man, "uuid", uint64(len(data)))
 	walPath := filepath.Join(dir, "wal")
-	w, _, err := OpenWAL(walPath, uint64(len(data)), "uuid", 0, nil)
+	id := device.DeviceIdentity{SizeBytes: uint64(len(data)), KernelUUID: "k", GPTUUID: "g", MBRSignature: "00000000", FSUUID: "uuid"}
+	w, _, err := OpenWAL(walPath, id, nil)
 	if err != nil {
 		t.Fatalf("open wal: %v", err)
 	}
@@ -81,7 +82,8 @@ func TestWALVerifyMismatch(t *testing.T) {
 	man := filepath.Join(dir, "man")
 	buildManifest(t, dev, man, "uuid", uint64(len(data)))
 	walPath := filepath.Join(dir, "wal")
-	w, _, err := OpenWAL(walPath, uint64(len(data)), "uuid", 0, nil)
+	id := device.DeviceIdentity{SizeBytes: uint64(len(data)), KernelUUID: "k", GPTUUID: "g", MBRSignature: "00000000", FSUUID: "uuid"}
+	w, _, err := OpenWAL(walPath, id, nil)
 	if err != nil {
 		t.Fatalf("open wal: %v", err)
 	}

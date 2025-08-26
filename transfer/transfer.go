@@ -312,7 +312,7 @@ func (t *Transfer) verifyDestination(ctx context.Context, cfg *config.Config, de
 		}
 	}
 	epoch := ident.ManifestEpoch
-	t.Tracker.partitionHash = ident.PartitionHash
+	t.Tracker.id = ident
 
 	if cfg.ManifestPath != "" {
 		hdr, err := readManifestHeader(ctx, cfg.ManifestPath, 0)

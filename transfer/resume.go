@@ -1,6 +1,10 @@
 package transfer
 
-import "time"
+import (
+	"time"
+
+	"lvmsync_go/device"
+)
 
 // resumeChunk stores the boundaries and digest of the last processed chunk.
 type resumeChunk struct {
@@ -27,10 +31,7 @@ type resumeTracker struct {
 	bytes int64
 	last  time.Time
 	resumeChunks
-	sizeBytes     uint64
-	deviceID      string
-	epoch         uint64
-	partitionHash [32]byte
+	id device.DeviceIdentity
 }
 
 func (rt *resumeTracker) chunk(mode string) *resumeChunk {

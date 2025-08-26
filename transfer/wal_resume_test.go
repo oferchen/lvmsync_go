@@ -17,7 +17,8 @@ import (
 func TestWALCommitFsync(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "wal")
-	w, _, err := OpenWAL(path, 128, "dev", 1, nil)
+	id := device.DeviceIdentity{SizeBytes: 128, KernelUUID: "dev", GPTUUID: "g", MBRSignature: "00000001", FSUUID: "f", Major: 1, Minor: 2, ManifestEpoch: 1}
+	w, _, err := OpenWAL(path, id, nil)
 	if err != nil {
 		t.Fatalf("open wal: %v", err)
 	}
@@ -28,7 +29,7 @@ func TestWALCommitFsync(t *testing.T) {
 	if err := w.File().Close(); err != nil {
 		t.Fatalf("close: %v", err)
 	}
-	w2, ranges, err := OpenWAL(path, 128, "dev", 1, nil)
+	w2, ranges, err := OpenWAL(path, id, nil)
 	if err != nil {
 		t.Fatalf("reopen wal: %v", err)
 	}
@@ -49,7 +50,12 @@ func TestResumeValidation(t *testing.T) {
 		ChecksumAlgorithm: "blake3",
 		DedupMode:         "fixed",
 		SizeBytes:         1,
-		DeviceID:          "src",
+		KernelUUID:        "k",
+		GPTUUID:           "g",
+		MBRSignature:      "00000001",
+		FSUUID:            "src",
+		Major:             1,
+		Minor:             2,
 		Epoch:             1,
 	}
 	data, err := json.Marshal(state)
@@ -60,7 +66,7 @@ func TestResumeValidation(t *testing.T) {
 		t.Fatalf("write resume: %v", err)
 	}
 	cfg := &config.Config{ResumeState: path, DedupMode: "fixed", Transport: "ssh", Compress: "none", ChecksumAlgorithm: "blake3"}
-	chk := readResumeState(cfg, zap.NewNop(), device.DeviceIdentity{SizeBytes: 2, FSUUID: "dest", ManifestEpoch: 2}, [32]byte{})
+	chk := readResumeState(cfg, zap.NewNop(), device.DeviceIdentity{SizeBytes: 2, KernelUUID: "k", GPTUUID: "g", MBRSignature: "00000001", FSUUID: "dest", Major: 1, Minor: 2, ManifestEpoch: 2}, [32]byte{})
 	if rc := chk.chunk("fixed"); rc != (resumeChunk{}) {
 		t.Fatalf("expected empty checkpoint, got %#v", rc)
 	}
@@ -76,7 +82,12 @@ func TestResumeDeviceIDMismatch(t *testing.T) {
 		ChecksumAlgorithm: "blake3",
 		DedupMode:         "fixed",
 		SizeBytes:         2,
-		DeviceID:          "src",
+		KernelUUID:        "k",
+		GPTUUID:           "g",
+		MBRSignature:      "00000001",
+		FSUUID:            "src",
+		Major:             1,
+		Minor:             2,
 		Epoch:             2,
 	}
 	data, err := json.Marshal(state)
@@ -87,7 +98,7 @@ func TestResumeDeviceIDMismatch(t *testing.T) {
 		t.Fatalf("write resume: %v", err)
 	}
 	cfg := &config.Config{ResumeState: path, DedupMode: "fixed", Transport: "ssh", Compress: "none", ChecksumAlgorithm: "blake3"}
-	chk := readResumeState(cfg, zap.NewNop(), device.DeviceIdentity{SizeBytes: 2, FSUUID: "dest", ManifestEpoch: 2}, [32]byte{})
+	chk := readResumeState(cfg, zap.NewNop(), device.DeviceIdentity{SizeBytes: 2, KernelUUID: "k", GPTUUID: "g", MBRSignature: "00000001", FSUUID: "dest", Major: 1, Minor: 2, ManifestEpoch: 2}, [32]byte{})
 	if rc := chk.chunk("fixed"); rc != (resumeChunk{}) {
 		t.Fatalf("expected empty checkpoint, got %#v", rc)
 	}
@@ -97,7 +108,8 @@ func TestResumeDeviceIDMismatch(t *testing.T) {
 func TestWALHeaderCorruption(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "wal")
-	w, _, err := OpenWAL(path, 128, "dev", 1, nil)
+	id := device.DeviceIdentity{SizeBytes: 128, KernelUUID: "dev", GPTUUID: "g", MBRSignature: "00000001", FSUUID: "f", Major: 1, Minor: 2, ManifestEpoch: 1}
+	w, _, err := OpenWAL(path, id, nil)
 	if err != nil {
 		t.Fatalf("open wal: %v", err)
 	}
@@ -112,7 +124,7 @@ func TestWALHeaderCorruption(t *testing.T) {
 		t.Fatalf("corrupt header: %v", err)
 	}
 	f.Close()
-	if _, _, err := OpenWAL(path, 128, "dev", 1, nil); err == nil {
+	if _, _, err := OpenWAL(path, id, nil); err == nil {
 		t.Fatalf("expected header corruption error")
 	}
 }
@@ -121,7 +133,8 @@ func TestWALHeaderCorruption(t *testing.T) {
 func TestWALDeviceIDCorruption(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "wal")
-	w, _, err := OpenWAL(path, 128, "dev", 1, nil)
+	id := device.DeviceIdentity{SizeBytes: 128, KernelUUID: "dev", GPTUUID: "g", MBRSignature: "00000001", FSUUID: "f", Major: 1, Minor: 2, ManifestEpoch: 1}
+	w, _, err := OpenWAL(path, id, nil)
 	if err != nil {
 		t.Fatalf("open wal: %v", err)
 	}
@@ -136,7 +149,7 @@ func TestWALDeviceIDCorruption(t *testing.T) {
 		t.Fatalf("corrupt device id: %v", err)
 	}
 	f.Close()
-	if _, _, err := OpenWAL(path, 128, "dev", 1, nil); err == nil {
+	if _, _, err := OpenWAL(path, id, nil); err == nil {
 		t.Fatalf("expected device id corruption error")
 	}
 }
@@ -145,7 +158,8 @@ func TestWALDeviceIDCorruption(t *testing.T) {
 func TestWALDetectsUnsyncedEntry(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "wal")
-	w, _, err := OpenWAL(path, 128, "dev", 1, nil)
+	id := device.DeviceIdentity{SizeBytes: 128, KernelUUID: "dev", GPTUUID: "g", MBRSignature: "00000001", FSUUID: "f", Major: 1, Minor: 2, ManifestEpoch: 1}
+	w, _, err := OpenWAL(path, id, nil)
 	if err != nil {
 		t.Fatalf("open wal: %v", err)
 	}
@@ -161,7 +175,7 @@ func TestWALDetectsUnsyncedEntry(t *testing.T) {
 	if err := w.File().Close(); err != nil {
 		t.Fatalf("close: %v", err)
 	}
-	w2, ranges, err := OpenWAL(path, 128, "dev", 1, nil)
+	w2, ranges, err := OpenWAL(path, id, nil)
 	if err != nil {
 		t.Fatalf("reopen wal: %v", err)
 	}

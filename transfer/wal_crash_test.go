@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"lvmsync_go/device"
 )
 
 // TestWALCrashRecovery simulates power loss scenarios and verifies WAL recovery.
@@ -12,7 +14,8 @@ func TestWALCrashRecovery(t *testing.T) {
 	t.Run("truncate_mid_entry", func(t *testing.T) {
 		dir := t.TempDir()
 		path := filepath.Join(dir, "wal")
-		w, _, err := OpenWAL(path, 128, "dev", 1, nil)
+		id := device.DeviceIdentity{SizeBytes: 128, KernelUUID: "dev", GPTUUID: "g", MBRSignature: "00000001", FSUUID: "f", Major: 1, Minor: 2, ManifestEpoch: 1}
+		w, _, err := OpenWAL(path, id, nil)
 		if err != nil {
 			t.Fatalf("open wal: %v", err)
 		}
@@ -34,7 +37,7 @@ func TestWALCrashRecovery(t *testing.T) {
 		if err := f.Close(); err != nil {
 			t.Fatalf("close file: %v", err)
 		}
-		w2, ranges, err := OpenWAL(path, 128, "dev", 1, nil)
+		w2, ranges, err := OpenWAL(path, id, nil)
 		if err != nil {
 			t.Fatalf("reopen wal: %v", err)
 		}
@@ -47,7 +50,8 @@ func TestWALCrashRecovery(t *testing.T) {
 	t.Run("omit_fsync", func(t *testing.T) {
 		dir := t.TempDir()
 		path := filepath.Join(dir, "wal")
-		w, _, err := OpenWAL(path, 128, "dev", 1, nil)
+		id := device.DeviceIdentity{SizeBytes: 128, KernelUUID: "dev", GPTUUID: "g", MBRSignature: "00000001", FSUUID: "f", Major: 1, Minor: 2, ManifestEpoch: 1}
+		w, _, err := OpenWAL(path, id, nil)
 		if err != nil {
 			t.Fatalf("open wal: %v", err)
 		}
@@ -66,7 +70,7 @@ func TestWALCrashRecovery(t *testing.T) {
 		if err := os.Truncate(path, walHeaderSize+16); err != nil {
 			t.Fatalf("truncate: %v", err)
 		}
-		w2, ranges, err := OpenWAL(path, 128, "dev", 1, nil)
+		w2, ranges, err := OpenWAL(path, id, nil)
 		if err != nil {
 			t.Fatalf("reopen wal: %v", err)
 		}
