@@ -277,8 +277,14 @@ func verifyInline(cfg *config.Config, src, dst string, logger *zap.Logger) error
 	}
 	defer fDst.Close()
 
-	sizeSrc := fSrc.Size()
-	sizeDst := fDst.Size()
+	sizeSrc, err := fSrc.Size()
+	if err != nil {
+		return fmt.Errorf("source size: %w", err)
+	}
+	sizeDst, err := fDst.Size()
+	if err != nil {
+		return fmt.Errorf("dest size: %w", err)
+	}
 	if sizeSrc != sizeDst {
 		logger.Error("size mismatch", zap.Int64("source_bytes", sizeSrc), zap.Int64("dest_bytes", sizeDst))
 		return fmt.Errorf("size mismatch")

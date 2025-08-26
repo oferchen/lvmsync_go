@@ -193,21 +193,28 @@ func (f *File) WriteAt(p []byte, off int64) (int, error) {
 }
 
 // Size returns the current size of the underlying file.
-func (f *File) Size() int64 {
+//
+// The file's current offset is preserved. Any error from Stat or Seek is
+// returned to the caller instead of treating the size as zero.
+func (f *File) Size() (int64, error) {
 	if fi, err := f.f.Stat(); err == nil {
-		return fi.Size()
+		return fi.Size(), nil
 	}
 	cur, err := f.f.Seek(0, io.SeekCurrent)
 	if err != nil {
-		return 0
+		return 0, fmt.Errorf("seek current: %w", err)
 	}
 	end, err := f.f.Seek(0, io.SeekEnd)
 	if err != nil {
-		_, _ = f.f.Seek(cur, io.SeekStart)
-		return 0
+		if _, seekErr := f.f.Seek(cur, io.SeekStart); seekErr != nil {
+			return 0, fmt.Errorf("seek restore: %w", seekErr)
+		}
+		return 0, fmt.Errorf("seek end: %w", err)
 	}
-	_, _ = f.f.Seek(cur, io.SeekStart)
-	return end
+	if _, err := f.f.Seek(cur, io.SeekStart); err != nil {
+		return 0, fmt.Errorf("seek restore: %w", err)
+	}
+	return end, nil
 }
 
 func (f *File) Sync() error {
