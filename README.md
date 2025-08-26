@@ -32,7 +32,7 @@ For snapshot cleanup, resuming transfers, and verify-only rollback procedures, s
  - **Planning**: `--plan` prints resolved configuration with secrets redacted, transport order, estimated bytes, and compression decisions as JSON without transferring data.
  - **Device Identity Tuple**: Each run records `(size_bytes, kernel_uuid, gpt_uuid, mbr_signature, fs_uuid, major, minor, manifest_epoch)` to prevent writing to the wrong destination.
 
-- **Handshake Timeouts**: Transport connections apply context deadlines during handshakes and clear them once negotiation succeeds.
+- **Handshake Timeouts**: All transports, including `rsync`, apply context deadlines during handshakes and clear them once negotiation succeeds.
 - **Sparse Destination Optimization**: Detects runs of zero bytes and punches holes when the filesystem supports it. Use `--sparse=never` to always write zeros instead.
 - **Aligned I/O Buffers and NUMA Pinning**: `--odirect` allocates block-size aligned slabs from a `sync.Pool` and can pin worker goroutines to a device's NUMA node (`--numa-pin`) or an explicit node (`--numa-node`).
 - **LVM Snapshot Management**:
