@@ -1095,6 +1095,18 @@ make test    # run tests
 
 ## Usage
 
+### Show Version
+
+```sh
+lvmsync --version
+```
+
+Outputs `Version Commit BuildDate`, for example:
+
+```text
+v0.2.0 abcdef1 2024-01-02T15:04:05Z
+```
+
 ### Basic Syntax
 
 ```sh
