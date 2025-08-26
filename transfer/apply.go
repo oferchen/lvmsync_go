@@ -53,8 +53,13 @@ func (t *Transfer) processDumpDataCore(ctx context.Context, cfg *config.Config, 
 		sector, err2 := DetectSectorSize(tmp)
 		_ = tmp.Close()
 		if err2 == nil && cfg.BlockSize%sector == 0 {
-			if f, direct, err2 := openFileODirect(destPath, os.O_RDWR); err2 == nil && direct {
-				destFile = f
+			var direct bool
+			destFile, direct, err2 = openFileODirect(destPath, os.O_RDWR)
+			if err2 != nil {
+				return fmt.Errorf("failed to open destination device %s: %w", destPath, err2)
+			}
+			if !direct {
+				t.Logger.Warn("odirect_requested_but_unused", zap.String("path", destPath))
 			}
 		}
 	}

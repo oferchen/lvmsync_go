@@ -156,7 +156,7 @@ func (t *Transfer) dumpChangesCore(ctx context.Context, cfg *config.Config, snap
 	}
 	defer cleanupOutput(bufOut, compWriter, t.Logger)
 
-	srcFile, err := setupSourceFile(cfg, source)
+	srcFile, err := setupSourceFile(cfg, source, t.Logger)
 	if err != nil {
 		return err
 	}

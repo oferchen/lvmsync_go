@@ -10,6 +10,11 @@ This guide outlines snapshot lifecycle management, resume workflows, verificatio
 
 Writing directly to block devices bypasses filesystem safeguards and can destroy data. These operations require `--force-offline`. When stdin is a TTY, `lvmsync` prompts for the literal text `double-confirm`; non-interactive sessions must also provide `--yes-i-know`.
 
+## O_DIRECT fallback
+
+Enabling `--odirect` requests direct device I/O. When the filesystem or kernel rejects `O_DIRECT`,
+LVMSync logs a warning and continues with buffered I/O.
+
 ## Dry-run and plan output
 
 `--dry-run` and `lvmsync plan` report the estimated transfer parameters without copying data. The JSON log entry includes `size_bytes`, `estimated_duration_ms`, `estimated_bandwidth_bps`, and `compression` showing the selected compression algorithm.

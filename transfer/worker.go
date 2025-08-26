@@ -76,7 +76,7 @@ func prepareRanges(ctx context.Context, cfg *config.Config, snapshot, source str
 	return ranges, nil
 }
 
-func setupSourceFile(cfg *config.Config, source string) (*os.File, error) {
+func setupSourceFile(cfg *config.Config, source string, logger *zap.Logger) (*os.File, error) {
 	if cfg.ODirect {
 		tmp, err := os.Open(source)
 		if err != nil {
@@ -85,9 +85,14 @@ func setupSourceFile(cfg *config.Config, source string) (*os.File, error) {
 		sector, err := DetectSectorSize(tmp)
 		_ = tmp.Close()
 		if err == nil && cfg.BlockSize%sector == 0 {
-			if f, direct, err := openFileODirect(source, os.O_RDONLY); err == nil && direct {
-				return f, nil
+			f, direct, err := openFileODirect(source, os.O_RDONLY)
+			if err != nil {
+				return nil, err
 			}
+			if !direct {
+				logger.Warn("odirect_requested_but_unused", zap.String("path", source))
+			}
+			return f, nil
 		}
 	}
 	srcFile, err := os.Open(source)
@@ -176,7 +181,7 @@ func (t *Transfer) DumpChangesParallel(ctx context.Context, cfg *config.Config, 
 	}
 	defer cleanupOutput(bufOut, compWriter, t.Logger)
 
-	srcFile, err := setupSourceFile(cfg, source)
+	srcFile, err := setupSourceFile(cfg, source, t.Logger)
 	if err != nil {
 		return err
 	}

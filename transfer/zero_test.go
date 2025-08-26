@@ -7,6 +7,7 @@ import (
 
 	"github.com/zeebo/blake3"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 
 	"lvmsync_go/internal/config"
 )
@@ -64,5 +65,32 @@ func TestWriteZeroBlockPunchesHole(t *testing.T) {
 	}
 	if !isAllZero(buf) {
 		t.Fatalf("expected zeros after punching hole")
+	}
+}
+
+func TestSetupSourceFileWarnsOnFallback(t *testing.T) {
+	cfg := &config.Config{BlockSize: 4096, ODirect: true}
+	tmp := t.TempDir()
+	path := tmp + "/src"
+	if err := os.WriteFile(path, make([]byte, cfg.BlockSize), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	f, direct, err := openFileODirect(path, os.O_RDONLY)
+	if err != nil {
+		t.Fatalf("openFileODirect: %v", err)
+	}
+	_ = f.Close()
+	if direct {
+		t.Skip("O_DIRECT supported")
+	}
+	core, obs := observer.New(zap.WarnLevel)
+	logger := zap.New(core)
+	src, err := setupSourceFile(cfg, path, logger)
+	if err != nil {
+		t.Fatalf("setupSourceFile: %v", err)
+	}
+	_ = src.Close()
+	if obs.FilterMessage("odirect_requested_but_unused").Len() != 1 {
+		t.Fatalf("expected warning log when falling back")
 	}
 }

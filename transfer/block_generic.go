@@ -33,8 +33,11 @@ func punchHole(f *os.File, offset uint64, length int) error {
 
 func fdatasync(f *os.File) error { return f.Sync() }
 
-func openFileODirect(path string, flag int) (*os.File, bool, error) {
-	f, err := os.OpenFile(path, flag, 0)
+// openFileODirect opens path without O_DIRECT on non-Linux systems. The
+// returned boolean is always false to mirror the linux implementation when
+// O_DIRECT is unavailable.
+func openFileODirect(path string, flag int) (f *os.File, used bool, err error) {
+	f, err = os.OpenFile(path, flag, 0)
 	return f, false, err
 }
 
