@@ -1,4 +1,4 @@
-//go:build integration
+//go:build integration && rsync
 
 package transport_test
 
