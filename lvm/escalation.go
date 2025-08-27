@@ -9,11 +9,27 @@ import (
 	"github.com/kballard/go-shellquote"
 )
 
-// execCommand is used for running external commands and can be overridden in tests.
-var execCommand = exec.Command
+// EscalationChecker validates that an escalation command is available.
+type EscalationChecker struct {
+	execCommand func(string, ...string) *exec.Cmd
+	geteuid     func() int
+}
 
-// geteuid returns the effective user ID; overridable for tests.
-var geteuid = os.Geteuid
+// NewEscalationChecker returns an EscalationChecker using real OS functions.
+func NewEscalationChecker() *EscalationChecker {
+	return NewEscalationCheckerWithDeps(exec.Command, os.Geteuid)
+}
+
+// NewEscalationCheckerWithDeps allows tests to inject dependencies.
+func NewEscalationCheckerWithDeps(execCommand func(string, ...string) *exec.Cmd, geteuid func() int) *EscalationChecker {
+	if execCommand == nil {
+		execCommand = exec.Command
+	}
+	if geteuid == nil {
+		geteuid = os.Geteuid
+	}
+	return &EscalationChecker{execCommand: execCommand, geteuid: geteuid}
+}
 
 // ParseEscalation splits the escalation command using shell-style quoting and
 // rejects unsafe characters. It returns an error if the command is empty or
@@ -36,15 +52,15 @@ func ParseEscalation(escalation string) ([]string, error) {
 }
 
 // verifyEscalation checks that the escalation command succeeds when not running as root.
-func verifyEscalation(escalation string) error {
-	if geteuid() == 0 {
+func (e *EscalationChecker) verifyEscalation(escalation string) error {
+	if e.geteuid() == 0 {
 		return nil
 	}
 	parts, err := ParseEscalation(escalation)
 	if err != nil {
 		return fmt.Errorf("insufficient privileges: %w", err)
 	}
-	cmd := execCommand(parts[0], append(parts[1:], "true")...)
+	cmd := e.execCommand(parts[0], append(parts[1:], "true")...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("escalation command failed: %s: %w", strings.TrimSpace(string(out)), err)
@@ -52,19 +68,27 @@ func verifyEscalation(escalation string) error {
 	return nil
 }
 
-var checkEscalation = verifyEscalation
-
 // VerifyEscalationCommand validates that the escalation command is available.
-func VerifyEscalationCommand(escalation string) error { return checkEscalation(escalation) }
+func (e *EscalationChecker) VerifyEscalationCommand(escalation string) error {
+	return e.verifyEscalation(escalation)
+}
 
-// SetEscalationChecker overrides the default escalation check function. It returns
-// a restore function to reset the original behavior.
-func SetEscalationChecker(fn func(string) error) func() {
-	orig := checkEscalation
-	if fn == nil {
-		checkEscalation = verifyEscalation
+var defaultEscalationChecker = NewEscalationChecker()
+
+// VerifyEscalationCommand validates that the escalation command is available using
+// the default EscalationChecker instance.
+func VerifyEscalationCommand(escalation string) error {
+	return defaultEscalationChecker.VerifyEscalationCommand(escalation)
+}
+
+// SetEscalationChecker overrides the default EscalationChecker. It returns a
+// restore function to reset the original behavior.
+func SetEscalationChecker(c *EscalationChecker) func() {
+	orig := defaultEscalationChecker
+	if c == nil {
+		defaultEscalationChecker = NewEscalationChecker()
 	} else {
-		checkEscalation = fn
+		defaultEscalationChecker = c
 	}
-	return func() { checkEscalation = orig }
+	return func() { defaultEscalationChecker = orig }
 }

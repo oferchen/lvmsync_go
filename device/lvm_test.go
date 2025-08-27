@@ -195,7 +195,7 @@ func TestOpenLVMSnapshotAllowed(t *testing.T) {
 
 func TestRunLVMPrivilegeEscalation(t *testing.T) {
 	ctx := context.Background()
-	restore := lvm.SetEscalationChecker(func(string) error { return nil })
+	restore := lvm.SetEscalationChecker(lvm.NewEscalationCheckerWithDeps(nil, func() int { return 0 }))
 	defer restore()
 	var gotName string
 	var gotArgs []string
@@ -218,7 +218,7 @@ func TestRunLVMPrivilegeEscalation(t *testing.T) {
 
 func TestRunLVMPrivilegeEscalationQuoted(t *testing.T) {
 	ctx := context.Background()
-	restore := lvm.SetEscalationChecker(func(string) error { return nil })
+	restore := lvm.SetEscalationChecker(lvm.NewEscalationCheckerWithDeps(nil, func() int { return 0 }))
 	defer restore()
 	var gotName string
 	var gotArgs []string
