@@ -183,3 +183,26 @@ jobs:
           name: reports-${{ matrix.os }}
           path: reports
           if-no-files-found: ignore
+
+  rsync:
+    runs-on: ubuntu-24.04
+    env:
+      GO111MODULE: "on"
+      CGO_ENABLED: "1"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "${{ vars.GO_VERSION || '1.24.x' }}"
+          cache: true
+
+      - name: Build with rsync tag
+        run: go build -tags rsync ./...
+
+      - name: Test with rsync tag
+        run: go test -tags rsync ./...

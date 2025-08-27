@@ -230,6 +230,7 @@ lvmsync --compress auto --zstd-level 2 --compress-threshold 0.85
 
 - Tags follow `vX.Y.Z` semantic versioning.
 - Pushing a tag triggers `.github/workflows/release.yml` which builds and publishes artifacts.
+- Release binaries omit the `rsync` transport unless built with `GOFLAGS='-tags rsync'`.
 - Each release must include a `CHANGELOG.md` entry using the [Keep a Changelog](https://keepachangelog.com/) format:
 
   ```markdown
