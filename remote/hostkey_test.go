@@ -3,7 +3,7 @@ package remote
 import (
 	"testing"
 
-	remotetest "lvmsync_go/remote/testutil"
+	remotetest "github.com/oferchen/lvmsync_go/remote/testutil"
 )
 
 func TestSetupHostKeyCallbackInsecure(t *testing.T) {

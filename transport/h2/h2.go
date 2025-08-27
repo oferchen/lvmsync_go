@@ -15,9 +15,9 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/net/http2"
 
-	"lvmsync_go/common"
-	"lvmsync_go/internal/logging"
-	"lvmsync_go/transport"
+	"github.com/oferchen/lvmsync_go/common"
+	"github.com/oferchen/lvmsync_go/internal/logging"
+	"github.com/oferchen/lvmsync_go/transport"
 )
 
 const (

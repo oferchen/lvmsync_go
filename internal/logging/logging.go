@@ -7,7 +7,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
-	config "lvmsync_go/internal/config"
+	config "github.com/oferchen/lvmsync_go/internal/config"
 )
 
 // Option configures NewLogger behavior.

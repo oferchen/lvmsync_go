@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"lvmsync_go/internal/limiter"
+	"github.com/oferchen/lvmsync_go/internal/limiter"
 )
 
 type stubClock struct {

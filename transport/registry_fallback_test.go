@@ -12,7 +12,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 
-	"lvmsync_go/common"
+	"github.com/oferchen/lvmsync_go/common"
 )
 
 // stubTransport implements Interface with configurable dial behavior.

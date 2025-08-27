@@ -10,7 +10,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
 
-	"lvmsync_go/internal/config"
+	"github.com/oferchen/lvmsync_go/internal/config"
 )
 
 func TestBlockWriterCoalescesZeroBlocks(t *testing.T) {

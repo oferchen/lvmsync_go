@@ -13,8 +13,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"lvmsync_go/common"
-	"lvmsync_go/transport"
+	"github.com/oferchen/lvmsync_go/common"
+	"github.com/oferchen/lvmsync_go/transport"
 )
 
 func GenerateSelfSignedCert(t *testing.T) (tls.Certificate, *x509.CertPool) {

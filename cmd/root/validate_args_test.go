@@ -3,7 +3,7 @@ package root
 import (
 	"testing"
 
-	"lvmsync_go/internal/config"
+	"github.com/oferchen/lvmsync_go/internal/config"
 )
 
 func TestValidateArgsSuccess(t *testing.T) {

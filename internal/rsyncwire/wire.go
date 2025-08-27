@@ -17,7 +17,7 @@ import (
 	"github.com/gokrazy/rsync"
 	"github.com/mmcloughlin/md4"
 
-	"lvmsync_go/device"
+	"github.com/oferchen/lvmsync_go/device"
 )
 
 var crcTable = crc32.MakeTable(crc32.Castagnoli)

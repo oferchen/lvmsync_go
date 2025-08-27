@@ -10,7 +10,7 @@ package transfer
 import (
 	"io"
 
-	"lvmsync_go/internal/limiter"
+	"github.com/oferchen/lvmsync_go/internal/limiter"
 )
 
 // rateLimitedWriter wraps an io.Writer with a token bucket limiter.

@@ -10,15 +10,15 @@ import (
 	"github.com/zeebo/blake3"
 	"go.uber.org/zap"
 
-	"lvmsync_go/common"
-	"lvmsync_go/dedup"
-	"lvmsync_go/device"
-	internalcommon "lvmsync_go/internal/common"
-	"lvmsync_go/internal/config"
-	digestpkg "lvmsync_go/internal/digest"
-	"lvmsync_go/internal/privilege"
-	"lvmsync_go/internal/rsyncwire"
-	manifestpkg "lvmsync_go/manifest"
+	"github.com/oferchen/lvmsync_go/common"
+	"github.com/oferchen/lvmsync_go/dedup"
+	"github.com/oferchen/lvmsync_go/device"
+	internalcommon "github.com/oferchen/lvmsync_go/internal/common"
+	"github.com/oferchen/lvmsync_go/internal/config"
+	digestpkg "github.com/oferchen/lvmsync_go/internal/digest"
+	"github.com/oferchen/lvmsync_go/internal/privilege"
+	"github.com/oferchen/lvmsync_go/internal/rsyncwire"
+	manifestpkg "github.com/oferchen/lvmsync_go/manifest"
 )
 
 const rsyncMaxFrame = 1 << 20

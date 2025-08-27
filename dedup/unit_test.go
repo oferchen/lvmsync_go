@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"lvmsync_go/dedup"
-	"lvmsync_go/hash"
-	"lvmsync_go/internal/config"
-	transfer "lvmsync_go/transfer"
+	"github.com/oferchen/lvmsync_go/dedup"
+	"github.com/oferchen/lvmsync_go/hash"
+	"github.com/oferchen/lvmsync_go/internal/config"
+	transfer "github.com/oferchen/lvmsync_go/transfer"
 )
 
 func TestHasher(t *testing.T) {

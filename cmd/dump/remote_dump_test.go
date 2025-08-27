@@ -13,10 +13,10 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 
-	"lvmsync_go/internal/config"
-	digestpkg "lvmsync_go/internal/digest"
-	remotetest "lvmsync_go/remote/testutil"
-	"lvmsync_go/transfer"
+	"github.com/oferchen/lvmsync_go/internal/config"
+	digestpkg "github.com/oferchen/lvmsync_go/internal/digest"
+	remotetest "github.com/oferchen/lvmsync_go/remote/testutil"
+	"github.com/oferchen/lvmsync_go/transfer"
 )
 
 // TestRunRemoteDump executes a remote command through SSH.

@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"github.com/zeebo/blake3"
-	"lvmsync_go/device"
-	walpkg "lvmsync_go/internal/wal"
+	"github.com/oferchen/lvmsync_go/device"
+	walpkg "github.com/oferchen/lvmsync_go/internal/wal"
 )
 
 const (

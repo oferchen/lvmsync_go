@@ -4,7 +4,7 @@ import (
 	"context"
 	"path/filepath"
 
-	"lvmsync_go/internal/lvm"
+	"github.com/oferchen/lvmsync_go/internal/lvm"
 )
 
 // DeviceWriter opens LVM logical volumes for writing.

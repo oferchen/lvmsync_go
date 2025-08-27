@@ -3,7 +3,7 @@ package transfer
 import (
 	"go.uber.org/zap"
 
-	"lvmsync_go/internal/config"
+	"github.com/oferchen/lvmsync_go/internal/config"
 )
 
 func findResumeIndexHybrid(cfg *config.Config, ranges []Range, chk resumeChunk, logger *zap.Logger) int {

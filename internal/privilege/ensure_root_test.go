@@ -13,9 +13,9 @@ import (
 
 	"go.uber.org/zap"
 
-	rootcmd "lvmsync_go/cmd/root"
-	"lvmsync_go/internal/exitcode"
-	"lvmsync_go/internal/privilege"
+	rootcmd "github.com/oferchen/lvmsync_go/cmd/root"
+	"github.com/oferchen/lvmsync_go/internal/exitcode"
+	"github.com/oferchen/lvmsync_go/internal/privilege"
 )
 
 func TestEnsureSudoTrue(t *testing.T) {

@@ -18,11 +18,11 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 	"gopkg.in/yaml.v3"
 
-	device "lvmsync_go/device"
-	"lvmsync_go/internal/blockio"
-	"lvmsync_go/internal/config"
-	privilege "lvmsync_go/internal/privilege"
-	manifestpkg "lvmsync_go/manifest"
+	device "github.com/oferchen/lvmsync_go/device"
+	"github.com/oferchen/lvmsync_go/internal/blockio"
+	"github.com/oferchen/lvmsync_go/internal/config"
+	privilege "github.com/oferchen/lvmsync_go/internal/privilege"
+	manifestpkg "github.com/oferchen/lvmsync_go/manifest"
 )
 
 type syncTrackerCore struct {

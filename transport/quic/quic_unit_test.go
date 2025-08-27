@@ -16,8 +16,8 @@ import (
 	quic "github.com/quic-go/quic-go"
 	"go.uber.org/zap"
 
-	"lvmsync_go/common"
-	"lvmsync_go/transport"
+	"github.com/oferchen/lvmsync_go/common"
+	"github.com/oferchen/lvmsync_go/transport"
 )
 
 func generateSelfSignedCert(t *testing.T) (tls.Certificate, *x509.CertPool) {

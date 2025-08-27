@@ -25,8 +25,8 @@ import (
 	"golang.org/x/crypto/ssh/agent"
 	"golang.org/x/crypto/ssh/knownhosts"
 
-	"lvmsync_go/common"
-	"lvmsync_go/transport"
+	"github.com/oferchen/lvmsync_go/common"
+	"github.com/oferchen/lvmsync_go/transport"
 )
 
 func checkLogFields(t *testing.T, logs *observer.ObservedLogs, msg string, expected int, wantErr bool, level zapcore.Level) {

@@ -18,7 +18,7 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 	"golang.org/x/sys/unix"
 
-	"lvmsync_go/device"
+	"github.com/oferchen/lvmsync_go/device"
 )
 
 type mockDevice struct {

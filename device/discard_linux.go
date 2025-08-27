@@ -11,8 +11,8 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
 
-	"lvmsync_go/escalate"
-	"lvmsync_go/internal/privilege"
+	"github.com/oferchen/lvmsync_go/escalate"
+	"github.com/oferchen/lvmsync_go/internal/privilege"
 )
 
 func blkdiscard(f *os.File, offset, length uint64, sanitize, noNewPrivs bool, logger *zap.Logger) error {

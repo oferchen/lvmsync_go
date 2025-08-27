@@ -1,7 +1,7 @@
 // transfer/types.go
 package transfer
 
-import wal "lvmsync_go/internal/wal"
+import wal "github.com/oferchen/lvmsync_go/internal/wal"
 
 type Range = wal.Range
 

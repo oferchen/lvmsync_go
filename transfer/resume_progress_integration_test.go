@@ -16,10 +16,10 @@ import (
 	"github.com/zeebo/blake3"
 	"go.uber.org/zap"
 
-	"lvmsync_go/device"
-	"lvmsync_go/internal/config"
-	privilege "lvmsync_go/internal/privilege"
-	"lvmsync_go/transport"
+	"github.com/oferchen/lvmsync_go/device"
+	"github.com/oferchen/lvmsync_go/internal/config"
+	privilege "github.com/oferchen/lvmsync_go/internal/privilege"
+	"github.com/oferchen/lvmsync_go/transport"
 )
 
 // waitForBlocks waits until at least blocks blocks have been written to dest.

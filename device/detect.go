@@ -11,8 +11,8 @@ import (
 	"github.com/kballard/go-shellquote"
 	"go.uber.org/zap"
 
-	"lvmsync_go/internal/privilege"
-	"lvmsync_go/lvm"
+	"github.com/oferchen/lvmsync_go/internal/privilege"
+	"github.com/oferchen/lvmsync_go/lvm"
 )
 
 func verifyPartition(ctx context.Context, dev Device, runner *Runner, logger *zap.Logger) error {

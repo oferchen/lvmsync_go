@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	ilvm "lvmsync_go/internal/lvm"
-	lvmlib "lvmsync_go/lvm"
+	ilvm "github.com/oferchen/lvmsync_go/internal/lvm"
+	lvmlib "github.com/oferchen/lvmsync_go/lvm"
 )
 
 type mockAgent struct {

@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"lvmsync_go/device"
+	"github.com/oferchen/lvmsync_go/device"
 )
 
 func TestWALVersionMismatch(t *testing.T) {

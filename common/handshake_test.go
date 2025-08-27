@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"lvmsync_go/common"
+	"github.com/oferchen/lvmsync_go/common"
 )
 
 func TestHandshakeRoundTrip(t *testing.T) {

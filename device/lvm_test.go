@@ -17,9 +17,9 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 
-	"lvmsync_go/internal/exitcode"
-	"lvmsync_go/internal/lock"
-	"lvmsync_go/lvm"
+	"github.com/oferchen/lvmsync_go/internal/exitcode"
+	"github.com/oferchen/lvmsync_go/internal/lock"
+	"github.com/oferchen/lvmsync_go/lvm"
 )
 
 type ttyLVMReader struct{ io.Reader }

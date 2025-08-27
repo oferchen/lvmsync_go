@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"lvmsync_go/device"
-	walpkg "lvmsync_go/internal/wal"
+	"github.com/oferchen/lvmsync_go/device"
+	walpkg "github.com/oferchen/lvmsync_go/internal/wal"
 )
 
 func TestWALMismatch(t *testing.T) {

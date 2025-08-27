@@ -3,7 +3,7 @@ package transport
 import (
 	"go.uber.org/zap"
 
-	"lvmsync_go/common"
+	"github.com/oferchen/lvmsync_go/common"
 )
 
 // HandshakeFields returns zap fields logging handshake parameters.

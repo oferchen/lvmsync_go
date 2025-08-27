@@ -7,7 +7,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"lvmsync_go/internal/compressiondetect"
+	"github.com/oferchen/lvmsync_go/internal/compressiondetect"
 )
 
 // TestDetectOptimalCompressionEntropy verifies that high-entropy data is not

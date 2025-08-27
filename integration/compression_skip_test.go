@@ -11,7 +11,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"lvmsync_go/transfer"
+	"github.com/oferchen/lvmsync_go/transfer"
 )
 
 // generateGzip returns a gzip-compressed blob of random data of the given size.

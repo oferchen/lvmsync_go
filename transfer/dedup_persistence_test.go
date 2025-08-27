@@ -14,8 +14,8 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 
-	"lvmsync_go/device"
-	manifestpkg "lvmsync_go/manifest"
+	"github.com/oferchen/lvmsync_go/device"
+	manifestpkg "github.com/oferchen/lvmsync_go/manifest"
 )
 
 func TestBloomFilterDedupPersistence(t *testing.T) {

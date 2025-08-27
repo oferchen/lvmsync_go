@@ -7,7 +7,7 @@ import (
 
 	"go.uber.org/zap"
 
-	remotetest "lvmsync_go/remote/testutil"
+	remotetest "github.com/oferchen/lvmsync_go/remote/testutil"
 )
 
 func TestSendKeepAlive(t *testing.T) {

@@ -9,7 +9,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 
-	config "lvmsync_go/internal/config"
+	config "github.com/oferchen/lvmsync_go/internal/config"
 )
 
 func TestNewLoggerSamplingDefaults(t *testing.T) {

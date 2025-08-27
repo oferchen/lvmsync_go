@@ -12,8 +12,8 @@ import (
 	"github.com/zeebo/blake3"
 	"go.uber.org/zap"
 
-	"lvmsync_go/device"
-	"lvmsync_go/internal/config"
+	"github.com/oferchen/lvmsync_go/device"
+	"github.com/oferchen/lvmsync_go/internal/config"
 )
 
 func TestResumeHybridOffset(t *testing.T) {

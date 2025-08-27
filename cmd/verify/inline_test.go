@@ -5,8 +5,8 @@ import (
 	"io"
 
 	"go.uber.org/zap"
-	"lvmsync_go/internal/blockio"
-	cfgpkg "lvmsync_go/internal/config"
+	"github.com/oferchen/lvmsync_go/internal/blockio"
+	cfgpkg "github.com/oferchen/lvmsync_go/internal/config"
 )
 
 // verifyInline compares two devices block-by-block and returns an error if they differ.

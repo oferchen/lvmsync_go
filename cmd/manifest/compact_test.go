@@ -10,8 +10,8 @@ import (
 	"github.com/zeebo/xxh3"
 	"go.uber.org/zap"
 
-	"lvmsync_go/internal/config"
-	manifestpkg "lvmsync_go/manifest"
+	"github.com/oferchen/lvmsync_go/internal/config"
+	manifestpkg "github.com/oferchen/lvmsync_go/manifest"
 )
 
 const compactEntrySize = 56

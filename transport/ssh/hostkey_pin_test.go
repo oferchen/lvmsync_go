@@ -17,7 +17,7 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 	"golang.org/x/crypto/ssh"
 
-	"lvmsync_go/transport"
+	"github.com/oferchen/lvmsync_go/transport"
 )
 
 func checkLog(t *testing.T, logs *observer.ObservedLogs, msg string, wantErr bool, level zapcore.Level) {

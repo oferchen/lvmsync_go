@@ -13,9 +13,9 @@ import (
 	"github.com/zeebo/xxh3"
 	"go.uber.org/zap"
 
-	"lvmsync_go/internal/config"
-	"lvmsync_go/internal/cpufeatures"
-	"lvmsync_go/manifest"
+	"github.com/oferchen/lvmsync_go/internal/config"
+	"github.com/oferchen/lvmsync_go/internal/cpufeatures"
+	"github.com/oferchen/lvmsync_go/manifest"
 )
 
 type compressionInfo struct {

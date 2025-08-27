@@ -11,15 +11,15 @@ import (
 	"sync"
 	"testing"
 
-	rootcmd "lvmsync_go/cmd/root"
-	"lvmsync_go/device"
-	"lvmsync_go/internal/config"
-	"lvmsync_go/internal/exitcode"
+	rootcmd "github.com/oferchen/lvmsync_go/cmd/root"
+	"github.com/oferchen/lvmsync_go/device"
+	"github.com/oferchen/lvmsync_go/internal/config"
+	"github.com/oferchen/lvmsync_go/internal/exitcode"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 	"golang.org/x/sys/unix"
-	manifestpkg "lvmsync_go/manifest"
+	manifestpkg "github.com/oferchen/lvmsync_go/manifest"
 )
 
 func TestProcessDumpDataDeviceIDMismatchPrecondition(t *testing.T) {

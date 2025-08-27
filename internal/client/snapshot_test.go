@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"lvmsync_go/internal/client"
-	"lvmsync_go/internal/config"
-	"lvmsync_go/lvm"
+	"github.com/oferchen/lvmsync_go/internal/client"
+	"github.com/oferchen/lvmsync_go/internal/config"
+	"github.com/oferchen/lvmsync_go/lvm"
 
 	"go.uber.org/zap"
 )

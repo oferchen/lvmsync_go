@@ -18,12 +18,12 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 
-	"lvmsync_go/common"
-	"lvmsync_go/transport"
-	_ "lvmsync_go/transport/h2"
-	_ "lvmsync_go/transport/quic"
-	_ "lvmsync_go/transport/ssh"
-	_ "lvmsync_go/transport/tcp_tls"
+	"github.com/oferchen/lvmsync_go/common"
+	"github.com/oferchen/lvmsync_go/transport"
+	_ "github.com/oferchen/lvmsync_go/transport/h2"
+	_ "github.com/oferchen/lvmsync_go/transport/quic"
+	_ "github.com/oferchen/lvmsync_go/transport/ssh"
+	_ "github.com/oferchen/lvmsync_go/transport/tcp_tls"
 )
 
 func handshakeRoundTrip(t transport.Interface, tname string) error {

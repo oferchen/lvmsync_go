@@ -8,9 +8,9 @@ import (
 
 	"go.uber.org/zap"
 
-	"lvmsync_go/common"
-	"lvmsync_go/internal/config"
-	digest "lvmsync_go/internal/digest"
+	"github.com/oferchen/lvmsync_go/common"
+	"github.com/oferchen/lvmsync_go/internal/config"
+	digest "github.com/oferchen/lvmsync_go/internal/digest"
 )
 
 func composeHandshake(cfg *config.Config, mode string) common.Handshake {

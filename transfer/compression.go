@@ -10,8 +10,8 @@ import (
 	"github.com/pierrec/lz4/v4"
 	"go.uber.org/zap"
 
-	"lvmsync_go/internal/compressiondetect"
-	cpufeatures "lvmsync_go/internal/cpufeatures"
+	"github.com/oferchen/lvmsync_go/internal/compressiondetect"
+	cpufeatures "github.com/oferchen/lvmsync_go/internal/cpufeatures"
 )
 
 const (

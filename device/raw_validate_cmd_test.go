@@ -10,7 +10,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"lvmsync_go/internal/exitcode"
+	"github.com/oferchen/lvmsync_go/internal/exitcode"
 )
 
 func TestValidateCmd(t *testing.T) {

@@ -6,11 +6,11 @@ import (
 	"testing"
 	"time"
 
-	rootcmd "lvmsync_go/cmd/root"
-	"lvmsync_go/internal/client"
-	"lvmsync_go/internal/config"
-	"lvmsync_go/internal/exitcode"
-	lvm "lvmsync_go/lvm"
+	rootcmd "github.com/oferchen/lvmsync_go/cmd/root"
+	"github.com/oferchen/lvmsync_go/internal/client"
+	"github.com/oferchen/lvmsync_go/internal/config"
+	"github.com/oferchen/lvmsync_go/internal/exitcode"
+	lvm "github.com/oferchen/lvmsync_go/lvm"
 
 	"go.uber.org/zap"
 )
