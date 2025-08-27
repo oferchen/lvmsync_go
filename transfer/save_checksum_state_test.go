@@ -4,10 +4,8 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"reflect"
 	"testing"
 
-	"bou.ke/monkey"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 )
@@ -22,22 +20,15 @@ func TestSaveChecksumState(t *testing.T) {
 	})
 
 	t.Run("close warning", func(t *testing.T) {
-		var f *os.File
-		patchChmod := monkey.PatchInstanceMethod(reflect.TypeOf(f), "Chmod", func(*os.File, os.FileMode) error {
-			return errors.New("chmod fail")
-		})
-		defer patchChmod.Unpatch()
-		patchClose := monkey.PatchInstanceMethod(reflect.TypeOf(f), "Close", func(*os.File) error {
-			return errors.New("close fail")
-		})
-		defer patchClose.Unpatch()
-
 		core, observed := observer.New(zap.WarnLevel)
 		logger := zap.New(core)
-
-		filename := filepath.Join(t.TempDir(), "state")
 		state := &ChecksumState{Checksums: make(map[uint64][]byte), Strategy: "sha256"}
-		if err := SaveChecksumState(filename, state, logger); err == nil {
+		ff := &fakeFile{
+			chmodErr: errors.New("chmod fail"),
+			closeErr: errors.New("close fail"),
+		}
+		err := saveChecksumState("ignored", state, logger, func(string) (checksumFile, error) { return ff, nil })
+		if err == nil {
 			t.Fatalf("expected SaveChecksumState error")
 		}
 		logs := observed.FilterMessage("Failed to close checksum state file").All()
@@ -46,3 +37,12 @@ func TestSaveChecksumState(t *testing.T) {
 		}
 	})
 }
+
+type fakeFile struct {
+	chmodErr error
+	closeErr error
+}
+
+func (f *fakeFile) Write(p []byte) (int, error) { return len(p), nil }
+func (f *fakeFile) Chmod(os.FileMode) error     { return f.chmodErr }
+func (f *fakeFile) Close() error                { return f.closeErr }

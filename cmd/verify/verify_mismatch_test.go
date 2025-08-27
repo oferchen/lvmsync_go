@@ -36,7 +36,7 @@ func TestRunLogsMismatchBlock(t *testing.T) {
 			return err
 		}
 		return idx.Close()
-	})
+	}, nil, nil)
 	err := r.Run([]string{"--digest", "blake3", src, dst}, logger)
 	if err == nil {
 		t.Fatalf("expected error")
@@ -68,7 +68,7 @@ func TestRunLogsMismatchBlockSHA256(t *testing.T) {
 			return err
 		}
 		return idx.Close()
-	})
+	}, nil, nil)
 	err := r.Run([]string{"--digest", "sha256", src, dst}, logger)
 	if err == nil {
 		t.Fatalf("expected error")
