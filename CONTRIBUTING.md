@@ -53,6 +53,21 @@ make coverage
 
 This command writes `coverage.out` and prints function coverage details.
 
+## Rsync-tagged tests
+
+Some packages require the `rsync` build tag. Run their tests locally with the tag enabled:
+
+```sh
+go test -tags rsync ./...
+```
+
+To include coverage for these tests:
+
+```sh
+go test -tags rsync -coverprofile=coverage-rsync.out ./...
+go tool cover -func=coverage-rsync.out
+```
+
 ## Sudoers file validation
 
 CI also checks the syntax of the sample sudoers rules:

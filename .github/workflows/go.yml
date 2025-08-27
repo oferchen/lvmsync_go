@@ -203,6 +203,18 @@ jobs:
 
       - name: Build with rsync tag
         run: go build -tags rsync ./...
-
       - name: Test with rsync tag
-        run: go test -tags rsync ./...
+        run: go test -race -tags rsync -coverprofile=coverage-rsync.out ./...
+
+      - name: Show rsync coverage (summary)
+        if: always() && hashFiles('coverage-rsync.out') != ''
+        run: |
+          go tool cover -func=coverage-rsync.out | tail -n 1 | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload rsync coverage
+        if: always() && hashFiles('coverage-rsync.out') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-rsync
+          path: coverage-rsync.out
+          if-no-files-found: error
