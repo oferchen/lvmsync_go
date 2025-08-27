@@ -30,6 +30,12 @@ func (w writeOnlyReadWriter) Read([]byte) (int, error) { return 0, io.EOF }
 // It streams signatures and deltas followed by a digest frame.
 // When out implements io.Closer, it is closed on completion.
 func (t *Transfer) streamRsyncDelta(ctx context.Context, cfg *config.Config, snapshot, origin string, out io.Writer) (err error) {
+	if !cfg.AllowInsecure {
+		return fmt.Errorf("rsync delta requires AllowInsecure")
+	}
+
+	t.Logger.Warn("plaintext_connection", zap.String("transport", "rsync"), zap.String("docs", "docs/transports.md"))
+
 	snap, err := os.Open(snapshot)
 	if err != nil {
 		return fmt.Errorf("open snapshot: %w", err)
@@ -41,8 +47,6 @@ func (t *Transfer) streamRsyncDelta(ctx context.Context, cfg *config.Config, sna
 		return fmt.Errorf("open origin: %w", err)
 	}
 	defer common.CloseWithErr(orig, &err, "close origin")
-
-	t.Logger.Warn("plaintext_connection", zap.String("transport", "rsync"), zap.String("docs", "docs/transports.md"))
 
 	// Prefer a read/write connection so we can drain server responses
 	// before closing the stream. Fall back to a write-only wrapper when the
