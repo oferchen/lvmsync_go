@@ -1,3 +1,5 @@
+//go:build rsync
+
 package signaturecache
 
 import (
