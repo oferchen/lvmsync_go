@@ -22,7 +22,7 @@ import (
 	"lvmsync_go/device"
 	"lvmsync_go/internal/digest"
 	"lvmsync_go/internal/rsyncwire"
-	"lvmsync_go/internal/signaturecache"
+	"lvmsync_go/testutil/signaturecache"
 )
 
 const maxFrame = 1 << 20
