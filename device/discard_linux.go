@@ -30,23 +30,31 @@ func blkdiscard(f *os.File, offset, length uint64, sanitize, noNewPrivs bool, lo
 	return nil
 }
 
-var discardImpl = blkdiscard
+// Discarder issues block discard operations using a configurable implementation.
+type Discarder struct {
+	fn func(*os.File, uint64, uint64, bool, bool, *zap.Logger) error
+}
 
-// SetDiscardFunc overrides the discard implementation. It returns a restore function.
-func SetDiscardFunc(fn func(*os.File, uint64, uint64, bool, bool, *zap.Logger) error) func() {
-	orig := discardImpl
+// NewDiscarder returns a Discarder that uses the real blkdiscard implementation.
+func NewDiscarder() *Discarder {
+	return &Discarder{fn: blkdiscard}
+}
+
+// NewDiscarderWithFunc returns a Discarder that uses fn. If fn is nil, blkdiscard is used.
+func NewDiscarderWithFunc(fn func(*os.File, uint64, uint64, bool, bool, *zap.Logger) error) *Discarder {
 	if fn == nil {
-		discardImpl = blkdiscard
-	} else {
-		discardImpl = fn
+		fn = blkdiscard
 	}
-	return func() { discardImpl = orig }
+	return &Discarder{fn: fn}
 }
 
 // DiscardRange issues BLKDISCARD for the specified range on f. logger must be non-nil.
-func DiscardRange(f *os.File, offset, length uint64, sanitize, noNewPrivs bool, logger *zap.Logger) error {
+func (d *Discarder) DiscardRange(f *os.File, offset, length uint64, sanitize, noNewPrivs bool, logger *zap.Logger) error {
+	if d == nil {
+		return fmt.Errorf("discarder is nil")
+	}
 	if logger == nil {
 		return fmt.Errorf("logger is nil")
 	}
-	return discardImpl(f, offset, length, sanitize, noNewPrivs, logger)
+	return d.fn(f, offset, length, sanitize, noNewPrivs, logger)
 }
