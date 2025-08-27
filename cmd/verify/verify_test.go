@@ -12,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"bou.ke/monkey"
 	"github.com/zeebo/blake3"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -20,6 +19,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	device "lvmsync_go/device"
+	"lvmsync_go/internal/blockio"
 	"lvmsync_go/internal/config"
 	privilege "lvmsync_go/internal/privilege"
 	manifestpkg "lvmsync_go/manifest"
@@ -54,9 +54,10 @@ func createTestFile(t testing.TB, size int) string {
 
 // newStubRunner returns a Runner with a no-op rebuild function.
 func newStubRunner() *Runner {
-	return NewRunnerWithDeps(func(_ context.Context, _ string, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error {
+	rebuild := func(_ context.Context, _ string, _ string, _ *zap.Logger, _ time.Duration, _ bool, _ uint32, _ uint32, _ uint32, _ uint32, _ ...manifestpkg.IndexOption) error {
 		return nil
-	})
+	}
+	return NewRunnerWithDeps(rebuild, nil, nil)
 }
 
 func createManifest(t testing.TB, file string) {
@@ -321,23 +322,23 @@ func TestVerifyWithManifestParallel(t *testing.T) {
 	idx.Close()
 	f.Close()
 
-	orig := blake3.Sum256
-	patch := monkey.Patch(blake3.Sum256, func(p []byte) [32]byte {
+	slow := func(p []byte) [32]byte {
 		time.Sleep(50 * time.Millisecond)
-		return orig(p)
-	})
-	defer patch.Unpatch()
-
+		return blake3.Sum256(p)
+	}
+	open := func(path string, direct, strict bool) (blockReader, error) {
+		return blockio.Open(path, direct, strict)
+	}
 	cfg := &config.Config{Parallel: 1, ChecksumAlgorithm: "blake3"}
 	start := time.Now()
-	if err := verifyWithManifest(cfg, src, manifestPath, zap.NewNop()); err != nil {
+	if err := verifyWithManifestOpen(open, slow, cfg, src, manifestPath, zap.NewNop()); err != nil {
 		t.Fatalf("parallel=1: %v", err)
 	}
 	d1 := time.Since(start)
 
 	cfg.Parallel = 4
 	start = time.Now()
-	if err := verifyWithManifest(cfg, src, manifestPath, zap.NewNop()); err != nil {
+	if err := verifyWithManifestOpen(open, slow, cfg, src, manifestPath, zap.NewNop()); err != nil {
 		t.Fatalf("parallel=4: %v", err)
 	}
 	d2 := time.Since(start)
@@ -378,7 +379,7 @@ func TestVerifyDevicesRebuildsManifest(t *testing.T) {
 			return err
 		}
 		return idx.Close()
-	})
+	}, nil, nil)
 	cfg := &config.Config{ChecksumAlgorithm: "blake3"}
 	if err := r.verifyDevices(context.Background(), cfg, src, dst, "", zap.NewNop()); err != nil {
 		t.Fatalf("verifyDevices: %v", err)
@@ -398,10 +399,10 @@ func TestVerifyDevicesTimeout(t *testing.T) {
 	if err := os.WriteFile(dst, []byte("foo"), 0o600); err != nil {
 		t.Fatalf("write dst: %v", err)
 	}
-	r := NewRunnerWithDeps(func(ctx context.Context, _ string, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error {
+	r := NewRunnerWithDeps(func(ctx context.Context, _ string, _ string, _ *zap.Logger, _ time.Duration, _ bool, _ uint32, _ uint32, _ uint32, _ uint32, _ ...manifestpkg.IndexOption) error {
 		<-ctx.Done()
 		return ctx.Err()
-	})
+	}, nil, nil)
 	cfg := &config.Config{ManifestTimeout: time.Millisecond, ChecksumAlgorithm: "blake3"}
 	err := r.verifyDevices(context.Background(), cfg, src, dst, "", zap.NewNop())
 	if !errors.Is(err, context.DeadlineExceeded) {
@@ -410,15 +411,16 @@ func TestVerifyDevicesTimeout(t *testing.T) {
 }
 
 func TestVerifyDevicesContextCancelled(t *testing.T) {
-	r := newStubRunner()
 	ctx, cancel := context.WithCancel(context.Background())
 	called := make(chan struct{})
-	patch := monkey.Patch(device.Detect, func(ctx context.Context, _ string, _ bool, _ bool, _ string, _ string, _ string, _ string, _ time.Duration, _ time.Duration, _ privilege.Escalator, _ *zap.Logger, _ *device.Runner) (device.Device, error) {
+	detect := func(ctx context.Context, _ string, _ bool, _ bool, _ string, _ string, _ string, _ string, _ time.Duration, _ time.Duration, _ privilege.Escalator, _ *zap.Logger, _ *device.Runner) (device.Device, error) {
 		close(called)
 		<-ctx.Done()
 		return nil, ctx.Err()
-	})
-	defer patch.Unpatch()
+	}
+	r := NewRunnerWithDeps(func(_ context.Context, _ string, _ string, _ *zap.Logger, _ time.Duration, _ bool, _ uint32, _ uint32, _ uint32, _ uint32, _ ...manifestpkg.IndexOption) error {
+		return nil
+	}, detect, nil)
 	cfg := &config.Config{ChecksumAlgorithm: "blake3"}
 	errCh := make(chan error, 1)
 	go func() {
@@ -575,7 +577,7 @@ func TestVerifyWithManifestClosesOnce(t *testing.T) {
 		t.Fatalf("manifest close: %v", err)
 	}
 	cfg := &config.Config{Parallel: 1, ODirect: true, BlockSize: int(blockSize)}
-	if err := verifyWithManifestOpen(open, cfg, "src", manifestPath, zap.NewNop()); err != nil {
+	if err := verifyWithManifestOpen(open, blake3.Sum256, cfg, "src", manifestPath, zap.NewNop()); err != nil {
 		t.Fatalf("verifyWithManifestOpen: %v", err)
 	}
 	if c1 != 1 {

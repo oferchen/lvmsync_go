@@ -31,16 +31,35 @@ import (
 // Runner holds dependencies for verify operations.
 type Runner struct {
 	Rebuild func(ctx context.Context, device, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error
+	Detect  func(ctx context.Context, path string, snap, offline bool, typ, fsFreeze, fsThaw, lvmEsc string, freezeTimeout, thawTimeout time.Duration, esc privilege.Escalator, logger *zap.Logger, runner *device.Runner) (device.Device, error)
+	verify  func(ctx context.Context, cfg *config.Config, src, dst, manifestPath string, logger *zap.Logger) error
 }
 
 // NewRunner returns a Runner with production dependencies.
-func NewRunner() *Runner { return &Runner{Rebuild: manifestpkg.Rebuild} }
+func NewRunner() *Runner {
+	r := &Runner{Rebuild: manifestpkg.Rebuild, Detect: device.Detect}
+	r.verify = r.verifyDevices
+	return r
+}
 
-// NewRunnerWithDeps creates a Runner with custom rebuild function.
+// NewRunnerWithDeps creates a Runner with custom dependencies.
 func NewRunnerWithDeps(
 	rebuild func(ctx context.Context, device, output string, logger *zap.Logger, interval time.Duration, allow bool, cdcMin, cdcAvg, cdcMax, hybrid uint32, opts ...manifestpkg.IndexOption) error,
+	detect func(ctx context.Context, path string, snap, offline bool, typ, fsFreeze, fsThaw, lvmEsc string, freezeTimeout, thawTimeout time.Duration, esc privilege.Escalator, logger *zap.Logger, runner *device.Runner) (device.Device, error),
+	verify func(ctx context.Context, cfg *config.Config, src, dst, manifestPath string, logger *zap.Logger) error,
 ) *Runner {
-	return &Runner{Rebuild: rebuild}
+	r := &Runner{Rebuild: rebuild}
+	if detect != nil {
+		r.Detect = detect
+	} else {
+		r.Detect = device.Detect
+	}
+	if verify != nil {
+		r.verify = verify
+	} else {
+		r.verify = r.verifyDevices
+	}
+	return r
 }
 
 func init() {
@@ -108,7 +127,7 @@ func (r *Runner) Run(args []string, logger *zap.Logger) error {
 				)
 				return nil
 			}
-			err = r.verifyDevices(ctx, cfg, remaining[0], remaining[1], cfg.ManifestPath, logger)
+			err = r.verify(ctx, cfg, remaining[0], remaining[1], cfg.ManifestPath, logger)
 			if cfg.Output == "json" || cfg.Output == "yaml" {
 				out := struct {
 					Verified bool   `json:"verified" yaml:"verified"`
@@ -149,7 +168,7 @@ func (r *Runner) verifyDevices(ctx context.Context, cfg *config.Config, src, dst
 	}
 	runner := device.NewRunner()
 
-	srcDev, err := device.Detect(ctx, src, true, cfg.Offline, cfg.SourceType, cfg.FSFreezeCommand, cfg.FSThawCommand, cfg.LVMEscalation, cfg.FreezeTimeout, cfg.ThawTimeout, esc, logger, runner)
+	srcDev, err := r.Detect(ctx, src, true, cfg.Offline, cfg.SourceType, cfg.FSFreezeCommand, cfg.FSThawCommand, cfg.LVMEscalation, cfg.FreezeTimeout, cfg.ThawTimeout, esc, logger, runner)
 	if err != nil {
 		return err
 	}
@@ -167,7 +186,7 @@ func (r *Runner) verifyDevices(ctx context.Context, cfg *config.Config, src, dst
 		}
 	}()
 
-	dstDev, err := device.Detect(ctx, dst, true, cfg.Offline, cfg.DestType, cfg.FSFreezeCommand, cfg.FSThawCommand, cfg.LVMEscalation, cfg.FreezeTimeout, cfg.ThawTimeout, esc, logger, runner)
+	dstDev, err := r.Detect(ctx, dst, true, cfg.Offline, cfg.DestType, cfg.FSFreezeCommand, cfg.FSThawCommand, cfg.LVMEscalation, cfg.FreezeTimeout, cfg.ThawTimeout, esc, logger, runner)
 	if err != nil {
 		return err
 	}
@@ -271,12 +290,16 @@ type blockReader interface {
 }
 
 func verifyWithManifest(cfg *config.Config, devicePath, manifestPath string, logger *zap.Logger) error {
+	hash, err := digestFunc(cfg)
+	if err != nil {
+		return err
+	}
 	return verifyWithManifestOpen(func(path string, direct, strict bool) (blockReader, error) {
 		return blockio.Open(path, direct, strict)
-	}, cfg, devicePath, manifestPath, logger)
+	}, hash, cfg, devicePath, manifestPath, logger)
 }
 
-func verifyWithManifestOpen(open func(string, bool, bool) (blockReader, error), cfg *config.Config, devicePath, manifestPath string, logger *zap.Logger) error {
+func verifyWithManifestOpen(open func(string, bool, bool) (blockReader, error), hash func([]byte) [32]byte, cfg *config.Config, devicePath, manifestPath string, logger *zap.Logger) error {
 	idx, err := manifestpkg.Open(manifestPath)
 	if err != nil {
 		return fmt.Errorf("open manifest: %w", err)
@@ -325,10 +348,6 @@ func verifyWithManifestOpen(open func(string, bool, bool) (blockReader, error), 
 	tasks := make(chan job, workers)
 	errCh := make(chan error, 1)
 	var mismatches int64
-	hash, err := digestFunc(cfg)
-	if err != nil {
-		return err
-	}
 	var wg sync.WaitGroup
 	for i := 0; i < workers; i++ {
 		wg.Add(1)

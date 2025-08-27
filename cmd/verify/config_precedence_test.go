@@ -6,11 +6,12 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
-	"bou.ke/monkey"
 	"go.uber.org/zap"
 
 	"lvmsync_go/internal/config"
+	manifestpkg "lvmsync_go/manifest"
 )
 
 func TestDryRunFlagOverridesEnvAndYAML(t *testing.T) {
@@ -21,13 +22,15 @@ func TestDryRunFlagOverridesEnvAndYAML(t *testing.T) {
 		t.Fatalf("write config: %v", err)
 	}
 	t.Setenv("LVMSYNC_DRY_RUN", "true")
-	r := newStubRunner()
 	called := false
-	patch := monkey.Patch((*Runner).verifyDevices, func(*Runner, context.Context, *config.Config, string, string, string, *zap.Logger) error {
+	rebuild := func(_ context.Context, _ string, _ string, _ *zap.Logger, _ time.Duration, _ bool, _ uint32, _ uint32, _ uint32, _ uint32, _ ...manifestpkg.IndexOption) error {
+		return nil
+	}
+	verify := func(_ context.Context, _ *config.Config, _ string, _ string, _ string, _ *zap.Logger) error {
 		called = true
 		return nil
-	})
-	defer patch.Unpatch()
+	}
+	r := NewRunnerWithDeps(rebuild, nil, verify)
 	if err := r.Run([]string{"--config", cfgFile, "--dry-run=false", "src", "dst"}, zap.NewNop()); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -44,13 +47,15 @@ func TestDryRunEnvOverridesYAML(t *testing.T) {
 		t.Fatalf("write config: %v", err)
 	}
 	t.Setenv("LVMSYNC_DRY_RUN", "true")
-	r := newStubRunner()
 	called := false
-	patch := monkey.Patch((*Runner).verifyDevices, func(*Runner, context.Context, *config.Config, string, string, string, *zap.Logger) error {
+	rebuild := func(_ context.Context, _ string, _ string, _ *zap.Logger, _ time.Duration, _ bool, _ uint32, _ uint32, _ uint32, _ uint32, _ ...manifestpkg.IndexOption) error {
+		return nil
+	}
+	verify := func(_ context.Context, _ *config.Config, _ string, _ string, _ string, _ *zap.Logger) error {
 		called = true
 		return nil
-	})
-	defer patch.Unpatch()
+	}
+	r := NewRunnerWithDeps(rebuild, nil, verify)
 	src := filepath.Join(dir, "src")
 	if err := os.WriteFile(src, []byte("data"), 0o644); err != nil {
 		t.Fatalf("write src: %v", err)

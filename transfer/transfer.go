@@ -82,13 +82,14 @@ func LoadChecksumState(filename string) (state *ChecksumState, err error) {
 	return state, nil
 }
 
-// SaveChecksumState persists block checksums. logger must be non-nil; use
-// zap.NewNop() to disable logging.
-//
-//revive:disable-next-line:cognitive-complexity
-func SaveChecksumState(filename string, state *ChecksumState, logger *zap.Logger) (err error) {
-	var file *os.File
-	file, err = os.Create(filename)
+type checksumFile interface {
+	io.WriteCloser
+	Chmod(os.FileMode) error
+}
+
+func saveChecksumState(filename string, state *ChecksumState, logger *zap.Logger, create func(string) (checksumFile, error)) (err error) {
+	var file checksumFile
+	file, err = create(filename)
 	if err != nil {
 		return fmt.Errorf("create checksum state: %w", err)
 	}
@@ -106,6 +107,14 @@ func SaveChecksumState(filename string, state *ChecksumState, logger *zap.Logger
 		return fmt.Errorf("encode checksum state: %w", err)
 	}
 	return nil
+}
+
+// SaveChecksumState persists block checksums. logger must be non-nil; use
+// zap.NewNop() to disable logging.
+func SaveChecksumState(filename string, state *ChecksumState, logger *zap.Logger) error {
+	return saveChecksumState(filename, state, logger, func(name string) (checksumFile, error) {
+		return os.Create(name)
+	})
 }
 
 // dumpChangesCore handles core transfer logic; logger must be non-nil.
