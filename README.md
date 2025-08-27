@@ -786,6 +786,10 @@ SSH transport negotiation also derives read and write deadlines from the caller'
   lvmsync run --delta=rsync --dedup-strategy bloom --compress lz4 --transport rsync --allow-insecure --dry-run /tmp/src /tmp/dst
   ```
 
+  The rsync transport is excluded from binaries by default. Compile with
+  `go build -tags rsync` (and run tests with `go test -tags rsync`) to enable
+  it.
+
 - **Throughput-optimized transfer**:
 
   ```sh
