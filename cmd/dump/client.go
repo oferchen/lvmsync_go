@@ -563,6 +563,13 @@ func (r *Runner) StreamToRemote(ctx context.Context, cfg *config.Config, remoteS
 }
 
 func (r *Runner) streamRsyncDelta(ctx context.Context, cfg *config.Config, remoteStdin io.WriteCloser, snapshotDevice, originDevice, alg string, logger *zap.Logger) (err error) {
+	if !cfg.AllowInsecure {
+		remoteStdin.Close()
+		return fmt.Errorf("rsync delta requires AllowInsecure")
+	}
+
+	logger.Warn("plaintext_connection", zap.String("transport", "rsync"), zap.String("docs", "docs/transports.md"))
+
 	snap, err := r.openFile(snapshotDevice, os.O_RDONLY, 0)
 	if err != nil {
 		return fmt.Errorf("open snapshot: %w", err)
@@ -574,8 +581,6 @@ func (r *Runner) streamRsyncDelta(ctx context.Context, cfg *config.Config, remot
 		return fmt.Errorf("open origin: %w", err)
 	}
 	defer common.CloseWithErr(orig, &err, "close origin")
-
-	logger.Warn("plaintext_connection", zap.String("transport", "rsync"), zap.String("docs", "docs/transports.md"))
 
 	rw := writeOnlyReadWriter{remoteStdin}
 	cl := rsyncwire.NewClient(rsyncwire.NewStream(rw, maxFrame))
