@@ -10,6 +10,7 @@ import (
 	"github.com/zeebo/blake3"
 	"go.uber.org/zap"
 
+	"lvmsync_go/device"
 	"lvmsync_go/internal/config"
 	"lvmsync_go/internal/sizeparse"
 )
@@ -29,6 +30,7 @@ type blockWriter struct {
 	deps      *Deps
 	wal       *WAL
 	applied   []Range
+	discarder *device.Discarder
 }
 
 // newBlockWriter constructs a blockWriter, detecting the destination's physical
@@ -62,15 +64,16 @@ func newBlockWriterWithDeps(cfg *config.Config, dest *os.File, dedup Deduplicati
 		cfg.SyncIntervalBytes = int(val)
 	}
 	bw := &blockWriter{
-		cfg:      cfg,
-		dest:     dest,
-		dedup:    dedup,
-		verify:   verify,
-		checksum: checksum,
-		logger:   logger,
-		deps:     deps,
-		wal:      wal,
-		applied:  applied,
+		cfg:       cfg,
+		dest:      dest,
+		dedup:     dedup,
+		verify:    verify,
+		checksum:  checksum,
+		logger:    logger,
+		deps:      deps,
+		wal:       wal,
+		applied:   applied,
+		discarder: device.NewDiscarder(),
 	}
 	if cfg.IntraDedup {
 		bw.intra = newChunkCache(intraCacheCapacity)
@@ -135,7 +138,7 @@ func (bw *blockWriter) write(reader *bufio.Reader) (int64, error) {
 		} else {
 			chunkID = zeroHash(int(chunkSize))
 		}
-		written, zlen, err := processBlock(bw.cfg, bw.dest, bw.dedup, bw.intra, bw.verify, bw.checksum, offset, crc, transmitted, data, chunkSize, bw.logger, bw.wal)
+		written, zlen, err := processBlock(bw.cfg, bw.dest, bw.dedup, bw.intra, bw.verify, bw.checksum, offset, crc, transmitted, data, chunkSize, bw.logger, bw.wal, bw.discarder)
 		if bw.cfg.ODirect {
 			if data != nil {
 				putAlignedBlockBuffer(data)

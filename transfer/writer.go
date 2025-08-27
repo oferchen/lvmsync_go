@@ -137,6 +137,7 @@ func processBlock(
 	chunkSize uint32,
 	logger *zap.Logger,
 	wal *WAL,
+	discarder *device.Discarder,
 ) (bool, uint64, error) {
 	if offset > math.MaxInt64 {
 		return false, 0, fmt.Errorf("offset %d overflows int64", offset)
@@ -169,7 +170,10 @@ func processBlock(
 		}
 	}
 	if cfg.Discard {
-		if err := device.DiscardRange(destFile, offset, uint64(chunkSize), cfg.SanitizeEnv, cfg.NoNewPrivs, logger); err != nil {
+		if discarder == nil {
+			return false, 0, fmt.Errorf("discarder is nil")
+		}
+		if err := discarder.DiscardRange(destFile, offset, uint64(chunkSize), cfg.SanitizeEnv, cfg.NoNewPrivs, logger); err != nil {
 			logger.Debug("discard failed", zap.Error(err))
 		}
 	}

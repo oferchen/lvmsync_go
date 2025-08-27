@@ -6,6 +6,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"lvmsync_go/device"
 	"lvmsync_go/internal/config"
 )
 
@@ -43,11 +44,12 @@ func TestProcessBlockIntraDedup(t *testing.T) {
 	defer os.Remove(f.Name())
 	data := []byte("data")
 	crc := crc32c(data)
-	written, _, err := processBlock(cfg, f, nil, cache, false, nil, 0, crc, nil, data, uint32(len(data)), zap.NewNop(), nil)
+	d := device.NewDiscarderWithFunc(func(*os.File, uint64, uint64, bool, bool, *zap.Logger) error { return nil })
+	written, _, err := processBlock(cfg, f, nil, cache, false, nil, 0, crc, nil, data, uint32(len(data)), zap.NewNop(), nil, d)
 	if err != nil || !written {
 		t.Fatalf("first write %v %v", written, err)
 	}
-	written, _, err = processBlock(cfg, f, nil, cache, false, nil, uint64(len(data)), crc, nil, data, uint32(len(data)), zap.NewNop(), nil)
+	written, _, err = processBlock(cfg, f, nil, cache, false, nil, uint64(len(data)), crc, nil, data, uint32(len(data)), zap.NewNop(), nil, d)
 	if err != nil {
 		t.Fatalf("second write err %v", err)
 	}
