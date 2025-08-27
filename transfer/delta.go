@@ -13,6 +13,7 @@ import (
 	"lvmsync_go/common"
 	"lvmsync_go/dedup"
 	"lvmsync_go/device"
+	internalcommon "lvmsync_go/internal/common"
 	"lvmsync_go/internal/config"
 	digestpkg "lvmsync_go/internal/digest"
 	"lvmsync_go/internal/privilege"
@@ -21,10 +22,6 @@ import (
 )
 
 const rsyncMaxFrame = 1 << 20
-
-type writeOnlyReadWriter struct{ io.Writer }
-
-func (w writeOnlyReadWriter) Read([]byte) (int, error) { return 0, io.EOF }
 
 // streamRsyncDelta performs a byte-level delta pre-pass using rsyncwire.
 // It streams signatures and deltas followed by a digest frame.
@@ -57,7 +54,7 @@ func (t *Transfer) streamRsyncDelta(ctx context.Context, cfg *config.Config, sna
 		rwOK   bool
 	)
 	if rw, rwOK = out.(io.ReadWriter); !rwOK {
-		rw = writeOnlyReadWriter{out}
+		rw = internalcommon.WriteOnlyReadWriter{Writer: out}
 	}
 	stream = rsyncwire.NewStream(rw, rsyncMaxFrame)
 	cl := rsyncwire.NewClient(stream)

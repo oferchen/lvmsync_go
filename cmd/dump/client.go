@@ -16,6 +16,7 @@ import (
 	rootcmd "lvmsync_go/cmd/root"
 	"lvmsync_go/common"
 	"lvmsync_go/device"
+	internalcommon "lvmsync_go/internal/common"
 	"lvmsync_go/internal/config"
 	cpufeatures "lvmsync_go/internal/cpufeatures"
 	digestpkg "lvmsync_go/internal/digest"
@@ -196,10 +197,6 @@ var copyBufferPool = sync.Pool{New: func() any {
 	buf := make([]byte, 32*1024)
 	return &buf
 }}
-
-type writeOnlyReadWriter struct{ io.Writer }
-
-func (writeOnlyReadWriter) Read(p []byte) (int, error) { return 0, io.EOF }
 
 type contextReader struct {
 	ctx context.Context
@@ -549,7 +546,7 @@ func (r *Runner) StreamToRemote(ctx context.Context, cfg *config.Config, remoteS
 		return fmt.Errorf("compute digest: %w", err)
 	}
 
-	rw := writeOnlyReadWriter{remoteStdin}
+	rw := internalcommon.WriteOnlyReadWriter{Writer: remoteStdin}
 	cl := rsyncwire.NewClient(rsyncwire.NewStream(rw, maxFrame))
 	if err := cl.SendDigest(ctx, alg, sum); err != nil {
 		remoteStdin.Close()
@@ -582,7 +579,7 @@ func (r *Runner) streamRsyncDelta(ctx context.Context, cfg *config.Config, remot
 	}
 	defer common.CloseWithErr(orig, &err, "close origin")
 
-	rw := writeOnlyReadWriter{remoteStdin}
+	rw := internalcommon.WriteOnlyReadWriter{Writer: remoteStdin}
 	cl := rsyncwire.NewClient(rsyncwire.NewStream(rw, maxFrame))
 	esc, err := privilege.New(ctx, logger)
 	if err != nil {
