@@ -34,18 +34,16 @@ func TestParseEscalation(t *testing.T) {
 func TestVerifyEscalationCommandSplit(t *testing.T) {
 	var name string
 	var args []string
-	origExec := execCommand
-	execCommand = func(n string, a ...string) *exec.Cmd {
-		name = n
-		args = append([]string(nil), a...)
-		return exec.Command("true")
-	}
-	defer func() { execCommand = origExec }()
-	origUID := geteuid
-	geteuid = func() int { return 1 }
-	defer func() { geteuid = origUID }()
+	checker := NewEscalationCheckerWithDeps(
+		func(n string, a ...string) *exec.Cmd {
+			name = n
+			args = append([]string(nil), a...)
+			return exec.Command("true")
+		},
+		func() int { return 1 },
+	)
 	esc := "\"/usr/bin/sudo wrapper\" -p 'my prompt' -n"
-	if err := VerifyEscalationCommand(esc); err != nil {
+	if err := checker.VerifyEscalationCommand(esc); err != nil {
 		t.Fatalf("VerifyEscalationCommand: %v", err)
 	}
 	wantArgs := []string{"-p", "my prompt", "-n", "true"}

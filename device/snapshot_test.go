@@ -144,7 +144,7 @@ func TestSnapshotCleanupLogsFailure(t *testing.T) {
 		}
 		return exec.CommandContext(ctx, "true")
 	})
-	restore := lvm.SetEscalationChecker(func(string) error { return nil })
+	restore := lvm.SetEscalationChecker(lvm.NewEscalationCheckerWithDeps(nil, func() int { return 0 }))
 	defer restore()
 	runner := NewDeviceRunner(cmd)
 	runner.openLVMOverride = func(ctx context.Context, p string, _ *lvm.FDCache, _ bool, _ bool, _ string, _ *zap.Logger) (*LVMDevice, error) {

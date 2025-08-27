@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"os/exec"
 	"strings"
 	"testing"
 	"time"
@@ -51,7 +52,7 @@ func TestDetectFileDeviceError(t *testing.T) {
 }
 
 func TestDetectLVMDeviceSuccess(t *testing.T) {
-	restore := lvm.SetEscalationChecker(func(string) error { return nil })
+	restore := lvm.SetEscalationChecker(lvm.NewEscalationCheckerWithDeps(nil, func() int { return 0 }))
 	defer restore()
 	core, logs := observer.New(zap.InfoLevel)
 	logger := zap.New(core)
@@ -80,7 +81,7 @@ func TestDetectLVMDeviceSuccess(t *testing.T) {
 }
 
 func TestDetectLVMDeviceError(t *testing.T) {
-	restore := lvm.SetEscalationChecker(func(string) error { return nil })
+	restore := lvm.SetEscalationChecker(lvm.NewEscalationCheckerWithDeps(nil, func() int { return 0 }))
 	defer restore()
 	runner := NewRunner()
 	runner.openLVMOverride = func(context.Context, string, *lvm.FDCache, bool, bool, string, *zap.Logger) (*LVMDevice, error) {
@@ -92,7 +93,12 @@ func TestDetectLVMDeviceError(t *testing.T) {
 }
 
 func TestDetectLVMDeviceEscalationError(t *testing.T) {
-	restore := lvm.SetEscalationChecker(func(string) error { return errors.New("escalate fail") })
+	restore := lvm.SetEscalationChecker(
+		lvm.NewEscalationCheckerWithDeps(
+			func(string, ...string) *exec.Cmd { return exec.Command("false") },
+			func() int { return 1 },
+		),
+	)
 	defer restore()
 	runner := NewRunner()
 	called := false
