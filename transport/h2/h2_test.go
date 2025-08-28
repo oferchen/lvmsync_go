@@ -209,6 +209,51 @@ func TestPerformH2HandshakeClearDeadlineError(t *testing.T) {
 	<-done
 }
 
+func TestPerformH2HandshakeClearDeadlineContextError(t *testing.T) {
+	cert, pool := generateSelfSignedCert(t)
+
+	serverConf := &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		NextProtos:   []string{"h2"},
+		MinVersion:   tls.VersionTLS13,
+		MaxVersion:   tls.VersionTLS13,
+	}
+	clientConf := &tls.Config{
+		RootCAs:    pool,
+		NextProtos: []string{"h2"},
+		MinVersion: tls.VersionTLS13,
+		MaxVersion: tls.VersionTLS13,
+		ServerName: "127.0.0.1",
+	}
+
+	c1, c2 := net.Pipe()
+	srv := tls.Server(c1, serverConf)
+	cli := tls.Client(c2, clientConf)
+	errCh := make(chan error, 1)
+	go func() { errCh <- srv.Handshake() }()
+	if err := cli.Handshake(); err != nil {
+		t.Fatalf("client handshake: %v", err)
+	}
+	if err := <-errCh; err != nil {
+		t.Fatalf("server handshake: %v", err)
+	}
+
+	wantErr := errors.New("clear deadline fail")
+	tr := &Transport{
+		logger:        zap.NewNop(),
+		clearDeadline: func(net.Conn) error { return wantErr },
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := tr.performH2Handshake(ctx, cli); !errors.Is(err, wantErr) || !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected combined context and clearDeadline errors, got %v", err)
+	}
+
+	cli.Close()
+	srv.Close()
+}
+
 func TestPerformH2Handshake(t *testing.T) {
 	cert, pool := generateSelfSignedCert(t)
 	serverConf := &tls.Config{Certificates: []tls.Certificate{cert}, NextProtos: []string{"h2"}, MinVersion: tls.VersionTLS13, MaxVersion: tls.VersionTLS13}
