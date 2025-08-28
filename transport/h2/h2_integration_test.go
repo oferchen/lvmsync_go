@@ -11,8 +11,8 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 
-	"lvmsync_go/common"
-	"lvmsync_go/transport"
+	"github.com/oferchen/lvmsync_go/common"
+	"github.com/oferchen/lvmsync_go/transport"
 )
 
 // TestH2Integration spins up an in-process HTTP/2 listener and exercises a

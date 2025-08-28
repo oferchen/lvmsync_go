@@ -17,7 +17,7 @@ import (
 	"github.com/oferchen/lvmsync_go/device"
 	"github.com/oferchen/lvmsync_go/internal/digest"
 	"github.com/oferchen/lvmsync_go/internal/rsyncwire"
-	"github.com/oferchen/lvmsync_go/internal/signaturecache"
+	"github.com/oferchen/lvmsync_go/testutil/signaturecache"
 )
 
 // Device represents a writable block device supporting random writes and sync.

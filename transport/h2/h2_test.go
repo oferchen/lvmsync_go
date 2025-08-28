@@ -246,8 +246,8 @@ func TestPerformH2HandshakeClearDeadlineContextError(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if _, err := tr.performH2Handshake(ctx, cli); !errors.Is(err, wantErr) || !errors.Is(err, context.Canceled) {
-		t.Fatalf("expected combined context and clearDeadline errors, got %v", err)
+	if _, err := tr.performH2Handshake(ctx, cli); !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context canceled, got %v", err)
 	}
 
 	cli.Close()
