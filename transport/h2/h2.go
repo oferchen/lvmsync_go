@@ -170,7 +170,7 @@ func (t *Transport) performH2Handshake(ctx context.Context, conn *tls.Conn) (*ht
 		}
 		if err := ctx.Err(); err != nil {
 			if derr := t.clearDeadline(conn); derr != nil {
-				return derr
+				return multierr.Append(err, derr)
 			}
 			return err
 		}
