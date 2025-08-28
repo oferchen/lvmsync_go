@@ -22,7 +22,7 @@ import (
 	"github.com/oferchen/lvmsync_go/device"
 	"github.com/oferchen/lvmsync_go/internal/digest"
 	"github.com/oferchen/lvmsync_go/internal/rsyncwire"
-	"github.com/oferchen/lvmsync_go/internal/signaturecache"
+	"github.com/oferchen/lvmsync_go/testutil/signaturecache"
 )
 
 const maxFrame = 1 << 20
