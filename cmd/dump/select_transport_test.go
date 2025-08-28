@@ -15,11 +15,11 @@ import (
 	"go.uber.org/zap/zaptest"
 	"go.uber.org/zap/zaptest/observer"
 
-	"lvmsync_go/common"
-	"lvmsync_go/internal/config"
-	"lvmsync_go/transport"
-	_ "lvmsync_go/transport/rsyncwire"
-	_ "lvmsync_go/transport/ssh"
+	"github.com/oferchen/lvmsync_go/common"
+	"github.com/oferchen/lvmsync_go/internal/config"
+	"github.com/oferchen/lvmsync_go/transport"
+	_ "github.com/oferchen/lvmsync_go/transport/rsyncwire"
+	_ "github.com/oferchen/lvmsync_go/transport/ssh"
 )
 
 func TestSelectTransportNoConfig(t *testing.T) {

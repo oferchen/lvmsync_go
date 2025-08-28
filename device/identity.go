@@ -3,7 +3,7 @@ package device
 import (
 	"bytes"
 
-	wal "lvmsync_go/internal/wal"
+	wal "github.com/oferchen/lvmsync_go/internal/wal"
 )
 
 // DeviceIdentity describes metadata uniquely identifying a block device.

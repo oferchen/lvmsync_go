@@ -9,7 +9,7 @@ import (
 	"github.com/creack/pty"
 	"golang.org/x/sys/unix"
 
-	"lvmsync_go/internal/config"
+	"github.com/oferchen/lvmsync_go/internal/config"
 )
 
 // createBlockDevice returns path to a temporary block device file.

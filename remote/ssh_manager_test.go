@@ -13,7 +13,7 @@ import (
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 
-	"lvmsync_go/remote/testutil"
+	"github.com/oferchen/lvmsync_go/remote/testutil"
 )
 
 func TestSSHManagerGetClientReuse(t *testing.T) {

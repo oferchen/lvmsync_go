@@ -7,9 +7,9 @@ import (
 
 	"go.uber.org/zap"
 
-	"lvmsync_go/internal/lock"
-	"lvmsync_go/internal/privilege"
-	"lvmsync_go/lvm"
+	"github.com/oferchen/lvmsync_go/internal/lock"
+	"github.com/oferchen/lvmsync_go/internal/privilege"
+	"github.com/oferchen/lvmsync_go/lvm"
 )
 
 // Commander abstracts exec.CommandContext for testability.

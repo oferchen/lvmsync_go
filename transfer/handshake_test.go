@@ -5,8 +5,8 @@ import (
 	"bytes"
 	"testing"
 
-	"lvmsync_go/common"
-	"lvmsync_go/internal/config"
+	"github.com/oferchen/lvmsync_go/common"
+	"github.com/oferchen/lvmsync_go/internal/config"
 )
 
 func TestComposeHandshake(t *testing.T) {

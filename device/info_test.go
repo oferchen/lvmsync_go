@@ -15,7 +15,7 @@ import (
 	"github.com/moby/sys/mountinfo"
 	"go.uber.org/zap"
 
-	"lvmsync_go/internal/privilege"
+	"github.com/oferchen/lvmsync_go/internal/privilege"
 )
 
 func TestGetUUIDCanceledContext(t *testing.T) {

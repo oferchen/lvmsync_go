@@ -14,14 +14,14 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/term"
 
-	"lvmsync_go/app"
-	"lvmsync_go/device"
-	clientpkg "lvmsync_go/internal/client"
-	"lvmsync_go/internal/config"
-	"lvmsync_go/internal/exitcode"
-	"lvmsync_go/internal/logging"
-	"lvmsync_go/internal/privilege"
-	"lvmsync_go/transport"
+	"github.com/oferchen/lvmsync_go/app"
+	"github.com/oferchen/lvmsync_go/device"
+	clientpkg "github.com/oferchen/lvmsync_go/internal/client"
+	"github.com/oferchen/lvmsync_go/internal/config"
+	"github.com/oferchen/lvmsync_go/internal/exitcode"
+	"github.com/oferchen/lvmsync_go/internal/logging"
+	"github.com/oferchen/lvmsync_go/internal/privilege"
+	"github.com/oferchen/lvmsync_go/transport"
 )
 
 // Runner manages external interactions for the root command.

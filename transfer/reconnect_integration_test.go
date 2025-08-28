@@ -13,8 +13,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"lvmsync_go/internal/config"
-	"lvmsync_go/transport"
+	"github.com/oferchen/lvmsync_go/internal/config"
+	"github.com/oferchen/lvmsync_go/transport"
 )
 
 // compareFiles verifies two paths have identical contents.

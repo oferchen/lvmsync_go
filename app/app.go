@@ -8,9 +8,9 @@ import (
 
 	"go.uber.org/zap"
 
-	signalspkg "lvmsync_go/cmd/lvmsync/signals"
-	clientpkg "lvmsync_go/internal/client"
-	"lvmsync_go/internal/config"
+	signalspkg "github.com/oferchen/lvmsync_go/cmd/lvmsync/signals"
+	clientpkg "github.com/oferchen/lvmsync_go/internal/client"
+	"github.com/oferchen/lvmsync_go/internal/config"
 )
 
 type Runner struct {

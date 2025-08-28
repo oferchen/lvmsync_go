@@ -12,8 +12,8 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 
-	"lvmsync_go/device"
-	"lvmsync_go/internal/config"
+	"github.com/oferchen/lvmsync_go/device"
+	"github.com/oferchen/lvmsync_go/internal/config"
 )
 
 func TestDumpChangesSequentialLogFields(t *testing.T) {

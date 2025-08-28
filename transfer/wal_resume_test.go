@@ -9,8 +9,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"lvmsync_go/device"
-	"lvmsync_go/internal/config"
+	"github.com/oferchen/lvmsync_go/device"
+	"github.com/oferchen/lvmsync_go/internal/config"
 )
 
 // TestWALCommitFsync verifies that WAL entries remain after a crash due to fsync.

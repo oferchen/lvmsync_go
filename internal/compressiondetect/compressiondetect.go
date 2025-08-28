@@ -14,7 +14,7 @@ import (
 
 	zstd "github.com/klauspost/compress/zstd"
 
-	cpufeatures "lvmsync_go/internal/cpufeatures"
+	cpufeatures "github.com/oferchen/lvmsync_go/internal/cpufeatures"
 )
 
 var (

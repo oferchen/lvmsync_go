@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"go.uber.org/zap"
-	"lvmsync_go/internal/privilege"
+	"github.com/oferchen/lvmsync_go/internal/privilege"
 )
 
 // TestDiscardLoopDevice verifies that issuing BLKDISCARD on a loop device

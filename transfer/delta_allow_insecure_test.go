@@ -10,8 +10,8 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 
-	"lvmsync_go/internal/config"
-	digestpkg "lvmsync_go/internal/digest"
+	"github.com/oferchen/lvmsync_go/internal/config"
+	digestpkg "github.com/oferchen/lvmsync_go/internal/digest"
 )
 
 func TestStreamRsyncDeltaAllowInsecure(t *testing.T) {

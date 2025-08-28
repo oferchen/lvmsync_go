@@ -16,10 +16,10 @@ import (
 	"golang.org/x/sys/unix"
 	"golang.org/x/term"
 
-	"lvmsync_go/hash"
-	"lvmsync_go/internal/exitcode"
-	"lvmsync_go/internal/lock"
-	"lvmsync_go/lvm"
+	"github.com/oferchen/lvmsync_go/hash"
+	"github.com/oferchen/lvmsync_go/internal/exitcode"
+	"github.com/oferchen/lvmsync_go/internal/lock"
+	"github.com/oferchen/lvmsync_go/lvm"
 )
 
 // LVMDevice represents a logical volume managed by LVM.

@@ -11,11 +11,11 @@ import (
 
 	"go.uber.org/zap"
 
-	"lvmsync_go/common"
-	"lvmsync_go/transport"
-	"lvmsync_go/transport/testutil"
+	"github.com/oferchen/lvmsync_go/common"
+	"github.com/oferchen/lvmsync_go/transport"
+	"github.com/oferchen/lvmsync_go/transport/testutil"
 
-	_ "lvmsync_go/transport/rsyncwire"
+	_ "github.com/oferchen/lvmsync_go/transport/rsyncwire"
 )
 
 func TestRsyncHandshakeDeadline(t *testing.T) {

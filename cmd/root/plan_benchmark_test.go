@@ -9,8 +9,8 @@ import (
 	"github.com/zeebo/blake3"
 	"github.com/zeebo/xxh3"
 
-	"lvmsync_go/internal/config"
-	"lvmsync_go/manifest"
+	"github.com/oferchen/lvmsync_go/internal/config"
+	"github.com/oferchen/lvmsync_go/manifest"
 )
 
 func BenchmarkEstimateBytes(b *testing.B) {

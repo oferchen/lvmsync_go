@@ -12,8 +12,8 @@ import (
 
 	"go.uber.org/zap"
 
-	rootcmd "lvmsync_go/cmd/root"
-	"lvmsync_go/internal/config"
+	rootcmd "github.com/oferchen/lvmsync_go/cmd/root"
+	"github.com/oferchen/lvmsync_go/internal/config"
 )
 
 func setupLoopDev(t *testing.T, size int64) (string, func()) {

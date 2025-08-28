@@ -7,8 +7,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"lvmsync_go/internal/exitcode"
-	"lvmsync_go/internal/privilege"
+	"github.com/oferchen/lvmsync_go/internal/exitcode"
+	"github.com/oferchen/lvmsync_go/internal/privilege"
 )
 
 // VerifyIdentity checks that two device paths have matching size, UUID, and

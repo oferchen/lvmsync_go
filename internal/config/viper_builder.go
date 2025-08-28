@@ -15,8 +15,8 @@ import (
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
 
-	"lvmsync_go/internal/compressiondetect"
-	"lvmsync_go/internal/sizeparse"
+	"github.com/oferchen/lvmsync_go/internal/compressiondetect"
+	"github.com/oferchen/lvmsync_go/internal/sizeparse"
 )
 
 type builder struct {

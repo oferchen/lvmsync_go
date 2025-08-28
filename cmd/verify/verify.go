@@ -18,14 +18,14 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 
-	rootcmd "lvmsync_go/cmd/root"
-	"lvmsync_go/device"
-	"lvmsync_go/internal/blockio"
-	"lvmsync_go/internal/config"
-	cpufeatures "lvmsync_go/internal/cpufeatures"
-	digestpkg "lvmsync_go/internal/digest"
-	privilege "lvmsync_go/internal/privilege"
-	manifestpkg "lvmsync_go/manifest"
+	rootcmd "github.com/oferchen/lvmsync_go/cmd/root"
+	"github.com/oferchen/lvmsync_go/device"
+	"github.com/oferchen/lvmsync_go/internal/blockio"
+	"github.com/oferchen/lvmsync_go/internal/config"
+	cpufeatures "github.com/oferchen/lvmsync_go/internal/cpufeatures"
+	digestpkg "github.com/oferchen/lvmsync_go/internal/digest"
+	privilege "github.com/oferchen/lvmsync_go/internal/privilege"
+	manifestpkg "github.com/oferchen/lvmsync_go/manifest"
 )
 
 // Runner holds dependencies for verify operations.

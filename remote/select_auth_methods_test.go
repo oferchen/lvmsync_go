@@ -14,7 +14,7 @@ import (
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 
-	remotetest "lvmsync_go/remote/testutil"
+	remotetest "github.com/oferchen/lvmsync_go/remote/testutil"
 )
 
 // helper to start a stub ssh agent listening on a unix socket

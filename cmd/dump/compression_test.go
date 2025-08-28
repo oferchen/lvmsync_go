@@ -3,8 +3,8 @@ package dump
 import (
 	"testing"
 
-	cpufeatures "lvmsync_go/internal/cpufeatures"
-	"lvmsync_go/transfer"
+	cpufeatures "github.com/oferchen/lvmsync_go/internal/cpufeatures"
+	"github.com/oferchen/lvmsync_go/transfer"
 )
 
 func TestChooseCompressionExplicit(t *testing.T) {

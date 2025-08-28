@@ -15,9 +15,9 @@ import (
 
 	"go.uber.org/zap"
 
-	"lvmsync_go/device"
-	"lvmsync_go/internal/config"
-	manifestpkg "lvmsync_go/manifest"
+	"github.com/oferchen/lvmsync_go/device"
+	"github.com/oferchen/lvmsync_go/internal/config"
+	manifestpkg "github.com/oferchen/lvmsync_go/manifest"
 )
 
 func TestIterateBlocksUsesManifest(t *testing.T) {

@@ -8,9 +8,9 @@ import (
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
 
-	rootcmd "lvmsync_go/cmd/root"
-	"lvmsync_go/internal/config"
-	manifestpkg "lvmsync_go/manifest"
+	rootcmd "github.com/oferchen/lvmsync_go/cmd/root"
+	"github.com/oferchen/lvmsync_go/internal/config"
+	manifestpkg "github.com/oferchen/lvmsync_go/manifest"
 )
 
 // Runner holds dependencies for manifest operations.

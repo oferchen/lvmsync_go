@@ -10,8 +10,8 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 
-	dumpcmd "lvmsync_go/cmd/dump"
-	rootcmd "lvmsync_go/cmd/root"
+	dumpcmd "github.com/oferchen/lvmsync_go/cmd/dump"
+	rootcmd "github.com/oferchen/lvmsync_go/cmd/root"
 )
 
 type failingSyncCore struct {

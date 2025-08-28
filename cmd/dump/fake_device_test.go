@@ -3,7 +3,7 @@ package dump
 import (
 	"context"
 
-	"lvmsync_go/device"
+	"github.com/oferchen/lvmsync_go/device"
 )
 
 type fakeDevice struct {

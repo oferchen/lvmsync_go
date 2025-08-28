@@ -8,8 +8,8 @@ import (
 
 	"go.uber.org/zap"
 
-	privilege "lvmsync_go/internal/privilege"
-	lvmlib "lvmsync_go/lvm"
+	privilege "github.com/oferchen/lvmsync_go/internal/privilege"
+	lvmlib "github.com/oferchen/lvmsync_go/lvm"
 )
 
 type fakeEsc struct{ err error }

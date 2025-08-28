@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	dump "lvmsync_go/cmd/dump"
-	"lvmsync_go/internal/config"
-	_ "lvmsync_go/transport/ssh"
+	dump "github.com/oferchen/lvmsync_go/cmd/dump"
+	"github.com/oferchen/lvmsync_go/internal/config"
+	_ "github.com/oferchen/lvmsync_go/transport/ssh"
 
 	"go.uber.org/zap/zaptest"
 )

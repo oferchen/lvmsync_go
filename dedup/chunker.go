@@ -5,7 +5,7 @@ import (
 	"io"
 	"math"
 
-	"lvmsync_go/common"
+	"github.com/oferchen/lvmsync_go/common"
 )
 
 // Chunk represents a block of data detected by the chunker.

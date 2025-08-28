@@ -10,8 +10,8 @@ import (
 
 	"go.uber.org/zap"
 
-	signalspkg "lvmsync_go/cmd/lvmsync/signals"
-	"lvmsync_go/internal/config"
+	signalspkg "github.com/oferchen/lvmsync_go/cmd/lvmsync/signals"
+	"github.com/oferchen/lvmsync_go/internal/config"
 )
 
 // Test SetupSignalHandling registers OS signals and spawns the handler goroutine.

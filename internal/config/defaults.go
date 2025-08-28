@@ -8,7 +8,7 @@ import (
 	"runtime"
 	"time"
 
-	"lvmsync_go/internal/sizeparse"
+	"github.com/oferchen/lvmsync_go/internal/sizeparse"
 )
 
 const (

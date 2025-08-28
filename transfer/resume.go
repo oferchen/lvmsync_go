@@ -3,7 +3,7 @@ package transfer
 import (
 	"time"
 
-	"lvmsync_go/device"
+	"github.com/oferchen/lvmsync_go/device"
 )
 
 // resumeChunk stores the boundaries and digest of the last processed chunk.

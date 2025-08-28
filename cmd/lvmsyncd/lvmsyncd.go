@@ -21,12 +21,12 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 
-	rootcmd "lvmsync_go/cmd/root"
-	"lvmsync_go/common"
-	"lvmsync_go/transport"
-	_ "lvmsync_go/transport/h2"
-	_ "lvmsync_go/transport/quic"
-	_ "lvmsync_go/transport/tcp_tls"
+	rootcmd "github.com/oferchen/lvmsync_go/cmd/root"
+	"github.com/oferchen/lvmsync_go/common"
+	"github.com/oferchen/lvmsync_go/transport"
+	_ "github.com/oferchen/lvmsync_go/transport/h2"
+	_ "github.com/oferchen/lvmsync_go/transport/quic"
+	_ "github.com/oferchen/lvmsync_go/transport/tcp_tls"
 )
 
 type options struct {

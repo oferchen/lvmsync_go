@@ -15,7 +15,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 
-	"lvmsync_go/internal/exitcode"
+	"github.com/oferchen/lvmsync_go/internal/exitcode"
 )
 
 type ttyReader struct{ io.Reader }

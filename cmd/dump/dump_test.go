@@ -7,8 +7,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"lvmsync_go/internal/config"
-	"lvmsync_go/transfer"
+	"github.com/oferchen/lvmsync_go/internal/config"
+	"github.com/oferchen/lvmsync_go/transfer"
 )
 
 func TestExecuteDumpSequential(t *testing.T) {

@@ -14,10 +14,10 @@ import (
 	"github.com/gokrazy/rsync"
 	"go.uber.org/zap"
 
-	"lvmsync_go/device"
-	"lvmsync_go/internal/digest"
-	"lvmsync_go/internal/rsyncwire"
-	"lvmsync_go/testutil/signaturecache"
+	"github.com/oferchen/lvmsync_go/device"
+	"github.com/oferchen/lvmsync_go/internal/digest"
+	"github.com/oferchen/lvmsync_go/internal/rsyncwire"
+	"github.com/oferchen/lvmsync_go/internal/signaturecache"
 )
 
 // Device represents a writable block device supporting random writes and sync.

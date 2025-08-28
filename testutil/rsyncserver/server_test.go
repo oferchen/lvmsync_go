@@ -19,10 +19,10 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 
-	"lvmsync_go/device"
-	"lvmsync_go/internal/digest"
-	"lvmsync_go/internal/rsyncwire"
-	"lvmsync_go/testutil/signaturecache"
+	"github.com/oferchen/lvmsync_go/device"
+	"github.com/oferchen/lvmsync_go/internal/digest"
+	"github.com/oferchen/lvmsync_go/internal/rsyncwire"
+	"github.com/oferchen/lvmsync_go/internal/signaturecache"
 )
 
 const maxFrame = 1 << 20

@@ -13,7 +13,7 @@ import (
 
 	"github.com/gokrazy/rsync"
 
-	"lvmsync_go/device"
+	"github.com/oferchen/lvmsync_go/device"
 )
 
 const maxFrame = 1 << 20

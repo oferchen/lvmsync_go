@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"lvmsync_go/internal/exitcode"
+	"github.com/oferchen/lvmsync_go/internal/exitcode"
 )
 
 // run executes the command and fails the test on error, returning trimmed output.

@@ -18,11 +18,11 @@ import (
 	"go.uber.org/zap"
 
 	"golang.org/x/sys/unix"
-	"lvmsync_go/device"
-	hashutil "lvmsync_go/hash"
-	"lvmsync_go/internal/config"
-	privilege "lvmsync_go/internal/privilege"
-	manifestpkg "lvmsync_go/manifest"
+	"github.com/oferchen/lvmsync_go/device"
+	hashutil "github.com/oferchen/lvmsync_go/hash"
+	"github.com/oferchen/lvmsync_go/internal/config"
+	privilege "github.com/oferchen/lvmsync_go/internal/privilege"
+	manifestpkg "github.com/oferchen/lvmsync_go/manifest"
 )
 
 // TestApplyVerifyHelper is a helper process that runs ProcessDumpData reading from stdin.

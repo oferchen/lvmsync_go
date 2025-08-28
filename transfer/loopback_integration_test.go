@@ -16,11 +16,11 @@ import (
 	"github.com/zeebo/blake3"
 	"go.uber.org/zap"
 
-	"lvmsync_go/device"
-	hashutil "lvmsync_go/hash"
-	"lvmsync_go/internal/config"
-	manifestpkg "lvmsync_go/manifest"
-	"lvmsync_go/transport"
+	"github.com/oferchen/lvmsync_go/device"
+	hashutil "github.com/oferchen/lvmsync_go/hash"
+	"github.com/oferchen/lvmsync_go/internal/config"
+	manifestpkg "github.com/oferchen/lvmsync_go/manifest"
+	"github.com/oferchen/lvmsync_go/transport"
 )
 
 func setupLoop(t *testing.T, path string) string {

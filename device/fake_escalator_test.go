@@ -4,7 +4,7 @@ import (
 	"context"
 	"os/exec"
 
-	"lvmsync_go/internal/privilege"
+	"github.com/oferchen/lvmsync_go/internal/privilege"
 )
 
 type fakeEsc struct{ err error }

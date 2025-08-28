@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"lvmsync_go/lvm/cgo"
+	"github.com/oferchen/lvmsync_go/lvm/cgo"
 )
 
 func TestBackend(t *testing.T) {

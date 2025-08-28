@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	manifestpkg "lvmsync_go/manifest"
+	manifestpkg "github.com/oferchen/lvmsync_go/manifest"
 )
 
 func writeHeader(t *testing.T, path string) {

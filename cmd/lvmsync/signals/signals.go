@@ -9,8 +9,8 @@ import (
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
 
-	"lvmsync_go/internal/config"
-	"lvmsync_go/lvm"
+	"github.com/oferchen/lvmsync_go/internal/config"
+	"github.com/oferchen/lvmsync_go/lvm"
 )
 
 // Handler processes OS signals and performs cleanup.

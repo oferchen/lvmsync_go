@@ -6,7 +6,7 @@ import (
 
 	"github.com/zeebo/blake3"
 
-	"lvmsync_go/internal/config"
+	"github.com/oferchen/lvmsync_go/internal/config"
 )
 
 func TestDigestFuncValidAndInvalid(t *testing.T) {

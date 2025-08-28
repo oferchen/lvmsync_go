@@ -13,9 +13,9 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 
-	"lvmsync_go/device"
-	"lvmsync_go/internal/config"
-	manifestpkg "lvmsync_go/manifest"
+	"github.com/oferchen/lvmsync_go/device"
+	"github.com/oferchen/lvmsync_go/internal/config"
+	manifestpkg "github.com/oferchen/lvmsync_go/manifest"
 )
 
 type syncTrackerCore struct {

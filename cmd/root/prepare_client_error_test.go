@@ -9,8 +9,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"lvmsync_go/internal/config"
-	"lvmsync_go/transport"
+	"github.com/oferchen/lvmsync_go/internal/config"
+	"github.com/oferchen/lvmsync_go/transport"
 )
 
 func TestPrepareClientSelectTransportError(t *testing.T) {

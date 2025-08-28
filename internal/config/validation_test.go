@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"lvmsync_go/internal/exitcode"
+	"github.com/oferchen/lvmsync_go/internal/exitcode"
 )
 
 func baseConfig(t *testing.T) *Config {

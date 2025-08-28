@@ -9,7 +9,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"lvmsync_go/common"
+	"github.com/oferchen/lvmsync_go/common"
 )
 
 type orderStub struct{ name string }

@@ -13,7 +13,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
 
-	remotetest "lvmsync_go/remote/testutil"
+	remotetest "github.com/oferchen/lvmsync_go/remote/testutil"
 )
 
 func TestNewSSHManagerInvalidKey(t *testing.T) {

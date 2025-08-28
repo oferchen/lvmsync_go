@@ -3,7 +3,7 @@ package lvm
 import (
 	"fmt"
 
-	"lvmsync_go/lvm/cgo"
+	"github.com/oferchen/lvmsync_go/lvm/cgo"
 )
 
 // mockCGO implements the cgo.LVM interface for tests and records calls.

@@ -3,7 +3,7 @@ package transfer
 import (
 	"go.uber.org/zap"
 
-	"lvmsync_go/internal/config"
+	"github.com/oferchen/lvmsync_go/internal/config"
 )
 
 // findResumeIndexCDC resumes scanning using CDC; logger must be non-nil.

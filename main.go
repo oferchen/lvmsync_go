@@ -6,11 +6,11 @@ import (
 
 	"go.uber.org/zap"
 
-	_ "lvmsync_go/cmd/dump"
-	rootcmd "lvmsync_go/cmd/root"
-	"lvmsync_go/internal/config"
-	"lvmsync_go/internal/exitcode"
-	"lvmsync_go/internal/logging"
+	_ "github.com/oferchen/lvmsync_go/cmd/dump"
+	rootcmd "github.com/oferchen/lvmsync_go/cmd/root"
+	"github.com/oferchen/lvmsync_go/internal/config"
+	"github.com/oferchen/lvmsync_go/internal/exitcode"
+	"github.com/oferchen/lvmsync_go/internal/logging"
 )
 
 // Runner executes the application with injected dependencies.

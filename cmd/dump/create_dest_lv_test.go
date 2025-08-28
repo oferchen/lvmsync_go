@@ -8,10 +8,10 @@ import (
 
 	"go.uber.org/zap"
 
-	"lvmsync_go/device"
-	"lvmsync_go/internal/config"
-	"lvmsync_go/lvm"
-	"lvmsync_go/transfer"
+	"github.com/oferchen/lvmsync_go/device"
+	"github.com/oferchen/lvmsync_go/internal/config"
+	"github.com/oferchen/lvmsync_go/lvm"
+	"github.com/oferchen/lvmsync_go/transfer"
 )
 
 func TestRunLocalDumpCreatesDestLV(t *testing.T) {

@@ -18,8 +18,8 @@ import (
 	"golang.org/x/crypto/ssh/agent"
 	"golang.org/x/crypto/ssh/knownhosts"
 
-	"lvmsync_go/common"
-	"lvmsync_go/transport"
+	"github.com/oferchen/lvmsync_go/common"
+	"github.com/oferchen/lvmsync_go/transport"
 )
 
 const defaultDialTimeout = 5 * time.Second

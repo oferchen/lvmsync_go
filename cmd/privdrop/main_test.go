@@ -7,7 +7,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
-	"lvmsync_go/escalate"
+	"github.com/oferchen/lvmsync_go/escalate"
 )
 
 func newRunnerWithDeps(

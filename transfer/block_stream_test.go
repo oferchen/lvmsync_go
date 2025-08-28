@@ -9,8 +9,8 @@ import (
 
 	"github.com/zeebo/blake3"
 
-	"lvmsync_go/internal/config"
-	digest "lvmsync_go/internal/digest"
+	"github.com/oferchen/lvmsync_go/internal/config"
+	digest "github.com/oferchen/lvmsync_go/internal/digest"
 )
 
 func TestValidateOffsetAndSizeFunc(t *testing.T) {

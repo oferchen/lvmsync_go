@@ -2,4 +2,4 @@
 
 package dump
 
-import _ "lvmsync_go/transport/rsyncwire"
+import _ "github.com/oferchen/lvmsync_go/transport/rsyncwire"

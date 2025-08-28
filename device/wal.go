@@ -15,7 +15,7 @@ import (
 
 	"github.com/zeebo/blake3"
 	"go.uber.org/zap"
-	walpkg "lvmsync_go/internal/wal"
+	walpkg "github.com/oferchen/lvmsync_go/internal/wal"
 )
 
 const (

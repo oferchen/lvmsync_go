@@ -4,9 +4,9 @@ import (
 	"os"
 
 	"go.uber.org/zap"
-	rootcmd "lvmsync_go/cmd/root"
-	"lvmsync_go/escalate"
-	"lvmsync_go/internal/logging"
+	rootcmd "github.com/oferchen/lvmsync_go/cmd/root"
+	"github.com/oferchen/lvmsync_go/escalate"
+	"github.com/oferchen/lvmsync_go/internal/logging"
 )
 
 type runner struct {
