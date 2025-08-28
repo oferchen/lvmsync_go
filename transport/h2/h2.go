@@ -150,13 +150,13 @@ func dialTLS(ctx context.Context, address string, conf *tls.Config, logger *zap.
 	return conn, nil
 }
 
-func performH2Handshake(ctx context.Context, conn *tls.Conn, logger *zap.Logger) (*http2.Framer, error) {
+func (t *Transport) performH2Handshake(ctx context.Context, conn *tls.Conn) (*http2.Framer, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 	role := "client"
 	address := conn.RemoteAddr().String()
-	logger.Info("h2_handshake_start",
+	t.logger.Info("h2_handshake_start",
 		zap.String("address", address),
 		zap.String("role", role),
 		zap.Int64("duration_ms", 0),
@@ -168,11 +168,20 @@ func performH2Handshake(ctx context.Context, conn *tls.Conn, logger *zap.Logger)
 		if err := setDeadline(ctx, conn); err != nil {
 			return err
 		}
-		defer clearDeadline(conn)
 		if err := ctx.Err(); err != nil {
+			if derr := t.clearDeadline(conn); derr != nil {
+				return derr
+			}
 			return err
 		}
-		return op()
+		opErr := op()
+		if derr := t.clearDeadline(conn); derr != nil {
+			if opErr != nil {
+				return multierr.Append(opErr, derr)
+			}
+			return derr
+		}
+		return opErr
 	}
 
 	if err := do(func() error {
@@ -185,7 +194,7 @@ func performH2Handshake(ctx context.Context, conn *tls.Conn, logger *zap.Logger)
 			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		}
-		logger.Error("h2_handshake_end", fields...)
+		t.logger.Error("h2_handshake_end", fields...)
 		return nil, err
 	}
 	if err := do(func() error { return fr.WriteSettings() }); err != nil {
@@ -195,7 +204,7 @@ func performH2Handshake(ctx context.Context, conn *tls.Conn, logger *zap.Logger)
 			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		}
-		logger.Error("h2_handshake_end", fields...)
+		t.logger.Error("h2_handshake_end", fields...)
 		return nil, err
 	}
 	var f http2.Frame
@@ -210,7 +219,7 @@ func performH2Handshake(ctx context.Context, conn *tls.Conn, logger *zap.Logger)
 			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		}
-		logger.Error("h2_handshake_end", fields...)
+		t.logger.Error("h2_handshake_end", fields...)
 		return nil, err
 	} else if _, ok := f.(*http2.SettingsFrame); !ok {
 		err := fmt.Errorf("expected settings frame")
@@ -220,7 +229,7 @@ func performH2Handshake(ctx context.Context, conn *tls.Conn, logger *zap.Logger)
 			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		}
-		logger.Error("h2_handshake_end", fields...)
+		t.logger.Error("h2_handshake_end", fields...)
 		return nil, err
 	}
 	if err := do(func() error { return fr.WriteSettingsAck() }); err != nil {
@@ -230,7 +239,7 @@ func performH2Handshake(ctx context.Context, conn *tls.Conn, logger *zap.Logger)
 			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		}
-		logger.Error("h2_handshake_end", fields...)
+		t.logger.Error("h2_handshake_end", fields...)
 		return nil, err
 	}
 	if err := do(func() error {
@@ -244,7 +253,7 @@ func performH2Handshake(ctx context.Context, conn *tls.Conn, logger *zap.Logger)
 			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		}
-		logger.Error("h2_handshake_end", fields...)
+		t.logger.Error("h2_handshake_end", fields...)
 		return nil, err
 	} else if sf, ok := f.(*http2.SettingsFrame); !ok || !sf.IsAck() {
 		err := fmt.Errorf("expected settings ack")
@@ -254,7 +263,7 @@ func performH2Handshake(ctx context.Context, conn *tls.Conn, logger *zap.Logger)
 			zap.Int64("duration_ms", time.Since(start).Milliseconds()),
 			zap.Error(err),
 		}
-		logger.Error("h2_handshake_end", fields...)
+		t.logger.Error("h2_handshake_end", fields...)
 		return nil, err
 	}
 	fields := []zap.Field{
@@ -262,7 +271,7 @@ func performH2Handshake(ctx context.Context, conn *tls.Conn, logger *zap.Logger)
 		zap.String("role", role),
 		zap.Int64("duration_ms", time.Since(start).Milliseconds()),
 	}
-	logger.Info("h2_handshake_end", fields...)
+	t.logger.Info("h2_handshake_end", fields...)
 	return fr, nil
 }
 
@@ -294,7 +303,7 @@ func (t *Transport) Dial(ctx context.Context, address string) (net.Conn, error) 
 		logDialResult(ctx, t.logger, address, role, start, err)
 		return nil, err
 	}
-	fr, err := performH2Handshake(ctx, conn, t.logger)
+	fr, err := t.performH2Handshake(ctx, conn)
 	if err != nil {
 		conn.Close()
 		logDialResult(ctx, t.logger, address, role, start, err)
@@ -490,16 +499,23 @@ func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport
 			return peer, err
 		}
 		if err = common.WriteHandshake(conn, hs); err != nil {
-			clearDeadline(conn)
+			_ = t.clearDeadline(conn)
 			return peer, err
 		}
-		clearDeadline(conn)
+		if err = t.clearDeadline(conn); err != nil {
+			return peer, err
+		}
 
 		if err = setDeadline(ctx, conn); err != nil {
 			return peer, err
 		}
 		peer, err = common.ReadHandshake(bufio.NewReader(conn))
-		clearDeadline(conn)
+		if derr := t.clearDeadline(conn); derr != nil {
+			if err == nil {
+				return peer, derr
+			}
+			return peer, err
+		}
 		if err != nil {
 			return peer, err
 		}
@@ -513,7 +529,12 @@ func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport
 			return peer, err
 		}
 		peer, err = common.ReadHandshake(bufio.NewReader(conn))
-		clearDeadline(conn)
+		if derr := t.clearDeadline(conn); derr != nil {
+			if err == nil {
+				return peer, derr
+			}
+			return peer, err
+		}
 		if err != nil {
 			return peer, err
 		}
@@ -525,10 +546,12 @@ func (t *Transport) Negotiate(ctx context.Context, conn net.Conn, role transport
 			return peer, err
 		}
 		if err = common.WriteHandshake(conn, hs); err != nil {
-			clearDeadline(conn)
+			_ = t.clearDeadline(conn)
 			return peer, err
 		}
-		clearDeadline(conn)
+		if err = t.clearDeadline(conn); err != nil {
+			return peer, err
+		}
 		return peer, nil
 	default:
 		return peer, nil
@@ -540,10 +563,6 @@ func setDeadline(ctx context.Context, conn net.Conn) error {
 		return conn.SetDeadline(dl)
 	}
 	return nil
-}
-
-func clearDeadline(conn net.Conn) {
-	_ = conn.SetDeadline(time.Time{})
 }
 
 // Conn implements net.Conn using HTTP/2 DATA frames.

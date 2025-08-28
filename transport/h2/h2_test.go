@@ -157,6 +157,58 @@ func TestDialTLS(t *testing.T) {
 	checkLogFields(t, logs2, "tls_handshake_end", 1, true, zapcore.ErrorLevel)
 }
 
+func TestPerformH2HandshakeClearDeadlineError(t *testing.T) {
+	cert, pool := generateSelfSignedCert(t)
+
+	serverConf := &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		NextProtos:   []string{"h2"},
+		MinVersion:   tls.VersionTLS13,
+		MaxVersion:   tls.VersionTLS13,
+	}
+	clientConf := &tls.Config{
+		RootCAs:    pool,
+		NextProtos: []string{"h2"},
+		MinVersion: tls.VersionTLS13,
+		MaxVersion: tls.VersionTLS13,
+		ServerName: "127.0.0.1",
+	}
+
+	c1, c2 := net.Pipe()
+	srv := tls.Server(c1, serverConf)
+	cli := tls.Client(c2, clientConf)
+	errCh := make(chan error, 1)
+	go func() { errCh <- srv.Handshake() }()
+	if err := cli.Handshake(); err != nil {
+		t.Fatalf("client handshake: %v", err)
+	}
+	if err := <-errCh; err != nil {
+		t.Fatalf("server handshake: %v", err)
+	}
+
+	wantErr := errors.New("clear deadline fail")
+	tr := &Transport{
+		logger:        zap.NewNop(),
+		clearDeadline: func(net.Conn) error { return wantErr },
+	}
+
+	ctx := context.Background()
+	done := make(chan struct{})
+	go func() {
+		buf := make([]byte, len(http2.ClientPreface))
+		io.ReadFull(srv, buf)
+		close(done)
+	}()
+
+	if _, err := tr.performH2Handshake(ctx, cli); !errors.Is(err, wantErr) {
+		t.Fatalf("expected clearDeadline error, got %v", err)
+	}
+
+	cli.Close()
+	srv.Close()
+	<-done
+}
+
 func TestPerformH2Handshake(t *testing.T) {
 	cert, pool := generateSelfSignedCert(t)
 	serverConf := &tls.Config{Certificates: []tls.Certificate{cert}, NextProtos: []string{"h2"}, MinVersion: tls.VersionTLS13, MaxVersion: tls.VersionTLS13}
@@ -191,7 +243,8 @@ func TestPerformH2Handshake(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dialTLS: %v", err)
 	}
-	if _, err := performH2Handshake(context.Background(), conn, logger); err != nil {
+	tr := &Transport{logger: logger, clearDeadline: func(c net.Conn) error { return c.SetDeadline(time.Time{}) }}
+	if _, err := tr.performH2Handshake(context.Background(), conn); err != nil {
 		t.Fatalf("handshake: %v", err)
 	}
 	close(done)
@@ -249,7 +302,8 @@ func TestPerformH2HandshakeTimeout(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
-	if _, err := performH2Handshake(ctx, conn, zap.NewNop()); err == nil {
+	tr := &Transport{logger: zap.NewNop(), clearDeadline: func(c net.Conn) error { return c.SetDeadline(time.Time{}) }}
+	if _, err := tr.performH2Handshake(ctx, conn); err == nil {
 		t.Fatalf("expected timeout error")
 	} else if !errors.Is(err, context.DeadlineExceeded) {
 		if netErr, ok := err.(net.Error); !ok || !netErr.Timeout() {
@@ -294,7 +348,8 @@ func TestPerformH2HandshakeCanceled(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if _, err := performH2Handshake(ctx, conn, zap.NewNop()); !errors.Is(err, context.Canceled) {
+	tr := &Transport{logger: zap.NewNop(), clearDeadline: func(c net.Conn) error { return c.SetDeadline(time.Time{}) }}
+	if _, err := tr.performH2Handshake(ctx, conn); !errors.Is(err, context.Canceled) {
 		t.Fatalf("expected context canceled error, got %v", err)
 	}
 }
@@ -398,7 +453,14 @@ func TestDialClearDeadlineError(t *testing.T) {
 		t.Fatalf("new transport: %v", err)
 	}
 	tr := trIface.(*Transport)
-	tr.clearDeadline = func(net.Conn) error { return errors.New("boom") }
+	calls := 0
+	tr.clearDeadline = func(net.Conn) error {
+		calls++
+		if calls > 5 {
+			return errors.New("boom")
+		}
+		return nil
+	}
 
 	ln, err := tr.Listen(context.Background(), "127.0.0.1:0")
 	if err != nil {
@@ -847,7 +909,7 @@ func TestH2AcceptTimeout(t *testing.T) {
 }
 
 func TestH2NegotiateContextCancel(t *testing.T) {
-	tr := &Transport{logger: zap.NewNop()}
+	tr := &Transport{logger: zap.NewNop(), clearDeadline: func(conn net.Conn) error { return conn.SetDeadline(time.Time{}) }}
 	c1, c2 := net.Pipe()
 	defer c1.Close()
 	defer c2.Close()

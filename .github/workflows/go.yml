@@ -190,29 +190,47 @@ jobs:
       GO111MODULE: "on"
       CGO_ENABLED: "1"
     steps:
+      - name: Install rsync
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y --no-install-recommends rsync || true
+      - name: Check rsync availability
+        id: rsync
+        run: |
+          if command -v rsync >/dev/null 2>&1; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "rsync not found; skipping tests"
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout repository
+        if: steps.rsync.outputs.present == 'true'
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Set up Go
+        if: steps.rsync.outputs.present == 'true'
         uses: actions/setup-go@v5
         with:
           go-version: "${{ vars.GO_VERSION || '1.24.x' }}"
           cache: true
 
-      - name: Build with rsync tag
-        run: go build -tags rsync ./...
-      - name: Test with rsync tag
-        run: go test -race -tags rsync -coverprofile=coverage-rsync.out ./...
+      - name: Build with rsync and integration tags
+        if: steps.rsync.outputs.present == 'true'
+        run: go build -tags 'rsync integration' ./...
+      - name: Test with rsync and integration tags
+        if: steps.rsync.outputs.present == 'true'
+        run: go test -race -tags 'rsync integration' -coverprofile=coverage-rsync.out ./... -- --allow-insecure
 
       - name: Show rsync coverage (summary)
-        if: always() && hashFiles('coverage-rsync.out') != ''
+        if: steps.rsync.outputs.present == 'true' && hashFiles('coverage-rsync.out') != ''
         run: |
           go tool cover -func=coverage-rsync.out | tail -n 1 | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Upload rsync coverage
-        if: always() && hashFiles('coverage-rsync.out') != ''
+        if: steps.rsync.outputs.present == 'true' && hashFiles('coverage-rsync.out') != ''
         uses: actions/upload-artifact@v4
         with:
           name: coverage-rsync
