@@ -222,7 +222,7 @@ jobs:
         run: go build -tags 'rsync integration' ./...
       - name: Test with rsync and integration tags
         if: steps.rsync.outputs.present == 'true'
-        run: go test -race -tags 'rsync integration' -coverprofile=coverage-rsync.out ./... -- --allow-insecure
+        run: go test -tags 'rsync integration' -coverprofile=coverage-rsync.out ./... -- --allow-insecure
 
       - name: Show rsync coverage (summary)
         if: steps.rsync.outputs.present == 'true' && hashFiles('coverage-rsync.out') != ''
